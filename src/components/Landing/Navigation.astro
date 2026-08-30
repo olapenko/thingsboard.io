@@ -1,14 +1,39 @@
 ---
 import { mainNavItems, allSubmenus, type SubMenu, type SubMenuItem } from '@data/navigation';
 import SubMenuLink from '@components/Landing/SubMenuLink.astro';
+
+interface Props {
+	/**
+	 * Homepage facelift: Docs moves to the end of the row and Pricing joins it,
+	 * the pair set off from the rest by a hairline rule.
+	 */
+	homeNav?: boolean;
+}
+
+const { homeNav = false } = Astro.props;
+
+const docsItem = mainNavItems.find((item) => item.label === 'Docs');
+const navItems = homeNav
+	? [
+			...mainNavItems.filter((item) => item.label !== 'Docs'),
+			...(docsItem ? [docsItem] : []),
+			{ label: 'Pricing', href: '/pricing/' },
+		]
+	: mainNavItems;
+
+// The rule sits before the trailing Docs + Pricing pair.
+const groupStartIndex = homeNav ? navItems.length - 2 : -1;
 ---
 
 <nav class="head-menu">
 	<ul>
 		{
-			mainNavItems.map((item) => (
+			navItems.map((item, index) => (
 				<li
-					class={`nav-${item.submenuId?.replace('nav-', '') || item.label.toLowerCase().replace(' ', '-')}`}
+					class:list={[
+						`nav-${item.submenuId?.replace('nav-', '') || item.label.toLowerCase().replace(' ', '-')}`,
+						index === groupStartIndex && 'nav-group-start',
+					]}
 					data-submenu-id={item.submenuId}
 				>
 					{item.href ? (
@@ -386,9 +411,34 @@ import SubMenuLink from '@components/Landing/SubMenuLink.astro';
 		display: flex;
 		justify-content: center;
 
+		@media screen and (min-width: 1281px) {
+			li.nav-group-start {
+				position: relative;
+				margin-left: 18px;
+
+				// `currentColor` was wrong here: the li inherits a dark slate, so the
+				// rule vanished against the hero's black header. This is the token the
+				// header's own .divider uses. Half the margin centres it between the
+				// two labels rather than leaving it flush against the previous one.
+				&::before {
+					content: '';
+					position: absolute;
+					left: -9px;
+					top: 50%;
+					margin-top: -2px; // li padding is 10/14, so a flat 50% sits below the text
+					transform: translateY(-50%);
+					width: 1px;
+					height: 20px;
+					background-color: var(--sl-color-hairline-light);
+				}
+			}
+		}
+
 		.sub-menu-container {
 			position: absolute;
-			top: $header-height + 4px;
+			// Follows the bar rather than the 80px constant, so the shorter
+			// homepage menu doesn't leave the dropdown floating below it.
+			top: calc(var(--home-header-h, #{$header-height}) + 4px);
 			left: 0;
 			transition:
 				visibility,
@@ -725,7 +775,7 @@ import SubMenuLink from '@components/Landing/SubMenuLink.astro';
 				transition-duration: 0.6s;
 				z-index: 2;
 				.sub-menu {
-					top: $header-height;
+					top: var(--home-header-h, #{$header-height});
 					transition-delay: 0s;
 				}
 			}

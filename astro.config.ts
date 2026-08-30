@@ -120,7 +120,19 @@ export default defineConfig({
             // uk: { label: 'Українська', lang: 'uk' }, // temporarily disabled — no translations yet
         },
         sidebar,
-        customCss: ['./src/styles/_starlight-overrides.scss'],
+        customCss: [
+            './src/styles/_starlight-overrides.scss',
+            // Ubuntu ships 300/400/500/700 only — there is no 600, so
+            // `$font-weight-semibold` resolves up to 700. 400-italic covers `em`;
+            // heavier italics are synthesised rather than shipped.
+            '@fontsource/ubuntu/300.css',
+            '@fontsource/ubuntu/400.css',
+            '@fontsource/ubuntu/400-italic.css',
+            '@fontsource/ubuntu/500.css',
+            '@fontsource/ubuntu/700.css',
+            '@fontsource/ubuntu-mono/400.css',
+            '@fontsource/ubuntu-mono/700.css',
+        ],
         pagefind: false,
         head: [
             {

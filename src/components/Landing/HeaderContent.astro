@@ -13,25 +13,32 @@ interface Props {
 	gitHubPlatform?: Products;
 	// Always supplied by the only caller, starlight/Header.astro.
 	headerConfig: HeaderConfig;
+	/** Homepage facelift: larger logo, Pricing moved into the nav. */
+	homeNav?: boolean;
 }
 
-const { gitHubPlatform, headerConfig } = Astro.props;
+const { gitHubPlatform, headerConfig, homeNav = false } = Astro.props;
 const { variant, cta, showSearch, showThemeToggle } = headerConfig;
 
 // Ship the scroll-flip script only on the variants that go transparent.
 const needsScrollState = variant === 'transparent' || variant === 'transparent-hover';
 ---
 
-<div class="logo-burger" data-header-variant={variant} data-header-cta={cta}>
-	<a href="https://u24.gov.ua/" target="_blank" class="support-ukraine">
-		<SmartImage
-			src="/src/assets/images/support-ukraine-banner.webp"
-			alt="Stand with Ukraine flag"
-			width="48"
-			height="31"
-		/>
-	</a>
-	<a href="/" class="logo" aria-label="Link to homepage"></a>
+<div class="logo-burger" data-header-variant={variant} data-header-cta={cta} data-home-nav={homeNav ? '' : undefined}>
+	{
+		/* Homepage carries the u24 link as a kicker above the hero H1 instead. */
+		!homeNav && (
+			<a href="https://u24.gov.ua/" target="_blank" class="support-ukraine">
+				<SmartImage
+					src="/src/assets/images/support-ukraine-banner.webp"
+					alt="Stand with Ukraine flag"
+					width="48"
+					height="31"
+				/>
+			</a>
+		)
+	}
+	<a href="/" class:list={['logo', homeNav && 'logo--lg']} aria-label="Link to homepage"></a>
 	<div class="burger-group">
 		<HeaderIcons showSearch={showSearch} showThemeToggle={showThemeToggle} />
 		<button onclick="Burger()" class="burger" aria-label="Burger menu">
@@ -39,7 +46,7 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			<Icon name="tabler:x" class="icon-close" />
 		</button>
 	</div>
-	<GitHubButton platform={gitHubPlatform} />
+	{!homeNav && <GitHubButton platform={gitHubPlatform} />}
 </div>
 
 <!-- head-buttons is rendered BEFORE Navigation in the source so it parses
@@ -49,18 +56,65 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
      `space-between` pin the nav to the right edge and shift it left once
      head-buttons finally arrived (≈0.012 CLS). Visual order is restored
      with `order` in the header layout below. -->
-<div class="head-buttons" data-header-variant={variant} data-header-cta={cta}>
+<div class="head-buttons" data-header-variant={variant} data-header-cta={cta} data-home-nav={homeNav ? '' : undefined}>
 	<HeaderIcons showSearch={showSearch} showThemeToggle={showThemeToggle} />
-	<NButton id="Menu_Pricing" href="/pricing/" variant="text" class="price gtm_button">Pricing</NButton>
-	<NButton id="Menu_TryItNow" href="/installations/" variant="filled" class="try gtm_button">Try it now</NButton>
+	{homeNav && <GitHubButton platform={gitHubPlatform} />}
+	{
+		!homeNav && (
+			<NButton id="Menu_Pricing" href="/pricing/" variant="text" class="price gtm_button">
+				Pricing
+			</NButton>
+		)
+	}
+	{
+		/* Cloud has two regions and no single sign-in host, so the button asks
+		   before it sends you somewhere you can't sign in. */
+		homeNav && (
+			<details class="region-signin">
+				<summary aria-haspopup="menu">Sign in</summary>
+				<div class="region-signin__menu" role="menu">
+					<span class="region-signin__label">Choose your region</span>
+					<a href="https://thingsboard.cloud" role="menuitem" target="_blank" rel="noopener noreferrer">
+						<span class="region-badge region-badge--us" aria-hidden="true">
+							US
+						</span>
+						United States
+					</a>
+					<a href="https://eu.thingsboard.cloud" role="menuitem" target="_blank" rel="noopener noreferrer">
+						<span class="region-badge region-badge--eu" aria-hidden="true">
+							EU
+						</span>
+						Europe
+					</a>
+				</div>
+			</details>
+		)
+	}
+	<NButton id="Menu_TryItNow" href="/installations/" variant="filled" class="try gtm_button">
+		{homeNav ? 'Try for free' : 'Try it now'}
+	</NButton>
 </div>
 
-<Navigation />
+<Navigation homeNav={homeNav} />
 
 {needsScrollState && <HeaderScrollWatch />}
 
 <script>
 	import { lockScroll, unlockScroll } from '@util/scroll-lock';
+
+	// <details> stays open on outside click and ignores Escape, so wire both.
+	document.addEventListener('click', (e) => {
+		const open = document.querySelector<HTMLDetailsElement>('.region-signin[open]');
+		if (open && !open.contains(e.target as Node)) open.removeAttribute('open');
+	});
+	document.addEventListener('keydown', (e) => {
+		if (e.key !== 'Escape') return;
+		const open = document.querySelector<HTMLDetailsElement>('.region-signin[open]');
+		if (open) {
+			open.removeAttribute('open');
+			open.querySelector('summary')?.focus();
+		}
+	});
 
 	// Burger menu toggle
 	function Burger() {
@@ -184,8 +238,8 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 		// Transition is scoped to the flip properties only — a blanket `all` would
 		// also ease `top`, making the header lag behind the scroll-tied offset.
 		transition:
-			background-color 0.3s ease,
-			box-shadow 0.3s ease;
+			background-color 0.1s ease,
+			box-shadow 0.1s ease;
 		width: 100%;
 		height: $header-height;
 		z-index: 8888;
@@ -207,6 +261,87 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			height: 100%;
 			align-items: center;
 			gap: 0.875rem;
+
+			// Homepage facelift: the logo leads and its left edge lines up with the
+			// hero H1. The hero column's own inset is the same clamp(); the header
+			// already carries 20px, so we only make up the difference. The flag
+			// follows the logo rather than preceding it.
+			// The logo is first in the row on the homepage anyway — the flag has
+			// moved to the hero — so this only handles the alignment.
+			&[data-home-nav] {
+				padding-left: calc(clamp(24px, calc(0.5rem + 2vw), 56px) - 20px);
+			}
+		}
+
+		// Secondary in the menu. Border follows the label colour so it survives the
+		// header's flip from transparent to solid without a second rule.
+		.region-signin {
+			position: relative;
+
+			summary {
+				display: inline-flex;
+				align-items: center;
+				height: 40px;
+				padding: 0 16px;
+				border: 1px solid rgba(255, 255, 255, 0.35);
+				border-color: color-mix(in srgb, currentColor 35%, transparent);
+				border-radius: 4px;
+				font-size: 14px;
+				cursor: pointer;
+				list-style: none;
+				white-space: nowrap;
+				transition:
+					background-color 0.15s ease,
+					border-color 0.15s ease;
+
+				&::-webkit-details-marker {
+					display: none;
+				}
+
+				&:hover,
+				&:focus-visible {
+					background-color: color-mix(in srgb, currentColor 12%, transparent);
+					border-color: color-mix(in srgb, currentColor 55%, transparent);
+				}
+			}
+
+			&[open] summary {
+				background-color: color-mix(in srgb, currentColor 12%, transparent);
+			}
+
+			&__menu {
+				position: absolute;
+				top: calc(100% + 8px);
+				right: 0;
+				z-index: 40;
+				display: flex;
+				flex-direction: column;
+				min-width: 180px;
+				padding: 6px;
+				border-radius: 6px;
+				background-color: var(--color-bg-surface, #fff);
+				border: 1px solid var(--sl-color-hairline-light);
+				box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+
+				a {
+					padding: 8px 10px;
+					border-radius: 4px;
+					font-size: 14px;
+					color: var(--sl-color-text, #24292f);
+					text-decoration: none;
+
+					&:hover,
+					&:focus-visible {
+						background-color: rgba(61, 80, 245, 0.08);
+					}
+				}
+			}
+
+			&__label {
+				padding: 4px 10px 6px;
+				font-size: 12px;
+				opacity: 0.6;
+			}
 		}
 
 		.head-buttons {
@@ -214,6 +349,12 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			// the centred-nav layout shift on slow CPUs. `order: 1` keeps it
 			// visually after the nav (which keeps the default order: 0).
 			order: 1;
+
+			// Mirrors the logo side so the menu sits on the hero's own margins
+			// rather than the header's default 20px.
+			&[data-home-nav] {
+				padding-right: calc(clamp(24px, calc(0.5rem + 2vw), 56px) - 20px);
+			}
 			display: flex;
 			flex-direction: row;
 			align-items: center;
@@ -303,6 +444,20 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 				width: 120px;
 			}
 
+			// Homepage facelift. The art is 168x44, so inside the 60px-tall box
+			// width drives the rendered size until ~229px, where height takes over.
+			&.logo--lg {
+				width: 180px;
+
+				@media screen and (min-width: 1025px) {
+					width: 225px;
+				}
+
+				@media screen and (min-width: 1281px) and (max-width: 1599px) {
+					width: 156px;
+				}
+			}
+
 			// Small phones — shrink so the wordmark doesn't collide with the icons.
 			@media screen and (max-width: 480px) {
 				width: 110px;
@@ -376,7 +531,7 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			transition-property: height; // `top` follows --promo-cur; don't transition it here
 
 			.logo-burger {
-				height: $header-height;
+				height: var(--home-header-h, #{$header-height});
 			}
 
 			&.opened-burger {

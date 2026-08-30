@@ -23,7 +23,16 @@ const gitHubPlatform = override ?? getGitHubPlatform(pathname);
 // Docs / Starlight pages don't pass through BaseLayout, so no header config is
 // present → fall back to the default `docs` look.
 const headerConfig = (locals.bslHeaderConfig as HeaderConfig | undefined) ?? resolveHeaderConfig();
+
+// Homepage facelift. Gated on the route so the other ~630 pages — docs
+// included — keep the header and promo banner they have today.
+const isHome = pathname === '/';
 ---
 
-<PromoBanner />
-<HeaderContent gitHubPlatform={gitHubPlatform} headerConfig={headerConfig} />
+{
+	/* Skipping the markup isn't enough: the component's `--promo-h: 40px` still
+	   ships with the page CSS, leaving a 40px band and pushing the fixed header
+	   down. Reset it the same way PromoBanner does when it has no slides. */
+	isHome ? <style is:inline set:html=":root{--promo-h:0px;--promo-anim:none}" /> : <PromoBanner />
+}
+<HeaderContent gitHubPlatform={gitHubPlatform} headerConfig={headerConfig} homeNav={isHome} />

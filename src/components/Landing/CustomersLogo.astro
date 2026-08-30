@@ -10,9 +10,14 @@ interface Props {
 	 * Custom logos array. If not provided, uses default logos.
 	 */
 	logos?: CustomerLogo[];
+	/**
+	 * Renders the row as a full-width dark strip. Used directly under the
+	 * homepage hero, where it closes the hero rather than opening the content.
+	 */
+	onDark?: boolean;
 }
 
-const { productTag = 'ce', logos = defaultCustomersLogos } = Astro.props;
+const { productTag = 'ce', logos = defaultCustomersLogos, onDark = false } = Astro.props;
 
 const filterMap: Record<string, string> = {
 	ce: 'invert(86%) sepia(5%) saturate(530%) hue-rotate(171deg) brightness(237%) contrast(86%)',
@@ -20,7 +25,9 @@ const filterMap: Record<string, string> = {
 	paas: 'invert(87%) sepia(3%) saturate(664%) hue-rotate(176deg) brightness(237%) contrast(82%)',
 	edge: 'invert(79%) sepia(25%) saturate(246%) hue-rotate(130deg) brightness(185%) contrast(82%)',
 };
-const imgFilter = filterMap[productTag] ?? '';
+// On the dark strip the per-product tints land on light grey, not white.
+// `brightness(0)` flattens each mark to black, `invert(1)` takes it to pure white.
+const imgFilter = onDark ? 'brightness(0) invert(1)' : (filterMap[productTag] ?? '');
 
 const LOCAL_PREFIX = '/src/assets/images/';
 const svgUrls = import.meta.glob<string>('/src/assets/images/**/*.svg', {
@@ -39,7 +46,7 @@ const resolvedLogos = await Promise.all(
 );
 ---
 
-<section id="tb-customers" class="customers-logo">
+<section id="tb-customers" class:list={['customers-logo', onDark && 'customers-logo--dark']}>
 	<div class="customers-logo__content">
 		{
 			resolvedLogos.map((logo) => (
@@ -66,30 +73,101 @@ const resolvedLogos = await Promise.all(
 		padding: $spacing-12 0;
 		text-align: justify;
 		text-align-last: justify;
-		display: none;
-
-		@include media-up(lg) {
-			display: block;
-		}
 
 		img {
-			height: 36px;
+			// Every logo scales with the viewport rather than sitting at a fixed
+			// height, so the row shrinks as one instead of wrapping the last logo
+			// onto a line of its own. Sizing by height keeps each mark's own
+			// proportions — equal-width flex slots would render the wide logos
+			// smaller than the narrow ones.
+			height: clamp(20px, 2.2vw, 36px);
 			width: auto;
 		}
 
 		&__content {
 			display: flex;
 			flex-direction: row;
-			flex-wrap: wrap;
+			flex-wrap: nowrap;
 			justify-content: space-around;
-			gap: $spacing-12;
+			gap: clamp(12px, 2.2vw, 48px);
 			width: 100%;
 			align-items: center;
-			padding: 0 60px;
+			padding: 0 clamp(16px, 4vw, 60px);
 		}
 
 		&__item {
 			display: block;
+			flex: 0 0 auto;
+		}
+
+		// Full-bleed dark band; the row itself stays capped and centred so the
+		// logos keep line with the rest of the page.
+		&--dark {
+			position: relative;
+			max-width: none;
+			background-color: #000;
+
+			// Tint sits on each mark rather than across the strip, so hover can
+			// lift one without touching the rest. `multiply` is what makes it
+			// exact: black x anything stays black, and a white mark takes the
+			// overlay colour verbatim — including plain white on hover.
+			.customers-logo__item {
+				position: relative;
+
+				&::after {
+					content: '';
+					position: absolute;
+					inset: 0;
+					z-index: 1;
+					pointer-events: none;
+					background-color: #7b87cf;
+					mix-blend-mode: multiply;
+					transition: background-color 0.18s ease;
+				}
+
+				// Hover lifts the mark out of its transparency rather than changing
+				// its colour, so the row reads as one material at two strengths.
+				img {
+					transition: opacity 0.18s ease;
+				}
+
+				&:hover img,
+				&:focus-visible img {
+					opacity: 1;
+				}
+			}
+
+			.customers-logo__content {
+				max-width: 1800px;
+				margin: 0 auto;
+				// Same inset as the hero's text column, and space-between rather
+				// than space-around so the first mark sits on that line instead of
+				// being pushed inward by a half-gap.
+				padding-inline: clamp(24px, calc(0.5rem + 2vw), 56px);
+				justify-content: space-between;
+			}
+
+			img {
+				opacity: 0.72;
+			}
+		}
+
+		// Narrow viewports can't hold seven marks at a legible size, so the row
+		// scrolls rather than shrinking them into mush.
+		@include media-down(lg) {
+			&__content {
+				overflow-x: auto;
+				justify-content: flex-start;
+				scroll-snap-type: x proximity;
+			}
+
+			&__item {
+				scroll-snap-align: center;
+			}
+
+			img {
+				height: 28px;
+			}
 		}
 	}
 </style>
