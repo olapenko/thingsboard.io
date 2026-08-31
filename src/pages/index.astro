@@ -23,24 +23,27 @@ import { heroLcpPreload } from '@util/lcp-preload';
 
 // Passed to both <Hero> and the preload, so the <link> can't name a file the CSS
 // won't paint — which is also why backgroundImage isn't left to Hero's default.
+// One 16:9 asset at every width. tb-cover-mobile.webp is a 700x1080 portrait
+// crop, art-directed for the old full-bleed hero; the split layout's panel is
+// 16:9 everywhere, so that crop lost most of its height to `cover` and read as
+// a fragment of a dashboard. tb-cover.webp is exactly 1920x1080, so it fits the
+// panel with no crop at all.
 const HERO_BACKGROUND = '/images/hero/tb-cover.webp';
-const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 ---
 
 <BaseLayout
 	headerVariant="transparent"
 	forceLightTheme
-	title="ThingsBoard - The all-in-one IoT Platform"
+	title="ThingsBoard - The all-in-one IoT platform"
 	description="ThingsBoard is an open-source IoT platform for device management, data collection, processing, and visualization for your IoT projects."
 	customTitle={true}
-	preloadLcpImage={heroLcpPreload(HERO_BACKGROUND, HERO_BACKGROUND_MOBILE)}
+	preloadLcpImage={heroLcpPreload(HERO_BACKGROUND)}
 >
 	<!-- HERO -->
 	<Hero
 		product={Products.CE}
 		backgroundImage={HERO_BACKGROUND}
-		backgroundImageMobile={HERO_BACKGROUND_MOBILE}
-		title={['ThingsBoard', 'The all-in-one IoT Platform']}
+		title={['ThingsBoard', 'The all-in-one IoT platform']}
 		subtitle="White-labeled and multi-tenant, deployable on our cloud or inside your own network, with device management, data processing, and visualisation built in."
 		buttons={[
 			{
@@ -297,6 +300,19 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 		@media screen and (min-width: 1281px) and (max-width: 1599px) {
 			width: 160px;
 		}
+
+		// Phones: 175px put the wordmark shoulder to shoulder with the Menu
+		// button on a 375px screen. Height follows so the mark keeps its ratio
+		// inside the box — width drives `contain` at every one of these sizes.
+		@media screen and (max-width: 767px) {
+			width: 168px;
+			height: 48px;
+		}
+
+		@media screen and (max-width: 480px) {
+			width: 152px;
+			height: 44px;
+		}
 	}
 
 	// Primary: one purple across the page — the header CTA, the hero, and the
@@ -380,13 +396,28 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 		margin-right: 10px;
 	}
 
+	// GitHubButton hides itself below 1120px, which suited a bar that dropped
+	// every control into the drawer at 1280. Now that the tablet bar keeps the
+	// account controls, the stars fit alongside them with room to spare, and on
+	// this page the count is part of the pitch. Scoped here rather than lowering
+	// the component's own breakpoint, which every other page shares.
+	@media screen and (min-width: 768px) and (max-width: 1119px) {
+		header.header .head-buttons .gh-wrap {
+			display: block;
+		}
+	}
+
 	// Only `.n-button.price` gets an explicit white on the transparent header, so
 	// the Sign in secondary inherited dark text and vanished over the hero.
 	header.header .region-signin summary {
 		font-size: 15px;
 	}
 
-	header.header:has([data-header-variant='transparent']) .region-signin summary {
+	// `:not(.opened-burger)` because the burger drawer flips to a light surface:
+	// unscoped, this white followed the control into the drawer and tied on
+	// specificity with the drawer's own rule, so Sign in rendered white on white
+	// — sized and clickable, but invisible. Same guard the nav rules use.
+	header.header:not(.opened-burger):has([data-header-variant='transparent']) .region-signin summary {
 		color: #fff;
 	}
 

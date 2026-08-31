@@ -4,6 +4,8 @@ export interface NavItem {
 	label: string;
 	href?: string;
 	submenuId?: string;
+	/** Analytics hook — renders as the element id alongside `gtm_button`. */
+	gtmId?: string;
 	items?: SubMenuItem[];
 }
 

@@ -41,9 +41,11 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 	<a href="/" class:list={['logo', homeNav && 'logo--lg']} aria-label="Link to homepage"></a>
 	<div class="burger-group">
 		<HeaderIcons showSearch={showSearch} showThemeToggle={showThemeToggle} />
-		<button onclick="Burger()" class="burger" aria-label="Burger menu">
-			<Icon name="tabler:menu-2" class="icon-open" />
-			<Icon name="tabler:x" class="icon-close" />
+		<button onclick="Burger()" class="burger" aria-expanded="false">
+			<Icon name="tabler:menu-2" class="icon-open" aria-hidden="true" />
+			<Icon name="tabler:x" class="icon-close" aria-hidden="true" />
+			<span class="label-open">Menu</span>
+			<span class="label-close">Close</span>
 		</button>
 	</div>
 	{!homeNav && <GitHubButton platform={gitHubPlatform} />}
@@ -129,6 +131,11 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			header?.classList.add('opened-burger');
 			lockScroll();
 		}
+
+		// Keep the button's state in the accessibility tree, not just in a class.
+		document
+			.querySelector('.burger')
+			?.setAttribute('aria-expanded', String(header?.classList.contains('opened-burger') ?? false));
 	}
 
 	// Make function available globally
@@ -447,6 +454,19 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			// Homepage facelift. The art is 168x44, so inside the 60px-tall box
 			// width drives the rendered size until ~229px, where height takes over.
 			&.logo--lg {
+				// The SVG pads its own art: the ink sits at x=6 in a 168-wide viewBox,
+				// so the box's left edge leads the mark by 3.571% of the rendered
+				// width, which read as the logo drifting right of the hero lede below.
+				// Nudge it back by exactly that fraction so the ink, not the bounding
+				// box, lands on the hero's inset.
+				//
+				// translateX resolves its percentage against this element's own
+				// rendered width, so it stays right at every breakpoint AND under the
+				// flex shrink the logo takes in a tight header. A negative margin could
+				// not manage the second: it would be keyed to the declared width while
+				// the box renders narrower, and it would itself hand the flex line more
+				// free space and change how far the logo shrinks.
+				transform: translateX(-3.571%);
 				width: 180px;
 
 				@media screen and (min-width: 1025px) {
@@ -487,29 +507,55 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 		}
 	}
 
+	// Labelled Menu button rather than a bare hamburger: the glyph alone carries
+	// no name for anyone who hasn't learnt it, and it read as decoration next to
+	// the wordmark. Border follows the label colour so it survives the header's
+	// flip from transparent to solid, the same trick .region-signin uses.
 	.burger {
 		display: none;
-		border: none;
+		border: 1px solid;
+		border-color: color-mix(in srgb, currentColor 35%, transparent);
+		border-radius: 4px;
 		background: none;
-		padding: 0;
+		padding: 0 14px;
 		cursor: pointer;
 		color: inherit;
-		width: 32px;
-		height: 32px;
+		height: 40px;
+		gap: 8px;
 		align-items: center;
 		justify-content: center;
+		font-family: inherit;
+		font-size: 14px;
+		line-height: 1;
+		white-space: nowrap;
+		transition:
+			background-color 0.15s ease,
+			border-color 0.15s ease;
 
 		svg {
-			width: 28px;
-			height: 28px;
+			width: 20px;
+			height: 20px;
 		}
 
 		.icon-close {
 			display: none;
 		}
 
-		&:focus {
-			outline: none;
+		.label-close {
+			display: none;
+		}
+
+		&:hover,
+		&:focus-visible {
+			background-color: color-mix(in srgb, currentColor 12%, transparent);
+			border-color: color-mix(in srgb, currentColor 55%, transparent);
+		}
+
+		// The old rule killed the focus ring outright, leaving keyboard users with
+		// nothing on the one control that opens the whole menu.
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 3px;
 		}
 	}
 
@@ -520,6 +566,14 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 
 		.icon-close {
 			display: block;
+		}
+
+		.label-open {
+			display: none;
+		}
+
+		.label-close {
+			display: inline;
 		}
 	}
 
@@ -612,6 +666,35 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 
 			.n-button {
 				display: none;
+			}
+		}
+	}
+
+	// Tablet keeps the account controls in the bar. The drawer is only needed for
+	// the nav itself at these widths — the row has room left over once the
+	// wordmark and Menu button are placed, and burying Sign in and Try for free
+	// behind a tap costs the two actions the page is actually asking for. Under
+	// 768 the row can't hold them without crowding the wordmark, so there they
+	// stay in the drawer.
+	@media screen and (min-width: 768px) and (max-width: 1280px) {
+		header.header {
+			display: flex;
+			align-items: center;
+
+			// Height is `unset !important` on the block above, so the bar takes its
+			// height from .logo-burger — left alone here rather than fought.
+			.logo-burger {
+				// Takes up the slack so .burger-group, absolute against this box, still
+				// pins right — landing the Menu button just ahead of the buttons.
+				flex: 1;
+			}
+
+			.head-buttons {
+				display: flex;
+			}
+
+			.n-button {
+				display: flex;
 			}
 		}
 	}
@@ -760,6 +843,13 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 
 		.n-button {
 			@include marketing-price;
+		}
+
+		// The drawer flips to a light surface, but this control inherits the
+		// header's white and disappeared into it — rendered, sized and clickable,
+		// just invisible. Its border tracks currentColor, so it follows along.
+		.region-signin summary {
+			color: var(--color-text);
 		}
 	}
 
