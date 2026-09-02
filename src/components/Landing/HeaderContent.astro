@@ -41,12 +41,19 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 	<a href="/" class:list={['logo', homeNav && 'logo--lg']} aria-label="Link to homepage"></a>
 	<div class="burger-group">
 		<HeaderIcons showSearch={showSearch} showThemeToggle={showThemeToggle} />
-		<button onclick="Burger()" class="burger" aria-expanded="false">
-			<Icon name="tabler:menu-2" class="icon-open" aria-hidden="true" />
-			<Icon name="tabler:x" class="icon-close" aria-hidden="true" />
-			<span class="label-open">Menu</span>
-			<span class="label-close">Close</span>
-		</button>
+		{
+			/* Homepage puts Menu at the end of .head-buttons instead, so the whole
+			   cluster reads gh / Sign in / Try for free / Menu in one flex parent.
+			   Every other page keeps it here, in the bar beside the wordmark. */
+			!homeNav && (
+				<button onclick="Burger()" class="burger" aria-expanded="false">
+					<Icon name="tabler:menu-2" class="icon-open" aria-hidden="true" />
+					<Icon name="tabler:x" class="icon-close" aria-hidden="true" />
+					<span class="label-open">Menu</span>
+					<span class="label-close">Close</span>
+				</button>
+			)
+		}
 	</div>
 	{!homeNav && <GitHubButton platform={gitHubPlatform} />}
 </div>
@@ -95,6 +102,20 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 	<NButton id="Menu_TryItNow" href="/installations/" variant="filled" class="try gtm_button">
 		{homeNav ? 'Try for free' : 'Try it now'}
 	</NButton>
+	{
+		/* Menu last, so the cluster ends on the control that opens the drawer.
+		   Living inside .head-buttons rather than back in .logo-burger is what
+		   makes the order possible at all: flex `order` cannot interleave children
+		   of two different parents, and the burger used to sit in the other one. */
+		homeNav && (
+			<button onclick="Burger()" class="burger" aria-expanded="false">
+				<Icon name="tabler:menu-2" class="icon-open" aria-hidden="true" />
+				<Icon name="tabler:x" class="icon-close" aria-hidden="true" />
+				<span class="label-open">Menu</span>
+				<span class="label-close">Close</span>
+			</button>
+		)
+	}
 </div>
 
 <Navigation homeNav={homeNav} />
@@ -670,29 +691,18 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 		}
 	}
 
-	// Tablet keeps the account controls in the bar. The drawer is only needed for
-	// the nav itself at these widths — the row has room left over once the
-	// wordmark and Menu button are placed, and burying Sign in and Try for free
-	// behind a tap costs the two actions the page is actually asking for. Under
-	// 768 the row can't hold them without crowding the wordmark, so there they
-	// stay in the drawer.
-	@media screen and (min-width: 768px) and (max-width: 1280px) {
-		header.header {
-			display: flex;
-			align-items: center;
-
-			// Height is `unset !important` on the block above, so the bar takes its
-			// height from .logo-burger — left alone here rather than fought.
-			//
-			// `:not(.opened-burger)` is essential, not tidiness: the open drawer turns
-			// this header into `flex-direction: column`, where `flex: 1` grows the
-			// logo row down the drawer instead of across the bar. Unscoped it measured
-			// 352px tall against a 64px bar, centring the wordmark in a band of empty
-			// space above the nav list.
-			&:not(.opened-burger) .logo-burger {
-				// Takes up the slack so .burger-group, absolute against this box, still
-				// pins right — landing the Menu button just ahead of the buttons.
-				flex: 1;
+	// Homepage bar below the desktop nav. The controls live in the bar at every
+	// width, reading gh / Sign in / Try for free / Menu, and they stay there when
+	// the drawer opens rather than being carried down to its bottom.
+	// `:has([data-home-nav])` keeps all of this off the other pages, which still
+	// use the block bar and the burger inside .logo-burger from the rule above.
+	@media screen and (max-width: 1280px) {
+		header.header:has([data-home-nav]) {
+			// Menu is a child of .head-buttons on this page, so the group is empty —
+			// search and the theme toggle are both off for a transparent,
+			// forced-light header — and would only contribute a stray gap.
+			.burger-group {
+				display: none;
 			}
 
 			.head-buttons {
@@ -701,6 +711,81 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 
 			.n-button {
 				display: flex;
+			}
+
+			&:not(.opened-burger) {
+				display: flex;
+				align-items: center;
+
+				// Claims the slack so .head-buttons sits against the right inset.
+				// Scoped away from the open state on purpose: the drawer switches this
+				// header to `flex-direction: column`, where `flex: 1` grows the logo
+				// row *down* the drawer instead of across the bar — it measured 352px
+				// against a 64px bar, centring the wordmark in a band of empty space
+				// above the nav.
+				.logo-burger {
+					flex: 1;
+				}
+			}
+
+			// Opened. The drawer stays a column, so the nav list still flows beneath
+			// the bar; the control cluster is lifted out of that column and pinned
+			// over the bar's right side — which is where it already was. `right: 0`
+			// resolves against the header's padding box, so the inset matches the
+			// closed state and nothing shifts as the drawer opens.
+			&.opened-burger .head-buttons {
+				position: absolute;
+				top: 0;
+				right: 0;
+				z-index: 1;
+				height: var(--home-header-h, #{$header-height});
+				// The stacked drawer treatment does not apply — this is still the bar.
+				padding: 0;
+
+				.n-button {
+					width: auto;
+				}
+
+				// The cluster never moves, so it must not animate in either. The
+				// shared slide targets .head-menu and .head-buttons together, and on
+				// this page only the list is actually arriving.
+				transform: none;
+				transition: none;
+			}
+		}
+	}
+
+	// Below 560 the bar runs out of room. Measured, not guessed: the 152px
+	// wordmark, Sign in (79), Try for free (113) and Menu (94) plus the two 24px
+	// insets and two 14px gaps come to 528px, so that is where the three-control
+	// bar stops fitting. Under it the two account controls step out of the bar —
+	// at 375px even one of them overflowed the Menu button off-screen, which is
+	// what the header's `position: fixed` was hiding from `scrollWidth`.
+	@media screen and (max-width: 559px) {
+		header.header:has([data-home-nav]) {
+			&:not(.opened-burger) .head-buttons {
+				.region-signin,
+				.n-button {
+					display: none;
+				}
+			}
+
+			// Opened, they return directly beneath the bar instead of at the foot of
+			// the drawer. The column put them last because .head-buttons carries
+			// `order: 1` for the desktop row while .head-menu sits at 0; swapping the
+			// two lifts them to the top, which is as close to "in place" as a bar
+			// this narrow allows.
+			&.opened-burger {
+				.head-buttons {
+					position: static;
+					order: 0;
+					height: auto;
+					padding: 10px 0 2px;
+				}
+
+				.head-menu {
+					order: 1;
+				}
 			}
 		}
 	}
