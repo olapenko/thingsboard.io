@@ -255,6 +255,11 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 	}
 
 	header.header {
+		// The bar's edge inset, matching the clamp the hero column uses so the two
+		// line up. Named rather than restated: the logo side, the buttons side and
+		// the open-drawer rule all need it, and the drawer rule in particular has
+		// to restore it after the stacked treatment zeroes the padding.
+		--tb-bar-inset: clamp(24px, calc(0.5rem + 2vw), 56px);
 		position: fixed;
 		// Sits below the promo banner; tracks the live offset so it slides to
 		// top:0 as the banner collapses on scroll (--promo-cur → 0).
@@ -297,7 +302,7 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			// The logo is first in the row on the homepage anyway — the flag has
 			// moved to the hero — so this only handles the alignment.
 			&[data-home-nav] {
-				padding-left: calc(clamp(24px, calc(0.5rem + 2vw), 56px) - 20px);
+				padding-left: calc(var(--tb-bar-inset) - 20px);
 			}
 		}
 
@@ -381,12 +386,14 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			// Mirrors the logo side so the menu sits on the hero's own margins
 			// rather than the header's default 20px.
 			&[data-home-nav] {
-				padding-right: calc(clamp(24px, calc(0.5rem + 2vw), 56px) - 20px);
+				padding-right: calc(var(--tb-bar-inset) - 20px);
 			}
 			display: flex;
 			flex-direction: row;
 			align-items: center;
-			gap: 0.875rem;
+			// Per-page overridable so the open drawer cannot disagree with the bar:
+			// both read this token instead of each restating a length.
+			gap: var(--tb-cluster-gap, 0.875rem);
 
 			.icon-buttons {
 				display: flex;
@@ -628,7 +635,7 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 				.head-buttons {
 					display: flex;
 					flex-shrink: 0;
-					gap: 0.875rem;
+					gap: var(--tb-cluster-gap, 0.875rem);
 					padding: 20px 0;
 
 					.icon-buttons {
@@ -736,7 +743,11 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			&.opened-burger .head-buttons {
 				position: absolute;
 				top: 0;
-				right: 0;
+				// Not `right: 0`: an absolute box resolves against the header's
+				// padding *box*, whose edge sits at the border — i.e. flush to the
+				// viewport, ignoring the header's own 20px padding. That put the
+				// cluster 26px right of where the closed bar has it.
+				right: var(--tb-bar-inset);
 				z-index: 1;
 				height: var(--home-header-h, #{$header-height});
 				// The stacked drawer treatment does not apply — this is still the bar.
