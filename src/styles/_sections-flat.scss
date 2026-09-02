@@ -1,0 +1,303 @@
+// =============================================================================
+// FLAT SECTIONS — opt-in override layer for the homepage.
+//
+// REVERT: delete the single `@use '../styles/sections-flat';` line at the top
+// of index.astro's global style block. Nothing in this file edits a component
+// or a shared style; every rule is an override layered on top, so removing the
+// import restores the diagonal bands, the card shadows and the full-strength
+// accents byte for byte. Deleting this file as well leaves no trace.
+//
+// SCOPE: index.astro's style block is `is:global` but page-scoped, so this
+// bundle only ships on the homepage. Other pages keep the diagonal treatment
+// until we decide to promote it.
+//
+// `!important` throughout, deliberately: this is a page-level layer overriding
+// per-component scoped styles it does not own, and Astro gives no guarantee
+// about the order it emits the page bundle versus the component bundles. The
+// alternative — reaching into eight components to add a modifier — is exactly
+// the coupling this layer exists to avoid.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 1. Square off the diagonal bands
+// -----------------------------------------------------------------------------
+// Every band is already a full-bleed 2560px rectangle that is then tilted with
+// `skewY(-6deg)`. Removing only the transform keeps its colour, height and
+// centre line exactly as they are and changes nothing but the edge — which is
+// why this is a two-line change rather than a re-layout. Seven layers across
+// six sections: #manage .main1, #scada .main2, #react .main3, #products
+// .products, #product-ecosystem .product-ecosystem, and two in
+// #bottom-features.
+.background div {
+	transform: none !important;
+}
+
+// The sliver shapes exist only to ornament the diagonal — they are small skewed
+// parallelograms that trail the main band. Square them off and they read as
+// stray rectangles floating beside the section, so they go rather than square.
+.background [class*='small'] {
+	display: none !important;
+}
+
+// -----------------------------------------------------------------------------
+// 2. Drop the card shadows
+// -----------------------------------------------------------------------------
+// 23 shadowed elements sat inside the four card sections. The shadows were
+// doing separation work, but every one of these cards is a light surface on a
+// near-white band, where a hairline states the same edge without the haze. The
+// border keeps the card's footprint identical — `box-shadow` occupies no
+// layout space, so swapping it for a 1px border would grow each card by 2px;
+// `background-clip` is not involved, so we absorb it in the existing padding
+// rather than letting the grid shift.
+.product-card,
+.ecosystem-card,
+.feature-card__inner {
+	box-shadow: none !important;
+	border: 1px solid var(--color-border) !important;
+}
+
+// -----------------------------------------------------------------------------
+// 3. Tone the accents
+// -----------------------------------------------------------------------------
+// The featured product card carried two elevation cues at once: a 6px inset
+// brand underline AND the large drop shadow, on top of being the only card with
+// horizontal margin. One cue is enough to mark it as the recommended option, so
+// the underline stays — at half weight — and the shadow goes.
+.product-card--featured {
+	box-shadow: inset 0 -3px 0 var(--color-primary-dark, #305680) !important;
+}
+
+// -----------------------------------------------------------------------------
+// 4. Align the band fills to the primary
+// -----------------------------------------------------------------------------
+// The bands were left over from the old blue palette: #f7f9fc is a cool grey,
+// #252628 a neutral charcoal, and #305680 the legacy slate accent — none of
+// them relate to #3d50f5. These two are mixes of the primary, taken at the
+// strengths the pricing page already uses on that hue (it tints the same purple
+// down to rgba(61, 80, 245, 0.2) for hairlines and pairs it with the footer's
+// #0f161d for dark surfaces):
+//
+//   light  = color-mix(in srgb, #3d50f5 5%, #fff)     -> #f5f6ff
+//   dark   = color-mix(in srgb, #3d50f5 8%, #0f161d)  -> #131b2e
+//
+// Written as hex rather than `color-mix(... var(--color-primary) ...)` on
+// purpose: an unsupported `color-mix` makes the custom property invalid at
+// computed-value time, and a `background-color` reading it then falls back to
+// `transparent` rather than to a preceding declaration — a blank band, not a
+// slightly wrong one. The recipe above is the thing to re-run if the primary
+// moves.
+.background {
+	// main1/main2/main3 are not listed: section 6 replaces those three with
+	// per-row stripes and hides the layers entirely.
+	.product-ecosystem,
+	.bottom-features1 {
+		background-color: #f5f6ff !important;
+	}
+
+	.bottom-features2,
+	.bottom-features3 {
+		background-color: #131b2e !important;
+	}
+
+	// Products is the one brand block on the page — full-strength primary rather
+	// than a tint, so the product tiers get a band that carries the brand.
+	//
+	// This depends on the SectionHeader fix: its heading is `theme="dark"`, which
+	// was inert because `#overflow h2` (1,0,1) outranked the component's (0,2,0)
+	// rule, so the title rendered #17181c and measured 2.4:1 against the old
+	// #305680 slate. With the theme working the title is white, which on #3d50f5
+	// measures 5.73:1 — AA for both large and normal text.
+	.products {
+		background-color: #3d50f5 !important;
+	}
+}
+
+// -----------------------------------------------------------------------------
+// 5. Narrow the body, tighten the rows, put the vertical gaps on a scale
+// -----------------------------------------------------------------------------
+// 1400 -> 1200. One override covers the whole body: all ten sections share
+// `.main-div`. The hero sits outside it and keeps bleeding full width, as do the
+// coloured bands — only the content inside them narrows.
+.main-div {
+	max-width: 1200px !important;
+}
+
+// The alternating rows were a flex pair holding a fixed 600px text column with
+// `justify-content: space-between`, so every bit of slack in the row landed in
+// the middle: the gap measured 160, 160, 80, 160 and 191px across the five rows.
+// A heading and the screenshot it describes sat up to 191px apart, which is what
+// read as stretched — the two halves stopped looking related.
+//
+// `flex-start` plus a fixed gap moves the slack out of the middle, and the text
+// column becomes its own measure rather than half the row. 600px ran body copy
+// to roughly 100 characters a line, about double a comfortable measure; 46ch
+// ties the cap to the type rather than to the container, so it holds if the
+// body size changes. Alternation still comes from DOM order — none of these
+// rows use `row-reverse`, they just swap which child comes first.
+#manage .block,
+#scada .block,
+#react .block {
+	justify-content: flex-start !important;
+	gap: 72px;
+
+	// One fixed strip per row, so the rhythm is uniform instead of inflated by
+	// whatever media each row happens to hold — content-driven heights measured
+	// 725 / 807 / 694. The air now lives INSIDE the strip, which is what lets
+	// the seams between rows close completely (below).
+	height: var(--tb-strip-h) !important;
+	align-items: center;
+	box-sizing: border-box;
+	// A floor, not the height: it only keeps text off the edge if --tb-strip-h
+	// is ever dialled down.
+	padding-block: 60px;
+
+	// These margins WERE the white ribbons — 80/30 on Collect and visualize, 100
+	// under SCADA (before Process and React), 300 above Microservices and 100
+	// below it. None of them separated anything the strips don't already
+	// separate, and the 300 was the single largest piece of dead space on the
+	// page. Rows now butt, colour against colour.
+	margin-block: 0 !important;
+
+	> .feature-des {
+		flex: 0 1 46ch;
+		max-width: 46ch;
+	}
+
+	// The media half absorbs what's left. `min-width: 0` because flex items
+	// default to `min-width: auto` and an SVG or a wide screenshot would
+	// otherwise refuse to shrink and push the row wider than its container.
+	//
+	// It is also free to be TALLER than the strip: `align-items: center` centres
+	// it on the midline and lets it break out symmetrically. `z-index` lifts it
+	// over the strips that follow, which would otherwise paint over it as later
+	// siblings.
+	> *:not(.feature-des) {
+		flex: 1 1 0;
+		min-width: 0;
+		position: relative;
+		z-index: 1;
+	}
+}
+
+// Vertical rhythm. The gaps between top-level sections ran 178, 0, 0, 0, 100,
+// 100, 186, 120, 148, 80px — no scale at all, so grouping was arbitrary and
+// nothing read as belonging together. One value for every seam instead.
+//
+// The three band sections stay at 0 deliberately: their bands are contiguous
+// blocks of colour, and a gap between them would open a white stripe through
+// what is meant to read as one continuous run.
+#overflow {
+	--tb-section-gap: 96px;
+	// The alternating strips. One number for all of them. At 600 the SCADA
+	// scheme (631px, the tallest media) is the only one that breaks the band,
+	// by ~15px top and bottom; everything else sits inside.
+	--tb-strip-h: 600px;
+
+	#intro,
+	#rule-engine {
+		margin-bottom: var(--tb-section-gap) !important;
+	}
+
+	#dashboard_description {
+		margin-top: var(--tb-section-gap) !important;
+		margin-bottom: var(--tb-section-gap) !important;
+	}
+
+	#products,
+	#product-ecosystem {
+		padding-top: var(--tb-section-gap) !important;
+	}
+
+	#bottom-features {
+		padding-bottom: var(--tb-section-gap) !important;
+	}
+}
+
+// -----------------------------------------------------------------------------
+// 6. Give each striped row its own stripe
+// -----------------------------------------------------------------------------
+// There were three stripes for five rows, absolutely positioned at hardcoded
+// offsets, and none of them bounded the content they sat behind. Measured:
+//
+//   manage row 0   48px above / -71px below  (content overran the stripe)
+//   manage row 1   no stripe at all — on white
+//   scada  row 0   50px above / 369px below
+//   react  row 0   117px above / 80px below  <- the only one that looked right
+//   react  row 1   no stripe at all — on white
+//
+// `main2` was also declared inside #scada but ran 369px down into #react, so
+// the stripes did not even correspond to the sections that owned them.
+//
+// Each striped row now draws its own, bounded to its own box, so the content is
+// centred in it by construction rather than by a lucky offset — react's ~19px
+// residual was as close as the old arrangement ever got. Which rows are striped
+// is unchanged: manage row 0 and scada row 0 light, react row 0 dark, and the
+// two rows that were on white stay on white.
+#manage .block:not(.vis),
+#scada .block.scada,
+#react .block.dark {
+	position: relative;
+
+	// Full bleed: the row lives inside the 1200px .main-div, so the colour has
+	// to break out of it. `body` already carries `overflow-x: clip`, so 100vw
+	// cannot introduce a horizontal scrollbar here.
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 50%;
+		width: 100vw;
+		transform: translateX(-50%);
+		// Behind the row's own content, still above the section, which the page
+		// strips to `background: none`.
+		z-index: -1;
+		background-color: #f5f6ff;
+	}
+}
+
+#react .block.dark::before {
+	background-color: #131b2e;
+}
+
+
+// -----------------------------------------------------------------------------
+// 7. Product ecosystem becomes one full block
+// -----------------------------------------------------------------------------
+// Its backdrop was a 200px stripe behind the heading of a 983px section, so the
+// cards underneath sat on white and the section read as two unrelated halves.
+// The whole section now carries the tint the stripe was holding, with the
+// vertical padding made symmetric so the block bounds its content evenly. The
+// cards keep their hairline border, so they still read as cards on a ground
+// rather than dissolving into it.
+#product-ecosystem {
+	background-color: #f5f6ff !important;
+	padding-bottom: var(--tb-section-gap) !important;
+
+	.background {
+		display: none !important;
+	}
+}
+
+// -----------------------------------------------------------------------------
+// 8. Close the white stripe under Product ecosystem
+// -----------------------------------------------------------------------------
+// 96px of white sat between the Product ecosystem block and Real-Time IoT
+// Dashboards — two tinted areas with a gutter between them, which reads as a
+// mistake rather than as rhythm. They were also two DIFFERENT tints: the
+// ecosystem block is #f5f6ff while `.dashboards` painted the older #f7f9fc.
+//
+// The two now meet on one tint. Like the ecosystem block, this section carries
+// its own colour instead of an absolutely positioned layer — `.dashboards` was
+// another arbitrary stripe (top: -550px, 845px tall against a 655px section),
+// so zeroing the margin alone would not have closed the gap: the stripe's
+// position had nothing to do with the section's.
+#overflow #dashboard_description {
+	margin-top: 0 !important;
+	// The block already carries 96px of tinted padding under the carousel; the
+	// margin added another 96 of white on top of it, so the gap after Real-Time
+	// Dashboards was 192px of which half was doing nothing.
+	margin-bottom: 0 !important;
+	background-color: #f5f6ff !important;
+	padding-block: var(--tb-section-gap) !important;
+}
