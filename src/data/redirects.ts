@@ -19,6 +19,7 @@
 // truth, DNS-cutover note included). Relative import on purpose: node scripts
 // import this file directly and cannot resolve the `@models` alias.
 import { TBMQ_ORIGIN, tbmqDocsUrl } from '../models/tbmq.ts';
+import { CAREERS_URL } from '../models/careers.ts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1352,6 +1353,16 @@ export const NON_DOCS_REDIRECTS: Record<string, string> = {
 	'/products/mqtt-broker/terms-of-use/': `${TBMQ_ORIGIN}/product/terms-of-use/`,
 	// Demo CA cert removed with the TBMQ docs; the TBMQ site serves its own copy
 	'/resources/tbmq-demo-root-ca.pem': `${TBMQ_ORIGIN}/resources/tbmq-demo-root-ca.pem`,
+	// TBMQ blog posts moved to tbmq.io with the same slugs; the local .mdx files
+	// (and their public/images/blog/ dirs) are deleted. Author pages are built only
+	// for authors with remaining posts, so the now-postless ones drop out unredirected.
+	'/blog/1-million-reasons-to-choose-tbmq-as-high-performance-mqtt-broker/': `${TBMQ_ORIGIN}/blog/1-million-reasons-to-choose-tbmq-as-high-performance-mqtt-broker/`,
+	'/blog/introducing-tbmq-professional-edition-the-mqtt-broker-for-enterprise-needs/': `${TBMQ_ORIGIN}/blog/introducing-tbmq-professional-edition-the-mqtt-broker-for-enterprise-needs/`,
+	'/blog/tbmq-1-3-0-release-websocket-client-advanced-mqtt-5-features-and-more/': `${TBMQ_ORIGIN}/blog/tbmq-1-3-0-release-websocket-client-advanced-mqtt-5-features-and-more/`,
+	'/blog/tbmq-2-0-migration-to-redis-mqtt-5-0-support-and-more/': `${TBMQ_ORIGIN}/blog/tbmq-2-0-migration-to-redis-mqtt-5-0-support-and-more/`,
+	'/blog/tbmq-2-1-new-chapter-in-mqtt-messaging-with-embedded-integrations/': `${TBMQ_ORIGIN}/blog/tbmq-2-1-new-chapter-in-mqtt-messaging-with-embedded-integrations/`,
+	'/blog/tbmq-2-2-strengthening-mqtt-security-with-jwt-and-client-blocking/': `${TBMQ_ORIGIN}/blog/tbmq-2-2-strengthening-mqtt-security-with-jwt-and-client-blocking/`,
+	'/blog/tbmq-2-3-external-authentication-bulk-provisioning-and-enterprise-audit-trails/': `${TBMQ_ORIGIN}/blog/tbmq-2-3-external-authentication-bulk-provisioning-and-enterprise-audit-trails/`,
 
 	// Trendz
 	'/products/trendz/trndz-request-demo/': '/products/trendz/request-demo/',
@@ -1401,6 +1412,11 @@ export const NON_DOCS_REDIRECTS: Record<string, string> = {
 	'/installations/forever-free-cloud/': '/installations/choose-region/',
 	'/iot-use-cases/': '/use-cases/',
 	'/support-ukraine/': 'https://u24.gov.ua/',
+
+	// Careers — moved to PeopleForce. One landing + one job page is every careers
+	// URL this site ever served, so the set is static — no splat needed.
+	'/careers/': CAREERS_URL,
+	'/careers/middle-java-developer/': CAREERS_URL,
 
 	// Device Library → IoT Hub. Bulk shapes collapse via splats in
 	// DYNAMIC_REDIRECTS; the static slug aliases below must win over them.
