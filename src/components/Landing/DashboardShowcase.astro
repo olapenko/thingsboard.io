@@ -1,0 +1,367 @@
+---
+import { Icon } from 'astro-icon/components';
+import SmartImage from '@components/SmartImage.astro';
+import type { CarouselItem } from '@data/homeCarousel';
+
+// One board on top, the case that produced it underneath. The named list is the
+// navigation — a reader picks the case that looks like theirs instead of
+// clicking blind dots — and the arrows step through the same set.
+//
+// Built as a tab set rather than a carousel: nothing slides, one of several
+// views is chosen, and the shared Carousel component is used by the blog and
+// use-case pages, so it stays as it is.
+//
+// Every case is server-rendered and inactive ones are `hidden`, so the section
+// is correct before its script runs and needs no layout measurement.
+
+interface Props {
+	items: CarouselItem[];
+	id?: string;
+	/** Milliseconds between automatic advances. Slow on purpose — a reader has to
+	 *  be able to finish a description before it moves. */
+	interval?: number;
+}
+
+const { items, id = 'dashboards', interval = 12000 } = Astro.props;
+---
+
+<div class="dashshow" data-dashshow data-dashshow-interval={interval}>
+	<div class="dashshow__board">
+		{
+			items.map((item, i) => (
+				<div class="dashshow__frame" id={`${id}-board-${i}`} hidden={i !== 0}>
+					<SmartImage
+						src={item.src}
+						alt={item.alt}
+						width={item.width}
+						height={item.height}
+						loading={i === 0 ? 'eager' : 'lazy'}
+					/>
+				</div>
+			))
+		}
+
+		<div class="dashshow__arrows">
+			<button type="button" class="dashshow__arrow" data-dashshow-prev aria-label="Previous use case">
+				<Icon name="tabler:chevron-left" aria-hidden="true" />
+			</button>
+			<button type="button" class="dashshow__arrow" data-dashshow-next aria-label="Next use case">
+				<Icon name="tabler:chevron-right" aria-hidden="true" />
+			</button>
+		</div>
+	</div>
+
+	<div class="dashshow__body">
+		<div
+			class="dashshow__nav"
+			role="tablist"
+			aria-orientation="vertical"
+			aria-label="Use cases"
+			style={`--nav-rows: ${Math.ceil(items.length / 2)}`}
+		>
+			{
+				items.map((item, i) => (
+					<button
+						type="button"
+						role="tab"
+						class="dashshow__case"
+						id={`${id}-tab-${i}`}
+						aria-controls={`${id}-panel-${i}`}
+						aria-selected={i === 0 ? 'true' : 'false'}
+						tabindex={i === 0 ? 0 : -1}
+					>
+						{item.icon && <Icon name={item.icon} class="dashshow__case-icon" aria-hidden="true" />}
+						<span>{item.title}</span>
+					</button>
+				))
+			}
+		</div>
+
+		<div class="dashshow__detail">
+			{
+				items.map((item, i) => (
+					<div
+						role="tabpanel"
+						class="dashshow__panel"
+						id={`${id}-panel-${i}`}
+						aria-labelledby={`${id}-tab-${i}`}
+						hidden={i !== 0}
+					>
+						<h3 class="dashshow__title">{item.title}</h3>
+						<p class="dashshow__desc">{item.description}</p>
+						{/* Case name folded into the accessible name: the visible label is
+						    deliberately specific rather than repeating the heading, so on its
+						    own it wouldn't say which case it belongs to. */}
+						<a href={item.href} class="dashshow__link" aria-label={`${item.linkLabel || 'Learn more'} — ${item.title}`}>
+							{item.linkLabel || 'Learn more'}
+							<Icon name="tabler:chevron-right" class="dashshow__chevron" aria-hidden="true" />
+						</a>
+					</div>
+				))
+			}
+		</div>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.dashshow {
+		display: grid;
+		gap: $spacing-6;
+	}
+
+	.dashshow__board {
+		position: relative;
+		overflow: hidden;
+		border-radius: $radius-lg;
+		border: 1px solid var(--sl-color-hairline-light);
+		background: var(--color-bg-surface);
+	}
+
+	.dashshow__frame :global(img) {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	// Over the board's corner rather than in the body, so the list below stays a
+	// clean two-column read.
+	.dashshow__arrows {
+		position: absolute;
+		right: $spacing-3;
+		bottom: $spacing-3;
+		display: flex;
+		gap: $spacing-2;
+	}
+
+	// Solid black discs: the boards behind them are dark dashboards, and a pale
+	// outlined button disappeared into the screenshot.
+	.dashshow__arrow {
+		display: grid;
+		place-items: center;
+		width: 36px;
+		height: 36px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: var(--color-text);
+		color: #fff;
+		cursor: pointer;
+		transition: opacity 0.15s ease;
+
+		&:hover,
+		&:focus-visible {
+			opacity: 0.82;
+		}
+
+		svg {
+			width: 18px;
+			height: 18px;
+		}
+	}
+
+	.dashshow__body {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: $spacing-8;
+		align-items: start;
+
+		@include media-down(md) {
+			grid-template-columns: 1fr;
+			gap: $spacing-6;
+		}
+	}
+
+	// Two columns, filled down then across: eight names in one column stood twice
+	// as tall as the copy beside them. Kept as a list rather than a grid of cards
+	// — three card grids already sit above this section, and this is navigation,
+	// not content.
+	.dashshow__nav {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		grid-template-rows: repeat(var(--nav-rows, 4), auto);
+		grid-auto-flow: column;
+		column-gap: $spacing-4;
+
+		@include media-down(sm) {
+			grid-template-columns: 1fr;
+			grid-template-rows: none;
+			grid-auto-flow: row;
+		}
+	}
+
+	// A row of names, not buttons that look like buttons: the selected one is
+	// marked by weight and a rule, so eight of them stay a list.
+	.dashshow__case {
+		@include text-s;
+		display: flex;
+		align-items: center;
+		gap: $spacing-3;
+		padding: 7px 0 7px $spacing-4;
+		border: 0;
+		border-left: 2px solid var(--sl-color-hairline-light);
+		background: none;
+		color: var(--color-text-secondary, #5b616e);
+		text-align: left;
+		cursor: pointer;
+		transition:
+			color 0.15s ease,
+			border-color 0.15s ease;
+
+		&:hover {
+			color: var(--color-text);
+			border-left-color: rgba(0, 0, 0, 0.3);
+		}
+
+		&[aria-selected='true'] {
+			border-left-color: var(--color-primary, #{$color-brand});
+			color: var(--color-text);
+			font-weight: $font-weight-bold;
+		}
+	}
+
+	// Inherits the row's colour, so it brightens with the label rather than
+	// competing for its own attention.
+	.dashshow__case-icon {
+		flex: none;
+		width: 18px;
+		height: 18px;
+	}
+
+	.dashshow__title {
+		@include card-title;
+		margin: 0 0 $spacing-3;
+	}
+
+	.dashshow__desc {
+		@include text-s;
+		margin: 0 0 $spacing-4;
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	.dashshow__link {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		font-weight: $font-weight-medium;
+		color: var(--color-primary, #{$color-brand});
+		text-decoration: none;
+
+		&:hover,
+		&:focus-visible {
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+	}
+
+	.dashshow__chevron {
+		width: 18px;
+		height: 18px;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.dashshow__case,
+		.dashshow__arrow {
+			transition: none;
+		}
+	}
+</style>
+
+<script>
+	// Tab-set behaviour: one active index drives the board, the panel and the
+	// list. Arrows step the same index and wrap, so they and the list can never
+	// disagree about what is showing.
+	document.querySelectorAll<HTMLElement>('[data-dashshow]').forEach((root) => {
+		// Runs once per element. Without this, anything that re-executes the module
+		// — a dev-server hot update, a view transition — stacks a second set of
+		// listeners and a second ticker on the same section, and it starts
+		// advancing several cases at a time.
+		if (root.dataset.dashshowReady) return;
+		root.dataset.dashshowReady = 'true';
+
+		const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+		const panels = [...root.querySelectorAll<HTMLElement>('[role="tabpanel"]')];
+		const frames = [...root.querySelectorAll<HTMLElement>('.dashshow__frame')];
+		if (!tabs.length) return;
+
+		let active = 0;
+
+		const show = (next: number, focus = false) => {
+			active = (next + tabs.length) % tabs.length;
+
+			tabs.forEach((tab, i) => {
+				const on = i === active;
+				tab.setAttribute('aria-selected', String(on));
+				// Roving tabindex: the list is one stop, arrow keys move within it.
+				tab.tabIndex = on ? 0 : -1;
+			});
+			panels.forEach((panel, i) => (panel.hidden = i !== active));
+			frames.forEach((frame, i) => (frame.hidden = i !== active));
+
+			if (focus) tabs[active].focus();
+		};
+
+		// ── Autoplay ──────────────────────────────────────────
+		// One interval that asks, each tick, whether it is allowed to advance —
+		// rather than a set of latched flags that pause and resume it. A latch
+		// that gets stuck leaves the section frozen with no way back; a question
+		// asked fresh every tick cannot.
+		//
+		// It holds while the pointer is over the section, while focus is inside
+		// it, while it is off screen, and while the tab is in the background.
+		// Choosing a case stops it for good: resuming would pull the reader off
+		// the very thing they just picked, which is the whole complaint about
+		// carousels.
+		const interval = Number(root.dataset.dashshowInterval) || 12000;
+		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+		let stopped = reduced;
+		let onScreen = false;
+
+		new IntersectionObserver((entries) => (onScreen = entries[0].isIntersecting)).observe(root);
+
+		const ticker = window.setInterval(() => {
+			if (stopped) {
+				window.clearInterval(ticker);
+				return;
+			}
+			if (!onScreen || document.hidden) return;
+			if (root.matches(':hover') || root.contains(document.activeElement)) return;
+
+			show(active + 1);
+		}, interval);
+
+		const stop = () => (stopped = true);
+
+		tabs.forEach((tab, i) =>
+			tab.addEventListener('click', () => {
+				show(i);
+				stop();
+			})
+		);
+
+		root.querySelector('[data-dashshow-prev]')?.addEventListener('click', () => {
+			show(active - 1);
+			stop();
+		});
+		root.querySelector('[data-dashshow-next]')?.addEventListener('click', () => {
+			show(active + 1);
+			stop();
+		});
+
+		root.querySelector('[role="tablist"]')?.addEventListener('keydown', (event) => {
+			const key = (event as KeyboardEvent).key;
+			const step = key === 'ArrowDown' || key === 'ArrowRight' ? 1 : key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 0;
+
+			if (step) {
+				event.preventDefault();
+				show(active + step, true);
+			} else if (key === 'Home' || key === 'End') {
+				event.preventDefault();
+				show(key === 'Home' ? 0 : tabs.length - 1, true);
+			}
+		});
+	});
+</script>

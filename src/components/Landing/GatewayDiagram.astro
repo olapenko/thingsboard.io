@@ -1,0 +1,339 @@
+---
+import { Icon } from 'astro-icon/components';
+
+// Protocol bridge, drawn as a circuit board: the traces are the subject, so the
+// protocol names carry the largest type and the nodes stay quiet around them.
+// Purple runs in from the field, green is the MQTT uplink the Gateway exists to
+// produce, black runs out of the platform — so the direction of the whole board
+// is legible before any label is read.
+//
+// Devices are icons alone: identical chips need no caption, and the space a
+// caption would take belongs to the traces.
+//
+// The geometry is derived from the row count, not hard-coded, so the two sides
+// stay balanced as protocols or outcomes are added. Both lists should stay the
+// same length.
+
+interface Outcome {
+	label: string;
+	icon: string;
+}
+
+interface Props {
+	protocols?: string[];
+	outcomes?: Outcome[];
+}
+
+// The five named in the Gateway's own copy, then the remainder of the 25+.
+const {
+	protocols = ['Modbus', 'OPC-UA', 'BACnet', 'SNMP', 'KNX', '+20 more'],
+	outcomes = [
+		{ label: 'Dashboards', icon: 'tabler:layout-dashboard' },
+		{ label: 'SCADA', icon: 'tabler:schema' },
+		{ label: 'Alarms', icon: 'tabler:alert-triangle' },
+		{ label: 'Notifications', icon: 'tabler:bell' },
+		{ label: 'Integrations', icon: 'tabler:plug' },
+		{ label: 'Data lakes', icon: 'tabler:database' },
+	],
+} = Astro.props;
+
+const COUNT = Math.max(protocols.length, outcomes.length);
+const STEP = 56;
+const TOP = 26;
+const ROWS = Array.from({ length: COUNT }, (_, i) => TOP + i * STEP);
+
+const first = ROWS[0];
+const last = ROWS[ROWS.length - 1];
+const MID = (first + last) / 2;
+const HEIGHT = last + 26;
+
+// The two blocks sit symmetrically about the centre of the stacks, so the board
+// balances however many rows there are, and MQTT lands exactly on the midline.
+const CORE_H = 52;
+const PLATFORM_Y = MID - 62;
+const GATEWAY_Y = MID + 62;
+
+const DEV_X = 2;
+const DEV_W = 36;
+const IN_BUS = 256;
+const CORE_L = 292;
+const CORE_R = 452;
+const OUT_BUS = 490;
+const OUT_X = 524;
+const OUT_W = 192;
+const MQTT_X = (CORE_L + CORE_R) / 2;
+const GAP = 108; // break in the trace where the protocol name sits
+const LABEL_X = (DEV_X + DEV_W + IN_BUS) / 2;
+
+const rows = ROWS.map((y, i) => ({ y, protocol: protocols[i], outcome: outcomes[i] }));
+// A dot marks a real T-junction; the ends of a bus are corners, not junctions.
+const inner = ROWS.slice(1, -1);
+---
+
+<svg
+	class="gwd"
+	viewBox={`0 0 720 ${HEIGHT}`}
+	role="img"
+	aria-label={`Field devices speaking ${protocols.slice(0, -1).join(', ')} and more connect to the ThingsBoard IoT Gateway, which forwards them over MQTT to ThingsBoard, which in turn drives ${outcomes.map((o) => o.label).join(', ')}.`}
+>
+	<defs>
+		<pattern id="gwd-grid" width="18" height="18" patternUnits="userSpaceOnUse">
+			<circle cx="1" cy="1" r="1" class="gwd__grid-dot"></circle>
+		</pattern>
+		{
+			/*
+			Ribbon heads. Marker units are multiples of stroke-width by default, so
+			markerHeight="1" makes the head exactly as tall as the trace is wide — it
+			tapers to a point instead of flaring into a separate arrow shape.
+		*/
+		}
+		<marker id="gwd-head-in" viewBox="0 0 2.6 1" refX="2.6" refY="0.5" markerWidth="2.6" markerHeight="1" orient="auto">
+			<path d="M0,0 L2.6,0.5 L0,1 Z" class="gwd__head gwd__head--in"></path>
+		</marker>
+		<marker
+			id="gwd-head-mqtt"
+			viewBox="0 0 2.6 1"
+			refX="2.6"
+			refY="0.5"
+			markerWidth="2.6"
+			markerHeight="1"
+			orient="auto"
+		>
+			<path d="M0,0 L2.6,0.5 L0,1 Z" class="gwd__head gwd__head--mqtt"></path>
+		</marker>
+		<marker
+			id="gwd-head-out"
+			viewBox="0 0 2.6 1"
+			refX="2.6"
+			refY="0.5"
+			markerWidth="2.6"
+			markerHeight="1"
+			orient="auto"
+		>
+			<path d="M0,0 L2.6,0.5 L0,1 Z" class="gwd__head gwd__head--out"></path>
+		</marker>
+	</defs>
+
+	<rect width="720" height={HEIGHT} fill="url(#gwd-grid)"></rect>
+
+	{/* ── Field side: each trace breaks where its own protocol name sits ── */}
+	{
+		rows.map(({ y }) => (
+			<>
+				<path class="gwd__trace gwd__trace--in" d={`M${DEV_X + DEV_W},${y} H${LABEL_X - GAP / 2}`} />
+				<path class="gwd__trace gwd__trace--in" d={`M${LABEL_X + GAP / 2},${y} H${IN_BUS}`} />
+			</>
+		))
+	}
+
+	{/* Field bus, tapped once into the Gateway */}
+	<path class="gwd__trace gwd__trace--in" d={`M${IN_BUS},${first} V${last}`}></path>
+	<path class="gwd__trace gwd__trace--in" d={`M${IN_BUS},${GATEWAY_Y} H${CORE_L}`} marker-end="url(#gwd-head-in)"
+	></path>
+	{inner.map((y) => <circle class="gwd__junction gwd__junction--in" cx={IN_BUS} cy={y} r="5" />)}
+	<circle class="gwd__junction gwd__junction--in" cx={IN_BUS} cy={GATEWAY_Y} r="5"></circle>
+
+	{/* ── Uplink: the one protocol the Gateway exists to produce ── */}
+	<path class="gwd__trace gwd__trace--mqtt" d={`M${MQTT_X},${GATEWAY_Y - CORE_H / 2} V${MID + 18}`}></path>
+	<path
+		class="gwd__trace gwd__trace--mqtt"
+		d={`M${MQTT_X},${MID - 18} V${PLATFORM_Y + CORE_H / 2}`}
+		marker-end="url(#gwd-head-mqtt)"></path>
+
+	{/* ── Platform side: one rail, branched per outcome ── */}
+	<path class="gwd__trace gwd__trace--out" d={`M${CORE_R},${PLATFORM_Y} H${OUT_BUS}`}></path>
+	<path class="gwd__trace gwd__trace--out" d={`M${OUT_BUS},${first} V${last}`}></path>
+	{
+		rows.map(({ y }) => (
+			<path class="gwd__trace gwd__trace--out" d={`M${OUT_BUS},${y} H${OUT_X}`} marker-end="url(#gwd-head-out)" />
+		))
+	}
+	{inner.map((y) => <circle class="gwd__junction gwd__junction--out" cx={OUT_BUS} cy={y} r="5" />)}
+	<circle class="gwd__junction gwd__junction--out" cx={OUT_BUS} cy={PLATFORM_Y} r="5"></circle>
+
+	{/* ── Devices: icon only, no caption ── */}
+	{
+		rows.map(({ y }) => (
+			<>
+				<rect class="gwd__device" x={DEV_X} y={y - DEV_W / 2} width={DEV_W} height={DEV_W} rx="9" />
+				<Icon name="tabler:cpu" class="gwd__device-icon" x={DEV_X + 6} y={y - 12} width="24" height="24" />
+			</>
+		))
+	}
+
+	{/* ── Outcomes: each one named and pictured ── */}
+	{
+		rows.map(({ y, outcome }) => (
+			<>
+				<rect class="gwd__out" x={OUT_X} y={y - 21} width={OUT_W} height="42" rx="11" />
+				<Icon name={outcome.icon} class="gwd__out-icon" x={OUT_X + 13} y={y - 12} width="24" height="24" />
+				{/* prettier-ignore */}
+				<text class="gwd__out-label" x={OUT_X + 47} y={y}>{outcome.label}</text>
+			</>
+		))
+	}
+
+	{/* ── The two blocks that own the pipeline ── */}
+	<rect class="gwd__core gwd__core--platform" x={CORE_L} y={PLATFORM_Y - CORE_H / 2} width="160" height={CORE_H} rx="11"
+	></rect>
+	{/* prettier-ignore */}
+	<text class="gwd__core-label" x={MQTT_X} y={PLATFORM_Y}>ThingsBoard</text>
+
+	<rect class="gwd__core gwd__core--gateway" x={CORE_L} y={GATEWAY_Y - CORE_H / 2} width="160" height={CORE_H} rx="11"
+	></rect>
+	{/* prettier-ignore */}
+	<text class="gwd__core-label" x={MQTT_X} y={GATEWAY_Y}>IoT Gateway</text>
+
+	{/* ── The connections themselves: the loudest type on the board ── */}
+	{
+		rows.map(({ y, protocol }) => (
+			<>
+				{/* prettier-ignore */}
+				<text class="gwd__protocol" x={LABEL_X} y={y}>{protocol}</text>
+			</>
+		))
+	}
+	{/* prettier-ignore */}
+	<text class="gwd__protocol gwd__protocol--mqtt" x={MQTT_X} y={MID}>MQTT</text>
+</svg>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.gwd {
+		display: block;
+		width: 100%;
+		height: auto;
+
+		--gwd-in: #7b3fe4;
+		--gwd-mqtt: #1f9d55;
+		--gwd-out: #17181c;
+		--gwd-line: #dfe2ec;
+		--gwd-surface: #fff;
+	}
+
+	.gwd__grid-dot {
+		fill: rgba(15, 20, 40, 0.07);
+	}
+
+	// Fat, butt-capped, mitred: traces on a board, not arcs on a chart. Butt caps
+	// keep the line from poking past the point of a ribbon head.
+	.gwd__trace {
+		fill: none;
+		stroke-width: 4.5;
+		stroke-linecap: butt;
+		stroke-linejoin: miter;
+	}
+
+	.gwd__trace--in {
+		stroke: var(--gwd-in);
+	}
+
+	.gwd__trace--mqtt {
+		stroke: var(--gwd-mqtt);
+	}
+
+	.gwd__trace--out {
+		stroke: var(--gwd-out);
+	}
+
+	.gwd__junction--in,
+	.gwd__head--in {
+		fill: var(--gwd-in);
+	}
+
+	.gwd__head--mqtt {
+		fill: var(--gwd-mqtt);
+	}
+
+	.gwd__junction--out,
+	.gwd__head--out {
+		fill: var(--gwd-out);
+	}
+
+	.gwd__device {
+		fill: var(--gwd-surface);
+		stroke: var(--gwd-line);
+		stroke-width: 1.5;
+	}
+
+	.gwd__device-icon {
+		color: var(--gwd-in);
+	}
+
+	// Same treatment as the Hub's catalog tiles: no fill, one neutral hairline,
+	// black glyph. The colour on this side of the board is in the traces.
+	.gwd__out {
+		fill: none;
+		stroke: rgba(0, 0, 0, 0.14);
+		stroke-width: 1.5;
+	}
+
+	.gwd__out-icon {
+		color: var(--gwd-out);
+	}
+
+	.gwd__core {
+		stroke: none;
+	}
+
+	.gwd__core--platform {
+		fill: var(--gwd-out);
+	}
+
+	.gwd__core--gateway {
+		fill: var(--gwd-in);
+	}
+
+	text {
+		font-family: inherit;
+		dominant-baseline: central;
+	}
+
+	.gwd__protocol {
+		font-size: 21px;
+		font-weight: 700;
+		fill: var(--gwd-in);
+		text-anchor: middle;
+		letter-spacing: 0.01em;
+	}
+
+	// MQTT is TBMQ's protocol, so it carries TBMQ's colour.
+	.gwd__protocol--mqtt {
+		fill: var(--gwd-mqtt);
+	}
+
+	.gwd__core-label {
+		font-size: 18px;
+		font-weight: 700;
+		fill: #fff;
+		text-anchor: middle;
+	}
+
+	.gwd__out-label {
+		font-size: 17px;
+		font-weight: 500;
+		fill: var(--gwd-out);
+	}
+
+	:global([data-theme='dark']) .gwd {
+		--gwd-in: #a97cf5;
+		--gwd-mqtt: #4ecb87;
+		--gwd-out: #e6e8f0;
+		--gwd-line: rgba(255, 255, 255, 0.16);
+		--gwd-surface: transparent;
+	}
+
+	:global([data-theme='dark']) .gwd__grid-dot {
+		fill: rgba(255, 255, 255, 0.09);
+	}
+
+	:global([data-theme='dark']) .gwd__out {
+		stroke: rgba(255, 255, 255, 0.18);
+	}
+
+	// The platform block is filled with --gwd-out, which is light in dark mode.
+	:global([data-theme='dark']) .gwd__core--platform + .gwd__core-label {
+		fill: #14161d;
+	}
+</style>

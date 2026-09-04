@@ -1,0 +1,251 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import EcosystemCard from '@components/Landing/EcosystemCard.astro';
+import CliTerminal from '@components/Landing/CliTerminal.astro';
+import GatewayDiagram from '@components/Landing/GatewayDiagram.astro';
+import CardVideo from '@components/Landing/CardVideo.astro';
+import { homeEcosystem } from '@data/homeEcosystem';
+
+// Internal reference page: every ecosystem card in both formats, so a new one
+// can be checked against the set before it reaches a marketing page. Not linked
+// from anywhere and kept out of the index.
+
+type CardProps = Record<string, unknown>;
+
+// Ecosystem cards only. The deployment cards reuse this component but not its
+// logic — badge fill, corner glyph, tinted name — so they are checked on the
+// homepage, not here.
+// Library-only, deliberately not in homeEcosystem: the CLI is being drafted here
+// before any decision to put it on a marketing page.
+const cliCard: CardProps = {
+	name: 'ThingsBoard CLI',
+	label: 'Solutions as code',
+	description:
+		'Build and manage solutions from the terminal, then version, review and ship them to any environment. Drive it yourself, or let an AI agent drive it for you.',
+	icon: 'tabler:terminal-2',
+	href: '/docs/pe/user-guide/cli/',
+	accent: '#1c7ed6',
+	action: 'Read the CLI docs',
+};
+
+const all: { source: string; props: CardProps }[] = [
+	...homeEcosystem.map((c) => ({ source: 'homeEcosystem', props: c as unknown as CardProps })),
+	{ source: 'library only', props: cliCard },
+];
+
+// Visuals arrive one at a time; a card not named here shows the placeholder slot.
+const SLOT_VISUALS = ['ThingsBoard CLI', 'IoT Gateway', 'Trendz'];
+
+// Grouped by card, not by format: the point of the page is comparing one card's
+// two shapes, which is hard to do when they sit in different sections.
+const cards = all.map(({ source, props }) => ({
+	source,
+	name: props.name as string,
+	visual: SLOT_VISUALS.includes(props.name as string) ? (props.name as string) : null,
+	hasVisual: Boolean(props.videoWebm || props.tiles) || SLOT_VISUALS.includes(props.name as string),
+	// The plain card, stripped of anything that only exists to fill a second
+	// column, so the two shapes are a like-for-like comparison.
+	single: {
+		...props,
+		wide: false,
+		flipped: false,
+		tiles: undefined,
+		videoWebm: undefined,
+		videoMp4: undefined,
+		stores: undefined,
+	},
+	double: { ...props, wide: true },
+}));
+---
+
+<BaseLayout
+	title="Ecosystem card library"
+	description="Internal reference: every ecosystem card in one-wide and two-wide formats."
+	noIndex={true}
+>
+	<div class="lib">
+		<header class="lib__head">
+			<p class="lib__kicker">Internal reference</p>
+			<h1>Ecosystem card library</h1>
+			<p class="lib__lede">
+				Every card in the set, one row each: the one-wide shape beside the two-wide one, so a card can be judged against
+				itself rather than against its neighbours. Two-wide cards without artwork show a placeholder slot — those get
+				filled in one at a time.
+			</p>
+			<p class="lib__meta">
+				{cards.length} cards · {cards.filter((c) => c.hasVisual).length} with artwork ·{' '}
+				{cards.filter((c) => !c.hasVisual).length} awaiting artwork
+			</p>
+		</header>
+
+		{
+			cards.map((card) => (
+				<section class="lib__group">
+					<header class="lib__group-head">
+						<h2>{card.name}</h2>
+						<p class="lib__group-meta">
+							<span>{card.source}</span> ·{' '}
+							<span class:list={['lib__tag', card.hasVisual && 'lib__tag--done']}>
+								{card.hasVisual ? 'artwork' : 'placeholder'}
+							</span>
+						</p>
+					</header>
+
+					<div class="lib__pair">
+						<figure class="lib__item">
+							<EcosystemCard {...(card.single as any)} />
+							<figcaption>One-wide</figcaption>
+						</figure>
+
+						<figure class="lib__item">
+							{card.visual === 'ThingsBoard CLI' ? (
+								<EcosystemCard {...(card.double as any)}>
+									<CliTerminal />
+								</EcosystemCard>
+							) : card.visual === 'IoT Gateway' ? (
+								<EcosystemCard {...(card.double as any)}>
+									<GatewayDiagram />
+								</EcosystemCard>
+							) : card.visual === 'Trendz' ? (
+								<EcosystemCard {...(card.double as any)}>
+									<CardVideo
+										webm="https://video.thingsboard.io/trendz-hero-video.webm"
+										mp4="https://video.thingsboard.io/trendz-hero-video.mp4"
+										label="Trendz building a chart from device telemetry"
+									/>
+								</EcosystemCard>
+							) : (
+								<EcosystemCard {...(card.double as any)} />
+							)}
+							<figcaption>Two-wide</figcaption>
+						</figure>
+					</div>
+				</section>
+			))
+		}
+	</div>
+</BaseLayout>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.lib {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: $spacing-16 $spacing-5 $spacing-24;
+	}
+
+	.lib__head {
+		max-width: 60ch;
+		margin-bottom: $spacing-16;
+	}
+
+	.lib__kicker {
+		@include text-s;
+		margin: 0 0 $spacing-2;
+		font-weight: $font-weight-bold;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	h1 {
+		@include page-title;
+		margin: 0 0 $spacing-4;
+	}
+
+	h2 {
+		@include card-title;
+		margin: 0;
+	}
+
+	.lib__lede {
+		@include text-m;
+		margin: 0;
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	.lib__meta {
+		@include text-s;
+		margin: $spacing-4 0 0;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// One row per card: the one-wide shape at roughly the width it gets on the
+	// homepage, the two-wide one at twice that, so both are judged at true size.
+	.lib__group {
+		margin-bottom: $spacing-20;
+	}
+
+	.lib__group-head {
+		display: flex;
+		align-items: baseline;
+		gap: $spacing-3;
+		margin-bottom: $spacing-5;
+		padding-bottom: $spacing-2;
+		border-bottom: 1px solid var(--sl-color-hairline-light);
+	}
+
+	.lib__group-meta {
+		@include text-s;
+		margin: 0;
+		color: var(--color-text-secondary, #5b616e);
+
+		span {
+			font-family: $font-family-mono;
+			font-size: 0.9em;
+		}
+	}
+
+	.lib__pair {
+		display: grid;
+		grid-template-columns: 1fr 2fr;
+		gap: $spacing-5;
+		align-items: start;
+
+		// Below the card's own two-column breakpoint the pair would be two nearly
+		// identical stacks, so they go one under the other instead.
+		@include media-down(lg) {
+			grid-template-columns: 1fr;
+			gap: $spacing-10;
+		}
+	}
+
+	code {
+		padding: 1px 5px;
+		border-radius: 4px;
+		background: var(--sl-color-gray-6, #f2f3f7);
+		font-family: $font-family-mono;
+		font-size: 0.9em;
+	}
+
+	.lib__item {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	figcaption {
+		@include text-s;
+		margin-top: $spacing-3;
+		color: var(--color-text-secondary, #5b616e);
+
+		span {
+			font-family: $font-family-mono;
+			font-size: 0.9em;
+		}
+	}
+
+	.lib__tag {
+		padding: 1px 6px;
+		border-radius: 4px;
+		background: #fdf0e6;
+		color: #a04503;
+	}
+
+	.lib__tag--done {
+		background: #e7f5ec;
+		color: #1f8b4d;
+	}
+</style>

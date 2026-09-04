@@ -105,7 +105,6 @@ if (nameHighlight) {
 	style={`--accent: ${accent}${badgeFill ? `; --badge-fill: ${badgeFill}` : ''}`}
 >
 	<span class="ecosystem-card__badge" aria-hidden="true">
-		{cornerIcon && <Icon name={cornerIcon} class="ecosystem-card__corner" />}
 		{
 			icon.startsWith('tabler:') ? (
 				<Icon name={icon} class="ecosystem-card__icon ecosystem-card__icon--vector" />
@@ -122,8 +121,16 @@ if (nameHighlight) {
 		</p>
 		<h3 class="ecosystem-card__title">
 			{
-				// prettier-ignore
-				nameParts.map((part) => part.tint ? <span class="ecosystem-card__name-accent">{part.text}</span> : part.text)
+				nameParts.map((part) =>
+					part.tint ? (
+						<>
+							{cornerIcon && <Icon name={cornerIcon} class="ecosystem-card__title-icon" aria-hidden="true" />}
+							<span class="ecosystem-card__name-accent">{part.text}</span>
+						</>
+					) : (
+						part.text
+					)
+				)
 			}
 		</h3>
 		<p class="ecosystem-card__description">{description}</p>
@@ -167,6 +174,22 @@ if (nameHighlight) {
 						<span>{tile.label}</span>
 					</a>
 				))}
+			</div>
+		)
+	}
+
+	{
+		wide && Astro.slots.has('default') && (
+			<div class="ecosystem-card__visual">
+				<slot />
+			</div>
+		)
+	}
+
+	{
+		wide && !Astro.slots.has('default') && !videoWebm && !tiles && (
+			<div class="ecosystem-card__slot" aria-hidden="true">
+				<span>Visual</span>
 			</div>
 		)
 	}
@@ -274,8 +297,9 @@ if (nameHighlight) {
 			background-repeat: no-repeat;
 			// Mark to the bottom-left, deployment icon to the top-right: the two
 			// sit on a diagonal so neither crowds the other in a 72px square.
-			place-items: end start;
-			padding: 10px;
+			// The glyph has moved to the title, so the mark has the square to itself.
+			// No padding override: it then centres and sizes exactly as every other
+			// card's icon does, which is the point.
 		}
 
 		// Smaller than the ecosystem marks: this one shares the squircle with a
@@ -285,8 +309,8 @@ if (nameHighlight) {
 		// The mark asset is a true 44x44 square, so it fills its box rather than
 		// carrying the favicon's internal padding — it can run larger at the same
 		// optical size. Clearance to the corner glyph is checked below.
+		// Only the knockout differs from the base icon now.
 		.ecosystem-card__icon {
-			width: 85%;
 			filter: brightness(0) invert(1);
 		}
 
@@ -321,6 +345,18 @@ if (nameHighlight) {
 				0% 0,
 				0 0;
 		}
+	}
+
+	// Separator between the product name and the deployment: deliberately closer
+	// to the word it qualifies, and in that deployment's own colour.
+	.ecosystem-card__title-icon {
+		display: inline-block;
+		width: 0.82em;
+		height: 0.82em;
+		margin-left: 0.16em;
+		margin-right: 0.1em;
+		vertical-align: -0.08em;
+		color: var(--badge-fill);
 	}
 
 	.ecosystem-card__corner {
@@ -422,6 +458,19 @@ if (nameHighlight) {
 	// Two columns at desktop; the phone is anchored to the bottom and clipped by
 	// the card, so it reads as continuing past the edge rather than being cut.
 	.ecosystem-card--wide {
+		// The glow belongs to the two-wide format: a one-wide card is too small to
+		// hold it without the colour reading as a fill. Centre tracks the badge,
+		// which sits at 50% until the card actually splits into two columns.
+		--card-glow: var(--badge-fill, var(--accent));
+		--card-glow-x: 50%;
+
+		background-image: radial-gradient(
+			95% 105% at var(--card-glow-x) 0%,
+			color-mix(in srgb, var(--card-glow) 17%, transparent),
+			color-mix(in srgb, var(--card-glow) 7%, transparent) 42%,
+			transparent 84%
+		);
+
 		@include media-up(lg) {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
@@ -432,11 +481,36 @@ if (nameHighlight) {
 
 			// Badge centres over the text column, not the whole card — over the
 			// midpoint it would float between the copy and the phone, attached to
-			// neither.
+			// neither. The glow follows it.
+			--card-glow-x: 25%;
+
 			.ecosystem-card__badge {
 				left: 25%;
 			}
 		}
+	}
+
+	// A visual passed in from the page rather than built into the card — the escape
+	// hatch for one-off artwork that isn't worth a prop.
+	.ecosystem-card__visual {
+		align-self: center;
+		min-width: 0;
+	}
+
+	// Reserves the second column on a two-wide card that has no visual yet, so the
+	// format can be laid out before the artwork exists. Never appears on a card
+	// that carries a mockup or tiles.
+	.ecosystem-card__slot {
+		display: grid;
+		place-items: center;
+		min-height: 180px;
+		border: 1px dashed color-mix(in srgb, var(--card-glow) 45%, transparent);
+		border-radius: $radius-md;
+		background: color-mix(in srgb, var(--card-glow) 4%, transparent);
+		font-size: $font-size-sm;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: color-mix(in srgb, var(--card-glow) 70%, transparent);
 	}
 
 	// The clip belongs here, not on the card: `overflow: hidden` on the card was
@@ -534,19 +608,10 @@ if (nameHighlight) {
 	// Flipped mirror of the app card: visual first, copy second. `order` keeps the
 	// DOM in reading order — copy before the tile links — while swapping columns.
 	.ecosystem-card--flipped {
-		// A warm sweep rather than the categories' literal colours: soft pink into
-		// white into the Alarm Rules orange, all in the accent's family so the card
-		// reads as one surface instead of a swatch board. Stroke removed; the
-		// gradient gives it its edge.
-		border-color: transparent;
-		background-image: linear-gradient(
-			135deg,
-			rgba(255, 205, 216, 0.34) 0%,
-			rgba(255, 255, 255, 0.5) 48%,
-			rgba(255, 224, 189, 0.32) 100%
-		);
-
 		@include media-up(lg) {
+			// Glow follows the badge to the copy column.
+			--card-glow-x: 75%;
+
 			.ecosystem-card__body {
 				order: 2;
 			}
@@ -656,6 +721,10 @@ if (nameHighlight) {
 	}
 
 	.ecosystem-card__store {
+		// Lifted over the stretched card link — without this the regional sign-ups
+		// sit under it and can't be clicked.
+		position: relative;
+		z-index: 1;
 		display: inline-flex;
 		align-items: center;
 		height: 36px;

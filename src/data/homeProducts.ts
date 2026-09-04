@@ -10,6 +10,8 @@ export interface ProductChoice {
 	badgeFill: string;
 	/** Part of `name` tinted with `badgeFill` — the word that tells the two apart. */
 	nameHighlight?: string;
+	/** Regional sign-up links, where one product has more than one host. */
+	stores?: { label: string; href: string }[];
 	href: string;
 	action: string;
 	accent: string;
@@ -28,7 +30,13 @@ export const homeProducts: ProductChoice[] = [
 		badgeFill: '#3d50f5',
 		nameHighlight: 'Cloud',
 		href: '/products/paas/',
-		action: 'Start on Cloud',
+		action: "See what's included",
+		// Cloud is two regions with separate hosts, so there is no single sign-up
+		// URL — the reader picks where their data lives.
+		stores: [
+			{ label: 'Start in US', href: 'https://thingsboard.cloud/signup' },
+			{ label: 'Start in EU', href: 'https://eu.thingsboard.cloud/signup' },
+		],
 		accent: '#6e7481',
 	},
 	{

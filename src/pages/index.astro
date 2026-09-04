@@ -3,9 +3,7 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 import { Icon } from 'astro-icon/components';
 import CustomersLogo from '../components/Landing/CustomersLogo.astro';
 import Hero from '../components/Landing/Hero.astro';
-import Carousel from '@components/Carousel/Carousel.astro';
-import CarouselSlide from '@components/Carousel/CarouselSlide.astro';
-import DashboardSlide from '@components/Landing/DashboardSlide.astro';
+import DashboardShowcase from '@components/Landing/DashboardShowcase.astro';
 import { Products } from '@models/site.models';
 import IntroSection from '@components/Landing/IntroSection.astro';
 import FeatureTile from '@components/Landing/FeatureTile.astro';
@@ -143,55 +141,26 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 		<!-- Dashboard Description Section -->
 		<section id="dashboard_description">
 			<div class="main-div">
-				<div class="background" aria-hidden="true">
-					<div class="dashboards"></div>
-					<div class="small9"></div>
-					<div class="small10"></div>
-				</div>
 				<SectionHeader
-					title="Real-Time IoT Dashboards"
+					title="Build real-time IoT dashboards"
 					subtitle="Build the view your users need from 600+ widgets, and control devices from the same screen. No front-end work required."
 					align="left"
-				/>
-				<Carousel
-					showDots={true}
-					showArrows={true}
-					loop={true}
-					autoplay={true}
-					autoplayInterval={15000}
-					slideCount={homeCarouselItems.length}
-					ariaLabel="IoT dashboard examples"
 				>
-					{
-						homeCarouselItems.map((item, i) => (
-							<CarouselSlide index={i} total={homeCarouselItems.length}>
-								<DashboardSlide item={item} />
-							</CarouselSlide>
-						))
-					}
-				</Carousel>
-				<div class="view-all-link">
-					<a href="/products/">View all products</a>
-				</div>
+					<div class="view-all-link">
+						<a href="/use-cases/">Browse all use cases</a>
+					</div>
+				</SectionHeader>
+				<DashboardShowcase items={homeCarouselItems} interval={12000} />
 			</div>
 		</section>
 
 		<!-- Rule Engine Section -->
-		<RuleEngineSection />
+		{/* Hidden for now. */}
+		{false && <RuleEngineSection />}
 
 		<!-- Bottom Features Section -->
 		<section id="bottom-features">
 			<div class="main-div">
-				<div class="background hidden" aria-hidden="true">
-					<div class="bottom-features1"></div>
-					<div class="bottom-features2"></div>
-					<div class="small11"></div>
-					<div class="small12"></div>
-					<div class="bottom-features3"></div>
-					<div class="small13"></div>
-					<div class="small14"></div>
-					<div class="small15"></div>
-				</div>
 				<SectionHeader
 					title="ThingsBoard Features"
 					subtitle="What you get out of the box, before writing a line of code."
@@ -719,31 +688,59 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 		margin-bottom: $spacing-12;
 	}
 
-	// The two halves of the band carry the page's largest section titles; mobile
-	// keeps the mixin's own smaller step.
+	// The two halves of the band step up from section-title (40px) to page-title
+	// (48px), which carries its own mobile step.
 	#products .section-header__title,
 	#product-ecosystem .section-header__title {
-		@include media-up(md) {
-			font-size: 48px;
-			line-height: 56px;
-		}
+		@include page-title;
 	}
 
 	#bottom-features .section-header {
 		margin-bottom: 50px;
 	}
 
+	// The two deployments are one decision, so they read as one object: no gutter,
+	// a single shared edge, and rounding only where the pair meets the page.
 	.product-list {
-		// Same measure and gutter as the ecosystem grid below it.
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
-		gap: $spacing-5;
+		gap: 0;
 		width: 100%;
 		max-width: 960px;
 		margin: 0 auto;
 
+		> :first-child {
+			border-top-right-radius: 0;
+			border-bottom-right-radius: 0;
+		}
+
+		> :last-child {
+			border-top-left-radius: 0;
+			border-bottom-left-radius: 0;
+			// Collapses the two 1px borders on the seam into one.
+			margin-left: -1px;
+		}
+
+		// The lift would tear the seam open, so the pair stays put and the stroke
+		// and wash carry the hover instead. Raised so the coloured edge wins the
+		// seam it shares with its neighbour.
+		> :hover,
+		> :focus-within {
+			position: relative;
+			z-index: 1;
+			transform: none;
+		}
+
+		// Stacked, they are two objects again.
 		@include media-down(md) {
 			grid-template-columns: 1fr;
+			gap: $spacing-5;
+
+			> :first-child,
+			> :last-child {
+				border-radius: $radius-lg;
+				margin-left: 0;
+			}
 		}
 	}
 
@@ -789,32 +786,40 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 
 	// Dashboard section
 	#dashboard_description {
-		margin-top: 186px;
-		margin-bottom: $spacing-30;
+		margin-top: $spacing-16;
+		margin-bottom: $spacing-16;
 		background-color: var(--color-bg-light);
 
 		@include media-down(md) {
-			margin-top: $spacing-5;
-			margin-bottom: 60px;
+			margin-top: $spacing-8;
+			margin-bottom: $spacing-8;
 		}
 
+		// Same measure as the products, ecosystem and features grids, so the page
+		// keeps one left and right edge all the way down. Id doubled because the
+		// base rule lives in an @layer and sets 1400 — this has to outrank it
+		// wherever the layer lands in the cascade.
+		&#dashboard_description .main-div {
+			max-width: 960px;
+		}
+
+		.section-header {
+			margin-bottom: $spacing-8;
+		}
+
+		// Sits under the lede now, so it reads as part of the header rather than a
+		// footnote to the board.
 		.view-all-link {
-			text-align: center;
-			margin-top: $spacing-8;
+			margin-top: $spacing-4;
 
 			a {
-				font-size: $font-size-lg;
 				font-weight: $font-weight-medium;
-				color: #1a6fd4;
+				color: var(--color-primary, #{$color-brand});
 
 				&:hover {
 					text-decoration: underline;
 				}
 			}
-		}
-
-		.carousel-wrapper {
-			margin-top: $spacing-10;
 		}
 	}
 
@@ -833,119 +838,5 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 		width: 100%;
 		max-width: 960px;
 		margin-inline: auto;
-	}
-
-	// Decorative background base (shared by products, dashboard, bottom-features sections)
-	.background {
-		z-index: -1;
-		position: absolute;
-		top: 524px;
-		left: 50%;
-
-		div {
-			position: absolute;
-			transform: skewY(-6deg);
-			width: 436px;
-			height: 90px;
-		}
-
-		.products {
-			top: -590px;
-			width: 2560px;
-			height: 200px;
-			left: -1280px;
-			background-color: $color-primary-dark;
-		}
-
-		.small7 {
-			top: -742px;
-			left: 732px;
-			background-color: $color-brand;
-		}
-
-		.small8 {
-			top: -350px;
-			right: 736px;
-			border: 4px solid $color-brand;
-			background: transparent;
-		}
-
-		.dashboards {
-			top: -550px;
-			width: 2560px;
-			height: 845px;
-			left: -1280px;
-			background-color: var(--color-bg-light);
-		}
-
-		.small9 {
-			top: -653px;
-			left: 466px;
-			border: 4px solid $color-primary-darker;
-			background: transparent;
-		}
-
-		.small10 {
-			top: -708px;
-			left: 658px;
-			background-color: $color-brand;
-		}
-
-		.bottom-features1 {
-			top: -700px;
-			width: 2560px;
-			height: 3000px;
-			left: -1280px;
-			transform: none;
-			background-color: var(--color-bg-light);
-		}
-
-		.bottom-features2 {
-			top: -240px;
-			width: 2560px;
-			height: 525px;
-			left: -1280px;
-			background-color: $color-dark-alt;
-		}
-
-		.small11 {
-			top: -382px;
-			left: 757px;
-			background-color: $color-brand;
-		}
-
-		.small12 {
-			top: 334px;
-			right: 589px;
-			border: 4px solid $color-primary-dark;
-			background: transparent;
-		}
-
-		.bottom-features3 {
-			top: 1008px;
-			width: 2560px;
-			height: 525px;
-			left: -1280px;
-			background-color: $color-dark-alt;
-		}
-
-		.small13 {
-			top: 1071px;
-			right: 646px;
-			background-color: $color-primary-dark;
-		}
-
-		.small14 {
-			top: 1009px;
-			right: 408px;
-			background-color: $color-brand;
-		}
-
-		.small15 {
-			top: 1373px;
-			left: 830px;
-			border: 4px solid $color-brand;
-			background: transparent;
-		}
 	}
 </style>

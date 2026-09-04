@@ -49,7 +49,7 @@ export const homeEcosystem: EcosystemItem[] = [
 		accent: '#1f9d55',
 	},
 	{
-		name: 'ThingsBoard Edge',
+		name: 'Edge',
 		label: 'Edge computing',
 		description:
 			'Processes locally and keeps working offline, syncing to the cloud when the connection returns. Manage every remote node from one console.',
@@ -60,7 +60,7 @@ export const homeEcosystem: EcosystemItem[] = [
 		addOn: true,
 	},
 	{
-		name: 'Trendz Analytics',
+		name: 'Trendz',
 		label: 'Analytics & AI',
 		description:
 			'Predictive analytics, anomaly detection and forecasting. Explore your data without code using natural-language queries, and run AI agents over it.',
