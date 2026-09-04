@@ -1,113 +1,644 @@
 ---
 import SmartImage from '@components/SmartImage.astro';
+import { Icon } from 'astro-icon/components';
+
+// One cluster per category, reused from the IoT Hub's own hero artwork.
+import deviceCluster from '@root/assets/iot-hub/hero-device-cluster.svg';
+import solutionCluster from '@root/assets/iot-hub/hero-solution-template-cluster.svg';
+import widgetCluster from '@root/assets/iot-hub/hero-widget-cluster.svg';
+import calcCluster from '@root/assets/iot-hub/hero-calculated-field-cluster.svg';
+import alarmCluster from '@root/assets/iot-hub/hero-alarm-rule-cluster.svg';
+import ruleChainCluster from '@root/assets/iot-hub/hero-rule-chain-cluster.svg';
+
+const clusterBySlug: Record<string, { src: string }> = {
+	devices: deviceCluster,
+	'solution-templates': solutionCluster,
+	widgets: widgetCluster,
+	'calculated-fields': calcCluster,
+	'alarm-rules': alarmCluster,
+	'rule-chains': ruleChainCluster,
+};
 import { externalLinkAttrs } from '@util/external-links';
+
 interface Props {
-	/**
-	 * Product/feature name
-	 */
 	name: string;
-	/**
-	 * Short description
-	 */
+	/** Category line under the name. */
+	label: string;
 	description: string;
-	/**
-	 * Icon URL
-	 */
 	icon: string;
-	/**
-	 * Link URL
-	 */
 	href: string;
-	/**
-	 * Link text
-	 */
-	linkText?: string;
+	/** Label colour, passed per product. */
+	accent: string;
+	/** Names the destination — replaces the generic "Read more". */
+	action: string;
+	/** Fills the squircle and knocks the mark out white on top of it. */
+	badgeFill?: string;
+	/** Substring of `name` tinted with `badgeFill`. */
+	nameHighlight?: string;
+	/** Small line icon pinned to the squircle's top-right corner. */
+	cornerIcon?: string;
+	/** Sold as an add-on rather than core platform. */
+	addOn?: boolean;
+	/** Spans two columns and carries the phone mockup. */
+	wide?: boolean;
+	videoWebm?: string;
+	videoMp4?: string;
+	stores?: { label: string; href: string }[];
+	flipped?: boolean;
+	tiles?: { slug: string; label: string; href: string; color: string; icon: string }[];
 	class?: string;
 }
 
 const {
 	name,
+	label,
 	description,
 	icon,
 	href,
-	linkText = 'Read more',
+	accent,
+	action,
+	badgeFill,
+	nameHighlight,
+	cornerIcon,
+	addOn = false,
+	wide = false,
+	videoWebm,
+	videoMp4,
+	stores,
+	flipped = false,
+	tiles,
 	class: className = '',
 } = Astro.props;
+
+// Split the name so the distinguishing word can carry its badge's colour.
+// Throws rather than silently rendering a flat title if the copy changes.
+type NamePart = { text: string; tint?: boolean };
+
+let nameParts: NamePart[] = [{ text: name }];
+
+if (nameHighlight) {
+	const at = name.indexOf(nameHighlight);
+
+	if (at === -1) {
+		throw new Error(`EcosystemCard "${name}": no "${nameHighlight}" in the name to tint.`);
+	}
+
+	const before = name.slice(0, at);
+	const after = name.slice(at + nameHighlight.length);
+
+	nameParts = [
+		...(before ? [{ text: before }] : []),
+		{ text: nameHighlight, tint: true },
+		...(after ? [{ text: after }] : []),
+	];
+}
 ---
 
-<div class:list={['ecosystem-card', className]}>
-	<h3 class="ecosystem-card__title">{name}</h3>
-	<p class="ecosystem-card__description">{description}</p>
-	<SmartImage
-		src={icon}
-		alt={name}
-		class="ecosystem-card__icon"
-		loading="lazy"
-		width="100"
-		height="100"
-	/>
-	<a href={href} class="ecosystem-card__link" {...externalLinkAttrs(href)}>
-		{linkText}
-		<span class="visually-hidden">about ThingsBoard {name}</span>
-	</a>
+<div
+	class:list={[
+		'ecosystem-card',
+		wide && 'ecosystem-card--wide',
+		flipped && 'ecosystem-card--flipped',
+		badgeFill && 'ecosystem-card--product',
+		className,
+	]}
+	style={`--accent: ${accent}${badgeFill ? `; --badge-fill: ${badgeFill}` : ''}`}
+>
+	<span class="ecosystem-card__badge" aria-hidden="true">
+		{cornerIcon && <Icon name={cornerIcon} class="ecosystem-card__corner" />}
+		{
+			icon.startsWith('tabler:') ? (
+				<Icon name={icon} class="ecosystem-card__icon ecosystem-card__icon--vector" />
+			) : (
+				<SmartImage src={icon} alt="" class="ecosystem-card__icon" loading="lazy" width="96" height="96" />
+			)
+		}
+	</span>
+
+	<div class="ecosystem-card__body">
+		<p class="ecosystem-card__label">
+			{label}
+			{addOn && <span class="ecosystem-card__addon"> · Add-on</span>}
+		</p>
+		<h3 class="ecosystem-card__title">
+			{
+				// prettier-ignore
+				nameParts.map((part) => part.tint ? <span class="ecosystem-card__name-accent">{part.text}</span> : part.text)
+			}
+		</h3>
+		<p class="ecosystem-card__description">{description}</p>
+
+		<div class="ecosystem-card__actions">
+			<a href={href} class="ecosystem-card__link" {...externalLinkAttrs(href)}>
+				{action}
+				<span class="sr-only">— {name}</span>
+			</a>
+
+			{
+				stores && (
+					<div class="ecosystem-card__stores">
+						{stores.map((store) => (
+							<a class="ecosystem-card__store" href={store.href} {...externalLinkAttrs(store.href)}>
+								{store.label}
+							</a>
+						))}
+					</div>
+				)
+			}
+		</div>
+	</div>
+
+	{
+		tiles && (
+			<div class="ecosystem-card__clusters" aria-hidden="true">
+				{tiles.map((tile) => (
+					<img class="ecosystem-card__cluster" data-cat={tile.slug} src={clusterBySlug[tile.slug].src} alt="" />
+				))}
+			</div>
+		)
+	}
+
+	{
+		tiles && (
+			<div class="ecosystem-card__tiles">
+				{tiles.map((tile) => (
+					<a class="ecosystem-card__tile" data-cat={tile.slug} href={tile.href} style={`--tile: ${tile.color}`}>
+						<Icon name={tile.icon} class="ecosystem-card__tile-icon" aria-hidden="true" />
+						<span>{tile.label}</span>
+					</a>
+				))}
+			</div>
+		)
+	}
+
+	{
+		wide && videoWebm && (
+			<div class="ecosystem-card__mockup" aria-hidden="true">
+				<div class="ecosystem-card__phone">
+					{/* preload="none" + data-src: nothing is fetched until the card is
+					    near the viewport, which matters at 564 KB. */}
+					<video class="ecosystem-lazy-video" loop muted playsinline preload="none">
+						<source data-src={videoWebm} type="video/webm" />
+						<source data-src={videoMp4} type="video/mp4" />
+					</video>
+				</div>
+			</div>
+		)
+	}
 </div>
+
+<script>
+	// Same deferral the mobile pages use: load on approach, once.
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const io = new IntersectionObserver(
+		(entries, obs) => {
+			entries.forEach((entry) => {
+				if (!entry.isIntersecting) return;
+				const video = entry.target as HTMLVideoElement;
+				video.querySelectorAll<HTMLSourceElement>('source[data-src]').forEach((s) => {
+					s.src = s.dataset.src!;
+				});
+				video.load();
+				if (!reduce) video.play().catch(() => {});
+				obs.unobserve(video);
+			});
+		},
+		{ rootMargin: '300px' }
+	);
+	document.querySelectorAll<HTMLVideoElement>('video.ecosystem-lazy-video').forEach((v) => io.observe(v));
+</script>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
+	$badge: 72px;
+
 	.ecosystem-card {
-		color: var(--color-text);
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		// Leaves room for the badge to hang over the top edge without the first
+		// line of text riding up under it.
+		margin-top: calc($badge / 2);
+		padding: calc($badge / 2 + #{$spacing-5}) $spacing-5 $spacing-5;
+		border: 1px solid var(--sl-color-hairline-light);
+		border-radius: $radius-lg;
 		background-color: var(--color-bg-surface);
-		box-shadow: var(--shadow-lg);
-		border-radius: $radius-md;
-		padding: $spacing-10;
 		text-align: center;
-		min-width: 291px;
+		color: var(--color-text);
+	}
 
-		@include media-down(md) {
-			min-width: unset;
+	// App-style squircle straddling the top edge. `border-radius` in percent is
+	// the practical approximation — a true superellipse needs an SVG path or
+	// `corner-shape`, which isn't broadly supported yet.
+	.ecosystem-card__badge {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		display: grid;
+		place-items: center;
+		width: $badge;
+		height: $badge;
+		border-radius: 24%;
+		background-color: var(--color-bg-surface);
+		// Shadow alone lifts the badge off the card; a stroke as well read as two
+		// competing edges where the squircle overlaps the card's own border.
+		box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+	}
+
+	// Held short of the squircle's corner radius (24% of 72px ≈ 17px) so nothing
+	// pokes past the rounded edge — the badge deliberately doesn't clip, since
+	// clipping would cost the artwork rather than reveal the problem.
+	// Filled squircle: the mark is knocked out white so one asset serves both
+	// cards, with the corner icon carrying the difference.
+	.ecosystem-card--product {
+		.ecosystem-card__badge {
+			background-color: var(--badge-fill);
+			// Mark to the bottom-left, deployment icon to the top-right: the two
+			// sit on a diagonal so neither crowds the other in a 72px square.
+			place-items: end start;
+			padding: 6px;
 		}
 
-		&__title {
-			@include card-title;
-			margin-bottom: $spacing-4;
+		// Smaller than the ecosystem marks: this one shares the squircle with a
+		// corner icon, so it needs the room rather than filling the tile.
+		// The mark leads; the deployment glyph is a qualifier, so it stays small
+		// enough not to compete for the same 72px.
+		// The mark asset is a true 44x44 square, so it fills its box rather than
+		// carrying the favicon's internal padding — it can run larger at the same
+		// optical size. Clearance to the corner glyph is checked below.
+		.ecosystem-card__icon {
+			width: 65%;
+			filter: brightness(0) invert(1);
 		}
 
-		&__description {
-			font-size: $font-size-base;
-			color: var(--color-text);
-			margin: 0;
+		// A wash rather than a coloured edge — these two sit on a dark band and a
+		// bright stroke shouted against it.
+		// Stroke holds steady on hover; only the wash changes. Shape follows the
+		// docs pattern (SplitCard, DocHero): a low-saturation radial, oversized
+		// and anchored off-corner so the card catches its edge rather than
+		// sitting in the middle of a blob.
+		&:hover,
+		&:focus-within {
+			border-color: var(--sl-color-hairline-light);
+			background:
+				radial-gradient(color-mix(in srgb, var(--badge-fill) 13%, transparent), transparent 70%) no-repeat -10% -40% /
+					140% 260%,
+				var(--color-bg-surface);
 		}
+	}
 
-		&__icon {
-			display: block;
-			margin: 50px auto;
-			width: 32%;
-			max-width: 100px;
-			height: auto;
+	// Sits inside the squircle rather than overhanging it: without the white disc
+	// behind it, an overhanging glyph would cross onto the card and disappear.
+	.ecosystem-card__corner {
+		position: absolute;
+		top: 6px;
+		right: 6px;
+		width: 17px;
+		height: 17px;
+		color: #fff;
+	}
+
+	.ecosystem-card__icon {
+		width: 82%;
+		height: auto;
+	}
+
+	// Tabler glyphs carry their own padding inside a 24x24 viewBox, so they need a
+	// smaller box to land at the same optical size as the artwork icons.
+	.ecosystem-card__icon--vector {
+		width: 64%;
+		height: auto;
+		color: var(--accent);
+	}
+
+	// The word that tells the two deployments apart, tinted to its own badge.
+	// The word that tells the two deployments apart, tinted to its own badge. No
+	// fallback needed: on cards without --badge-fill this is invalid at
+	// computed-value time, which inherits the title's colour.
+	.ecosystem-card__name-accent {
+		color: var(--badge-fill);
+	}
+
+	.ecosystem-card__title {
+		margin: $spacing-1 0 $spacing-5;
+		font-size: $font-size-h4;
+		font-weight: $font-weight-bold;
+		line-height: 1.2;
+	}
+
+	.ecosystem-card__label {
+		margin: 0;
+		font-size: $font-size-xs;
+		font-weight: $font-weight-bold;
+		line-height: 1.2;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--accent);
+	}
+
+	// Add-on status rides on the type line rather than arriving as a badge: it is
+	// classification, and the classification already lives here. Muted, so the
+	// accent still reads first and this is skippable.
+	.ecosystem-card__addon {
+		color: #6e7481;
+		font-weight: $font-weight-medium;
+	}
+
+	.ecosystem-card__body {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	// Pinned to the foot so links line up across a row of unequal text lengths.
+	.ecosystem-card__actions {
+		margin-top: auto;
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-3;
+		align-items: center;
+	}
+
+	.ecosystem-card__description {
+		margin: 0 0 $spacing-5;
+		font-size: $font-size-sm;
+		line-height: 1.55;
+		text-wrap: pretty;
+		// Keeps the measure readable even when a card is given a wide column.
+		max-width: 42ch;
+		margin-inline: auto;
+	}
+
+	// Pinned to the bottom so the links line up across cards of unequal height.
+	.ecosystem-card__link {
+		font-weight: $font-weight-medium;
+		color: var(--accent);
+		text-decoration: none;
+
+		&:hover,
+		&:focus-visible {
+			text-decoration: underline;
+			text-underline-offset: 3px;
 		}
+	}
 
-		&__link {
-			@include action-link;
-			color: #1a6fd4;
-			text-decoration: none;
+	// ── Double-wide variant: the section's key visual ──────────────
+	// Two columns at desktop; the phone is anchored to the bottom and clipped by
+	// the card, so it reads as continuing past the edge rather than being cut.
+	.ecosystem-card--wide {
+		@include media-up(lg) {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			// `stretch` lets the body run the card's full height so its actions can
+			// reach the foot; the copy still starts at the top of that column.
+			align-items: stretch;
+			gap: $spacing-5;
 
-			&:hover {
-				text-decoration: underline;
+			// Badge centres over the text column, not the whole card — over the
+			// midpoint it would float between the copy and the phone, attached to
+			// neither.
+			.ecosystem-card__badge {
+				left: 25%;
 			}
 		}
 	}
 
-	// Visually hidden helper for accessibility
-	.visually-hidden {
+	// The clip belongs here, not on the card: `overflow: hidden` on the card was
+	// also cutting the badge that straddles its top edge. The fixed height decides
+	// how much phone shows, and therefore how tall the card is.
+	.ecosystem-card__mockup {
+		position: relative;
+		align-self: end;
+		height: 250px;
+		overflow: hidden;
+		margin-bottom: calc(-1 * #{$spacing-5});
+	}
+
+	// Frame art sets the aspect; the video sits in the screen cut-out. Percentages
+	// match the iPhone frame used on the mobile pages.
+	.ecosystem-card__phone {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 240px;
+		// `aspect-ratio` resolves against this element; a percentage `padding-top`
+		// would resolve against the grid cell instead and skew the frame.
+		aspect-ratio: 480 / 1039;
+		background-image: url(/images/mobile/iphone12promax-frame.png);
+		background-size: 100% auto;
+		background-repeat: no-repeat;
+
+		video {
+			position: absolute;
+			top: 2.15%;
+			left: 5.25%;
+			width: 89.6%;
+			border-radius: 4%;
+		}
+	}
+
+	// Whole-card hit area for the single-destination cards. The link keeps the
+	// accessible name — stretching a pseudo-element beats wrapping everything in
+	// an <a>, which would read the entire description aloud as the link text.
+	//
+	// The wide card is excluded on purpose: it has three destinations, so a
+	// card-wide link would sit invisibly on top of two visible ones.
+	.ecosystem-card:not(.ecosystem-card--wide) {
+		cursor: pointer;
+		transition:
+			border-color 0.18s ease,
+			box-shadow 0.18s ease,
+			transform 0.18s ease;
+
+		.ecosystem-card__link::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+		}
+
+		&:hover,
+		&:focus-within {
+			// Fill stays white; the stroke carries the colour.
+			border-color: var(--accent);
+			box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+			transform: translateY(-2px);
+
+			.ecosystem-card__link {
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ecosystem-card:not(.ecosystem-card--wide) {
+			transition: none;
+
+			&:hover,
+			&:focus-within {
+				transform: none;
+			}
+		}
+	}
+
+	// Flipped mirror of the app card: visual first, copy second. `order` keeps the
+	// DOM in reading order — copy before the tile links — while swapping columns.
+	.ecosystem-card--flipped {
+		// A warm sweep rather than the categories' literal colours: soft pink into
+		// white into the Alarm Rules orange, all in the accent's family so the card
+		// reads as one surface instead of a swatch board. Stroke removed; the
+		// gradient gives it its edge.
+		border-color: transparent;
+		background-image: linear-gradient(
+			135deg,
+			rgba(255, 205, 216, 0.34) 0%,
+			rgba(255, 255, 255, 0.5) 48%,
+			rgba(255, 224, 189, 0.32) 100%
+		);
+
+		@include media-up(lg) {
+			.ecosystem-card__body {
+				order: 2;
+			}
+
+			// Hovering a category throws its own hero cluster across the card. `:has()`
+			// keeps this in CSS — no JS, and the artwork is the Hub's, not an imitation.
+			.ecosystem-card__clusters {
+				position: absolute;
+				inset: 0;
+				overflow: hidden;
+				border-radius: inherit;
+				pointer-events: none;
+				z-index: 0;
+			}
+
+			.ecosystem-card__cluster {
+				position: absolute;
+				right: 0;
+				bottom: 0;
+				width: 100%;
+				height: auto;
+				opacity: 0;
+				transition: opacity 0.28s ease;
+			}
+
+			@each $cat in devices, solution-templates, widgets, calculated-fields, alarm-rules, rule-chains {
+				.ecosystem-card--flipped:has(.ecosystem-card__tile[data-cat='#{$cat}']:hover)
+					.ecosystem-card__cluster[data-cat='#{$cat}'],
+				.ecosystem-card--flipped:has(.ecosystem-card__tile[data-cat='#{$cat}']:focus-visible)
+					.ecosystem-card__cluster[data-cat='#{$cat}'] {
+					opacity: 0.22;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.ecosystem-card__cluster {
+					transition: none;
+				}
+			}
+
+			.ecosystem-card__tiles {
+				order: 1;
+			}
+
+			// Badge follows the copy to the right-hand column.
+			.ecosystem-card__badge {
+				left: 75%;
+			}
+		}
+	}
+
+	.ecosystem-card__tiles {
+		position: relative;
+		z-index: 1;
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: $spacing-2;
+		align-content: center;
+	}
+
+	// Colour is the stroke, not the fill, so the label carries the tile instead of
+	// competing with a block of pastel behind it.
+	// Icon over label, centred. On a gradient the tiles need their own ground or
+	// the colours behind them muddy the type.
+	.ecosystem-card__tile {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: $spacing-1;
+		min-height: 78px;
+		padding: $spacing-3 $spacing-2;
+		// Colour lives in the card's gradient now; the tiles stay neutral so six of
+		// them in a grid don't read as six unrelated things.
+		border: 1px solid rgba(0, 0, 0, 0.14);
+		border-radius: $radius-md;
+		background-color: transparent;
+		color: var(--color-text);
+		font-size: $font-size-xs;
+		font-weight: $font-weight-medium;
+		line-height: 1.25;
+		text-align: center;
+		text-decoration: none;
+		transition:
+			background-color 0.15s ease,
+			border-color 0.15s ease,
+			transform 0.15s ease;
+
+		&:hover,
+		&:focus-visible {
+			border-color: rgba(0, 0, 0, 0.3);
+			background-color: rgba(255, 255, 255, 0.6);
+			transform: translateY(-2px);
+		}
+	}
+
+	.ecosystem-card__tile-icon {
+		width: 28px;
+		height: 28px;
+		color: var(--color-text);
+	}
+
+	.ecosystem-card__stores {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-2;
+	}
+
+	.ecosystem-card__store {
+		display: inline-flex;
+		align-items: center;
+		height: 36px;
+		padding: 0 14px;
+		border: 1px solid var(--sl-color-hairline-light);
+		border-radius: $radius-md;
+		font-size: $font-size-sm;
+		font-weight: $font-weight-medium;
+		color: var(--accent);
+		text-decoration: none;
+		transition:
+			background-color 0.15s ease,
+			border-color 0.15s ease;
+
+		&:hover,
+		&:focus-visible {
+			border-color: var(--accent);
+			background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+		}
+	}
+
+	.sr-only {
 		position: absolute;
 		width: 1px;
 		height: 1px;
 		padding: 0;
-		margin: -1px;
 		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
+		clip-path: inset(50%);
 		white-space: nowrap;
-		border: 0;
 	}
 </style>

@@ -1,0 +1,170 @@
+---
+import { Icon } from 'astro-icon/components';
+
+interface DocLink {
+	term: string;
+	href: string;
+}
+
+interface Props {
+	icon: string;
+	title: string;
+	description: string;
+	href: string;
+	links?: DocLink[];
+}
+
+const { icon, title, description, href, links = [] } = Astro.props;
+
+// Split the description around each linked term. Throws rather than silently
+// dropping a link when a term no longer appears in the copy.
+type Segment = { text: string; href?: string };
+
+let segments: Segment[] = [{ text: description }];
+
+for (const link of links) {
+	const next: Segment[] = [];
+	let matched = false;
+
+	for (const segment of segments) {
+		const at = segment.href ? -1 : segment.text.indexOf(link.term);
+
+		if (at === -1 || matched) {
+			next.push(segment);
+			continue;
+		}
+
+		if (at > 0) next.push({ text: segment.text.slice(0, at) });
+		next.push({ text: link.term, href: link.href });
+		const rest = segment.text.slice(at + link.term.length);
+		if (rest) next.push({ text: rest });
+		matched = true;
+	}
+
+	if (!matched) {
+		throw new Error(`FeatureTile "${title}": no "${link.term}" in the description to link.`);
+	}
+
+	segments = next;
+}
+---
+
+<div class="feature-tile">
+	<Icon name={icon} class="feature-tile__icon" aria-hidden="true" />
+	<h3 class="feature-tile__title">
+		<a class="feature-tile__link" href={href}>{title}</a>
+	</h3>
+	<p class="feature-tile__description">
+		{
+			// prettier-ignore
+			segments.map((segment) => segment.href ? <a class="feature-tile__doc" href={segment.href}>{segment.text}</a> : segment.text)
+		}
+	</p>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Between the hub's category tiles and the ecosystem cards: enough room for a
+	// line of explanation, not enough to compete with the products above.
+	.feature-tile {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-2;
+		padding: $spacing-5;
+		border: 1px solid var(--sl-color-hairline-light);
+		border-radius: $radius-lg;
+		background-color: var(--color-bg-surface);
+		color: var(--color-text);
+		transition:
+			border-color 0.15s ease,
+			transform 0.15s ease;
+
+		&:hover,
+		&:focus-within {
+			border-color: rgba(0, 0, 0, 0.3);
+			transform: translateY(-2px);
+		}
+	}
+
+	// Black and solid — the identification is the icon's job here, since there is
+	// no room for an accent colour system across sixteen tiles.
+	.feature-tile__icon {
+		width: 28px;
+		height: 28px;
+		color: var(--color-text);
+	}
+
+	.feature-tile__title {
+		margin: $spacing-1 0 0;
+		font-size: $font-size-base;
+		font-weight: $font-weight-bold;
+		line-height: 1.25;
+	}
+
+	// Stretched over the whole tile, so the card stays one big target without the
+	// accessible name swallowing the description.
+	.feature-tile__link {
+		color: inherit;
+		text-decoration: none;
+		text-underline-offset: 2px;
+		transition: color 0.15s ease;
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+		}
+	}
+
+	.feature-tile__description {
+		margin: 0;
+		font-size: $font-size-sm;
+		line-height: 1.45;
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	// Lifted above the stretched link so the deeper article stays reachable.
+	.feature-tile__doc {
+		position: relative;
+		z-index: 1;
+		color: inherit;
+		text-decoration: none;
+		text-underline-offset: 2px;
+		transition: color 0.15s ease;
+	}
+
+	// The card hovers as one thing, so every link inside it admits to being a link
+	// at the same moment.
+	.feature-tile:hover .feature-tile__link,
+	.feature-tile:hover .feature-tile__doc,
+	.feature-tile:focus-within .feature-tile__link,
+	.feature-tile:focus-within .feature-tile__doc {
+		text-decoration: underline;
+		text-decoration-color: rgba(0, 0, 0, 0.35);
+	}
+
+	// Pointing at one in particular lights that one. The title is keyed to its
+	// heading box, not to the anchor — the anchor's hit area is the whole card.
+	.feature-tile__title:hover .feature-tile__link,
+	.feature-tile__link:focus-visible,
+	.feature-tile__doc:hover,
+	.feature-tile__doc:focus-visible {
+		color: var(--color-primary, #{$color-brand});
+		text-decoration-color: currentColor;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.feature-tile {
+			transition: none;
+
+			&:hover,
+			&:focus-within {
+				transform: none;
+			}
+		}
+	}
+</style>
