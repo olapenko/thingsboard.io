@@ -255,10 +255,27 @@ if (nameHighlight) {
 	.ecosystem-card--product {
 		.ecosystem-card__badge {
 			background-color: var(--badge-fill);
+			// Two layers on the fill: a highlight that sweeps across on hover, and a
+			// static sheen off the top-left. Driven as backgrounds rather than a
+			// pseudo-element because backgrounds are clipped by the squircle's own
+			// radius — so the badge still shows any artwork that outgrows it, which
+			// `overflow: hidden` would have hidden instead.
+			background-image:
+				linear-gradient(100deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0.42) 50%, rgba(255, 255, 255, 0) 62%),
+				linear-gradient(150deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
+			// Sweep layer is 2.5x wide and parked past the left edge; only its
+			// position animates.
+			background-size:
+				250% 100%,
+				100% 100%;
+			background-position:
+				100% 0,
+				0 0;
+			background-repeat: no-repeat;
 			// Mark to the bottom-left, deployment icon to the top-right: the two
 			// sit on a diagonal so neither crowds the other in a 72px square.
 			place-items: end start;
-			padding: 6px;
+			padding: 10px;
 		}
 
 		// Smaller than the ecosystem marks: this one shares the squircle with a
@@ -269,19 +286,21 @@ if (nameHighlight) {
 		// carrying the favicon's internal padding — it can run larger at the same
 		// optical size. Clearance to the corner glyph is checked below.
 		.ecosystem-card__icon {
-			width: 65%;
+			width: 85%;
 			filter: brightness(0) invert(1);
 		}
 
-		// A wash rather than a coloured edge — these two sit on a dark band and a
-		// bright stroke shouted against it.
-		// Stroke holds steady on hover; only the wash changes. Shape follows the
-		// docs pattern (SplitCard, DocHero): a low-saturation radial, oversized
-		// and anchored off-corner so the card catches its edge rather than
-		// sitting in the middle of a blob.
+		// Stroke takes the card's own colour on hover, over a low-saturation wash.
+		// Shape follows the docs pattern (SplitCard, DocHero): oversized radial,
+		// anchored off-corner so the card catches its edge rather than sitting in
+		// the middle of a blob.
+		&:hover .ecosystem-card__badge,
+		&:focus-within .ecosystem-card__badge {
+			animation: badge-shimmer 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+
 		&:hover,
 		&:focus-within {
-			border-color: var(--sl-color-hairline-light);
 			background:
 				radial-gradient(color-mix(in srgb, var(--badge-fill) 13%, transparent), transparent 70%) no-repeat -10% -40% /
 					140% 260%,
@@ -291,12 +310,25 @@ if (nameHighlight) {
 
 	// Sits inside the squircle rather than overhanging it: without the white disc
 	// behind it, an overhanging glyph would cross onto the card and disappear.
+	@keyframes badge-shimmer {
+		from {
+			background-position:
+				100% 0,
+				0 0;
+		}
+		to {
+			background-position:
+				0% 0,
+				0 0;
+		}
+	}
+
 	.ecosystem-card__corner {
 		position: absolute;
 		top: 6px;
 		right: 6px;
-		width: 17px;
-		height: 17px;
+		width: 22px;
+		height: 22px;
 		color: #fff;
 	}
 
@@ -475,7 +507,20 @@ if (nameHighlight) {
 		}
 	}
 
+	// The shared card-hover rule above is also (0,3,0) and paints the stroke with
+	// --accent, which is grey on these two. Same weight, stated after it, so this
+	// wins — the deployment cards take their own colour.
+	.ecosystem-card--product:not(.ecosystem-card--wide):hover,
+	.ecosystem-card--product:not(.ecosystem-card--wide):focus-within {
+		border-color: var(--badge-fill);
+	}
+
 	@media (prefers-reduced-motion: reduce) {
+		.ecosystem-card--product:hover .ecosystem-card__badge,
+		.ecosystem-card--product:focus-within .ecosystem-card__badge {
+			animation: none;
+		}
+
 		.ecosystem-card:not(.ecosystem-card--wide) {
 			transition: none;
 
