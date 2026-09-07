@@ -18,11 +18,48 @@
 // independently, so it is gone from the components either way.
 // =============================================================================
 
-// 1400 -> 1200. One override covers the body: every section shares `.main-div`.
-// The hero sits outside it and keeps bleeding full width. The text-led sections
-// cap their own content at 960 inside this, which is left alone.
+@use 'variables' as *;
+
+// TWO MEASURES, and the narrow one is the default.
+//
+// This used to be a single `max-width: 1200px !important`, which made wide the
+// default and left every narrow section fighting for its own cap — and losing:
+// the `!important` was silently beating three deliberate 960 caps in index.astro
+// (footer, intro, dashboards), so the dashboards section rendered 1160 against
+// its own commit. Inverting it means the wide measure is something a section has
+// to ask for, which is what was actually intended.
+//
+// The declared numbers carry `@include container`'s 20px of side padding, so
+// they are 40 more than the measure they produce:
+//
+//   1000 -> 960 content, left edge 240   the default
+//   1200 -> 1160 content, left edge 140  the rows, below
+//
+// 960 is the measure the card grids, the feature tiles and the bookend already
+// used, so nothing that was already on that line moves. `@layer landing` sets
+// 1400 on `section .main-div`; these are unlayered, so they win on origin rather
+// than on specificity and need no `!important` to do it.
+//
+// The hero is outside `.main-div` entirely — a 480px split pane — and keeps its
+// own geometry, along with the full-bleed stripes and band fills.
 .main-div {
-	max-width: 1200px !important;
+	max-width: 1000px;
+}
+
+// The one wide exception. These three are the only blocks where the width does
+// measurable work: they are two-column compositions, and four of their five
+// media panels are width-driven — the `#manage` pair fills its 673px box exactly,
+// and `#react`'s architecture diagram is already upscaled 8% past its 624px
+// native at that size. At the 960 measure the panel drops to 433 (920 - 415 text
+// - 72 gap), a 36% loss on screenshots that have UI labels in them.
+//
+// The dashboards showcase is deliberately NOT here: it is centred, so its edge
+// carries no composition, and keeping it narrow buys four consecutive sections on
+// one line. It costs that screenshot 60% -> 48% of native.
+#manage .main-div,
+#scada .main-div,
+#react .main-div {
+	max-width: 1200px;
 }
 
 #overflow {
@@ -54,43 +91,63 @@
 #manage .block,
 #scada .block,
 #react .block {
-	justify-content: flex-start !important;
-	gap: 72px;
-
-	// One fixed strip per row, so the rhythm is uniform instead of inflated by
-	// whatever media each row holds — content-driven heights measured 725 / 807 /
-	// 694. The air lives INSIDE the strip, which is what lets the seams close.
-	height: var(--tb-strip-h) !important;
-	align-items: center;
-	box-sizing: border-box;
-	// A floor, not the height: it only keeps text off the edge if --tb-strip-h
-	// is dialled further down.
-	padding-block: 60px;
-
 	// These margins were white ribbons between the strips — 80/30 under Collect
 	// and visualize, 100 before Process and React, 300 before Microservices, 100
 	// after it. None separated anything the strips don't, and the 300 was the
-	// largest piece of dead space on the page.
+	// largest piece of dead space on the page. True at every width, so it stays
+	// outside the query below.
 	margin-block: 0 !important;
 
-	> .feature-des {
-		flex: 0 1 46ch;
-		max-width: 46ch;
+	// Below lg the rows stack and each one's height is its own content, so this
+	// padding is the only thing holding a stripe off it. Without it the seams
+	// measure 0 and a coloured row's last image butts straight against the next
+	// row's colour — the row margins this file removes were doing that job here,
+	// even though on desktop they were only ever white ribbons. Same 60 as the
+	// desktop floor, so the stripes read the same at every width.
+	@include media-down(lg) {
+		padding-block: 60px;
+		box-sizing: border-box;
 	}
 
-	// The media half absorbs what's left. `min-width: 0` because flex items
-	// default to `min-width: auto`, and a wide SVG would otherwise refuse to
-	// shrink and push the row past its container.
-	//
-	// It is also free to be TALLER than the strip: `align-items: center` centres
-	// it on the midline and lets it break out symmetrically. `z-index` lifts it
-	// over the strips that follow, which would otherwise paint over it as later
-	// siblings.
-	> *:not(.feature-des) {
-		flex: 1 1 0;
-		min-width: 0;
-		position: relative;
-		z-index: 1;
+	// Everything else here describes a TWO-COLUMN row, and the components only
+	// go `flex-direction: row` at `lg`. Ungated, it was landing on the stacked
+	// layout too: `align-items: center` centred a 415px text box in a 728px
+	// column — putting the row copy on 176 while every heading and grid below it
+	// sat on 20, two extra edges out of nowhere — and the fixed 580px height was
+	// being applied to content that stacks to well over 580.
+	@include media-up(lg) {
+		justify-content: flex-start !important;
+		gap: 72px;
+
+		// One fixed strip per row, so the rhythm is uniform instead of inflated by
+		// whatever media each row holds — content-driven heights measured 725 / 807 /
+		// 694. The air lives INSIDE the strip, which is what lets the seams close.
+		height: var(--tb-strip-h) !important;
+		align-items: center;
+		box-sizing: border-box;
+		// A floor, not the height: it only keeps text off the edge if --tb-strip-h
+		// is dialled further down.
+		padding-block: 60px;
+
+		> .feature-des {
+			flex: 0 1 46ch;
+			max-width: 46ch;
+		}
+
+		// The media half absorbs what's left. `min-width: 0` because flex items
+		// default to `min-width: auto`, and a wide SVG would otherwise refuse to
+		// shrink and push the row past its container.
+		//
+		// It is also free to be TALLER than the strip: `align-items: center` centres
+		// it on the midline and lets it break out symmetrically. `z-index` lifts it
+		// over the strips that follow, which would otherwise paint over it as later
+		// siblings.
+		> *:not(.feature-des) {
+			flex: 1 1 0;
+			min-width: 0;
+			position: relative;
+			z-index: 1;
+		}
 	}
 }
 
@@ -107,8 +164,8 @@
 #react .block.dark {
 	position: relative;
 
-	// Full bleed: the row sits inside the 1200px `.main-div`, so the colour has
-	// to break out of it. `body` carries `overflow-x: clip`, so 100vw cannot
+	// Full bleed: the row sits inside the rows' 1200px `.main-div`, so the colour
+	// has to break out of it. `body` carries `overflow-x: clip`, so 100vw cannot
 	// introduce a horizontal scrollbar.
 	&::before {
 		content: '';
