@@ -1,0 +1,131 @@
+// =============================================================================
+// HOMEPAGE BODY — measure, row rhythm and the alternating strips.
+//
+// What survived reconciliation with the ecosystem-cards work. That branch
+// rebuilt everything below the alternating rows — Products and the ecosystem
+// share its own `.home-band`, the dashboards section became a tab set, the
+// feature grid became tiles — and it carries its own spacing scale, which is
+// the one the page now follows. So the band fills, card resets, ecosystem and
+// dashboards blocks that used to live here are gone: they belonged to a
+// structure that no longer exists.
+//
+// What is left is the part that branch never touched: the body measure and the
+// three alternating row sections.
+//
+// REVERT: delete the `@use '../styles/sections-flat';` line in index.astro.
+// That restores the 1400px measure and the rows' original margins. It does NOT
+// bring back the diagonal wedges — both lines deleted that markup
+// independently, so it is gone from the components either way.
+// =============================================================================
+
+// 1400 -> 1200. One override covers the body: every section shares `.main-div`.
+// The hero sits outside it and keeps bleeding full width. The text-led sections
+// cap their own content at 960 inside this, which is left alone.
+.main-div {
+	max-width: 1200px !important;
+}
+
+#overflow {
+	// The alternating strips. One number for all of them. The SCADA scheme is
+	// 631px — the tallest media on the page — so at 520 it breaks the band by
+	// ~55px top and bottom; every other row's media sits inside.
+	--tb-strip-h: 520px;
+
+	// The one seam left outside the ecosystem-cards scale: IntroSection pins
+	// `margin-bottom: 178px`, nearly three times the 64px that branch settles
+	// on everywhere else.
+	#intro {
+		margin-bottom: 64px !important;
+	}
+}
+
+// The alternating rows were a flex pair holding a fixed 600px text column with
+// `justify-content: space-between`, so every bit of slack landed in the middle:
+// the gaps measured 160, 160, 80, 160 and 191px. A heading and the screenshot it
+// describes sat up to 191px apart, which is what read as stretched.
+//
+// `flex-start` plus a fixed gap moves the slack out of the middle, and the text
+// column becomes its own measure rather than half the row — 600px ran body copy
+// to ~100 characters a line. `46ch` ties the cap to the type rather than the
+// container. Alternation still comes from DOM order: these rows swap which child
+// comes first, none of them uses `row-reverse`.
+#manage .block,
+#scada .block,
+#react .block {
+	justify-content: flex-start !important;
+	gap: 72px;
+
+	// One fixed strip per row, so the rhythm is uniform instead of inflated by
+	// whatever media each row holds — content-driven heights measured 725 / 807 /
+	// 694. The air lives INSIDE the strip, which is what lets the seams close.
+	height: var(--tb-strip-h) !important;
+	align-items: center;
+	box-sizing: border-box;
+	// A floor, not the height: it only keeps text off the edge if --tb-strip-h
+	// is dialled further down.
+	padding-block: 60px;
+
+	// These margins were white ribbons between the strips — 80/30 under Collect
+	// and visualize, 100 before Process and React, 300 before Microservices, 100
+	// after it. None separated anything the strips don't, and the 300 was the
+	// largest piece of dead space on the page.
+	margin-block: 0 !important;
+
+	> .feature-des {
+		flex: 0 1 46ch;
+		max-width: 46ch;
+	}
+
+	// The media half absorbs what's left. `min-width: 0` because flex items
+	// default to `min-width: auto`, and a wide SVG would otherwise refuse to
+	// shrink and push the row past its container.
+	//
+	// It is also free to be TALLER than the strip: `align-items: center` centres
+	// it on the midline and lets it break out symmetrically. `z-index` lifts it
+	// over the strips that follow, which would otherwise paint over it as later
+	// siblings.
+	> *:not(.feature-des) {
+		flex: 1 1 0;
+		min-width: 0;
+		position: relative;
+		z-index: 1;
+	}
+}
+
+// Each striped row draws its own stripe, bounded to its own box, so its content
+// is centred in it by construction. The three layers this replaced were
+// absolutely positioned at hardcoded offsets and bounded nothing: `main2` was
+// declared in #scada but ran 369px down into #react.
+//
+// Which rows are striped is unchanged — manage row 0 and scada row 0 light,
+// react row 0 dark. The two rows that were on white stay on white: their text is
+// dark, and colouring them would break it.
+#manage .block:not(.vis),
+#scada .block.scada,
+#react .block.dark {
+	position: relative;
+
+	// Full bleed: the row sits inside the 1200px `.main-div`, so the colour has
+	// to break out of it. `body` carries `overflow-x: clip`, so 100vw cannot
+	// introduce a horizontal scrollbar.
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 50%;
+		width: 100vw;
+		transform: translateX(-50%);
+		// Behind the row's own content, above the section.
+		z-index: -1;
+		// The primary-derived light, matching `.home-band` and the dashboards
+		// block: color-mix(in srgb, #3d50f5 5%, #fff).
+		background-color: #f5f6ff;
+	}
+}
+
+// color-mix(in srgb, #3d50f5 8%, #0f161d) — the footer's dark, warmed toward the
+// primary, rather than the neutral #252628 it replaced.
+#react .block.dark::before {
+	background-color: #131b2e;
+}

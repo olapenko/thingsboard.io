@@ -1,28 +1,37 @@
 ---
-import { mainNavItems, allSubmenus, type SubMenu, type SubMenuItem } from '@data/navigation';
+import { mainNavItems, allSubmenus, type NavItem, type SubMenu, type SubMenuItem } from '@data/navigation';
 import SubMenuLink from '@components/Landing/SubMenuLink.astro';
 
 interface Props {
 	/**
-	 * Homepage facelift: Docs moves to the end of the row and Pricing joins it,
-	 * the pair set off from the rest by a hairline rule.
+	 * Homepage facelift: IoT Hub and Docs move to the end of the row and Pricing
+	 * joins them, the group set off from the rest by a hairline rule.
 	 */
 	homeNav?: boolean;
 }
 
 const { homeNav = false } = Astro.props;
 
-const docsItem = mainNavItems.find((item) => item.label === 'Docs');
-const navItems = homeNav
+// Leave the main run and regroup after the hairline, in this order. Pricing has
+// no mainNavItems entry — every other header renders it as a button instead —
+// so it is appended rather than pulled out.
+const trailingLabels = ['IoT Hub', 'Docs'];
+const trailing = trailingLabels
+	.map((label) => mainNavItems.find((item) => item.label === label))
+	.filter((item): item is NavItem => Boolean(item));
+
+const navItems: NavItem[] = homeNav
 	? [
-			...mainNavItems.filter((item) => item.label !== 'Docs'),
-			...(docsItem ? [docsItem] : []),
-			{ label: 'Pricing', href: '/pricing/' },
+			...mainNavItems.filter((item) => !trailingLabels.includes(item.label)),
+			...trailing,
+			// Carries the id and class the button form has on every other page, so
+			// moving Pricing into the nav doesn't drop it out of analytics.
+			{ label: 'Pricing', href: '/pricing/', gtmId: 'Menu_Pricing' },
 		]
 	: mainNavItems;
 
-// The rule sits before the trailing Docs + Pricing pair.
-const groupStartIndex = homeNav ? navItems.length - 2 : -1;
+// The rule sits before the regrouped items; +1 covers the appended Pricing.
+const groupStartIndex = homeNav ? navItems.length - (trailing.length + 1) : -1;
 ---
 
 <nav class="head-menu">
@@ -38,8 +47,8 @@ const groupStartIndex = homeNav ? navItems.length - 2 : -1;
 				>
 					{item.href ? (
 						<a
-							class="main-menu-link"
-							id={item.submenuId === 'nav-cases' ? 'use-cases-link' : undefined}
+							class:list={['main-menu-link', item.gtmId && 'gtm_button']}
+							id={item.submenuId === 'nav-cases' ? 'use-cases-link' : item.gtmId}
 							href={item.href}
 						>
 							{item.label}
@@ -350,6 +359,9 @@ const groupStartIndex = homeNav ? navItems.length - 2 : -1;
 			if (header?.classList.contains('opened-burger')) {
 				header.classList.remove('opened-burger');
 				unlockScroll();
+				// Crossing to desktop closes the drawer without going through
+				// Burger(), so reset the button's state here too.
+				document.querySelector('.burger')?.setAttribute('aria-expanded', 'false');
 			}
 			const targetSubMenus = document.querySelectorAll('nav.head-menu > ul > li > div');
 			targetSubMenus.forEach((el) => {
@@ -681,7 +693,13 @@ const groupStartIndex = homeNav ? navItems.length - 2 : -1;
 					text-align: center;
 				}
 
-				&:hover a {
+				// Both forms highlight from the same trigger — the whole li, not just
+				// the label text. Without the span here, dropdown parents (Products,
+				// Services, …) stayed unhighlighted over the li's 12px padding while
+				// plain links next to them lit up, so the row responded unevenly.
+				// Dark mode and the burger drawer already paired the two this way.
+				&:hover a,
+				&:hover span.main-menu-link {
 					color: var(--color-primary);
 				}
 			}
@@ -693,6 +711,15 @@ const groupStartIndex = homeNav ? navItems.length - 2 : -1;
 				font-size: 1rem;
 				font-weight: normal;
 				text-decoration: none;
+			}
+
+			// `currentColor` so one rule serves the dark homepage bar and the light
+			// docs/marketing bars alike, the way .region-signin's border does.
+			a:focus-visible,
+			span.main-menu-link:focus-visible {
+				outline: 2px solid currentColor;
+				outline-offset: 3px;
+				border-radius: 2px;
 			}
 
 			a:not([href]),

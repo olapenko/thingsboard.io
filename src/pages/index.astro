@@ -23,24 +23,27 @@ import { heroLcpPreload } from '@util/lcp-preload';
 
 // Passed to both <Hero> and the preload, so the <link> can't name a file the CSS
 // won't paint — which is also why backgroundImage isn't left to Hero's default.
+// One 16:9 asset at every width. tb-cover-mobile.webp is a 700x1080 portrait
+// crop, art-directed for the old full-bleed hero; the split layout's panel is
+// 16:9 everywhere, so that crop lost most of its height to `cover` and read as
+// a fragment of a dashboard. tb-cover.webp is exactly 1920x1080, so it fits the
+// panel with no crop at all.
 const HERO_BACKGROUND = '/images/hero/tb-cover.webp';
-const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 ---
 
 <BaseLayout
 	headerVariant="transparent"
 	forceLightTheme
-	title="ThingsBoard - The all-in-one IoT Platform"
+	title="ThingsBoard - The all-in-one IoT platform"
 	description="ThingsBoard is an open-source IoT platform for device management, data collection, processing, and visualization for your IoT projects."
 	customTitle={true}
-	preloadLcpImage={heroLcpPreload(HERO_BACKGROUND, HERO_BACKGROUND_MOBILE)}
+	preloadLcpImage={heroLcpPreload(HERO_BACKGROUND)}
 >
 	<!-- HERO -->
 	<Hero
 		product={Products.CE}
 		backgroundImage={HERO_BACKGROUND}
-		backgroundImageMobile={HERO_BACKGROUND_MOBILE}
-		title={['ThingsBoard', 'The all-in-one IoT Platform']}
+		title={['ThingsBoard', 'The all-in-one IoT platform']}
 		subtitle="White-labeled and multi-tenant, deployable on our cloud or inside your own network, with device management, data processing, and visualisation built in."
 		buttons={[
 			{
@@ -68,7 +71,7 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 			<span class="ua-kicker__label">Support Ukraine</span>
 		</a>
 
-		<p class="hero-note">
+		<p class="header-animation hero-note">
 			Evaluating for a large deployment?
 			<a href="/contact-us/">
 				Talk to an expert
@@ -178,6 +181,10 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 <style is:global lang="scss">
 	@use '../styles/landing';
 	@use '../styles/variables' as *;
+	// FLAT SECTIONS TRIAL — delete this one line to revert the homepage to the
+	// diagonal bands, card shadows and full-strength accents. See the file
+	// header in _sections-flat.scss for what it changes and why.
+	@use '../styles/sections-flat';
 
 	// --- Homepage facelift: menu height, primaries, secondaries, GitHub button ---
 
@@ -185,14 +192,53 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 		margin: 24px 0 0;
 		font-size: 14px;
 		line-height: 1.4;
-		color: #fff;
+		// Secondary: it sat at the same full white as .tb-sub-title, so a
+		// qualifying aside carried the weight of the hero's body copy. The link
+		// keeps its brighter 0.85 — it is the actionable half, and dimming an
+		// underlined link along with its label costs affordance rather than
+		// emphasis. Last in the reveal (nth-child(5) -> 1200ms), so it arrives
+		// after the buttons rather than alongside the headline.
+		color: rgba(255, 255, 255, 0.6);
+
+		// The `header-animation` class alone does nothing here: this paragraph is
+		// slotted into Hero, so it never receives Hero's scope hash and none of
+		// that component's `.header-animation` rules match it — measured as
+		// `animation-delay: 0s` and `opacity: 1` while the headline, subtitle and
+		// buttons all animated. The reveal is restated locally instead, picking up
+		// the stagger after the buttons' 900ms. `slideup-in` is emitted unscoped,
+		// so the keyframes themselves are shared rather than duplicated.
+		&.header-animation {
+			opacity: 0;
+			transform: translate3d(0, 45px, 0);
+			animation-name: slideup-in;
+			animation-duration: 600ms;
+			animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+			animation-fill-mode: forwards;
+			animation-delay: 1200ms;
+		}
+
+		// Authoring this reveal fresh, so it gets the guard the component's own
+		// sequence never had.
+		@media (prefers-reduced-motion: reduce) {
+			&.header-animation {
+				animation: none;
+				opacity: 1;
+				transform: none;
+			}
+		}
 
 		a {
-			display: inline-flex;
+			// Always its own line. Side by side only ever fitted at the widest
+			// columns, and the 8px that set the link off from the question became a
+			// stray indent the moment the note wrapped — the link hung in from the
+			// paragraph's left edge with nothing above it. Stacking retires the
+			// margin instead of tuning it per breakpoint. `fit-content` keeps the
+			// underline on the words rather than running the paragraph's width.
+			display: flex;
+			width: fit-content;
 			align-items: center;
 			gap: 2px;
-			// Set the link off from the question rather than letting it run on.
-			margin-left: 8px;
+			margin-top: 6px;
 			color: rgba(255, 255, 255, 0.85);
 			text-decoration: underline;
 			text-underline-offset: 3px;
@@ -229,6 +275,21 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 		transition-duration: 0.1s;
 	}
 
+	// The transparent bar gets a scrim rather than nothing. It spans both halves
+	// of the split hero — the black text column and the video panel — and over
+	// the footage the nav had no ground of its own, so its legibility changed
+	// with whatever frame was playing. 80% black reads as one continuous surface
+	// across both halves while the panel still shows through.
+	//
+	// Both guards match the Sign in and GitHub rules below: the scrolled bar has
+	// its own solid surface, and the open drawer is a light one, so neither wants
+	// black poured over it. Scoped to this page — the three product pages also
+	// use `transparent`, over a full-bleed image rather than a split panel, and
+	// changing their heroes was not asked for.
+	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-variant='transparent']) {
+		background-color: rgba(0, 0, 0, 0.8);
+	}
+
 	// `.logo--lg` in the header component resolves to `header .logo.logo--lg`,
 	// which ties with a plain `header.header .logo` — so match its class count
 	// and win on order rather than relying on it.
@@ -242,6 +303,19 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 
 		@media screen and (min-width: 1281px) and (max-width: 1599px) {
 			width: 160px;
+		}
+
+		// Phones: 175px put the wordmark shoulder to shoulder with the Menu
+		// button on a 375px screen. Height follows so the mark keeps its ratio
+		// inside the box — width drives `contain` at every one of these sizes.
+		@media screen and (max-width: 767px) {
+			width: 168px;
+			height: 48px;
+		}
+
+		@media screen and (max-width: 480px) {
+			width: 152px;
+			height: 44px;
 		}
 	}
 
@@ -316,8 +390,12 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 		font-size: 14px;
 	}
 
+	// Tighter than the 0.875rem default — four controls sit in this cluster. Set
+	// as the token so the bar and the open drawer cannot drift apart: the shared
+	// drawer rule used to restate the default, which widened every gap by 6px and
+	// made the cluster spread as it opened.
 	header.header .head-buttons {
-		gap: 8px;
+		--tb-cluster-gap: 8px;
 	}
 
 	// Different animal — a third-party widget rather than one of our buttons, so
@@ -326,13 +404,38 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 		margin-right: 10px;
 	}
 
+	// GitHubButton hides itself below 1120px, which suited a bar that dropped
+	// every control into the drawer at 1280. Now that the tablet bar keeps the
+	// account controls, the stars fit alongside them with room to spare, and on
+	// this page the count is part of the pitch. Scoped here rather than lowering
+	// the component's own breakpoint, which every other page shares.
+	@media screen and (min-width: 768px) and (max-width: 1119px) {
+		header.header .head-buttons .gh-wrap {
+			display: block;
+		}
+	}
+
 	// Only `.n-button.price` gets an explicit white on the transparent header, so
 	// the Sign in secondary inherited dark text and vanished over the hero.
 	header.header .region-signin summary {
 		font-size: 15px;
 	}
 
-	header.header:has([data-header-variant='transparent']) .region-signin summary {
+	// White only while the bar is actually transparent over the hero. Both guards
+	// are load-bearing, and each one covers a surface this white would otherwise
+	// be invisible against:
+	//   :not(.opened-burger)        — the drawer is a light surface
+	//   :not([data-header-scrolled]) — the scrolled bar flips to solid white
+	//
+	// The three states are now mutually exclusive by condition rather than by
+	// source order, which is what went wrong before: the two guards each add
+	// specificity, and with only the first of them this selector outweighed the
+	// [data-header-scrolled] rule below that had been winning on order alone.
+	// Ordering is no longer what keeps them apart, so adding a fourth state
+	// can't silently break the other three.
+	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-variant='transparent'])
+		.region-signin
+		summary {
 		color: #fff;
 	}
 
@@ -380,23 +483,30 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 	// GitHub button in its dark dress, to sit on the hero's black header. Same
 	// palette the component already ships behind [data-theme='dark'] — the
 	// homepage forces the light theme, so it never reaches it.
-	header.header .gh-button {
+	//
+	// Gated on the same two states as the Sign in white above, so the widget
+	// flips with the bar instead of staying dark on it: the scrolled header and
+	// the open drawer are both light surfaces, and a near-black pill with a
+	// black count sat on them as a hole. Nothing needs restating for the light
+	// case — dropping out of these selectors hands the widget back to the
+	// component's own default dress, which is the light one.
+	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-button {
 		background: #21262d;
 		border-color: #30363d;
 		color: #e6edf3;
 		box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
 	}
 
-	header.header .gh-button:hover {
+	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-button:hover {
 		border-color: #58a6ff;
 		color: #e6edf3;
 	}
 
-	header.header .gh-sep {
+	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-sep {
 		background-color: #30363d;
 	}
 
-	header.header .gh-count {
+	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-count {
 		background-color: #161b22;
 		color: #e6edf3;
 	}
@@ -419,19 +529,6 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 		h2 a,
 		h3 a {
 			color: $color-brand;
-		}
-
-		.scada-mode-selector {
-			background-color: rgba(61, 80, 245, 0.08);
-		}
-
-		.scada-mode-selector .mode.active {
-			background-color: $color-brand;
-		}
-
-		// Decorative dot in ManageSection, painted from the old $color-primary.
-		.small2 {
-			background-color: $color-brand;
 		}
 	}
 
@@ -519,6 +616,13 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 	#overflow h2 {
 		font-size: $font-size-4xl;
 		line-height: 1.2;
+	}
+
+	// Colour is scoped away from SectionHeader's titles: `#overflow h2` is
+	// (1,0,1) and outranked the component's own `--dark` rule, so every themed
+	// header on this page came out dark-on-dark. The component is authoritative
+	// for its own titles now; everything else keeps the darker heading colour.
+	#overflow h2:not(.section-header__title) {
 		color: var(--color-text);
 	}
 
@@ -649,7 +753,11 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 	.home-band {
 		position: relative;
 		isolation: isolate;
-		background: $color-bg-light;
+		// Primary-derived rather than the legacy cool grey $color-bg-light
+		// (#f7f9fc): color-mix(in srgb, #3d50f5 5%, #fff). Same value as the
+		// alternating strips and the dashboards block, so every light band on the
+		// page is one tint related to the brand.
+		background: #f5f6ff;
 
 		// Match the homepage primary rather than the pricing page's blue.
 		.pricing-bg {
@@ -788,7 +896,8 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 	#dashboard_description {
 		margin-top: $spacing-16;
 		margin-bottom: $spacing-16;
-		background-color: var(--color-bg-light);
+		// Same primary-derived light as .home-band and the strips.
+		background-color: #f5f6ff;
 
 		@include media-down(md) {
 			margin-top: $spacing-8;
@@ -826,7 +935,8 @@ const HERO_BACKGROUND_MOBILE = '/images/hero/tb-cover-mobile.webp';
 	// Bottom features section
 	#bottom-features {
 		padding-bottom: $spacing-20;
-		background-color: var(--color-bg-light);
+		// Same primary-derived light as the other two bands.
+		background-color: #f5f6ff;
 	}
 
 	#cards {

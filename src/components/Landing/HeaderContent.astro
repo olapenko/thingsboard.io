@@ -41,10 +41,19 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 	<a href="/" class:list={['logo', homeNav && 'logo--lg']} aria-label="Link to homepage"></a>
 	<div class="burger-group">
 		<HeaderIcons showSearch={showSearch} showThemeToggle={showThemeToggle} />
-		<button onclick="Burger()" class="burger" aria-label="Burger menu">
-			<Icon name="tabler:menu-2" class="icon-open" />
-			<Icon name="tabler:x" class="icon-close" />
-		</button>
+		{
+			/* Homepage puts Menu at the end of .head-buttons instead, so the whole
+			   cluster reads gh / Sign in / Try for free / Menu in one flex parent.
+			   Every other page keeps it here, in the bar beside the wordmark. */
+			!homeNav && (
+				<button onclick="Burger()" class="burger" aria-expanded="false">
+					<Icon name="tabler:menu-2" class="icon-open" aria-hidden="true" />
+					<Icon name="tabler:x" class="icon-close" aria-hidden="true" />
+					<span class="label-open">Menu</span>
+					<span class="label-close">Close</span>
+				</button>
+			)
+		}
 	</div>
 	{!homeNav && <GitHubButton platform={gitHubPlatform} />}
 </div>
@@ -93,6 +102,20 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 	<NButton id="Menu_TryItNow" href="/installations/" variant="filled" class="try gtm_button">
 		{homeNav ? 'Try for free' : 'Try it now'}
 	</NButton>
+	{
+		/* Menu last, so the cluster ends on the control that opens the drawer.
+		   Living inside .head-buttons rather than back in .logo-burger is what
+		   makes the order possible at all: flex `order` cannot interleave children
+		   of two different parents, and the burger used to sit in the other one. */
+		homeNav && (
+			<button onclick="Burger()" class="burger" aria-expanded="false">
+				<Icon name="tabler:menu-2" class="icon-open" aria-hidden="true" />
+				<Icon name="tabler:x" class="icon-close" aria-hidden="true" />
+				<span class="label-open">Menu</span>
+				<span class="label-close">Close</span>
+			</button>
+		)
+	}
 </div>
 
 <Navigation homeNav={homeNav} />
@@ -129,6 +152,11 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			header?.classList.add('opened-burger');
 			lockScroll();
 		}
+
+		// Keep the button's state in the accessibility tree, not just in a class.
+		document
+			.querySelector('.burger')
+			?.setAttribute('aria-expanded', String(header?.classList.contains('opened-burger') ?? false));
 	}
 
 	// Make function available globally
@@ -227,6 +255,11 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 	}
 
 	header.header {
+		// The bar's edge inset, matching the clamp the hero column uses so the two
+		// line up. Named rather than restated: the logo side, the buttons side and
+		// the open-drawer rule all need it, and the drawer rule in particular has
+		// to restore it after the stacked treatment zeroes the padding.
+		--tb-bar-inset: clamp(24px, calc(0.5rem + 2vw), 56px);
 		position: fixed;
 		// Sits below the promo banner; tracks the live offset so it slides to
 		// top:0 as the banner collapses on scroll (--promo-cur → 0).
@@ -269,7 +302,7 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			// The logo is first in the row on the homepage anyway — the flag has
 			// moved to the hero — so this only handles the alignment.
 			&[data-home-nav] {
-				padding-left: calc(clamp(24px, calc(0.5rem + 2vw), 56px) - 20px);
+				padding-left: calc(var(--tb-bar-inset) - 20px);
 			}
 		}
 
@@ -353,12 +386,14 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			// Mirrors the logo side so the menu sits on the hero's own margins
 			// rather than the header's default 20px.
 			&[data-home-nav] {
-				padding-right: calc(clamp(24px, calc(0.5rem + 2vw), 56px) - 20px);
+				padding-right: calc(var(--tb-bar-inset) - 20px);
 			}
 			display: flex;
 			flex-direction: row;
 			align-items: center;
-			gap: 0.875rem;
+			// Per-page overridable so the open drawer cannot disagree with the bar:
+			// both read this token instead of each restating a length.
+			gap: var(--tb-cluster-gap, 0.875rem);
 
 			.icon-buttons {
 				display: flex;
@@ -447,6 +482,19 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			// Homepage facelift. The art is 168x44, so inside the 60px-tall box
 			// width drives the rendered size until ~229px, where height takes over.
 			&.logo--lg {
+				// The SVG pads its own art: the ink sits at x=6 in a 168-wide viewBox,
+				// so the box's left edge leads the mark by 3.571% of the rendered
+				// width, which read as the logo drifting right of the hero lede below.
+				// Nudge it back by exactly that fraction so the ink, not the bounding
+				// box, lands on the hero's inset.
+				//
+				// translateX resolves its percentage against this element's own
+				// rendered width, so it stays right at every breakpoint AND under the
+				// flex shrink the logo takes in a tight header. A negative margin could
+				// not manage the second: it would be keyed to the declared width while
+				// the box renders narrower, and it would itself hand the flex line more
+				// free space and change how far the logo shrinks.
+				transform: translateX(-3.571%);
 				width: 180px;
 
 				@media screen and (min-width: 1025px) {
@@ -487,29 +535,55 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 		}
 	}
 
+	// Labelled Menu button rather than a bare hamburger: the glyph alone carries
+	// no name for anyone who hasn't learnt it, and it read as decoration next to
+	// the wordmark. Border follows the label colour so it survives the header's
+	// flip from transparent to solid, the same trick .region-signin uses.
 	.burger {
 		display: none;
-		border: none;
+		border: 1px solid;
+		border-color: color-mix(in srgb, currentColor 35%, transparent);
+		border-radius: 4px;
 		background: none;
-		padding: 0;
+		padding: 0 14px;
 		cursor: pointer;
 		color: inherit;
-		width: 32px;
-		height: 32px;
+		height: 40px;
+		gap: 8px;
 		align-items: center;
 		justify-content: center;
+		font-family: inherit;
+		font-size: 14px;
+		line-height: 1;
+		white-space: nowrap;
+		transition:
+			background-color 0.15s ease,
+			border-color 0.15s ease;
 
 		svg {
-			width: 28px;
-			height: 28px;
+			width: 20px;
+			height: 20px;
 		}
 
 		.icon-close {
 			display: none;
 		}
 
-		&:focus {
-			outline: none;
+		.label-close {
+			display: none;
+		}
+
+		&:hover,
+		&:focus-visible {
+			background-color: color-mix(in srgb, currentColor 12%, transparent);
+			border-color: color-mix(in srgb, currentColor 55%, transparent);
+		}
+
+		// The old rule killed the focus ring outright, leaving keyboard users with
+		// nothing on the one control that opens the whole menu.
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 3px;
 		}
 	}
 
@@ -520,6 +594,14 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 
 		.icon-close {
 			display: block;
+		}
+
+		.label-open {
+			display: none;
+		}
+
+		.label-close {
+			display: inline;
 		}
 	}
 
@@ -553,7 +635,7 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 				.head-buttons {
 					display: flex;
 					flex-shrink: 0;
-					gap: 0.875rem;
+					gap: var(--tb-cluster-gap, 0.875rem);
 					padding: 20px 0;
 
 					.icon-buttons {
@@ -612,6 +694,109 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 
 			.n-button {
 				display: none;
+			}
+		}
+	}
+
+	// Homepage bar below the desktop nav. The controls live in the bar at every
+	// width, reading gh / Sign in / Try for free / Menu, and they stay there when
+	// the drawer opens rather than being carried down to its bottom.
+	// `:has([data-home-nav])` keeps all of this off the other pages, which still
+	// use the block bar and the burger inside .logo-burger from the rule above.
+	@media screen and (max-width: 1280px) {
+		header.header:has([data-home-nav]) {
+			// Menu is a child of .head-buttons on this page, so the group is empty —
+			// search and the theme toggle are both off for a transparent,
+			// forced-light header — and would only contribute a stray gap.
+			.burger-group {
+				display: none;
+			}
+
+			.head-buttons {
+				display: flex;
+			}
+
+			.n-button {
+				display: flex;
+			}
+
+			&:not(.opened-burger) {
+				display: flex;
+				align-items: center;
+
+				// Claims the slack so .head-buttons sits against the right inset.
+				// Scoped away from the open state on purpose: the drawer switches this
+				// header to `flex-direction: column`, where `flex: 1` grows the logo
+				// row *down* the drawer instead of across the bar — it measured 352px
+				// against a 64px bar, centring the wordmark in a band of empty space
+				// above the nav.
+				.logo-burger {
+					flex: 1;
+				}
+			}
+
+			// Opened. The drawer stays a column, so the nav list still flows beneath
+			// the bar; the control cluster is lifted out of that column and pinned
+			// over the bar's right side — which is where it already was. `right: 0`
+			// resolves against the header's padding box, so the inset matches the
+			// closed state and nothing shifts as the drawer opens.
+			&.opened-burger .head-buttons {
+				position: absolute;
+				top: 0;
+				// Not `right: 0`: an absolute box resolves against the header's
+				// padding *box*, whose edge sits at the border — i.e. flush to the
+				// viewport, ignoring the header's own 20px padding. That put the
+				// cluster 26px right of where the closed bar has it.
+				right: var(--tb-bar-inset);
+				z-index: 1;
+				height: var(--home-header-h, #{$header-height});
+				// The stacked drawer treatment does not apply — this is still the bar.
+				padding: 0;
+
+				.n-button {
+					width: auto;
+				}
+
+				// The cluster never moves, so it must not animate in either. The
+				// shared slide targets .head-menu and .head-buttons together, and on
+				// this page only the list is actually arriving.
+				transform: none;
+				transition: none;
+			}
+		}
+	}
+
+	// Below 560 the bar runs out of room. Measured, not guessed: the 152px
+	// wordmark, Sign in (79), Try for free (113) and Menu (94) plus the two 24px
+	// insets and two 14px gaps come to 528px, so that is where the three-control
+	// bar stops fitting. Under it the two account controls step out of the bar —
+	// at 375px even one of them overflowed the Menu button off-screen, which is
+	// what the header's `position: fixed` was hiding from `scrollWidth`.
+	@media screen and (max-width: 559px) {
+		header.header:has([data-home-nav]) {
+			&:not(.opened-burger) .head-buttons {
+				.region-signin,
+				.n-button {
+					display: none;
+				}
+			}
+
+			// Opened, they return directly beneath the bar instead of at the foot of
+			// the drawer. The column put them last because .head-buttons carries
+			// `order: 1` for the desktop row while .head-menu sits at 0; swapping the
+			// two lifts them to the top, which is as close to "in place" as a bar
+			// this narrow allows.
+			&.opened-burger {
+				.head-buttons {
+					position: static;
+					order: 0;
+					height: auto;
+					padding: 10px 0 2px;
+				}
+
+				.head-menu {
+					order: 1;
+				}
 			}
 		}
 	}
@@ -760,6 +945,13 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 
 		.n-button {
 			@include marketing-price;
+		}
+
+		// The drawer flips to a light surface, but this control inherits the
+		// header's white and disappeared into it — rendered, sized and clickable,
+		// just invisible. Its border tracks currentColor, so it follows along.
+		.region-signin summary {
+			color: var(--color-text);
 		}
 	}
 

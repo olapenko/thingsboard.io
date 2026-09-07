@@ -107,24 +107,11 @@ const resolvedLogos = await Promise.all(
 			max-width: none;
 			background-color: #000;
 
-			// Tint sits on each mark rather than across the strip, so hover can
-			// lift one without touching the rest. `multiply` is what makes it
-			// exact: black x anything stays black, and a white mark takes the
-			// overlay colour verbatim — including plain white on hover.
+			// Marks stay plain white — `brightness(0) invert(1)` above flattens each
+			// one — so the only variable is how far it sits back from the strip.
+			// Opacity alone carries that, which keeps every mark the same hue at
+			// rest and on hover.
 			.customers-logo__item {
-				position: relative;
-
-				&::after {
-					content: '';
-					position: absolute;
-					inset: 0;
-					z-index: 1;
-					pointer-events: none;
-					background-color: #7b87cf;
-					mix-blend-mode: multiply;
-					transition: background-color 0.18s ease;
-				}
-
 				// Hover lifts the mark out of its transparency rather than changing
 				// its colour, so the row reads as one material at two strengths.
 				img {
@@ -138,17 +125,54 @@ const resolvedLogos = await Promise.all(
 			}
 
 			.customers-logo__content {
-				max-width: 1800px;
+				// Centred on the ribbon rather than run out to the hero's own
+				// margins. At full bleed the row spanned as wide as the hero itself
+				// and read as a second band competing with it; capped and centred it
+				// sits as one contained group. space-between still spreads the marks
+				// evenly, now within the cap rather than across the viewport.
+				max-width: 1100px;
 				margin: 0 auto;
-				// Same inset as the hero's text column, and space-between rather
-				// than space-around so the first mark sits on that line instead of
-				// being pushed inward by a half-gap.
 				padding-inline: clamp(24px, calc(0.5rem + 2vw), 56px);
 				justify-content: space-between;
 			}
 
 			img {
-				opacity: 0.72;
+				// Smaller than the light rows: this one sits directly under the hero,
+				// so the marks stay supporting rather than structural. Capping the row
+				// alone wouldn't have held them — the height is what scales with the
+				// viewport, so the vw factor and ceiling come down too. Height drives
+				// it (width: auto above), which keeps every aspect ratio intact.
+				height: clamp(18px, 1.6vw, 28px);
+				opacity: 0.5;
+			}
+
+			// Stack rather than scroll. The shared rule below turns this row into an
+			// x-scroller under lg, which put four of the seven marks behind a swipe
+			// most people never make and clipped the row mid-logo at the viewport
+			// edge — it read as broken rather than scrollable. Wrapping shows all
+			// seven at once; the marks get smaller instead of hidden.
+			@include media-down(lg) {
+				.customers-logo__content {
+					overflow-x: visible;
+					flex-wrap: wrap;
+					// space-between strands the last row's marks against the edges once
+					// the count stops dividing evenly.
+					justify-content: center;
+					// Column gap stays wider than the row gap so each line still reads
+					// as one band rather than a grid.
+					gap: 14px 24px;
+					padding-inline: 20px;
+				}
+
+				// Qualified through __item on purpose: the shared `img { height: 28px }`
+				// below is `.customers-logo img`, which ties this on specificity and
+				// would win on source order. The extra class settles it without
+				// touching the light rows on other pages.
+				.customers-logo__item img {
+					// As small as these wordmarks stay legible — TEKTELIC's subtitle
+					// line is what sets the floor for the whole set.
+					height: 18px;
+				}
 			}
 		}
 
