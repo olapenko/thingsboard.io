@@ -10,15 +10,28 @@
  */
 
 export interface SolutionCase {
-	brand: { name: string; accent: string };
+	brand: {
+		name: string;
+		accent: string;
+		/** The customer's own domain, shown in the browser bar. What says "white-labelled" fastest. */
+		host: string;
+		/** Stands in for the customer's logo. A Tabler icon name. */
+		icon: string;
+	};
 	/** Names the reading — "Live temperature", "Fuel level". */
 	metricLabel: string;
 	/** Appended to the reading verbatim, so it carries its own leading space if it needs one. */
 	unit?: string;
 	decimals?: number;
 	/**
-	 * Recent history in the reading's own units. The LAST point is the reading, so the number and
-	 * the line beneath it cannot disagree.
+	 * The metric's history as a closed LOOP: the last point leads back into the first without a
+	 * seam. The sparkline shows a window of `SPARK_WINDOW` consecutive points and slides along the
+	 * loop one point per reading, so the curve keeps its designed shape forever instead of
+	 * flattening into noise. The reading is always the newest point in the window, so the number
+	 * and the line beneath it cannot disagree.
+	 *
+	 * Precalculated here, deterministically, so every page load and every frame shows the same
+	 * telemetry — nothing is invented at runtime.
 	 */
 	series: number[];
 	alarms?: number;
@@ -32,57 +45,84 @@ export interface SolutionCase {
 	 * knows that.
 	 */
 	domain?: [number, number];
-	/**
-	 * How far the reading may wander from its starting value while animating, in its own units.
-	 * Separate from `domain` on purpose: the axis for a percentage is 0-100, but a tank does not
-	 * empty and refill every few seconds.
-	 */
-	drift?: number;
 	/** Where the wording came from. Shown only on the internal comparison page. */
 	source: string;
 }
 
+/** How many points of history the sparkline shows at once. */
+export const SPARK_WINDOW = 32;
+
+const TAU = Math.PI * 2;
+
+/**
+ * Samples `f` across one period so the series joins back onto its own start. Every term below
+ * uses a whole number of cycles per loop for the same reason.
+ */
+const loop = (n: number, f: (t: number) => number): number[] =>
+	Array.from({ length: n }, (_, i) => Math.round(f(i / n) * 100) / 100);
+
 export const SOLUTION_CASES: SolutionCase[] = [
 	{
-		brand: { name: 'Acme Cold Chain', accent: '#3d50f5' },
-		metricLabel: 'Live temperature',
+		brand: { name: 'Acme Cold Chain', accent: '#3d50f5', host: 'acme.com', icon: 'tabler:snowflake' },
+		metricLabel: 'Temperature',
 		unit: '°',
 		decimals: 1,
-		// A room drifting up over the window, which is also why anyone would be watching it. Wide
-		// enough to have a shape against a 20-30 axis rather than sitting on one line.
-		series: [22.1, 22.6, 23.0, 23.4, 23.6, 24.0, 24.3, 24.6, 24.8, 24.6, 24.5],
+		// A chilled room breathing inside the 2-8°C band a cold chain has to hold: one slow swell
+		// across the loop with two smaller cycles riding it, so any window shows a curve rather than
+		// a line. Stays inside roughly 3-5.5 against a 0-10 axis.
+		series: loop(
+			64,
+			(t) => 4.2 + 0.9 * Math.sin(TAU * t) + 0.35 * Math.sin(TAU * 3 * t + 1.2) + 0.12 * Math.sin(TAU * 7 * t + 0.4)
+		),
 		alarms: 0,
-		// A chilled room's working band, so the reading sits mid-axis rather than at an edge.
-		domain: [20, 30],
-		drift: 0.8,
+		// Zero to ten: the room's working band sits mid-axis, and the bottom of the box is freezing
+		// — which is the line a cold chain must not cross either way.
+		domain: [0, 10],
 		source: 'environment-monitoring',
 	},
 	{
-		brand: { name: 'Northwind Fuel', accent: '#1f8b4d' },
+		brand: { name: 'Northwind Fuel', accent: '#1f8b4d', host: 'tanks.nw.com', icon: 'tabler:gas-station' },
 		metricLabel: 'Fuel level',
 		unit: '%',
 		decimals: 0,
-		// A tank draining across the window. The earlier series only spanned 74->68, which is six
-		// points of a hundred-point axis — correct, and visually a flat line. History covering a
-		// real drawdown gives the axis something to draw without misstating where 68% sits.
-		series: [92, 89, 86, 83, 80, 78, 75, 73, 71, 69, 68],
+		// A tank draining in steps — dispensing events, not a smooth leak — from 88% down to 58%
+		// over most of the loop, then a refill that climbs back in the last eighth. The cliff is
+		// what makes this curve unmistakably a tank and not a thermometer.
+		series: loop(64, (t) => {
+			const drain = 0.86;
+			if (t < drain) {
+				const p = t / drain;
+				// Mostly linear with a stepped component, so the descent reads as a staircase.
+				return 88 - 30 * (0.7 * p + (0.3 * Math.floor(p * 8)) / 8);
+			}
+			return 58 + 30 * ((t - drain) / (1 - drain));
+		}),
 		alarms: 1,
 		// A percentage's own frame. 68% then draws at 68% of the box, which is the whole point.
 		domain: [0, 100],
-		drift: 3,
 		source: 'tank-level-monitoring',
 	},
 	{
-		brand: { name: 'Civica Air', accent: '#c2703a' },
+		brand: { name: 'Civica Air', accent: '#c2703a', host: 'air.civica.org', icon: 'tabler:wind' },
 		metricLabel: 'PM2.5',
 		unit: ' µg/m³',
 		decimals: 0,
-		series: [8, 11, 9, 14, 12, 18, 15, 21, 17, 19, 18],
+		// Restless: a jittery base with three sharp spikes per loop, the shape of traffic and wind.
+		// Stays roughly 5-25 against a 0-35 axis, so the spikes approach but never cross the line
+		// where air stops counting as good.
+		series: loop(
+			64,
+			(t) =>
+				12 +
+				3 * Math.sin(TAU * 2 * t) +
+				2.2 * Math.sin(TAU * 5 * t + 2) +
+				1.5 * Math.sin(TAU * 11 * t + 0.7) +
+				8 * Math.pow(Math.max(0, Math.sin(TAU * 3 * t + 0.9)), 8)
+		),
 		alarms: 0,
 		// Anchored at zero because zero is meaningful here — clean air — and topped near the
 		// threshold where PM2.5 stops counting as good.
 		domain: [0, 35],
-		drift: 4,
 		source: 'air-quality-monitoring',
 	},
 ];
@@ -91,13 +131,13 @@ export const SOLUTION_CASES: SolutionCase[] = [
  * The app's navigation. Identical for every brand on purpose: the navigation is the platform's,
  * not the customer's, so it is the one thing that should NOT vary as the brand rotates.
  *
- * Home first and current, the capabilities that are screens a user opens, then the account. Rule
- * chains is absent for the same reason the digital twin is: it is how the solution behaves, not
- * somewhere a user goes.
+ * Dashboards first and current — the home of an app like this is its dashboard — then alarms,
+ * then the entity list, then the account. Rule chains is absent for the same reason the digital
+ * twin is: it is how the solution behaves, not somewhere a user goes.
  */
 export const SOLUTION_RAIL = [
-	{ icon: 'tabler:home', active: true },
+	{ icon: 'tabler:layout-dashboard', active: true },
 	{ icon: 'tabler:bell-ringing' },
-	{ icon: 'tabler:layout-dashboard' },
+	{ icon: 'tabler:list' },
 	{ icon: 'tabler:user' },
 ];

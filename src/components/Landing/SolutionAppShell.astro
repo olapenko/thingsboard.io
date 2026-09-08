@@ -1,10 +1,11 @@
 ---
 import { Icon } from 'astro-icon/components';
-import type { SolutionCase } from '@data/solution-flow';
+import { SPARK_WINDOW, type SolutionCase } from '@data/solution-flow';
+import { sparkPaths } from '@util/sparkline';
 
 /**
- * The customer's app, as a small window: branded bar, navigation rail, one live reading and its
- * alarm state.
+ * The customer's app, as a small window: browser bar with their domain, branded bar with their
+ * mark, navigation rail, one live reading and its alarm state.
  *
  * Takes a LIST of cases rather than one set of values. A single case renders a static app; several
  * make it rotate through them, which is the white-labeling argument — the same product becoming
@@ -12,7 +13,13 @@ import type { SolutionCase } from '@data/solution-flow';
  * only has to decide which cases apply.
  *
  * `--flow-accent` is declared here, on the shell's own root, which keeps the customer's colour off
- * anything outside it. The app is theirs; the platform that produced it is not.
+ * anything outside it. The app is theirs; the platform that produced it is not. It resolves through
+ * `--flow-brand-N` (N = the case's index), an optional override an environment may set to recolour
+ * the brands as a set; unset, the case's own accent is used.
+ *
+ * Every size inside is in design pixels — `u(n)` below — resolved against `--flow-u`, which the
+ * flow derives from the width it is given. Dropped anywhere else the unit is 1px and the shell
+ * renders at its native size.
  *
  * Nothing here is interactive on purpose. It is a picture of an app, and real controls would be
  * tab stops that do nothing.
@@ -28,7 +35,7 @@ interface Props {
 	rail: RailItem[];
 	/** One case renders static; more than one rotates through them. */
 	cases: SolutionCase[];
-	/** Step the reading and the sparkline, as a live dashboard would. */
+	/** Slide the history and step the reading, as a live dashboard would. */
 	animate?: boolean;
 	/** How long each brand holds before the next one takes over. */
 	swapMs?: number;
@@ -36,12 +43,11 @@ interface Props {
 
 const { rail, cases, animate = false, swapMs = 5200 } = Astro.props;
 
-const VIEW_W = 100;
-const VIEW_H = 28;
-const PAD = 3;
+const VIEW = { w: 100, h: 28, pad: 3 };
 
-// Everything the client needs, resolved once here so the server's first paint and every later swap
-// are computed by the same rules. Defaults live in one place rather than being reapplied per tick.
+// Everything the client needs, resolved once here so the server's first paint and every later
+// frame are computed by the same rules. Defaults live in one place rather than being reapplied
+// per tick.
 const prepared = cases.map((c) => {
 	const min = Math.min(...c.series);
 	const max = Math.max(...c.series);
@@ -49,6 +55,7 @@ const prepared = cases.map((c) => {
 	return {
 		name: c.brand.name,
 		accent: c.brand.accent,
+		host: c.brand.host,
 		metricLabel: c.metricLabel,
 		unit: c.unit ?? '',
 		decimals: c.decimals ?? 0,
@@ -56,32 +63,31 @@ const prepared = cases.map((c) => {
 		alarms: c.alarms ?? 0,
 		// Falls back to a padded fit only when the metric has no meaningful frame of its own.
 		domain: c.domain ?? ([min - span * 0.25, max + span * 0.25] as [number, number]),
-		drift: c.drift ?? span * 0.5,
 	};
 });
 
 const first = prepared[0];
+const win = Math.min(SPARK_WINDOW, first.series.length);
 
-const yOf = (v: number, [lo, hi]: [number, number]) => VIEW_H - PAD - ((v - lo) / (hi - lo)) * (VIEW_H - PAD * 2);
-const points = first.series.map(
-	(v, i) => `${((i / (first.series.length - 1)) * VIEW_W).toFixed(2)},${yOf(v, first.domain).toFixed(2)}`
-);
-// Closed along the baseline so the area can carry a faint accent wash without a gradient — a
-// gradient needs an id, and ids collide the moment the component is used twice on a page. This
-// component is used four times on one page, so that mattered.
-const area = `${points.join(' ')} ${VIEW_W},${VIEW_H} 0,${VIEW_H}`;
+// The window plus the point about to arrive, which sits just past the right edge and is clipped.
+// Drawing it now means the client's first slide continues the curve rather than bending it.
+const firstValues = Array.from({ length: win + 1 }, (_, i) => first.series[i % first.series.length]);
+const paths = sparkPaths(firstValues, first.domain, VIEW, win);
 
-const reading = `${first.series[first.series.length - 1].toFixed(first.decimals)}${first.unit}`;
+// The newest point fully inside the box is the reading.
+const reading = `${first.series[win - 1].toFixed(first.decimals)}${first.unit}`;
 const rotates = prepared.length > 1;
+const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}` : 'No alarms');
 ---
 
 <div
 	class="shell"
-	style={`--flow-accent: ${first.accent};`}
+	style={`--flow-accent: var(--flow-brand-0, ${first.accent});`}
 	data-shell
 	data-animate={animate ? 'true' : undefined}
 	data-rotate={rotates ? String(swapMs) : undefined}
-	data-view={`${VIEW_W},${VIEW_H},${PAD}`}
+	data-view={`${VIEW.w},${VIEW.h},${VIEW.pad}`}
+	data-window={win}
 >
 	{
 		/* The cases travel as JSON rather than as a wall of data attributes: they are nested, and one
@@ -90,12 +96,26 @@ const rotates = prepared.length > 1;
 	<script is:inline type="application/json" data-shell-cases set:html={JSON.stringify(prepared)} />
 
 	{
+		/* Browser chrome, and deliberately the only dark surface in the visual. Its job is the domain:
+	    a customer's own address is the fastest way to say the app is theirs. One dot and the address,
+	    nothing else — enough to read as a browser without anyone's window dressing. */
+	}
+	<p class="shell__chrome" aria-hidden="true">
+		<i class="shell__chrome-dot"></i>
+		<span class="shell__chrome-url shell__swap" data-shell-host>{first.host}</span>
+	</p>
+
+	{
 		/* The whole bar carries the colour, so the name needs no separate mark beside it to say
-	    whose product this is. */
+	    whose product this is — the glyph beside it stands in for their logo. Every brand's glyph is
+	    rendered and one is shown, so a swap toggles a class rather than building an icon on the
+	    client. */
 	}
 	<p class="shell__topbar">
-		<span class="shell__mark" aria-hidden="true"></span>
-		<span data-shell-name>{first.name}</span>
+		<span class="shell__mark shell__swap" aria-hidden="true">
+			{cases.map((c, i) => <Icon name={c.brand.icon} class={i === 0 ? 'is-active' : undefined} data-shell-mark={i} />)}
+		</span>
+		<span class="shell__swap" data-shell-name>{first.name}</span>
 	</p>
 
 	<div class="shell__lower">
@@ -107,22 +127,29 @@ const rotates = prepared.length > 1;
 			{
 				rail.map((item) => (
 					<span class:list={['shell__rail-item', item.active && 'is-active']}>
-						<Icon name={item.icon} width="22" height="22" />
+						<Icon name={item.icon} />
 					</span>
 				))
 			}
 		</nav>
 
 		<div class="shell__body">
-			<p class="shell__metric-label" data-shell-metric>{first.metricLabel}</p>
+			<p class="shell__metric-label shell__swap" data-shell-metric>{first.metricLabel}</p>
 			{
 				/* Reading above the sparkline, not beside it: the number is the subject and the line is
 			    its history, so full width each reads in that order. */
 			}
-			<p class="shell__reading" data-shell-value>{reading}</p>
-			<svg class="shell__spark" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} preserveAspectRatio="none" aria-hidden="true">
-				<polygon class="shell__spark-area" points={area} data-shell-area></polygon>
-				<polyline class="shell__spark-line" points={points.join(' ')} data-shell-line></polyline>
+			<p class="shell__reading shell__swap" data-shell-value>{reading}</p>
+			<svg
+				class="shell__spark shell__swap"
+				viewBox={`0 0 ${VIEW.w} ${VIEW.h}`}
+				preserveAspectRatio="none"
+				aria-hidden="true"
+			>
+				<g data-shell-plot>
+					<path class="shell__spark-area" d={paths.area} data-shell-area></path>
+					<path class="shell__spark-line" d={paths.line} data-shell-line></path>
+				</g>
 			</svg>
 
 			{
@@ -131,139 +158,185 @@ const rotates = prepared.length > 1;
 			    Both glyphs are rendered and one is hidden, so a swap toggles a class rather than
 			    rebuilding an icon on the client. */
 			}
-			<p class:list={['shell__alarm-banner', first.alarms > 0 && 'is-active']} data-shell-alarm>
-				<Icon class="shell__alarm-ok" name="tabler:check" width="20" height="20" aria-hidden="true" />
-				<Icon class="shell__alarm-warn" name="tabler:alert-triangle" width="20" height="20" aria-hidden="true" />
-				<span data-shell-alarm-text>
-					{first.alarms > 0 ? `${first.alarms} ${first.alarms === 1 ? 'alarm' : 'alarms'}` : 'No alarms'}
-				</span>
+			<p class:list={['shell__alarm-banner', 'shell__swap', first.alarms > 0 && 'is-active']} data-shell-alarm>
+				<Icon class="shell__alarm-ok" name="tabler:check" aria-hidden="true" />
+				<Icon class="shell__alarm-warn" name="tabler:alert-triangle" aria-hidden="true" />
+				<span data-shell-alarm-text>{alarmText(first.alarms)}</span>
 			</p>
 		</div>
 	</div>
 </div>
 
 <script>
+	import { sparkPaths, segmentWidth } from '@util/sparkline';
+
 	/**
-	 * Drives every shell on the page: steps the reading, and rotates the brand where more than one
-	 * case was given.
+	 * Drives every shell on the page: slides the history one point per reading, steps the number
+	 * with it, and rotates the brand where more than one case was given.
 	 *
 	 * One script for all instances — Astro bundles it once however many shells render, so it queries
 	 * them all rather than being wired per component.
 	 *
-	 * The walk is bounded and centred on the case's own starting value: readings that only rise look
-	 * like a loading bar, and readings that wander the whole axis look broken. `drift` is what bounds
-	 * it, deliberately not the drawing domain — a fuel gauge is drawn against 0-100 but does not
-	 * empty and refill every few seconds.
+	 * Nothing is invented here. Each case ships a precalculated loop of readings; the sparkline shows
+	 * a window onto it and the window advances one point per step. The whole line translates left
+	 * while the number counts to the incoming value, then the window is redrawn one point on with
+	 * the translation reset — the same picture, so nothing jumps. Because the loop was designed, the
+	 * curve keeps its character forever; a random walk flattened within a minute.
 	 *
-	 * A brand swap RESETS the walk. Carrying a drifted value across would start the new brand
-	 * mid-wander, and worse, carry a temperature into a panel labelled as a percentage before the
-	 * first tick corrected it.
+	 * Idle between steps. The frame loop runs only for the 700ms a step takes; the rest of the time a
+	 * single timer waits for the next due event. Shells off-screen do no work at all.
 	 *
-	 * Only the newest point moves; the window does NOT scroll. Scrolling it was the first version
-	 * and it quietly destroyed the picture: each step dropped an older reading, so a tank's
-	 * drawdown rolled off the left and within half a minute every sparkline had flattened into the
-	 * narrow band the walk lives in. The drawn history is the case's illustrative history, and the
-	 * live tip is what says the panel is not a screenshot.
+	 * A brand swap is a crossfade: the swappable parts fade, the content changes at the midpoint, and
+	 * they fade back. The window restarts at the new case's origin, so a temperature is never shown
+	 * in a panel labelled as a percentage even for one frame.
 	 */
 	type Case = {
 		name: string;
 		accent: string;
+		host: string;
 		metricLabel: string;
 		unit: string;
 		decimals: number;
 		series: number[];
 		alarms: number;
 		domain: [number, number];
-		drift: number;
 	};
 
 	type Shell = {
 		el: HTMLElement;
 		nameEl: HTMLElement;
+		hostEl: HTMLElement;
 		metricEl: HTMLElement;
 		valueEl: HTMLElement;
 		alarmEl: HTMLElement;
 		alarmTextEl: HTMLElement;
-		line: SVGPolylineElement;
-		area: SVGPolygonElement;
+		marks: HTMLElement[];
+		plot: SVGGElement;
+		line: SVGPathElement;
+		area: SVGPathElement;
 		cases: Case[];
-		w: number;
-		h: number;
-		pad: number;
+		view: { w: number; h: number; pad: number };
+		window: number;
 		rotateMs: number;
 		animate: boolean;
 		caseIdx: number;
-		// live walk state, reset on every swap
-		series: number[];
-		origin: number;
-		from: number;
-		to: number;
-		started: number;
+		/** Index into the loop of the first point in the window. */
+		head: number;
+		/** Set while a step is in flight. */
+		tween: { from: number; to: number; started: number } | null;
+		swapping: boolean;
+		/** The coming swap has been announced. */
+		announced: boolean;
 		lastStep: number;
 		lastSwap: number;
 	};
 
 	const STEP_MS = 2200; // how often a new reading arrives
-	const TWEEN_MS = 700; // how long the value takes to travel there
+	const TWEEN_MS = 700; // how long the line takes to slide it into place
+	const FADE_MS = 180; // each half of a brand crossfade
+	// How far ahead of a brand swap the shell says one is coming, so whatever frames it can lead
+	// up to the change rather than react to it. The flow uses this to run its pulse.
+	const LEAD_MS = 1000;
 
 	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	function current(s: Shell) {
-		return s.cases[s.caseIdx];
+	const current = (s: Shell) => s.cases[s.caseIdx];
+	const at = (c: Case, i: number) => c.series[i % c.series.length];
+	const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}` : 'No alarms');
+
+	/** The window plus the incoming point, drawn at rest. */
+	function drawWindow(s: Shell) {
+		const c = current(s);
+		const values = Array.from({ length: s.window + 1 }, (_, i) => at(c, s.head + i));
+		const p = sparkPaths(values, c.domain, s.view, s.window);
+		s.line.setAttribute('d', p.line);
+		s.area.setAttribute('d', p.area);
+		s.plot.removeAttribute('transform');
+		s.valueEl.textContent = `${at(c, s.head + s.window - 1).toFixed(c.decimals)}${c.unit}`;
 	}
 
-	/** Puts a case on screen and restarts its walk from that case's own numbers. */
-	function applyCase(s: Shell, now: number) {
+	/** Puts a case on screen from the start of its loop. */
+	function applyCase(s: Shell) {
 		const c = current(s);
-		s.series = c.series.slice();
-		s.origin = c.series[c.series.length - 1];
-		s.from = s.origin;
-		s.to = s.origin;
-		s.started = 0;
-		s.lastStep = now;
-
-		s.el.style.setProperty('--flow-accent', c.accent);
+		s.head = 0;
+		// Through an optional per-brand override, so an environment can recolour the customers'
+		// brands as a set — a token set matching an older palette, say — without touching the data.
+		s.el.style.setProperty('--flow-accent', `var(--flow-brand-${s.caseIdx}, ${c.accent})`);
 		s.nameEl.textContent = c.name;
+		s.hostEl.textContent = c.host;
 		s.metricEl.textContent = c.metricLabel;
+		s.marks.forEach((m) => m.classList.toggle('is-active', Number(m.dataset.shellMark) === s.caseIdx));
 		s.alarmEl.classList.toggle('is-active', c.alarms > 0);
-		s.alarmTextEl.textContent = c.alarms > 0 ? `${c.alarms} ${c.alarms === 1 ? 'alarm' : 'alarms'}` : 'No alarms';
-		draw(s, s.origin);
+		s.alarmTextEl.textContent = alarmText(c.alarms);
+		drawWindow(s);
 	}
 
-	function nextValue(s: Shell) {
-		const c = current(s);
-		// A third of the allowed drift per step: large enough that a reading shown to zero decimals
-		// visibly moves, small enough that the line reads as telemetry rather than noise.
-		const step = c.drift * 0.33 * (Math.random() - 0.5) * 2;
-		return Math.min(s.origin + c.drift, Math.max(s.origin - c.drift, s.to + step));
+	/**
+	 * Fires `solution-swap-soon` on the shell, bubbling, `LEAD_MS` before the brand changes. Anything
+	 * wrapping the shell can listen without the two components knowing each other's internals.
+	 */
+	function announce(s: Shell) {
+		s.announced = true;
+		s.el.dispatchEvent(new CustomEvent('solution-swap-soon', { bubbles: true, detail: { in: LEAD_MS } }));
 	}
 
-	function draw(s: Shell, latest: number) {
+	function beginSwap(s: Shell, now: number) {
+		s.swapping = true;
+		s.announced = false;
+		s.tween = null;
+		s.lastSwap = now;
+		s.el.classList.add('is-swapping');
+		setTimeout(() => {
+			s.caseIdx = (s.caseIdx + 1) % s.cases.length;
+			applyCase(s);
+			s.el.classList.remove('is-swapping');
+			s.swapping = false;
+			// The first step waits for the fade-in, so the new brand is seen at rest first.
+			s.lastStep = performance.now() + FADE_MS;
+			wake();
+		}, FADE_MS);
+	}
+
+	function beginStep(s: Shell, now: number) {
 		const c = current(s);
-		const [lo, hi] = c.domain;
-		const values = s.series.slice(0, -1).concat(latest);
-		const pts = values.map((v, i) => {
-			const x = (i / (values.length - 1)) * s.w;
-			const y = s.h - s.pad - ((v - lo) / (hi - lo)) * (s.h - s.pad * 2);
-			return `${x.toFixed(2)},${y.toFixed(2)}`;
-		});
-		s.line.setAttribute('points', pts.join(' '));
-		s.area.setAttribute('points', `${pts.join(' ')} ${s.w},${s.h} 0,${s.h}`);
-		s.valueEl.textContent = `${latest.toFixed(c.decimals)}${c.unit}`;
+		s.tween = { from: at(c, s.head + s.window - 1), to: at(c, s.head + s.window), started: now };
+		s.lastStep = now;
+	}
+
+	function progressStep(s: Shell, now: number) {
+		const tw = s.tween;
+		if (!tw) return;
+		const c = current(s);
+		const t = Math.min(1, (now - tw.started) / TWEEN_MS);
+		if (t >= 1) {
+			// Advance and redraw at rest. Identical to the tween's end state, so there is no jump.
+			s.head = (s.head + 1) % c.series.length;
+			s.tween = null;
+			drawWindow(s);
+			return;
+		}
+		// easeOutCubic: quick to move, settles rather than stopping dead.
+		const e = 1 - Math.pow(1 - t, 3);
+		s.plot.setAttribute('transform', `translate(${(-segmentWidth(s.window, s.view) * e).toFixed(3)} 0)`);
+		s.valueEl.textContent = `${(tw.from + (tw.to - tw.from) * e).toFixed(c.decimals)}${c.unit}`;
 	}
 
 	function setup(now: number): Shell[] {
 		const out: Shell[] = [];
 		document.querySelectorAll<HTMLElement>('[data-shell]').forEach((el) => {
-			const json = el.querySelector<HTMLElement>('[data-shell-cases]');
-			const nameEl = el.querySelector<HTMLElement>('[data-shell-name]');
-			const metricEl = el.querySelector<HTMLElement>('[data-shell-metric]');
-			const valueEl = el.querySelector<HTMLElement>('[data-shell-value]');
-			const alarmEl = el.querySelector<HTMLElement>('[data-shell-alarm]');
-			const alarmTextEl = el.querySelector<HTMLElement>('[data-shell-alarm-text]');
-			const line = el.querySelector<SVGPolylineElement>('[data-shell-line]');
-			const area = el.querySelector<SVGPolygonElement>('[data-shell-area]');
-			if (!json || !nameEl || !metricEl || !valueEl || !alarmEl || !alarmTextEl || !line || !area) return;
+			const q = <T extends Element>(sel: string) => el.querySelector<T>(sel);
+			const json = q<HTMLElement>('[data-shell-cases]');
+			const nameEl = q<HTMLElement>('[data-shell-name]');
+			const hostEl = q<HTMLElement>('[data-shell-host]');
+			const metricEl = q<HTMLElement>('[data-shell-metric]');
+			const valueEl = q<HTMLElement>('[data-shell-value]');
+			const alarmEl = q<HTMLElement>('[data-shell-alarm]');
+			const alarmTextEl = q<HTMLElement>('[data-shell-alarm-text]');
+			const plot = q<SVGGElement>('[data-shell-plot]');
+			const line = q<SVGPathElement>('[data-shell-line]');
+			const area = q<SVGPathElement>('[data-shell-area]');
+			if (!json || !nameEl || !hostEl || !metricEl || !valueEl || !alarmEl || !alarmTextEl || !plot || !line || !area)
+				return;
 
 			const rotateMs = Number(el.dataset.rotate ?? 0);
 			const animate = el.dataset.animate === 'true';
@@ -281,24 +354,25 @@ const rotates = prepared.length > 1;
 			out.push({
 				el,
 				nameEl,
+				hostEl,
 				metricEl,
 				valueEl,
 				alarmEl,
 				alarmTextEl,
+				marks: Array.from(el.querySelectorAll<HTMLElement>('[data-shell-mark]')),
+				plot,
 				line,
 				area,
 				cases,
-				w,
-				h,
-				pad,
+				view: { w, h, pad },
+				window: Number(el.dataset.window ?? 32),
 				rotateMs,
 				animate,
 				caseIdx: 0,
-				series: cases[0].series.slice(),
-				origin: cases[0].series[cases[0].series.length - 1],
-				from: 0,
-				to: 0,
-				started: 0,
+				head: 0,
+				tween: null,
+				swapping: false,
+				announced: false,
 				lastStep: now,
 				lastSwap: now,
 			});
@@ -306,68 +380,83 @@ const rotates = prepared.length > 1;
 		return out;
 	}
 
-	const t0 = performance.now();
-	const shells = reduce ? [] : setup(t0);
+	const shells = reduce ? [] : setup(performance.now());
+	const visible = new Set<HTMLElement>();
+	let raf = 0;
+	let timer = 0;
 
-	if (shells.length) {
+	/** Runs a frame if one is not already queued. */
+	function wake() {
+		if (!raf) raf = requestAnimationFrame(frame);
+	}
+
+	/** Sleeps until the earliest due event across the shells on screen. */
+	function armTimer(now: number) {
+		let due = Infinity;
 		shells.forEach((s) => {
-			s.from = s.origin;
-			s.to = s.origin;
+			if (!visible.has(s.el) || s.swapping) return;
+			if (s.animate) due = Math.min(due, s.lastStep + STEP_MS);
+			if (s.rotateMs) due = Math.min(due, s.lastSwap + s.rotateMs - (s.announced ? 0 : LEAD_MS));
+		});
+		clearTimeout(timer);
+		if (due < Infinity) timer = window.setTimeout(wake, Math.max(0, due - now));
+	}
+
+	function frame(now: number) {
+		raf = 0;
+		let busy = false;
+		shells.forEach((s) => {
+			if (!visible.has(s.el) || s.swapping) return;
+
+			if (s.rotateMs && now - s.lastSwap >= s.rotateMs) {
+				beginSwap(s, now);
+				return; // a swap is this shell's whole frame
+			}
+			if (s.rotateMs && !s.announced && now - s.lastSwap >= s.rotateMs - LEAD_MS) announce(s);
+
+			if (!s.animate) return;
+			if (!s.tween && now - s.lastStep >= STEP_MS) beginStep(s, now);
+			if (s.tween) {
+				progressStep(s, now);
+				busy = true;
+			}
 		});
 
+		if (busy) raf = requestAnimationFrame(frame);
+		else armTimer(now);
+	}
+
+	if (shells.length) {
 		// Only shells actually on screen do any work; a page can hold several of these.
-		const visible = new Set<HTMLElement>();
 		const io = new IntersectionObserver(
 			(entries) => {
 				entries.forEach((e) =>
 					e.isIntersecting ? visible.add(e.target as HTMLElement) : visible.delete(e.target as HTMLElement)
 				);
+				wake();
 			},
 			{ rootMargin: '80px' }
 		);
 		shells.forEach((s) => io.observe(s.el));
-
-		const frame = (now: number) => {
-			shells.forEach((s) => {
-				if (!visible.has(s.el)) return;
-
-				if (s.rotateMs && now - s.lastSwap >= s.rotateMs) {
-					s.lastSwap = now;
-					s.caseIdx = (s.caseIdx + 1) % s.cases.length;
-					applyCase(s, now);
-					return; // a swap is this shell's whole frame
-				}
-
-				if (!s.animate) return;
-
-				if (now - s.lastStep >= STEP_MS) {
-					s.lastStep = now;
-					s.from = s.to;
-					s.to = nextValue(s);
-					s.started = now;
-				}
-
-				if (!s.started) return;
-				const t = Math.min(1, (now - s.started) / TWEEN_MS);
-				// easeOutCubic: quick to move, settles rather than stopping dead.
-				const e = 1 - Math.pow(1 - t, 3);
-				draw(s, s.from + (s.to - s.from) * e);
-			});
-
-			requestAnimationFrame(frame);
-		};
-		requestAnimationFrame(frame);
 	}
 </script>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
+	// One design pixel. The flow sets `--flow-u` from the width it is given; on its own the shell
+	// is native size.
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
 	.shell {
+		--u: var(--flow-u, 1px);
 		display: flex;
 		overflow: hidden;
 		flex-direction: column;
-		border-radius: $radius-lg;
+		// A number in design pixels; see the flow's list for why it is not a length.
+		border-radius: u(var(--flow-radius, 8));
 		// No border: the shadow alone separates the window from the page. An outline plus a lift
 		// reads as two different ways of saying the same thing, and the stroke was what made the
 		// chrome look drawn rather than rendered.
@@ -376,34 +465,88 @@ const rotates = prepared.length > 1;
 		// `--shadow-lg` is tuned for full-width cards with a 50px offset that would fall clear of a
 		// panel this size. A close contact shadow plus a wide, faint ambient one is what reads as an
 		// object resting on the page.
-		box-shadow:
+		//
+		// Both overridable — `--flow-radius` and `--flow-shadow` — so a token set can change the
+		// object's feel, not only its colours.
+		box-shadow: var(
+			--flow-shadow,
 			0 1px 2px rgba(16, 24, 40, 0.04),
-			0 12px 28px -8px rgba(16, 24, 40, 0.12);
+			0 #{u(12)} #{u(28)} #{u(-8)} rgba(16, 24, 40, 0.12)
+		);
 	}
 
-	.shell__topbar {
-		@include text-xs;
+	// --- browser bar --------------------------------------------------------
+
+	// The same dark as the CLI terminal's title bar, so the two visuals share one idea of "chrome".
+	// Kept low: it is a frame around the app, not a part of it.
+	.shell__chrome {
 		display: flex;
 		align-items: center;
-		gap: $spacing-2;
+		gap: u(8);
 		margin: 0;
-		padding: $spacing-3 $spacing-4;
+		padding: u(5) u(12);
+		background: var(--flow-chrome, #1b1e27);
+	}
+
+	// One filled dot, dim: a presence, not a control.
+	.shell__chrome-dot {
+		display: block;
+		flex: none;
+		width: u(6);
+		height: u(6);
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.35);
+	}
+
+	// The address as plain text. Mono because an address is a string, and because it ties this bar
+	// to the terminal visual beside it.
+	.shell__chrome-url {
+		min-width: 0;
+		font-family: $font-family-mono;
+		font-size: u(11);
+		line-height: u(14);
+		white-space: nowrap;
+		color: rgba(255, 255, 255, 0.62);
+	}
+
+	// --- brand bar ----------------------------------------------------------
+
+	.shell__topbar {
+		display: flex;
+		align-items: center;
+		gap: u(8);
+		margin: 0;
+		// 14 on an 18 line with 7 above and below: the bar keeps its 32 height while the name gets
+		// the size a product name deserves.
+		padding: u(7) u(14);
+		font-size: u(14);
 		font-weight: $font-weight-semibold;
+		line-height: u(18);
 		color: var(--color-white, #fff);
 		// Eased so a brand swap is a change of colour rather than a cut.
 		background: var(--flow-accent);
 		transition: background-color 400ms ease;
 	}
 
-	// Stands in for the customer's logo — a shape, not a glyph, because a real mark would have to
-	// be a different asset per brand.
+	// Stands in for the customer's logo. Every brand's glyph is in the DOM; only the active one
+	// shows. `display: none` rather than opacity so the hidden ones take no space in the row.
 	.shell__mark {
+		display: flex;
 		flex: none;
-		width: 12px;
-		height: 12px;
-		border-radius: 3px;
-		background: rgba(255, 255, 255, 0.9);
+
+		[data-icon] {
+			display: none;
+			width: u(16);
+			height: u(16);
+			color: rgba(255, 255, 255, 0.95);
+		}
+
+		[data-icon].is-active {
+			display: block;
+		}
 	}
+
+	// --- app body -----------------------------------------------------------
 
 	.shell__lower {
 		display: flex;
@@ -416,8 +559,8 @@ const rotates = prepared.length > 1;
 		display: flex;
 		flex: none;
 		flex-direction: column;
-		gap: $spacing-1;
-		padding: $spacing-2;
+		gap: u(4);
+		padding: u(8);
 		// No divider either: the rail's own fill already separates it from the content area.
 		color: var(--color-text-secondary, #5b616e);
 		background: var(--color-bg-light, #f7f9fc);
@@ -427,8 +570,13 @@ const rotates = prepared.length > 1;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: $spacing-1;
-		border-radius: $radius-sm;
+		padding: u(4);
+		border-radius: u(4);
+
+		[data-icon] {
+			width: u(22);
+			height: u(22);
+		}
 	}
 
 	// The brand colour itself on a wash of the same colour, rather than a solid fill with a white
@@ -451,30 +599,36 @@ const rotates = prepared.length > 1;
 		flex: 1;
 		min-width: 0;
 		flex-direction: column;
-		padding: $spacing-4;
+		padding: u(16);
 	}
 
 	.shell__metric-label {
-		@include text-s;
 		margin: 0;
+		font-size: u(14);
+		line-height: u(24);
 		color: var(--color-text-secondary, #5b616e);
 	}
 
 	.shell__reading {
-		@include heading-3;
-		// The mixin is medium; the reading is the loudest thing in the panel and carries the weight.
-		font-weight: $font-weight-semibold;
 		margin: 0;
+		font-size: u(34);
+		// The reading is the loudest thing in the panel by size alone: regular weight, so the digits
+		// keep their shape and the number reads as data rather than a headline.
+		font-weight: $font-weight-normal;
+		line-height: $line-height-tight;
 		// Equal-width digits, so a stepping value does not jitter the line beside it.
 		font-variant-numeric: tabular-nums;
 		color: var(--color-text);
 	}
 
+	// Clipped left and right only: the incoming point is drawn past the right edge and slides in,
+	// while the stroke may still round off above and below the box.
 	.shell__spark {
 		width: 100%;
-		height: 28px;
-		margin-top: $spacing-2;
+		height: u(28);
+		margin-top: u(8);
 		overflow: visible;
+		clip-path: inset(u(-4) 0);
 	}
 
 	.shell__spark-area {
@@ -486,7 +640,9 @@ const rotates = prepared.length > 1;
 	.shell__spark-line {
 		fill: none;
 		stroke: var(--flow-accent);
-		stroke-width: 2;
+		// In screen pixels, because of `non-scaling-stroke` below — so it scales with the design
+		// unit rather than with the stretched box, and never thins past a pixel.
+		stroke-width: max(1px, u(2));
 		stroke-linecap: round;
 		stroke-linejoin: round;
 		// preserveAspectRatio="none" stretches the box, which would stretch the stroke with it.
@@ -501,14 +657,15 @@ const rotates = prepared.length > 1;
 	// legend, while a check reads as "nothing to do here" on sight. The glyph swaps to a warning
 	// triangle when there is something to see, so shape carries the state as well as colour.
 	.shell__alarm-banner {
-		@include text-s;
 		display: flex;
 		align-items: center;
-		gap: $spacing-2;
-		margin: $spacing-3 0 0;
-		padding: $spacing-2 $spacing-3;
-		border-radius: $radius-md;
+		gap: u(8);
+		margin: u(12) 0 0;
+		padding: u(8) u(12);
+		border-radius: u(6);
+		font-size: u(14);
 		font-weight: $font-weight-normal;
+		line-height: u(24);
 		// Subdued: the glyph already carries the state, so the words only need to name it.
 		color: var(--color-text-secondary, #5b616e);
 		background: var(--color-bg-light, #f7f9fc);
@@ -516,6 +673,8 @@ const rotates = prepared.length > 1;
 
 	.shell__alarm-banner [data-icon] {
 		flex: none;
+		width: u(20);
+		height: u(20);
 	}
 
 	// Both glyphs ship; the class decides which is real. `display: none` rather than opacity so the
@@ -535,5 +694,17 @@ const rotates = prepared.length > 1;
 
 	.shell__alarm-banner.is-active .shell__alarm-warn {
 		display: block;
+	}
+
+	// --- brand swap ---------------------------------------------------------
+
+	// Everything that changes wording or shape on a swap fades out, changes, fades back. The bars'
+	// colours ease on their own transitions above, so the swap reads as one movement.
+	.shell__swap {
+		transition: opacity 180ms ease;
+	}
+
+	.shell.is-swapping .shell__swap {
+		opacity: 0;
 	}
 </style>
