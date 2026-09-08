@@ -1,0 +1,180 @@
+---
+/**
+ * Working surface for the launch visuals.
+ *
+ * Internal reference page: not linked from anywhere, `noindex` via the layout, and so kept out
+ * of the sitemap. Its job is to hold each new visual on its own, at the width it will really
+ * get, with nothing else on the page competing for judgement.
+ *
+ * Add a visual by dropping a `<figure class="stage">` below with the component inside. The
+ * `data-w` attribute picks the frame width — `full`, `half` or `card` — matching the three
+ * widths a visual actually lands in on the marketing pages.
+ *
+ * This page is scaffolding, not shipped content: nothing here needs to survive into a
+ * marketing page except the components themselves.
+ */
+import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
+import CliTerminal from '@components/Landing/CliTerminal.astro';
+import SolutionFlow from '@components/Landing/SolutionFlow.astro';
+import SolutionAppShell from '@components/Landing/SolutionAppShell.astro';
+import { SOLUTION_CASES, SOLUTION_RAIL } from '@data/solution-flow';
+---
+
+<PlaygroundLayout
+	title="Launch visuals"
+	description="Each visual on its own, at the width it gets in the page it is headed for. Backgrounds toggle between the light and dark surfaces the sections actually use."
+>
+	{
+		/* Checks the token wiring as much as the component: CliTerminal reads --sl-color-* and
+	    --color-* directly, so if it renders correctly here the layout is loading both sheets. */
+	}
+	<figure class="stage" data-w="half">
+		<figcaption class="stage__cap">
+			<span class="stage__name">CliTerminal</span>
+			<span class="stage__note">existing · token-wiring check</span>
+		</figcaption>
+		<div class="stage__frame">
+			<CliTerminal />
+		</div>
+	</figure>
+
+	{/* --- New launch visuals go below. One <figure class="stage"> each. --- */}
+
+	<figure class="stage" data-w="full">
+		<figcaption class="stage__cap">
+			<span class="stage__name">SolutionFlow</span>
+			<span class="stage__note">at the measured floor</span>
+		</figcaption>
+		<div class="stage__frame stage__frame--plain">
+			<div class="probe">
+				<SolutionFlow />
+			</div>
+		</div>
+	</figure>
+
+	{
+		/* The three use cases side by side, same shell, no rotation yet. Wording and metrics are taken
+	    from the published pages in `src/data/use-cases/` rather than invented, so the copy here can
+	    move to a marketing page without being re-checked. Deliberately three DIFFERENT industries
+	    with the same panel shape — that similarity is what shows the app is configuration. */
+	}
+	<figure class="stage" data-w="full">
+		<figcaption class="stage__cap">
+			<span class="stage__name">SolutionAppShell · 3 use cases</span>
+			<span class="stage__note">static, for comparison</span>
+		</figcaption>
+		<div class="stage__frame stage__frame--plain">
+			<div class="dash-row">
+				{
+					SOLUTION_CASES.map((c) => (
+						<div class="dash-row__item">
+							<SolutionAppShell rail={SOLUTION_RAIL} cases={[c]} animate />
+							<p class="dash-row__cap">{c.source}</p>
+						</div>
+					))
+				}
+			</div>
+		</div>
+	</figure>
+</PlaygroundLayout>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Each visual gets its own band so two of them never share an edge — adjacent visuals read
+	// as one composition otherwise, which is the thing this page exists to avoid.
+	.stage {
+		margin: 0 auto $spacing-16;
+
+		&[data-w='full'] {
+			max-width: 1200px;
+		}
+		&[data-w='half'] {
+			max-width: 600px;
+		}
+		&[data-w='card'] {
+			max-width: 380px;
+		}
+	}
+
+	.stage__cap {
+		display: flex;
+		align-items: baseline;
+		gap: $spacing-3;
+		margin-bottom: $spacing-3;
+		padding-bottom: $spacing-2;
+		border-bottom: 1px solid var(--sl-color-hairline-light);
+	}
+
+	.stage__name {
+		@include card-title-sm;
+		font-family: $font-family-mono;
+	}
+
+	.stage__note {
+		@include text-xs;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.stage__frame {
+		// The checkerboard shows where a visual's own background stops and the page's begins —
+		// a transparent edge is invisible against a plain white frame.
+		background:
+			linear-gradient(45deg, #f2f4f8 25%, transparent 25%, transparent 75%, #f2f4f8 75%),
+			linear-gradient(45deg, #f2f4f8 25%, transparent 25%, transparent 75%, #f2f4f8 75%);
+		background-position:
+			0 0,
+			8px 8px;
+		background-size: 16px 16px;
+		border-radius: $radius-xl;
+	}
+
+	// For visuals that carry their own white surface: the checkerboard reads as a background
+	// competing with the card fills rather than as absence of one.
+	// A hard-set width so the composition is judged at a known size rather than whatever the page
+	// happens to give it.
+	// 630px: just above the measured 624px floor, so the visual is judged at the tightest width the
+	// three-column reading actually survives.
+	.probe {
+		width: 630px;
+		margin: 0 auto;
+	}
+
+	// Each shell at the width it has in the key visual — measured 258.67px, the 1.6fr app column of
+	// a 630px composition — so what gets judged here is what ships. Sharing the composition's 630px
+	// container squeezed all three to 197px, making the comparison one of a size that appears
+	// nowhere. This row is a technical exhibit, so it is free to be wider than the visual it serves.
+	.dash-row {
+		display: grid;
+		grid-template-columns: repeat(3, 259px);
+		justify-content: center;
+		gap: $spacing-5;
+	}
+
+	.dash-row__cap {
+		@include text-xs;
+		margin: $spacing-3 0 0;
+		font-family: $font-family-mono;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.stage__frame--plain {
+		background: none;
+	}
+
+	// The two-column block the visual actually lives in, at the real container width.
+
+	.stage__frame--empty {
+		display: grid;
+		place-items: center;
+		min-height: 200px;
+		border: 1px dashed var(--color-border, #ebebeb);
+		background: none;
+
+		p {
+			@include text-s;
+			margin: 0;
+			color: var(--color-text-secondary, #5b616e);
+		}
+	}
+</style>

@@ -1,0 +1,539 @@
+---
+import { Icon } from 'astro-icon/components';
+import type { SolutionCase } from '@data/solution-flow';
+
+/**
+ * The customer's app, as a small window: branded bar, navigation rail, one live reading and its
+ * alarm state.
+ *
+ * Takes a LIST of cases rather than one set of values. A single case renders a static app; several
+ * make it rotate through them, which is the white-labeling argument — the same product becoming
+ * somebody else's. That is a property of this component rather than of its caller, so a caller
+ * only has to decide which cases apply.
+ *
+ * `--flow-accent` is declared here, on the shell's own root, which keeps the customer's colour off
+ * anything outside it. The app is theirs; the platform that produced it is not.
+ *
+ * Nothing here is interactive on purpose. It is a picture of an app, and real controls would be
+ * tab stops that do nothing.
+ */
+
+interface RailItem {
+	icon: string;
+	/** The screen currently open. Exactly one item should carry this. */
+	active?: boolean;
+}
+
+interface Props {
+	rail: RailItem[];
+	/** One case renders static; more than one rotates through them. */
+	cases: SolutionCase[];
+	/** Step the reading and the sparkline, as a live dashboard would. */
+	animate?: boolean;
+	/** How long each brand holds before the next one takes over. */
+	swapMs?: number;
+}
+
+const { rail, cases, animate = false, swapMs = 5200 } = Astro.props;
+
+const VIEW_W = 100;
+const VIEW_H = 28;
+const PAD = 3;
+
+// Everything the client needs, resolved once here so the server's first paint and every later swap
+// are computed by the same rules. Defaults live in one place rather than being reapplied per tick.
+const prepared = cases.map((c) => {
+	const min = Math.min(...c.series);
+	const max = Math.max(...c.series);
+	const span = max - min || 1;
+	return {
+		name: c.brand.name,
+		accent: c.brand.accent,
+		metricLabel: c.metricLabel,
+		unit: c.unit ?? '',
+		decimals: c.decimals ?? 0,
+		series: c.series,
+		alarms: c.alarms ?? 0,
+		// Falls back to a padded fit only when the metric has no meaningful frame of its own.
+		domain: c.domain ?? ([min - span * 0.25, max + span * 0.25] as [number, number]),
+		drift: c.drift ?? span * 0.5,
+	};
+});
+
+const first = prepared[0];
+
+const yOf = (v: number, [lo, hi]: [number, number]) => VIEW_H - PAD - ((v - lo) / (hi - lo)) * (VIEW_H - PAD * 2);
+const points = first.series.map(
+	(v, i) => `${((i / (first.series.length - 1)) * VIEW_W).toFixed(2)},${yOf(v, first.domain).toFixed(2)}`
+);
+// Closed along the baseline so the area can carry a faint accent wash without a gradient — a
+// gradient needs an id, and ids collide the moment the component is used twice on a page. This
+// component is used four times on one page, so that mattered.
+const area = `${points.join(' ')} ${VIEW_W},${VIEW_H} 0,${VIEW_H}`;
+
+const reading = `${first.series[first.series.length - 1].toFixed(first.decimals)}${first.unit}`;
+const rotates = prepared.length > 1;
+---
+
+<div
+	class="shell"
+	style={`--flow-accent: ${first.accent};`}
+	data-shell
+	data-animate={animate ? 'true' : undefined}
+	data-rotate={rotates ? String(swapMs) : undefined}
+	data-view={`${VIEW_W},${VIEW_H},${PAD}`}
+>
+	{
+		/* The cases travel as JSON rather than as a wall of data attributes: they are nested, and one
+	    parse is cheaper to read than eight attributes to reassemble. */
+	}
+	<script is:inline type="application/json" data-shell-cases set:html={JSON.stringify(prepared)} />
+
+	{
+		/* The whole bar carries the colour, so the name needs no separate mark beside it to say
+	    whose product this is. */
+	}
+	<p class="shell__topbar">
+		<span class="shell__mark" aria-hidden="true"></span>
+		<span data-shell-name>{first.name}</span>
+	</p>
+
+	<div class="shell__lower">
+		{
+			/* The rail is what reads as an app rather than a chart. Kept neutral apart from the active
+		    item, so it does not compete with the branded bar directly above it. */
+		}
+		<nav class="shell__rail" aria-hidden="true">
+			{
+				rail.map((item) => (
+					<span class:list={['shell__rail-item', item.active && 'is-active']}>
+						<Icon name={item.icon} width="22" height="22" />
+					</span>
+				))
+			}
+		</nav>
+
+		<div class="shell__body">
+			<p class="shell__metric-label" data-shell-metric>{first.metricLabel}</p>
+			{
+				/* Reading above the sparkline, not beside it: the number is the subject and the line is
+			    its history, so full width each reads in that order. */
+			}
+			<p class="shell__reading" data-shell-value>{reading}</p>
+			<svg class="shell__spark" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} preserveAspectRatio="none" aria-hidden="true">
+				<polygon class="shell__spark-area" points={area} data-shell-area></polygon>
+				<polyline class="shell__spark-line" points={points.join(' ')} data-shell-line></polyline>
+			</svg>
+
+			{
+				/* A banner rather than a line of text: alarm state is the one thing in this panel a
+			    person scans for, and a full-width strip is what an app actually shows.
+			    Both glyphs are rendered and one is hidden, so a swap toggles a class rather than
+			    rebuilding an icon on the client. */
+			}
+			<p class:list={['shell__alarm-banner', first.alarms > 0 && 'is-active']} data-shell-alarm>
+				<Icon class="shell__alarm-ok" name="tabler:check" width="20" height="20" aria-hidden="true" />
+				<Icon class="shell__alarm-warn" name="tabler:alert-triangle" width="20" height="20" aria-hidden="true" />
+				<span data-shell-alarm-text>
+					{first.alarms > 0 ? `${first.alarms} ${first.alarms === 1 ? 'alarm' : 'alarms'}` : 'No alarms'}
+				</span>
+			</p>
+		</div>
+	</div>
+</div>
+
+<script>
+	/**
+	 * Drives every shell on the page: steps the reading, and rotates the brand where more than one
+	 * case was given.
+	 *
+	 * One script for all instances — Astro bundles it once however many shells render, so it queries
+	 * them all rather than being wired per component.
+	 *
+	 * The walk is bounded and centred on the case's own starting value: readings that only rise look
+	 * like a loading bar, and readings that wander the whole axis look broken. `drift` is what bounds
+	 * it, deliberately not the drawing domain — a fuel gauge is drawn against 0-100 but does not
+	 * empty and refill every few seconds.
+	 *
+	 * A brand swap RESETS the walk. Carrying a drifted value across would start the new brand
+	 * mid-wander, and worse, carry a temperature into a panel labelled as a percentage before the
+	 * first tick corrected it.
+	 *
+	 * Only the newest point moves; the window does NOT scroll. Scrolling it was the first version
+	 * and it quietly destroyed the picture: each step dropped an older reading, so a tank's
+	 * drawdown rolled off the left and within half a minute every sparkline had flattened into the
+	 * narrow band the walk lives in. The drawn history is the case's illustrative history, and the
+	 * live tip is what says the panel is not a screenshot.
+	 */
+	type Case = {
+		name: string;
+		accent: string;
+		metricLabel: string;
+		unit: string;
+		decimals: number;
+		series: number[];
+		alarms: number;
+		domain: [number, number];
+		drift: number;
+	};
+
+	type Shell = {
+		el: HTMLElement;
+		nameEl: HTMLElement;
+		metricEl: HTMLElement;
+		valueEl: HTMLElement;
+		alarmEl: HTMLElement;
+		alarmTextEl: HTMLElement;
+		line: SVGPolylineElement;
+		area: SVGPolygonElement;
+		cases: Case[];
+		w: number;
+		h: number;
+		pad: number;
+		rotateMs: number;
+		animate: boolean;
+		caseIdx: number;
+		// live walk state, reset on every swap
+		series: number[];
+		origin: number;
+		from: number;
+		to: number;
+		started: number;
+		lastStep: number;
+		lastSwap: number;
+	};
+
+	const STEP_MS = 2200; // how often a new reading arrives
+	const TWEEN_MS = 700; // how long the value takes to travel there
+
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	function current(s: Shell) {
+		return s.cases[s.caseIdx];
+	}
+
+	/** Puts a case on screen and restarts its walk from that case's own numbers. */
+	function applyCase(s: Shell, now: number) {
+		const c = current(s);
+		s.series = c.series.slice();
+		s.origin = c.series[c.series.length - 1];
+		s.from = s.origin;
+		s.to = s.origin;
+		s.started = 0;
+		s.lastStep = now;
+
+		s.el.style.setProperty('--flow-accent', c.accent);
+		s.nameEl.textContent = c.name;
+		s.metricEl.textContent = c.metricLabel;
+		s.alarmEl.classList.toggle('is-active', c.alarms > 0);
+		s.alarmTextEl.textContent = c.alarms > 0 ? `${c.alarms} ${c.alarms === 1 ? 'alarm' : 'alarms'}` : 'No alarms';
+		draw(s, s.origin);
+	}
+
+	function nextValue(s: Shell) {
+		const c = current(s);
+		// A third of the allowed drift per step: large enough that a reading shown to zero decimals
+		// visibly moves, small enough that the line reads as telemetry rather than noise.
+		const step = c.drift * 0.33 * (Math.random() - 0.5) * 2;
+		return Math.min(s.origin + c.drift, Math.max(s.origin - c.drift, s.to + step));
+	}
+
+	function draw(s: Shell, latest: number) {
+		const c = current(s);
+		const [lo, hi] = c.domain;
+		const values = s.series.slice(0, -1).concat(latest);
+		const pts = values.map((v, i) => {
+			const x = (i / (values.length - 1)) * s.w;
+			const y = s.h - s.pad - ((v - lo) / (hi - lo)) * (s.h - s.pad * 2);
+			return `${x.toFixed(2)},${y.toFixed(2)}`;
+		});
+		s.line.setAttribute('points', pts.join(' '));
+		s.area.setAttribute('points', `${pts.join(' ')} ${s.w},${s.h} 0,${s.h}`);
+		s.valueEl.textContent = `${latest.toFixed(c.decimals)}${c.unit}`;
+	}
+
+	function setup(now: number): Shell[] {
+		const out: Shell[] = [];
+		document.querySelectorAll<HTMLElement>('[data-shell]').forEach((el) => {
+			const json = el.querySelector<HTMLElement>('[data-shell-cases]');
+			const nameEl = el.querySelector<HTMLElement>('[data-shell-name]');
+			const metricEl = el.querySelector<HTMLElement>('[data-shell-metric]');
+			const valueEl = el.querySelector<HTMLElement>('[data-shell-value]');
+			const alarmEl = el.querySelector<HTMLElement>('[data-shell-alarm]');
+			const alarmTextEl = el.querySelector<HTMLElement>('[data-shell-alarm-text]');
+			const line = el.querySelector<SVGPolylineElement>('[data-shell-line]');
+			const area = el.querySelector<SVGPolygonElement>('[data-shell-area]');
+			if (!json || !nameEl || !metricEl || !valueEl || !alarmEl || !alarmTextEl || !line || !area) return;
+
+			const rotateMs = Number(el.dataset.rotate ?? 0);
+			const animate = el.dataset.animate === 'true';
+			if (!rotateMs && !animate) return; // nothing to drive
+
+			let cases: Case[];
+			try {
+				cases = JSON.parse(json.textContent ?? '[]');
+			} catch {
+				return;
+			}
+			if (!cases.length) return;
+
+			const [w, h, pad] = (el.dataset.view ?? '100,28,3').split(',').map(Number);
+			out.push({
+				el,
+				nameEl,
+				metricEl,
+				valueEl,
+				alarmEl,
+				alarmTextEl,
+				line,
+				area,
+				cases,
+				w,
+				h,
+				pad,
+				rotateMs,
+				animate,
+				caseIdx: 0,
+				series: cases[0].series.slice(),
+				origin: cases[0].series[cases[0].series.length - 1],
+				from: 0,
+				to: 0,
+				started: 0,
+				lastStep: now,
+				lastSwap: now,
+			});
+		});
+		return out;
+	}
+
+	const t0 = performance.now();
+	const shells = reduce ? [] : setup(t0);
+
+	if (shells.length) {
+		shells.forEach((s) => {
+			s.from = s.origin;
+			s.to = s.origin;
+		});
+
+		// Only shells actually on screen do any work; a page can hold several of these.
+		const visible = new Set<HTMLElement>();
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) =>
+					e.isIntersecting ? visible.add(e.target as HTMLElement) : visible.delete(e.target as HTMLElement)
+				);
+			},
+			{ rootMargin: '80px' }
+		);
+		shells.forEach((s) => io.observe(s.el));
+
+		const frame = (now: number) => {
+			shells.forEach((s) => {
+				if (!visible.has(s.el)) return;
+
+				if (s.rotateMs && now - s.lastSwap >= s.rotateMs) {
+					s.lastSwap = now;
+					s.caseIdx = (s.caseIdx + 1) % s.cases.length;
+					applyCase(s, now);
+					return; // a swap is this shell's whole frame
+				}
+
+				if (!s.animate) return;
+
+				if (now - s.lastStep >= STEP_MS) {
+					s.lastStep = now;
+					s.from = s.to;
+					s.to = nextValue(s);
+					s.started = now;
+				}
+
+				if (!s.started) return;
+				const t = Math.min(1, (now - s.started) / TWEEN_MS);
+				// easeOutCubic: quick to move, settles rather than stopping dead.
+				const e = 1 - Math.pow(1 - t, 3);
+				draw(s, s.from + (s.to - s.from) * e);
+			});
+
+			requestAnimationFrame(frame);
+		};
+		requestAnimationFrame(frame);
+	}
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.shell {
+		display: flex;
+		overflow: hidden;
+		flex-direction: column;
+		border-radius: $radius-lg;
+		// No border: the shadow alone separates the window from the page. An outline plus a lift
+		// reads as two different ways of saying the same thing, and the stroke was what made the
+		// chrome look drawn rather than rendered.
+		//
+		// Two layers rather than a token: `--shadow-md` is a tight, dark Material-style stack and
+		// `--shadow-lg` is tuned for full-width cards with a 50px offset that would fall clear of a
+		// panel this size. A close contact shadow plus a wide, faint ambient one is what reads as an
+		// object resting on the page.
+		box-shadow:
+			0 1px 2px rgba(16, 24, 40, 0.04),
+			0 12px 28px -8px rgba(16, 24, 40, 0.12);
+	}
+
+	.shell__topbar {
+		@include text-xs;
+		display: flex;
+		align-items: center;
+		gap: $spacing-2;
+		margin: 0;
+		padding: $spacing-3 $spacing-4;
+		font-weight: $font-weight-semibold;
+		color: var(--color-white, #fff);
+		// Eased so a brand swap is a change of colour rather than a cut.
+		background: var(--flow-accent);
+		transition: background-color 400ms ease;
+	}
+
+	// Stands in for the customer's logo — a shape, not a glyph, because a real mark would have to
+	// be a different asset per brand.
+	.shell__mark {
+		flex: none;
+		width: 12px;
+		height: 12px;
+		border-radius: 3px;
+		background: rgba(255, 255, 255, 0.9);
+	}
+
+	.shell__lower {
+		display: flex;
+		flex: 1;
+		// White so the branded bar and the rail are what stand out.
+		background: var(--color-white, #fff);
+	}
+
+	.shell__rail {
+		display: flex;
+		flex: none;
+		flex-direction: column;
+		gap: $spacing-1;
+		padding: $spacing-2;
+		// No divider either: the rail's own fill already separates it from the content area.
+		color: var(--color-text-secondary, #5b616e);
+		background: var(--color-bg-light, #f7f9fc);
+	}
+
+	.shell__rail-item {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: $spacing-1;
+		border-radius: $radius-sm;
+	}
+
+	// The brand colour itself on a wash of the same colour, rather than a solid fill with a white
+	// glyph. A filled chip read as a button — something to press — when all it marks is which screen
+	// is open. This still carries the brand (the accent's third home during a swap) but at the
+	// volume a selected nav item deserves.
+	//
+	// `color-mix` keeps the wash tied to whatever accent is passed in, so it stays correct for every
+	// brand instead of needing a second colour per customer.
+	.shell__rail-item.is-active {
+		color: var(--flow-accent);
+		background: color-mix(in srgb, var(--flow-accent) 12%, transparent);
+		transition:
+			color 400ms ease,
+			background-color 400ms ease;
+	}
+
+	.shell__body {
+		display: flex;
+		flex: 1;
+		min-width: 0;
+		flex-direction: column;
+		padding: $spacing-4;
+	}
+
+	.shell__metric-label {
+		@include text-s;
+		margin: 0;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.shell__reading {
+		@include heading-3;
+		// The mixin is medium; the reading is the loudest thing in the panel and carries the weight.
+		font-weight: $font-weight-semibold;
+		margin: 0;
+		// Equal-width digits, so a stepping value does not jitter the line beside it.
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text);
+	}
+
+	.shell__spark {
+		width: 100%;
+		height: 28px;
+		margin-top: $spacing-2;
+		overflow: visible;
+	}
+
+	.shell__spark-area {
+		fill: var(--flow-accent);
+		opacity: 0.12;
+		transition: fill 400ms ease;
+	}
+
+	.shell__spark-line {
+		fill: none;
+		stroke: var(--flow-accent);
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		// preserveAspectRatio="none" stretches the box, which would stretch the stroke with it.
+		vector-effect: non-scaling-stroke;
+		transition: stroke 400ms ease;
+	}
+
+	// Fixed severity colours, never the accent: severity means the same thing whoever's brand this
+	// is, and a customer cannot be allowed to rebrand what "urgent" looks like.
+	//
+	// A tick rather than a coloured dot — a dot only means something once you have learned the
+	// legend, while a check reads as "nothing to do here" on sight. The glyph swaps to a warning
+	// triangle when there is something to see, so shape carries the state as well as colour.
+	.shell__alarm-banner {
+		@include text-s;
+		display: flex;
+		align-items: center;
+		gap: $spacing-2;
+		margin: $spacing-3 0 0;
+		padding: $spacing-2 $spacing-3;
+		border-radius: $radius-md;
+		font-weight: $font-weight-normal;
+		// Subdued: the glyph already carries the state, so the words only need to name it.
+		color: var(--color-text-secondary, #5b616e);
+		background: var(--color-bg-light, #f7f9fc);
+	}
+
+	.shell__alarm-banner [data-icon] {
+		flex: none;
+	}
+
+	// Both glyphs ship; the class decides which is real. `display: none` rather than opacity so the
+	// hidden one takes no space in the row.
+	.shell__alarm-ok {
+		color: var(--color-success, #1f8b4d);
+	}
+
+	.shell__alarm-warn {
+		display: none;
+		color: var(--color-warning, #ff3d00);
+	}
+
+	.shell__alarm-banner.is-active .shell__alarm-ok {
+		display: none;
+	}
+
+	.shell__alarm-banner.is-active .shell__alarm-warn {
+		display: block;
+	}
+</style>

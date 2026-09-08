@@ -1,0 +1,119 @@
+---
+/**
+ * Bare page shell for the internal visual playground under `src/pages/internal/`.
+ *
+ * Deliberately NOT `BaseLayout`: that wraps `<StarlightPage>`, which brings the header,
+ * sidebar, search, footer and cookie banner with it. None of that helps while iterating on a
+ * single visual, and all of it has to be scrolled past to reach the thing being worked on.
+ *
+ * The catch is that bypassing Starlight also bypasses its `customCss`, which is where every
+ * design token normally comes from. So this layout loads the two sheets itself:
+ *
+ *   1. Starlight's own `props.css`  — the `--sl-*` tokens. Ten of the Landing components read
+ *      these directly (`--sl-color-hairline-light`, `--sl-color-gray-*`, …), so a hand-written
+ *      shim would drift from the real values; this is the same file the docs pages get.
+ *      Imported by relative path because the package's `exports` map does not expose
+ *      `./style/props.css` for a bare specifier.
+ *   2. `_starlight-overrides.scss` — `@use`s `_theme.scss`, which emits all the `--color-*`
+ *      properties. `_theme.scss` says not to `@use` it from a component `<style>` block, and
+ *      that still holds: the point is that it is emitted exactly once per page. On this route
+ *      there is no Starlight to emit it, so this layout is that one place.
+ *
+ * The upshot: a visual built on a playground page renders against the same tokens, fonts and
+ * mixins it will get on a marketing page, so it moves across without being re-fitted.
+ */
+import '../../node_modules/@astrojs/starlight/style/props.css';
+import '@fontsource/ubuntu/300.css';
+import '@fontsource/ubuntu/400.css';
+import '@fontsource/ubuntu/500.css';
+import '@fontsource/ubuntu/700.css';
+import '@fontsource/ubuntu-mono/400.css';
+
+interface Props {
+	title: string;
+	/** Shown under the title. One line on what the page is for. */
+	description?: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" data-theme="light">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{title} · internal</title>
+		{
+			/* Keeps the page out of the sitemap: the sitemap integration reads the built HTML and
+		    drops anything carrying `noindex`, rather than keeping a deny-list that drifts. */
+		}
+		<meta name="robots" content="noindex, nofollow" />
+		<link rel="icon" href="data:," />
+	</head>
+
+	<body>
+		<header class="pg__head">
+			<p class="pg__kicker">Internal · not linked, not indexed</p>
+			<h1>{title}</h1>
+			{description && <p class="pg__lede">{description}</p>}
+		</header>
+
+		<slot />
+	</body>
+</html>
+
+<style lang="scss" is:global>
+	@use '../styles/starlight-overrides';
+	@use '../styles/variables' as *;
+
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		padding: $spacing-10 $spacing-6 $spacing-24;
+		font-family: $font-family-base;
+		background: var(--color-bg, #fff);
+		color: var(--color-text, #171c22);
+		-webkit-font-smoothing: antialiased;
+	}
+
+	img,
+	svg {
+		display: block;
+		max-width: 100%;
+	}
+
+	// Aligned to the widest stage rather than to its own text measure, so the page title sits on
+	// the same left edge as the visuals it labels. Only the lede is held to a reading width.
+	.pg__head {
+		max-width: 1200px;
+		margin: 0 auto $spacing-12;
+	}
+
+	.pg__kicker {
+		@include text-s;
+		margin: 0 0 $spacing-2;
+		font-family: $font-family-mono;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.pg__head h1 {
+		@include page-title;
+		margin: 0 0 $spacing-3;
+	}
+
+	.pg__lede {
+		@include text-m;
+		max-width: 70ch;
+		margin: 0;
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+</style>

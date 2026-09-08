@@ -1,0 +1,297 @@
+---
+import { Icon } from 'astro-icon/components';
+import SolutionAppShell from './SolutionAppShell.astro';
+import { SOLUTION_CASES, SOLUTION_RAIL, type SolutionCase } from '@data/solution-flow';
+
+/**
+ * The arc the headline claims — device to end-user — as three columns running left to right.
+ *
+ * Two stages of capability chips feed an app shell. The shell is the point: "ship complete IoT
+ * applications, not just data pipelines" is a claim about where the work ends, and a chart on a
+ * card is what a pipeline produces. A branded top bar, a rail and a real control are what make
+ * it something a person opens.
+ *
+ * Chips stack full width rather than flowing inline. In a column this narrow inline chips wrap
+ * unevenly — one stage ended up 3 + 1 with a stranded chip — and a stacked pill per capability
+ * is both steadier and what the original design did.
+ *
+ * The accent is the customer's, so it is declared on the shell alone and can never tint the two
+ * stages feeding it: the app is theirs, the platform underneath is not. It drives the top bar,
+ * the sparkline and the control, which makes a brand swap one variable and one string with no
+ * geometry change — nothing reflows.
+ *
+ * The alarm count is deliberately NOT branded. An alarm colour is semantic — it means severity,
+ * not identity — so it stays fixed while everything else recolours. Swapping it with the brand
+ * would say a customer can rebrand what "urgent" looks like.
+ *
+ * Three columns need roughly 624px, so unlike the vertical draft this cannot ride out a 335px
+ * container: the container query below returns it to a stack. That is the cost of the
+ * left-to-right reading, not an oversight — and it is a CONTAINER query, not a media query,
+ * because what constrains this is the width it is given, not the width of the window.
+ */
+
+interface Row {
+	label: string;
+	icon: string;
+	/** Also a screen in the finished app, so it earns a place on the rail. */
+	app?: boolean;
+}
+
+interface Stage {
+	title: string;
+	rows: Row[];
+}
+
+interface Props {
+	stages?: [Stage, Stage];
+	appTitle?: string;
+	/**
+	 * The app's use cases. One renders a static panel; several make it rotate, which is what shows
+	 * the app is the customer's rather than ours.
+	 */
+	cases?: SolutionCase[];
+	/** Step the readings inside the panel, as a live dashboard would. */
+	animate?: boolean;
+}
+
+const {
+	stages = [
+		{
+			title: 'Connect devices',
+			rows: [
+				{ label: 'Sensors', icon: 'tabler:access-point' },
+				{ label: 'Gateways', icon: 'tabler:router' },
+				{ label: 'Machines', icon: 'tabler:engine' },
+				{ label: 'Meters', icon: 'tabler:gauge' },
+			],
+		},
+		{
+			title: 'Build solution',
+			rows: [
+				{ label: 'Digital twins', icon: 'tabler:box-model' },
+				{ label: 'Rule chains', icon: 'tabler:hierarchy-2' },
+				{ label: 'Alarms', icon: 'tabler:bell-ringing', app: true },
+				{ label: 'Dashboards', icon: 'tabler:layout-dashboard', app: true },
+			],
+		},
+	],
+	appTitle = 'Share with your users',
+	cases = SOLUTION_CASES,
+	animate = true,
+} = Astro.props;
+
+// The app's navigation, shared with the comparison page so the two cannot disagree. Rule chains
+// and the digital twin are deliberately absent: they are how the solution behaves and how it is
+// modelled, not screens a user opens.
+const rail = SOLUTION_RAIL;
+---
+
+<div class="flow-fit">
+	<div class="flow" data-flow>
+		{
+			stages.map((stage) => (
+				<>
+					<section class="flow__stage">
+						<p class="flow__label">{stage.title}</p>
+						<ul class="flow__list">
+							{stage.rows.map((row) => (
+								<li>
+									<Icon name={row.icon} width="20" height="20" aria-hidden="true" />
+									<span>{row.label}</span>
+								</li>
+							))}
+						</ul>
+					</section>
+
+					{/* Line plus head, both in CSS: the line stretches the full width of its track so it
+				    meets the card edge on either side, and a border triangle keeps the head
+				    undistorted at any track size. */}
+					<div class="flow__arrow" aria-hidden="true">
+						<span class="flow__arrow-line" />
+						<span class="flow__arrow-head" />
+					</div>
+				</>
+			))
+		}
+
+		<section class="flow__stage flow__app-stage">
+			<p class="flow__label">{appTitle}</p>
+
+			{
+				/* Wrapped so this stage can centre the shell on the middle axis. The shell's own styles are
+			    scoped to its component and cannot be reached from here, which is the point: its placement
+			    inside the flow is the flow's business, its appearance is its own. */
+			}
+			<div class="flow__app-slot">
+				<SolutionAppShell rail={rail} cases={cases} animate={animate} />
+			</div>
+		</section>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// The app column is the widest: it is the destination, and it carries the most. Arrow tracks
+	// are fixed so both connectors are one length.
+	// Queried by the grid below. The constraint here is how much room this component is GIVEN,
+	// not how wide the window is — dropped into the narrow half of a two-column section it gets
+	// about 440px on a 1440px viewport, where a viewport media query would never fire and the
+	// layout would simply break. So the breakpoint is a container query.
+	.flow-fit {
+		container-type: inline-size;
+	}
+
+	.flow {
+		display: grid;
+		grid-template-columns: 1fr 24px 1fr 24px 1.6fr;
+		align-items: stretch;
+
+		// The stage labels sit above the cards, so a connector centred on its whole column lands
+		// well above the card bodies — measured 85px high before this. Both halves of the band are
+		// declared here and consumed by the label and the connector, so they cannot drift apart.
+		--flow-label-h: 24px; // text-s, 14px on a 24px line
+		--flow-label-gap: #{$spacing-2};
+	}
+
+	// Stretched to the row so the card inside can centre in the leftover space. Two things are
+	// wanted at once here: the three stage labels on one line at the top, and the three card
+	// bodies on one middle axis. Centring the whole stage would have satisfied the second and
+	// broken the first, so the label stays put and the card takes `margin: auto 0` below.
+	.flow__stage {
+		display: flex;
+		flex-direction: column;
+	}
+
+	// Outside the card below it, so this label and the app's label — which cannot sit inside a
+	// window — share one left edge.
+	.flow__label {
+		@include text-s;
+		min-height: var(--flow-label-h);
+		margin: 0 0 var(--flow-label-gap);
+		text-align: center;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// The card is drawn on the list itself rather than a wrapper, which keeps the label outside it
+	// without an extra element.
+	//
+	// No padding on the card and no fill behind each item: the hairlines run the full width, so the
+	// two stages read as lists inside the product rather than as tags describing it. `overflow:
+	// hidden` is what keeps the first and last rows from squaring off the card's rounded corners.
+	.flow__list {
+		display: flex;
+		overflow: hidden;
+		flex-direction: column;
+		// `auto` top and bottom: centres this card on the middle axis shared with the app panel,
+		// rather than stacking it to the top of the row.
+		margin: auto 0;
+		padding: 0;
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: $radius-lg;
+		background: var(--color-bg-surface, #fff);
+		list-style: none;
+
+		li {
+			@include text-m;
+			display: flex;
+			align-items: center;
+			gap: $spacing-3;
+			// Tight vertically, roomier across: without a pill behind it the label needs clearance
+			// from the card edge, but it does not need the height a pill was giving it.
+			padding: $spacing-2 $spacing-4;
+			font-weight: $font-weight-medium;
+			color: var(--color-text);
+		}
+
+		li + li {
+			border-top: 1px solid var(--sl-color-hairline-light);
+		}
+
+		// Tabler glyphs stroke in currentColor, so the row's colour is the icon's colour.
+		[data-icon] {
+			flex: none;
+			color: var(--color-text-secondary, #5b616e);
+		}
+	}
+
+	// --- connectors ---------------------------------------------------------
+
+	// These carry the sequence on their own, so they meet the cards rather than floating in the
+	// gap. Centred on the card body, not the whole column, so the stage labels do not drag them up.
+	.flow__arrow {
+		display: flex;
+		align-items: center;
+		// Skips the label band so the line centres on the card bodies, not on the columns.
+		padding-top: calc(var(--flow-label-h) + var(--flow-label-gap));
+		// Dark rather than a hairline grey: with the step numbers gone these are the only thing
+		// stating the order, so they carry the page's ink weight.
+		--flow-rail-color: var(--color-text, #17181c);
+	}
+
+	.flow__arrow-line {
+		flex: 1;
+		height: 2px;
+		background: var(--flow-rail-color);
+	}
+
+	.flow__arrow-head {
+		flex: none;
+		width: 0;
+		height: 0;
+		border-top: 6px solid transparent;
+		border-bottom: 6px solid transparent;
+		border-left: 9px solid var(--flow-rail-color);
+	}
+
+	// --- the app ------------------------------------------------------------
+
+	// The shell draws itself; this only says where it sits. Everything that was here — the branded
+	// bar, the rail, the reading, the sparkline, the alarm banner — moved to SolutionAppShell so the
+	// panel in this flow and the ones compared beneath it cannot drift apart.
+	.flow__app-slot {
+		// Matches the stage lists, so all three bodies share one centre line.
+		margin: auto 0;
+	}
+
+	// --- stacked ------------------------------------------------------------
+
+	// Measured, not guessed, and re-measured after every change to the composition. This number
+	// has moved four times, and once the BINDING CONSTRAINT itself moved, so it is never safe to
+	// assume it still holds after a spacing or label edit.
+	//
+	// Two things must hold for three columns to be honest: the two stage columns must come out
+	// equal, and no row label may wrap to a second line. Equality alone is not enough — at 600px
+	// the columns match while "Digital twins" sits on two lines.
+	//
+	// Wrapping is what binds: equal from 600px, single-line from 624px. Hence 623. Dropping the
+	// card padding for the hairline rows bought about 30px over the chip version, and tightening
+	// the rail gave the app column its width back rather than the layout.
+	@container (max-width: 623px) {
+		.flow {
+			grid-template-columns: 1fr;
+		}
+
+		.flow__arrow {
+			flex-direction: column;
+			// Stacked, the connector sits between two cards — there is no label band above it to
+			// skip.
+			height: 36px;
+			padding-top: 0;
+		}
+
+		.flow__arrow-line {
+			width: 2px;
+			height: auto;
+		}
+
+		.flow__arrow-head {
+			border-top: 9px solid var(--flow-rail-color);
+			border-right: 6px solid transparent;
+			border-bottom: 0;
+			border-left: 6px solid transparent;
+		}
+	}
+</style>
