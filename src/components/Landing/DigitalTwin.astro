@@ -1,0 +1,554 @@
+---
+import { Icon } from 'astro-icon/components';
+import TwinUnit from '@components/Landing/TwinUnit.astro';
+import { DIGITAL_TWIN_STAGES, PHYSICAL_ASSET, TWIN, TWIN_FLOWS, TWIN_HISTORY } from '@data/digital-twin-visual';
+import { sparkPaths } from '@util/sparkline';
+
+/**
+ * A physical asset and its digital twin, side by side, the twin carrying its own history.
+ *
+ * Built in the flow visual's language so the two read as one family: the same design unit derived
+ * from the width it is given, the same card and hairline rows, the same grey connectors with an
+ * open chevron. Where the flow argues "device to end-user", this argues "the real thing and its
+ * model agree".
+ *
+ * The unit (TwinUnit) is the one dark surface, and the one that casts a shadow. That is the
+ * composition's argument in a single contrast: the world is a solid object, the twin is the
+ * platform's light UI. Both cards hang from the same top line; the connectors centre on the unit,
+ * since that is what they connect to. Telemetry crosses left to right and commands come back
+ * beneath it.
+ *
+ * Deliberately still. The flow carries the motion on the page; here only the temperature reading
+ * ticks, enough to say the twin is live and no more.
+ *
+ * Nothing here is interactive. It is a picture of an app, and real controls would be tab stops
+ * that do nothing.
+ */
+
+interface Props {
+	/**
+	 * Nest the unit inside its site — a Warehouse frame around the dark card — so the customer's
+	 * hierarchy is seen rather than named. A variant under review.
+	 */
+	nested?: boolean;
+}
+
+const { nested = false } = Astro.props;
+// Only the root of the path is drawn: the frame is the site, and a zone would be a frame within it.
+const site = PHYSICAL_ASSET.path[0];
+
+// The chart box. No vertical padding: the axis ticks sit at the box's top, middle and bottom, so
+// the domain's edges must be the box's edges. The series is today so far, so it is laid out on a
+// full day's worth of columns and stops where the day has got to — the empty remainder is the
+// point.
+const VIEW = { w: 100, h: 40, pad: 0 };
+const paths = sparkPaths(TWIN_HISTORY.series, TWIN_HISTORY.domain, VIEW, TWIN_HISTORY.pointsPerDay);
+const [lo, hi] = TWIN_HISTORY.domain;
+
+const telemetry = TWIN_FLOWS.find((f) => f.to === 'twin');
+const commands = TWIN_FLOWS.find((f) => f.to === 'physical');
+---
+
+<div class="twin-fit">
+	<div class:list={['twin', nested && 'twin--nested']} data-twin>
+		<p class="twin__label">{DIGITAL_TWIN_STAGES.physical}</p>
+		<p class="twin__label twin__label--right">{DIGITAL_TWIN_STAGES.twin}</p>
+
+		{
+			/* --- the real thing ----------------------------------------------------------------
+		    Nested, the unit sits inside its site: a light frame named for the warehouse, with the dark
+		    card inside it. The connectors cross the frame's padding to reach the unit, because it is
+		    the unit that talks, not the building. */
+		}
+		{
+			nested && (
+				<div class="twin__site">
+					<p class="twin__site-name">
+						<Icon name="tabler:building-warehouse" aria-hidden="true" />
+						<span>{site}</span>
+					</p>
+				</div>
+			)
+		}
+		<TwinUnit unit={PHYSICAL_ASSET} class="twin__physical" />
+
+		{
+			/* Two connectors, one each way, each with its name. Line plus open chevron as in the flow;
+		    the return arrow is the same pair turned around. */
+		}
+		<div class="twin__flows" aria-hidden="true">
+			<div class="twin__flow">
+				<span class="twin__flow-name">{telemetry?.label}</span>
+				<span class="twin__arrow">
+					<span class="twin__arrow-line"></span>
+					<span class="twin__arrow-head"></span>
+				</span>
+			</div>
+			<div class="twin__flow twin__flow--back">
+				<span class="twin__flow-name">{commands?.label}</span>
+				<span class="twin__arrow">
+					<span class="twin__arrow-head"></span>
+					<span class="twin__arrow-line"></span>
+				</span>
+			</div>
+		</div>
+
+		{/* --- its twin ---------------------------------------------------------------------- */}
+		<section class="twin__card twin__card--digital">
+			<header class="twin__head">
+				<Icon name="tabler:box-model" aria-hidden="true" />
+				<span class="twin__name">{TWIN.name}</span>
+			</header>
+			<dl class="twin__attrs">
+				{
+					TWIN.attributes.map((a) => (
+						<div class:list={['twin__attr', a.accent && 'twin__attr--accent']} data-twin-attr={a.key}>
+							<dt>{a.key}</dt>
+							<dd>{a.value}</dd>
+						</div>
+					))
+				}
+			</dl>
+
+			{
+				/* The twin's history, inside the twin: it is the model's memory, not a separate exhibit.
+			    Set off from the state rows above by a gap and a rule, so it reads as a second kind of
+			    thing rather than a fifth row. */
+			}
+			<div class="twin__history">
+				<p class="twin__history-title">{TWIN_HISTORY.title}</p>
+				<div class="twin__chart">
+					<div class="twin__ticks" aria-hidden="true">
+						{TWIN_HISTORY.ticks.map((t) => <span>{t}</span>)}
+					</div>
+					<div class="twin__plot">
+						<svg viewBox={`0 0 ${VIEW.w} ${VIEW.h}`} preserveAspectRatio="none" aria-hidden="true">
+							{
+								/* Gridlines at the ticks, drawn in the box's own units so they stretch with it. */
+								TWIN_HISTORY.ticks.map((t) => {
+									const y = ((hi - t) / (hi - lo)) * VIEW.h;
+									return <line class="twin__grid" x1="0" x2={VIEW.w} y1={y} y2={y} />;
+								})
+							}
+							<path class="twin__area" d={paths.area}></path>
+							<path class="twin__line" d={paths.line}></path>
+						</svg>
+					</div>
+					<div class="twin__times" aria-hidden="true">
+						{TWIN_HISTORY.labels.map((l) => <span>{l}</span>)}
+					</div>
+				</div>
+			</div>
+		</section>
+	</div>
+</div>
+
+<script>
+	/**
+	 * The one thing that moves: the temperature reading steps through a short precalculated loop
+	 * around the design's value, every few seconds, only while on screen. Nothing is invented at
+	 * runtime and nothing else animates.
+	 */
+	const BEAT_MS = 3000;
+	const TEMPS = [-18.4, -18.2, -18.6, -18.3, -18.7, -18.1];
+
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	document.querySelectorAll<HTMLElement>('[data-twin]').forEach((root) => {
+		if (reduce) return;
+		const temp = root.querySelector<HTMLElement>('[data-twin-attr="temperature"] dd');
+		if (!temp) return;
+
+		let beat = 0;
+		let visible = false;
+		let timer = 0;
+
+		const tick = () => {
+			if (!visible) return;
+			beat++;
+			temp.textContent = `−${Math.abs(TEMPS[beat % TEMPS.length]).toFixed(1)} °C`;
+			timer = window.setTimeout(tick, BEAT_MS);
+		};
+
+		new IntersectionObserver(
+			(entries) => {
+				visible = entries.some((e) => e.isIntersecting);
+				clearTimeout(timer);
+				if (visible) timer = window.setTimeout(tick, BEAT_MS);
+			},
+			{ rootMargin: '80px' }
+		).observe(root);
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// One design pixel — the flow's unit, derived the same way, so the two visuals scale alike.
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.twin-fit {
+		container-type: inline-size;
+	}
+
+	// Authored at 630 wide like the flow; see SolutionFlow for why the unit comes from the
+	// container and is capped.
+	.twin {
+		--flow-u: clamp(0.45px, calc(100cqw / 630), 1.15px);
+		--u: var(--flow-u);
+		display: grid;
+		// Physical | connectors | twin. The twin is wider: it carries four rows of state and its
+		// history against the unit's devices, and it is where the eye is meant to land.
+		grid-template-columns: 1fr u(96) 1.2fr;
+		// The unit and the connectors share a row sized to the unit, and the twin runs on into a
+		// third row below it. So the cards align at the top, and the connectors — centred in their
+		// row — centre on the unit rather than on the taller twin.
+		grid-template-rows: auto auto 1fr;
+		grid-template-areas:
+			'label-l . label-r'
+			'physical flows digital'
+			'. . digital';
+		align-items: stretch;
+		max-width: calc(630 * var(--flow-u));
+		margin: 0 auto;
+		--twin-label-h: #{u(24)};
+		--twin-label-gap: #{u(8)};
+	}
+
+	// The two stage labels, as the flow's: a size up from a caption, regular, grey, centred over
+	// their columns.
+	.twin__label {
+		grid-area: label-l;
+		min-height: var(--twin-label-h);
+		margin: 0 0 var(--twin-label-gap);
+		font-size: u(15);
+		line-height: u(24);
+		text-align: center;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.twin__label--right {
+		grid-area: label-r;
+	}
+
+	// --- cards ----------------------------------------------------------------
+
+	// Above the connectors, whose ends run a little way under each card: the join is then a card
+	// edge over a line, which cannot show a seam at any scale. The unit draws itself (TwinUnit);
+	// here it is only placed.
+	.twin__physical,
+	.twin__card {
+		position: relative;
+		z-index: 1;
+	}
+
+	.twin__physical {
+		grid-area: physical;
+	}
+
+	.twin__card {
+		display: flex;
+		overflow: hidden;
+		flex-direction: column;
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-surface, #fff);
+	}
+
+	.twin__card--digital {
+		grid-area: digital;
+	}
+
+	// The heading is a different kind of thing from the rows beneath it, and says so three ways:
+	// a band of its own, a size up, and semibold against the rows' medium. Mirrors the unit's head.
+	.twin__head {
+		display: flex;
+		align-items: center;
+		gap: u(10);
+		padding: u(12) u(16);
+		background: var(--color-bg-light, #f7f9fc);
+
+		[data-icon] {
+			flex: none;
+			width: u(20);
+			height: u(20);
+			color: var(--color-text-secondary, #5b616e);
+		}
+	}
+
+	.twin__name {
+		font-size: u(16);
+		font-weight: $font-weight-semibold;
+		line-height: u(22);
+		white-space: nowrap;
+	}
+
+	// --- the site, when nested ------------------------------------------------------
+	//
+	// The frame is the twin's height, so the two sides are one size and the site reads as the
+	// unit's equal, not its caption. The unit centres in the room beneath the site's name, and the
+	// connectors centre with it. Done with the frame as a sibling behind rather than a wrapper, so
+	// the unit keeps its own place in the grid and its z-order over the connectors.
+	.twin--nested {
+		--twin-site-pad: 12;
+		--twin-site-head: 32;
+	}
+
+	.twin__site {
+		grid-column: 1;
+		// Both rows the twin spans, so the frame is exactly as tall.
+		grid-row: 2 / 4;
+		padding: u(var(--twin-site-pad));
+		border: 1px solid var(--color-border, #ebebeb);
+		// The cards' own radius, so the frame is one more card, not a different kind of shape.
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-light, #f7f9fc);
+	}
+
+	// The site's name: a node heading, subdued — a size down from the cards' 16 semibold, medium,
+	// and grey — so the hierarchy reads as site > unit without the site shouting.
+	.twin__site-name {
+		display: flex;
+		align-items: center;
+		gap: u(8);
+		height: u(var(--twin-site-head));
+		margin: 0;
+		padding: 0 u(4);
+		font-size: u(15);
+		font-weight: $font-weight-medium;
+		line-height: u(22);
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+
+		[data-icon] {
+			flex: none;
+			width: u(18);
+			height: u(18);
+		}
+	}
+
+	// The unit and the connectors span the same rows as the frame and centre in it. The unit's top
+	// margin includes the name's band, so it centres in the room below the name, not behind it.
+	.twin--nested .twin__physical {
+		grid-column: 1;
+		grid-row: 2 / 4;
+		align-self: center;
+		margin: u(calc(var(--twin-site-pad) + var(--twin-site-head))) u(var(--twin-site-pad)) u(var(--twin-site-pad));
+	}
+
+	.twin--nested .twin__flows {
+		grid-row: 2 / 4;
+		// The unit's centre sits half the name's band below the frame's; padding the top by the
+		// whole band shifts the arrows' midpoint by half of it, which is exactly that.
+		padding-top: u(var(--twin-site-head));
+	}
+
+	// Key / value rows, hairlines between, value right-aligned in tabular figures so a ticking
+	// temperature does not jitter its neighbours.
+	.twin__attrs {
+		margin: 0;
+	}
+
+	.twin__attr {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: u(12);
+		padding: u(7) u(16);
+		font-size: u(14);
+		line-height: u(22);
+
+		& + & {
+			border-top: 1px solid var(--sl-color-hairline-light, #ebebeb);
+		}
+
+		dt {
+			color: var(--color-text-secondary, #5b616e);
+		}
+
+		dd {
+			margin: 0;
+			font-weight: $font-weight-medium;
+			font-variant-numeric: tabular-nums;
+			white-space: nowrap;
+			color: var(--color-text);
+		}
+	}
+
+	// "none" is a good state, and it is the platform saying so — its primary, not a severity.
+	.twin__attr--accent dd {
+		color: var(--color-primary, #3d50f5);
+	}
+
+	// --- connectors ------------------------------------------------------------
+
+	// Two named flows stacked between the cards, clear of the label band. No side padding: the
+	// lines run the full track so they meet the cards, and each chevron's apex lands on a card edge.
+	.twin__flows {
+		grid-area: flows;
+		position: relative;
+		z-index: 0;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: u(28);
+		// Pulled under both cards by a few pixels, so a line's start ends beneath a card edge rather
+		// than against it. The chevrons are pulled back by the same amount below, so their tips land
+		// ON the edge instead of under it.
+		--twin-under: 3;
+		// Nested, the left end also crosses the site frame's padding to reach the unit inside.
+		--twin-reach: calc(var(--twin-under) + var(--twin-site-pad, 0));
+		margin: 0 u(-3) 0 calc(-1 * var(--twin-reach) * var(--u));
+		// Each label sits above its arrow (16 line + 4 gap), so the two ARROWS sit 10 below the
+		// block's centre. Padding the block's bottom by 20 lifts its centre by 10, which puts the
+		// arrows' midpoint on the unit's centre — the thing they should be centred on.
+		padding: 0 0 u(20);
+		--twin-rail-color: var(--color-text-secondary, #5b616e);
+		--twin-rail-w: max(1px, #{u(2)});
+	}
+
+	.twin__flow {
+		display: flex;
+		flex-direction: column;
+		gap: u(4);
+	}
+
+	// The stage labels' voice at a smaller size: uppercase, tracked, grey, centred over the line.
+	// What crosses the gap is named the way the two sides are.
+	.twin__flow-name {
+		font-size: u(12);
+		line-height: u(16);
+		text-align: center;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.twin__arrow {
+		display: flex;
+		align-items: center;
+		height: u(10);
+	}
+
+	.twin__arrow-line {
+		flex: 1;
+		height: var(--twin-rail-w);
+		background: var(--twin-rail-color);
+	}
+
+	// The flow's chevron: two borders of a square, turned so the corner points along the line,
+	// pulled back by half its diagonal so the apex lands on the line's end. The apex sits 1.66 past
+	// the box's edge (half the diagonal minus half the width), and the track runs `--twin-under`
+	// past the card edge — so the box stops short by both, and the tip touches the card exactly.
+	.twin__arrow-head {
+		flex: none;
+		width: u(8);
+		height: u(8);
+		margin-left: u(-9.66);
+		margin-right: calc((var(--twin-under) + 1.66) * var(--u));
+		border-top: var(--twin-rail-w) solid var(--twin-rail-color);
+		border-right: var(--twin-rail-w) solid var(--twin-rail-color);
+		transform: rotate(45deg);
+	}
+
+	// Turned around: the head first, pointing left, the line running from it. `--twin-under`, not
+	// `--twin-reach`: the track already starts under the unit by `--twin-under` whatever the
+	// frame's padding, so the tip is pulled back by that alone.
+	.twin__flow--back .twin__arrow-head {
+		margin-left: calc((var(--twin-under) + 1.66) * var(--u));
+		margin-right: u(-9.66);
+		transform: rotate(-135deg);
+	}
+
+	// --- history, inside the twin -------------------------------------------------
+
+	// A gap and then a rule: the state rows above are one list, this is another thing.
+	.twin__history {
+		margin-top: u(10);
+		padding: u(12) u(16) u(14);
+		border-top: 1px solid var(--sl-color-hairline-light, #ebebeb);
+	}
+
+	// The state rows' key voice, exactly: same size, line and grey as the `dt`s above, so the
+	// history's name lines up with theirs and reads as one more thing the twin knows.
+	.twin__history-title {
+		margin: 0 0 u(8);
+		font-size: u(14);
+		line-height: u(22);
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.twin__chart {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		grid-template-areas:
+			'ticks plot'
+			'. times';
+		column-gap: u(8);
+	}
+
+	// One axis voice, mono: the values down the side and the day's two ends along the bottom.
+	.twin__ticks,
+	.twin__times {
+		display: flex;
+		font-family: $font-family-mono;
+		font-size: u(12);
+		line-height: 1;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.twin__ticks {
+		grid-area: ticks;
+		flex-direction: column;
+		justify-content: space-between;
+		text-align: right;
+		// The first and last tick centre on the box's edges.
+		margin: u(-6) 0;
+	}
+
+	.twin__times {
+		grid-area: times;
+		justify-content: space-between;
+		margin-top: u(8);
+	}
+
+	.twin__plot {
+		grid-area: plot;
+		height: u(56);
+
+		svg {
+			display: block;
+			width: 100%;
+			height: 100%;
+			overflow: visible;
+		}
+	}
+
+	.twin__grid {
+		stroke: var(--sl-color-hairline-light, #ebebeb);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.twin__area {
+		fill: var(--color-primary, #3d50f5);
+		opacity: 0.1;
+		transition: fill 400ms ease;
+	}
+
+	.twin__line {
+		fill: none;
+		stroke: var(--color-primary, #3d50f5);
+		stroke-width: max(1px, #{u(2)});
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		vector-effect: non-scaling-stroke;
+		transition: stroke 400ms ease;
+	}
+</style>
