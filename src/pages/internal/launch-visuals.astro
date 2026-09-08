@@ -4,11 +4,12 @@
  *
  * Internal reference page: not linked from anywhere, `noindex` via the layout, and so kept out
  * of the sitemap. Its job is to hold each new visual on its own, at the width it will really
- * get, with nothing else on the page competing for judgement.
+ * get, with nothing else on the page competing for judgement — one page tab per visual.
  *
- * Add a visual by dropping a `<figure class="stage">` below with the component inside. The
- * `data-w` attribute picks the frame width — `full`, `half` or `card` — matching the three
- * widths a visual actually lands in on the marketing pages.
+ * Add a visual by giving it an entry in `KEY_VISUALS`, a tab panel below, and `<figure
+ * class="stage">` blocks inside it. The `data-w` attribute picks the frame width — `full`, `half`
+ * or `card` — matching the three widths a visual actually lands in on the marketing pages.
+ * `_FeatureRow` is the homepage row a visual is headed for, with its token switch.
  *
  * This page is scaffolding, not shipped content: nothing here needs to survive into a
  * marketing page except the components themselves.
@@ -17,68 +18,225 @@ import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
 import CliTerminal from '@components/Landing/CliTerminal.astro';
 import SolutionFlow from '@components/Landing/SolutionFlow.astro';
 import SolutionAppShell from '@components/Landing/SolutionAppShell.astro';
+import DigitalTwin from '@components/Landing/DigitalTwin.astro';
+import TwinUnit from '@components/Landing/TwinUnit.astro';
 import { SOLUTION_CASES, SOLUTION_RAIL } from '@data/solution-flow';
+import { DIGITAL_TWIN_COPY, UNIT_GALLERY } from '@data/digital-twin-visual';
+import FeatureRow from '@root/pages/internal/_FeatureRow.astro';
+
+/**
+ * The key visuals, one per page tab. Copy is the design's, verbatim; the CLI has no row yet.
+ */
+const KEY_VISUALS = [
+	{
+		id: 'cli',
+		label: 'CLI',
+	},
+	{
+		id: 'solution',
+		label: 'Device to end-user',
+		title: 'Build IoT solutions from device to end-user',
+		body: 'ThingsBoard enables development of the complete use-case and is white-labeled for your customers or your team: ship complete IoT applications, not just data pipelines.',
+		link: { text: 'Why ThingsBoard is the best IoT platform', href: '/products/' },
+	},
+	{
+		id: 'twin',
+		label: 'Digital twin',
+		...DIGITAL_TWIN_COPY,
+	},
+];
 ---
 
 <PlaygroundLayout
 	title="Launch visuals"
-	description="Each visual on its own, at the width it gets in the page it is headed for. Backgrounds toggle between the light and dark surfaces the sections actually use."
+	description="Each visual on its own, at the width it gets in the page it is headed for. One tab per visual."
 >
 	{
-		/* Checks the token wiring as much as the component: CliTerminal reads --sl-color-* and
-	    --color-* directly, so if it renders correctly here the layout is loading both sheets. */
+		/* Page tabs: one per key visual. Each shows only its own stages, so a visual is judged without
+	    the others in the corner of the eye. The pick is remembered across reloads. */
 	}
-	<figure class="stage" data-w="half">
-		<figcaption class="stage__cap">
-			<span class="stage__name">CliTerminal</span>
-			<span class="stage__note">existing · token-wiring check</span>
-		</figcaption>
-		<div class="stage__frame">
-			<CliTerminal />
-		</div>
-	</figure>
+	<nav class="page-tabs" role="tablist" aria-label="Key visual" data-page-tabs>
+		{
+			KEY_VISUALS.map((kv, i) => (
+				<button
+					type="button"
+					role="tab"
+					id={`page-tab-${kv.id}`}
+					aria-selected={i === 0 ? 'true' : 'false'}
+					aria-controls={`page-panel-${kv.id}`}
+					data-page-tab={kv.id}
+				>
+					{kv.label}
+				</button>
+			))
+		}
+	</nav>
 
-	{/* --- New launch visuals go below. One <figure class="stage"> each. --- */}
-
-	<figure class="stage" data-w="full">
-		<figcaption class="stage__cap">
-			<span class="stage__name">SolutionFlow</span>
-			<span class="stage__note">at the measured floor</span>
-		</figcaption>
-		<div class="stage__frame stage__frame--plain">
-			<div class="probe">
-				<SolutionFlow />
+	{/* --- CLI ------------------------------------------------------------------------------- */}
+	<section id="page-panel-cli" role="tabpanel" aria-labelledby="page-tab-cli" data-page-panel="cli">
+		{
+			/* Checks the token wiring as much as the component: CliTerminal reads --sl-color-* and
+		    --color-* directly, so if it renders correctly here the layout is loading both sheets. */
+		}
+		<figure class="stage" data-w="half">
+			<figcaption class="stage__cap">
+				<span class="stage__name">CliTerminal</span>
+				<span class="stage__note">existing · token-wiring check</span>
+			</figcaption>
+			<div class="stage__frame">
+				<CliTerminal />
 			</div>
-		</div>
-	</figure>
+		</figure>
+	</section>
 
-	{
-		/* The three use cases side by side, same shell, no rotation yet. Wording and metrics are taken
-	    from the published pages in `src/data/use-cases/` rather than invented, so the copy here can
-	    move to a marketing page without being re-checked. Deliberately three DIFFERENT industries
-	    with the same panel shape — that similarity is what shows the app is configuration. */
-	}
-	<figure class="stage" data-w="full">
-		<figcaption class="stage__cap">
-			<span class="stage__name">SolutionAppShell · 3 use cases</span>
-			<span class="stage__note">static, for comparison</span>
-		</figcaption>
-		<div class="stage__frame stage__frame--plain">
-			<div class="dash-row">
-				{
-					SOLUTION_CASES.map((c) => (
-						<div class="dash-row__item">
-							<SolutionAppShell rail={SOLUTION_RAIL} cases={[c]} animate />
-							<p class="dash-row__cap">{c.source}</p>
+	{/* --- Device to end-user ---------------------------------------------------------------- */}
+	<section
+		id="page-panel-solution"
+		role="tabpanel"
+		aria-labelledby="page-tab-solution"
+		data-page-panel="solution"
+		hidden
+	>
+		<FeatureRow visual={KEY_VISUALS[1]}>
+			<SolutionFlow />
+		</FeatureRow>
+
+		{
+			/* One composition, four widths. The visual scales as a whole rather than reflowing, so what is
+		    judged here is the same picture at the sizes it really gets: the desktop feature row, the
+		    row's narrow variant, a phone, and a wide container where the upscale cap kicks in. */
+		}
+		{
+			[
+				{ w: 673, note: 'desktop feature row' },
+				{ w: 433, note: 'narrow row · tablet' },
+				{ w: 335, note: 'phone' },
+				{ w: 1200, note: 'wide · capped at 1.15x' },
+			].map((probe) => (
+				<figure class="stage" data-w="full">
+					<figcaption class="stage__cap">
+						<span class="stage__name">SolutionFlow · {probe.w}px</span>
+						<span class="stage__note">{probe.note}</span>
+					</figcaption>
+					<div class="stage__frame stage__frame--plain">
+						<div class="probe" style={`--probe: ${probe.w}px`}>
+							<SolutionFlow />
 						</div>
-					))
-				}
+					</div>
+				</figure>
+			))
+		}
+
+		{
+			/* The three use cases side by side, same shell, no rotation. Wording and metrics are taken
+		    from the published pages in `src/data/use-cases/` rather than invented, so the copy here can
+		    move to a marketing page without being re-checked. Deliberately three DIFFERENT industries
+		    with the same panel shape — that similarity is what shows the app is configuration. */
+		}
+		<figure class="stage" data-w="full">
+			<figcaption class="stage__cap">
+				<span class="stage__name">SolutionAppShell · 3 use cases</span>
+				<span class="stage__note">static, for comparison</span>
+			</figcaption>
+			<div class="stage__frame stage__frame--plain">
+				<div class="dash-row">
+					{
+						SOLUTION_CASES.map((c) => (
+							<div class="dash-row__item">
+								<SolutionAppShell rail={SOLUTION_RAIL} cases={[c]} animate />
+								<p class="dash-row__cap">{c.source}</p>
+							</div>
+						))
+					}
+				</div>
 			</div>
-		</div>
-	</figure>
+		</figure>
+	</section>
+
+	{/* --- Digital twin ---------------------------------------------------------------------- */}
+	<section id="page-panel-twin" role="tabpanel" aria-labelledby="page-tab-twin" data-page-panel="twin" hidden>
+		<FeatureRow visual={KEY_VISUALS[2]}>
+			<DigitalTwin />
+		</FeatureRow>
+
+		{
+			/* Option under review: the unit nested inside its site, a Warehouse frame around the dark
+		    card. Kept out of the main row so the two can be judged side by side. */
+		}
+		<figure class="stage" data-w="full">
+			<figcaption class="stage__cap">
+				<span class="stage__name">DigitalTwin · nested</span>
+				<span class="stage__note">draft · the unit inside its warehouse</span>
+			</figcaption>
+			<div class="stage__frame stage__frame--plain">
+				<div class="probe" style="--probe: 673px">
+					<DigitalTwin nested />
+				</div>
+			</div>
+		</figure>
+
+		{
+			/* Other units the composition could hold, each at the width the unit has in the visual and
+		    without a twin: the point is to judge the unit's card across subjects, not the mirror. */
+		}
+		<figure class="stage" data-w="full">
+			<figcaption class="stage__cap">
+				<span class="stage__name">TwinUnit · gallery</span>
+				<span class="stage__note">other units the composition could hold · no twin</span>
+			</figcaption>
+			<div class="stage__frame stage__frame--plain">
+				<div class="unit-row">{UNIT_GALLERY.map((u) => <TwinUnit unit={u} />)}</div>
+			</div>
+		</figure>
+
+		{/* The same composition at the phone width, to check it survives the scale-down. */}
+		<figure class="stage" data-w="full">
+			<figcaption class="stage__cap">
+				<span class="stage__name">DigitalTwin · 335px</span>
+				<span class="stage__note">phone</span>
+			</figcaption>
+			<div class="stage__frame stage__frame--plain">
+				<div class="probe" style="--probe: 335px">
+					<DigitalTwin />
+				</div>
+			</div>
+		</figure>
+	</section>
 </PlaygroundLayout>
 
-<style lang="scss">
+<script>
+	// The page tabs. One panel showing at a time; the pick is remembered like the token set.
+	const TAB_KEY = 'launch-visuals:tab';
+	document.querySelectorAll<HTMLElement>('[data-page-tabs]').forEach((list) => {
+		const tabs = Array.from(list.querySelectorAll<HTMLButtonElement>('[data-page-tab]'));
+		const panels = Array.from(document.querySelectorAll<HTMLElement>('[data-page-panel]'));
+		const show = (id: string) => {
+			tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.pageTab === id)));
+			panels.forEach((p) => (p.hidden = p.dataset.pagePanel !== id));
+		};
+		let saved: string | null = null;
+		try {
+			saved = localStorage.getItem(TAB_KEY);
+		} catch {
+			/* private mode; fine */
+		}
+		if (saved && tabs.some((t) => t.dataset.pageTab === saved)) show(saved);
+		tabs.forEach((t) =>
+			t.addEventListener('click', () => {
+				const id = t.dataset.pageTab ?? '';
+				show(id);
+				try {
+					localStorage.setItem(TAB_KEY, id);
+				} catch {
+					/* ignore */
+				}
+			})
+		);
+	});
+</script>
+
+{/* The stage vocabulary is global to the page so `_FeatureRow` can use it for its caption. */}
+<style lang="scss" is:global>
 	@use '../../styles/variables' as *;
 
 	// Each visual gets its own band so two of them never share an edge — adjacent visuals read
@@ -131,23 +289,74 @@ import { SOLUTION_CASES, SOLUTION_RAIL } from '@data/solution-flow';
 
 	// For visuals that carry their own white surface: the checkerboard reads as a background
 	// competing with the card fills rather than as absence of one.
+	.stage__frame--plain {
+		background: none;
+	}
+</style>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Page tabs, on the same left edge as the title and the stages.
+	.page-tabs {
+		display: flex;
+		gap: $spacing-1;
+		max-width: 1200px;
+		margin: 0 auto $spacing-10;
+		padding-bottom: $spacing-3;
+		border-bottom: 1px solid var(--sl-color-hairline-light);
+
+		button {
+			@include text-s;
+			padding: $spacing-1 $spacing-3;
+			border: 0;
+			border-radius: $radius-md;
+			background: none;
+			font-weight: $font-weight-medium;
+			color: var(--color-text-secondary, #5b616e);
+			cursor: pointer;
+
+			&:hover {
+				color: var(--color-text, #17181c);
+			}
+
+			&[aria-selected='true'] {
+				background: var(--color-text, #17181c);
+				color: #fff;
+			}
+		}
+	}
+
 	// A hard-set width so the composition is judged at a known size rather than whatever the page
-	// happens to give it.
-	// 630px: just above the measured 624px floor, so the visual is judged at the tightest width the
-	// three-column reading actually survives.
+	// happens to give it. Each probe names its own width; the dashed edge shows exactly how much room
+	// the visual was handed, so an upscale cap or a floor is visible as space rather than guessed.
 	.probe {
-		width: 630px;
+		width: var(--probe, 630px);
+		max-width: 100%;
 		margin: 0 auto;
+		// An outline, not a border or padding: it must not eat into the width being measured.
+		outline: 1px dashed var(--color-border, #ebebeb);
+		outline-offset: $spacing-3;
+		border-radius: $radius-sm;
 	}
 
 	// Each shell at the width it has in the key visual — measured 258.67px, the 1.6fr app column of
-	// a 630px composition — so what gets judged here is what ships. Sharing the composition's 630px
-	// container squeezed all three to 197px, making the comparison one of a size that appears
-	// nowhere. This row is a technical exhibit, so it is free to be wider than the visual it serves.
+	// a 630px composition — so what gets judged here is what ships. This row is a technical exhibit,
+	// so it is free to be wider than the visual it serves.
 	.dash-row {
 		display: grid;
 		grid-template-columns: repeat(3, 259px);
 		justify-content: center;
+		gap: $spacing-5;
+	}
+
+	// Each unit at the width it has in the twin visual — 243px, the 1fr column of a 630px
+	// composition split 1 : 96px : 1.2 — so what gets judged here is what ships.
+	.unit-row {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, 243px);
+		justify-content: center;
+		align-items: start;
 		gap: $spacing-5;
 	}
 
@@ -156,25 +365,5 @@ import { SOLUTION_CASES, SOLUTION_RAIL } from '@data/solution-flow';
 		margin: $spacing-3 0 0;
 		font-family: $font-family-mono;
 		color: var(--color-text-secondary, #5b616e);
-	}
-
-	.stage__frame--plain {
-		background: none;
-	}
-
-	// The two-column block the visual actually lives in, at the real container width.
-
-	.stage__frame--empty {
-		display: grid;
-		place-items: center;
-		min-height: 200px;
-		border: 1px dashed var(--color-border, #ebebeb);
-		background: none;
-
-		p {
-			@include text-s;
-			margin: 0;
-			color: var(--color-text-secondary, #5b616e);
-		}
 	}
 </style>

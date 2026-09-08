@@ -1,0 +1,208 @@
+---
+import ReadMoreLink from '@components/Landing/ReadMoreLink.astro';
+
+/**
+ * The homepage feature row, reproduced for the playground: the primary-tinted strip, 1160 measure,
+ * media left and a 46ch copy column right, as the alternating rows lay out. The media is the slot.
+ *
+ * A token switch in the caption recolours the row between two sets — the palette the experimental
+ * home, the IoT Hub and the docs share, and the blue of the homepage in production. Nothing inside
+ * the visual knows which is on: it reads tokens, and the row sets them.
+ *
+ * Underscore-prefixed so Astro does not make it a route. Relies on the page's global `.stage`
+ * styles for its caption, like every other stage on the page.
+ */
+
+interface Props {
+	visual: {
+		id: string;
+		title?: string;
+		body?: string;
+		link?: { text: string; href: string };
+	};
+	/** Shown under the name in the caption. */
+	note?: string;
+}
+
+const { visual, note = 'the homepage strip · visual left, copy right' } = Astro.props;
+---
+
+<figure class="stage" data-w="full">
+	<figcaption class="stage__cap">
+		<span class="stage__name">Feature row</span>
+		<span class="stage__note">{note}</span>
+		<span class="tokens" role="group" aria-label="Token set" data-tokens-switch>
+			<button type="button" data-tokens-pick="new" aria-pressed="true">New palette</button>
+			<button type="button" data-tokens-pick="live" aria-pressed="false">Live homepage</button>
+		</span>
+	</figcaption>
+	<div class="stage__frame stage__frame--plain">
+		<div class="row" data-tokens="new" data-tokens-target>
+			<div class="row__media">
+				<slot />
+			</div>
+			<div class="row__copy">
+				{visual.title && <h3 class="row__title">{visual.title}</h3>}
+				{visual.body && <p>{visual.body}</p>}
+				{visual.link && <ReadMoreLink href={visual.link.href} text={visual.link.text} />}
+			</div>
+		</div>
+	</div>
+</figure>
+
+<script>
+	// The token switch. Remembers the pick so a reload does not reset it mid-comparison, and keeps
+	// every row on the page on the same set.
+	const KEY = 'launch-visuals:tokens';
+	const switches = Array.from(document.querySelectorAll<HTMLElement>('[data-tokens-switch]'));
+	const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-tokens-target]'));
+	const buttons = switches.flatMap((sw) => Array.from(sw.querySelectorAll<HTMLButtonElement>('[data-tokens-pick]')));
+
+	const apply = (set: string) => {
+		targets.forEach((t) => (t.dataset.tokens = set));
+		buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tokensPick === set)));
+	};
+
+	let saved: string | null = null;
+	try {
+		saved = localStorage.getItem(KEY);
+	} catch {
+		/* private mode; fine */
+	}
+	if (saved && buttons.some((b) => b.dataset.tokensPick === saved)) apply(saved);
+
+	buttons.forEach((b) =>
+		b.addEventListener('click', () => {
+			const set = b.dataset.tokensPick ?? 'new';
+			apply(set);
+			try {
+				localStorage.setItem(KEY, set);
+			} catch {
+				/* ignore */
+			}
+		})
+	);
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Segmented switch in the caption, pushed to the right.
+	.tokens {
+		display: inline-flex;
+		margin-left: auto;
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: $radius-md;
+		overflow: hidden;
+
+		button {
+			@include text-xs;
+			padding: 2px 10px;
+			border: 0;
+			background: none;
+			font-family: $font-family-mono;
+			color: var(--color-text-secondary, #5b616e);
+			cursor: pointer;
+
+			&[aria-pressed='true'] {
+				background: var(--color-text, #17181c);
+				color: #fff;
+			}
+
+			& + button {
+				border-left: 1px solid var(--color-border, #ebebeb);
+			}
+		}
+	}
+
+	// --- token sets ---------------------------------------------------------
+	//
+	// Everything the visual reads is a custom property, so a set is a block of them on the row.
+
+	// New: the palette the experimental home, the IoT Hub and the docs share. Brand indigo, a
+	// 5% tint of it as the strip, soft radii, a lifted ambient shadow. These are the components'
+	// own defaults, restated so the two sets read side by side.
+	.row[data-tokens='new'] {
+		--color-primary: #{$color-brand};
+		--row-bg: #f5f6ff;
+		--row-link: #{$color-brand};
+		--row-heading: var(--color-text, #17181c);
+		--row-body: var(--color-text, #17181c);
+	}
+
+	// Live: the blue homepage in production. Only colours change — its primary for the pulse and
+	// the link, a 5% tint of it as the strip (the recipe the new set uses with its indigo), and the
+	// three customer brands moved into that palette. Shape, shadow and text stay as the new set has
+	// them, so what is compared is colour alone.
+	.row[data-tokens='live'] {
+		--color-primary: #{$color-primary};
+		--row-bg: #{mix(#fff, $color-primary, 95%)};
+		--row-link: #{$color-primary};
+		// The three customer brands in the older palette: its primary blue, the darker PE green
+		// (the bright one is a button colour on that page, not a surface one) and the Edge purple,
+		// in the order the shell rotates them.
+		--flow-brand-0: #{$color-primary};
+		--flow-brand-1: #{$color-pe-link};
+		--flow-brand-2: #{$color-edge};
+	}
+
+	// The strip: its tint, its 580 height with the air inside, a 72px gap, and a copy column capped
+	// at 46ch so the media half takes what is left — about 673px at the 1160 measure. Below lg it
+	// stacks, as the real rows do.
+	.row {
+		display: flex;
+		align-items: center;
+		gap: 72px;
+		min-height: 580px;
+		padding: 60px 20px;
+		border-radius: $radius-xl;
+		background: var(--row-bg, #f5f6ff);
+
+		@include media-down(lg) {
+			flex-direction: column;
+			min-height: 0;
+		}
+	}
+
+	.row__media {
+		flex: 1 1 0;
+		min-width: 0;
+
+		@include media-down(lg) {
+			width: 100%;
+		}
+	}
+
+	.row__copy {
+		flex: 0 1 46ch;
+		max-width: 46ch;
+
+		p {
+			margin: 0;
+			font-size: 18px;
+			line-height: 1.6;
+			color: var(--row-body, var(--color-text));
+			text-wrap: pretty;
+		}
+
+		// The link takes the set's primary, as the homepage's do.
+		:global(.read-more-link),
+		:global(.read-more-link .arrow) {
+			margin-top: 1.125rem;
+			color: var(--row-link, #{$color-brand});
+		}
+
+		// No arrow: the link is a sentence, and the colour already says it is one.
+		:global(.read-more-link .arrow-container) {
+			display: none;
+		}
+	}
+
+	.row__title {
+		@include subsection-title;
+		margin: 0 0 $spacing-3;
+		font-weight: $font-weight-medium;
+		color: var(--row-heading, var(--color-text));
+		text-wrap: balance;
+	}
+</style>
