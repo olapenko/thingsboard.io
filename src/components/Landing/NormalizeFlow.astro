@@ -1,0 +1,518 @@
+---
+import {
+	NORMALIZE_CASES,
+	NORMALIZE_KEY,
+	NORMALIZE_NODE,
+	NORMALIZE_STAGES,
+	payloadTokens,
+	readingText,
+} from '@data/normalize-visual';
+
+/**
+ * Four incompatible payloads becoming one data model.
+ *
+ * The argument is a contrast, so the two sides are built to be unlike each other. The payloads are
+ * ragged mono chips of four different widths, not aligned to anything; what they become is a
+ * single card of identical hairline rows. Same reading, said four ways, then said once — that is
+ * the whole picture, and it works before a single label is read.
+ *
+ * Built in the flow and twin visuals' language so the three read as one family: the same design
+ * unit derived from the width it is given, the same cards, hairlines and grey connectors with an
+ * open chevron. The platform is the one coloured surface here, which is the same move the app
+ * shell makes with the customer's brand — the difference being that this colour is ours.
+ *
+ * The connectors curve rather than running straight, and that is doing work. Straight lines from
+ * four chips to one box would read as four separate deliveries; curves that converge to a single
+ * point and fan out again read as one flow being gathered and redistributed. Every curve is a
+ * cubic whose control points are horizontal, so each one arrives and leaves flat — which is what
+ * lets the chevrons sit on the card edges without looking bent.
+ *
+ * The geometry is computed here in design units rather than measured in the browser: the column
+ * widths, chip pitch and row pitch are all known numbers, so the curve endpoints are too. Nothing
+ * needs to run for the picture to be right.
+ *
+ * Deliberately still. The flow visual carries the page's motion; this one is a diagram.
+ */
+
+// The composition, authored at 630 units wide. Columns sum to exactly that.
+// Measured rather than guessed, and re-measured after every change to the type: the longest
+// payload's content is 108u, the pill's is 117u and the widest model row's is 138u, so those
+// columns are set just wide enough to hold them and what is left over goes to the gutters — the
+// curves are the thing that benefits from room.
+//
+// Worth re-running whenever the payload type changes. Putting the whole payload on 18u bold, up
+// from 15u with only its digits bold, took the longest one from 97.5u to 108u and overflowed a
+// column that had fitted it a moment earlier.
+//
+// The Kelvin payload is the long one and had only about 3px of headroom, so the chip column takes
+// 4u back off the gutters. The reading's character count is fixed — verified over a few thousand
+// simulated steps — so this margin cannot be eaten by the animation; it is there for a font
+// fallback rendering wider than Ubuntu Mono.
+const COL = { in: 144, gut: 83, node: 134, out: 186 };
+// A pill, so its height is its own number rather than its column's width.
+//
+// Its column is the label's own width plus one radius at each end — 89u of text plus 2 x 22 —
+// which is the width at which the text begins exactly where the capsule's straight section does.
+// Dropping the icon left the label sitting in 150u with 30u of air on either side, and a capsule
+// that wide around one word reads as stretched rather than generous. The 16u recovered went to the
+// gutters, where it buys the curves more room to bend.
+const NODE_H = 44;
+const NATIVE = COL.in + COL.gut + COL.node + COL.gut + COL.out;
+
+// Chip pitch and row pitch are chosen so both columns come out the same height (224), which is
+// what lets the node sit on the centre line of both without either side being padded to match.
+const CHIP = { h: 44, gap: 16 };
+const ROW_H = 56;
+const BODY_H = NORMALIZE_CASES.length * CHIP.h + (NORMALIZE_CASES.length - 1) * CHIP.gap;
+const MID = BODY_H / 2;
+
+const chipCy = NORMALIZE_CASES.map((_, i) => CHIP.h / 2 + i * (CHIP.h + CHIP.gap));
+const rowCy = NORMALIZE_CASES.map((_, i) => ROW_H / 2 + i * ROW_H);
+
+// Horizontal control points at the gutter's midpoint: the curve leaves flat and arrives flat, so
+// four of them stack into a bundle rather than crossing.
+const bend = COL.gut / 2;
+const converge = chipCy.map((cy) => `M 0,${cy} C ${bend},${cy} ${bend},${MID} ${COL.gut},${MID}`);
+const diverge = rowCy.map((cy) => `M 0,${MID} C ${bend},${MID} ${bend},${cy} ${COL.gut},${cy}`);
+
+// An open chevron, apex on the gutter's far edge so it touches the card the curve runs into.
+const head = (y: number) => `M ${COL.gut - 6},${y - 4} L ${COL.gut},${y} L ${COL.gut - 6},${y + 4}`;
+---
+
+<div class="norm-fit">
+	<div
+		class="norm"
+		data-norm
+		style={[
+			`--norm-native: ${NATIVE}`,
+			`--norm-col-in: ${COL.in}`,
+			`--norm-col-gut: ${COL.gut}`,
+			`--norm-col-node: ${COL.node}`,
+			`--norm-node-h: ${NODE_H}`,
+			`--norm-col-out: ${COL.out}`,
+			`--norm-body-h: ${BODY_H}`,
+			`--norm-row-h: ${ROW_H}`,
+			`--norm-chip-h: ${CHIP.h}`,
+			`--norm-chip-gap: ${CHIP.gap}`,
+		].join('; ')}
+	>
+		<p class="norm__label norm__label--in">{NORMALIZE_STAGES.in}</p>
+		<p class="norm__label norm__label--out">{NORMALIZE_STAGES.out}</p>
+
+		{
+			/* --- what arrives ---------------------------------------------------------------------
+		    Mono, because these are payloads rather than prose, and ragged because four devices do
+		    not agree on a shape. The widths come from the data so the raggedness is authored, not
+		    an accident of string length. */
+		}
+		<ul class="norm__payloads">
+			{
+				NORMALIZE_CASES.map((c, i) => (
+					<li title={c.note}>
+						{payloadTokens(c).map((t) => (
+							<span class={`norm__t norm__t--${t.role}`} data-norm-tok={t.role === 'num' ? String(i) : undefined}>
+								{t.t}
+							</span>
+						))}
+					</li>
+				))
+			}
+		</ul>
+
+		{
+			/* Under the cards on either side, so each join is a card edge over a line and cannot show
+		    a seam at any scale — the same order the twin's connectors use. */
+		}
+		<svg class="norm__gut norm__gut--in" viewBox={`0 0 ${COL.gut} ${BODY_H}`} aria-hidden="true">
+			{converge.map((d) => <path class="norm__curve" d={d} />)}
+			<path class="norm__head" d={head(MID)}></path>
+		</svg>
+
+		<p class="norm__node">{NORMALIZE_NODE.label}</p>
+
+		<svg class="norm__gut norm__gut--out" viewBox={`0 0 ${COL.gut} ${BODY_H}`} aria-hidden="true">
+			{diverge.map((d) => <path class="norm__curve" d={d} />)}
+			{rowCy.map((cy) => <path class="norm__head" d={head(cy)} />)}
+		</svg>
+
+		{
+			/* --- what it becomes ------------------------------------------------------------------
+		    One card, one key, one unit, four identical rows. The repetition is the argument. */
+		}
+		<dl class="norm__model">
+			{
+				NORMALIZE_CASES.map((c, i) => (
+					<div class="norm__row">
+						<dt>{NORMALIZE_KEY}</dt>
+						<dd data-norm-read={String(i)}>{readingText(c)}</dd>
+					</div>
+				))
+			}
+		</dl>
+	</div>
+</div>
+
+<script>
+	import { NORMALIZE_CASES, payloadTokens, readingText } from '@data/normalize-visual';
+
+	/**
+	 * Drifts each device's reading and rewrites both sides of the picture from it.
+	 *
+	 * The conversion functions are IMPORTED, the same ones the server rendered with — not
+	 * reimplemented here. That is the whole reason the translation can be trusted: there is one
+	 * definition of what 24.5 °C looks like in Fahrenheit, and both the first paint and every tick
+	 * afterwards go through it. A second copy in this file would be a second thing to keep correct.
+	 *
+	 * Each case owns one number, in °C, and everything visible is derived from it — so the payload
+	 * and the row beside it cannot fall out of step no matter where the walk goes.
+	 *
+	 * Only the numeric token moves. Keys, quotes and units are fixed by the format, so they are
+	 * left alone rather than rebuilt every frame.
+	 */
+	const STEP_MS = 2600; // how often a device reports
+	const TWEEN_MS = 600; // how long the number takes to get there
+
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	type Live = {
+		root: HTMLElement;
+		nums: (HTMLElement | null)[];
+		reads: (HTMLElement | null)[];
+		from: number[];
+		to: number[];
+		started: number;
+		lastStep: number;
+	};
+
+	function setup(now: number): Live[] {
+		// The cases are imported rather than read back off the DOM: this component renders them
+		// straight from the module and takes no override, so there is only one source to agree with.
+		return Array.from(document.querySelectorAll<HTMLElement>('[data-norm]')).map((root) => ({
+			root,
+			nums: NORMALIZE_CASES.map((_, i) => root.querySelector<HTMLElement>(`[data-norm-tok="${i}"]`)),
+			reads: NORMALIZE_CASES.map((_, i) => root.querySelector<HTMLElement>(`[data-norm-read="${i}"]`)),
+			from: NORMALIZE_CASES.map((c) => c.celsius),
+			to: NORMALIZE_CASES.map((c) => c.celsius),
+			started: 0,
+			lastStep: now,
+		}));
+	}
+
+	/** A bounded walk around the case's own starting reading — never a climb, never off its axis. */
+	function nextCelsius(i: number, current: number) {
+		const c = NORMALIZE_CASES[i];
+		const step = c.drift * 0.5 * (Math.random() - 0.5) * 2;
+		return Math.min(c.celsius + c.drift, Math.max(c.celsius - c.drift, current + step));
+	}
+
+	function paint(live: Live, i: number, celsius: number) {
+		const c = NORMALIZE_CASES[i];
+		const num = payloadTokens(c, celsius).find((t) => t.role === 'num');
+		if (num && live.nums[i]) live.nums[i]!.textContent = num.t;
+		if (live.reads[i]) live.reads[i]!.textContent = readingText(c, celsius);
+	}
+
+	const t0 = performance.now();
+	const all = reduce ? [] : setup(t0);
+
+	if (all.length) {
+		const visible = new Set<HTMLElement>();
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) =>
+					e.isIntersecting ? visible.add(e.target as HTMLElement) : visible.delete(e.target as HTMLElement)
+				);
+			},
+			{ rootMargin: '80px' }
+		);
+		all.forEach((l) => io.observe(l.root));
+
+		const frame = (now: number) => {
+			all.forEach((l) => {
+				if (!visible.has(l.root)) return;
+
+				if (now - l.lastStep >= STEP_MS) {
+					l.lastStep = now;
+					l.from = l.to.slice();
+					l.to = l.to.map((v, i) => nextCelsius(i, v));
+					l.started = now;
+				}
+
+				if (!l.started) return;
+				const t = Math.min(1, (now - l.started) / TWEEN_MS);
+				// easeOutCubic: quick to move, settles rather than stopping dead.
+				const e = 1 - Math.pow(1 - t, 3);
+				l.from.forEach((f, i) => paint(l, i, f + (l.to[i] - f) * e));
+			});
+
+			requestAnimationFrame(frame);
+		};
+		requestAnimationFrame(frame);
+	}
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Every size below is a multiple of one design unit, so the whole composition scales as a
+	// piece instead of reflowing. See SolutionFlow for why the unit comes from the container.
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.norm-fit {
+		container-type: inline-size;
+	}
+
+	.norm {
+		--flow-u: clamp(0.45px, calc(100cqw / 630), 1.15px);
+		--u: var(--flow-u);
+		--norm-rail-color: var(--color-text-secondary, #5b616e);
+		--norm-rail-w: max(1px, #{u(2)});
+
+		// A syntax ramp of this visual's own, rather than borrowed tokens, and tuned for the dark
+		// chip the payloads now sit on.
+		//
+		// The palette's blue is unavailable: `--sl-color-blue` is overridden to the brand's own
+		// hsl(234 90% 60%) — the pill's exact colour — so keys coloured with it read as part of the
+		// platform instead of as the device's wording. Starlight's other hues are display colours at
+		// 90% saturation, and `--color-success` / `--color-warning` mean SEVERITY across this family
+		// (the app shell's alarm banner is built on them), so borrowing either would make green mean
+		// "fine" in one visual and "string" in another.
+		//
+		// These are the dark-ground values. The light-surface set they replaced — #8250df, #953800,
+		// #116329 — would be all but invisible here; TwinUnit's own note applies, that on this
+		// ground a dimmed glyph reads as disabled rather than quiet.
+		--norm-syn-key: #d2a8ff;
+		--norm-syn-num: #ffb86b;
+		--norm-syn-unit: #7ee787;
+		--norm-syn-punct: #9aa4b2;
+		display: grid;
+		// Payloads | curve | platform | curve | model. The model column is the widest: it carries a
+		// key and a value per row, and it is where the eye is meant to finish.
+		// Straight from the numbers the curve endpoints were computed from. Hard-coding them here
+		// too would let the layout and the geometry drift, and the symptom would be connectors
+		// that miss the cards by a few units at some widths and not others.
+		grid-template-columns:
+			u(var(--norm-col-in))
+			u(var(--norm-col-gut))
+			u(var(--norm-col-node))
+			u(var(--norm-col-gut))
+			u(var(--norm-col-out));
+		grid-template-rows: auto u(var(--norm-body-h));
+		grid-template-areas:
+			'label-in .      .    .       label-out'
+			'payloads gut-in node gut-out model';
+		align-items: center;
+		max-width: u(var(--norm-native));
+		margin: 0 auto;
+	}
+
+	// The stage labels, as the flow's and the twin's: a size up from a caption, grey, centred over
+	// their columns.
+	.norm__label {
+		min-height: u(24);
+		margin: 0 0 u(8);
+		font-size: u(15);
+		line-height: u(24);
+		text-align: center;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.norm__label--in {
+		grid-area: label-in;
+	}
+
+	.norm__label--out {
+		grid-area: label-out;
+	}
+
+	// --- what arrives ---------------------------------------------------------
+
+	.norm__payloads {
+		grid-area: payloads;
+		display: flex;
+		flex-direction: column;
+		gap: u(var(--norm-chip-gap));
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		// Over the curves, so their ends tuck under the chips.
+		position: relative;
+		z-index: 1;
+
+		// One width for all four. Ragged widths were an earlier attempt at showing that payloads
+		// disagree, but they only made the column untidy. Equal chips read as a set of the same
+		// kind of thing, which puts the difference where it belongs: in the wording inside them,
+		// not in their outlines.
+		li {
+			display: flex;
+			// Vertically centred, horizontally left: a payload is a string, and strings start at the
+			// left. `align-items: center` is what does the centring — it replaced a `baseline` that
+			// only made sense while the digits were a different size from the rest.
+			align-items: center;
+			width: 100%;
+			height: u(var(--norm-chip-h));
+			padding: 0 u(14);
+			border-radius: u(var(--flow-radius, 8));
+			border: 1px solid transparent;
+			font-family: $font-family-mono;
+			// The whole payload takes the size and the weight, not just its digits: every character
+			// in it is part of what makes it different, so none of it should be work to read.
+			font-size: u(18);
+			font-weight: $font-weight-bold;
+			color: #fff;
+			// The physical surface, and the same one the digital twin's unit uses — `--flow-chrome`
+			// with the family's chrome shadow, so all three visuals agree on what a device looks
+			// like and a token set can recolour them together.
+			//
+			// It also does the composition's work in one contrast: dark is the world sending the
+			// data, light is the platform's UI receiving it. The model card opposite stays white,
+			// so the picture reads world -> platform -> model without a label.
+			background: var(--flow-chrome, #1b1e27);
+			box-shadow: var(
+				--flow-shadow,
+				0 1px 2px rgba(16, 24, 40, 0.08),
+				0 #{u(14)} #{u(32)} #{u(-10)} rgba(16, 24, 40, 0.28)
+			);
+		}
+	}
+
+	.norm__t--key {
+		color: var(--norm-syn-key);
+	}
+
+	.norm__t--num {
+		color: var(--norm-syn-num);
+	}
+
+	.norm__t--unit {
+		color: var(--norm-syn-unit);
+	}
+
+	.norm__t--punct {
+		color: var(--norm-syn-punct);
+	}
+
+	// --- the platform ---------------------------------------------------------
+
+	// The one coloured surface. The app shell gives that place to the customer's brand; here it is
+	// ours, because this step is the thing being sold.
+	.norm__node {
+		grid-area: node;
+		position: relative;
+		z-index: 1;
+		display: flex;
+		// A pill: the icon and the label sit side by side on one line, and the radius is half the
+		// height so the ends are true semicircles at any scale. It reads as a step something passes
+		// through rather than a box it lands in, which is what the converging curves are saying.
+		align-items: center;
+		justify-content: center;
+		height: u(var(--norm-node-h));
+		margin: 0;
+		border-radius: calc(u(var(--norm-node-h)) / 2);
+		font-size: u(14);
+		font-weight: $font-weight-semibold;
+		line-height: u(20);
+		text-align: center;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-white, #fff);
+		background: var(--color-primary, #3d50f5);
+	}
+
+	// --- connectors -----------------------------------------------------------
+
+	// Both gutters use the same viewBox, and their rendered size is unit-derived on both axes, so
+	// the aspect ratio matches and the curves scale without skewing.
+	.norm__gut {
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+
+	.norm__gut--in {
+		grid-area: gut-in;
+	}
+
+	// Mirrored rather than redrawn: the diverging paths are the converging ones' reflection, and
+	// one set of maths is one thing to get wrong.
+	.norm__gut--out {
+		grid-area: gut-out;
+	}
+
+	.norm__curve,
+	.norm__head {
+		fill: none;
+		stroke: var(--norm-rail-color);
+		stroke-width: var(--norm-rail-w);
+		// The box is scaled by the design unit, so the stroke would scale with it otherwise.
+		vector-effect: non-scaling-stroke;
+	}
+
+	.norm__curve {
+		stroke-linecap: round;
+	}
+
+	.norm__head {
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	// --- what it becomes ------------------------------------------------------
+
+	.norm__model {
+		grid-area: model;
+		position: relative;
+		z-index: 1;
+		display: flex;
+		overflow: hidden;
+		flex-direction: column;
+		margin: 0;
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-surface, #fff);
+	}
+
+	// Key left, value right, hairlines between — the twin's state rows exactly, so a reading looks
+	// the same wherever the family shows one.
+	.norm__row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: u(12);
+		height: u(var(--norm-row-h));
+		padding: 0 u(16);
+
+		& + & {
+			border-top: 1px solid var(--sl-color-hairline-light, #ebebeb);
+		}
+
+		// The column is sized to these two exactly, with about 2 units to spare, so neither may wrap:
+		// the row's height is a fixed number of design units, and a wrapped value would spill out of
+		// it rather than grow it.
+		dt,
+		dd {
+			white-space: nowrap;
+		}
+
+		dt {
+			font-size: u(15);
+			line-height: u(22);
+			color: var(--color-text-secondary, #5b616e);
+		}
+
+		dd {
+			margin: 0;
+			font-size: u(16);
+			font-weight: $font-weight-semibold;
+			line-height: u(22);
+			// Four identical values, so they must agree to the pixel.
+			font-variant-numeric: tabular-nums;
+			color: var(--color-text);
+		}
+	}
+</style>
