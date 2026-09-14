@@ -10,7 +10,8 @@
 export const DIGITAL_TWIN_COPY = {
 	title: 'Model your real world',
 	body: 'Organize devices, assets, customers, and hierarchies that match your case. Control data, permissions, and processing at every level — site, machine, or single sensor. Aggregate, transform, and act on data wherever it makes sense.',
-	link: { text: 'How to build a Digital Twin with ThingsBoard', href: '/docs/pe/user-guide/digital-twins/entities/' },
+	link: { text: 'Build a digital twin', href: '/docs/pe/user-guide/digital-twins/entities/' },
+	badge: { icon: 'tabler:binary-tree', color: '#7b3fe4' },
 };
 
 /** The two halves, as the design labels them. */

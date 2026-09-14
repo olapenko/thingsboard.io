@@ -1,0 +1,111 @@
+---
+import ReadMoreLink from '@components/Landing/ReadMoreLink.astro';
+
+/**
+ * One alternating feature row, as the homepage lays them out: the tinted strip, the 1160 measure, a
+ * 46ch copy column and the media taking whatever is left — about 673px.
+ *
+ * The difference from `_FeatureRow` is what is NOT here. That one wraps every row in a stage caption
+ * and a token switch because it exists to judge one visual at a time; this one exists to read five
+ * of them in a line, and a caption between each would be the thing you end up looking at.
+ *
+ * Underscore-prefixed so Astro does not make it a route.
+ */
+
+interface Props {
+	title: string;
+	body: string;
+	link?: { text: string; href: string };
+	/** Copy left and media right, which is how the published rows open. `true` swaps them. */
+	flip?: boolean;
+}
+
+const { title, body, link, flip = false } = Astro.props;
+---
+
+<section class:list={['row', flip && 'row--flip']}>
+	<div class="row__copy">
+		<h2 class="row__title">{title}</h2>
+		<p>{body}</p>
+		{link && <ReadMoreLink href={link.href} text={link.text} />}
+	</div>
+	<div class="row__media">
+		<slot />
+	</div>
+</section>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.row {
+		display: flex;
+		align-items: center;
+		gap: 72px;
+		max-width: 1160px;
+		min-height: 580px;
+		margin: 0 auto $spacing-6;
+		padding: 60px 20px;
+		border-radius: $radius-xl;
+		background: #f5f6ff;
+
+		// Copy first in the DOM so it is also first to a screen reader, whichever side it is drawn
+		// on: `row-reverse` moves the box, not the reading order, which is the point of using it
+		// rather than reordering the markup.
+		&.row--flip {
+			flex-direction: row-reverse;
+		}
+
+		// Below lg the real rows stack, and stacking a reversed row would put the visual above its
+		// own heading on every other section.
+		@include media-down(lg) {
+			flex-direction: column;
+			min-height: 0;
+			gap: 40px;
+
+			&.row--flip {
+				flex-direction: column;
+			}
+		}
+	}
+
+	.row__media {
+		flex: 1 1 0;
+		min-width: 0;
+
+		@include media-down(lg) {
+			width: 100%;
+		}
+	}
+
+	.row__copy {
+		flex: 0 1 46ch;
+		max-width: 46ch;
+
+		p {
+			margin: 0;
+			font-size: 18px;
+			line-height: 1.6;
+			color: var(--color-text, #17181c);
+			text-wrap: pretty;
+		}
+
+		:global(.read-more-link),
+		:global(.read-more-link .arrow) {
+			margin-top: 1.125rem;
+			color: $color-brand;
+		}
+
+		:global(.read-more-link .arrow-container) {
+			display: none;
+		}
+	}
+
+	.row__title {
+		margin: 0 0 $spacing-4;
+		font-size: 36px;
+		font-weight: $font-weight-bold;
+		line-height: 1.2;
+		color: var(--color-text, #17181c);
+		text-wrap: balance;
+	}
+</style>

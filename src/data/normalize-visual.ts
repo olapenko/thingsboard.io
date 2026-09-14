@@ -12,7 +12,8 @@
 export const NORMALIZE_COPY = {
 	title: 'Turn IoT data into action',
 	body: 'Normalize data from any device or protocol. Spot anomalies before they hit production. Filter signals from noise before alerts reach your team. Push data and notifications into your CRM, ERP, or other external app — your data, your workflows.',
-	link: { text: 'How to process IoT data', href: '/docs/pe/user-guide/rule-engine/' },
+	link: { text: 'Process IoT data', href: '/docs/pe/user-guide/rule-engine/' },
+	badge: { icon: 'tabler:database-search', color: '#c2703a' },
 };
 
 /** The two sides, as the design labels them. */

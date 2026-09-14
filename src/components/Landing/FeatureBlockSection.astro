@@ -1,5 +1,6 @@
 ---
 import SmartImage from '@components/SmartImage.astro';
+import { Icon } from 'astro-icon/components';
 import ReadMoreLink from './ReadMoreLink.astro';
 
 interface LinkItem {
@@ -16,8 +17,13 @@ interface Props {
 	headingLevel?: 3 | 4;
 	description: string;
 	links: LinkItem[];
-	imageSrc: string;
-	imageAlt: string;
+	/**
+	 * The media, when it is an image. Optional because a row can be given a COMPONENT instead, by
+	 * passing it as the default slot — which is how the new key visuals sit in this row without
+	 * being exported to PNG first.
+	 */
+	imageSrc?: string;
+	imageAlt?: string;
 	imageWidth?: number;
 	imageHeight?: number;
 	/** If true, image is placed before the text (image on left) */
@@ -49,6 +55,11 @@ interface Props {
 	listIconLeft?: number;
 	/** Vertical offset in px from section top */
 	listIconTop?: number;
+	/**
+	 * A squircle mark above the heading: a Tabler icon on a filled tile in the section's own colour.
+	 * Optional, so rows that have never had one are unchanged.
+	 */
+	badge?: { icon: string; color: string };
 	id?: string;
 }
 
@@ -78,7 +89,21 @@ const {
 	imageEqual = false,
 	imageWidths,
 	imageSizes,
+	badge,
 } = Astro.props;
+
+// Rendered to a string rather than placed as <slot />, because the media appears in one of two
+// branches depending on `imageFirst` and a slot can only be consumed once. Existing callers pass no
+// slot, so `hasMedia` is false for them and nothing about this component changes.
+const hasMedia = Astro.slots.has('default');
+
+// A row must have media of one kind or the other. Stated as a guard rather than left to a missing
+// <img>, which renders as a stray alt string and is easy to miss on a long page.
+if (!hasMedia && !(imageSrc && imageAlt)) {
+	throw new Error(
+		'FeatureBlockSection needs either an image (imageSrc and imageAlt) or a component in its default slot.'
+	);
+}
 
 const linkVariant = variant !== 'default' ? variant : dark ? 'light' : 'default';
 const hasPseudoBg = dark && !bgId;
@@ -86,62 +111,91 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 ---
 
 <section class:list={['feature-block-section', { dark, 'has-pseudo-bg': hasPseudoBg }]} {id}>
-	{listIconSrc && (
-		<div class="list-icon" style={`--icon-left:${listIconLeft}px;--icon-top:${listIconTop}px;`}>
-			<SmartImage
-				src={listIconSrc}
-				alt={listIconAlt}
-				width={listIconWidth}
-				height={listIconHeight}
-				loading="lazy"
-			/>
-		</div>
-	)}
-	<div class="main-div">
-		{bgId && (
-			<div id={bgId} aria-hidden="true">
-				{bgDivs?.map((cls) => <div class={cls} />)}
+	{
+		listIconSrc && (
+			<div class="list-icon" style={`--icon-left:${listIconLeft}px;--icon-top:${listIconTop}px;`}>
+				<SmartImage src={listIconSrc} alt={listIconAlt} width={listIconWidth} height={listIconHeight} loading="lazy" />
 			</div>
-		)}
+		)
+	}
+	<div class="main-div">
+		{
+			bgId && (
+				<div id={bgId} aria-hidden="true">
+					{bgDivs?.map((cls) => (
+						<div class={cls} />
+					))}
+				</div>
+			)
+		}
 		<div class:list={['block', { 'image-first': imageFirst }]}>
-			{imageFirst && (
-				<SmartImage
-					class:list={["preview", imageShadow && "shadow", imageEqual && "equal"]}
-					src={imageSrc}
-					alt={imageAlt}
-					width={imageWidth}
-					height={imageHeight}
-					widths={imageWidths}
-					sizes={imageSizes}
-					style={imageWidth ? `max-width: min(${imageWidth}px, 100%)` : undefined}
-					loading="lazy"
-				/>
-			)}
+			{
+				imageFirst && !hasMedia && (
+					<SmartImage
+						class:list={['preview', imageShadow && 'shadow', imageEqual && 'equal']}
+						src={imageSrc!}
+						alt={imageAlt!}
+						width={imageWidth}
+						height={imageHeight}
+						widths={imageWidths}
+						sizes={imageSizes}
+						style={imageWidth ? `max-width: min(${imageWidth}px, 100%)` : undefined}
+						loading="lazy"
+					/>
+				)
+			}
 			<div class="feature-des">
+				{
+					badge && (
+						<span class="feature-badge" style={`--badge-color: ${badge.color}`} aria-hidden="true">
+							<Icon name={badge.icon} />
+						</span>
+					)
+				}
 				<div class="heading-wrap">
 					<HeadingTag class="phrase-heading">{heading}</HeadingTag>
 					{peOnly && <span class="pe-badge">PE only</span>}
 				</div>
 				<p>{description}</p>
 				<div class="links">
-					{links.map((link) => (
-						<ReadMoreLink href={link.href} text={link.text} ariaLabel={link.ariaLabel} srOnlySuffix={link.srOnlySuffix} variant={linkVariant} target={link.target} />
-					))}
+					{
+						links.map((link) => (
+							<ReadMoreLink
+								href={link.href}
+								text={link.text}
+								ariaLabel={link.ariaLabel}
+								srOnlySuffix={link.srOnlySuffix}
+								variant={linkVariant}
+								target={link.target}
+							/>
+						))
+					}
 				</div>
 			</div>
-			{!imageFirst && (
-				<SmartImage
-					class:list={["preview", imageShadow && "shadow", imageEqual && "equal"]}
-					src={imageSrc}
-					alt={imageAlt}
-					width={imageWidth}
-					height={imageHeight}
-					widths={imageWidths}
-					sizes={imageSizes}
-					style={imageWidth ? `max-width: min(${imageWidth}px, 100%)` : undefined}
-					loading="lazy"
-				/>
-			)}
+			{
+				!imageFirst && !hasMedia && (
+					<SmartImage
+						class:list={['preview', imageShadow && 'shadow', imageEqual && 'equal']}
+						src={imageSrc!}
+						alt={imageAlt!}
+						width={imageWidth}
+						height={imageHeight}
+						widths={imageWidths}
+						sizes={imageSizes}
+						style={imageWidth ? `max-width: min(${imageWidth}px, 100%)` : undefined}
+						loading="lazy"
+					/>
+				)
+			}
+			{
+				/* Rendered once and placed by CSS, because a slot can only be consumed once and this
+				    has to serve both orders. */
+				hasMedia && (
+					<div class:list={['preview', imageEqual && 'equal', imageFirst && 'media-first']}>
+						<slot />
+					</div>
+				)
+			}
 		</div>
 	</div>
 </section>
@@ -197,6 +251,12 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				height: auto;
 			}
 
+			// Slotted media leads the row without leading the markup, so the copy stays first for a
+			// screen reader whichever side it is drawn on.
+			:global(.preview.media-first) {
+				order: -1;
+			}
+
 			:global(.preview.equal) {
 				flex: 1;
 			}
@@ -210,9 +270,35 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				flex-direction: column;
 				gap: 32px;
 
+				:global(.preview.media-first) {
+					order: 0;
+				}
+
 				&.image-first {
 					flex-direction: column-reverse;
 				}
+			}
+		}
+
+		// A squircle, at the 28% radius that is the closest a plain border-radius gets to the
+		// superellipse an app icon uses — the same construction the platform badge in the connect and
+		// deploy visuals uses, so the page has one idea of what a rounded tile is.
+		.feature-badge {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 48px;
+			height: 48px;
+			margin-bottom: 20px;
+			border-radius: 32%;
+			background: var(--badge-color, #3d50f5);
+			color: #fff;
+
+			// The glyph takes about 58% of the tile. A mark on a tile is one object, and a small glyph
+			// floating in a large square reads as two — the tile and, separately, something in it.
+			:global([data-icon]) {
+				width: 28px;
+				height: 28px;
 			}
 		}
 
