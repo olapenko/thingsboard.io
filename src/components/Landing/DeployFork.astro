@@ -1,0 +1,311 @@
+---
+import { Icon } from 'astro-icon/components';
+import { DEPLOY_BRANCHES, type DeployBranch } from '@data/deploy-visual';
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+
+/**
+ * The deployment half of "Deploy anywhere, scale without surprises".
+ *
+ * One mark, one fork, two branches: we run it, or you do. That is the section's whole argument, and
+ * it comes from a comment already in `homeProducts.ts` — "Two deployments, one decision: who runs
+ * it." The reference draft stacked Cloud, On-premises and Fully offline as three peers, which
+ * invents a tier: private cloud is not a third option, it is your own AWS account, and it already
+ * lives inside on-premises.
+ *
+ * Deliberately the connect visual run backwards. There, many routes converge on one badge; here one
+ * badge diverges into two grounds. Same design unit, same cards, same cubic curves with horizontal
+ * control points and endpoints computed from known numbers — so the pair reads as one hand making
+ * opposite points, and neither needed a new vocabulary.
+ *
+ * Almost no prose in it. Eight icons and eight labels of two or three words each; the argument is
+ * the fork, and the fork is drawn rather than written. Labels stay because an icon cannot say
+ * "99.95% SLA" or tell a data centre from a cloud account — icons carry the kind, words carry the
+ * specifics, and neither is asked to do the other's job.
+ */
+
+interface Props {
+	/** The two branches. Two is the point, but the geometry derives from however many it is given. */
+	branches?: DeployBranch[];
+}
+
+const { branches = DEPLOY_BRANCHES } = Astro.props;
+
+// Authored at 480 units, not the family's 630.
+//
+// The lesson the scale and connect visuals both had to learn the hard way: a composition's native
+// width sets its type size on a phone, and no font value can undo it. At 630 these labels land at
+// 9px in a 335px container; at 480 they land at 12. Everything here is built to be readable at the
+// narrow end first, which is why there are four points a side and not seven.
+const COL = { node: 90, gut: 60, branch: 330 };
+const NATIVE = COL.node + COL.gut + COL.branch;
+
+const BADGE = 72;
+// How far a connector runs from the badge's edge to a card's: the gutter plus the air the node
+// column leaves beside the badge. Same derivation as the connect visual's, mirrored.
+const JOIN = COL.gut + (COL.node - BADGE) / 2;
+
+// Fixed card geometry, so the curve endpoints are known numbers rather than something measured
+// after layout. Two rows of two points, and a card sized to hold exactly that.
+const PAD_Y = 12;
+const TITLE_H = 20;
+// The product name is its own line, not a tail on the title's. Inline, "You run it — ThingsBoard
+// On-premises" wrapped inside a fixed-height box and dropped "premises" straight through the icons
+// below it.
+const NAME_H = 18;
+const TITLE_GAP = 10;
+const POINT_H = 51;
+const POINT_GAP = 12;
+const ROWS = 2;
+const CARD_H = PAD_Y * 2 + TITLE_H + NAME_H + TITLE_GAP + ROWS * POINT_H + (ROWS - 1) * POINT_GAP;
+const CARD_GAP = 16;
+
+const BODY_H = branches.length * CARD_H + (branches.length - 1) * CARD_GAP;
+const MID = BODY_H / 2;
+const cardCy = branches.map((_, i) => CARD_H / 2 + i * (CARD_H + CARD_GAP));
+
+// Control points on the run's midpoint, so every curve leaves the badge flat and arrives at its
+// card flat, and the two part as a fork rather than crossing.
+const BEND = JOIN / 2;
+const curves = cardCy.map((cy) => `M 0,${MID} C ${BEND},${MID} ${BEND},${cy} ${JOIN},${cy}`);
+// One head per branch, apex on the card's edge. `stroke-linejoin: round` puts the join's overshoot
+// under the card, which paints above the connectors, so a tip cannot show a seam.
+const heads = cardCy.map((cy) => `M ${JOIN - 6},${cy - 4} L ${JOIN},${cy} L ${JOIN - 6},${cy + 4}`);
+
+const vars = [
+	// No floor on the unit: the width is exactly 100cqw below the cap, so it cannot overflow at any
+	// container size. The ceiling is above the family's 1.15 because this is drawn at 480 units and
+	// would otherwise stop growing well short of the width a feature row gives it.
+	`--dep-u: min(1.45px, calc(100cqw / ${NATIVE}))`,
+	`--dep-native: ${NATIVE}`,
+	`--dep-col-node: ${COL.node}`,
+	`--dep-col-gut: ${COL.gut}`,
+	`--dep-col-branch: ${COL.branch}`,
+	`--dep-join: ${JOIN}`,
+	`--dep-body-h: ${BODY_H}`,
+	`--dep-card-h: ${CARD_H}`,
+	`--dep-card-gap: ${CARD_GAP}`,
+	`--dep-title-h: ${TITLE_H}`,
+	`--dep-name-h: ${NAME_H}`,
+	`--dep-title-gap: ${TITLE_GAP}`,
+	`--dep-point-h: ${POINT_H}`,
+	`--dep-point-gap: ${POINT_GAP}`,
+	`--dep-badge: ${BADGE}`,
+].join('; ');
+---
+
+<div class="dep-fit">
+	<div class="dep" style={vars}>
+		{
+			/* The product, as its own mark. Its label is out of flow so it cannot push the badge off
+		    the axis the curves leave from, and visually hidden because the section is already headed
+		    with the product's name — but kept, because the badge is decorative and this is the only
+		    accessible name the fork's origin has. */
+		}
+		<div class="dep__node">
+			<span class="dep__badge" aria-hidden="true" set:html={mark} />
+			<span class="dep__node-label">ThingsBoard</span>
+		</div>
+
+		{
+			/* Under the cards in paint order, so each join is an edge over a line and cannot show a
+		    seam at any scale. */
+		}
+		<svg class="dep__gut" viewBox={`0 0 ${JOIN} ${BODY_H}`} aria-hidden="true">
+			{curves.map((d) => <path class="dep__curve" d={d} />)}
+			{heads.map((d) => <path class="dep__head" d={d} />)}
+		</svg>
+
+		<ul class="dep__branches">
+			{
+				branches.map((b) => (
+					<li class="dep__branch">
+						<p class="dep__title">{b.title}</p>
+						<p class="dep__name">{b.name}</p>
+
+						<ul class="dep__points">
+							{b.points.map((p) => (
+								<li class="dep__point">
+									<Icon name={p.icon} aria-hidden="true" />
+									<span>{p.label}</span>
+								</li>
+							))}
+						</ul>
+					</li>
+				))
+			}
+		</ul>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Every size below is a multiple of one design unit, so the whole composition scales as a piece
+	// instead of reflowing. See SolutionFlow for why the unit comes from the container.
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.dep-fit {
+		container-type: inline-size;
+	}
+
+	.dep {
+		--u: var(--dep-u);
+		--dep-rail-w: max(1px, #{u(2)});
+		display: grid;
+		// Straight from the numbers the curve endpoints were computed from; hard-coding them twice
+		// would let the layout and the geometry drift, and the symptom would be connectors that miss
+		// the cards at some widths and not others.
+		grid-template-columns: u(var(--dep-col-node)) u(var(--dep-col-gut)) u(var(--dep-col-branch));
+		grid-template-rows: auto;
+		align-items: center;
+		max-width: u(var(--dep-native));
+		margin: 0 auto;
+	}
+
+	// --- the platform -----------------------------------------------------------------------
+
+	// Its height is the badge's height and nothing else, so centring it in the row centres the badge
+	// on the line the curves leave from. Above the connectors so their ends tuck under it.
+	.dep__node {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		grid-column: 1;
+		justify-content: center;
+		height: u(var(--dep-badge));
+	}
+
+	// A squircle because a percentage radius is the closest a plain border-radius gets to the superellipse
+	// an app icon uses.
+	.dep__badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: u(var(--dep-badge));
+		height: u(var(--dep-badge));
+		padding: u(14);
+		border-radius: 32%;
+		// The mark is inlined rather than an <img> so it can take this colour; it draws in
+		// currentColor.
+		color: var(--color-white, #fff);
+		background: var(--color-primary, #3d50f5);
+		box-shadow:
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22);
+	}
+
+	.dep__node-label {
+		@include visually-hidden;
+	}
+
+	// --- connectors -------------------------------------------------------------------------
+
+	// Sized to the full run rather than to the gutter track, so each head reaches its card; the
+	// overflow into the node column is safe because every track is a definite length. A global reset
+	// gives every svg `max-width: 100%`, which would cap this at the track and make
+	// `preserveAspectRatio` quietly scale the whole drawing — see ConnectFlow, where it did.
+	.dep__gut {
+		grid-column: 2;
+		width: u(var(--dep-join));
+		max-width: none;
+		height: 100%;
+		align-self: stretch;
+		justify-self: end;
+		overflow: visible;
+	}
+
+	.dep__curve,
+	.dep__head {
+		fill: none;
+		stroke: var(--color-text-secondary, #5b616e);
+		stroke-width: var(--dep-rail-w);
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		// The box is scaled by the design unit, so the stroke would scale with it otherwise.
+		vector-effect: non-scaling-stroke;
+	}
+
+	// --- the branches -----------------------------------------------------------------------
+
+	.dep__branches {
+		display: flex;
+		grid-column: 3;
+		flex-direction: column;
+		gap: u(var(--dep-card-gap));
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		// Over the curves, so their ends tuck under the cards.
+		position: relative;
+		z-index: 1;
+	}
+
+	.dep__branch {
+		height: u(var(--dep-card-h));
+		padding: u(12) u(14);
+		border: 1px solid transparent;
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-surface, #fff);
+		box-shadow: var(--flow-shadow, 0 1px 2px rgba(16, 24, 40, 0.04), 0 #{u(6)} #{u(16)} #{u(-6)} rgba(16, 24, 40, 0.1));
+	}
+
+	// The question the fork asks. The product name follows it quietly: the two words are what the
+	// reader is choosing between, the name is which product that turns out to be.
+	.dep__title {
+		height: u(var(--dep-title-h));
+		margin: 0;
+		font-size: u(17);
+		font-weight: $font-weight-bold;
+		line-height: u(var(--dep-title-h));
+		color: var(--color-text);
+	}
+
+	// Which product the answer turns out to be, said once and quietly. On its own line with its own
+	// height, so a long name cannot reach the row beneath it.
+	.dep__name {
+		height: u(var(--dep-name-h));
+		margin: 0 0 u(var(--dep-title-gap));
+		font-size: u(14);
+		line-height: u(var(--dep-name-h));
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// --- the points -------------------------------------------------------------------------
+
+	// Two by two. Four a side keeps both cards the same size, so the fork reads as a choice between
+	// equals rather than a recommendation with an afterthought beneath it.
+	.dep__points {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		grid-auto-rows: u(var(--dep-point-h));
+		gap: u(var(--dep-point-gap));
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.dep__point {
+		display: flex;
+		flex-direction: column;
+		gap: u(6);
+		// 16, not 15. The labels are the smallest type here, so they set what the composition is
+		// readable at: 15 units lands at 10.5px in a 335px container and 16 at 11.2px. Measured to
+		// still fit one line in a 144-unit item — the longest is "Backups & upgrades".
+		font-size: u(16);
+		line-height: u(21);
+		color: var(--color-text);
+		text-wrap: pretty;
+
+		// Sized here, in design units, NOT with astro-icon's width/height attributes — those are
+		// absolute pixels and do not scale with `--u`, which at phone width renders a glyph at nearly
+		// twice its intended size and bursts whatever holds it.
+		[data-icon] {
+			flex: none;
+			width: u(24);
+			height: u(24);
+			color: var(--color-primary, #3d50f5);
+		}
+	}
+</style>

@@ -36,6 +36,16 @@ export interface SolutionCase {
 	series: number[];
 	alarms?: number;
 	/**
+	 * Devices reporting, out of the fleet. Optional because only the white-label visual has a widget
+	 * for it — the solution flow's shell shows one metric and ignores this.
+	 *
+	 * Demo figures, and the only numbers in this family that are. They are not a claim about anyone's
+	 * deployment; the white-label visual is about whose colours the dashboard wears, and a fleet
+	 * count is there to make the dashboard look like a dashboard. Sized to each use case so the three
+	 * brands are not obviously the same mock with the paint changed.
+	 */
+	fleet?: { online: number; total: number };
+	/**
 	 * The sparkline's y-axis, in the reading's units. Set it wherever the metric has a meaningful
 	 * frame — 0-100 for a percentage — rather than letting the line fit its own min and max.
 	 *
@@ -48,6 +58,20 @@ export interface SolutionCase {
 	/** Where the wording came from. Shown only on the internal comparison page. */
 	source: string;
 }
+
+/**
+ * The section copy for this visual.
+ *
+ * Here rather than in either page that renders it: the sandbox and the home preview both show this
+ * row, and while the words lived in one page's tab list the other had to repeat them — which is how
+ * two pages end up disagreeing about what a section says.
+ */
+export const SOLUTION_COPY = {
+	title: 'Build IoT solutions from device to end-user',
+	body: 'ThingsBoard enables development of the complete use-case and is white-labeled for your customers or your team: ship complete IoT applications, not just data pipelines.',
+	link: { text: 'Why ThingsBoard', href: '/products/' },
+	badge: { icon: 'tabler:layout-dashboard', color: '#3d50f5' },
+};
 
 /** How many points of history the sparkline shows at once. */
 export const SPARK_WINDOW = 32;
@@ -64,6 +88,7 @@ const loop = (n: number, f: (t: number) => number): number[] =>
 export const SOLUTION_CASES: SolutionCase[] = [
 	{
 		brand: { name: 'Acme Cold Chain', accent: '#3d50f5', host: 'acme.com', icon: 'tabler:snowflake' },
+		fleet: { online: 128, total: 130 },
 		metricLabel: 'Temperature',
 		unit: '°',
 		decimals: 1,
@@ -82,6 +107,7 @@ export const SOLUTION_CASES: SolutionCase[] = [
 	},
 	{
 		brand: { name: 'Northwind Fuel', accent: '#1f8b4d', host: 'tanks.nw.com', icon: 'tabler:gas-station' },
+		fleet: { online: 412, total: 420 },
 		metricLabel: 'Fuel level',
 		unit: '%',
 		decimals: 0,
@@ -104,6 +130,7 @@ export const SOLUTION_CASES: SolutionCase[] = [
 	},
 	{
 		brand: { name: 'Civica Air', accent: '#c2703a', host: 'air.civica.org', icon: 'tabler:wind' },
+		fleet: { online: 86, total: 90 },
 		metricLabel: 'PM2.5',
 		unit: ' µg/m³',
 		decimals: 0,

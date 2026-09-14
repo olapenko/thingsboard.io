@@ -1,0 +1,571 @@
+---
+import { Icon } from 'astro-icon/components';
+import { SOLUTION_CASES, SOLUTION_RAIL, SPARK_WINDOW, type SolutionCase } from '@data/solution-flow';
+import { WHITELABEL_SWITCH } from '@data/whitelabel-visual';
+import { sparkPaths } from '@util/sparkline';
+
+/**
+ * White-labeling, shown as the result rather than as the settings screen.
+ *
+ * The section's current visual is a screenshot of the White Labeling form — a logo uploader, two
+ * palette dropdowns, an "Advanced CSS" button. It shows the work. Nobody buys a file picker; what
+ * sells this is seeing a dashboard that is unmistakably somebody else's, and then watching it
+ * become somebody else's again without anything about the product changing underneath.
+ *
+ * So: one app, three customers, and a control that swaps between them. The logo, the name, the
+ * customer's own domain in the address bar, the accent through every widget — all of it moves
+ * together, which is the claim the copy makes ("logo and color scheme in 2 minutes").
+ *
+ * It rotates on its own and hands over the moment anyone clicks. That is the lesson from the scale
+ * slider: a control most readers never touch shows most readers one state, and one state is exactly
+ * what a white-label visual cannot afford. Rotation stops for `prefers-reduced-motion`, where the
+ * control is the only way through — which is fine, because the first frame is still a branded app.
+ *
+ * The app is the same app as the end of the device-to-end-user flow: same shell language, same
+ * brands, same deterministic telemetry out of `solution-flow.ts`.
+ */
+
+interface RailItem {
+	icon: string;
+	active?: boolean;
+}
+
+interface Props {
+	/** The customers to rotate through. Three is the point — one would prove nothing. */
+	cases?: SolutionCase[];
+	rail?: RailItem[];
+	/** Rotate unattended. A click takes over and the rotation stops for good. */
+	autoRotate?: boolean;
+	/** How long a brand holds before the next takes over. */
+	swapMs?: number;
+}
+
+const { cases = SOLUTION_CASES, rail = SOLUTION_RAIL, autoRotate = true, swapMs = 4200 } = Astro.props;
+
+// The sparkline's own box. Stretched by CSS, so the aspect here only sets the curve's shape.
+const VIEW = { w: 100, h: 30, pad: 3 };
+
+// Everything the client swaps, resolved once here, so the server's first paint and every later
+// state are computed by the same rules rather than by two sets that can drift.
+const prepared = cases.map((c) => {
+	const min = Math.min(...c.series);
+	const max = Math.max(...c.series);
+	const span = max - min || 1;
+	const domain = c.domain ?? ([min - span * 0.25, max + span * 0.25] as [number, number]);
+	const win = Math.min(SPARK_WINDOW, c.series.length);
+	const values = Array.from({ length: win }, (_, i) => c.series[i % c.series.length]);
+	const paths = sparkPaths(values, domain, VIEW, win - 1);
+	const fleet = c.fleet ?? { online: 0, total: 0 };
+	return {
+		name: c.brand.name,
+		accent: c.brand.accent,
+		host: c.brand.host,
+		metricLabel: c.metricLabel,
+		reading: `${c.series[win - 1].toFixed(c.decimals ?? 0)}${c.unit ?? ''}`,
+		line: paths.line,
+		area: paths.area,
+		alarms: c.alarms ?? 0,
+		online: fleet.online,
+		total: fleet.total,
+		// Rounded here rather than in CSS, so the bar and the two numbers beside it are one
+		// calculation and cannot disagree.
+		pct: fleet.total ? Math.round((fleet.online / fleet.total) * 100) : 0,
+	};
+});
+
+const first = prepared[0];
+const alarmState = (n: number) => (n > 0 ? `${n} active` : 'All clear');
+
+const NATIVE = 480;
+const vars = [
+	`--wl-u: min(1.45px, calc(100cqw / ${NATIVE}))`,
+	`--wl-native: ${NATIVE}`,
+	`--wl-accent: ${first.accent}`,
+	`--wl-swap-ms: ${swapMs}`,
+].join('; ');
+---
+
+<div class="wl-fit">
+	<div
+		class="wl"
+		style={vars}
+		data-wl
+		data-wl-rotate={autoRotate && prepared.length > 1 ? '' : undefined}
+		data-wl-swap={swapMs}
+	>
+		<script is:inline type="application/json" data-wl-cases set:html={JSON.stringify(prepared)} />
+
+		<div class="wl__app">
+			{/* The customer's own domain. What says "white-labelled" fastest, before any colour does. */}
+			<p class="wl__chrome" aria-hidden="true">
+				<i class="wl__dot"></i>
+				<span class="wl__host" data-wl-host>{first.host}</span>
+			</p>
+
+			<p class="wl__topbar">
+				{
+					/* Every brand's mark is rendered and only the current one shown — an inlined icon
+				    cannot be swapped by setting text, and re-fetching one per swap would flicker. */
+				}
+				{
+					cases.map((c, i) => (
+						<span class:list={['wl__mark', i === 0 && 'is-on']} data-wl-mark={i} aria-hidden="true">
+							<Icon name={c.brand.icon} />
+						</span>
+					))
+				}
+				<span class="wl__name" data-wl-name>{first.name}</span>
+			</p>
+
+			<div class="wl__lower">
+				<nav class="wl__rail" aria-hidden="true">
+					{
+						rail.map((item) => (
+							<span class:list={['wl__rail-item', item.active && 'is-active']}>
+								<Icon name={item.icon} />
+							</span>
+						))
+					}
+				</nav>
+
+				<div class="wl__body">
+					{/* Widget one: the live reading, and the only one wide enough for a curve. */}
+					<section class="wl__w wl__w--wide">
+						<p class="wl__w-title" data-wl-metric>{first.metricLabel}</p>
+						<p class="wl__reading" data-wl-value>{first.reading}</p>
+						<svg class="wl__spark" viewBox={`0 0 ${VIEW.w} ${VIEW.h}`} preserveAspectRatio="none" aria-hidden="true">
+							<path class="wl__spark-area" d={first.area} data-wl-area></path>
+							<path class="wl__spark-line" d={first.line} data-wl-line></path>
+						</svg>
+					</section>
+
+					<section class="wl__w">
+						<p class="wl__w-title">Devices online</p>
+						<p class="wl__fig">
+							<span data-wl-online>{first.online}</span>
+							<span class="wl__of">/ <span data-wl-total>{first.total}</span></span>
+						</p>
+						<span class="wl__bar"><i data-wl-bar style={`width: ${first.pct}%`}></i></span>
+					</section>
+
+					<section class="wl__w">
+						<p class="wl__w-title">Alarms</p>
+						<p class="wl__fig" data-wl-alarms>{first.alarms}</p>
+						<p class="wl__state" data-wl-state>{alarmState(first.alarms)}</p>
+					</section>
+				</div>
+			</div>
+		</div>
+
+		{
+			/* Outside the app frame on purpose. Inside, it would read as a tenant switcher the product
+		    ships, which it is not — this is a control for the reader. */
+		}
+		<div class="wl__switch">
+			<span class="wl__switch-label">{WHITELABEL_SWITCH.label}</span>
+			<ul class="wl__brands">
+				{
+					cases.map((c, i) => (
+						<li>
+							<button
+								type="button"
+								class:list={['wl__brand', i === 0 && 'is-on']}
+								data-wl-pick={i}
+								aria-pressed={i === 0 ? 'true' : 'false'}
+								style={`--wl-brand: ${c.brand.accent}`}
+							>
+								<Icon name={c.brand.icon} aria-hidden="true" />
+								<span>{c.brand.name}</span>
+							</button>
+						</li>
+					))
+				}
+			</ul>
+		</div>
+	</div>
+</div>
+
+<script>
+	// One brand at a time, everything moving together. The data comes from the server so the first
+	// paint is already a branded app rather than a skeleton that fills in.
+	interface WlCase {
+		name: string;
+		accent: string;
+		host: string;
+		metricLabel: string;
+		reading: string;
+		line: string;
+		area: string;
+		alarms: number;
+		online: number;
+		total: number;
+		pct: number;
+	}
+
+	document.querySelectorAll<HTMLElement>('[data-wl]').forEach((root) => {
+		const blob = root.querySelector<HTMLScriptElement>('[data-wl-cases]');
+		if (!blob?.textContent) return;
+		const cases: WlCase[] = JSON.parse(blob.textContent);
+		if (cases.length < 2) return;
+
+		const picks = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-wl-pick]'));
+		const marks = Array.from(root.querySelectorAll<HTMLElement>('[data-wl-mark]'));
+		const set = (sel: string, value: string) => {
+			const el = root.querySelector<HTMLElement>(sel);
+			if (el) el.textContent = value;
+		};
+
+		let at = 0;
+		const show = (i: number) => {
+			const c = cases[i];
+			at = i;
+			root.style.setProperty('--wl-accent', c.accent);
+			set('[data-wl-host]', c.host);
+			set('[data-wl-name]', c.name);
+			set('[data-wl-metric]', c.metricLabel);
+			set('[data-wl-value]', c.reading);
+			set('[data-wl-online]', String(c.online));
+			set('[data-wl-total]', String(c.total));
+			set('[data-wl-alarms]', String(c.alarms));
+			set('[data-wl-state]', c.alarms > 0 ? `${c.alarms} active` : 'All clear');
+			root.querySelector('[data-wl-line]')?.setAttribute('d', c.line);
+			root.querySelector('[data-wl-area]')?.setAttribute('d', c.area);
+			const bar = root.querySelector<HTMLElement>('[data-wl-bar]');
+			if (bar) bar.style.width = `${c.pct}%`;
+			marks.forEach((m, j) => m.classList.toggle('is-on', j === i));
+			picks.forEach((b, j) => {
+				b.classList.toggle('is-on', j === i);
+				b.setAttribute('aria-pressed', String(j === i));
+			});
+		};
+
+		let timer: number | undefined;
+		const stop = () => {
+			if (timer !== undefined) window.clearInterval(timer);
+			timer = undefined;
+		};
+
+		picks.forEach((b, i) =>
+			b.addEventListener('click', () => {
+				// A click is a decision. Rotating on afterwards would take the page back off the brand
+				// the reader just asked for, which is the one thing a control must never do.
+				stop();
+				show(i);
+			})
+		);
+
+		const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const rotates = root.hasAttribute('data-wl-rotate');
+		const every = Number(root.dataset.wlSwap ?? 4200);
+
+		const start = () => {
+			stop();
+			if (!rotates || calm.matches) return;
+			timer = window.setInterval(() => show((at + 1) % cases.length), every);
+		};
+
+		// Only while it is on screen: a visual rotating in a tab nobody is looking at is work for
+		// nothing, and it would also be mid-cycle by the time they arrive.
+		const io = new IntersectionObserver((entries) => {
+			entries.forEach((e) => (e.isIntersecting ? start() : stop()));
+		});
+		io.observe(root);
+		calm.addEventListener('change', start);
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Every size is a multiple of one design unit, so the whole composition scales as a piece
+	// instead of reflowing. See SolutionFlow for why the unit comes from the container.
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.wl-fit {
+		container-type: inline-size;
+	}
+
+	.wl {
+		--u: var(--wl-u);
+		display: grid;
+		gap: u(16);
+		max-width: u(var(--wl-native));
+		margin: 0 auto;
+	}
+
+	// --- the app ----------------------------------------------------------------------------
+
+	// An object resting on the page, in the family's two-layer shadow: a tight contact shadow in
+	// absolute pixels so it stays crisp at phone scale, and a wide ambient one in design units so it
+	// grows with the composition.
+	.wl__app {
+		overflow: hidden;
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-surface, #fff);
+		box-shadow:
+			0 1px 2px rgba(16, 24, 40, 0.04),
+			0 #{u(12)} #{u(28)} #{u(-8)} rgba(16, 24, 40, 0.16);
+	}
+
+	// The address bar. The customer's own domain lands before any colour does, and it is the fastest
+	// way to say this is not our product wearing a hat.
+	.wl__chrome {
+		display: flex;
+		align-items: center;
+		gap: u(8);
+		height: u(24);
+		margin: 0;
+		padding: 0 u(12);
+		background: var(--flow-chrome, #1b1e27);
+	}
+
+	.wl__dot {
+		flex: none;
+		width: u(6);
+		height: u(6);
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.35);
+	}
+
+	.wl__host {
+		font-family: $font-family-mono;
+		font-size: u(11);
+		line-height: u(14);
+		color: rgba(255, 255, 255, 0.75);
+	}
+
+	// The customer's bar. This is the accent's loudest appearance, so a swap is unmissable.
+	.wl__topbar {
+		display: flex;
+		align-items: center;
+		gap: u(10);
+		height: u(40);
+		margin: 0;
+		padding: 0 u(14);
+		background: var(--wl-accent);
+	}
+
+	.wl__mark {
+		display: none;
+		flex: none;
+
+		&.is-on {
+			display: block;
+		}
+
+		// Sized here, in design units, NOT with astro-icon's width/height attributes — those are
+		// absolute pixels and do not scale with `--u`.
+		[data-icon] {
+			width: u(20);
+			height: u(20);
+			color: #fff;
+		}
+	}
+
+	.wl__name {
+		font-size: u(15);
+		font-weight: $font-weight-semibold;
+		line-height: u(20);
+		color: #fff;
+	}
+
+	.wl__lower {
+		display: flex;
+	}
+
+	// --- rail -------------------------------------------------------------------------------
+
+	.wl__rail {
+		display: flex;
+		flex: none;
+		flex-direction: column;
+		gap: u(6);
+		width: u(44);
+		padding: u(12) u(10);
+		border-right: 1px solid var(--color-border, #ebebeb);
+	}
+
+	.wl__rail-item {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: u(24);
+		border-radius: u(6);
+		color: var(--color-text-secondary, #5b616e);
+
+		// The open screen, in the customer's colour on a wash of it — the accent reaching past the
+		// top bar into the furniture is what makes the rebrand look done rather than painted on.
+		&.is-active {
+			color: var(--wl-accent);
+			background: color-mix(in srgb, var(--wl-accent) 12%, transparent);
+		}
+
+		[data-icon] {
+			width: u(18);
+			height: u(18);
+		}
+	}
+
+	// --- widgets ----------------------------------------------------------------------------
+
+	// Three: one wide enough to carry a curve, two beside each other under it. Enough to read as a
+	// dashboard rather than as a single stat with decoration.
+	.wl__body {
+		display: grid;
+		flex: 1;
+		grid-template-columns: 1fr 1fr;
+		gap: u(10);
+		padding: u(14);
+		min-width: 0;
+	}
+
+	.wl__w {
+		display: grid;
+		align-content: start;
+		gap: u(6);
+		padding: u(10) u(12);
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: u(var(--flow-radius, 8));
+		min-width: 0;
+	}
+
+	.wl__w--wide {
+		grid-column: 1 / -1;
+	}
+
+	.wl__w-title {
+		margin: 0;
+		font-size: u(11);
+		line-height: u(14);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.wl__reading {
+		margin: 0;
+		font-size: u(30);
+		font-weight: $font-weight-bold;
+		line-height: u(34);
+		color: var(--color-text);
+	}
+
+	.wl__fig {
+		margin: 0;
+		font-size: u(22);
+		font-weight: $font-weight-bold;
+		line-height: u(26);
+		color: var(--color-text);
+	}
+
+	.wl__of {
+		font-size: u(13);
+		font-weight: $font-weight-normal;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// `preserveAspectRatio: none` because this is a strip whose height is set here and whose width is
+	// the widget's: letterboxing would put air inside the plot instead of stretching it.
+	.wl__spark {
+		width: 100%;
+		max-width: none;
+		height: u(34);
+		overflow: visible;
+	}
+
+	.wl__spark-line {
+		fill: none;
+		stroke: var(--wl-accent);
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		// The box is stretched on both axes, so an ordinary stroke would be drawn thicker
+		// horizontally than vertically.
+		vector-effect: non-scaling-stroke;
+	}
+
+	.wl__spark-area {
+		fill: color-mix(in srgb, var(--wl-accent) 14%, transparent);
+		stroke: none;
+	}
+
+	.wl__bar {
+		display: block;
+		overflow: hidden;
+		height: u(6);
+		border-radius: u(3);
+		background: color-mix(in srgb, var(--wl-accent) 14%, transparent);
+
+		i {
+			display: block;
+			height: 100%;
+			border-radius: u(3);
+			background: var(--wl-accent);
+		}
+	}
+
+	.wl__state {
+		margin: 0;
+		font-size: u(12);
+		line-height: u(16);
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// --- the switcher -----------------------------------------------------------------------
+
+	.wl__switch {
+		display: flex;
+		align-items: center;
+		gap: u(10);
+		flex-wrap: wrap;
+	}
+
+	.wl__switch-label {
+		font-size: u(12);
+		line-height: u(16);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.wl__brands {
+		display: flex;
+		flex-wrap: wrap;
+		gap: u(8);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// Each button wears its OWN brand's colour when chosen, not the app's current one — so the strip
+	// is a row of three customers rather than three states of one.
+	.wl__brand {
+		display: flex;
+		align-items: center;
+		gap: u(6);
+		padding: u(6) u(10);
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: u(var(--flow-radius, 8));
+		background: none;
+		font-family: inherit;
+		font-size: u(13);
+		font-weight: $font-weight-medium;
+		line-height: u(18);
+		color: var(--color-text-secondary, #5b616e);
+		cursor: pointer;
+
+		[data-icon] {
+			flex: none;
+			width: u(16);
+			height: u(16);
+		}
+
+		&.is-on {
+			border-color: var(--wl-brand);
+			background: color-mix(in srgb, var(--wl-brand) 10%, transparent);
+			color: var(--wl-brand);
+		}
+	}
+</style>
