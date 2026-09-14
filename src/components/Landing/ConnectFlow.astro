@@ -1,0 +1,628 @@
+---
+import { CONNECT_GROUPS, CONNECT_NODE, type ConnectGroup } from '@data/connect-visual';
+// `@root` because there is no `@assets` alias; CLAUDE.md names it the fallback for src/ paths no
+// other alias covers. `?raw` so the SVG is inlined and can take the badge's colour.
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+
+/**
+ * Every route a device can take into the platform, and what each route speaks.
+ *
+ * The protocol NAMES are the subject. The draft this came from set the route titles large with the
+ * protocols listed small underneath, which made the picture a diagram of our own taxonomy; nobody
+ * arrives wondering which category they fall into, they arrive wondering whether their thing is
+ * supported. So the names take the size and a tinted chip, and the route is demoted to a caption
+ * over them — a caption in plain type, with no glyph competing with the names for attention.
+ *
+ * It replaces a wall of protocol logos. A dozen marks implied the dozen was the list, and the grid
+ * looked thin where it ran out; names in type say "and the rest" without anyone sourcing an SVG.
+ *
+ * Built in the normalize visual's language — same design unit, same cards, same cubic connectors
+ * with horizontal control points — so the family reads as one hand. Where that one argues "any
+ * format, one model", this argues "any route, one platform", and both say it by converging.
+ *
+ * Each route's accent tints its own chips and nothing else. It never touches the type — the names
+ * stay in plain ink, so a protocol is equally legible whichever route it arrives by — and it never
+ * touches the connectors, which all draw in one grey.
+ *
+ * Deliberately still. The flow visual carries the page's motion.
+ *
+ * Takes its routes as a prop because two groupings are under review: three that read simply, and
+ * the four the connectivity guide actually defines. The geometry derives from however many it is
+ * given, so neither needs its own copy of this file.
+ */
+
+interface Props {
+	/** The routes to draw. Defaults to the three-group set; pass CONNECT_ROUTES for the four. */
+	groups?: ConnectGroup[];
+	/**
+	 * `stack` runs every route down one column into the node on the right.
+	 *
+	 * `split` puts half the routes each side of a centred node, which trades width for height: four
+	 * routes are 412 units tall stacked and 196 split. It needs an even number of routes, and it
+	 * needs room — below `$split-min` it falls back to `stack`, which is the same markup regrouped
+	 * into one column, so a phone gets the tall arrangement rather than a squashed wide one.
+	 */
+	layout?: 'stack' | 'split';
+	/**
+	 * How a route card separates itself from the page.
+	 *
+	 * `shadow` is the default and the family's own answer: the twin's unit and the app shell are
+	 * both objects resting on the page rather than outlined regions, and they use this same
+	 * two-layer shadow. `outline` is the flat hairline these cards started with. `both` draws the
+	 * hairline as well, for a page whose background is close enough to the card fill that the
+	 * shadow alone does not separate them.
+	 *
+	 * All three reserve the same border box, so switching never moves the composition.
+	 */
+	surface?: 'outline' | 'shadow' | 'both';
+	/**
+	 * Whether the node's name is shown under the mark. Off by default.
+	 *
+	 * The mark is the product's own, and a section already headed "Connect any IoT devices" on
+	 * thingsboard.io does not need to caption it — the word was doing the job the squircle was put
+	 * there to do. It stays in the markup either way, though: with the badge `aria-hidden` and the
+	 * mark decorative, hiding the label outright would leave the thing every curve points at with no
+	 * accessible name at all, so off means visually hidden rather than gone.
+	 */
+	nodeLabel?: boolean;
+}
+
+const { groups = CONNECT_GROUPS, layout = 'stack', surface = 'shadow', nodeLabel = false } = Astro.props;
+
+const split = layout === 'split';
+
+if (split && (groups.length < 2 || groups.length % 2 !== 0)) {
+	throw new Error(
+		`ConnectFlow: the split layout puts half the routes each side, so it needs an even number of at least two; got ${groups.length}.`
+	);
+}
+
+// --- the numbers the whole composition is built from -------------------------------------------
+//
+// Authored in design units.
+//
+// The route column is 464 because that is what the widest row MEASURED at: "Platform integrations"
+// needs 417.5 units of chips, plus 32 of padding and the 2px border that does not scale, plus
+// headroom. The headroom is not decoration — a row sitting within a unit or two of its limit wraps
+// at some scales and not others, because text metrics at 9px are not exactly half those at 18px.
+// An earlier 390 put the gateway row 0.2 units inside the limit, which held at 673px and wrapped at
+// 335px. Re-measure this if the names change; do not estimate it.
+//
+// The middle band was the largest dead area in the wide arrangement: 88 + 152 + 88 = 328 units, a
+// quarter of the composition, holding a 72-unit badge and some hairlines. It is now 238.
+//
+// The node column is sized to the widest thing in it, which is the LABEL and not the badge — the
+// label's ink measures 90.1 units, so 94 holds it with a unit of air either side. Sizing it to the
+// badge instead would let the label overhang the composition's own edge; sizing it loosely, as 104
+// did, leaves trailing space that no ink reaches and tips the whole stacked composition 7 units off
+// the centre of its box. The gutters take what the curves need and nothing more.
+//
+// This is why the stacked arrangement is 630 units rather than the 704 it started at, which buys
+// back most of what the wider route column cost phone-width type.
+const COL = { groups: 464, gut: 72, node: 94 };
+
+// Fixed card geometry, so the curve endpoints are known numbers rather than something measured
+// after layout.
+//
+// The height holds a caption and ONE row of chips, which is what every route needs at this column
+// width. That is a real constraint rather than a comfortable default: a sixth name on a route, or a
+// noticeably longer one, would wrap and overflow this box. Raise it with the names, or widen the
+// column — the width each row actually needs was measured, and the widest has room to spare.
+const CARD_H = 80;
+const CARD_GAP = 14;
+// The badge's side. The node column is the badge plus the air either side of it.
+const BADGE = 72;
+
+// How far a connector runs to reach the badge, measured from the cards' edge.
+//
+// The gutter alone stops at the node COLUMN, which is 152 wide for a 72-unit badge — so a curve
+// ending at the gutter's edge stopped 40 units short of the thing it was pointing at, with the
+// arrowhead hanging in the air. Adding the column's half-margin lands the head exactly on the
+// badge's edge. The SVG is sized to this and overflows its own grid track, which is safe because
+// every track is a definite length and so cannot be resized by an oversized item.
+const JOIN = COL.gut + (COL.node - BADGE) / 2;
+
+const NATIVE_STACK = COL.groups + COL.gut + COL.node;
+const NATIVE_SPLIT = COL.groups * 2 + COL.gut * 2 + COL.node;
+
+const bodyH = (n: number) => n * CARD_H + (n - 1) * CARD_GAP;
+const centres = (n: number) => Array.from({ length: n }, (_, i) => CARD_H / 2 + i * (CARD_H + CARD_GAP));
+
+// Control points on the run's midpoint, so every curve leaves its card flat and arrives at the
+// badge flat, and the several gather into a bundle instead of crossing.
+const BEND = JOIN / 2;
+// An open chevron. Its apex sits on the badge's edge; `stroke-linejoin: round` puts the join's
+// overshoot under the badge, which paints above the connectors, so the tip cannot show a seam.
+const HEAD = 6;
+
+/** Left to right: leaves a card's right edge at `cy`, arrives on the badge's left edge at `mid`. */
+const rightward = (cy: number, mid: number) => `M 0,${cy} C ${BEND},${cy} ${BEND},${mid} ${JOIN},${mid}`;
+const rightHead = (mid: number) => `M ${JOIN - HEAD},${mid - 4} L ${JOIN},${mid} L ${JOIN - HEAD},${mid + 4}`;
+
+/** Mirrored: leaves a card's left edge at `cy`, arrives on the badge's right edge at `mid`. */
+const leftward = (cy: number, mid: number) => `M ${JOIN},${cy} C ${BEND},${cy} ${BEND},${mid} 0,${mid}`;
+const leftHead = (mid: number) => `M ${HEAD},${mid - 4} L 0,${mid} L ${HEAD},${mid + 4}`;
+
+// The stacked geometry is computed whether or not it is the chosen layout: it is also what `split`
+// falls back to when the container is too narrow to hold the wide arrangement.
+const STACK_H = bodyH(groups.length);
+const STACK_MID = STACK_H / 2;
+
+const half = groups.length / 2;
+const sideA = split ? groups.slice(0, half) : groups;
+const sideB = split ? groups.slice(half) : [];
+
+const SPLIT_H = split ? bodyH(half) : 0;
+const SPLIT_MID = SPLIT_H / 2;
+
+// One unit per arrangement, with the native width baked in at build time rather than divided out of
+// a custom property at paint time.
+//
+// A ceiling and no floor. The rest of the family floors its unit at 0.45px so type cannot shrink
+// without limit, which is safe at 630 units native because the composition only reaches the floor
+// below a 284px container. At 704 it reaches it at 313px, and a floored unit on a container
+// narrower than that makes the composition WIDER than what holds it — the page scrolls sideways.
+// Overflow is a worse failure than small type, and with no floor the width is exactly 100cqw at
+// every size below the cap, so it cannot happen at any width at all.
+const vars = [
+	`--conn-u-stack: min(1.15px, calc(100cqw / ${NATIVE_STACK}))`,
+	`--conn-u-split: min(1.15px, calc(100cqw / ${NATIVE_SPLIT}))`,
+	`--conn-native-stack: ${NATIVE_STACK}`,
+	`--conn-native-split: ${NATIVE_SPLIT}`,
+	`--conn-col-groups: ${COL.groups}`,
+	`--conn-col-gut: ${COL.gut}`,
+	`--conn-col-node: ${COL.node}`,
+	`--conn-join: ${JOIN}`,
+	`--conn-card-h: ${CARD_H}`,
+	`--conn-card-gap: ${CARD_GAP}`,
+	`--conn-badge: ${BADGE}`,
+].join('; ');
+---
+
+<div class="conn-fit">
+	<div
+		class:list={['conn', split && 'conn--split']}
+		data-surface={surface}
+		data-node-label={nodeLabel ? 'on' : 'off'}
+		style={vars}
+	>
+		<ul class="conn__groups conn__groups--a">
+			{
+				sideA.map((g) => (
+					<li class="conn__group" style={`--conn-accent: ${g.accent};`}>
+						{/* The caption: what this route is, said quietly above what it speaks. */}
+						<p class="conn__cat">{g.category}</p>
+						<ul class="conn__names">
+							{g.names.map((n) => (
+								<li>{n}</li>
+							))}
+						</ul>
+					</li>
+				))
+			}
+		</ul>
+
+		{
+			/* Connectors sit before the cards and the node in the paint order, so every join is an
+		    edge over a line and cannot show a seam at any scale — the order the twin's and
+		    normalize's connectors use.
+
+		    The stacked bundle is rendered even in the split layout: it is what shows once the
+		    container is too narrow for the wide arrangement, where the two sides regroup into one
+		    column and this gathers all of them. */
+		}
+		<svg class="conn__gut conn__gut--stack" viewBox={`0 0 ${JOIN} ${STACK_H}`} aria-hidden="true">
+			{centres(groups.length).map((cy) => <path class="conn__curve" d={rightward(cy, STACK_MID)} />)}
+			<path class="conn__head" d={rightHead(STACK_MID)}></path>
+		</svg>
+
+		{
+			split && (
+				<svg class="conn__gut conn__gut--l" viewBox={`0 0 ${JOIN} ${SPLIT_H}`} aria-hidden="true">
+					{centres(half).map((cy) => (
+						<path class="conn__curve" d={rightward(cy, SPLIT_MID)} />
+					))}
+					<path class="conn__head" d={rightHead(SPLIT_MID)} />
+				</svg>
+			)
+		}
+
+		{
+			/* The mark on a squircle with its name beneath, rather than a worded pill. The routes all
+		    end at the product, so the product should be recognisable rather than spelled out.
+
+		    The label is taken out of flow deliberately. While it was a flex sibling it added its own
+		    height to the node, which pushed the badge above the row's middle — so the arrows, which
+		    aim at the middle, pointed at a spot fifteen units below the badge's centre. Out of flow,
+		    the node IS the badge, and centring the node centres the badge on exactly the line the
+		    curves converge on. */
+		}
+		<div class="conn__node">
+			<span class="conn__badge" aria-hidden="true" set:html={mark} />
+			<span class="conn__node-label">{CONNECT_NODE.label}</span>
+		</div>
+
+		{
+			split && (
+				<svg class="conn__gut conn__gut--r" viewBox={`0 0 ${JOIN} ${SPLIT_H}`} aria-hidden="true">
+					{centres(half).map((cy) => (
+						<path class="conn__curve" d={leftward(cy, SPLIT_MID)} />
+					))}
+					<path class="conn__head" d={leftHead(SPLIT_MID)} />
+				</svg>
+			)
+		}
+
+		{
+			split && (
+				<ul class="conn__groups conn__groups--b">
+					{sideB.map((g) => (
+						<li class="conn__group" style={`--conn-accent: ${g.accent};`}>
+							<p class="conn__cat">{g.category}</p>
+							<ul class="conn__names">
+								{g.names.map((n) => (
+									<li>{n}</li>
+								))}
+							</ul>
+						</li>
+					))}
+				</ul>
+			)
+		}
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Every size below is a multiple of one design unit, so the whole composition scales as a piece
+	// instead of reflowing. See SolutionFlow for why the unit comes from the container.
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	// Where the split arrangement gives way to the stacked one.
+	//
+	// Derived, not picked. The split composition is 1176 units wide, so this width hands it a unit
+	// of 0.85px and a chip set at 14px — the smallest the wide arrangement is worth showing at.
+	// Lower would put the handover where the split form is legibly worse than the stacked one it
+	// replaces; much higher and the stacked form sits capped at its ceiling with room going spare
+	// either side of it, which is the waste this arrangement exists to take up.
+	$split-min: 1000px;
+
+	.conn-fit {
+		container-type: inline-size;
+	}
+
+	// --- the frame --------------------------------------------------------------------------
+	//
+	// Base is the stacked arrangement, which is also the narrow fallback for the split one. Columns
+	// come straight from the numbers the curve endpoints were computed from; hard-coding them here
+	// too would let the layout and the geometry drift, and the symptom would be connectors that miss
+	// the cards at some widths and not others.
+	.conn {
+		--u: var(--conn-u-stack);
+		--conn-rail-w: max(1px, #{u(2)});
+		display: grid;
+		// The route track takes its width from the cards, not the other way round.
+		//
+		// A fixed track is wider than the content whenever the longest row is shorter than the one
+		// the width was measured for, and the leftover sits at the track's outer end — which pushed
+		// the visible composition up to 62 units off the centre of its own box while the box stayed
+		// dutifully centred. Sizing to content and centring the tracks puts the INK in the middle,
+		// which is the thing anyone actually looks at. The cost is that the composition can now be
+		// narrower than its declared native, so it does not always fill the container to the edge;
+		// air around a centred composition reads as margin, where air inside a card's border reads
+		// as a mistake.
+		grid-template-columns: max-content u(var(--conn-col-gut)) u(var(--conn-col-node));
+		justify-content: center;
+		// Explicit, and not for show: `grid-row: 1 / -1` counts lines of the EXPLICIT grid only, so
+		// without this the connector and the node span row one instead of the pair, row one inflates
+		// to the connector's intrinsic height, and the cards drift off the curve ends the geometry
+		// put them on. The arrowhead still lands on the badge while it happens, because both are
+		// centred on the same wrong row — which is exactly why this is worth stating.
+		grid-template-rows: auto;
+		row-gap: u(var(--conn-card-gap));
+		align-items: center;
+		max-width: u(var(--conn-native-stack));
+		margin: 0 auto;
+	}
+
+	// One column of routes, then the bundle, then the node. In the split layout below its own
+	// threshold, the second side becomes a second row of that same column and the two read as one
+	// list — which is why the stacked bundle is drawn for all of them and not just the first side.
+	.conn__groups--a {
+		grid-area: 1 / 1;
+	}
+
+	// Only the split layout has a second side, and below its threshold that side becomes a second
+	// row of the same column — so it is the only case with two rows to span.
+	.conn--split {
+		grid-template-rows: auto auto;
+	}
+
+	.conn__groups--b {
+		grid-area: 2 / 1;
+	}
+
+	.conn__gut--stack {
+		grid-column: 2;
+		grid-row: 1 / -1;
+	}
+
+	.conn__node {
+		grid-column: 3;
+		grid-row: 1 / -1;
+	}
+
+	.conn__gut--l,
+	.conn__gut--r {
+		display: none;
+	}
+
+	// --- the split arrangement --------------------------------------------------------------
+
+	@container (width >= #{$split-min}) {
+		.conn--split {
+			--u: var(--conn-u-split);
+			grid-template-rows: auto;
+			grid-template-columns:
+				max-content u(var(--conn-col-gut)) u(var(--conn-col-node))
+				u(var(--conn-col-gut)) max-content;
+			max-width: u(var(--conn-native-split));
+		}
+
+		.conn--split .conn__groups--a {
+			grid-area: 1 / 1;
+		}
+
+		.conn--split .conn__gut--l {
+			display: block;
+			grid-area: 1 / 2;
+		}
+
+		.conn--split .conn__node {
+			grid-area: 1 / 3;
+		}
+
+		.conn--split .conn__gut--r {
+			display: block;
+			grid-area: 1 / 4;
+			// Its own viewBox runs card-edge to badge-edge, so anchoring its right edge to the right
+			// gutter puts the arrowhead on the badge, mirroring the left side exactly.
+			justify-self: end;
+		}
+
+		.conn--split .conn__groups--b {
+			grid-area: 1 / 5;
+		}
+
+		.conn--split .conn__gut--stack {
+			display: none;
+		}
+
+		// Both sides face the node, so the chips sit as close to the centre as their own width
+		// allows. The left side already does — it is the base rule — and the right side mirrors it.
+		// Only inside this query: regrouped into one column the two sides are a single list again
+		// and must lean the same way.
+		.conn--split .conn__groups--b {
+			align-items: flex-start;
+
+			.conn__cat,
+			.conn__names {
+				justify-content: flex-start;
+			}
+		}
+	}
+
+	// --- the routes -------------------------------------------------------------------------
+
+	.conn__groups {
+		display: flex;
+		flex-direction: column;
+		// Flush to the gutter, which is the edge every connector leaves from. With cards sized to
+		// their own content this is what keeps the curve tails on one known line while the OUTER
+		// edge goes ragged — the ragged edge is the one nothing is measured from.
+		align-items: flex-end;
+		gap: u(var(--conn-card-gap));
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		// Over the curves, so their ends tuck under the cards.
+		position: relative;
+		z-index: 1;
+	}
+
+	.conn__group {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		// As wide as the row of names inside it and no wider. Uniform cards were sized for the
+		// longest route, which left between 10 and 98 units of nothing inside every other one —
+		// dead width in the exact place the composition should be tightest, between the last chip
+		// and the node. The card box drew that emptiness rather than hiding it.
+		//
+		// The cap is the width the column was designed and measured at: past it the names wrap and
+		// overflow this card's fixed height, so it is the point at which the geometry needs
+		// re-measuring rather than a limit to quietly grow through.
+		width: fit-content;
+		max-width: u(var(--conn-col-groups));
+		gap: u(8);
+		height: u(var(--conn-card-h));
+		padding: 0 u(14);
+		// Always a border box, drawn or not — the twin's unit reserves its edge the same way. The
+		// card is sized by its own content, so an undrawn 2px would otherwise shift every curve
+		// endpoint the moment `surface` changed, and the variants could not be compared.
+		border: 1px solid transparent;
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-surface, #fff);
+	}
+
+	.conn[data-surface='outline'] .conn__group,
+	.conn[data-surface='both'] .conn__group {
+		border-color: var(--color-border, #ebebeb);
+	}
+
+	// The family's shadow, at the size of these cards rather than of the app panel it was tuned for.
+	//
+	// Two layers, because one never reads as an object: a tight contact shadow holding the card down
+	// and a wide, faint ambient one. The contact layer stays in absolute pixels so it survives as a
+	// crisp edge at phone scale — the same reason the connectors use `non-scaling-stroke` — while
+	// the ambient layer is in design units so it grows with the composition instead of swamping it.
+	//
+	// Overridable through `--flow-shadow`, as the other three visuals are, so a token set can change
+	// how the whole family feels and not only what colour it is.
+	.conn[data-surface='shadow'] .conn__group,
+	.conn[data-surface='both'] .conn__group {
+		box-shadow: var(--flow-shadow, 0 1px 2px rgba(16, 24, 40, 0.04), 0 #{u(6)} #{u(16)} #{u(-6)} rgba(16, 24, 40, 0.1));
+	}
+
+	// The caption. Grey and small on purpose — this is the label, not the subject. No glyph: an icon
+	// at this size is a second thing to read on a line whose whole job is to be skimmed past.
+	.conn__cat {
+		display: flex;
+		// The names set the card's width, so the caption is the line that needs placing; it ends on
+		// the same edge they do.
+		justify-content: flex-end;
+		margin: 0;
+		font-size: u(14);
+		line-height: u(20);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// --- the names --------------------------------------------------------------------------
+
+	// The subject: large, in mono because a protocol name is an identifier rather than prose, and on
+	// a wash of its route's accent. Ink for the type itself, so a protocol reads the same whichever
+	// route it arrives by — the colour says where it comes in, not how important it is.
+	.conn__names {
+		display: flex;
+		flex-wrap: wrap;
+		gap: u(8);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			padding: u(6) u(12);
+			border-radius: u(var(--flow-radius, 8));
+			font-family: $font-family-mono;
+			font-size: u(17);
+			font-weight: $font-weight-bold;
+			line-height: u(24);
+			color: var(--color-text);
+			// 18%, not 10%. Composited over the card's white that is about 50 units of RGB distance
+			// rather than 25 — enough that the routes are tellable apart at a glance, which is the
+			// whole job of tinting them, while staying light enough to carry ink text.
+			background: color-mix(in srgb, var(--conn-accent) 18%, transparent);
+		}
+	}
+
+	// --- connectors -------------------------------------------------------------------------
+
+	// Sized to the full run rather than to the gutter track, so the arrowhead reaches the badge; the
+	// overflow into the node column is safe because every track is a definite length. The viewBox
+	// matches the rendered box on both axes, so the curves scale without skewing.
+	.conn__gut {
+		width: u(var(--conn-join));
+		// Not optional. A global reset gives every svg on this page `max-width: 100%`, and 100% here
+		// is the GUTTER TRACK — so the box was capped at 88 units while its viewBox was 128 wide, and
+		// `preserveAspectRatio` then quietly scaled the entire drawing to 0.66 and letterboxed it.
+		// Nothing errored; the curves simply landed 40 units short of the badge and off the cards'
+		// centres. This is the declaration that makes the geometry above true.
+		max-width: none;
+		height: 100%;
+		align-self: stretch;
+		overflow: visible;
+	}
+
+	.conn__curve,
+	.conn__head {
+		fill: none;
+		stroke-width: var(--conn-rail-w);
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		// The box is scaled by the design unit, so the stroke would scale with it otherwise.
+		vector-effect: non-scaling-stroke;
+		// One colour for every connector, not one per route.
+		//
+		// The chips already carry the route's colour, and a line leaving a card is obviously that
+		// card's — so tinting the curves too was colour doing a job that was already done. Grey
+		// rather than the primary: every other visual in this family draws its connectors in
+		// `--color-text-secondary`, and this would otherwise be the only one with coloured lines.
+		// Swap this one declaration for `var(--color-primary)` if the lines should instead read as
+		// the platform reaching out and pulling data in.
+		stroke: var(--color-text-secondary, #5b616e);
+	}
+
+	// --- the platform -----------------------------------------------------------------------
+
+	// The product, as its own mark rather than a word. A squircle because a percentage radius is the
+	// closest a plain border-radius gets to the superellipse an app icon uses — a true one needs an
+	// SVG path or `corner-shape`, which is too new to rely on.
+	//
+	// Its height is the badge's height and nothing else, so centring it in the row centres the badge
+	// on the line the curves converge on. Above the connectors so their ends tuck under it.
+	.conn__node {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		justify-content: center;
+		height: u(var(--conn-badge));
+	}
+
+	.conn__badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: u(var(--conn-badge));
+		height: u(var(--conn-badge));
+		padding: u(14);
+		// 32%, as a percentage rather than a calc: the page has several squircles at several sizes,
+		// and a percentage is the one way to say "same rounding" without saying "same radius".
+		border-radius: 32%;
+		// The mark is inlined rather than an <img> so it can take this colour; it draws in
+		// currentColor.
+		color: var(--color-white, #fff);
+		background: var(--color-primary, #3d50f5);
+	}
+
+	// The badge lifts with the cards, and only with them — `outline` means a flat composition, so a
+	// floating badge in it would be the one object disagreeing with everything else.
+	//
+	// A shade deeper than the cards' on purpose: this is a small object in a saturated colour, and a
+	// shadow reads weaker under a strong fill than under white, so matching the cards' alpha would
+	// have looked like no shadow at all. Same two layers, same reasoning — a tight contact shadow in
+	// absolute pixels so it stays crisp at phone scale, and a wide ambient one in design units so it
+	// grows with the composition.
+	.conn[data-surface='shadow'] .conn__badge,
+	.conn[data-surface='both'] .conn__badge {
+		box-shadow: var(
+			--flow-shadow-badge,
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
+		);
+	}
+
+	// Hidden to the eye, still read aloud. `visually-hidden` rather than `display: none` because the
+	// badge is `aria-hidden` and the mark is decorative, so this string is the only accessible name
+	// the node has; removing it would leave every curve pointing at something unnamed.
+	.conn[data-node-label='off'] .conn__node-label {
+		@include visually-hidden;
+	}
+
+	// Out of flow, so it cannot push the badge off the axis the arrows aim at.
+	.conn__node-label {
+		position: absolute;
+		top: calc(100% + #{u(10)});
+		left: 50%;
+		transform: translateX(-50%);
+		font-size: u(15);
+		font-weight: $font-weight-semibold;
+		line-height: u(20);
+		white-space: nowrap;
+		color: var(--color-text);
+	}
+</style>
