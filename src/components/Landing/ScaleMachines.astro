@@ -1,0 +1,252 @@
+---
+import { SCALE_TIERS, SCALE_MACHINES_AXIS, type ScaleTier } from '@data/scale-visual';
+
+/**
+ * A second cut of the scale visual. ScaleChart is the first and stays as it is; this one sits
+ * beside it so the two can be judged together.
+ *
+ * It differs in two ways, both of them decisions rather than adjustments.
+ *
+ * THE CHART COUNTS MACHINES, NOT CPU. The fear behind "scale without surprises" is the
+ * infrastructure bill, and a row of boxes you can count answers that more directly than a
+ * percentage of a machine you have not bought yet. It also ramps far harder: across these tiers the
+ * fleet grows 10x and CPU goes 20 -> 55, while the machine count goes 1 -> 12. CPU is kept, but as
+ * one figure on a line rather than a second chart.
+ *
+ * Each box is one machine, so the picture is a bar chart and a tally at the same time — it has a
+ * height to compare and a number to read, and needs no axis to do either.
+ *
+ * IT CARRIES LESS. The first version's labels measure 9.8px in the 440px container a real
+ * 2-column section gives, and 7.4px on a phone. That is density, not type size: at those widths a
+ * column cannot hold six facts at any size, so this one holds three. The composition is authored at
+ * 420 units for two tiers rather than 630, which is what makes the type legible rather than the
+ * font sizes being larger.
+ *
+ * Built in the family's language — same design unit, same chips, same computed geometry.
+ */
+
+interface Props {
+	/** The tiers to draw. Geometry follows the count, so two and three both compose. */
+	tiers?: ScaleTier[];
+}
+
+const { tiers = SCALE_TIERS } = Astro.props;
+
+// Authored per column rather than to a fixed total, because the number of tiers is the thing under
+// review: two tiers come out at 420 units and three at 640, and that difference IS the trade — a
+// 335px phone hands the first a unit of 0.80 and the second 0.52.
+const COL_W = 200;
+const COL_GAP = 20;
+const NATIVE = tiers.length * COL_W + (tiers.length - 1) * COL_GAP;
+
+// The tally. Three boxes to a row, so the widest tier (12) is exactly four rows and the block's
+// height is a known number rather than whatever the content happens to make it.
+const UNIT = 34;
+const UNIT_GAP = 10;
+const PER_ROW = 3;
+const ROW_W = PER_ROW * UNIT + (PER_ROW - 1) * UNIT_GAP;
+const maxUnits = Math.max(...tiers.map((t) => t.own + t.database));
+const ROWS = Math.ceil(maxUnits / PER_ROW);
+const PLOT_H = ROWS * UNIT + (ROWS - 1) * UNIT_GAP;
+
+const vars = [
+	// A higher ceiling than the family's 1.15, because this composition is drawn at 420 units rather
+	// than 630 and would otherwise stop growing well short of the width a feature row gives it. No
+	// floor: the width is exactly 100cqw below the cap, so it cannot overflow at any size.
+	`--mach-u: min(1.45px, calc(100cqw / ${NATIVE}))`,
+	`--mach-native: ${NATIVE}`,
+	`--mach-cols: ${tiers.length}`,
+	`--mach-gap: ${COL_GAP}`,
+	`--mach-row-w: ${ROW_W}`,
+	`--mach-plot-h: ${PLOT_H}`,
+	`--mach-unit: ${UNIT}`,
+	`--mach-unit-gap: ${UNIT_GAP}`,
+].join('; ');
+---
+
+<div class="mach-fit">
+	<div class="mach" style={vars}>
+		<p class="mach__axis">{SCALE_MACHINES_AXIS.caption}</p>
+
+		<ul class="mach__tiers">
+			{
+				tiers.map((t) => (
+					<li class="mach__tier">
+						{/* Bottom-aligned, so every tier counts up from one baseline and the blocks compare
+						    as bars as well as reading as a tally. */}
+						<div class="mach__units">
+							{Array.from({ length: t.own }).map(() => (
+								<span class="mach__unit" />
+							))}
+							{Array.from({ length: t.database }).map(() => (
+								<span class="mach__unit mach__unit--managed" />
+							))}
+						</div>
+
+						<p class="mach__devices">
+							<span class="mach__num">{t.devices}</span> devices
+						</p>
+
+						<div class="mach__meta">
+							{/* The count in words, with the load on the same line rather than in a chart of
+							    its own — two facts, one row. */}
+							<p class="mach__machines">
+								{t.machines} · {t.load}% CPU
+							</p>
+							<ul class="mach__stack">
+								{t.stack.map((s) => (
+									<li>{s}</li>
+								))}
+							</ul>
+						</div>
+					</li>
+				))
+			}
+		</ul>
+
+		<p class="mach__foot">{SCALE_MACHINES_AXIS.footnote}</p>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Every size is a multiple of one design unit, so the composition scales as a piece instead of
+	// reflowing. See SolutionFlow for why the unit comes from the container.
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.mach-fit {
+		container-type: inline-size;
+	}
+
+	.mach {
+		--u: var(--mach-u);
+		display: grid;
+		gap: u(16);
+		max-width: u(var(--mach-native));
+		margin: 0 auto;
+	}
+
+	// Said once, above the tally, so the boxes have a meaning without a legend.
+	.mach__axis {
+		margin: 0;
+		font-size: u(16);
+		line-height: u(22);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.mach__tiers {
+		display: grid;
+		grid-template-columns: repeat(var(--mach-cols), 1fr);
+		gap: u(var(--mach-gap));
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.mach__tier {
+		display: grid;
+		align-content: start;
+		gap: u(10);
+	}
+
+	// --- the tally --------------------------------------------------------------------------
+
+	// A fixed box, filled from the bottom: the tallest tier is exactly four rows, so every tier
+	// shares a baseline and the blocks can be compared by height as well as counted. The width is
+	// exactly three boxes and two gaps, which is what makes the wrap deterministic rather than
+	// something that changes with the column.
+	.mach__units {
+		display: flex;
+		flex-wrap: wrap;
+		align-content: flex-end;
+		gap: u(var(--mach-unit-gap));
+		width: u(var(--mach-row-w));
+		height: u(var(--mach-plot-h));
+	}
+
+	.mach__unit {
+		width: u(var(--mach-unit));
+		height: u(var(--mach-unit));
+		border-radius: u(6);
+		background: var(--color-primary, #3d50f5);
+	}
+
+	// A machine you buy rather than operate. Drawn as a wash of the same colour: it is the same kind
+	// of thing, it is just not one of your boxes — which is the distinction the count depends on.
+	.mach__unit--managed {
+		background: color-mix(in srgb, var(--color-primary, #3d50f5) 22%, transparent);
+	}
+
+	// --- the tier ---------------------------------------------------------------------------
+
+	.mach__devices {
+		display: flex;
+		align-items: baseline;
+		gap: u(6);
+		margin: 0;
+		font-size: u(18);
+		line-height: u(24);
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// Mono because it is a quantity being compared across columns, and lining up digit for digit is
+	// the comparison.
+	.mach__num {
+		font-family: $font-family-mono;
+		font-size: u(40);
+		font-weight: $font-weight-bold;
+		line-height: u(44);
+		color: var(--color-text);
+	}
+
+	.mach__meta {
+		display: grid;
+		align-content: start;
+		gap: u(8);
+		padding-top: u(12);
+		border-top: 1px solid var(--color-border, #ebebeb);
+	}
+
+	.mach__machines {
+		margin: 0;
+		font-size: u(20);
+		font-weight: $font-weight-semibold;
+		line-height: u(26);
+		color: var(--color-text);
+		text-wrap: pretty;
+	}
+
+	// The family's chips: an identifier on a wash, in mono.
+	.mach__stack {
+		display: flex;
+		flex-wrap: wrap;
+		gap: u(6);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			padding: u(4) u(10);
+			border-radius: u(var(--flow-radius, 8));
+			font-family: $font-family-mono;
+			font-size: u(16);
+			font-weight: $font-weight-bold;
+			line-height: u(22);
+			color: var(--color-text);
+			background: color-mix(in srgb, var(--color-primary, #3d50f5) 12%, transparent);
+		}
+	}
+
+	.mach__foot {
+		margin: 0;
+		font-size: u(16);
+		line-height: u(22);
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+</style>
