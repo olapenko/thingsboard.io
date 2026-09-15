@@ -9,7 +9,7 @@
 
 export const CONNECT_COPY = {
 	title: 'Connect any IoT devices',
-	body: "Directly, through an IoT gateway, from a LoRaWAN or LPWAN network, or via a platform integration. Mix sensors, industrial machines, and any equipment you need in one solution. Browse pre-integrated devices from IoT Hub, or use emulators when hardware isn't ready.",
+	body: "Mix sensors, industrial machines, and any equipment you need in one solution. Browse pre-integrated devices from IoT Hub, or use emulators when hardware isn't ready. Connect directly, through an IoT gateway, from a LoRaWAN or LPWAN network, or via a platform integration.",
 	// The doc is titled "How to Connect IoT Devices", and its own description names the same routes
 	// this visual draws: direct MQTT/HTTP/CoAP, the IoT Gateway, and LoRaWAN or integrations.
 	link: { text: 'Connectivity guide', href: '/docs/user-guide/connectivity-guide/' },
@@ -128,15 +128,29 @@ export const CONNECT_ROUTES: ConnectGroup[] = [
  *
  * That visual drops the group captions, so nothing in it says what its four colours mean. Rather
  * than print a legend under the drawing, the paragraph beside it does the teaching: each route is
- * named in the colour its chips wear, in the order the guide lists them. A reader who never makes
+ * marked in the colour its chips wear, in the order the guide lists them. A reader who never makes
  * the connection still reads a correct sentence, which is the property a legend does not have.
  *
- * Only the first sentence is coloured. Four terms is already a lot of colour for a paragraph that
- * sits under a coloured badge and beside a hundred coloured chips; the rest of the copy is ink.
+ * The marked terms are in the LAST sentence, not the first. A paragraph that opens with four
+ * highlighted phrases reads as a list of links before it reads as a sentence; opening with what the
+ * platform does for you and closing with how you reach it puts the key where a key belongs — after
+ * the thing it explains.
  *
- * Composed from CONNECT_ROUTES rather than written out, so a re-coloured route re-colours its word.
- * The accent is darkened to 80% for text and only for text: three of the four clear 4.5:1 on white
- * as they are, but the green lands at 3.58 — enough behind a word, not enough to be one.
+ * A TINT behind the words, not colour on them. It is the same wash at the same strength the chips
+ * use, which is what makes the two legible as the same coding; colouring the type instead meant
+ * darkening every accent to clear 4.5:1 for the green's sake, so the words and the chips they keyed
+ * were never quite the same colour.
+ *
+ * The marked words take the page's INK rather than inheriting the paragraph's grey, and they have
+ * to. That grey clears 4.91:1 on the row's wash with nothing behind it; the tint takes it to
+ * 3.79-4.04, under the line. Ink on the same tint is 10:1 and up. It also happens to be what the
+ * chips themselves use, so the marked phrase and the chips it keys are now literally the same two
+ * colours.
+ *
+ * `box-decoration-break: clone` so a phrase that wraps carries its rounding onto the second line
+ * rather than being left open at the break.
+ *
+ * Composed from CONNECT_ROUTES rather than written out, so a re-coloured route re-colours its mark.
  *
  * Declared AFTER CONNECT_ROUTES, and it has to be: the terms are built while this module evaluates,
  * so a `const` referenced from above its own declaration is a temporal-dead-zone crash rather than
@@ -144,12 +158,12 @@ export const CONNECT_ROUTES: ConnectGroup[] = [
  */
 const accentOf = (category: string) => CONNECT_ROUTES.find((r) => r.category === category)!.accent;
 const term = (category: string, words: string) =>
-	`<b style="color: color-mix(in srgb, ${accentOf(category)} 80%, #000)">${words}</b>`;
+	`<mark style="background: color-mix(in srgb, ${accentOf(category)} 18%, transparent); color: var(--color-text, #171c22); padding: 0.1em 0.3em; border-radius: 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone">${words}</mark>`;
 
 export const CONNECT_BODY_HTML = [
-	`${term('Direct connection', 'Directly')}, through an ${term('IoT Gateway', 'IoT gateway')}, `,
-	`from a ${term('LoRaWAN & LPWAN', 'LoRaWAN or LPWAN network')}, `,
-	`or via a ${term('Platform integrations', 'platform integration')}. `,
 	'Mix sensors, industrial machines, and any equipment you need in one solution. ',
-	'Browse pre-integrated devices from IoT Hub, or use emulators when hardware isn&rsquo;t ready.',
+	'Browse pre-integrated devices from IoT Hub, or use emulators when hardware isn&rsquo;t ready. ',
+	`Connect ${term('Direct connection', 'directly')}, through an ${term('IoT Gateway', 'IoT gateway')}, `,
+	`from a ${term('LoRaWAN & LPWAN', 'LoRaWAN or LPWAN network')}, `,
+	`or via a ${term('Platform integrations', 'platform integration')}.`,
 ].join('');
