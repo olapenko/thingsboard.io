@@ -1,0 +1,366 @@
+---
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+import { CONNECT_ROUTES } from '@data/connect-visual';
+
+/**
+ * Connect, as a cloud of tags around the platform rather than four labelled routes into it.
+ *
+ * A CANDIDATE, in the sandbox only. `ConnectFlow` is what the home preview renders and nothing here
+ * touches it — the two share their names and their accents through `connect-visual.ts`, so a
+ * protocol added there appears in both, but every other decision is this file's own.
+ *
+ * What it argues differently: the route version says "there are four ways in, and here is what each
+ * one speaks". This says "whatever you have, it is already in here". The first is a better answer
+ * to "how do I connect a Modbus PLC"; the second is a better answer to "will this work with my
+ * stuff", which is the question a homepage is actually being asked.
+ *
+ * --- the thing this arrangement costs -----------------------------------------------------
+ *
+ * The captions. In the route version each group is headed by what it IS, and the accent is a
+ * second, redundant signal. Take the headings away and the accent is carrying the whole
+ * categorisation on its own — four colours a reader has never been taught. So there is a legend,
+ * which the reference sketch did not have: without one the colour coding is decoration that looks
+ * like information, which is worse than no coding at all.
+ *
+ * If this cut wins, that legend is the first thing to argue about.
+ */
+
+// Measured, not chosen — see the note below on how the rows were balanced. Set to the widest row
+// (418) at the narrowest unit this is drawn at, with a few units left for a font that renders
+// wider. Re-measure it after any change to the names, the gap or the chip padding.
+//
+// It is measured in Ubuntu Mono, and it is only true in Ubuntu Mono. The sandbox's typeface switch
+// puts the same chips in Ubuntu, which runs about 4% wider on these strings and takes the rows past
+// this number — the rows then wrap rather than escaping their box (see `flex-wrap` below), which is
+// the point: a composition balanced by hand is balanced for one face.
+const NATIVE = 422;
+
+const CHIP_H = 32;
+const GAP = 6;
+
+// The hole the middle rows leave for the squircle. There is no plate under it any more — that was
+// a white card in the reference sketch, which turned out to be the screenshot's own background
+// showing through rather than part of the composition. The rows already leave the space, so the
+// card was masking nothing.
+//
+// Sized so the three rows it spans clear the badge vertically — 3 chips at 32 plus 2 gaps at 6 is
+// 108 against the badge's 104 — and so that it does NOT clear it horizontally.
+//
+// The arithmetic is easy to get wrong by one term, and it moves whenever GAP does. The squircle
+// overhangs the hole by (104 - 76) / 2 = 14 units a side, and the first GAP of those only crosses
+// the grid gap between the hole and the chip beside it. So the bite out of the chip is 14 - 6 = 8
+// units — less than a chip's own 10 units of padding, and therefore landing on padding rather than
+// on a glyph. (An earlier 88-unit hole made the overhang exactly the gap, and the badge merely
+// touched the chips: measured zero overlap. Closing GAP without reopening HOLE would do the
+// opposite and put the bite through the first letter.)
+//
+// Eight units is enough to read as the app sitting ON the cloud rather than in a slot cut out of
+// it, without a clipped letter that reads as a bug.
+const BADGE = 104;
+const HOLE = 76;
+
+/** Category -> accent, so the colour coding cannot drift from the routes it codes. */
+const ACCENT_BY_CATEGORY = new Map(CONNECT_ROUTES.map((r) => [r.category, r.accent] as const));
+
+/**
+ * Names this cut carries beyond the route version's, and where each one is documented.
+ *
+ * They live here rather than in `connect-visual.ts` because `ConnectFlow` fits exactly one row of
+ * chips per route — a sixth name there wraps the card and overflows a fixed height. A cloud has no
+ * such constraint, so it can afford the longer answer to "is my thing supported".
+ *
+ * Every name is on a page in this repo:
+ *
+ *   Sparkplug B  — its own row in the Direct Connection table, `connectivity-guide.mdx`. It is a
+ *                  payload convention over MQTT rather than a sixth transport, which is why the
+ *                  five transports beside it are the complete set and this is the one addition.
+ *   CAN, OCPP    — two of the gateway's fifteen built-in connectors,
+ *                  `_includes/docs/iot-gateway/connectors.mdx`.
+ *   ThingPark    — a LoRaWAN network server, from the integration type list rendered at
+ *                  /docs/pe/user-guide/integrations/.
+ *   RabbitMQ,    — messaging integrations from that same list.
+ *   AWS SQS
+ *
+ * Cut from an earlier, longer draft, on the grounds that a cloud is only persuasive while every
+ * name in it is one somebody recognises: ODBC and Socket (generic where the rest are protocols),
+ * Pulsar (Kafka and RabbitMQ already carry messaging), TCP and UDP (they say less than the named
+ * integrations beside them), KPN Things (regional, and the least recognised name in the set).
+ *
+ * Deliberately never here: IBM Watson and Everynet (no doc page — the first survives only as a dead
+ * enum value in two config dumps), and OceanConnect (same). A name in a marketing visual has to be
+ * a page someone can be sent to.
+ */
+const EXTRA: Record<string, string[]> = {
+	'Direct connection': ['Sparkplug B'],
+	'IoT Gateway': ['CAN', 'OCPP'],
+	'LoRaWAN & LPWAN': ['ThingPark'],
+	'Platform integrations': ['RabbitMQ', 'AWS SQS'],
+};
+
+const ACCENT = new Map<string, string>([
+	...CONNECT_ROUTES.flatMap((r) => r.names.map((n) => [n, r.accent] as const)),
+	...Object.entries(EXTRA).flatMap(([category, names]) =>
+		names.map((n) => [n, ACCENT_BY_CATEGORY.get(category)!] as const)
+	),
+]);
+
+/**
+ * The cloud, authored row by row.
+ *
+ * Hand-placed rather than generated: a random scatter reads as a mess about one time in three, and
+ * this has to be the same picture on every load. Three rules behind the arrangement — no two
+ * neighbours share an accent (including across the hole), every row carries at least three of the
+ * four, and the rows come out close enough in width that the silhouette is a block rather than a
+ * lens.
+ *
+ * That last one is why the straddle rows carry two a side. The hole plus its two gaps is 104 units
+ * that a full row does not pay, so a straddle row needs about two fewer chips than a full one to
+ * measure the same — six across and two a side is the pairing that lands. The side pairs are also
+ * chosen to sum alike, around 159 units each, so the two `1fr` tracks resolve close together and no
+ * row has an obviously long side.
+ *
+ * `left`/`right` rows straddle the badge. The three of them are the band it covers.
+ */
+const ROWS: ({ chips: string[] } | { left: string[]; right: string[]; plate?: true })[] = [
+	{ chips: ['Modbus', 'MQTT', 'Sigfox', 'Pub/Sub', 'BLE', 'HTTP'] },
+	{ left: ['Sparkplug B', 'KNX'], right: ['RabbitMQ', 'LORIOT'] },
+	{ left: ['Azure IoT', 'LwM2M'], right: ['ChirpStack', 'OCPP'], plate: true },
+	{ left: ['ThingPark', 'Kafka'], right: ['BACnet', 'AWS IoT'] },
+	{ chips: ['CoAP', 'OPC UA', 'TTN', 'AWS SQS', 'CAN', 'SNMP'] },
+];
+
+// Every name placed above has to be one this component knows, and every name it knows has to be
+// placed — otherwise adding a protocol silently drops it from this visual, or renaming one silently
+// drops its colour. Both are the kind of failure nobody notices in a screenshot.
+const placed = ROWS.flatMap((r) => ('chips' in r ? r.chips : [...r.left, ...r.right]));
+const missing = placed.filter((n) => !ACCENT.has(n));
+const unplaced = [...ACCENT.keys()].filter((n) => !placed.includes(n));
+if (missing.length || unplaced.length) {
+	throw new Error(
+		`ConnectCloud is out of step with its name list.` +
+			(missing.length ? ` Not in CONNECT_ROUTES or EXTRA: ${missing.join(', ')}.` : '') +
+			(unplaced.length ? ` Known but not placed: ${unplaced.join(', ')}.` : '')
+	);
+}
+
+const vars = [
+	`--cl-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
+	`--cl-native: ${NATIVE}`,
+	`--cl-chip-h: ${CHIP_H}`,
+	`--cl-gap: ${GAP}`,
+	`--cl-hole: ${HOLE}`,
+	`--cl-badge: ${BADGE}`,
+].join('; ');
+---
+
+<div class="cl-fit">
+	<div class="cl" style={vars}>
+		{
+			ROWS.map((row) =>
+				'chips' in row ? (
+					<ul class="cl__row">
+						{row.chips.map((n) => (
+							<li class="cl__chip" style={`--cl-accent: ${ACCENT.get(n)}`}>
+								{n}
+							</li>
+						))}
+					</ul>
+				) : (
+					<div class="cl__row cl__row--split">
+						<ul class="cl__side cl__side--l">
+							{row.left.map((n) => (
+								<li class="cl__chip" style={`--cl-accent: ${ACCENT.get(n)}`}>
+									{n}
+								</li>
+							))}
+						</ul>
+
+						{/* Only the middle hole carries the badge; the other two are just space. */}
+						<div class="cl__hole">{row.plate && <span class="cl__badge" aria-hidden="true" set:html={mark} />}</div>
+
+						<ul class="cl__side cl__side--r">
+							{row.right.map((n) => (
+								<li class="cl__chip" style={`--cl-accent: ${ACCENT.get(n)}`}>
+									{n}
+								</li>
+							))}
+						</ul>
+					</div>
+				)
+			)
+		}
+
+		<ul class="cl__legend">
+			{
+				CONNECT_ROUTES.map((r) => (
+					<li>
+						<span class="cl__swatch" style={`--cl-accent: ${r.accent}`} />
+						{r.category}
+					</li>
+				))
+			}
+		</ul>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.cl-fit {
+		container-type: inline-size;
+	}
+
+	.cl {
+		--u: var(--cl-u);
+		display: grid;
+		// `minmax(0, 1fr)`, not the implicit `auto` column. An auto track takes its max-content size,
+		// which is the widest row — so `max-width: 100%` on a straddle row resolved against a track
+		// wider than the composition and never bit, and the full rows had no width to wrap against
+		// either. The rows overflowed and `.cl` merely clipped the result. Pinning the track to the
+		// container is what makes both of those constraints real.
+		grid-template-columns: minmax(0, 1fr);
+		gap: u(var(--cl-gap));
+		justify-items: center;
+		max-width: u(var(--cl-native));
+		margin-inline: auto;
+	}
+
+	.cl__row {
+		display: flex;
+		// Never used by the design — every row fits the native width in Ubuntu Mono, measured. It is
+		// here for what happens when something makes a row wider than the composition was measured
+		// for: a name gains a character, the gap closes, the typeface switch runs. Wrapping says
+		// "this no longer fits"; without it the chips simply leave the box, which reads as broken.
+		flex-wrap: wrap;
+		gap: u(var(--cl-gap));
+		justify-content: center;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// Two equal outer tracks with the plate's width between them, so the hole is centred in the row
+	// by construction rather than by anything having to balance.
+	//
+	// Sized `max-content`, not `100%`. Under max-content both `1fr` tracks resolve to the WIDER of
+	// the two groups, which is what makes them equal while leaving the row only as wide as it needs
+	// to be. At `100%` the fr tracks absorbed every spare pixel instead: all three straddle rows
+	// stretched to the full native width and the middle of the cloud became a band of air with the
+	// chips pinned to the plate.
+	.cl__row--split {
+		display: grid;
+		grid-template-columns: 1fr u(var(--cl-hole)) 1fr;
+		gap: u(var(--cl-gap));
+		align-items: center;
+		width: max-content;
+		max-width: 100%;
+	}
+
+	.cl__side {
+		display: flex;
+		flex-wrap: wrap;
+		gap: u(var(--cl-gap));
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.cl__side--l {
+		justify-content: flex-end;
+	}
+
+	.cl__side--r {
+		justify-content: flex-start;
+	}
+
+	.cl__chip {
+		display: flex;
+		align-items: center;
+		height: u(var(--cl-chip-h));
+		padding: 0 u(10);
+		border-radius: u(var(--flow-radius, 8));
+		// Flat: no stroke and no shadow. The tint alone separates a chip from the ground, and it is
+		// the only thing in this composition that is allowed to sit above the page — the badge has
+		// the shadow, which is what makes it read as being on top of the cloud rather than in it.
+		background: color-mix(in srgb, var(--cl-accent) 18%, transparent);
+		font-family: var(--flow-font-mono, #{$font-family-mono});
+		font-size: u(17);
+		font-weight: $font-weight-bold;
+		line-height: u(24);
+		color: var(--color-text);
+		white-space: nowrap;
+	}
+
+	// --- the platform --------------------------------------------------------------------------
+
+	.cl__hole {
+		position: relative;
+		height: u(var(--cl-chip-h));
+	}
+
+	// Centred on the middle row of the three, so it covers the band whatever the rows above and
+	// below happen to weigh. Out of flow, so it cannot push the row it sits in.
+	.cl__badge {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		// Above the chips it overhangs. Without this the right-hand group — which follows the hole in
+		// the markup — paints over the squircle instead, and the overlap reads the wrong way round.
+		z-index: 1;
+		transform: translate(-50%, -50%);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: u(var(--cl-badge));
+		height: u(var(--cl-badge));
+		padding: u(16);
+		// The page's shared squircle, at the same 69% mark-to-tile the route version settled on.
+		border-radius: 32%;
+		color: var(--color-white, #fff);
+		background: var(--color-primary, #3d50f5);
+		box-shadow: var(
+			--flow-shadow-badge,
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
+		);
+	}
+
+	// --- the legend ----------------------------------------------------------------------------
+
+	// What the four colours mean. See the note at the top: without this the coding is decoration
+	// that looks like information.
+	// Two by two at every width, rather than one line that wraps. The four captions come to about
+	// 600 units, so they fit on one line only at the very top of this composition's range — and a
+	// legend that is three-and-one at most sizes reads as having run out of room.
+	.cl__legend {
+		display: grid;
+		grid-template-columns: repeat(2, max-content);
+		justify-content: center;
+		gap: u(6) u(20);
+		margin: u(10) 0 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			display: flex;
+			align-items: center;
+			gap: u(7);
+			font-size: u(16);
+			line-height: u(20);
+			color: var(--color-text-secondary, #5b616e);
+			white-space: nowrap;
+		}
+	}
+
+	// No stroke, matching the chips it keys.
+	.cl__swatch {
+		width: u(11);
+		height: u(11);
+		border-radius: u(3);
+		background: color-mix(in srgb, var(--cl-accent) 18%, transparent);
+	}
+</style>
