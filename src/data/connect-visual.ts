@@ -9,7 +9,7 @@
 
 export const CONNECT_COPY = {
 	title: 'Connect any IoT devices',
-	body: "Directly, through an IoT gateway, or via external integrations. Mix sensors, industrial machines, and any equipment you need in one solution. Browse pre-integrated devices from IoT Hub, or use emulators when hardware isn't ready.",
+	body: "Directly, through an IoT gateway, from a LoRaWAN or LPWAN network, or via a platform integration. Mix sensors, industrial machines, and any equipment you need in one solution. Browse pre-integrated devices from IoT Hub, or use emulators when hardware isn't ready.",
 	// The doc is titled "How to Connect IoT Devices", and its own description names the same routes
 	// this visual draws: direct MQTT/HTTP/CoAP, the IoT Gateway, and LoRaWAN or integrations.
 	link: { text: 'Connectivity guide', href: '/docs/user-guide/connectivity-guide/' },
@@ -122,3 +122,34 @@ export const CONNECT_ROUTES: ConnectGroup[] = [
 		names: ['AWS IoT', 'Azure IoT', 'Pub/Sub', 'Kafka'],
 	},
 ];
+
+/**
+ * The same body, with the four routes carrying their own accents — the key for `ConnectCloud`.
+ *
+ * That visual drops the group captions, so nothing in it says what its four colours mean. Rather
+ * than print a legend under the drawing, the paragraph beside it does the teaching: each route is
+ * named in the colour its chips wear, in the order the guide lists them. A reader who never makes
+ * the connection still reads a correct sentence, which is the property a legend does not have.
+ *
+ * Only the first sentence is coloured. Four terms is already a lot of colour for a paragraph that
+ * sits under a coloured badge and beside a hundred coloured chips; the rest of the copy is ink.
+ *
+ * Composed from CONNECT_ROUTES rather than written out, so a re-coloured route re-colours its word.
+ * The accent is darkened to 80% for text and only for text: three of the four clear 4.5:1 on white
+ * as they are, but the green lands at 3.58 — enough behind a word, not enough to be one.
+ *
+ * Declared AFTER CONNECT_ROUTES, and it has to be: the terms are built while this module evaluates,
+ * so a `const` referenced from above its own declaration is a temporal-dead-zone crash rather than
+ * a type error — which means `astro check` would pass it and the page would be blank.
+ */
+const accentOf = (category: string) => CONNECT_ROUTES.find((r) => r.category === category)!.accent;
+const term = (category: string, words: string) =>
+	`<b style="color: color-mix(in srgb, ${accentOf(category)} 80%, #000)">${words}</b>`;
+
+export const CONNECT_BODY_HTML = [
+	`${term('Direct connection', 'Directly')}, through an ${term('IoT Gateway', 'IoT gateway')}, `,
+	`from a ${term('LoRaWAN & LPWAN', 'LoRaWAN or LPWAN network')}, `,
+	`or via a ${term('Platform integrations', 'platform integration')}. `,
+	'Mix sensors, industrial machines, and any equipment you need in one solution. ',
+	'Browse pre-integrated devices from IoT Hub, or use emulators when hardware isn&rsquo;t ready.',
+].join('');
