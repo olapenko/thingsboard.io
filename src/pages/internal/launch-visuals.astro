@@ -406,6 +406,18 @@ const COMPACT_ROWS = [
 
 		    A coloured stripe down each chip was tried and dropped: too noisy at twenty-four of them. */
 		}
+		{
+			/* How the copy keys the cloud's colours. A tint behind the words is the same wash the
+		    chips wear, so the two read as one coding; a squircle before them is a legend entry per
+		    term, at the accent's FULL strength — which is the thing to watch, because a solid key
+		    beside an 18% chip is one hue at two very different weights. */
+		}
+		<div class="page-ctl" role="group" aria-label="Legend style" data-legend-switch>
+			<span class="page-ctl__name">Copy legend</span>
+			<button type="button" data-legend-pick="highlight" aria-pressed="true">Tint highlight</button>
+			<button type="button" data-legend-pick="swatch" aria-pressed="false">Inline squircle</button>
+		</div>
+
 		<div class="page-ctl" role="group" aria-label="Cloud chip style" data-chip-switch>
 			<span class="page-ctl__name">Cloud chips</span>
 			<button type="button" data-chip-pick="tint" aria-pressed="true">Tinted</button>
@@ -1027,6 +1039,36 @@ const COMPACT_ROWS = [
 		);
 	});
 
+	// How the section's copy keys the cloud. One attribute on <html>; `_connect-terms.scss` turns it
+	// into either a tint behind the four terms or a squircle before them.
+	const LEGEND_KEY = 'launch-visuals:legend';
+	document.querySelectorAll<HTMLElement>('[data-legend-switch]').forEach((group) => {
+		const picks = Array.from(group.querySelectorAll<HTMLButtonElement>('[data-legend-pick]'));
+		const apply = (value: string) => {
+			if (value === 'swatch') document.documentElement.dataset.legend = 'swatch';
+			else delete document.documentElement.dataset.legend;
+			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.legendPick === value)));
+		};
+		let saved: string | null = null;
+		try {
+			saved = localStorage.getItem(LEGEND_KEY);
+		} catch {
+			/* private mode; fine */
+		}
+		if (saved) apply(saved);
+		picks.forEach((b) =>
+			b.addEventListener('click', () => {
+				const value = b.dataset.legendPick ?? 'highlight';
+				apply(value);
+				try {
+					localStorage.setItem(LEGEND_KEY, value);
+				} catch {
+					/* ignore */
+				}
+			})
+		);
+	});
+
 	// The typeface switch. Same shape as the others; it sets one attribute on <html>, and the rule
 	// in the global block turns that into `--flow-font-mono` for every visual on the page.
 	const FONT_KEY = 'launch-visuals:font';
@@ -1061,6 +1103,7 @@ const COMPACT_ROWS = [
 {/* The stage vocabulary is global to the page so `_FeatureRow` can use it for its caption. */}
 <style lang="scss" is:global>
 	@use '../../styles/variables' as *;
+	@use '../../styles/connect-terms';
 
 	// What the typeface switch above actually does. One property, read by every visual through
 	// `var(--flow-font-mono, <mono stack>)`, so the default costs nothing and the override reaches

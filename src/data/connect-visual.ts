@@ -136,31 +136,44 @@ export const CONNECT_ROUTES: ConnectGroup[] = [
  * platform does for you and closing with how you reach it puts the key where a key belongs — after
  * the thing it explains.
  *
- * A TINT behind the words, not colour on them. It is the same wash at the same strength the chips
- * use, which is what makes the two legible as the same coding; colouring the type instead meant
- * darkening every accent to clear 4.5:1 for the green's sake, so the words and the chips they keyed
- * were never quite the same colour.
+ * Not colour on the type. Colouring it meant darkening every accent to clear 4.5:1 for the green's
+ * sake, so the words and the chips they keyed were never quite the same colour.
  *
- * The marked words take the page's INK rather than inheriting the paragraph's grey, and they have
- * to. That grey clears 4.91:1 on the row's wash with nothing behind it; the tint takes it to
- * 3.79-4.04, under the line. Ink on the same tint is 10:1 and up. It also happens to be what the
- * chips themselves use, so the marked phrase and the chips it keys are now literally the same two
- * colours.
- *
- * `box-decoration-break: clone` so a phrase that wraps carries its rounding onto the second line
- * rather than being left open at the break.
+ * Two codings ship in this markup — a tint behind the words and a squircle before them — and
+ * `_connect-terms.scss` decides which one is visible. Neither is committed to yet, and rendering
+ * both means the thing being compared is the thing that renders.
  *
  * Composed from CONNECT_ROUTES rather than written out, so a re-coloured route re-colours its mark.
- * The strength is `--connect-tint`, the same property the chips read, so the sandbox's tint control
- * moves the copy and the drawing together — they are one coding and have to stay one.
  *
  * Declared AFTER CONNECT_ROUTES, and it has to be: the terms are built while this module evaluates,
  * so a `const` referenced from above its own declaration is a temporal-dead-zone crash rather than
  * a type error — which means `astro check` would pass it and the page would be blank.
  */
 const accentOf = (category: string) => CONNECT_ROUTES.find((r) => r.category === category)!.accent;
-const term = (category: string, words: string) =>
-	`<mark style="background: color-mix(in srgb, ${accentOf(category)} var(--connect-tint, 18%), transparent); color: var(--color-text, #171c22); padding: 0.1em 0.3em; border-radius: 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone">${words}</mark>`;
+
+/**
+ * One term, in both codings at once.
+ *
+ * The mark and the highlight both ship in the markup and `_connect-terms.scss` shows whichever the
+ * `data-legend` attribute asks for. Only the accent is inline, because only the accent varies per
+ * term — everything else is the same for all four and belongs in a stylesheet.
+ *
+ * The mark and the first word are held together; see the note in the body.
+ */
+const term = (category: string, words: string) => {
+	// The mark and the FIRST word are wrapped together and held `nowrap`. An inline-block is an
+	// atomic inline, and a line may break between it and the text after it — measured: "through an
+	// [square]" ended one line and "IoT gateway" started the next, which is a key pointing at
+	// nothing. Only the first word is held; the rest of the phrase wraps as normal prose, which
+	// matters for "LoRaWAN or LPWAN network" on a phone.
+	const [first, ...rest] = words.split(' ');
+	const tail = rest.length ? ` ${rest.join(' ')}` : '';
+	return (
+		`<span class="conn-term" style="--term: ${accentOf(category)}">` +
+		`<span class="conn-term__lead"><i class="conn-term__mark" aria-hidden="true"></i>${first}</span>${tail}` +
+		`</span>`
+	);
+};
 
 export const CONNECT_BODY_HTML = [
 	'Mix sensors, industrial machines, and any equipment you need in one solution. ',
