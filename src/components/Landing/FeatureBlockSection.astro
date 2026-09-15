@@ -128,7 +128,7 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				</div>
 			)
 		}
-		<div class:list={['block', { 'image-first': imageFirst }]}>
+		<div class:list={['block', { 'image-first': imageFirst && !hasMedia }]}>
 			{
 				imageFirst && !hasMedia && (
 					<SmartImage
@@ -191,7 +191,7 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				/* Rendered once and placed by CSS, because a slot can only be consumed once and this
 				    has to serve both orders. */
 				hasMedia && (
-					<div class:list={['preview', imageEqual && 'equal', imageFirst && 'media-first']}>
+					<div class:list={['preview', 'has-slot', imageEqual && 'equal', imageFirst && 'media-first']}>
 						<slot />
 					</div>
 				)
@@ -274,6 +274,31 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 					order: 0;
 				}
 
+				// Slotted media only, and it has to come after the rule above: both selectors score the
+				// same, so on a row that is both, source order is what decides.
+				//
+				// `align-self`: `align-items: center` on this row makes the cross axis — width, once the
+				// row stacks — shrink-to-fit, and a slotted component sized `width: 100%` resolves that
+				// percentage against a parent that is itself sizing to its content. The two agree on
+				// zero, and the visual disappears with no error.
+				//
+				// `order`: stacked, the diagram leads whichever side it was drawn on. It is what tells
+				// you which section you have reached; the heading says the same thing in words a moment
+				// later, and a screenful of prose before the picture reads as a wall.
+				//
+				// An <img> has an intrinsic width and never hits the first of those, and its rows were
+				// authored to alternate — so both rules stay scoped to the slot.
+				:global(.preview.has-slot) {
+					align-self: stretch;
+					order: -1;
+					// Stretch resolves against max-width, and `.preview` carries `max-width: 100%` — the
+					// container's own width. With that in place a page can pull the box out past the
+					// gutter with negative margins and it slides rather than widens.
+					max-width: none;
+				}
+
+				// Image rows only — see the class list. A slotted row leads with its media through
+				// `order` above, and reversing the column as well would just put it back at the bottom.
 				&.image-first {
 					flex-direction: column-reverse;
 				}
