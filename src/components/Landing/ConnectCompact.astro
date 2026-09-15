@@ -1,0 +1,261 @@
+---
+import { Icon } from 'astro-icon/components';
+import { CONNECT_COPY } from '@data/connect-visual';
+
+/**
+ * Connect, redrawn to the compact family's scale. A CANDIDATE beside `ConnectFlow`, not a
+ * replacement for it — the shipped visual is untouched.
+ *
+ * --- the rule the whole family is built to ------------------------------------------------
+ *
+ * One number predicts whether a scaled composition is readable on a phone:
+ *
+ *     R = native width / smallest type, both in design units
+ *
+ * because the rendered size of that type is simply `container / R`. Nothing else survives the
+ * division — not the font value, not the unit ceiling, not how much care went into the layout.
+ *
+ * The shipped five measure R = 45 to 57, which is 5.8-7.4px in the 335px column a 375px phone
+ * gives them. This family fixes both terms:
+ *
+ *     native 448 units, nothing smaller than 16u   ->   R = 28
+ *
+ * which is 12.0px at 335 and 16px in the home row. Those two numbers are the whole design.
+ *
+ * --- why the unit is capped at 1px --------------------------------------------------------
+ *
+ * The ceiling is 1px rather than the family's old 1.15/1.45, so the composition is drawn at 1:1
+ * in the row it ships in: at the home row's 525px column a unit IS a pixel, and every number in
+ * this file is the pixel count on screen. It also stops the type running away — the desktop
+ * column is 1.57x the phone's, so a composition that fills both would carry 12px labels on the
+ * phone and 18.8px on the desktop. Capping at 1px trades a little desktop width (the ink sits
+ * at 448 in a 525 column, centred) for type that is the right size at both ends. That trade is
+ * the one thing here that is a judgement rather than arithmetic.
+ *
+ * --- what this cut gives up ---------------------------------------------------------------
+ *
+ * Route columns go 464 -> 320 units, and at 16u a chip is about 8u per character. Three of the
+ * four rows still hold every name they had. The platform row does not: AWS IoT, Azure IoT and
+ * Google Pub/Sub come to 304u of the 320 available, so Kafka is dropped rather than shortening
+ * "Google Pub/Sub" — `connect-visual.ts` records why that name is spelled out, and the word
+ * Kafka still appears on the page in the scale visual's stack.
+ *
+ * Names are declared here rather than read from CONNECT_ROUTES, so trimming this candidate
+ * cannot change what the live visual shows.
+ */
+
+interface Props {
+	/** Draws the "ThingsBoard" caption under the badge. Off, as on the shipped visual. */
+	nodeLabel?: boolean;
+}
+
+const { nodeLabel = false } = Astro.props;
+
+const ROUTES = [
+	{ category: 'Direct connection', accent: '#0e7490', names: ['MQTT', 'HTTP', 'CoAP', 'LwM2M', 'SNMP'] },
+	{ category: 'IoT Gateway', accent: '#7b3fe4', names: ['Modbus', 'OPC UA', 'BACnet', 'KNX', 'BLE'] },
+	{ category: 'LoRaWAN & LPWAN', accent: '#b45309', names: ['ChirpStack', 'TTN', 'LORIOT', 'Sigfox'] },
+	// Kafka dropped here, and only here. See the note above.
+	{ category: 'Platform integrations', accent: '#1f9d55', names: ['AWS IoT', 'Azure IoT', 'Google Pub/Sub'] },
+];
+
+const NATIVE = 448;
+const COL = { routes: 320, gut: 48, node: 80 };
+const BADGE = 60;
+
+// How far a connector runs from a card's edge to the badge's. The gutter alone stops at the node
+// COLUMN, which is 10u wider than the badge on each side, so a curve ending there would hang in
+// the air — the same 40u miss the full-size visual had to learn about. The SVG is sized to this
+// and overflows its own grid track, which is safe because every track is a definite length.
+const JOIN = COL.gut + (COL.node - BADGE) / 2;
+
+const CARD_H = 64;
+const CARD_GAP = 12;
+const BODY_H = ROUTES.length * CARD_H + (ROUTES.length - 1) * CARD_GAP;
+const MID = BODY_H / 2;
+
+const centres = ROUTES.map((_, i) => CARD_H / 2 + i * (CARD_H + CARD_GAP));
+
+// Horizontal control points at the gutter's midpoint: every curve leaves flat and arrives flat,
+// so four of them stack into a bundle instead of crossing.
+const bend = JOIN / 2;
+const curves = centres.map((cy) => `M 0,${cy} C ${bend},${cy} ${bend},${MID} ${JOIN},${MID}`);
+
+const vars = [
+	`--cc-u: min(1px, calc(100cqw / ${NATIVE}))`,
+	`--cc-native: ${NATIVE}`,
+	`--cc-routes: ${COL.routes}`,
+	`--cc-gut: ${COL.gut}`,
+	`--cc-node: ${COL.node}`,
+	`--cc-join: ${JOIN}`,
+	`--cc-body-h: ${BODY_H}`,
+].join(';');
+---
+
+<div class="cc-fit">
+	<div class="cc" style={vars} data-node-label={nodeLabel ? 'on' : 'off'}>
+		<ul class="cc__routes">
+			{
+				ROUTES.map((r) => (
+					<li class="cc__route" style={`--cc-accent: ${r.accent}`}>
+						<p class="cc__cat">{r.category}</p>
+						<ul class="cc__names">
+							{r.names.map((n) => (
+								<li class="cc__chip">{n}</li>
+							))}
+						</ul>
+					</li>
+				))
+			}
+		</ul>
+
+		<svg
+			class="cc__gut"
+			viewBox={`0 0 ${JOIN} ${BODY_H}`}
+			preserveAspectRatio="none"
+			aria-hidden="true"
+			focusable="false"
+		>
+			{curves.map((d) => <path class="cc__wire" d={d} />)}
+		</svg>
+
+		<div class="cc__node">
+			<span class="cc__badge" style={`--cc-badge: ${CONNECT_COPY.badge.color}`}>
+				<Icon name={CONNECT_COPY.badge.icon} />
+			</span>
+			<span class="cc__node-label">ThingsBoard</span>
+		</div>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.cc-fit {
+		container-type: inline-size;
+	}
+
+	.cc {
+		--u: var(--cc-u);
+		display: grid;
+		// Declared, not implicit. `grid-row: 1 / -1` does not span implicit rows, and a single auto
+		// row would absorb the connector's intrinsic height and drift the cards off the curve ends.
+		grid-template-rows: auto;
+		// max-content rather than a fixed track: a fixed track is wider than its content whenever the
+		// longest row is short, and the whole drawing then leans away from centre.
+		grid-template-columns: max-content u(var(--cc-gut)) u(var(--cc-node));
+		align-items: center;
+		justify-content: center;
+		max-width: u(var(--cc-native));
+		margin-inline: auto;
+	}
+
+	.cc__routes {
+		display: grid;
+		gap: u(12);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.cc__route {
+		width: fit-content;
+		max-width: u(var(--cc-routes));
+		height: u(64);
+		padding: u(8) u(10);
+		border-radius: u(10);
+		background: var(--color-bg, #fff);
+		box-shadow:
+			0 u(1) u(2) rgba(23, 28, 34, 0.06),
+			0 u(2) u(8) rgba(23, 28, 34, 0.06);
+	}
+
+	// 16u, the family's floor: 16px in the home row, 12px on a 375px phone.
+	.cc__cat {
+		margin: 0 0 u(4);
+		font-size: u(16);
+		line-height: u(18);
+		font-weight: $font-weight-medium;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--cc-accent, #5b616e);
+		white-space: nowrap;
+	}
+
+	.cc__names {
+		display: flex;
+		gap: u(8);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.cc__chip {
+		height: u(26);
+		padding: 0 u(8);
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: u(6);
+		font-family: var(--flow-font-mono, #{$font-family-mono});
+		font-size: u(16);
+		line-height: u(24);
+		color: var(--color-text, #171c22);
+		white-space: nowrap;
+	}
+
+	.cc__gut {
+		// Not optional. A global reset gives every svg `max-width: 100%`, and 100% here is the 48u
+		// gutter track while the viewBox is 58 wide — which silently scales the whole drawing to
+		// 0.83 and leaves every arrow short of the badge, with no error anywhere.
+		width: u(var(--cc-join));
+		max-width: none;
+		height: u(var(--cc-body-h));
+		overflow: visible;
+	}
+
+	.cc__wire {
+		fill: none;
+		stroke: var(--color-text-secondary, #5b616e);
+		stroke-width: 1.25;
+		stroke-linecap: round;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.cc__node {
+		display: grid;
+		justify-items: center;
+		gap: u(6);
+	}
+
+	.cc__badge {
+		display: grid;
+		place-items: center;
+		width: u(60);
+		height: u(60);
+		// The page's shared squircle.
+		border-radius: 32%;
+		background: var(--cc-badge, #3d50f5);
+		color: #fff;
+		box-shadow: 0 u(3) u(10) rgba(23, 28, 34, 0.18);
+
+		:global([data-icon]) {
+			width: u(34);
+			height: u(34);
+		}
+	}
+
+	.cc__node-label {
+		font-size: u(16);
+		line-height: u(18);
+		font-weight: $font-weight-medium;
+		color: var(--color-text-secondary, #5b616e);
+		white-space: nowrap;
+	}
+
+	.cc[data-node-label='off'] .cc__node-label {
+		@include visually-hidden;
+	}
+</style>

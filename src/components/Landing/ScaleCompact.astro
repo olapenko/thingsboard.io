@@ -1,0 +1,375 @@
+---
+import { Icon } from 'astro-icon/components';
+import { SCALE_TIERS, type ScaleTier } from '@data/scale-visual';
+
+/**
+ * Scale without surprises, at the compact family's scale. A CANDIDATE beside `ScaleGrowth`, which
+ * it is derived from — the curve, the easing and the monotone interpolation are that component's
+ * and are unchanged. See `ConnectCompact.astro` for the rule the family is built to.
+ *
+ * This one started closest to the target and so changed least, which is the useful part of the
+ * comparison: it was already 448 units wide, and it was already the most legible of the five on a
+ * phone (10.5px against 5.8-7.4px for the rest). Three edits finish it:
+ *
+ *   - the unit ceiling drops from 1.45px to 1px, so a unit is a pixel in the home row and the
+ *     composition stops being the tallest thing on the page;
+ *   - the 14u captions and 15u stack chips go to the family's 16u floor, which is what takes the
+ *     smallest type from 10.5px to 12px on a 375px phone;
+ *   - the chart loses 10 units of height. It is a shape rather than a reading, so it is the one
+ *     place height can come off without anything being harder to read.
+ *
+ * Everything below this comment, other than those numbers, is ScaleGrowth's. Kept as a copy rather
+ * than a prop on the original because the original is on the home preview and a demo is imminent.
+ */
+
+interface Props {
+	/** Three phases, because the chart is split into three areas. */
+	phases?: ScaleTier[];
+}
+
+const { phases = SCALE_TIERS } = Astro.props;
+
+// SVG ids must be unique per instance. Two of these on a page sharing one id would silently couple
+// their clip paths — the bug GatewayDiagram already has, not worth repeating.
+const uid = `sk-${crypto.randomUUID().slice(0, 8)}`;
+
+const COL_W = 140;
+const COL_GAP = 14;
+const NATIVE = phases.length * COL_W + (phases.length - 1) * COL_GAP;
+
+// One hue at three depths, not three hues. These tiers are stages of one thing rather than
+// categories of it — sequential data takes a single-hue ramp, categorical data takes distinct hues
+// (which is why ConnectFlow's routes each get their own). Three colours here would say the platform
+// changes when you pass between them, which is the opposite of what the section claims. The ramp
+// runs from the chart band into that band's own column, so the two are read as one block.
+const TINTS = [9, 15, 22];
+
+const CHART_H = 120;
+const BAND = NATIVE / phases.length;
+// Headroom, so the last dot is not half-clipped by the top edge.
+const TOP = 10;
+
+const peak = Math.max(...phases.map((p) => p.count));
+/** Linear against the largest tier: a tenth of the devices really is a tenth of the height. */
+const yOf = (share: number) => TOP + (1 - share) * (CHART_H - TOP);
+const r2 = (v: number) => +v.toFixed(2);
+
+/**
+ * How a fleet gets to the next milestone: a pause, then a push.
+ *
+ * Fractions of the climb between one measured point and the next, placed at even thirds of the
+ * band. Both are below their even share (0.33 and 0.67), so each stretch starts slow and finishes
+ * fast, and the three stretches together read as three rollouts rather than one smooth ramp. They
+ * are shape, not data — which is why nothing is drawn at them.
+ */
+const EASE = [0.12, 0.42];
+
+const anchors = phases.map((p) => p.count / peak);
+const curve: { x: number; y: number }[] = [{ x: 0, y: yOf(0) }];
+let from = 0;
+anchors.forEach((share, i) => {
+	const t0 = i / anchors.length;
+	const t1 = (i + 1) / anchors.length;
+	EASE.forEach((f, k) => {
+		const t = t0 + ((k + 1) / (EASE.length + 1)) * (t1 - t0);
+		curve.push({ x: r2(t * NATIVE), y: r2(yOf(from + f * (share - from))) });
+	});
+	curve.push({ x: r2(t1 * NATIVE), y: r2(yOf(share)) });
+	from = share;
+});
+
+/**
+ * Monotone cubic (Fritsch–Carlson), emitted as Béziers.
+ *
+ * Not Catmull-Rom, which is what this started as. A plain spline overshoots around a flat stretch,
+ * and every flat stretch here is a plateau — so it would have bulged the curve downward between
+ * rollouts and drawn a fleet that shrinks. This limits each tangent so the curve can never leave
+ * the corridor its own points define.
+ */
+function monotone(p: { x: number; y: number }[]) {
+	const n = p.length;
+	const h: number[] = [];
+	const d: number[] = [];
+	for (let i = 0; i < n - 1; i++) {
+		h[i] = p[i + 1].x - p[i].x;
+		d[i] = (p[i + 1].y - p[i].y) / h[i];
+	}
+	const m: number[] = [d[0]];
+	for (let i = 1; i < n - 1; i++) m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+	m[n - 1] = d[n - 2];
+	for (let i = 0; i < n - 1; i++) {
+		if (d[i] === 0) {
+			m[i] = 0;
+			m[i + 1] = 0;
+			continue;
+		}
+		const a = m[i] / d[i];
+		const b = m[i + 1] / d[i];
+		const sq = a * a + b * b;
+		if (sq > 9) {
+			const t = 3 / Math.sqrt(sq);
+			m[i] = t * a * d[i];
+			m[i + 1] = t * b * d[i];
+		}
+	}
+	const out = [`M ${p[0].x},${p[0].y}`];
+	for (let i = 0; i < n - 1; i++) {
+		const c1 = { x: r2(p[i].x + h[i] / 3), y: r2(p[i].y + (m[i] * h[i]) / 3) };
+		const c2 = { x: r2(p[i + 1].x - h[i] / 3), y: r2(p[i + 1].y - (m[i + 1] * h[i]) / 3) };
+		out.push(`C ${c1.x},${c1.y} ${c2.x},${c2.y} ${p[i + 1].x},${p[i + 1].y}`);
+	}
+	return out.join(' ');
+}
+
+const line = monotone(curve);
+// The same curve closed to the baseline. Clipping three plain rects to it splits the fill into
+// three areas without three computed shapes that could disagree at the seams.
+const area = `${line} L ${NATIVE},${CHART_H} L 0,${CHART_H} Z`;
+
+// Plain glyphs, told apart by what they draw rather than by what they sit on. Six to a row at 18
+// units fits a 140-unit column exactly, which puts twelve on two rows.
+const ICON = 18;
+const ICON_GAP = 4;
+const PER_ROW = 6;
+const ICON_ROWS = Math.ceil(Math.max(...phases.map((p) => p.own + p.database)) / PER_ROW);
+const ICONS_H = ICON_ROWS * ICON + (ICON_ROWS - 1) * ICON_GAP;
+
+const vars = [
+	`--sk-u: min(1px, calc(100cqw / ${NATIVE}))`,
+	`--sk-native: ${NATIVE}`,
+	`--sk-cols: ${phases.length}`,
+	`--sk-gap: ${COL_GAP}`,
+	`--sk-chart-h: ${CHART_H}`,
+	`--sk-icon: ${ICON}`,
+	`--sk-icon-gap: ${ICON_GAP}`,
+	`--sk-icons-h: ${ICONS_H}`,
+].join('; ');
+---
+
+<div class="sk-fit">
+	<div class="sk" style={vars}>
+		<svg
+			class="sk__chart"
+			viewBox={`0 0 ${NATIVE} ${CHART_H}`}
+			preserveAspectRatio="none"
+			role="img"
+			aria-label={`Device growth through ${phases.map((p) => p.devices).join(', then ')} devices`}
+		>
+			<defs>
+				<clipPath id={`${uid}-area`}>
+					<path d={area}></path>
+				</clipPath>
+			</defs>
+
+			{/* Three areas: plain bands, clipped to the curve. */}
+			<g clip-path={`url(#${uid}-area)`}>
+				{
+					phases.map((_, i) => (
+						<rect
+							class="sk__band"
+							x={i * BAND}
+							y="0"
+							width={BAND}
+							height={CHART_H}
+							style={`fill: color-mix(in srgb, var(--color-primary, #3d50f5) ${TINTS[i]}%, transparent)`}
+						/>
+					))
+				}
+			</g>
+
+			{/* Where one phase ends and the next begins. */}
+			{
+				phases
+					.slice(1)
+					.map((_, i) => <line class="sk__split" x1={(i + 1) * BAND} y1="0" x2={(i + 1) * BAND} y2={CHART_H} />)
+			}
+
+			<path class="sk__line" d={line}></path>
+		</svg>
+
+		<ul class="sk__phases">
+			{
+				phases.map((p, i) => (
+					<li class="sk__phase" style={`--sk-tint: ${TINTS[i]}%`}>
+						<p class="sk__devices">
+							<span class="sk__num">{p.devices}</span> devices
+						</p>
+
+						<div class="sk__icons">
+							{Array.from({ length: p.own }).map(() => (
+								<Icon name="tabler:server" aria-hidden="true" />
+							))}
+							{/* A different glyph, not a dimmed one: it is a different kind of machine, not a
+							    lesser one. Only the middle tier has it — at 100K the database is on the one
+							    server, and in the cluster it is one of the twelve already counted. */}
+							{Array.from({ length: p.database }).map(() => (
+								<Icon name="tabler:database" aria-hidden="true" class="sk__icon--db" />
+							))}
+						</div>
+
+						<p class="sk__machines">{p.machines}</p>
+
+						<ul class="sk__tags">
+							{p.stack.map((s) => (
+								<li>{s}</li>
+							))}
+						</ul>
+					</li>
+				))
+			}
+		</ul>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.sk-fit {
+		container-type: inline-size;
+	}
+
+	.sk {
+		--u: var(--sk-u);
+		display: grid;
+		gap: u(14);
+		max-width: u(var(--sk-native));
+		margin: 0 auto;
+	}
+
+	// --- the curve --------------------------------------------------------------------------
+
+	// `preserveAspectRatio: none` because this is a strip whose height is set here and whose width is
+	// the composition's: letterboxing would put air inside the plot instead of stretching it, and the
+	// curve is a shape rather than a drawing.
+	.sk__chart {
+		width: 100%;
+		max-width: none;
+		height: u(var(--sk-chart-h));
+		border-radius: u(var(--flow-radius, 8));
+		overflow: hidden;
+	}
+
+	.sk__split {
+		stroke: var(--color-border, #ebebeb);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.sk__line {
+		fill: none;
+		stroke: var(--color-primary, #3d50f5);
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		// The box is stretched by the design unit and by preserveAspectRatio, so an ordinary stroke
+		// would come out thicker horizontally than vertically.
+		vector-effect: non-scaling-stroke;
+	}
+
+	// --- the phases -------------------------------------------------------------------------
+
+	// Four rows — devices, machines, label, tags — shared by every column through subgrid, so each
+	// row is as tall as its tallest column and the four line up across all three. This was a fixed
+	// min-height before, which is the version of this that silently breaks the moment someone writes
+	// a longer label.
+	.sk__phases {
+		display: grid;
+		grid-template-columns: repeat(var(--sk-cols), 1fr);
+		grid-template-rows: repeat(4, auto);
+		gap: u(8) u(var(--sk-gap));
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.sk__phase {
+		display: grid;
+		grid-row: span 4;
+		grid-template-rows: subgrid;
+	}
+
+	.sk__devices {
+		display: flex;
+		align-items: baseline;
+		gap: u(5);
+		margin: 0;
+		font-size: u(16);
+		line-height: u(20);
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.sk__num {
+		font-family: var(--flow-font-mono, #{$font-family-mono});
+		font-size: u(28);
+		font-weight: $font-weight-bold;
+		line-height: u(32);
+		color: var(--color-text);
+	}
+
+	// --- the machines -----------------------------------------------------------------------
+
+	.sk__icons {
+		display: flex;
+		flex-wrap: wrap;
+		align-content: flex-start;
+		gap: u(var(--sk-icon-gap));
+		height: u(var(--sk-icons-h));
+	}
+
+	// Sized here, in design units, NOT with astro-icon's width/height attributes — those are absolute
+	// pixels and do not scale with `--u`.
+	.sk__icons [data-icon] {
+		flex: none;
+		width: u(var(--sk-icon));
+		height: u(var(--sk-icon));
+		color: var(--color-primary, #3d50f5);
+	}
+
+	// Ink rather than a second accent. Two glyphs in one colour were reading as one repeated thing,
+	// and a cylinder next to a rack is too fine a difference to carry the distinction on its own —
+	// but a different HUE here would undo the argument the tints make one block above, that these
+	// tiers are stages of a single thing. The family's chrome dark is the one non-primary colour it
+	// already owns, so this separates the database without adding a colour to the palette.
+	.sk__icons [data-icon].sk__icon--db {
+		color: var(--flow-chrome, #1b1e27);
+	}
+
+	// A caption, at the size of the word "devices" beside the number above it. The icons are the
+	// count; this only says in words what they already say by being countable, so it has no business
+	// competing with the figure that leads the column.
+	.sk__machines {
+		margin: 0;
+		font-size: u(16);
+		line-height: u(20);
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	// Both alignments matter now that subgrid makes this row as tall as its tallest column: without
+	// them a lone chip stretches down the whole row and reads as a filled panel rather than a chip.
+	.sk__tags {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		align-content: flex-start;
+		gap: u(5);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			padding: u(3) u(9);
+			border-radius: u(var(--flow-radius, 8));
+			font-family: var(--flow-font-mono, #{$font-family-mono});
+			font-size: u(16);
+			font-weight: $font-weight-bold;
+			line-height: u(20);
+			color: var(--color-text);
+			background: color-mix(in srgb, var(--color-primary, #3d50f5) var(--sk-tint, 12%), transparent);
+		}
+	}
+</style>

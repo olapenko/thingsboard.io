@@ -1,0 +1,344 @@
+---
+import { Icon } from 'astro-icon/components';
+import { PHYSICAL_ASSET, DIGITAL_TWIN_STAGES } from '@data/digital-twin-visual';
+import { sparkPaths } from '@util/sparkline';
+
+/**
+ * Model your real world, redrawn to the compact family's scale. A CANDIDATE beside `DigitalTwin`.
+ * See `ConnectCompact.astro` for the rule: 448 units, nothing under 16u, R = 28.
+ *
+ * The shipped version runs 630 units with a 12u floor — 6.4px on a phone, and every one of its 25
+ * text nodes under 9px there. The mirror it is built on (a real thing on the left, its twin on the
+ * right) is the whole idea, so the columns stay; what changes is that the gutter is now sized by
+ * its LABELS rather than by what was left over.
+ *
+ * That is the one non-obvious constraint in this cut. "Commands" has to fit between the cards, and
+ * at 16u it measures 81 units — so the gutter is 86 and the two cards divide what is left, rather
+ * than the cards taking what they want and the arrows making do. It is why this one keeps its arrow
+ * labels where the naive shrink would have had to drop them.
+ *
+ * Labels are sentence case, not the family's uppercase: uppercase Ubuntu runs about 35% wider per
+ * character, which is 95 units for "Telemetry" — over budget for the sake of a capital.
+ */
+
+const NATIVE = 448;
+// Three columns, none of them guessed: each is its widest piece of content plus its own padding,
+// measured in the browser rather than estimated. Physical takes 155 units for "Cold storage unit"
+// beside its icon, the twin takes 163 for "temperature" beside "−18.4 °C", and the gutter takes 82
+// for "Commands". They come to 448 with two units to spare, which is the whole budget.
+const CARD_L = 177;
+const GUT = 86;
+const CARD_R = NATIVE - CARD_L - GUT; // 185
+
+const ROW_H = 24;
+
+// The arrows are drawn in the gutter's own coordinates. With preserveAspectRatio="none" a viewBox
+// wider than the track would squash the heads horizontally while the shaft, which carries
+// non-scaling-stroke, stayed put — the two would disagree about how wide a unit is.
+const ARROW = { w: GUT - 4, h: 10 };
+const SPARK = { w: 163, h: 56, pad: 4 };
+
+/** The twin's four attributes, as the full-size visual shows them. */
+const ATTRS = [
+	{ k: 'temperature', v: '−18.4 °C' },
+	{ k: 'door', v: 'closed' },
+	{ k: 'duty cycle', v: '62 %' },
+	{ k: 'alarm', v: 'none', muted: true },
+];
+
+/**
+ * Twenty-four hours of a freezer holding −18, deterministic so every render draws the same line:
+ * a slow defrost swell with the compressor's shorter cycle riding on it. Shaped here rather than
+ * in the data file because it belongs to this candidate, not to the shipped visual.
+ */
+const TAU = Math.PI * 2;
+const series = Array.from({ length: 48 }, (_, i) => {
+	const t = i / 48;
+	return -18 + 0.9 * Math.sin(TAU * t) + 0.45 * Math.sin(TAU * 6 * t + 0.8);
+});
+const { line, area } = sparkPaths(series, [-21, -15], SPARK);
+
+const vars = [
+	`--tc-u: min(1px, calc(100cqw / ${NATIVE}))`,
+	`--tc-native: ${NATIVE}`,
+	`--tc-card-l: ${CARD_L}`,
+	`--tc-card-r: ${CARD_R}`,
+	`--tc-gut: ${GUT}`,
+	`--tc-row: ${ROW_H}`,
+].join(';');
+---
+
+<div class="tc-fit">
+	<div class="tc" style={vars}>
+		<p class="tc__cap tc__cap--l">{DIGITAL_TWIN_STAGES.physical}</p>
+		<p class="tc__cap tc__cap--r">{DIGITAL_TWIN_STAGES.twin}</p>
+
+		<section class="tc__card tc__card--physical">
+			<header class="tc__head">
+				<Icon name={PHYSICAL_ASSET.icon} />
+				<span>{PHYSICAL_ASSET.name}</span>
+			</header>
+			<ul class="tc__devices">
+				{
+					PHYSICAL_ASSET.devices.map((d) => (
+						<li class="tc__device">
+							<Icon name={d.icon} />
+							<span>{d.label}</span>
+						</li>
+					))
+				}
+			</ul>
+		</section>
+
+		<div class="tc__link" aria-hidden="true">
+			<p class="tc__wire-label">Telemetry</p>
+			<svg class="tc__arrow" viewBox={`0 0 ${ARROW.w} ${ARROW.h}`} preserveAspectRatio="none" focusable="false">
+				<path class="tc__wire" d={`M 2,5 L ${ARROW.w - 8},5`}></path>
+				<path class="tc__head-mark" d={`M ${ARROW.w - 8},1.5 L ${ARROW.w - 2},5 L ${ARROW.w - 8},8.5 Z`}></path>
+			</svg>
+
+			<p class="tc__wire-label">Commands</p>
+			<svg class="tc__arrow" viewBox={`0 0 ${ARROW.w} ${ARROW.h}`} preserveAspectRatio="none" focusable="false">
+				<path class="tc__wire" d={`M 8,5 L ${ARROW.w - 2},5`}></path>
+				<path class="tc__head-mark" d="M 8,1.5 L 2,5 L 8,8.5 Z"></path>
+			</svg>
+		</div>
+
+		<section class="tc__card tc__card--twin">
+			<header class="tc__head">
+				<Icon name="tabler:binary-tree" />
+				<span>{PHYSICAL_ASSET.id} twin</span>
+			</header>
+
+			<dl class="tc__attrs">
+				{
+					ATTRS.map((a) => (
+						<div class="tc__attr">
+							<dt>{a.k}</dt>
+							<dd class:list={[a.muted && 'is-muted']}>{a.v}</dd>
+						</div>
+					))
+				}
+			</dl>
+
+			<p class="tc__spark-cap">last 24 h</p>
+			<svg class="tc__spark" viewBox={`0 0 ${SPARK.w} ${SPARK.h}`} preserveAspectRatio="none" aria-hidden="true">
+				<path class="tc__spark-area" d={area}></path>
+				<path class="tc__spark-line" d={line}></path>
+			</svg>
+		</section>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.tc-fit {
+		container-type: inline-size;
+	}
+
+	.tc {
+		--u: var(--tc-u);
+		display: grid;
+		grid-template-columns: u(var(--tc-card-l)) u(var(--tc-gut)) u(var(--tc-card-r));
+		grid-template-rows: auto auto;
+		align-items: start;
+		max-width: u(var(--tc-native));
+		margin-inline: auto;
+	}
+
+	.tc__cap {
+		grid-row: 1;
+		margin: 0 0 u(6);
+		font-size: u(16);
+		line-height: u(18);
+		font-weight: $font-weight-medium;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--color-text-secondary, #5b616e);
+		white-space: nowrap;
+	}
+
+	.tc__cap--l {
+		grid-column: 1;
+	}
+
+	.tc__cap--r {
+		grid-column: 3;
+	}
+
+	.tc__card {
+		grid-row: 2;
+		padding: u(10);
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: u(10);
+		background: var(--color-bg, #fff);
+	}
+
+	.tc__card--physical {
+		grid-column: 1;
+	}
+
+	.tc__card--twin {
+		grid-column: 3;
+	}
+
+	.tc__head {
+		display: flex;
+		align-items: center;
+		gap: u(8);
+		height: u(26);
+		font-size: u(16);
+		font-weight: $font-weight-medium;
+		color: var(--color-text, #171c22);
+		white-space: nowrap;
+
+		:global([data-icon]) {
+			width: u(18);
+			height: u(18);
+			color: var(--color-text-secondary, #5b616e);
+		}
+	}
+
+	// --- physical -----------------------------------------------------------------------------
+
+	.tc__devices {
+		margin: u(6) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// The devices sit on the dark panel the full-size visual uses, which is what separates "these
+	// are real things" from "this is the model of them" without a second caption saying so.
+	.tc__device {
+		display: flex;
+		align-items: center;
+		gap: u(8);
+		height: u(var(--tc-row));
+		padding: 0 u(8);
+		font-size: u(17);
+		color: #fff;
+		background: var(--flow-chrome, #1b1e27);
+		white-space: nowrap;
+
+		&:first-child {
+			border-radius: u(6) u(6) 0 0;
+		}
+
+		&:last-child {
+			border-radius: 0 0 u(6) u(6);
+		}
+
+		:global([data-icon]) {
+			width: u(16);
+			height: u(16);
+			opacity: 0.75;
+		}
+	}
+
+	// --- the link -----------------------------------------------------------------------------
+
+	.tc__link {
+		grid-row: 2;
+		grid-column: 2;
+		// Centred against the cards rather than pinned to their top, so the pair reads as one
+		// exchange between two things instead of two arrows that happen to be near each other.
+		align-self: center;
+		display: grid;
+		justify-items: center;
+		gap: u(2);
+		padding: 0 u(2);
+	}
+
+	.tc__wire-label {
+		margin: u(8) 0 0;
+		font-size: u(16);
+		line-height: u(18);
+		color: var(--color-text-secondary, #5b616e);
+		white-space: nowrap;
+
+		&:first-child {
+			margin-top: 0;
+		}
+	}
+
+	.tc__arrow {
+		width: 100%;
+		max-width: none;
+		height: u(10);
+	}
+
+	.tc__wire {
+		fill: none;
+		stroke: var(--color-text-secondary, #5b616e);
+		stroke-width: 1.25;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.tc__head-mark {
+		fill: var(--color-text-secondary, #5b616e);
+	}
+
+	// --- twin ---------------------------------------------------------------------------------
+
+	.tc__attrs {
+		margin: u(6) 0 0;
+	}
+
+	.tc__attr {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: u(8);
+		height: u(var(--tc-row));
+		border-bottom: 1px solid var(--color-border, #ebebeb);
+		font-size: u(16);
+		white-space: nowrap;
+
+		dt {
+			color: var(--color-text-secondary, #5b616e);
+		}
+
+		dd {
+			margin: 0;
+			font-weight: $font-weight-medium;
+			color: var(--color-text, #171c22);
+		}
+
+		dd.is-muted {
+			font-weight: $font-weight-normal;
+			color: var(--color-primary, #3d50f5);
+		}
+	}
+
+	.tc__spark-cap {
+		margin: u(8) 0 u(4);
+		font-size: u(16);
+		line-height: u(18);
+		color: var(--color-text-secondary, #5b616e);
+		white-space: nowrap;
+	}
+
+	.tc__spark {
+		width: 100%;
+		max-width: none;
+		height: u(56);
+	}
+
+	.tc__spark-area {
+		fill: color-mix(in srgb, var(--color-primary, #3d50f5) 12%, transparent);
+	}
+
+	.tc__spark-line {
+		fill: none;
+		stroke: var(--color-primary, #3d50f5);
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		vector-effect: non-scaling-stroke;
+	}
+</style>
