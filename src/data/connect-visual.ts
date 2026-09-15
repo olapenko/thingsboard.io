@@ -151,6 +151,8 @@ export const CONNECT_ROUTES: ConnectGroup[] = [
  * rather than being left open at the break.
  *
  * Composed from CONNECT_ROUTES rather than written out, so a re-coloured route re-colours its mark.
+ * The strength is `--connect-tint`, the same property the chips read, so the sandbox's tint control
+ * moves the copy and the drawing together — they are one coding and have to stay one.
  *
  * Declared AFTER CONNECT_ROUTES, and it has to be: the terms are built while this module evaluates,
  * so a `const` referenced from above its own declaration is a temporal-dead-zone crash rather than
@@ -158,7 +160,7 @@ export const CONNECT_ROUTES: ConnectGroup[] = [
  */
 const accentOf = (category: string) => CONNECT_ROUTES.find((r) => r.category === category)!.accent;
 const term = (category: string, words: string) =>
-	`<mark style="background: color-mix(in srgb, ${accentOf(category)} 18%, transparent); color: var(--color-text, #171c22); padding: 0.1em 0.3em; border-radius: 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone">${words}</mark>`;
+	`<mark style="background: color-mix(in srgb, ${accentOf(category)} var(--connect-tint, 18%), transparent); color: var(--color-text, #171c22); padding: 0.1em 0.3em; border-radius: 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone">${words}</mark>`;
 
 export const CONNECT_BODY_HTML = [
 	'Mix sensors, industrial machines, and any equipment you need in one solution. ',

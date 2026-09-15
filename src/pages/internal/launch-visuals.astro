@@ -397,26 +397,20 @@ const COMPACT_ROWS = [
 		    swap the draft asked for. */
 		}
 		{
-			/* The node's name is off in the component by default. This flips every ConnectFlow on the
-		    panel at once so the two can be compared without a rebuild — it only ever changes what is
-		    VISIBLE, since the label stays in the markup for screen readers either way. */
-		}
-		{
 			/* The cloud drops its group captions, so its four accents are the only thing saying which
-		    route a chip belongs to — and how loudly they say it is the open question. Two codings,
-		    switched together so they are compared rather than each admired on its own. A third, a
-		    coloured stripe down each chip, was tried and dropped: too noisy at twenty-four of them. */
+		    route a chip belongs to — and how loudly they say it is the open question.
+
+		    "Tinted · light" is the same coding at 10% rather than 18%, and it is worth checking what
+		    that costs as well as what it buys: the four hues get harder to tell from each other the
+		    paler they are, and telling them apart is the entire job.
+
+		    A coloured stripe down each chip was tried and dropped: too noisy at twenty-four of them. */
 		}
 		<div class="page-ctl" role="group" aria-label="Cloud chip style" data-chip-switch>
 			<span class="page-ctl__name">Cloud chips</span>
 			<button type="button" data-chip-pick="tint" aria-pressed="true">Tinted</button>
+			<button type="button" data-chip-pick="tint-light" aria-pressed="false">Tinted · light</button>
 			<button type="button" data-chip-pick="text" aria-pressed="false">White + colour text</button>
-		</div>
-
-		<div class="page-ctl" role="group" aria-label="ThingsBoard label" data-conn-label-switch>
-			<span class="page-ctl__name">ThingsBoard label</span>
-			<button type="button" data-conn-label-pick="off" aria-pressed="true">Hidden</button>
-			<button type="button" data-conn-label-pick="on" aria-pressed="false">Shown</button>
 		</div>
 
 		{
@@ -1004,8 +998,13 @@ const COMPACT_ROWS = [
 	document.querySelectorAll<HTMLElement>('[data-chip-switch]').forEach((group) => {
 		const picks = Array.from(group.querySelectorAll<HTMLButtonElement>('[data-chip-pick]'));
 		const clouds = Array.from(document.querySelectorAll<HTMLElement>('[data-page-panel="connect"] .cl'));
+		// Two things from one pick: `data-chip` chooses the coding, `--connect-tint` its strength. The
+		// property goes on :root rather than on the clouds because the section's copy reads it too,
+		// and that copy is not inside any of them.
 		const apply = (value: string) => {
-			clouds.forEach((c) => c.setAttribute('data-chip', value));
+			clouds.forEach((c) => c.setAttribute('data-chip', value === 'tint-light' ? 'tint' : value));
+			if (value === 'tint-light') document.documentElement.style.setProperty('--connect-tint', '10%');
+			else document.documentElement.style.removeProperty('--connect-tint');
 			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.chipPick === value)));
 		};
 		let saved: string | null = null;
@@ -1051,37 +1050,6 @@ const COMPACT_ROWS = [
 				apply(value);
 				try {
 					localStorage.setItem(FONT_KEY, value);
-				} catch {
-					/* ignore */
-				}
-			})
-		);
-	});
-
-	// The node-label toggle on the Connect panel. Same shape as the token switch: the pick is
-	// remembered, and it drives the same `data-node-label` attribute the component's own prop sets,
-	// so the sandbox and a real page cannot disagree about what the attribute means.
-	const CONN_LABEL_KEY = 'launch-visuals:conn-label';
-	document.querySelectorAll<HTMLElement>('[data-conn-label-switch]').forEach((group) => {
-		const picks = Array.from(group.querySelectorAll<HTMLButtonElement>('[data-conn-label-pick]'));
-		const flows = Array.from(document.querySelectorAll<HTMLElement>('[data-page-panel="connect"] [data-node-label]'));
-		const apply = (value: string) => {
-			flows.forEach((f) => f.setAttribute('data-node-label', value));
-			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.connLabelPick === value)));
-		};
-		let saved: string | null = null;
-		try {
-			saved = localStorage.getItem(CONN_LABEL_KEY);
-		} catch {
-			/* private mode; fine */
-		}
-		if (saved === 'on' || saved === 'off') apply(saved);
-		picks.forEach((b) =>
-			b.addEventListener('click', () => {
-				const value = b.dataset.connLabelPick ?? 'off';
-				apply(value);
-				try {
-					localStorage.setItem(CONN_LABEL_KEY, value);
 				} catch {
 					/* ignore */
 				}
