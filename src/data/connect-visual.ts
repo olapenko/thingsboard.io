@@ -109,7 +109,18 @@ export const CONNECT_ROUTES: ConnectGroup[] = [
 	},
 	{
 		category: 'Platform integrations',
-		accent: '#1f9d55',
+		// Lime, not the green (#1f9d55) this was. Measured, because by eye these two only look close
+		// once they are pale, and pale is how the cloud draws them.
+		//
+		// Composited at the chips' 18% over the row's wash and compared in OKLab, this route and the
+		// direct one were dE 2.86 apart — the closest pair in the set by a distance, and near enough
+		// to be one colour in a 14px squircle. #65a30d takes that pair to 4.90 (8.74 at the swatch's
+		// 32%) and the set's worst pair from 2.86 to 4.02.
+		//
+		// It is the brightest lime that still clears 4.5:1 on white once darkened to 80% for the
+		// white-chip coding: it lands at 4.60, and #77a812 — which would separate slightly better —
+		// falls to 4.26 and fails. Two constraints meeting is why this is not simply "more green".
+		accent: '#65a30d',
 		// Four of twenty-eight. "Pub/Sub" rather than "Google Pub/Sub": the vendor was spelled out so that
 		// a missing third hyperscaler beside AWS and Azure could not read as "not supported", but
 		// this row's own caption is "Platform integrations" and Pub/Sub is not a name anyone meets
