@@ -1,0 +1,173 @@
+---
+/**
+ * Switcher between the internal review pages.
+ *
+ * The pages under `src/pages/internal/` each answer a different question about the same visuals —
+ * one on its own, and all five in the real page — and the only way to compare those answers is to
+ * go back and forth between them. Nothing links them, so that meant retyping URLs; this is that,
+ * as a control.
+ *
+ * Fixed rather than in flow, because two of these pages ARE a layout under review and a strip
+ * across the top of one would be the first thing you judged. Bottom-left is the one corner nothing
+ * else claims: Astro's dev toolbar sits bottom-centre/right, the cookie banner spans the bottom
+ * edge only until it is dismissed, and the site header owns the top.
+ *
+ * Collapses to a dot, remembered in `sessionStorage`, for when even a pill in the corner is one
+ * element too many in a screenshot.
+ *
+ * Underscore-prefixed so Astro does not make it a route.
+ */
+
+/** Every internal page, in the order they are useful: closest to the real thing last. */
+const PAGES = [
+	{ href: '/internal/launch-visuals/', label: 'Sandbox', hint: 'One visual at a time, three widths' },
+	{ href: '/internal/home-preview/', label: 'Home preview', hint: 'The real homepage, new rows' },
+	{ href: '/internal/ecosystem-cards/', label: 'Ecosystem', hint: 'Card variants' },
+];
+
+/** Trailing slash either way, so `/internal/launch-home` and `/internal/launch-home/` both match. */
+const here = Astro.url.pathname.replace(/\/?$/, '/');
+---
+
+<nav class="inav" aria-label="Internal review pages" data-internal-nav>
+	<button class="inav__toggle" type="button" data-inav-toggle aria-expanded="true">
+		<span class="inav__dot" aria-hidden="true"></span>
+		<span class="inav__toggle-text">internal</span>
+	</button>
+	<ul class="inav__list">
+		{
+			PAGES.map((p) => (
+				<li>
+					<a
+						href={p.href}
+						title={p.hint}
+						aria-current={p.href === here ? 'page' : undefined}
+						class:list={['inav__link', p.href === here && 'is-here']}
+					>
+						{p.label}
+					</a>
+				</li>
+			))
+		}
+	</ul>
+</nav>
+
+<script>
+	const KEY = 'internal-nav:open';
+	const nav = document.querySelector<HTMLElement>('[data-internal-nav]');
+	const toggle = nav?.querySelector<HTMLButtonElement>('[data-inav-toggle]');
+
+	if (nav && toggle) {
+		const apply = (open: boolean) => {
+			nav.dataset.open = String(open);
+			toggle.setAttribute('aria-expanded', String(open));
+			toggle.title = open ? 'Collapse the internal nav' : 'Internal pages';
+		};
+
+		// sessionStorage, not local: the collapsed state should follow this review session across the
+		// four pages and then be forgotten, rather than surprising the next one.
+		let open = true;
+		try {
+			open = sessionStorage.getItem(KEY) !== 'false';
+		} catch {
+			/* private mode — the default stands */
+		}
+		apply(open);
+
+		toggle.addEventListener('click', () => {
+			open = !open;
+			apply(open);
+			try {
+				sessionStorage.setItem(KEY, String(open));
+			} catch {
+				/* nothing to remember it with; the control still works for this page */
+			}
+		});
+	}
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.inav {
+		position: fixed;
+		z-index: 10000; // Over the cookie banner's 9999, which spans this edge until dismissed.
+		bottom: $spacing-3;
+		left: $spacing-3;
+		display: flex;
+		align-items: center;
+		// Wraps rather than scrolls: at 375 the four labels need two lines, and a row that has to be
+		// swiped to reach its last item is a control you forget is there.
+		flex-wrap: wrap;
+		gap: $spacing-1;
+		max-width: calc(100vw - #{$spacing-3} * 2);
+		padding: $spacing-1;
+		border: 1px solid rgba(23, 28, 34, 0.1);
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.92);
+		box-shadow: 0 6px 24px rgba(23, 28, 34, 0.12);
+		backdrop-filter: blur(8px);
+		font-family: $font-family-mono;
+		font-size: 12px;
+		line-height: 1;
+	}
+
+	.inav__toggle {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 6px 10px;
+		border: 0;
+		border-radius: 999px;
+		background: none;
+		color: var(--color-text-secondary, #5b616e);
+		font: inherit;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		cursor: pointer;
+
+		&:hover {
+			background: rgba(23, 28, 34, 0.05);
+		}
+	}
+
+	.inav__dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: var(--color-primary, #3d50f5);
+	}
+
+	.inav__list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 2px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.inav__link {
+		display: block;
+		padding: 6px 10px;
+		border-radius: 999px;
+		color: var(--color-text, #171c22);
+		text-decoration: none;
+
+		&:hover {
+			background: rgba(23, 28, 34, 0.06);
+		}
+
+		&.is-here {
+			background: var(--color-primary, #3d50f5);
+			color: #fff;
+		}
+	}
+
+	// Collapsed: the dot and nothing else. `hidden` rather than a width transition, because the
+	// point is to get it out of a screenshot, and a 0-width element still casts the shadow.
+	.inav[data-open='false'] .inav__list,
+	.inav[data-open='false'] .inav__toggle-text {
+		display: none;
+	}
+</style>
