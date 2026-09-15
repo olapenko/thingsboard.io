@@ -14,15 +14,20 @@ import { CONNECT_ROUTES } from '@data/connect-visual';
  * to "how do I connect a Modbus PLC"; the second is a better answer to "will this work with my
  * stuff", which is the question a homepage is actually being asked.
  *
- * --- the thing this arrangement costs -----------------------------------------------------
+ * --- the thing this arrangement costs, and where it went -----------------------------------
  *
  * The captions. In the route version each group is headed by what it IS, and the accent is a
- * second, redundant signal. Take the headings away and the accent is carrying the whole
- * categorisation on its own — four colours a reader has never been taught. So there is a legend,
- * which the reference sketch did not have: without one the colour coding is decoration that looks
- * like information, which is worse than no coding at all.
+ * second, redundant signal. Take the headings away and the accent carries the whole categorisation
+ * on its own — four colours a reader has never been taught. An unexplained colour coding is
+ * decoration that looks like information, which is worse than no coding at all.
  *
- * If this cut wins, that legend is the first thing to argue about.
+ * This carried a legend for a while, which fixed that and cost a two-by-two block under the cloud
+ * saying four things the section's own copy was already most of the way to saying. The teaching
+ * now lives in the body text instead: `CONNECT_COPY.bodyHtml` names the four routes in the four
+ * accents, so the paragraph beside the visual IS the key. Nothing here draws one any more.
+ *
+ * The consequence to keep in mind: this composition is no longer self-explaining. Dropped into a
+ * page without that copy beside it, the colours mean nothing.
  */
 
 // Measured, not chosen — see the note below on how the rows were balanced. Set to the widest row
@@ -33,6 +38,23 @@ import { CONNECT_ROUTES } from '@data/connect-visual';
 // puts the same chips in Ubuntu, which runs about 4% wider on these strings and takes the rows past
 // this number — the rows then wrap rather than escaping their box (see `flex-wrap` below), which is
 // the point: a composition balanced by hand is balanced for one face.
+interface Props {
+	/**
+	 * How a chip carries its route.
+	 *
+	 *   tint — a wash of the accent behind ink text. Reads as one mass at a glance, which is what a
+	 *          cloud wants, and is the weakest of the three at saying WHICH route any one chip is.
+	 *   text — white chip, the name itself in the accent. The strongest coding, and the one that
+	 *          survives being read one chip at a time, but four coloured words per row is a lot of
+	 *          colour for a page that already has a badge and a heading in it.
+	 *   edge — white chip, ink text, a coloured bar down its left side. Quietest of the three, and
+	 *          the one that survives a page with a lot of colour already in it.
+	 */
+	chipStyle?: 'tint' | 'text' | 'edge';
+}
+
+const { chipStyle = 'tint' } = Astro.props;
+
 const NATIVE = 422;
 
 const CHIP_H = 32;
@@ -154,14 +176,14 @@ const vars = [
 ---
 
 <div class="cl-fit">
-	<div class="cl" style={vars}>
+	<div class="cl" style={vars} data-chip={chipStyle}>
 		{
 			ROWS.map((row) =>
 				'chips' in row ? (
 					<ul class="cl__row">
 						{row.chips.map((n) => (
-							<li class="cl__chip" style={`--cl-accent: ${ACCENT.get(n)}`}>
-								{n}
+							<li style={`--cl-accent: ${ACCENT.get(n)}`}>
+								<span class="cl__chip">{n}</span>
 							</li>
 						))}
 					</ul>
@@ -169,8 +191,8 @@ const vars = [
 					<div class="cl__row cl__row--split">
 						<ul class="cl__side cl__side--l">
 							{row.left.map((n) => (
-								<li class="cl__chip" style={`--cl-accent: ${ACCENT.get(n)}`}>
-									{n}
+								<li style={`--cl-accent: ${ACCENT.get(n)}`}>
+									<span class="cl__chip">{n}</span>
 								</li>
 							))}
 						</ul>
@@ -180,8 +202,8 @@ const vars = [
 
 						<ul class="cl__side cl__side--r">
 							{row.right.map((n) => (
-								<li class="cl__chip" style={`--cl-accent: ${ACCENT.get(n)}`}>
-									{n}
+								<li style={`--cl-accent: ${ACCENT.get(n)}`}>
+									<span class="cl__chip">{n}</span>
 								</li>
 							))}
 						</ul>
@@ -189,17 +211,6 @@ const vars = [
 				)
 			)
 		}
-
-		<ul class="cl__legend">
-			{
-				CONNECT_ROUTES.map((r) => (
-					<li>
-						<span class="cl__swatch" style={`--cl-accent: ${r.accent}`} />
-						{r.category}
-					</li>
-				))
-			}
-		</ul>
 	</div>
 </div>
 
@@ -260,6 +271,11 @@ const vars = [
 		max-width: 100%;
 	}
 
+	.cl__row li,
+	.cl__side li {
+		display: flex;
+	}
+
 	.cl__side {
 		display: flex;
 		flex-wrap: wrap;
@@ -277,22 +293,100 @@ const vars = [
 		justify-content: flex-start;
 	}
 
+	// The list item is the grid cell; the chip inside it is the thing that will become a link.
+	// Splitting them now means adding an href later changes one element and no geometry: a chip is
+	// already a self-contained box with its own hover and focus states, and `<span>` and `<a>` lay
+	// out identically once both are `inline-flex` with the same metrics.
 	.cl__chip {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		height: u(var(--cl-chip-h));
 		padding: 0 u(10);
 		border-radius: u(var(--flow-radius, 8));
-		// Flat: no stroke and no shadow. The tint alone separates a chip from the ground, and it is
-		// the only thing in this composition that is allowed to sit above the page — the badge has
-		// the shadow, which is what makes it read as being on top of the cloud rather than in it.
-		background: color-mix(in srgb, var(--cl-accent) 18%, transparent);
 		font-family: var(--flow-font-mono, #{$font-family-mono});
 		font-size: u(17);
 		font-weight: $font-weight-bold;
 		line-height: u(24);
 		color: var(--color-text);
+		text-decoration: none;
 		white-space: nowrap;
+		transition:
+			background-color 0.12s ease,
+			box-shadow 0.12s ease;
+	}
+
+	// Every edge in every style is an INSET SHADOW, never a border, and nothing any style adds has a
+	// width. A 1px border is 1px whatever the design unit is — it does not scale, and six of them to
+	// a row was enough to push the rows past the 422 this composition is balanced at and wrap them.
+	// An inset shadow paints inside the box and costs nothing, so all three styles measure the same
+	// and the balance holds whichever is on. The third style is a bar down the left rather than the
+	// dot it started as for the same reason: a dot is 9 units of content plus its gap, and the dot
+	// version wrapped every row.
+
+	// --- the three codings ----------------------------------------------------------------------
+
+	// A wash of the accent behind ink text.
+	.cl[data-chip='tint'] .cl__chip {
+		background: color-mix(in srgb, var(--cl-accent) 18%, transparent);
+	}
+
+	// White chip, the name itself in the accent.
+	//
+	// The accent is darkened to 80% for text and only for text. Three of the four clear 4.5:1 on
+	// white as they are, but the green (#1f9d55) lands at 3.58 — fine behind a word, not enough to
+	// BE one. Darkening all four rather than patching the one keeps them a set, and the chips
+	// elsewhere still use the undarkened value.
+	//
+	// The hairline is not decoration either: a white chip on the sandbox's white frame, or on any
+	// row that is not washed, has no edge at all without it.
+	.cl[data-chip='text'] .cl__chip {
+		background: var(--color-bg, #fff);
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 35%, transparent);
+		color: color-mix(in srgb, var(--cl-accent) 80%, #000);
+	}
+
+	// White chip, ink text, a coloured bar down the left — a legend swatch per chip, paid for out of
+	// the chip's own padding rather than out of the row's width.
+	.cl[data-chip='edge'] .cl__chip {
+		background: var(--color-bg, #fff);
+		box-shadow:
+			inset 0 0 0 1px var(--color-border, #ebebeb),
+			inset u(4) 0 0 calc(-1 * u(1)) var(--cl-accent);
+	}
+
+	// --- hover, prepared -------------------------------------------------------------------------
+
+	// These chips are going to be links to the connectivity guide and the connector pages. Nothing
+	// carries an href yet, so they render as <span> and the states below are here to be judged, not
+	// used. When the hrefs land, `<span class="cl__chip">` becomes `<a class="cl__chip" href>` and
+	// nothing else in this file changes — including the focus ring, which a span can never show.
+	.cl__chip:hover,
+	.cl__chip:focus-visible {
+		cursor: pointer;
+	}
+
+	.cl[data-chip='tint'] .cl__chip:hover,
+	.cl[data-chip='tint'] .cl__chip:focus-visible {
+		background: color-mix(in srgb, var(--cl-accent) 32%, transparent);
+	}
+
+	.cl[data-chip='text'] .cl__chip:hover,
+	.cl[data-chip='text'] .cl__chip:focus-visible {
+		background: color-mix(in srgb, var(--cl-accent) 12%, transparent);
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 60%, transparent);
+	}
+
+	.cl[data-chip='edge'] .cl__chip:hover,
+	.cl[data-chip='edge'] .cl__chip:focus-visible {
+		background: color-mix(in srgb, var(--cl-accent) 10%, transparent);
+		box-shadow:
+			inset 0 0 0 1px color-mix(in srgb, var(--cl-accent) 45%, transparent),
+			inset u(4) 0 0 calc(-1 * u(1)) var(--cl-accent);
+	}
+
+	.cl__chip:focus-visible {
+		outline: 2px solid color-mix(in srgb, var(--cl-accent) 70%, #000);
+		outline-offset: 2px;
 	}
 
 	// --- the platform --------------------------------------------------------------------------
@@ -327,40 +421,5 @@ const vars = [
 			0 1px 2px rgba(16, 24, 40, 0.06),
 			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
 		);
-	}
-
-	// --- the legend ----------------------------------------------------------------------------
-
-	// What the four colours mean. See the note at the top: without this the coding is decoration
-	// that looks like information.
-	// Two by two at every width, rather than one line that wraps. The four captions come to about
-	// 600 units, so they fit on one line only at the very top of this composition's range — and a
-	// legend that is three-and-one at most sizes reads as having run out of room.
-	.cl__legend {
-		display: grid;
-		grid-template-columns: repeat(2, max-content);
-		justify-content: center;
-		gap: u(6) u(20);
-		margin: u(10) 0 0;
-		padding: 0;
-		list-style: none;
-
-		li {
-			display: flex;
-			align-items: center;
-			gap: u(7);
-			font-size: u(16);
-			line-height: u(20);
-			color: var(--color-text-secondary, #5b616e);
-			white-space: nowrap;
-		}
-	}
-
-	// No stroke, matching the chips it keys.
-	.cl__swatch {
-		width: u(11);
-		height: u(11);
-		border-radius: u(3);
-		background: color-mix(in srgb, var(--cl-accent) 18%, transparent);
 	}
 </style>

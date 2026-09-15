@@ -33,7 +33,7 @@ import TwinUnit from '@components/Landing/TwinUnit.astro';
 import { SOLUTION_CASES, SOLUTION_RAIL, SOLUTION_COPY } from '@data/solution-flow';
 import { DIGITAL_TWIN_COPY, UNIT_GALLERY } from '@data/digital-twin-visual';
 import { NORMALIZE_COPY } from '@data/normalize-visual';
-import { CONNECT_COPY, CONNECT_ROUTES } from '@data/connect-visual';
+import { CONNECT_COPY, CONNECT_ROUTES, CONNECT_BODY_HTML } from '@data/connect-visual';
 import { SCALE_COPY, SCALE_TIERS_PAIR } from '@data/scale-visual';
 import { DEPLOY_COPY } from '@data/deploy-visual';
 import { WHITELABEL_COPY } from '@data/whitelabel-visual';
@@ -401,6 +401,18 @@ const COMPACT_ROWS = [
 		    panel at once so the two can be compared without a rebuild — it only ever changes what is
 		    VISIBLE, since the label stays in the markup for screen readers either way. */
 		}
+		{
+			/* The cloud drops its group captions, so its four accents are the only thing saying which
+		    route a chip belongs to — and how loudly they say it is the open question. Three codings,
+		    switched together so they are compared rather than each admired on its own. */
+		}
+		<div class="page-ctl" role="group" aria-label="Cloud chip style" data-chip-switch>
+			<span class="page-ctl__name">Cloud chips</span>
+			<button type="button" data-chip-pick="tint" aria-pressed="true">Tinted</button>
+			<button type="button" data-chip-pick="text" aria-pressed="false">White + colour text</button>
+			<button type="button" data-chip-pick="edge" aria-pressed="false">White + edge</button>
+		</div>
+
 		<div class="page-ctl" role="group" aria-label="ThingsBoard label" data-conn-label-switch>
 			<span class="page-ctl__name">ThingsBoard label</span>
 			<button type="button" data-conn-label-pick="off" aria-pressed="true">Hidden</button>
@@ -556,14 +568,14 @@ const COMPACT_ROWS = [
 		    already in here". Names and accents come from CONNECT_ROUTES, so the two cuts cannot
 		    disagree about what is supported or what colour a route is. */
 		}
-		<FeatureRow visual={KEY_VISUALS[5]} note="the cloud, in the homepage strip">
+		<FeatureRow visual={{ ...KEY_VISUALS[5], bodyHtml: CONNECT_BODY_HTML }} note="the cloud — its copy IS its legend">
 			<ConnectCloud />
 		</FeatureRow>
 
 		<figure class="stage" data-w="full">
 			<figcaption class="stage__cap">
 				<span class="stage__name">ConnectCloud · 525px</span>
-				<span class="stage__note">variant · the home row at 1440 · legend is this cut's own addition</span>
+				<span class="stage__note">variant · the home row at 1440</span>
 			</figcaption>
 			<div class="stage__frame stage__frame--plain">
 				<div class="probe" style="--probe: 525px">
@@ -970,6 +982,37 @@ const COMPACT_ROWS = [
 				show(id);
 				try {
 					localStorage.setItem(TAB_KEY, id);
+				} catch {
+					/* ignore */
+				}
+			})
+		);
+	});
+
+	// The cloud's chip coding. Drives `data-chip` on every ConnectCloud in the panel, which is the
+	// same attribute the component's own prop sets — so the sandbox and a real page cannot disagree
+	// about what a value means.
+	const CHIP_KEY = 'launch-visuals:chip';
+	document.querySelectorAll<HTMLElement>('[data-chip-switch]').forEach((group) => {
+		const picks = Array.from(group.querySelectorAll<HTMLButtonElement>('[data-chip-pick]'));
+		const clouds = Array.from(document.querySelectorAll<HTMLElement>('[data-page-panel="connect"] .cl'));
+		const apply = (value: string) => {
+			clouds.forEach((c) => c.setAttribute('data-chip', value));
+			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.chipPick === value)));
+		};
+		let saved: string | null = null;
+		try {
+			saved = localStorage.getItem(CHIP_KEY);
+		} catch {
+			/* private mode; fine */
+		}
+		if (saved) apply(saved);
+		picks.forEach((b) =>
+			b.addEventListener('click', () => {
+				const value = b.dataset.chipPick ?? 'tint';
+				apply(value);
+				try {
+					localStorage.setItem(CHIP_KEY, value);
 				} catch {
 					/* ignore */
 				}
