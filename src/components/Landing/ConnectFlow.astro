@@ -91,15 +91,31 @@ if (split && (groups.length < 2 || groups.length % 2 !== 0)) {
 // The middle band was the largest dead area in the wide arrangement: 88 + 152 + 88 = 328 units, a
 // quarter of the composition, holding a 72-unit badge and some hairlines. It is now 238.
 //
-// The node column is sized to the widest thing in it, which is the LABEL and not the badge — the
-// label's ink measures 90.1 units, so 94 holds it with a unit of air either side. Sizing it to the
-// badge instead would let the label overhang the composition's own edge; sizing it loosely, as 104
-// did, leaves trailing space that no ink reaches and tips the whole stacked composition 7 units off
-// the centre of its box. The gutters take what the curves need and nothing more.
+// The node column is the badge plus three units of air either side. It used to be sized to the
+// LABEL instead — 90.1 units of ink in a 94-unit column — because the badge was smaller than the
+// word under it; at 104 the badge is the wider of the two and takes the column back. The label
+// still fits inside it, which is the constraint that matters: a column narrower than the label
+// would let the label overhang the composition's own edge whenever it is switched on.
 //
-// This is why the stacked arrangement is 630 units rather than the 704 it started at, which buys
-// back most of what the wider route column cost phone-width type.
-const COL = { groups: 464, gut: 72, node: 94 };
+// The route column is 384 because the widest row measures 381.9 — the platform row — leaving two
+// units for a font that renders a shade wider. It was 464 while that row read "Google Pub/Sub";
+// dropping the vendor took 80 units out of the column and therefore out of every phone this is
+// read on. Measured with the chips at their current 6-unit gap: close them further, or open them,
+// and this number moves with them.
+//
+// The gutter is 48 rather than 72 because the bundle no longer has to separate itself over the run
+// — see `bundle` below, which lands the outer two on the badge's top and bottom faces instead.
+//
+// Which is why the stacked arrangement is 542 units rather than the 704 it started at. Native
+// width is the single biggest lever on phone-width type: at 542 a 367px column gives a unit of
+// 0.68 where 630 gave 0.58, and every label in the composition is 16% larger for it.
+//
+// Sixteen of those units are the bigger badge, and that is the one place this composition spends
+// width on something other than type. It was worth taking from the gutter instead — but the gutter
+// is what the elbows bend in, and below about 44 units the inner curves have to turn 31 units of
+// rise in 27 of run once the straight tail before each head is taken out. A cramped elbow is a
+// worse trade than three per cent of unit.
+const COL = { groups: 384, gut: 48, node: 110 };
 
 // Fixed card geometry, so the curve endpoints are known numbers rather than something measured
 // after layout.
@@ -109,9 +125,10 @@ const COL = { groups: 464, gut: 72, node: 94 };
 // noticeably longer one, would wrap and overflow this box. Raise it with the names, or widen the
 // column — the width each row actually needs was measured, and the widest has room to spare.
 const CARD_H = 80;
-const CARD_GAP = 14;
-// The badge's side. The node column is the badge plus the air either side of it.
-const BADGE = 72;
+const CARD_GAP = 10;
+// The badge's side. The node column is this plus three units of air either side, so growing it
+// grows the composition — see the note on COL for why that was the right way round.
+const BADGE = 104;
 
 // How far a connector runs to reach the badge, measured from the cards' edge.
 //
@@ -128,16 +145,94 @@ const NATIVE_SPLIT = COL.groups * 2 + COL.gut * 2 + COL.node;
 const bodyH = (n: number) => n * CARD_H + (n - 1) * CARD_GAP;
 const centres = (n: number) => Array.from({ length: n }, (_, i) => CARD_H / 2 + i * (CARD_H + CARD_GAP));
 
-// Control points on the run's midpoint, so every curve leaves its card flat and arrives at the
-// badge flat, and the several gather into a bundle instead of crossing.
+// The split layout's mirrored connectors still converge on one point, so they keep the original
+// midpoint control. The stacked bundle fans instead — see `bundle` below.
 const BEND = JOIN / 2;
 // An open chevron. Its apex sits on the badge's edge; `stroke-linejoin: round` puts the join's
 // overshoot under the badge, which paints above the connectors, so the tip cannot show a seam.
-const HEAD = 6;
+// Seven by five rather than six by four: a chevron has to survive the phone, where a unit is about
+// two thirds of a pixel and the whole mark is four pixels of ink.
+const HEAD = 7;
+const WING = 5;
 
-/** Left to right: leaves a card's right edge at `cy`, arrives on the badge's left edge at `mid`. */
-const rightward = (cy: number, mid: number) => `M 0,${cy} C ${BEND},${cy} ${BEND},${mid} ${JOIN},${mid}`;
-const rightHead = (mid: number) => `M ${JOIN - HEAD},${mid - 4} L ${JOIN},${mid} L ${JOIN - HEAD},${mid + 4}`;
+/**
+ * The bundle lands on three faces of the badge, not on one point of it.
+ *
+ * Four curves converging on a single spot need a long run to separate before they arrive, and that
+ * run was the gutter — 72 units of it, most of which existed so the arrows would not overlap in
+ * their last few units. Giving the outer two the badge's TOP and BOTTOM faces and the inner ones
+ * its left edge separates them by geometry instead, which is what lets the gutter come down to 48
+ * and the badge sit that much closer to the routes it belongs to.
+ *
+ * It also reads better: a thing being arrived at from three sides looks like a hub, where four
+ * lines into one point looks like a cable gland.
+ */
+const SPAN = JOIN + BADGE / 2;
+
+/**
+ * A straight run before every arrowhead.
+ *
+ * The chevron is drawn at the endpoint, and an endpoint on a curve still has curvature — so the two
+ * strokes of the head sat on a line that was itself bending away from them, and at phone size that
+ * reads as a thickening rather than as an arrow. Ten units of straight line is enough to seat a
+ * seven-unit head with room either side, and short enough that the curve still looks like a curve.
+ */
+const TAIL = 10;
+
+/**
+ * Where the second control point sits, as a fraction of the distance the curve still has to travel.
+ *
+ * Half. The first control point is half the run out from the start and the second is half the rise
+ * back from the end, so both ends of the elbow are eased by the same amount and the bend sits in
+ * the middle of the turn. The outer curves were previously controlled from a fixed 32 units, which
+ * is a different fraction of a different distance for each of them — so no two elbows matched.
+ */
+const EASE = 0.5;
+/**
+ * Where the inner curves sit on the left edge, measured from the badge's middle.
+ *
+ * Bounded by the squircle: at a 32% radius an 88-unit badge is straight down the middle 32 units of
+ * its edge, so anything past 16 would put an arrowhead on the curve of a corner.
+ */
+const INNER = 14;
+
+/** Left to right: leaves a card's right edge at `cy`, arrives on the badge's left edge at `y`. */
+const rightward = (cy: number, y: number) => {
+	const turn = JOIN - TAIL;
+	const b = turn * EASE;
+	return `M 0,${cy} C ${b},${cy} ${b},${y} ${turn},${y} L ${JOIN},${y}`;
+};
+const rightHead = (y: number) => `M ${JOIN - HEAD},${y - WING} L ${JOIN},${y} L ${JOIN - HEAD},${y + WING}`;
+
+/** Down onto the badge's top face, or up onto its bottom: `dir` is -1 for the top, +1 for the bottom. */
+const onto = (cy: number, mid: number, dir: -1 | 1) => {
+	const y = mid + dir * (BADGE / 2);
+	// Where the straight run begins: back up the way the curve came, which is above a top face and
+	// below a bottom one.
+	const turn = y + dir * TAIL;
+	const rise = Math.abs(turn - cy) * EASE;
+	return `M 0,${cy} C ${SPAN * EASE},${cy} ${SPAN},${turn + dir * rise} ${SPAN},${turn} L ${SPAN},${y}`;
+};
+const ontoHead = (mid: number, dir: -1 | 1) => {
+	const y = mid + dir * (BADGE / 2);
+	return `M ${SPAN - WING},${y + dir * HEAD} L ${SPAN},${y} L ${SPAN + WING},${y + dir * HEAD}`;
+};
+
+/**
+ * Where each route's curve ends, given how many there are.
+ *
+ * First on the top face, last on the bottom, everything between spread down the left edge. Two
+ * routes get top and bottom and no left edge at all; one gets the left edge and no faces.
+ */
+function bundle(n: number, mid: number) {
+	return Array.from({ length: n }, (_, i) => {
+		if (n > 1 && i === 0) return { face: -1 as const };
+		if (n > 1 && i === n - 1) return { face: 1 as const };
+		const inner = n - 2;
+		const k = inner === 1 ? 0 : (i - 1) / (inner - 1) - 0.5;
+		return { face: 0 as const, y: mid + k * 2 * INNER };
+	});
+}
 
 /** Mirrored: leaves a card's left edge at `cy`, arrives on the badge's right edge at `mid`. */
 const leftward = (cy: number, mid: number) => `M ${JOIN},${cy} C ${BEND},${cy} ${BEND},${mid} 0,${mid}`;
@@ -173,6 +268,7 @@ const vars = [
 	`--conn-col-gut: ${COL.gut}`,
 	`--conn-col-node: ${COL.node}`,
 	`--conn-join: ${JOIN}`,
+	`--conn-span: ${SPAN}`,
 	`--conn-card-h: ${CARD_H}`,
 	`--conn-card-gap: ${CARD_GAP}`,
 	`--conn-badge: ${BADGE}`,
@@ -211,9 +307,30 @@ const vars = [
 		    container is too narrow for the wide arrangement, where the two sides regroup into one
 		    column and this gathers all of them. */
 		}
-		<svg class="conn__gut conn__gut--stack" viewBox={`0 0 ${JOIN} ${STACK_H}`} aria-hidden="true">
-			{centres(groups.length).map((cy) => <path class="conn__curve" d={rightward(cy, STACK_MID)} />)}
-			<path class="conn__head" d={rightHead(STACK_MID)}></path>
+		<svg class="conn__gut conn__gut--stack" viewBox={`0 0 ${SPAN} ${STACK_H}`} aria-hidden="true">
+			{
+				centres(groups.length).map((cy, i) => {
+					const end = bundle(groups.length, STACK_MID)[i];
+					return end.face === 0 ? (
+						<path class="conn__curve" d={rightward(cy, end.y)} />
+					) : (
+						<path class="conn__curve" d={onto(cy, STACK_MID, end.face)} />
+					);
+				})
+			}
+			{
+				/* Heads are drawn after every curve, so a head is never crossed by a line that arrives
+			    after it. Each face gets one, and the left edge one per curve that lands on it. */
+			}
+			{
+				bundle(groups.length, STACK_MID).map((end) =>
+					end.face === 0 ? (
+						<path class="conn__head" d={rightHead(end.y)} />
+					) : (
+						<path class="conn__head" d={ontoHead(STACK_MID, end.face)} />
+					)
+				)
+			}
 		</svg>
 
 		{
@@ -345,9 +462,17 @@ const vars = [
 		grid-area: 2 / 1;
 	}
 
+	// Wider than its own track, and further over the badge than the split connectors go: this one
+	// draws ONTO the badge's top and bottom faces, so its box has to reach the badge's centre line.
+	// Safe for the same reason the original overhang was — every track is a definite length, so an
+	// oversized item cannot resize one — and the node is painted after, which is what buries the
+	// last few units of each curve under the squircle instead of letting them cross it.
 	.conn__gut--stack {
 		grid-column: 2;
 		grid-row: 1 / -1;
+		// Through a property rather than a `width` of its own: `.conn__gut` below scores the same and
+		// is declared later, so a width here would lose on source order alone.
+		--conn-gut-w: var(--conn-span);
 	}
 
 	.conn__node {
@@ -500,7 +625,7 @@ const vars = [
 	.conn__names {
 		display: flex;
 		flex-wrap: wrap;
-		gap: u(8);
+		gap: u(6);
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -508,7 +633,7 @@ const vars = [
 		li {
 			padding: u(6) u(12);
 			border-radius: u(var(--flow-radius, 8));
-			font-family: $font-family-mono;
+			font-family: var(--flow-font-mono, #{$font-family-mono});
 			font-size: u(17);
 			font-weight: $font-weight-bold;
 			line-height: u(24);
@@ -526,7 +651,7 @@ const vars = [
 	// overflow into the node column is safe because every track is a definite length. The viewBox
 	// matches the rendered box on both axes, so the curves scale without skewing.
 	.conn__gut {
-		width: u(var(--conn-join));
+		width: u(var(--conn-gut-w, var(--conn-join)));
 		// Not optional. A global reset gives every svg on this page `max-width: 100%`, and 100% here
 		// is the GUTTER TRACK — so the box was capped at 88 units while its viewBox was 128 wide, and
 		// `preserveAspectRatio` then quietly scaled the entire drawing to 0.66 and letterboxed it.
@@ -579,7 +704,9 @@ const vars = [
 		justify-content: center;
 		width: u(var(--conn-badge));
 		height: u(var(--conn-badge));
-		padding: u(14);
+		// The mark takes 72 of the badge's 104 units — 69%, which is the proportion it held at 88
+		// units with 14 of padding. The tile got bigger; the balance inside it did not change.
+		padding: u(16);
 		// 32%, as a percentage rather than a calc: the page has several squircles at several sizes,
 		// and a percentage is the one way to say "same rounding" without saying "same radius".
 		border-radius: 32%;

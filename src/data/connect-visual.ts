@@ -78,7 +78,7 @@ export const CONNECT_GROUPS: ConnectGroup[] = [
  * inside the IoT Creators integration).
  *
  * Names are a PRIORITISED SUBSET, not the full lists — the gateway alone has fifteen connectors and
- * platform integrations thirty, which no phone-width card can hold. Each route shows the names a
+ * platform integrations twenty-eight, which no phone-width card can hold. Each route shows the names a
  * reader is most likely to be scanning for, and the count is capped so the widest row still fits on
  * one line. The claim the visual makes is "your thing is probably here", and a short list of
  * recognised names makes that better than a long list of unrecognised ones.
@@ -110,15 +110,15 @@ export const CONNECT_ROUTES: ConnectGroup[] = [
 	{
 		category: 'Platform integrations',
 		accent: '#1f9d55',
-		// Four of thirty. Google is spelled out rather than left as "Pub/Sub": beside AWS and Azure,
-		// a missing third hyperscaler reads as "not supported" rather than as merely absent, and a
-		// false negative about support is the worst error this visual can make.
+		// Four of twenty-eight. "Pub/Sub" rather than "Google Pub/Sub": the vendor was spelled out so that
+		// a missing third hyperscaler beside AWS and Azure could not read as "not supported", but
+		// this row's own caption is "Platform integrations" and Pub/Sub is not a name anyone meets
+		// outside Google Cloud — the context carries what the word was doing.
 		//
-		// It is also the most expensive name here, and the lever if that judgement is revisited.
-		// This is the widest row, so it alone sets the route column at 464 units; shortening it to
-		// "Pub/Sub" would bring the column to about 400 and the whole composition from 704 units to
-		// 640, which on a 343px phone column is the difference between 8.3px chips and 9.2px. Every
-		// other name is far inside the limit, so nothing else moves the number.
-		names: ['AWS IoT', 'Azure IoT', 'Google Pub/Sub', 'Kafka'],
+		// It was also the most expensive name here. This is the widest row, so it alone sets the
+		// route column; dropping "Google" takes about 50 units off the composition, which is 50
+		// units of width every other route gets to keep at phone size. Every other name is far
+		// inside the limit, so nothing else moves the number.
+		names: ['AWS IoT', 'Azure IoT', 'Pub/Sub', 'Kafka'],
 	},
 ];
