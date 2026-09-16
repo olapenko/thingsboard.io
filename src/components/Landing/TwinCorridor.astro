@@ -127,11 +127,18 @@ const TAU = Math.PI * 2;
 const STEP_H = 0.5;
 const STEPS = TWIN_HISTORY.hours / STEP_H;
 
+// The window is the last 24 hours, so it ends NOW rather than at midnight — and where in the
+// compressor's cycle "now" falls decides what the power row says. Starting an hour in is the
+// nearest offset that ends mid-run, so the value reads 2.4 kW instead of the 0.3 kW standing load,
+// and the temperature lands at -18.7, inside the loop the reading ticks through. Four runs across
+// the day either way.
+const START_H = 1;
+
 const bump = (t: number) => Math.pow(Math.max(0, Math.sin((TAU * t) / 6)), 6);
 const tempAt = (t: number) =>
 	-18.3 + 0.9 * Math.sin((TAU * t) / 9 + 0.6) + 0.3 * Math.sin((TAU * t) / 2.3) + 1.1 * bump(t);
 
-const SERIES = Array.from({ length: STEPS + 1 }, (_, i) => Math.round(tempAt(i * STEP_H) * 100) / 100);
+const SERIES = Array.from({ length: STEPS + 1 }, (_, i) => Math.round(tempAt(START_H + i * STEP_H) * 100) / 100);
 
 /**
  * The compressor runs while the box is getting colder — that is what makes it colder — and it is
@@ -154,7 +161,7 @@ const RUNNING = Array.from({ length: STEPS }, (_, i) => smooth(i + 1) < smooth(i
 
 /** Standing load — fans, lights, controls — plus the compressor when it is on. */
 const IDLE_KW = 0.35;
-const RUN_KW = 2.3;
+const RUN_KW = 2.4;
 const POWER = Array.from({ length: STEPS + 1 }, (_, i) => {
 	const on = RUNNING[Math.min(i, STEPS - 1)];
 	return Math.round(((on ? RUN_KW : IDLE_KW) + 0.05 * Math.sin(i * 1.7)) * 100) / 100;
@@ -166,7 +173,7 @@ const POWER = Array.from({ length: STEPS + 1 }, (_, i) => {
  * is why this takes every other one.
  */
 const DOOR_OPEN = Array.from({ length: STEPS }, (_, i) => {
-	const t = i * STEP_H;
+	const t = START_H + i * STEP_H;
 	return bump(t) > 0.55 && Math.floor(t / 6) % 2 === 1;
 });
 
@@ -184,8 +191,8 @@ const spans = (flags: boolean[]) => {
 
 const DOOR_SPANS = spans(DOOR_OPEN);
 
-const CHART_H = 38;
-const BAND_H = 14;
+const CHART_H = 30;
+const BAND_H = 12;
 
 const TEMP_VIEW = { w: 100, h: CHART_H, pad: 0 };
 const temp = sparkPaths(SERIES, TWIN_HISTORY.domain, TEMP_VIEW);
@@ -221,37 +228,47 @@ const UNIT_HEAD_H = 46;
 const UNIT_ROW_H = 38;
 const UNIT_H = UNIT_HEAD_H + UNIT.devices.length * UNIT_ROW_H;
 
-// The zone frame, when the unit is nested one level deeper. Tighter than the site frame around it:
-// a second frame at the same padding reads as two boxes rather than as containment.
-const ZONE_PAD = 8;
+// The twin's header: the path, a clear gap, then the name. The name sits in a band the size of the
+// unit's own head — 12 + 22 + 12 — so the two cards are headed alike, with the path as the one
+// thing the twin has and the unit does not.
+const TWIN_HEAD_H = 80;
+
+// The zone frame, when the unit is nested one level deeper. It runs from below the telemetry line
+// all the way to the frame's bottom padding, so the commands connector and its name are INSIDE the
+// zone rather than under it — the arrow is in the room it is addressing.
+const ZONE_TOP = 88;
+const ZONE_PAD = 12;
 const ZONE_HEAD = 18;
 const ZONE_GAP = 4;
-const ZONE_H = ZONE_PAD * 2 + ZONE_HEAD + ZONE_GAP + UNIT_H;
+const ZONE_H = BODY - FRAME_PAD - ZONE_TOP;
 
 // The height budget, top to bottom: padding, the site's name, the telemetry corridor, the unit (or
 // the zone frame holding it), the commands corridor, padding. Whatever the block in the middle
 // takes, the corridors get the rest — which is why the unit holds three devices and not four.
-const BLOCK_H = zone ? ZONE_H : UNIT_H;
-const INNER_TOP = FRAME_PAD + HEAD_H;
-const CORRIDOR = (BODY - FRAME_PAD * 2 - HEAD_H - BLOCK_H) / 2;
-
-const BLOCK_TOP = INNER_TOP + CORRIDOR;
-const UNIT_TOP = BLOCK_TOP + (zone ? ZONE_PAD + ZONE_HEAD + ZONE_GAP : 0);
+const TOP_CORRIDOR = 70;
+const UNIT_TOP = zone ? ZONE_TOP + ZONE_PAD + ZONE_HEAD + ZONE_GAP : FRAME_PAD + HEAD_H + TOP_CORRIDOR;
 const UNIT_BOT = UNIT_TOP + UNIT_H;
-const BLOCK_BOT = BLOCK_TOP + BLOCK_H;
-const UNIT_GAP = BLOCK_TOP - INNER_TOP;
+const BLOCK_GAP = (zone ? ZONE_TOP : UNIT_TOP) - FRAME_PAD - HEAD_H;
 
-// The two flat runs. The telemetry run is set by where it has to LAND — just under the twin's
-// header band, on the first row of readings — and everything on the left hangs below it with room
-// for the corner. Nested, the risers cross the zone frame's own border on the way: the unit is what
-// talks, not the room it stands in, so they start and end on the unit's edges either way.
-const UP_Y = 70;
-const DOWN_Y = Math.round((BLOCK_BOT + BODY - FRAME_PAD) / 2);
+// The telemetry run lands on the twin's header band, at its lower edge: the line points at what the
+// card IS before it points at what the card reads. Everything on the left hangs below it with room
+// for the corner, and nested, the riser crosses the zone's own border on the way — the unit is what
+// talks, not the room it stands in, so both ends sit on the unit's edges either way.
+const UP_Y = TWIN_HEAD_H;
+const DOWN_Y = UNIT_BOT + (zone ? 14 : 22);
+
+// Far enough from its run to read as a caption rather than as part of the line. Nested, the
+// commands name sits inside the zone and has its floor to clear as well, so it rides closer.
+const LABEL_GAP = zone ? 16 : 22;
 
 // Both risers stand on the unit's centre line. Collinear on purpose — one above the card and one
 // below it, so the pair reads as a single axis the unit sits on rather than as two stray lines.
 const UNIT_X = FRAME_PAD + (COL.site - FRAME_PAD * 2) / 2;
 const TWIN_X = COL.site + COL.gut;
+
+// Halfway between the unit's centre line and the frame's edge, so a name sits over its own run
+// rather than over the card it came from.
+const LABEL_X = (UNIT_X + COL.site) / 2;
 
 const R = 12; // corner radius
 const HEAD = 8;
@@ -282,9 +299,9 @@ const CARD_PAD_B = 14;
  * colour — for the door, which is the one that is a state rather than a measurement.
  */
 const ROWS = [
-	{ key: 'temperature', value: attr('temperature'), h: 94, kind: 'spline', accent: '#0e7490' },
-	{ key: 'power', value: `${POWER[POWER.length - 1].toFixed(1)} kW`, h: 94, kind: 'steps', accent: '#b45309' },
-	{ key: 'door', value: attr('door'), h: 70, kind: 'band', accent: '#7b3fe4' },
+	{ key: 'temperature', value: attr('temperature'), h: 90, kind: 'spline', accent: '#0e7490' },
+	{ key: 'power', value: `${POWER[POWER.length - 1].toFixed(1)} kW`, h: 90, kind: 'steps', accent: '#b45309' },
+	{ key: 'door', value: attr('door'), h: 64, kind: 'band', accent: '#7b3fe4' },
 ];
 
 /** As a share of the body's box, so a name tracks the drawing and not the grid. */
@@ -299,10 +316,12 @@ const vars = [
 	`--tc-body: ${BODY}`,
 	`--tc-pad: ${FRAME_PAD}`,
 	`--tc-head: ${HEAD_H}`,
-	`--tc-block-gap: ${UNIT_GAP}`,
+	`--tc-block-gap: ${BLOCK_GAP}`,
 	`--tc-zone-gap: ${ZONE_GAP}`,
 	`--tc-zone-pad: ${ZONE_PAD}`,
 	`--tc-zone-head: ${ZONE_HEAD}`,
+	`--tc-zone-h: ${ZONE_H}`,
+	`--tc-twin-head: ${TWIN_HEAD_H}`,
 	`--tc-unit-h: ${UNIT_H}`,
 	`--tc-chart-h: ${CHART_H}`,
 	`--tc-band-h: ${BAND_H}`,
@@ -325,7 +344,7 @@ const vars = [
 			    padding — it is the corridor the telemetry runs through, which is the whole trade
 			    this candidate makes. */
 			}
-			<div class="tc__site">
+			<div class:list={['tc__site', zone && 'tc__site--open']}>
 				<p class="tc__site-name">
 					<Icon name={SITE.icon} aria-hidden="true" />
 					<span>{SITE.name}</span>
@@ -418,8 +437,8 @@ const vars = [
 				<path class="tc__wire tc__wire--head" d={wires.downHead}></path>
 			</svg>
 
-			<span class="tc__flow-name" style={at(196, 52)}>{telemetry?.label}</span>
-			<span class="tc__flow-name" style={at(196, 312)}>{commands?.label}</span>
+			<span class="tc__flow-name" style={at(LABEL_X, UP_Y - LABEL_GAP)}>{telemetry?.label}</span>
+			<span class="tc__flow-name" style={at(LABEL_X, DOWN_Y + LABEL_GAP)}>{commands?.label}</span>
 		</div>
 	</div>
 </div>
@@ -513,6 +532,13 @@ const vars = [
 
 	// --- the site frame -------------------------------------------------------------
 
+	// With a zone inside it the fill goes: two filled areas, one inside the other, read as two
+	// surfaces rather than as containment. The outline and its name are enough to say "warehouse",
+	// and the striped zone is then the only thing with a texture.
+	.tc__site--open {
+		background: none;
+	}
+
 	.tc__site {
 		grid-column: 1;
 		padding: u(var(--tc-pad));
@@ -557,11 +583,20 @@ const vars = [
 	// One level deeper, and quieter than the site frame it sits in: no fill of its own, a dashed
 	// hairline, and tighter padding. A second solid box at the same weight reads as two rooms side
 	// by side rather than one inside the other.
+	// Hatched rather than filled, and it runs to the frame's bottom padding: a zone is an AREA of
+	// the warehouse floor, not another card. The stripes are drawn in design units, so they scale
+	// with everything else — a gradient in pixels would be one more thing that does not.
 	.tc__zone {
+		height: u(var(--tc-zone-h));
 		margin-top: u(var(--tc-block-gap));
 		padding: u(var(--tc-zone-pad));
-		border: 1px dashed var(--color-border-strong, #d5d7dd);
+		border: 1px solid var(--color-border, #ebebeb);
 		border-radius: u(var(--flow-radius, 8));
+		background: repeating-linear-gradient(
+			45deg,
+			transparent 0 #{u(6)},
+			var(--color-border-strong, #d5d7dd) #{u(6)} #{u(7.5)}
+		);
 	}
 
 	.tc__zone-name {
@@ -602,11 +637,14 @@ const vars = [
 		line-height: u(22);
 	}
 
+	// Size and line height matched to the twin's rows, but the MEDIUM weight kept: these sit on the
+	// dark surface, where the twin's keys sit on white, and dropping them to normal took the
+	// substance out of the card that is meant to be the solid object in the picture.
 	.tc :global(.unit__list li) {
 		gap: u(10);
 		padding: u(8) u(16);
 		font-size: u(14);
-		font-weight: $font-weight-normal;
+		font-weight: $font-weight-medium;
 		line-height: u(22);
 	}
 
@@ -623,7 +661,10 @@ const vars = [
 		overflow: hidden;
 		flex-direction: column;
 		height: u(var(--tc-body));
-		padding-bottom: u(var(--tc-card-pad-b));
+		// Less its own 2px of border, which `box-sizing: border-box` takes out of the content box:
+		// the rows add up to exactly the card's height, so without this the last one is pushed 2px
+		// past the bottom. Spent here because padding is the one place nothing is drawn.
+		padding-bottom: calc(#{u(var(--tc-card-pad-b))} - 2px);
 		border: 1px solid var(--color-border, #ebebeb);
 		border-radius: u(var(--flow-radius, 8));
 		background: var(--color-bg-surface, #fff);
@@ -632,17 +673,16 @@ const vars = [
 	.tc__head {
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
-		height: u(66);
-		padding: 0 u(16);
+		height: u(var(--tc-twin-head));
+		padding: u(12) u(16) u(14);
 		background: var(--color-bg-light, #f7f9fc);
 	}
 
 	// Quieter than the name under it: it is where the object is, not what it is.
 	.tc__path {
-		margin: 0;
+		margin: 0 0 u(14);
 		font-size: u(14);
-		line-height: u(20);
+		line-height: u(18);
 		white-space: nowrap;
 		color: var(--color-text-secondary, #5b616e);
 	}
