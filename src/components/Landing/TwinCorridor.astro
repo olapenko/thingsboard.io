@@ -579,11 +579,13 @@ const vars = [
 	// Drawn in design units, so it scales with everything else — a gradient in pixels would be one
 	// more thing that does not.
 	@mixin hatch {
-		background: repeating-linear-gradient(
-			45deg,
-			var(--color-border, #ebebeb) 0 #{u(12)},
-			transparent #{u(12)} #{u(20)}
-		);
+		background: repeating-linear-gradient(45deg, var(--tc-shade) 0 #{u(12)}, transparent #{u(12)} #{u(20)});
+	}
+
+	// Inverted on dark, where darkening a dark surface does nothing. Not a viewport query — the rule
+	// against those is about a visual not knowing how wide the page is; it knows its own palette.
+	:global([data-theme='dark']) .tc {
+		--tc-shade: rgba(255, 255, 255, 0.08);
 	}
 
 	.tc-fit {
@@ -592,6 +594,12 @@ const vars = [
 
 	.tc {
 		--u: var(--tc-u);
+		// The site's marking is a SHADE, not a colour: it darkens whatever is behind it instead of
+		// painting a grey on top. `--color-border` is hsl(0, 0%, 92%) — a pure neutral — and the row
+		// this sits in is hsl(234, 100%, 98%), so the two were 234 degrees apart and the hatch read as
+		// dirty against the tint. At 0.06 over that row this resolves to hsl(234, 25%, 92%): the same
+		// lightness as the grey it replaces, and the background's own hue, which no tint can fight.
+		--tc-shade: rgba(0, 0, 0, 0.06);
 		// TwinUnit reads this one; it is the family's unit under its family name.
 		--flow-u: var(--tc-u);
 		display: grid;
@@ -647,7 +655,7 @@ const vars = [
 		// of the two edges, and the building stopped containing the room. Pixels, like every border
 		// here, so it does not scale — which is why the zone's height and the wire layer's nudge are
 		// both written in terms of it rather than repeating the number.
-		border: var(--tc-stroke) solid var(--color-border, #ebebeb);
+		border: var(--tc-stroke) solid var(--tc-shade);
 		// The cards' own radius, so the frame is one more card and not a different kind of shape.
 		border-radius: u(var(--flow-radius, 8));
 	}
@@ -786,13 +794,21 @@ const vars = [
 		overflow: hidden;
 		flex-direction: column;
 		height: u(var(--tc-body));
-		// Less its own 2px of border, which `box-sizing: border-box` takes out of the content box:
-		// the rows add up to exactly the card's height, so without this the last one is pushed 2px
-		// past the bottom. Spent here because padding is the one place nothing is drawn.
-		padding-bottom: calc(#{u(var(--tc-card-pad-b))} - 2px);
-		border: 1px solid var(--color-border, #ebebeb);
+		// No border to subtract any more: the rows add up to exactly this height, and with the outline
+		// gone the content box is the whole of it.
+		padding-bottom: u(var(--tc-card-pad-b));
 		border-radius: u(var(--flow-radius, 8));
 		background: var(--color-bg-surface, #fff);
+		// A surface, not an outline. A hairline on a white card standing on a tinted row is the
+		// weakest way to say "this is a plane"; a shadow says it without adding a grey line.
+		//
+		// Shallow on purpose. The unit is the one solid OBJECT in the picture and keeps the family's
+		// deep two-layer shadow; this is a UI surface lifted slightly off the page, at roughly a third
+		// of that depth. Give them the same shadow and the composition's whole argument — the world is
+		// a thing, the twin is the platform's model of it — collapses into two cards.
+		box-shadow:
+			0 1px 2px rgba(16, 24, 40, 0.04),
+			0 #{u(5)} #{u(12)} #{u(-6)} rgba(16, 24, 40, 0.1);
 	}
 
 	.tc__head {
