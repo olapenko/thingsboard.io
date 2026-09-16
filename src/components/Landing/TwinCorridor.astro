@@ -2,7 +2,7 @@
 import { Icon } from 'astro-icon/components';
 import TwinUnit from '@components/Landing/TwinUnit.astro';
 import { DIGITAL_TWIN_STAGES, PHYSICAL_ASSET, TWIN, TWIN_FLOWS, TWIN_HISTORY } from '@data/digital-twin-visual';
-import { sparkPaths } from '@util/sparkline';
+import { segmentWidth, sparkPaths, sparkY } from '@util/sparkline';
 
 /**
  * The twin composition with the connectors moved overhead. A CANDIDATE beside `DigitalTwin`, which
@@ -18,7 +18,7 @@ import { sparkPaths } from '@util/sparkline';
  * space, and cross. The gutter then only has to be wide enough to be crossed: 96u -> 18u.
  *
  *     shipped    frame 242.7 | gutter 96 | twin 291.3     (measured)
- *     here       frame 289   | gutter 18 | twin 283
+ *     here       frame 258   | gutter 18 | twin 314
  *
  * Elbows, not the family's cubic curves. A curve is the right shape for a connector that leaves
  * and arrives horizontally; these leave vertically and arrive horizontally, and a 90-degree turn
@@ -27,22 +27,34 @@ import { sparkPaths } from '@util/sparkline';
  *
  * Both connectors attach to CARD EDGES — the unit's top and bottom, the twin's left — and never to
  * a row inside a card. The version this replaces computed its endpoints from row centres, so every
- * content change moved an arrow. Here the rows below were added without touching the drawing.
+ * content change moved an arrow. Here the card has been refilled twice without the drawing moving.
  *
- * --- the parity ----------------------------------------------------------------------------
+ * --- what the twin says ----------------------------------------------------------------------
+ *
+ * The path sits ABOVE the name, as an address does: `Acme Inc > Warehouse 3 > Zone B`, then
+ * `CS-04 twin`. An earlier cut had the ancestors listed under the title, which reads backwards —
+ * the child first and its parents below it — and that inversion was most of why the hierarchy
+ * looked like metadata rather than structure.
  *
  * Three devices against three attributes, in the same order down both cards: temp probe against
- * temperature, compressor against compressor, door sensor against door. The order is the argument
- * — the twin is not a list of readings, it is the same object seen from the other side.
+ * temperature, power meter against power, door sensor against door. The order is the argument —
+ * the twin is not a list of readings, it is the same object seen from the other side.
  *
- * Each attribute carries its own history, and the form says what KIND of thing it is: temperature
- * is a measurement, so a line; compressor and door are states, so a segment band, which is how the
- * platform's own State chart draws `doorState` and the like.
+ * Each history takes the form of its kind, and the three shapes are deliberately unlike:
  *
- * The three histories are derived from ONE series so they cannot contradict each other. The
- * compressor runs while the temperature is falling — that is what makes it fall — and its duty
- * figure is counted off the band it draws, not typed in beside it. Two of the four warm excursions
- * have the door open across them; the other two are the defrost cycles the shared data describes.
+ *   temperature   a spline, because it is a continuous measurement
+ *   power         straight segments, because it switches — the plateaus ARE the compressor
+ *   door          a segment band, which is how the platform's State chart draws `doorState`
+ *
+ * The power meter carries the compressor rather than a row of its own. A cut that gave the
+ * compressor its own row had to show it as a duty cycle — 56 % over the day, one aggregate sitting
+ * between two instantaneous readings, and a figure no device ever sends. Power draw is what the
+ * meter actually reports, it is instantaneous like its neighbours, and because the compressor is
+ * on or off the trace plateaus: the duty cycle is visible without being computed.
+ *
+ * All three derive from ONE series, so they cannot contradict each other: power is high while the
+ * temperature falls, which is what makes it fall, and the door is open across two of the four warm
+ * excursions. The other two are the defrost cycles the shared data describes.
  *
  * Deliberately still, as the shipped visual is: only the temperature reading ticks. The flow
  * visual carries the page's motion.
@@ -53,21 +65,16 @@ import { sparkPaths } from '@util/sparkline';
 const SITE = { name: PHYSICAL_ASSET.path[0], icon: 'tabler:building-warehouse' };
 
 /**
- * The hierarchy the twin knows, root first. The frame on the left says where the unit physically
- * sits; this says the same thing as something the platform models, which is the difference the
- * copy beside the visual is promising.
+ * The hierarchy the twin knows, root first, as a path over the name. No glyphs: three icons in a
+ * row at this size read as decoration, and the separators already say it is a path.
  */
-const TREE = [
-	{ name: 'Acme Inc', icon: 'tabler:building' },
-	{ name: PHYSICAL_ASSET.path[0], icon: 'tabler:building-warehouse' },
-	{ name: PHYSICAL_ASSET.path[1], icon: 'tabler:map-pin' },
-];
+const PATH = ['Acme Inc', ...PHYSICAL_ASSET.path];
 
 /**
  * Three devices, in the twin's own row order. Picked by label rather than sliced, so the pairing
  * is stated here and a rename in the data file fails loudly instead of quietly shuffling the rows.
  */
-const DEVICE_ORDER = ['Temp probe', 'Compressor', 'Door sensor'];
+const DEVICE_ORDER = ['Temp probe', 'Power meter', 'Door sensor'];
 const UNIT = {
 	name: PHYSICAL_ASSET.name,
 	icon: PHYSICAL_ASSET.icon,
@@ -102,13 +109,12 @@ const tempAt = (t: number) =>
 const SERIES = Array.from({ length: STEPS + 1 }, (_, i) => Math.round(tempAt(i * STEP_H) * 100) / 100);
 
 /**
- * The compressor runs while the box is getting colder. Derived from the series rather than invented
- * beside it, so the band and the line cannot tell different stories: every stretch of solid is a
- * stretch where the temperature falls.
+ * The compressor runs while the box is getting colder — that is what makes it colder — and it is
+ * the compressor that the power meter is mostly measuring.
  *
  * Read off a 5-sample mean rather than the raw series, and that is a simplification worth naming. A
- * real thermostat clicks every half hour or so, and drawn honestly this band came out as 24 equal
- * stripes — a barcode, which is texture rather than a state. Smoothing past the fast wobble leaves
+ * real thermostat clicks every half hour or so, and drawn honestly this came out as two dozen equal
+ * pulses — a barcode, which is texture rather than a reading. Smoothing past the fast wobble leaves
  * the shape of the day: a handful of long runs, which is what the row is for.
  */
 const WINDOW = 5;
@@ -121,6 +127,14 @@ const smooth = (i: number) => {
 };
 const RUNNING = Array.from({ length: STEPS }, (_, i) => smooth(i + 1) < smooth(i));
 
+/** Standing load — fans, lights, controls — plus the compressor when it is on. */
+const IDLE_KW = 0.35;
+const RUN_KW = 2.3;
+const POWER = Array.from({ length: STEPS + 1 }, (_, i) => {
+	const on = RUNNING[Math.min(i, STEPS - 1)];
+	return Math.round(((on ? RUN_KW : IDLE_KW) + 0.05 * Math.sin(i * 1.7)) * 100) / 100;
+});
+
 /**
  * The door is open across the two largest warm excursions. `bump` peaks four times a day; two of
  * those are somebody opening the door and two are the defrost cycle the data file describes, which
@@ -130,9 +144,6 @@ const DOOR_OPEN = Array.from({ length: STEPS }, (_, i) => {
 	const t = i * STEP_H;
 	return bump(t) > 0.55 && Math.floor(t / 6) % 2 === 1;
 });
-
-/** Counted off the band, so the figure beside it and the picture under it agree by construction. */
-const DUTY = Math.round((RUNNING.filter(Boolean).length / STEPS) * 100);
 
 /** Contiguous runs of `true`, as percentages of the band's width. */
 const spans = (flags: boolean[]) => {
@@ -146,18 +157,30 @@ const spans = (flags: boolean[]) => {
 	return out;
 };
 
-const RUN_SPANS = spans(RUNNING);
 const DOOR_SPANS = spans(DOOR_OPEN);
 
-const SPARK_VIEW = { w: 100, h: 34, pad: 0 };
-const spark = sparkPaths(SERIES, TWIN_HISTORY.domain, SPARK_VIEW);
+const CHART_H = 48;
+const BAND_H = 14;
 
-const BAND_H = 20;
+const TEMP_VIEW = { w: 100, h: CHART_H, pad: 0 };
+const temp = sparkPaths(SERIES, TWIN_HISTORY.domain, TEMP_VIEW);
+
+// Straight segments rather than the spline the temperature uses. A Catmull-Rom curve through a
+// switching signal rounds every edge and overshoots after it, which would draw a compressor that
+// eases in and coasts out. It does neither.
+const POWER_VIEW = { w: 100, h: CHART_H, pad: 0 };
+const POWER_DOMAIN: [number, number] = [0, 3];
+const POWER_SEG = segmentWidth(POWER.length, POWER_VIEW);
+const powerPts = POWER.map((v, i) => `${(i * POWER_SEG).toFixed(2)},${sparkY(v, POWER_DOMAIN, POWER_VIEW).toFixed(2)}`);
+const power = {
+	line: `M ${powerPts.join(' L ')}`,
+	area: `M ${powerPts.join(' L ')} L ${POWER_VIEW.w},${POWER_VIEW.h} L 0,${POWER_VIEW.h} Z`,
+};
 
 // --- geometry -----------------------------------------------------------------------------
 
 const NATIVE = 590;
-const COL = { site: 289, gut: 18, twin: 283 };
+const COL = { site: 258, gut: 18, twin: 314 };
 
 // The shipped composition's body, measured in the browser at the sandbox row: 337.6u. Held, so the
 // two can be laid over each other and the footprint compared rather than argued.
@@ -174,15 +197,15 @@ const UNIT_H = UNIT_HEAD_H + UNIT.devices.length * UNIT_ROW_H;
 
 // The height budget, top to bottom: padding, the site's name, the telemetry corridor, the unit,
 // the commands corridor, padding. The unit takes what the corridors leave, which is why it holds
-// three devices and not four — a fourth row is 42u and the corridor above it is 40u.
-const UNIT_TOP = 76;
+// three devices and not four.
+const UNIT_TOP = 88;
 const UNIT_BOT = UNIT_TOP + UNIT_H;
 const UNIT_GAP = UNIT_TOP - FRAME_PAD - HEAD_H;
 
-// The two flat runs. Above: clear of the site's name by 14u. Below: 40u under the unit, which
-// leaves the commands name a band of its own before the frame's bottom padding.
-const UP_Y = 50;
-const DOWN_Y = 288;
+// The two flat runs. The telemetry run is set by where it has to LAND — just under the twin's
+// header band, on the first row of readings — and the unit hangs below it with room for the corner.
+const UP_Y = 70;
+const DOWN_Y = 296;
 
 // Both risers stand on the unit's centre line. Collinear on purpose — one above the card and one
 // below it, so the pair reads as a single axis the unit sits on rather than as two stray lines.
@@ -203,14 +226,15 @@ const wires = {
 };
 
 /**
- * The twin's height budget: 46 + 76 + 80 + 68 + 68 = 338, the frame's own height. Set here and
- * spent in the CSS below, so a row that outgrows its band shows as an overflow — something you can
- * see — rather than by quietly pushing the card past the frame.
+ * The twin's height budget: a 66u header, then 98 + 98 + 62 of rows, then 14u of padding under the
+ * last one — 338, the frame's own height. Set here and spent in the CSS below, so a row that
+ * outgrows its band shows as an overflow rather than by quietly pushing the card past the frame.
  */
+const CARD_PAD_B = 14;
 const ROWS = [
-	{ key: 'temperature', value: attr('temperature'), h: 80 },
-	{ key: 'compressor', value: `${DUTY} %`, h: 68 },
-	{ key: 'door', value: attr('door'), h: 68 },
+	{ key: 'temperature', value: attr('temperature'), h: 98, kind: 'spline' },
+	{ key: 'power', value: `${POWER[POWER.length - 1].toFixed(1)} kW`, h: 98, kind: 'steps' },
+	{ key: 'door', value: attr('door'), h: 62, kind: 'band' },
 ];
 
 /** As a share of the body's box, so a name tracks the drawing and not the grid. */
@@ -227,8 +251,9 @@ const vars = [
 	`--tc-head: ${HEAD_H}`,
 	`--tc-unit-gap: ${UNIT_GAP}`,
 	`--tc-unit-h: ${UNIT_H}`,
-	`--tc-spark-h: ${SPARK_VIEW.h}`,
+	`--tc-chart-h: ${CHART_H}`,
 	`--tc-band-h: ${BAND_H}`,
+	`--tc-card-pad-b: ${CARD_PAD_B}`,
 ].join(';');
 ---
 
@@ -255,25 +280,26 @@ const vars = [
 			{/* --- its twin ------------------------------------------------------------------ */}
 			<div class="tc__card">
 				<header class="tc__head">
-					<Icon name="tabler:box-model" aria-hidden="true" />
-					<span class="tc__name">{TWIN.name}</span>
+					{/* The address, over the name. Read down, it is the platform's own path to this object. */}
+					<p class="tc__path">
+						{
+							PATH.map((step, i) => (
+								<Fragment>
+									{i > 0 && (
+										<span class="tc__sep" aria-hidden="true">
+											›
+										</span>
+									)}
+									<span>{step}</span>
+								</Fragment>
+							))
+						}
+					</p>
+					<p class="tc__name">
+						<Icon name="tabler:box-model" aria-hidden="true" />
+						<span>{TWIN.name}</span>
+					</p>
 				</header>
-
-				{
-					/* The hierarchy, drawn rather than named: each level hangs off the one above on an
-				    elbow, so the picture shows a tree where the copy says "hierarchies". */
-				}
-				<ol class="tc__tree">
-					{
-						TREE.map((node, i) => (
-							<li class="tc__node" style={`--depth: ${i}`}>
-								{i > 0 && <i class="tc__branch" aria-hidden="true" />}
-								<Icon name={node.icon} aria-hidden="true" />
-								<span>{node.name}</span>
-							</li>
-						))
-					}
-				</ol>
 
 				<ul class="tc__attrs">
 					{
@@ -282,23 +308,20 @@ const vars = [
 								<span class="tc__k">{row.key}</span>
 								<span class="tc__v">{row.value}</span>
 
-								{row.key === 'temperature' ? (
-									<span class="tc__spark">
-										<svg viewBox={`0 0 ${SPARK_VIEW.w} ${SPARK_VIEW.h}`} preserveAspectRatio="none" aria-hidden="true">
-											<path class="tc__spark-area" d={spark.area} />
-											<path class="tc__spark-line" d={spark.line} />
-										</svg>
-									</span>
-								) : (
-									/* A state's history is a band of segments, not a line: the platform's own State
-								   chart draws `doorState` and the like this way, and a band keeps its meaning at a
-								   size where a square wave's pulses would disappear. */
+								{row.kind === 'band' ? (
 									<span class="tc__band">
 										<svg viewBox={`0 0 100 ${BAND_H}`} preserveAspectRatio="none" aria-hidden="true">
 											<rect class="tc__band-off" x="0" y="0" width="100" height={BAND_H} />
-											{(row.key === 'compressor' ? RUN_SPANS : DOOR_SPANS).map((s) => (
+											{DOOR_SPANS.map((s) => (
 												<rect class="tc__band-on" x={s.x} y="0" width={s.w} height={BAND_H} />
 											))}
+										</svg>
+									</span>
+								) : (
+									<span class="tc__chart">
+										<svg viewBox={`0 0 100 ${CHART_H}`} preserveAspectRatio="none" aria-hidden="true">
+											<path class="tc__chart-area" d={row.kind === 'steps' ? power.area : temp.area} />
+											<path class="tc__chart-line" d={row.kind === 'steps' ? power.line : temp.line} />
 										</svg>
 									</span>
 								)}
@@ -327,8 +350,8 @@ const vars = [
 				<path class="tc__wire tc__wire--head" d={wires.downHead}></path>
 			</svg>
 
-			<span class="tc__flow-name" style={at(230, 34)}>{telemetry?.label}</span>
-			<span class="tc__flow-name" style={at(230, 306)}>{commands?.label}</span>
+			<span class="tc__flow-name" style={at(196, 52)}>{telemetry?.label}</span>
+			<span class="tc__flow-name" style={at(196, 312)}>{commands?.label}</span>
 		</div>
 	</div>
 </div>
@@ -468,6 +491,7 @@ const vars = [
 		overflow: hidden;
 		flex-direction: column;
 		height: u(var(--tc-body));
+		padding-bottom: u(var(--tc-card-pad-b));
 		border: 1px solid var(--color-border, #ebebeb);
 		border-radius: u(var(--flow-radius, 8));
 		background: var(--color-bg-surface, #fff);
@@ -475,73 +499,43 @@ const vars = [
 
 	.tc__head {
 		display: flex;
-		align-items: center;
-		gap: u(10);
-		height: u(46);
+		flex-direction: column;
+		justify-content: center;
+		height: u(66);
 		padding: 0 u(16);
 		background: var(--color-bg-light, #f7f9fc);
-
-		[data-icon] {
-			flex: none;
-			width: u(20);
-			height: u(20);
-			color: var(--color-text-secondary, #5b616e);
-		}
 	}
 
-	.tc__name {
-		font-size: u(16);
-		font-weight: $font-weight-medium;
-		line-height: u(22);
-		white-space: nowrap;
-	}
-
-	// --- the hierarchy --------------------------------------------------------------
-
-	.tc__tree {
-		height: u(76);
+	// Quieter than the name under it: it is where the object is, not what it is.
+	.tc__path {
 		margin: 0;
-		padding: u(10) u(16) u(6);
-		list-style: none;
-		border-bottom: 1px solid var(--sl-color-hairline-light, #ebebeb);
-	}
-
-	.tc__node {
-		display: flex;
-		position: relative;
-		align-items: center;
-		gap: u(6);
-		height: u(20);
-		margin-left: calc(var(--depth) * #{u(12)});
 		font-size: u(14);
 		line-height: u(20);
 		white-space: nowrap;
 		color: var(--color-text-secondary, #5b616e);
+	}
 
-		// The deepest level is the one the unit is actually in, so it is the one in full ink.
-		&:last-child {
-			font-weight: $font-weight-medium;
-			color: var(--color-text);
-		}
+	.tc__sep {
+		margin: 0 u(5);
+		opacity: 0.5;
+	}
+
+	.tc__name {
+		display: flex;
+		align-items: center;
+		gap: u(8);
+		margin: 0;
+		font-size: u(16);
+		font-weight: $font-weight-medium;
+		line-height: u(22);
+		white-space: nowrap;
 
 		[data-icon] {
 			flex: none;
-			width: u(14);
-			height: u(14);
+			width: u(18);
+			height: u(18);
+			color: var(--color-text-secondary, #5b616e);
 		}
-	}
-
-	// Drawn, not typed: a box-drawing character would be a glyph at the type's size, and this has to
-	// be a hairline at the card's. It starts inside the line above rather than in the gap, because
-	// the point is that this level hangs off that one.
-	.tc__branch {
-		flex: none;
-		width: u(6);
-		height: u(11);
-		margin: u(-10) 0 0 u(1);
-		border-bottom: 1px solid var(--color-border-strong, #d5d7dd);
-		border-left: 1px solid var(--color-border-strong, #d5d7dd);
-		border-bottom-left-radius: u(2);
 	}
 
 	// --- the attributes -------------------------------------------------------------
@@ -553,13 +547,14 @@ const vars = [
 	}
 
 	// Key left, value right, history under them both. Under, not inline: a history squeezed between
-	// the key and the value would be a third column fighting for the same line.
+	// the key and the value would be a third column fighting for the same line. The row's height is
+	// fixed and its content sits at the top, so the slack falls under the chart as padding.
 	.tc__attr {
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr);
 		align-items: baseline;
 		height: u(var(--h));
-		padding: u(8) u(16) 0;
+		padding: u(10) u(16) 0;
 		gap: 0 u(12);
 		font-size: u(14);
 		line-height: u(22);
@@ -581,7 +576,7 @@ const vars = [
 		color: var(--color-text);
 	}
 
-	.tc__spark,
+	.tc__chart,
 	.tc__band {
 		grid-column: 1 / -1;
 		margin-top: u(6);
@@ -593,8 +588,8 @@ const vars = [
 		}
 	}
 
-	.tc__spark {
-		height: u(var(--tc-spark-h));
+	.tc__chart {
+		height: u(var(--tc-chart-h));
 
 		svg {
 			overflow: visible;
@@ -609,7 +604,7 @@ const vars = [
 		border-radius: u(3);
 	}
 
-	.tc__spark-area,
+	.tc__chart-area,
 	.tc__band-off {
 		fill: var(--color-primary, #3d50f5);
 		opacity: 0.1;
@@ -619,7 +614,7 @@ const vars = [
 		fill: var(--color-primary, #3d50f5);
 	}
 
-	.tc__spark-line {
+	.tc__chart-line {
 		fill: none;
 		stroke: var(--color-primary, #3d50f5);
 		stroke-width: max(1px, #{u(2)});
