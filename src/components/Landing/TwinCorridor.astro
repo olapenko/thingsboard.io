@@ -325,9 +325,22 @@ const CARD_PAD_B = 14;
  * the platform's blue: next to it, a violet band read as another piece of the same wiring.
  */
 const ROWS = [
-	{ key: 'temperature', value: attr('temperature'), h: 90, kind: 'spline', accent: '#0e7490' },
-	{ key: 'power', value: `${POWER[POWER.length - 1].toFixed(1)} kW`, h: 90, kind: 'steps', accent: '#b45309' },
-	{ key: 'door', value: attr('door'), h: 64, kind: 'band', accent: '#1f9d55' },
+	{ key: 'temperature', value: attr('temperature'), h: 90, kind: 'spline', accent: '#0e7490', on: null },
+	{
+		key: 'power',
+		value: `${POWER[POWER.length - 1].toFixed(1)} kW`,
+		h: 90,
+		kind: 'steps',
+		accent: '#b45309',
+		on: null,
+	},
+	// Two colours, because a band with two states in it was drawing both in one: the ACCENTED marks
+	// were the open spans, in the green that reads as "fine". Closed is the quiet ground and open is
+	// the exception, which is the platform's own model — its State chart assigns a colour per state.
+	// Open is a real red rather than a muted one because each span is about 4% of the band's width;
+	// muted at that size is invisible. It is not claiming an alarm — a door opening is normal — but
+	// the two spans sit on two of the four warm excursions, and that is worth being able to see.
+	{ key: 'door', value: attr('door'), h: 64, kind: 'band', accent: '#1f9d55', on: 'var(--color-danger, #ba0000)' },
 ];
 
 /** As a share of the body's box, so a name tracks the drawing and not the grid. */
@@ -360,10 +373,12 @@ const vars = [
 	`--tc-chart-h: ${CHART_H}`,
 	`--tc-band-h: ${BAND_H}`,
 	`--tc-card-pad-b: ${CARD_PAD_B}`,
-	// One pixel per card border the risers cross on their way to the unit's edge. Just the site
-	// frame's, in both versions — the zone is a hatched area now and draws no border of its own.
-	// It had one until the hatch got heavy enough to stand alone, and while it did this was 2px.
-	`--tc-nudge: 1px`,
+	// The site frame's border, which the risers cross on their way to the unit's edge and which the
+	// unit arithmetic cannot see. The zone draws none of its own, so this is exactly that one edge —
+	// and it is heavier in the nested version, so this follows it.
+	`--tc-nudge: ${zone ? 2 : 1}px`,
+	`--tc-stroke: ${zone ? 2 : 1}px`,
+	`--tc-site-bg: ${zone ? 'none' : 'var(--color-bg-surface, #fff)'}`,
 ].join(';');
 ---
 
@@ -426,8 +441,12 @@ const vars = [
 
 				<ul class="tc__attrs">
 					{
-						ROWS.map((row, i) => (
-							<li class="tc__attr" style={`--h: ${row.h}; --accent: ${row.accent}; --i: ${i}`} data-twin-attr={row.key}>
+						ROWS.map((row) => (
+							<li
+								class="tc__attr"
+								style={`--h: ${row.h}; --accent: ${row.accent}; --accent-on: ${row.on ?? row.accent}`}
+								data-twin-attr={row.key}
+							>
 								<span class="tc__k">{row.key}</span>
 								<span class="tc__v">{row.value}</span>
 
@@ -481,19 +500,16 @@ const vars = [
 
 <script>
 	/**
-	 * Two things move, and both only while the visual is on screen.
+	 * What moves, and only while the visual is on screen.
 	 *
-	 * The histories PLOT themselves when the composition first comes into view — swept in from the
-	 * left, one row after the next, the way a chart fills when its window loads. Briskly: the whole
-	 * stagger is under a second, because this is the page saying "live", not an animation to watch.
-	 * It happens once; a chart that redraws every time you scroll past is a distraction.
-	 *
-	 * Then the two readings step through short precalculated loops. The histories under them do NOT
+	 * The two readings step through short precalculated loops. The histories under them do NOT
 	 * follow — they are the day, and the day does not change every three seconds.
 	 *
-	 * The clip that hides them before they plot is applied from HERE rather than in the stylesheet:
-	 * armed by script, so that with no JavaScript the charts are simply drawn, rather than clipped
-	 * to nothing by a rule with nothing to release it.
+	 * There was a sweep here that plotted each history in when the composition came into view. It
+	 * was removed: half a second across a 30u sparkline, fired on an 80px root margin, so it had
+	 * usually finished before the eye arrived. If this visual is to look live, the way to do it is
+	 * to ADVANCE the charts — `sparkline.ts` takes a window with one point past the right edge for
+	 * exactly that — not to draw them once.
 	 */
 	const BEAT_MS = 3000;
 	const TEMPS = [-18.4, -18.2, -18.6, -18.3, -18.7, -18.1];
@@ -513,8 +529,6 @@ const vars = [
 		const power = root.querySelector<HTMLElement>('[data-twin-attr="power"] .tc__v');
 		if (!temp || !power) return;
 
-		root.dataset.armed = '';
-
 		let beat = 0;
 		let visible = false;
 		let timer = 0;
@@ -530,7 +544,6 @@ const vars = [
 		new IntersectionObserver(
 			(entries) => {
 				visible = entries.some((e) => e.isIntersecting);
-				if (visible) root.dataset.plot = '';
 				clearTimeout(timer);
 				if (visible) timer = window.setTimeout(tick, BEAT_MS);
 			},
@@ -550,19 +563,21 @@ const vars = [
 	// the hatch carries its own background instead of letting whatever the row is tinted with show
 	// through the gaps. Drawn in design units, so it scales with everything else — a gradient in
 	// pixels would be one more thing that does not.
-	// White bands, transparent gaps, no ground of its own: the marking shows where the composition
-	// sits on a tint and disappears where it sits on white.
+	// Bands in the frame's own stroke colour over transparent gaps, so the marking and the outline
+	// around it are the same grey and read as one piece of drawing.
 	//
-	// White is not a choice here, it is the only colour that does that. Measured against the feature
-	// row's own background, rgb(245, 246, 255): white is 1.076 there and 1.000 on white, which is the
-	// behaviour asked for. `--color-bg-light` is the wrong way round — 1.021 on the tint and 1.055 on
-	// white, so it would fade exactly where it is wanted — and `--color-border`, which this used, is
-	// 1.107 and 1.192, visible everywhere.
+	// This was white for a while, which made it show only where the composition sat on a tint. That
+	// was the right answer while the site had no fill; with a white card under it, white marking on
+	// white is nothing at all.
 	//
 	// Drawn in design units, so it scales with everything else — a gradient in pixels would be one
 	// more thing that does not.
 	@mixin hatch {
-		background: repeating-linear-gradient(45deg, #fff 0 #{u(12)}, transparent #{u(12)} #{u(20)});
+		background: repeating-linear-gradient(
+			45deg,
+			var(--color-border, #ebebeb) 0 #{u(12)},
+			transparent #{u(12)} #{u(20)}
+		);
 	}
 
 	.tc-fit {
@@ -609,11 +624,11 @@ const vars = [
 
 	// --- the site frame -------------------------------------------------------------
 
-	// An outline and a name, with nothing behind them. A fill made the warehouse a surface, which
-	// put three surfaces in the picture — the site, the unit and the twin — where the argument only
-	// has two things in it. Unfilled, it reads as the extent of somewhere rather than as an object,
-	// which is what a site is, and it leaves the hatched zone as the only texture on that side.
+	// Filled white when it holds the unit directly, unfilled when it holds a zone. With a zone
+	// inside it, a fill would put two surfaces one inside the other and the containment stops
+	// reading; without one, the site IS the card the unit sits on and wants a card's surface.
 	.tc__site {
+		background: var(--tc-site-bg);
 		grid-column: 1;
 		// Pinned, not stretched. Nested, its content adds up to exactly the body's height, so without
 		// a height of its own the frame grew by its two 1px borders and hung below the composition.
@@ -622,7 +637,11 @@ const vars = [
 		// body's, so anything the zone gains below has to come OUT of this padding rather than be
 		// added to it. Left unchanged, the frame grew 7.7u past the composition.
 		padding: u(var(--tc-pad-t)) u(var(--tc-pad)) u(var(--tc-pad-b));
-		border: 1px solid var(--color-border, #ebebeb);
+		// Heavier when it holds a zone: against a hatched area inside it a hairline read as the weaker
+		// of the two edges, and the building stopped containing the room. Pixels, like every border
+		// here, so it does not scale — which is why the zone's height and the wire layer's nudge are
+		// both written in terms of it rather than repeating the number.
+		border: var(--tc-stroke) solid var(--color-border, #ebebeb);
 		// The cards' own radius, so the frame is one more card and not a different kind of shape.
 		border-radius: u(var(--flow-radius, 8));
 	}
@@ -677,8 +696,8 @@ const vars = [
 	// the warehouse floor, not another card. The stripes are drawn in design units, so they scale
 	// with everything else — a gradient in pixels would be one more thing that does not.
 	.tc__zone {
-		// Less the frame's 2px of border, which `box-sizing` takes out of the space this sits in.
-		height: calc(#{u(var(--tc-zone-h))} - 2px);
+		// Less the frame's two borders, which `box-sizing` takes out of the space this sits in.
+		height: calc(#{u(var(--tc-zone-h))} - 2 * var(--tc-stroke));
 		margin-top: u(var(--tc-block-gap));
 		padding: u(var(--tc-zone-pad));
 		// No outline of its own. An area is not a card, and once the hatch carries the surface, a
@@ -858,29 +877,6 @@ const vars = [
 		color: var(--color-text);
 	}
 
-	// Swept in from the left when the composition first comes into view, a row after the next. The
-	// clipped state is only set once the script has armed it, so a page with no JavaScript draws the
-	// charts outright instead of holding them at nothing.
-	@keyframes tc-plot {
-		from {
-			clip-path: inset(0 100% 0 0);
-		}
-		to {
-			clip-path: inset(0 0 0 0);
-		}
-	}
-
-	.tc[data-armed] .tc__chart,
-	.tc[data-armed] .tc__band {
-		clip-path: inset(0 100% 0 0);
-	}
-
-	.tc[data-plot] .tc__chart,
-	.tc[data-plot] .tc__band {
-		// 140ms apart and 520ms each, so the last row has finished inside a second.
-		animation: tc-plot 520ms cubic-bezier(0.22, 0.61, 0.36, 1) calc(var(--i) * 140ms) both;
-	}
-
 	.tc__chart,
 	.tc__band {
 		grid-column: 1 / -1;
@@ -916,7 +912,7 @@ const vars = [
 	}
 
 	.tc__band-on {
-		fill: var(--accent);
+		fill: var(--accent-on);
 	}
 
 	.tc__chart-line {
