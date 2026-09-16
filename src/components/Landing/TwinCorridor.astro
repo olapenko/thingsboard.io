@@ -1,0 +1,362 @@
+---
+import { Icon } from 'astro-icon/components';
+import TwinUnit from '@components/Landing/TwinUnit.astro';
+import { DIGITAL_TWIN_STAGES, PHYSICAL_ASSET, TWIN_FLOWS } from '@data/digital-twin-visual';
+
+/**
+ * The twin composition with the connectors moved overhead. A CANDIDATE beside `DigitalTwin`, which
+ * is untouched and still the row the home preview shows.
+ *
+ * GEOMETRY PASS. The twin's card is scaffolding — labelled bands at the heights the content is
+ * budgeted, nothing drawn inside them. The point of this pass is the routing and the column split,
+ * judged before any content can flatter or excuse them.
+ *
+ * --- what changes --------------------------------------------------------------------------
+ *
+ * The shipped visual runs its connectors through a 96u gutter between the two cards, and parks
+ * their names in it. That gutter is a fixed track, so every unit in it comes straight off the
+ * composition's width — and it is the one part of the picture with nothing in it.
+ *
+ * Here the connectors leave the unit through its top and bottom edges, run up into the frame's own
+ * empty space, and cross. The gutter then only has to be wide enough to be crossed: 96u -> 18u.
+ * The 78u that buys goes back into the two columns, which is what lets the unit become an object
+ * with room around it rather than a card wedged against an arrow.
+ *
+ *     shipped    frame 242.7 | gutter 96 | twin 291.3     (measured)
+ *     here       frame 309   | gutter 18 | twin 303
+ *
+ * Elbows, not the family's cubic curves. A curve is the right shape for a connector that leaves and
+ * arrives horizontally; these leave vertically and arrive horizontally, and a 90-degree turn drawn
+ * as a curve needs most of the corridor to make the bend. The stroke, the grey and the open chevron
+ * are the family's, so the hand is the same even though the corner is square.
+ *
+ * --- why the endpoints are on the edges ------------------------------------------------------
+ *
+ * Both connectors attach to CARD EDGES — the unit's top and bottom, the twin's left — and never to
+ * a row inside a card. The version this replaces computed its endpoints from row centres, so every
+ * content change moved an arrow and the pixel chrome that does not scale landed straight on them.
+ * Edge anchors mean the whole of the second pass — what the twin's rows actually hold — cannot
+ * disturb the drawing.
+ *
+ * One coupling survives and is deliberate: the corridors are the frame's height minus the unit's,
+ * so the body height is the number to agree first. It is held at 338u, which is what the shipped
+ * composition measures, so the footprint does not move.
+ */
+
+// --- content ------------------------------------------------------------------------------
+
+const SITE = { name: PHYSICAL_ASSET.path[0], icon: 'tabler:building-warehouse' };
+
+/** Three devices, which is what the corridors leave room for. See the height budget below. */
+const UNIT = {
+	name: PHYSICAL_ASSET.name,
+	icon: PHYSICAL_ASSET.icon,
+	devices: PHYSICAL_ASSET.devices.slice(0, 3),
+};
+
+const telemetry = TWIN_FLOWS.find((f) => f.to === 'twin');
+const commands = TWIN_FLOWS.find((f) => f.to === 'physical');
+
+// --- geometry -----------------------------------------------------------------------------
+
+const NATIVE = 630;
+const COL = { site: 309, gut: 18, twin: 303 };
+
+// The shipped composition's body, measured in the browser at the sandbox row: 337.6u. Held, so
+// this candidate can be laid over the incumbent and the footprint compared rather than argued.
+const BODY = 338;
+
+const FRAME_PAD = 12;
+const HEAD_H = 24; // the site's own name, on the frame's top line
+
+// TwinUnit's metrics, mirrored so the arrows can be aimed: 12 + 22 + 12 for the head band,
+// 8 + 26 + 8 for a device row.
+const UNIT_HEAD_H = 46;
+const UNIT_ROW_H = 42;
+const UNIT_H = UNIT_HEAD_H + UNIT.devices.length * UNIT_ROW_H;
+
+// The height budget, top to bottom: padding, the site's name, the telemetry corridor, the unit,
+// the commands corridor, padding. The unit takes what the corridors leave, which is why it holds
+// three devices and not four — a fourth row is 42u and the corridor above is 40u.
+const UNIT_TOP = 76;
+const UNIT_BOT = UNIT_TOP + UNIT_H;
+const UNIT_GAP = UNIT_TOP - FRAME_PAD - HEAD_H;
+
+// The two flat runs. Above: clear of the site's name by 14u. Below: 40u under the unit, which
+// leaves the commands name a band of its own before the frame's bottom padding.
+const UP_Y = 50;
+const DOWN_Y = 288;
+
+// Both risers stand on the unit's centre line. Collinear on purpose — one above the card and one
+// below it, so the pair reads as a single axis the unit sits on rather than as two stray lines.
+const UNIT_X = FRAME_PAD + (COL.site - FRAME_PAD * 2) / 2;
+const TWIN_X = COL.site + COL.gut;
+
+const R = 12; // corner radius
+const HEAD = 8;
+const WING = 5;
+
+// Quadratic corners: the control point is the corner itself, so the radius cannot disagree with
+// where the straight runs end.
+const wires = {
+	up: `M ${UNIT_X},${UNIT_TOP} L ${UNIT_X},${UP_Y + R} Q ${UNIT_X},${UP_Y} ${UNIT_X + R},${UP_Y} L ${TWIN_X},${UP_Y}`,
+	upHead: `M ${TWIN_X - HEAD},${UP_Y - WING} L ${TWIN_X},${UP_Y} L ${TWIN_X - HEAD},${UP_Y + WING}`,
+	down: `M ${TWIN_X},${DOWN_Y} L ${UNIT_X + R},${DOWN_Y} Q ${UNIT_X},${DOWN_Y} ${UNIT_X},${DOWN_Y - R} L ${UNIT_X},${UNIT_BOT}`,
+	downHead: `M ${UNIT_X - WING},${UNIT_BOT + HEAD} L ${UNIT_X},${UNIT_BOT} L ${UNIT_X + WING},${UNIT_BOT + HEAD}`,
+};
+
+/**
+ * The twin's height budget, as bands. Scaffolding: the second pass fills them, and the arrows do
+ * not care, because neither endpoint is anchored to one. 322u of bands plus 16u of bottom padding
+ * is the 338u the frame is.
+ */
+const BANDS = [
+	{ key: 'head', h: 46 },
+	{ key: 'hierarchy', h: 62 },
+	{ key: 'temperature', h: 94 },
+	{ key: 'door', h: 94 },
+	{ key: 'more', h: 26 },
+];
+
+/** As a share of the body's box, so a name tracks the drawing and not the grid. */
+const at = (x: number, y: number) => `--x: ${((x / NATIVE) * 100).toFixed(3)}%; --y: ${((y / BODY) * 100).toFixed(3)}%`;
+
+const vars = [
+	`--tc-u: clamp(0.45px, calc(100cqw / ${NATIVE}), 1.15px)`,
+	`--tc-native: ${NATIVE}`,
+	`--tc-site: ${COL.site}`,
+	`--tc-gut: ${COL.gut}`,
+	`--tc-twin: ${COL.twin}`,
+	`--tc-body: ${BODY}`,
+	`--tc-pad: ${FRAME_PAD}`,
+	`--tc-head: ${HEAD_H}`,
+	`--tc-unit-gap: ${UNIT_GAP}`,
+	`--tc-unit-h: ${UNIT_H}`,
+].join(';');
+---
+
+<div class="tc-fit">
+	<div class="tc" style={vars}>
+		<p class="tc__stage">{DIGITAL_TWIN_STAGES.physical}</p>
+		<p class="tc__stage tc__stage--right">{DIGITAL_TWIN_STAGES.twin}</p>
+
+		<div class="tc__body">
+			{
+				/* --- the real thing, in its place ----------------------------------------------
+			    The frame is the scope and its top line names it. The space under that line is not
+			    padding — it is the corridor the telemetry runs through, which is the whole trade
+			    this candidate makes. */
+			}
+			<div class="tc__site">
+				<p class="tc__site-name">
+					<Icon name={SITE.icon} aria-hidden="true" />
+					<span>{SITE.name}</span>
+				</p>
+				<TwinUnit unit={UNIT} class="tc__unit" />
+			</div>
+
+			{/* --- its twin, as a height budget ---------------------------------------------- */}
+			<div class="tc__card">
+				{
+					BANDS.map((b) => (
+						<div class="tc__band" style={`--h: ${b.h}`}>
+							<span>{b.key}</span>
+						</div>
+					))
+				}
+			</div>
+
+			{
+				/* --- what crosses ---------------------------------------------------------------
+			    One layer over the whole body rather than an oversized item in the gutter track: the
+			    paths are then written in the composition's own coordinates, and no endpoint depends
+			    on which track it happens to be over. */
+			}
+			<svg
+				class="tc__wires"
+				viewBox={`0 0 ${NATIVE} ${BODY}`}
+				preserveAspectRatio="none"
+				aria-hidden="true"
+				focusable="false"
+			>
+				<path class="tc__wire" d={wires.up}></path>
+				<path class="tc__wire tc__wire--head" d={wires.upHead}></path>
+				<path class="tc__wire" d={wires.down}></path>
+				<path class="tc__wire tc__wire--head" d={wires.downHead}></path>
+			</svg>
+
+			<span class="tc__flow-name" style={at(245, 34)}>{telemetry?.label}</span>
+			<span class="tc__flow-name" style={at(245, 306)}>{commands?.label}</span>
+		</div>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.tc-fit {
+		container-type: inline-size;
+	}
+
+	.tc {
+		--u: var(--tc-u);
+		// TwinUnit reads this one; it is the family's unit under its family name.
+		--flow-u: var(--tc-u);
+		display: grid;
+		grid-template-columns: u(var(--tc-site)) u(var(--tc-gut)) u(var(--tc-twin));
+		justify-content: center;
+		max-width: u(var(--tc-native));
+		margin: 0 auto;
+	}
+
+	.tc__stage {
+		grid-column: 1;
+		min-height: u(24);
+		margin: 0 0 u(8);
+		font-size: u(15);
+		line-height: u(24);
+		text-align: center;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.tc__stage--right {
+		grid-column: 3;
+	}
+
+	// The drawing's own box: everything below the stage names is positioned in it, and the wire
+	// layer covers exactly it, so a path coordinate and a grid column are the same coordinate.
+	.tc__body {
+		position: relative;
+		display: grid;
+		grid-column: 1 / -1;
+		grid-template-columns: u(var(--tc-site)) u(var(--tc-gut)) u(var(--tc-twin));
+		height: u(var(--tc-body));
+	}
+
+	// --- the site frame -------------------------------------------------------------
+
+	.tc__site {
+		grid-column: 1;
+		padding: u(var(--tc-pad));
+		border: 1px solid var(--color-border, #ebebeb);
+		// The cards' own radius, so the frame is one more card and not a different kind of shape.
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-light, #f7f9fc);
+	}
+
+	.tc__site-name {
+		display: flex;
+		align-items: center;
+		gap: u(8);
+		height: u(var(--tc-head));
+		margin: 0;
+		font-size: u(15);
+		font-weight: $font-weight-medium;
+		line-height: u(22);
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+
+		[data-icon] {
+			flex: none;
+			width: u(18);
+			height: u(18);
+		}
+	}
+
+	// The height is pinned rather than left to the content, and that is deliberate. TwinUnit carries
+	// 4px of border chrome — a border top and bottom, a hairline between each pair of rows — which
+	// are PIXELS and do not scale, so its natural height is 4px more than the arithmetic says. Here
+	// the connectors TOUCH this card's top and bottom edges, where a 4px miss is visible; the last
+	// row losing 4px of its padding is not. So the error is spent there instead.
+	.tc__unit {
+		height: u(var(--tc-unit-h));
+		margin-top: u(var(--tc-unit-gap));
+	}
+
+	// --- the twin, as bands ---------------------------------------------------------
+
+	.tc__card {
+		grid-column: 3;
+		height: u(var(--tc-body));
+		padding-bottom: u(16);
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-surface, #fff);
+	}
+
+	// Scaffolding, and it should look like it: a dashed box with the name of what goes in it. When
+	// the second pass lands, these go and the arrows do not move.
+	.tc__band {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: u(var(--h));
+		border-bottom: 1px dashed var(--color-border, #ebebeb);
+		font-size: u(12);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-secondary, #5b616e);
+		opacity: 0.55;
+
+		&:last-child {
+			border-bottom: 0;
+		}
+	}
+
+	// --- the connectors -------------------------------------------------------------
+
+	.tc__wires {
+		position: absolute;
+		z-index: 2;
+		top: 0;
+		left: 0;
+		// Every card in the drawing sits 1px inside its own border, and the arithmetic above cannot
+		// see that border — so measured, both unit-side endpoints came up 1px short of the edge they
+		// are meant to touch. A pixel, because what it corrects is a pixel: it must not scale with
+		// the unit, or it would overshoot at the desktop cap and undershoot on a phone.
+		transform: translateY(1px);
+		// Not optional: a global reset gives every svg `max-width: 100%`, which would scale this one
+		// down against its container and leave every arrow short, with no error anywhere.
+		width: u(var(--tc-native));
+		max-width: none;
+		height: u(var(--tc-body));
+		overflow: visible;
+	}
+
+	.tc__wire {
+		fill: none;
+		stroke: var(--color-text-secondary, #5b616e);
+		stroke-width: max(1px, #{u(2)});
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.tc__wire--head {
+		fill: none;
+	}
+
+	// In the corridor beside its run, not knocked out of it: the corridor is empty, so there is
+	// nothing to knock the name out of, and a chip of background over a line would announce a
+	// crossing that is not happening.
+	.tc__flow-name {
+		position: absolute;
+		z-index: 3;
+		top: var(--y);
+		left: var(--x);
+		transform: translate(-50%, -50%);
+		font-size: u(14);
+		line-height: u(18);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+</style>
