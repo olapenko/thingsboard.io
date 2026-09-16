@@ -48,7 +48,7 @@ import { segmentWidth, sparkPaths, sparkY } from '@util/sparkline';
  *
  *   temperature   a spline in cold teal, because it is a continuous measurement
  *   power         straight segments in amber, because it switches — the plateaus ARE the compressor
- *   door          a violet segment band, which is how the platform's State chart draws `doorState`
+ *   door          a green segment band, which is how the platform's State chart draws `doorState`
  *
  * A hue each rather than three blues: the rows are three different KINDS of reading, and one colour
  * across all of them said they were three samples of the same thing.
@@ -320,13 +320,14 @@ const CARD_PAD_B = 14;
  * opacities. They are doing a job: the three rows are three different KINDS of reading, and one
  * colour across all of them said they were three samples of the same thing.
  *
- * Cold for the temperature, energy for the power, and the family's violet — the twin's own badge
- * colour — for the door, which is the one that is a state rather than a measurement.
+ * Cold for the temperature, energy for the power, and green for the door, which is the one that is
+ * a state rather than a measurement. The door was on the family's violet until the connectors took
+ * the platform's blue: next to it, a violet band read as another piece of the same wiring.
  */
 const ROWS = [
 	{ key: 'temperature', value: attr('temperature'), h: 90, kind: 'spline', accent: '#0e7490' },
 	{ key: 'power', value: `${POWER[POWER.length - 1].toFixed(1)} kW`, h: 90, kind: 'steps', accent: '#b45309' },
-	{ key: 'door', value: attr('door'), h: 64, kind: 'band', accent: '#7b3fe4' },
+	{ key: 'door', value: attr('door'), h: 64, kind: 'band', accent: '#1f9d55' },
 ];
 
 /** As a share of the body's box, so a name tracks the drawing and not the grid. */
@@ -425,8 +426,8 @@ const vars = [
 
 				<ul class="tc__attrs">
 					{
-						ROWS.map((row) => (
-							<li class="tc__attr" style={`--h: ${row.h}; --accent: ${row.accent}`} data-twin-attr={row.key}>
+						ROWS.map((row, i) => (
+							<li class="tc__attr" style={`--h: ${row.h}; --accent: ${row.accent}; --i: ${i}`} data-twin-attr={row.key}>
 								<span class="tc__k">{row.key}</span>
 								<span class="tc__v">{row.value}</span>
 
@@ -480,19 +481,39 @@ const vars = [
 
 <script>
 	/**
-	 * The one thing that moves, as in the shipped visual: the temperature reading steps through a
-	 * short precalculated loop, only while on screen. The histories underneath do not follow it —
-	 * they are the day, and the day does not change every three seconds.
+	 * Two things move, and both only while the visual is on screen.
+	 *
+	 * The histories PLOT themselves when the composition first comes into view — swept in from the
+	 * left, one row after the next, the way a chart fills when its window loads. Briskly: the whole
+	 * stagger is under a second, because this is the page saying "live", not an animation to watch.
+	 * It happens once; a chart that redraws every time you scroll past is a distraction.
+	 *
+	 * Then the two readings step through short precalculated loops. The histories under them do NOT
+	 * follow — they are the day, and the day does not change every three seconds.
+	 *
+	 * The clip that hides them before they plot is applied from HERE rather than in the stylesheet:
+	 * armed by script, so that with no JavaScript the charts are simply drawn, rather than clipped
+	 * to nothing by a rule with nothing to release it.
 	 */
 	const BEAT_MS = 3000;
 	const TEMPS = [-18.4, -18.2, -18.6, -18.3, -18.7, -18.1];
+	/**
+	 * Around the compressor's running draw, which is where the day's last sample leaves it. The
+	 * spread is deliberate: the first cut of this loop moved by hundredths, and every value in it
+	 * rendered as `2.4 kW` at one decimal, so the row sat there looking broken. A compressor's draw
+	 * really does wander a couple of hundred watts with head pressure.
+	 */
+	const KW = [2.4, 2.3, 2.5, 2.4, 2.6, 2.3];
 
 	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 	document.querySelectorAll<HTMLElement>('[data-twin-corridor]').forEach((root) => {
 		if (reduce) return;
 		const temp = root.querySelector<HTMLElement>('[data-twin-attr="temperature"] .tc__v');
-		if (!temp) return;
+		const power = root.querySelector<HTMLElement>('[data-twin-attr="power"] .tc__v');
+		if (!temp || !power) return;
+
+		root.dataset.armed = '';
 
 		let beat = 0;
 		let visible = false;
@@ -502,12 +523,14 @@ const vars = [
 			if (!visible) return;
 			beat++;
 			temp.textContent = `−${Math.abs(TEMPS[beat % TEMPS.length]).toFixed(1)} °C`;
+			power.textContent = `${KW[beat % KW.length].toFixed(1)} kW`;
 			timer = window.setTimeout(tick, BEAT_MS);
 		};
 
 		new IntersectionObserver(
 			(entries) => {
 				visible = entries.some((e) => e.isIntersecting);
+				if (visible) root.dataset.plot = '';
 				clearTimeout(timer);
 				if (visible) timer = window.setTimeout(tick, BEAT_MS);
 			},
@@ -828,6 +851,29 @@ const vars = [
 		color: var(--color-text);
 	}
 
+	// Swept in from the left when the composition first comes into view, a row after the next. The
+	// clipped state is only set once the script has armed it, so a page with no JavaScript draws the
+	// charts outright instead of holding them at nothing.
+	@keyframes tc-plot {
+		from {
+			clip-path: inset(0 100% 0 0);
+		}
+		to {
+			clip-path: inset(0 0 0 0);
+		}
+	}
+
+	.tc[data-armed] .tc__chart,
+	.tc[data-armed] .tc__band {
+		clip-path: inset(0 100% 0 0);
+	}
+
+	.tc[data-plot] .tc__chart,
+	.tc[data-plot] .tc__band {
+		// 140ms apart and 520ms each, so the last row has finished inside a second.
+		animation: tc-plot 520ms cubic-bezier(0.22, 0.61, 0.36, 1) calc(var(--i) * 140ms) both;
+	}
+
 	.tc__chart,
 	.tc__band {
 		grid-column: 1 / -1;
@@ -901,9 +947,11 @@ const vars = [
 		overflow: visible;
 	}
 
+	// The platform's own blue, not the family's grey: these two lines are the only thing in the
+	// picture that IS the platform rather than something it is describing.
 	.tc__wire {
 		fill: none;
-		stroke: var(--color-text-secondary, #5b616e);
+		stroke: var(--color-primary, #3d50f5);
 		stroke-width: max(1px, #{u(2)});
 		stroke-linecap: round;
 		stroke-linejoin: round;
@@ -928,6 +976,6 @@ const vars = [
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		white-space: nowrap;
-		color: var(--color-text-secondary, #5b616e);
+		color: var(--color-primary, #3d50f5);
 	}
 </style>
