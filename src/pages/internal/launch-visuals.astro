@@ -6,132 +6,37 @@
  * of the sitemap. Its job is to hold each new visual on its own, at the width it will really
  * get, with nothing else on the page competing for judgement — one page tab per visual.
  *
- * Add a visual by giving it an entry in `KEY_VISUALS`, a tab panel below, and `<figure
- * class="stage">` blocks inside it. The `data-w` attribute picks the frame width — `full`, `half`
- * or `card` — matching the three widths a visual actually lands in on the marketing pages.
- * `_FeatureRow` is the homepage row a visual is headed for, with its token switch.
+ * This file is only the frame: the tab strip, the page-wide controls, and one `<Panel />` per
+ * visual. Every panel's stages live in `_panels/_<id>.astro`, so two people — or two sessions —
+ * working on different visuals never edit the same file.
+ *
+ * ADD a visual: an entry in `_key-visuals.ts`, a file in `_panels/`, and one line in each of the
+ * two lists below. REMOVE one: delete the panel file and those same two lines. Nothing else on
+ * the page knows a given visual exists.
+ *
+ * Inside a panel, wrap each exhibit in `<figure class="stage" data-stage="<id>">`. `data-w` picks
+ * the frame width — `full`, `half` or `card` — matching the three widths a visual actually lands
+ * in on the marketing pages, and `data-stage` is what the retire control marks. `_FeatureRow` is
+ * the homepage row a visual is headed for, with its token switch.
+ *
+ * Stage chrome is declared `is:global` below, not scoped: a scoped rule here cannot reach markup
+ * that lives in a panel file.
  *
  * This page is scaffolding, not shipped content: nothing here needs to survive into a
  * marketing page except the components themselves.
  */
 import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
-import CliTerminal from '@components/Landing/CliTerminal.astro';
-import SolutionFlow from '@components/Landing/SolutionFlow.astro';
-import SolutionAppShell from '@components/Landing/SolutionAppShell.astro';
-import DigitalTwin from '@components/Landing/DigitalTwin.astro';
-import NormalizeFlow from '@components/Landing/NormalizeFlow.astro';
-import GatewayDiagram from '@components/Landing/GatewayDiagram.astro';
-import ConnectFlow from '@components/Landing/ConnectFlow.astro';
-import ConnectCloud from '@components/Landing/ConnectCloud.astro';
-import ScaleChart from '@components/Landing/ScaleChart.astro';
-import ScaleMachines from '@components/Landing/ScaleMachines.astro';
-import ScaleTiers from '@components/Landing/ScaleTiers.astro';
-import ScaleGrowth from '@components/Landing/ScaleGrowth.astro';
-import DeployFork from '@components/Landing/DeployFork.astro';
-import WhiteLabelApp from '@components/Landing/WhiteLabelApp.astro';
-import TwinUnit from '@components/Landing/TwinUnit.astro';
-import TwinTree from '@components/Landing/TwinTree.astro';
-import { SOLUTION_CASES, SOLUTION_RAIL, SOLUTION_COPY } from '@data/solution-flow';
-import { DIGITAL_TWIN_COPY, UNIT_GALLERY } from '@data/digital-twin-visual';
-import { NORMALIZE_COPY } from '@data/normalize-visual';
-import { CONNECT_COPY, CONNECT_ROUTES, CONNECT_BODY_HTML } from '@data/connect-visual';
-import { SCALE_COPY, SCALE_TIERS_PAIR } from '@data/scale-visual';
-import { DEPLOY_COPY } from '@data/deploy-visual';
-import { WHITELABEL_COPY } from '@data/whitelabel-visual';
-import ConnectCompact from '@components/Landing/ConnectCompact.astro';
-import SolutionCompact from '@components/Landing/SolutionCompact.astro';
-import TwinCompact from '@components/Landing/TwinCompact.astro';
-import NormalizeCompact from '@components/Landing/NormalizeCompact.astro';
-import ScaleCompact from '@components/Landing/ScaleCompact.astro';
-import FeatureRow from '@root/pages/internal/_FeatureRow.astro';
-
-/**
- * The key visuals, one per page tab. Copy is the design's, verbatim; the CLI has no row yet.
- */
-const KEY_VISUALS = [
-	{
-		id: 'cli',
-		label: 'CLI',
-	},
-	{
-		id: 'solution',
-		label: 'Device to end-user',
-		title: SOLUTION_COPY.title,
-		body: SOLUTION_COPY.body,
-		link: SOLUTION_COPY.link,
-	},
-	{
-		id: 'twin',
-		label: 'Digital twin',
-		...DIGITAL_TWIN_COPY,
-	},
-	{
-		id: 'normalize',
-		label: 'Normalize',
-		title: NORMALIZE_COPY.title,
-		body: NORMALIZE_COPY.body,
-		link: NORMALIZE_COPY.link,
-	},
-	{
-		id: 'gateway',
-		label: 'IoT Gateway',
-		// The Gateway's own words, from its `homeEcosystem` entry — description, action label and
-		// href verbatim. Only the headline is changed, from the description's opening sentence
-		// ("Brings legacy equipment online.") into the imperative the other three headlines use.
-		title: 'Bring legacy equipment online',
-		body: 'Modbus, OPC UA, BACnet, SNMP, KNX and 25+ industrial protocols, translated to MQTT or HTTP. Open-source, runs on any hardware.',
-		link: { text: 'See supported protocols', href: '/docs/iot-gateway/' },
-	},
-	{
-		id: 'connect',
-		label: 'Connect devices',
-		title: CONNECT_COPY.title,
-		body: CONNECT_COPY.body,
-		link: CONNECT_COPY.link,
-	},
-	{
-		id: 'scale',
-		label: 'Scale',
-		title: SCALE_COPY.title,
-		body: SCALE_COPY.body,
-		link: SCALE_COPY.link,
-	},
-	{
-		id: 'deploy',
-		label: 'Deploy anywhere',
-		title: DEPLOY_COPY.title,
-		body: DEPLOY_COPY.body,
-		link: DEPLOY_COPY.link,
-	},
-	{
-		id: 'whitelabel',
-		label: 'White-labeling',
-		title: WHITELABEL_COPY.title,
-		body: WHITELABEL_COPY.body,
-		link: WHITELABEL_COPY.link,
-	},
-	{
-		id: 'compact',
-		label: 'Compact · 448',
-	},
-];
-
-/**
- * The five home-preview visuals, redrawn to one scale.
- *
- * Every one is a new component beside the shipped one rather than a change to it: the home preview
- * still renders the originals, so nothing on that page can move because of anything in this tab.
- *
- * Appended to KEY_VISUALS rather than inserted, because the panels above address their copy by
- * index — `KEY_VISUALS[6]` and friends — and an insert would silently retitle four of them.
- */
-const COMPACT_ROWS = [
-	{ Visual: ConnectCompact, copy: CONNECT_COPY, was: 'ConnectFlow · 630u, 14u floor · 7.4px' },
-	{ Visual: SolutionCompact, copy: SOLUTION_COPY, was: 'SolutionFlow · 630u, 11u floor · 5.8px' },
-	{ Visual: TwinCompact, copy: DIGITAL_TWIN_COPY, was: 'DigitalTwin · 630u, 12u floor · 6.4px' },
-	{ Visual: NormalizeCompact, copy: NORMALIZE_COPY, was: 'NormalizeFlow · 630u, 14u floor · 7.4px' },
-	{ Visual: ScaleCompact, copy: SCALE_COPY, was: 'ScaleGrowth · 448u, 14u floor · 10.5px' },
-];
+import { KEY_VISUALS } from '@root/pages/internal/_key-visuals';
+import CliPanel from '@root/pages/internal/_panels/_cli.astro';
+import SolutionPanel from '@root/pages/internal/_panels/_solution.astro';
+import TwinPanel from '@root/pages/internal/_panels/_twin.astro';
+import NormalizePanel from '@root/pages/internal/_panels/_normalize.astro';
+import GatewayPanel from '@root/pages/internal/_panels/_gateway.astro';
+import ConnectPanel from '@root/pages/internal/_panels/_connect.astro';
+import ScalePanel from '@root/pages/internal/_panels/_scale.astro';
+import DeployPanel from '@root/pages/internal/_panels/_deploy.astro';
+import WhitelabelPanel from '@root/pages/internal/_panels/_whitelabel.astro';
+import CompactPanel from '@root/pages/internal/_panels/_compact.astro';
 ---
 
 <PlaygroundLayout
@@ -178,850 +83,36 @@ const COMPACT_ROWS = [
 		<button type="button" data-font-pick="sans" aria-pressed="false">Ubuntu</button>
 	</div>
 
-	{/* --- CLI ------------------------------------------------------------------------------- */}
-	<section id="page-panel-cli" role="tabpanel" aria-labelledby="page-tab-cli" data-page-panel="cli">
-		{
-			/* Checks the token wiring as much as the component: CliTerminal reads --sl-color-* and
-		    --color-* directly, so if it renders correctly here the layout is loading both sheets. */
-		}
-		<figure class="stage" data-w="half">
-			<figcaption class="stage__cap">
-				<span class="stage__name">CliTerminal</span>
-				<span class="stage__note">existing · token-wiring check</span>
-			</figcaption>
-			<div class="stage__frame">
-				<CliTerminal />
-			</div>
-		</figure>
-	</section>
-
-	{/* --- Device to end-user ---------------------------------------------------------------- */}
-	<section
-		id="page-panel-solution"
-		role="tabpanel"
-		aria-labelledby="page-tab-solution"
-		data-page-panel="solution"
-		hidden
-	>
-		<FeatureRow visual={KEY_VISUALS[1]}>
-			<SolutionFlow />
-		</FeatureRow>
-
-		{
-			/* One composition, four widths. The visual scales as a whole rather than reflowing, so what is
-		    judged here is the same picture at the sizes it really gets: the desktop feature row, the
-		    row's narrow variant, a phone, and a wide container where the upscale cap kicks in. */
-		}
-		{
-			[
-				{ w: 673, note: 'desktop feature row' },
-				{ w: 433, note: 'narrow row · tablet' },
-				{ w: 335, note: 'phone' },
-				{ w: 1200, note: 'wide · capped at 1.15x' },
-			].map((probe) => (
-				<figure class="stage" data-w="full">
-					<figcaption class="stage__cap">
-						<span class="stage__name">SolutionFlow · {probe.w}px</span>
-						<span class="stage__note">{probe.note}</span>
-					</figcaption>
-					<div class="stage__frame stage__frame--plain">
-						<div class="probe" style={`--probe: ${probe.w}px`}>
-							<SolutionFlow />
-						</div>
-					</div>
-				</figure>
-			))
-		}
-
-		{
-			/* The three use cases side by side, same shell, no rotation. Wording and metrics are taken
-		    from the published pages in `src/data/use-cases/` rather than invented, so the copy here can
-		    move to a marketing page without being re-checked. Deliberately three DIFFERENT industries
-		    with the same panel shape — that similarity is what shows the app is configuration. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">SolutionAppShell · 3 use cases</span>
-				<span class="stage__note">static, for comparison</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="dash-row">
-					{
-						SOLUTION_CASES.map((c) => (
-							<div class="dash-row__item">
-								<SolutionAppShell rail={SOLUTION_RAIL} cases={[c]} animate />
-								<p class="dash-row__cap">{c.source}</p>
-							</div>
-						))
-					}
-				</div>
-			</div>
-		</figure>
-	</section>
-
-	{/* --- Digital twin ---------------------------------------------------------------------- */}
-	<section id="page-panel-twin" role="tabpanel" aria-labelledby="page-tab-twin" data-page-panel="twin" hidden>
-		{
-			/* --- the tightened cut, under review --------------------------------------------------
-		    First in the panel because it is the one being judged; the shipped composition is below
-		    it, untouched, and putting the thing under review second is how the incumbent quietly
-		    stays the incumbent.
-
-		    Four changes, and they pay for each other: the connectors overlap the cards so the gutter
-		    can drop from 96u to 64u; three devices against three attributes, an exact mirror, which
-		    is what dropping the power meter and the alarm buys; the history folds into the
-		    temperature row as a sparkline beneath it; and the frame's header becomes a two-line tree
-		    — the customer, then the site — so the picture finally shows the "customers" the copy
-		    beside it promises.
-
-		    The one that matters on a phone is the third. The chart's axis and its time labels were
-		    three of the four things set at 12u, so folding the chart lifts the type floor to 14u:
-		    R goes from 630/12 = 52.5 to 552/14 = 39.4, and the smallest text in the 367px column a
-		    375px phone gives it goes from 7.0px to 9.3px. */
-		}
-		<FeatureRow
-			visual={KEY_VISUALS[2]}
-			note="tightened — overlapped connectors, 3:3 mirror, folded chart, customer tree"
-		>
-			<TwinTree />
-		</FeatureRow>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">TwinTree · 525px</span>
-				<span class="stage__note">variant · the home row at 1440</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 525px">
-					<TwinTree />
-				</div>
-			</div>
-		</figure>
-
-		{/* Where the whole exercise is settled: the floor is 14u, so this is 14 * 335 / 552 = 8.5px. */}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">TwinTree · 335px</span>
-				<span class="stage__note">phone · beside DigitalTwin at the same width below</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<TwinTree />
-				</div>
-			</div>
-		</figure>
-
-		{/* --- the shipped composition, for comparison ----------------------------------------- */}
-		<FeatureRow visual={KEY_VISUALS[2]} note="current candidate — 630u, 12u floor">
-			<DigitalTwin />
-		</FeatureRow>
-
-		{
-			/* The arrangement nesting replaced: the unit on its own, with its site named nowhere. Kept
-		    so the choice can still be judged, now that nesting is what the row above shows. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">DigitalTwin · flat</span>
-				<span class="stage__note">superseded · the unit without its site</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<DigitalTwin nested={false} />
-				</div>
-			</div>
-		</figure>
-
-		{
-			/* Other units the composition could hold, each at the width the unit has in the visual and
-		    without a twin: the point is to judge the unit's card across subjects, not the mirror. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">TwinUnit · gallery</span>
-				<span class="stage__note">other units the composition could hold · no twin</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="unit-row">{UNIT_GALLERY.map((u) => <TwinUnit unit={u} />)}</div>
-			</div>
-		</figure>
-
-		{/* The same composition at the phone width, to check it survives the scale-down. */}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">DigitalTwin · 335px</span>
-				<span class="stage__note">phone</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<DigitalTwin />
-				</div>
-			</div>
-		</figure>
-	</section>
-
-	{/* --- Normalize ------------------------------------------------------------------------- */}
-	<section
-		id="page-panel-normalize"
-		role="tabpanel"
-		aria-labelledby="page-tab-normalize"
-		data-page-panel="normalize"
-		hidden
-	>
-		{
-			/* First half of the design's "Turn IoT data into action" section. The second half — a rule
-		    chain raising an alarm and notifying — is a separate argument and will be its own visual,
-		    so the copy in this row still covers both and will need splitting with it. */
-		}
-		<FeatureRow visual={KEY_VISUALS[3]}>
-			<NormalizeFlow />
-		</FeatureRow>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">NormalizeFlow · 673px</span>
-				<span class="stage__note">draft · the width the feature row gives it</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<NormalizeFlow />
-				</div>
-			</div>
-		</figure>
-
-		{/* The same composition at the phone width, to check the curves survive the scale-down. */}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">NormalizeFlow · 335px</span>
-				<span class="stage__note">phone</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<NormalizeFlow />
-				</div>
-			</div>
-		</figure>
-	</section>
-
-	{/* --- IoT Gateway ----------------------------------------------------------------------- */}
-	<section id="page-panel-gateway" role="tabpanel" aria-labelledby="page-tab-gateway" data-page-panel="gateway" hidden>
-		{
-			/* Drafted before the others and built differently: one root <svg> on a 720 viewBox rather
-		    than a grid on the design unit. It reaches the same place by another road — the whole
-		    board scales as a piece and never reflows — so it sits in the row without adjustment. Its
-		    purple is `#7b3fe4`, which is the accent the Gateway already carries in homeEcosystem. */
-		}
-		<FeatureRow visual={KEY_VISUALS[4]}>
-			<GatewayDiagram />
-		</FeatureRow>
-
-		{/* At the width the row gives it, and at the phone width, as the others are probed. */}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">GatewayDiagram · 673px</span>
-				<span class="stage__note">existing · authored on a 720 viewBox</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<GatewayDiagram />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">GatewayDiagram · 335px</span>
-				<span class="stage__note">phone</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<GatewayDiagram />
-				</div>
-			</div>
-		</figure>
-	</section>
-
-	{/* --- Connect devices ------------------------------------------------------------------- */}
-	<section id="page-panel-connect" role="tabpanel" aria-labelledby="page-tab-connect" data-page-panel="connect" hidden>
-		{
-			/* Replaces the section's grid of protocol logos. The names are set as the subject and the
-		    route — devices, gateways, networks — is demoted to the caption over them, which is the
-		    swap the draft asked for. */
-		}
-		{
-			/* The cloud drops its group captions, so its four accents are the only thing saying which
-		    route a chip belongs to — and how loudly they say it is the open question.
-
-		    "Tinted · light" is the same coding at 10% rather than 18%, and it is worth checking what
-		    that costs as well as what it buys: the four hues get harder to tell from each other the
-		    paler they are, and telling them apart is the entire job.
-
-		    A coloured stripe down each chip was tried and dropped: too noisy at twenty-four of them. */
-		}
-		{
-			/* How the copy keys the cloud's colours. The squircle is the candidate; the highlight is
-		    kept beside it because it marks the term more strongly, at the cost of a paragraph that
-		    reads as a set of labels rather than a sentence. */
-		}
-		<div class="page-ctl" role="group" aria-label="Legend style" data-legend-switch>
-			<span class="page-ctl__name">Copy legend</span>
-			<button type="button" data-legend-pick="swatch" aria-pressed="true">Inline squircle</button>
-			<button type="button" data-legend-pick="highlight" aria-pressed="false">Tint highlight</button>
-		</div>
-
-		<div class="page-ctl" role="group" aria-label="Cloud chip style" data-chip-switch>
-			<span class="page-ctl__name">Cloud chips</span>
-			<button type="button" data-chip-pick="tint" aria-pressed="true">Tinted</button>
-			<button type="button" data-chip-pick="tint-light" aria-pressed="false">Tinted · light</button>
-			<button type="button" data-chip-pick="text" aria-pressed="false">White + colour text</button>
-		</div>
-
-		{
-			/* --- the cloud, which is the launch candidate -----------------------------------------
-		    First in the panel because it is the one that ships: the routes version below is the
-		    fallback, and putting the thing under review second is how a fallback quietly becomes the
-		    default again.
-
-		    A different argument from the same parts: not "four ways in" but "whatever you have is
-		    already in here". Names and accents come from CONNECT_ROUTES, so the two cuts cannot
-		    disagree about what is supported or what colour a route is.
-
-		    Its row is the only one on this page that passes bodyHtml — the cloud has no legend, so
-		    the marked terms in that paragraph are the only thing saying what its colours mean. */
-		}
-		<FeatureRow visual={{ ...KEY_VISUALS[5], bodyHtml: CONNECT_BODY_HTML }} note="the cloud — its copy IS its legend">
-			<ConnectCloud />
-		</FeatureRow>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectCloud · 525px</span>
-				<span class="stage__note">variant · the home row at 1440</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 525px">
-					<ConnectCloud />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectCloud · 673px</span>
-				<span class="stage__note">the width the sandbox row gives it</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<ConnectCloud />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectCloud · 367px</span>
-				<span class="stage__note">phone · the width that decides it</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 367px">
-					<ConnectCloud />
-				</div>
-			</div>
-		</figure>
-
-		{/* --- the routes, the version it replaces --------------------------------------------- */}
-		<FeatureRow visual={KEY_VISUALS[5]}>
-			<ConnectFlow />
-		</FeatureRow>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectFlow · 673px</span>
-				<span class="stage__note">draft · the width the feature row gives it</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<ConnectFlow />
-				</div>
-			</div>
-		</figure>
-
-		{
-			/* The alternative grouping: the four routes the connectivity guide defines, rather than
-		    three that merge LPWAN networks into "networks & clouds". Kept beside the three-group
-		    version rather than replacing it — the simpler read and the accurate one are a real
-		    trade, and the fourth card costs height the phone width can least afford. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectFlow · 4 routes</span>
-				<span class="stage__note">variant · as the connectivity guide groups them · surface: shadow (default)</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<ConnectFlow groups={CONNECT_ROUTES} />
-				</div>
-			</div>
-		</figure>
-
-		{
-			/* The same composition with the other two surfaces, at the same width, so the only thing
-		    changing between the three is how a card separates itself from the page. All three reserve
-		    the same border box, so nothing else moves. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectFlow · surface: outline</span>
-				<span class="stage__note">hairline, no shadow · what these cards started as</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<ConnectFlow groups={CONNECT_ROUTES} surface="outline" />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectFlow · surface: both</span>
-				<span class="stage__note">shadow and hairline · for grounds close to the card fill</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<ConnectFlow groups={CONNECT_ROUTES} surface="both" />
-				</div>
-			</div>
-		</figure>
-
-		{
-			/* Two routes each side of the node, which trades width for height: the same four routes are
-		    412 units tall stacked and 196 split. For a full-bleed band rather than a column. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectFlow · split · 1120px</span>
-				<span class="stage__note">variant · 2 routes → app ← 2 routes</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 1120px">
-					<ConnectFlow groups={CONNECT_ROUTES} layout="split" />
-				</div>
-			</div>
-		</figure>
-
-		{
-			/* The last width that still gets the wide arrangement. One pixel narrower and the next two
-		    stages are what shows instead, so this pair is where the handover gets judged. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectFlow · split · 1000px</span>
-				<span class="stage__note">variant · the threshold, still wide</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 1000px">
-					<ConnectFlow groups={CONNECT_ROUTES} layout="split" />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectFlow · split · 999px</span>
-				<span class="stage__note">variant · one pixel under, regrouped into one column</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 999px">
-					<ConnectFlow groups={CONNECT_ROUTES} layout="split" />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectFlow · split · 335px</span>
-				<span class="stage__note">variant · phone, so the stacked arrangement</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<ConnectFlow groups={CONNECT_ROUTES} layout="split" />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectFlow · 4 routes · 335px</span>
-				<span class="stage__note">variant · phone</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<ConnectFlow groups={CONNECT_ROUTES} />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ConnectFlow · 335px</span>
-				<span class="stage__note">phone</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<ConnectFlow />
-				</div>
-			</div>
-		</figure>
-	</section>
-
-	{/* --- Scale ----------------------------------------------------------------------------- */}
-	<section id="page-panel-scale" role="tabpanel" aria-labelledby="page-tab-scale" data-page-panel="scale" hidden>
-		{
-			/* The scale half of "Deploy anywhere, scale without surprises", split off from the
-		    deployment half. Every figure is from the repo's own 24h benchmarks rather than an
-		    estimate — see src/data/scale-visual.ts for which scenario each one comes from. */
-		}
-		<FeatureRow visual={KEY_VISUALS[6]}>
-			<ScaleGrowth />
-		</FeatureRow>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleChart · 673px</span>
-				<span class="stage__note">draft · the width the feature row gives it</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<ScaleChart />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleChart · 440px</span>
-				<span class="stage__note">the container a real 2-column section gives it at 1440</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 440px">
-					<ScaleChart />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleChart · 335px</span>
-				<span class="stage__note">phone · scales rather than reflows, as the family does</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<ScaleChart />
-				</div>
-			</div>
-		</figure>
-
-		{
-			/* --- second cut ---------------------------------------------------------------------
-		    Kept beside the first rather than replacing it. The chart counts machines instead of CPU,
-		    and carries three facts per tier instead of six — see src/data/scale-visual.ts for why
-		    each machine count is a sum of a table in the docs and not an estimate. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleMachines · 2 tiers · 673px</span>
-				<span class="stage__note">second cut · both counts are sums of a docs table</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<ScaleMachines tiers={SCALE_TIERS_PAIR} />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleMachines · 3 tiers · 673px</span>
-				<span class="stage__note">second cut · the middle tier's count is a shape, not a sum</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<ScaleMachines />
-				</div>
-			</div>
-		</figure>
-
-		{
-			/* The pair the whole trade turns on. Two tiers are 420 units wide and three are 640, so the
-		    same phone hands them different units — this is where that stops being arithmetic. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleMachines · 2 tiers · 335px</span>
-				<span class="stage__note">phone · 420 units native</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<ScaleMachines tiers={SCALE_TIERS_PAIR} />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleMachines · 3 tiers · 335px</span>
-				<span class="stage__note">phone · 640 units native, so the same type lands smaller</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<ScaleMachines />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleMachines · 2 tiers · 440px</span>
-				<span class="stage__note">the container a real 2-column section gives it at 1440</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 440px">
-					<ScaleMachines tiers={SCALE_TIERS_PAIR} />
-				</div>
-			</div>
-		</figure>
-
-		{
-			/* --- third cut ----------------------------------------------------------------------
-		    Two quantities drawn as themselves — a bar to scale for the fleet, one glyph per machine —
-		    and everything else a value or a tag. The sentences have gone to the section copy. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleTiers · 673px</span>
-				<span class="stage__note">third cut · bar for the fleet, one icon per machine</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<ScaleTiers />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleTiers · 440px</span>
-				<span class="stage__note">third cut · the container a real 2-column section gives it</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 440px">
-					<ScaleTiers />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleTiers · 335px</span>
-				<span class="stage__note">third cut · phone</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<ScaleTiers />
-				</div>
-			</div>
-		</figure>
-
-		{
-			/* --- fourth cut ---------------------------------------------------------------------
-		    The one thing the other three leave out: growth. A single unbroken curve through the three
-		    benchmarked device counts, split into one area per phase, with the shopping list for each
-		    phase in the same three columns underneath. */
-		}
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleGrowth · 673px</span>
-				<span class="stage__note">fourth cut · one curve, three areas, three phases</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<ScaleGrowth />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleGrowth · 440px</span>
-				<span class="stage__note">fourth cut · the container a real 2-column section gives it</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 440px">
-					<ScaleGrowth />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">ScaleGrowth · 335px</span>
-				<span class="stage__note">fourth cut · phone · three columns is the tight case</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<ScaleGrowth />
-				</div>
-			</div>
-		</figure>
-	</section>
-
-	{/* --- Deploy anywhere -------------------------------------------------------------------- */}
-	<section id="page-panel-deploy" role="tabpanel" aria-labelledby="page-tab-deploy" data-page-panel="deploy" hidden>
-		{
-			/* The other half of the split. One fork rather than three cards — "private cloud" is not a
-		    third tier, it is your own AWS account, and the on-premises copy already says so. */
-		}
-		<FeatureRow visual={KEY_VISUALS[7]}>
-			<DeployFork />
-		</FeatureRow>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">DeployFork · 673px</span>
-				<span class="stage__note">draft · the width the feature row gives it</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<DeployFork />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">DeployFork · 440px</span>
-				<span class="stage__note">the container a real 2-column section gives it at 1440</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 440px">
-					<DeployFork />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">DeployFork · 335px</span>
-				<span class="stage__note">phone · authored at 480 units so the labels survive here</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<DeployFork />
-				</div>
-			</div>
-		</figure>
-	</section>
-
-	{/* --- White-labeling --------------------------------------------------------------------- */}
-	<section
-		id="page-panel-whitelabel"
-		role="tabpanel"
-		aria-labelledby="page-tab-whitelabel"
-		data-page-panel="whitelabel"
-		hidden
-	>
-		{
-			/* The published section shows a screenshot of the White Labeling settings form. This shows
-		    the result instead: one app, three customers, and a control that swaps between them. */
-		}
-		<FeatureRow visual={KEY_VISUALS[8]}>
-			<WhiteLabelApp />
-		</FeatureRow>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">WhiteLabelApp · 673px</span>
-				<span class="stage__note">draft · rotates on its own, a click takes over</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 673px">
-					<WhiteLabelApp />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">WhiteLabelApp · 440px</span>
-				<span class="stage__note">the container a real 2-column section gives it at 1440</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 440px">
-					<WhiteLabelApp />
-				</div>
-			</div>
-		</figure>
-
-		<figure class="stage" data-w="full">
-			<figcaption class="stage__cap">
-				<span class="stage__name">WhiteLabelApp · 335px · static</span>
-				<span class="stage__note">phone, rotation off — the control is the only way through</span>
-			</figcaption>
-			<div class="stage__frame stage__frame--plain">
-				<div class="probe" style="--probe: 335px">
-					<WhiteLabelApp autoRotate={false} />
-				</div>
-			</div>
-		</figure>
-	</section>
-
-	{/* --- Compact, 448 units ------------------------------------------------------------------ */}
-	<section id="page-panel-compact" role="tabpanel" aria-labelledby="page-tab-compact" data-page-panel="compact" hidden>
-		<p class="compact-note">
-			The five home-preview visuals redrawn to one scale: <strong>448 units wide, nothing smaller than 16u</strong>,
-			with the design unit capped at 1px so a unit is a pixel in the home row. That ratio — 448 / 16 = 28 — is what sets
-			the smallest type at <strong>12px on a 375px phone</strong> and 16px on a desktop. The shipped versions run 45 to 57
-			by the same measure, which is 5.8 to 7.4px on that phone. Each stage below names what it replaces and what that one
-			measured.
-		</p>
-		<p class="compact-note">
-			Candidates only. Nothing here is wired into the home preview, and none of the five original components was touched
-			— both cuts of each visual are on this page to be compared, not swapped.
-		</p>
-
-		{
-			COMPACT_ROWS.map(({ Visual, copy, was }) => (
-				<>
-					<FeatureRow visual={{ id: 'compact', title: copy.title, body: copy.body, link: copy.link }}>
-						<Visual />
-					</FeatureRow>
-					<figure class="stage" data-w="full">
-						<figcaption class="stage__cap">
-							<span class="stage__name">525px · the home row at 1440</span>
-							<span class="stage__note">replaces {was} · smallest type here: 16px</span>
-						</figcaption>
-						<div class="stage__frame stage__frame--plain">
-							<div class="probe" style="--probe: 525px">
-								<Visual />
-							</div>
-						</div>
-					</figure>
-
-					<figure class="stage" data-w="full">
-						<figcaption class="stage__cap">
-							<span class="stage__name">335px · a 375px phone</span>
-							<span class="stage__note">the width that decides it · smallest type here: 12px</span>
-						</figcaption>
-						<div class="stage__frame stage__frame--plain">
-							<div class="probe" style="--probe: 335px">
-								<Visual />
-							</div>
-						</div>
-					</figure>
-				</>
-			))
-		}
-	</section>
+	{
+		/* Retiring stages.
+	    A sandbox only earns its keep while you can still see what is in it, and this one is at
+	    forty-eight exhibits. The judgement about whether an exhibit is still worth keeping is only
+	    good while you are looking at the exhibit — so it is made there, with the ✕ in each stage's
+	    caption, and collected here.
+
+	    Marking is not deleting. It records a decision in localStorage and greys the stage; the
+	    files go when someone reads the list back and removes them, which is a separate commit and
+	    a revert if it turns out to be wrong. Copy the list before clearing site data — this is the
+	    only place it lives. */
+	}
+	<div class="page-ctl" data-retire-bar hidden>
+		<span class="page-ctl__name">Retired</span>
+		<span class="page-ctl__count" data-retire-count>0</span>
+		<button type="button" data-retire-copy>Copy list</button>
+		<button type="button" data-retire-show aria-pressed="false">Show marked</button>
+		<button type="button" data-retire-clear>Clear marks</button>
+	</div>
+
+	<CliPanel />
+	<SolutionPanel />
+	<TwinPanel />
+	<NormalizePanel />
+	<GatewayPanel />
+	<ConnectPanel />
+	<ScalePanel />
+	<DeployPanel />
+	<WhitelabelPanel />
+	<CompactPanel />
 </PlaygroundLayout>
 
 <script>
@@ -1151,9 +242,107 @@ const COMPACT_ROWS = [
 			})
 		);
 	});
+
+	/**
+	 * The retire control.
+	 *
+	 * Every `.stage` gets a ✕ in its caption. Clicking it marks that stage as no longer wanted and
+	 * greys it; the bar at the top of the page counts the marks and copies them out.
+	 *
+	 * A stage is keyed by its panel and its position in it, and the key is stored WITH the caption's
+	 * text. The key alone would rot the first time a stage moved; the text alone is not unique
+	 * (every feature row is called "Feature row"). Together they survive either one changing, which
+	 * matters because the list is read back days later by someone deleting files.
+	 *
+	 * Nothing here deletes anything. It writes a decision down at the moment the decision is good.
+	 */
+	const RETIRE_KEY = 'launch-visuals:retire';
+
+	type Retired = Record<string, string>;
+	const readMarks = (): Retired => {
+		try {
+			return JSON.parse(localStorage.getItem(RETIRE_KEY) || '{}') as Retired;
+		} catch {
+			return {};
+		}
+	};
+	const writeMarks = (m: Retired) => {
+		try {
+			localStorage.setItem(RETIRE_KEY, JSON.stringify(m));
+		} catch {
+			/* private window, cleared site data — the marks are a convenience, not the work */
+		}
+	};
+
+	{
+		const bar = document.querySelector<HTMLElement>('[data-retire-bar]');
+		const countEl = document.querySelector<HTMLElement>('[data-retire-count]');
+		const stages = Array.from(document.querySelectorAll<HTMLElement>('.stage'));
+
+		// panel id + position, so a key says where to look as well as what to remove
+		const seen: Record<string, number> = {};
+		const keyed = stages.map((stage) => {
+			const panel = stage.closest<HTMLElement>('[data-page-panel]')?.dataset.pagePanel ?? 'page';
+			seen[panel] = (seen[panel] ?? 0) + 1;
+			const name = stage.querySelector('.stage__name')?.textContent?.trim() ?? '';
+			const note = stage.querySelector('.stage__note')?.textContent?.trim() ?? '';
+			return { stage, key: `${panel}/${seen[panel]}`, label: note ? `${name} — ${note}` : name };
+		});
+
+		const paint = () => {
+			const marks = readMarks();
+			keyed.forEach(({ stage, key }) => stage.toggleAttribute('data-retired', key in marks));
+			const n = Object.keys(marks).length;
+			if (countEl) countEl.textContent = String(n);
+			if (bar) bar.hidden = n === 0;
+		};
+
+		keyed.forEach(({ stage, key, label }) => {
+			const cap = stage.querySelector('.stage__cap');
+			if (!cap) return;
+			const btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'stage__retire';
+			btn.title = 'Mark this stage as no longer needed';
+			btn.setAttribute('aria-label', `Retire ${label}`);
+			btn.textContent = '✕';
+			btn.addEventListener('click', () => {
+				const marks = readMarks();
+				if (key in marks) delete marks[key];
+				else marks[key] = label;
+				writeMarks(marks);
+				paint();
+			});
+			cap.appendChild(btn);
+		});
+
+		document.querySelector('[data-retire-copy]')?.addEventListener('click', () => {
+			const marks = readMarks();
+			const text = Object.entries(marks)
+				.map(([k, v]) => `${k}\t${v}`)
+				.join('\n');
+			navigator.clipboard?.writeText(text);
+		});
+
+		// Marked stages are dimmed, not hidden, so a mark can be reconsidered. This hides them, which
+		// is the only way to see what the page would actually look like after the cleanup.
+		document.querySelector<HTMLButtonElement>('[data-retire-show]')?.addEventListener('click', (e) => {
+			const btn = e.currentTarget as HTMLButtonElement;
+			const on = btn.getAttribute('aria-pressed') === 'true';
+			btn.setAttribute('aria-pressed', on ? 'false' : 'true');
+			btn.textContent = on ? 'Show marked' : 'Marked hidden';
+			document.documentElement.toggleAttribute('data-hide-retired', !on);
+		});
+
+		document.querySelector('[data-retire-clear]')?.addEventListener('click', () => {
+			writeMarks({});
+			paint();
+		});
+
+		paint();
+	}
 </script>
 
-{/* The stage vocabulary is global to the page so `_FeatureRow` can use it for its caption. */}
 <style lang="scss" is:global>
 	@use '../../styles/variables' as *;
 	@use '../../styles/connect-terms';
@@ -1218,40 +407,64 @@ const COMPACT_ROWS = [
 	.stage__frame--plain {
 		background: none;
 	}
-</style>
+	// --- retiring a stage --------------------------------------------------------------------
 
-<style lang="scss">
-	@use '../../styles/variables' as *;
+	.stage__retire {
+		@include text-xs;
+		margin-left: auto;
+		padding: 0 $spacing-2;
+		border: 0;
+		border-radius: $radius-sm;
+		background: none;
+		line-height: 1.6;
+		color: var(--color-text-secondary, #5b616e);
+		// Quiet until wanted: forty-eight of these along the page would read as forty-eight errors.
+		opacity: 0;
+		cursor: pointer;
 
-	// Page tabs, on the same left edge as the title and the stages.
-	.page-tabs {
-		display: flex;
-		gap: $spacing-1;
-		max-width: 1200px;
-		margin: 0 auto $spacing-10;
-		padding-bottom: $spacing-3;
-		border-bottom: 1px solid var(--sl-color-hairline-light);
-
-		button {
-			@include text-s;
-			padding: $spacing-1 $spacing-3;
-			border: 0;
-			border-radius: $radius-md;
-			background: none;
-			font-weight: $font-weight-medium;
-			color: var(--color-text-secondary, #5b616e);
-			cursor: pointer;
-
-			&:hover {
-				color: var(--color-text, #17181c);
-			}
-
-			&[aria-selected='true'] {
-				background: var(--color-text, #17181c);
-				color: #fff;
-			}
+		&:hover,
+		&:focus-visible {
+			background: var(--sl-color-hairline-light, #ebebeb);
+			color: var(--color-text, #17181c);
 		}
 	}
+
+	.stage:hover .stage__retire,
+	.stage__retire:focus-visible,
+	.stage[data-retired] .stage__retire {
+		opacity: 1;
+	}
+
+	// Dimmed, not hidden: a mark is a decision that can still be looked at and taken back.
+	.stage[data-retired] {
+		opacity: 0.4;
+
+		.stage__name {
+			text-decoration: line-through;
+		}
+	}
+
+	:root[data-hide-retired] .stage[data-retired] {
+		display: none;
+	}
+
+	.page-ctl__count {
+		@include text-xs;
+		min-width: 1.6em;
+		padding: 0 $spacing-1;
+		border-radius: $radius-sm;
+		background: var(--color-text, #17181c);
+		font-family: $font-family-mono;
+		text-align: center;
+		color: #fff;
+	}
+
+	// --- chrome the PANELS use --------------------------------------------------------------
+	//
+	// Global, and that is not a style choice: these classes are written in `_panels/*.astro`, and an
+	// Astro scoped rule only matches markup in its own file. Scoped here, every probe on the page
+	// would silently lose its width. `.page-tabs` below stays scoped because it is the only chrome
+	// this file still renders itself.
 
 	// A small control for a single visual's options, sitting where that visual's stages start.
 	.page-ctl {
@@ -1342,5 +555,41 @@ const COMPACT_ROWS = [
 		margin: $spacing-3 0 0;
 		font-family: $font-family-mono;
 		color: var(--color-text-secondary, #5b616e);
+	}
+</style>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@use '../../styles/variables' as *;
+
+	// Page tabs, on the same left edge as the title and the stages.
+	.page-tabs {
+		display: flex;
+		gap: $spacing-1;
+		max-width: 1200px;
+		margin: 0 auto $spacing-10;
+		padding-bottom: $spacing-3;
+		border-bottom: 1px solid var(--sl-color-hairline-light);
+
+		button {
+			@include text-s;
+			padding: $spacing-1 $spacing-3;
+			border: 0;
+			border-radius: $radius-md;
+			background: none;
+			font-weight: $font-weight-medium;
+			color: var(--color-text-secondary, #5b616e);
+			cursor: pointer;
+
+			&:hover {
+				color: var(--color-text, #17181c);
+			}
+
+			&[aria-selected='true'] {
+				background: var(--color-text, #17181c);
+				color: #fff;
+			}
+		}
 	}
 </style>
