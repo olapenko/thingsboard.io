@@ -166,6 +166,18 @@ All non-doc pages (landing, use-cases, case-studies, standalone pages) share a u
 
 Key rule: **Never hardcode font values** — use mixins. **Never use compile-time SCSS color variables** for theme-dependent colors — use CSS custom properties (`var(--color-*)`).
 
+### Key Visuals (homepage facelift)
+
+The homepage illustrations in `src/components/Landing/` are drawn in CSS and SVG against a derived
+design unit, not exported as images. **Read `src/components/Landing/CLAUDE.md` before touching one** —
+it holds the unit pattern, the rule that predicts whether a visual survives a phone, and a list of
+gotchas (stale scoped-style HMR, the global `svg` reset, the missing 600 weight) that each cost an
+hour to find.
+
+Two internal `noindex` pages render them: `/internal/home-preview/` (the proposed homepage) and
+`/internal/launch-visuals/` (the sandbox, one tab per visual). Never change a shipped visual to try
+an idea — add a candidate beside it.
+
 ### Use-Case Pages
 
 Data-driven pages at `/use-cases/{slug}`. Use the `use-case-pages` skill for data types, page composition, layout, and section components.
