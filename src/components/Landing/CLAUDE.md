@@ -36,7 +36,7 @@ much room it was handed, and the same component appears at four different widths
 
 Geometry that has to line up — curve endpoints, arrow tips, column widths — is computed in the
 frontmatter in design units and passed down as custom properties, so the drawing and the layout
-cannot disagree. See `ConnectFlow.astro` and `TwinTree.astro`.
+cannot disagree. See `ConnectFlow.astro`.
 
 ## R — the one number that predicts a phone
 
@@ -53,7 +53,7 @@ A 375px phone gives a visual about a 367px column. So:
 | --- | --- |
 | 52.5 (`DigitalTwin`, 630u / 12u) | 7.0px |
 | 45 | 8.2px |
-| 39 (`TwinTree`, 552u / 14u) | 9.4px |
+| 39 (`TwinTree`, 552u / 14u — retired) | 9.4px |
 | 28 (the compact family, 448u / 16u) | 13.1px |
 
 Two consequences worth knowing before proposing anything:
@@ -91,7 +91,11 @@ can be redrawn without retyping the words and a marketing page can import the sa
   that overflows its track needs `max-width: none` and an explicit width.
 - **Pixels do not scale.** A `1px` border or hairline is the same size at every unit, so it breaks
   unit arithmetic — worst at phone scale, where the unit is smallest. `TwinUnit` carries 4px of
-  border chrome; `TwinTree` documents the two ways to absorb it.
+  border chrome — a border top and bottom and a hairline between each pair of rows — so the card
+  measures 4px taller than unit arithmetic predicts. Two ways to absorb it, both measured in
+  `08a8c189f`: give the frame the COMPUTED height and let the 4px come out of its bottom padding,
+  which leaves the worst connector landing ~3px high of its row's centre; or stretch the drawing to
+  the card's measured height, which trades that for ~2.9px at the other end. Neither is free.
 - **Astro scoped CSS compiles to `:where(.astro-hash)` — zero specificity.** Two equal selectors are
   decided by source order, so a rule declared later wins even if it looks more specific.
 - **A scoped rule cannot reach markup in another component.** This is why the sandbox's stage chrome
@@ -142,9 +146,10 @@ shipped page stable through several rejected directions:
 5. **Promote or retire.** Promoting means the home preview imports it. Retiring means the ✕ in its
    caption, and a deletion pass later.
 
-Rejected work is committed, not discarded — with the reason in the message. `TwinTree` is on the
-branch and is not used anywhere; the compact family was deleted only after it had been parked long
-enough to be sure.
+Rejected work is committed, not discarded — with the reason in the message. `TwinTree` was drafted
+in `08a8c189f`, judged on its canvas, and deleted once its direction was dropped; the commit still
+holds the component and its measurements, which is what makes deleting it cheap. The compact family
+went the same way, after being parked long enough to be sure.
 
 ### Several visuals at once
 
