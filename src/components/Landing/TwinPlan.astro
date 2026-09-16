@@ -185,12 +185,15 @@ const UNIT_BOT = UNIT.y + UNIT.h;
 // the wall the connectors do not use — they take the top and bottom edges.
 const DOOR = { y: 196, h: 44, swing: 34 };
 
-// Racking on the open floor, so the zone reads as an area OF a warehouse rather than as the whole
-// of one. Below the telemetry run and above the zone, which is the only band they fit in.
-const RACKS = [
-	{ x: 12, y: 78, w: 68, h: 22 },
-	{ x: 178, y: 78, w: 68, h: 22 },
-];
+// Structural columns across the open floor, in the building's own stroke, so the plan reads as a
+// building rather than as a box with two things in it. Six on a near-regular grid, in the one band
+// they fit: below the telemetry run and above the zone.
+//
+// The middle spacing is 38 where the others are 42, which puts the gap on the telemetry riser's
+// line — 129. A column grid with a wider bay in it is what a plan does anyway, and it means the
+// riser drops down an aisle instead of through a column.
+const COLUMN = 16;
+const COLUMNS = [18, 60, 102, 140, 182, 224].map((x) => ({ x, y: 80 }));
 
 // The other cold rooms: the same size as the subject and in line with it, so the three read as a
 // rank of identical rooms and the only thing that distinguishes ours is that it is named and that
@@ -276,6 +279,11 @@ const vars = [
 	`--tp-zone-w: ${ZONE_BOX.w}`,
 	`--tp-zone-h: ${ZONE_BOX.h}`,
 	`--tp-zone-pad: ${ZONE_PAD}`,
+	`--tp-column: ${COLUMN}`,
+	// The rooms' own fills. The two that are only there to be counted take a flat dark grey; the one
+	// the platform is talking to takes the primary, deepened — darker than the connectors running
+	// into it, so it reads as the thing they arrive at rather than as more of the same line.
+	`--tp-unit-bg: ${peers ? '#1f2a8a' : 'var(--flow-chrome, #1b1e27)'}`,
 	`--tp-unit-x: ${UNIT.x}`,
 	`--tp-unit-y: ${UNIT.y}`,
 	`--tp-unit-w: ${UNIT.w}`,
@@ -296,7 +304,7 @@ const vars = [
 			<div class="tp__plan">
 				<p class="tp__site-name">{SITE.name}</p>
 
-				{RACKS.map((r) => <i class="tp__rack" style={`--x: ${r.x}; --y: ${r.y}; --w: ${r.w}; --h: ${r.h}`} />)}
+				{COLUMNS.map((c) => <i class="tp__column" style={`--x: ${c.x}; --y: ${c.y}`} />)}
 				{
 					PEERS.map((r) => (
 						<span class="tp__peer" style={`--x: ${r.x}; --y: ${r.y}; --w: ${r.w}; --h: ${r.h}`}>
@@ -533,16 +541,17 @@ const vars = [
 		color: var(--color-text-secondary, #5b616e);
 	}
 
-	// Racking, outlined and empty. It is context, not content: enough to say the zone is an area of a
-	// floor rather than the whole floor, and quiet enough not to be read as another object.
-	.tp__rack {
+	// A column, in the same stroke as the building around it — the two are the same structure, drawn
+	// at two sizes. Context, not content: enough to say this is a floor, quiet enough not to be read
+	// as another object on it.
+	.tp__column {
 		display: block;
 		position: absolute;
 		top: u(var(--y));
 		left: u(var(--x));
-		width: u(var(--w));
-		height: u(var(--h));
-		border: 1px solid var(--tp-shade);
+		width: u(var(--tp-column));
+		height: u(var(--tp-column));
+		border: 2px solid var(--tp-shade);
 		border-radius: u(2);
 	}
 
@@ -559,11 +568,11 @@ const vars = [
 		width: u(var(--w));
 		height: u(var(--h));
 		border-radius: u(var(--flow-radius, 8));
-		background: var(--color-border-strong, #d5d7dd);
+		background: #6e7079;
 		font-size: u(18);
 		font-weight: $font-weight-semibold;
 		line-height: u(24);
-		color: var(--color-text-secondary, #5b616e);
+		color: #fff;
 	}
 
 	.tp__zone {
@@ -600,7 +609,7 @@ const vars = [
 		height: u(var(--tp-unit-h));
 		padding: 0 u(16);
 		border-radius: u(var(--flow-radius, 8));
-		background: var(--flow-chrome, #1b1e27);
+		background: var(--tp-unit-bg);
 		box-shadow:
 			0 1px 2px rgba(16, 24, 40, 0.08),
 			0 #{u(14)} #{u(32)} #{u(-10)} rgba(16, 24, 40, 0.28);
