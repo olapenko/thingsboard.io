@@ -148,6 +148,13 @@ OOMs — and per the root CLAUDE.md, ask before running one.
 like success. `pnpm run dev --port 4322`, with no `--`, is correct. `.claude/launch.json` uses that
 form for `tb-site-b` and `tb-site-c`.
 
+**Astro never fails on a busy port, it moves.** Ask for 4323 while 4323–4325 are taken and it
+starts on 4326 and says so in one line you did not read. So the server you are measuring may not
+be the one you think, and a dev server that seems to ignore your edits is often a different
+server. `lsof -nP -iTCP -sTCP:LISTEN | grep 43` lists them with pids. Note that these processes do
+NOT match `pkill -f "astro dev"` — the command line is `node …/astro.js`, so that pkill silently
+kills nothing and leaves the orphans holding their ports.
+
 Measured costs, so the loop can be judged rather than guessed: dev server boot ~31s; first
 compile of `/internal/launch-visuals/` 2.5s and of `/internal/home-preview/` 7.6s; afterwards
 21ms and 59ms. Once it is up, it is fast — so keep it up.
