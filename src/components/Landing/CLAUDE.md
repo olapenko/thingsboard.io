@@ -82,8 +82,14 @@ can be redrawn without retyping the words and a marketing page can import the sa
 
 ## Gotchas, each of which has cost an hour
 
-- **Astro's scoped-style HMR goes stale.** After editing SCSS, a reload is not enough — the browser
-  keeps serving the old rules and you measure a change that never happened. Restart the dev server.
+- **HMR works; a dead server looks exactly like stale HMR.** This file used to say that scoped-style
+  HMR goes stale and the dev server must be restarted after every SCSS edit. Measured, that is
+  false: changing a value in a component's scoped block, adding a brand-new selector to it, and
+  editing the page's `is:global` block all reach the browser live, with no reload. What actually
+  happened was that the dev server had died — the console showed `ERR_CONNECTION_REFUSED` and vite
+  "Failed to reload" errors — and the stale styles got blamed on HMR. **Before blaming HMR, check
+  the server is alive.** Restarting costs about 31 seconds and was, for a while, the single largest
+  tax on the loop.
 - **`astro check` does not compile SCSS.** It will pass over a stylesheet that cannot build. Only a
   real build or a page load proves the styles.
 - **The global reset gives every `<svg>` `max-width: 100%`.** An SVG whose viewBox is wider than its
@@ -123,6 +129,15 @@ npx astro check
 Run them as separate commands. A pipe (`… | tail -2`) swallows a non-zero exit and has already
 caused unformatted code to be committed. A full build is `pnpm build:fast` — bare `astro build`
 OOMs — and per the root CLAUDE.md, ask before running one.
+
+**`pnpm run dev -- --port 4322` does not work**: pnpm swallows the `--` and Astro falls back to
+4321, then auto-increments if that is taken — which can land on the port you asked for and look
+like success. `pnpm run dev --port 4322`, with no `--`, is correct. `.claude/launch.json` uses that
+form for `tb-site-b` and `tb-site-c`.
+
+Measured costs, so the loop can be judged rather than guessed: dev server boot ~31s; first
+compile of `/internal/launch-visuals/` 2.5s and of `/internal/home-preview/` 7.6s; afterwards
+21ms and 59ms. Once it is up, it is fast — so keep it up.
 
 Path aliases: `@root`, `@components`, `@layouts`, `@styles`, `@data`, `@util`, `@models`,
 `@includes`. There is no `@assets`.
