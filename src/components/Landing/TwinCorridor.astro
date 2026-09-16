@@ -238,8 +238,8 @@ const TWIN_HEAD_H = 80;
 // zone rather than under it — the arrow is in the room it is addressing.
 const ZONE_TOP = 88;
 const ZONE_PAD = 12;
-const ZONE_HEAD = 18;
-const ZONE_GAP = 4;
+const ZONE_HEAD = 22;
+const ZONE_GAP = 2;
 const ZONE_H = BODY - FRAME_PAD - ZONE_TOP;
 
 // The height budget, top to bottom: padding, the site's name, the telemetry corridor, the unit (or
@@ -326,9 +326,10 @@ const vars = [
 	`--tc-chart-h: ${CHART_H}`,
 	`--tc-band-h: ${BAND_H}`,
 	`--tc-card-pad-b: ${CARD_PAD_B}`,
-	// One pixel per card border the risers cross on their way to the unit's edge: the site frame
-	// always, and the zone frame as well when the unit is nested inside one.
-	`--tc-nudge: ${zone ? 2 : 1}px`,
+	// One pixel per card border the risers cross on their way to the unit's edge. Just the site
+	// frame's, in both versions — the zone is a hatched area now and draws no border of its own.
+	// It had one until the hatch got heavy enough to stand alone, and while it did this was 2px.
+	`--tc-nudge: 1px`,
 ].join(';');
 ---
 
@@ -590,30 +591,34 @@ const vars = [
 		height: u(var(--tc-zone-h));
 		margin-top: u(var(--tc-block-gap));
 		padding: u(var(--tc-zone-pad));
-		border: 1px solid var(--color-border, #ebebeb);
+		// No outline of its own. An area is not a card, and once the hatch is heavy enough to read as
+		// a surface, a border was drawing a box around something that is not one.
 		border-radius: u(var(--flow-radius, 8));
 		background: repeating-linear-gradient(
 			45deg,
-			transparent 0 #{u(6)},
-			var(--color-border-strong, #d5d7dd) #{u(6)} #{u(7.5)}
+			transparent 0 #{u(7)},
+			var(--color-border-strong, #d5d7dd) #{u(7)} #{u(10)}
 		);
 	}
 
+	// The same line as the warehouse's above it: one level down is said by where it sits and by the
+	// hatch around it, not by a smaller, lighter label.
 	.tc__zone-name {
 		display: flex;
 		align-items: center;
-		gap: u(6);
+		gap: u(8);
 		height: u(var(--tc-zone-head));
 		margin: 0;
-		font-size: u(14);
-		line-height: u(18);
+		font-size: u(15);
+		font-weight: $font-weight-medium;
+		line-height: u(22);
 		white-space: nowrap;
 		color: var(--color-text-secondary, #5b616e);
 
 		[data-icon] {
 			flex: none;
-			width: u(14);
-			height: u(14);
+			width: u(18);
+			height: u(18);
 		}
 	}
 
@@ -627,16 +632,9 @@ const vars = [
 	// component's markup. Astro compiles TwinUnit's own rules to `:where()`, which scores zero, so
 	// these win on specificity alone.
 	//
-	// What it buys: the unit's name matches the twin's name, and its device rows match the twin's
-	// keys — same size, same weight, same line height. It shipped a step larger and a step heavier
-	// on both, which read as two different cards rather than two views of one object. The name also
-	// leaves $font-weight-semibold behind, which has no real face and was being synthesised.
-	.tc :global(.unit__name) {
-		font-size: u(16);
-		font-weight: $font-weight-medium;
-		line-height: u(22);
-	}
-
+	// What it buys: the unit's device rows match the twin's keys in size and line height. Its NAME is
+	// left alone — TwinUnit already sets 16u semibold on 22u, which is what the twin's name opposite
+	// it now uses, so the two cards are headed identically without a rule here.
 	// Size and line height matched to the twin's rows, but the MEDIUM weight kept: these sit on the
 	// dark surface, where the twin's keys sit on white, and dropping them to normal took the
 	// substance out of the card that is meant to be the solid object in the picture.
@@ -692,13 +690,16 @@ const vars = [
 		opacity: 0.5;
 	}
 
+	// Semibold, as `DigitalTwin`'s name and `TwinUnit`'s both are. The directory's note about there
+	// being no Ubuntu 600 is about body text and says as much — on a heading the face resolves
+	// upward. At medium this went soft against the incumbent, and against the unit opposite it.
 	.tc__name {
 		display: flex;
 		align-items: center;
 		gap: u(8);
 		margin: 0;
 		font-size: u(16);
-		font-weight: $font-weight-medium;
+		font-weight: $font-weight-semibold;
 		line-height: u(22);
 		white-space: nowrap;
 
@@ -802,6 +803,11 @@ const vars = [
 		z-index: 2;
 		top: 0;
 		left: 0;
+		// It covers the WHOLE composition, both cards included, so without this it takes every
+		// pointer event and a drag across the card selects nothing — the text is there and copyable,
+		// but the drag starts on this layer. The gutter-sized layer the rest of the family uses never
+		// had the problem, because it only ever covered empty space.
+		pointer-events: none;
 		// Every card in the drawing sits 1px inside its own border, and the arithmetic above cannot
 		// see that border — so measured, both unit-side endpoints came up short of the edge they are
 		// meant to touch, by exactly one pixel per border between the frame's top and the unit's.
