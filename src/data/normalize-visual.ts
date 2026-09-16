@@ -75,7 +75,7 @@ export const NORMALIZE_CASES: NormalizeCase[] = [
  * `24.0 °C`, and the model is not pretending to a precision the device never sent. Normalising a
  * format is not the same as inventing detail.
  */
-function canonical(c: NormalizeCase, celsius: number): number {
+export function canonical(c: NormalizeCase, celsius: number): number {
 	return c.format === 'hex-register' ? Math.round(celsius) : celsius;
 }
 
@@ -135,3 +135,66 @@ export function readingText(c: NormalizeCase, celsius = c.celsius): string {
 
 /** The key every payload ends up under, whatever it called itself. */
 export const NORMALIZE_KEY = 'temperature';
+
+// --- history, for the candidate that plots each reading -----------------------------------------
+
+/**
+ * How many readings the model card carries behind the current one.
+ *
+ * Long enough that the line has a shape rather than a couple of kinks, short enough that at phone
+ * scale each segment is still more than a pixel wide.
+ */
+export const NORMALIZE_WINDOW = 24;
+
+/**
+ * A bounded walk around the case's own starting reading — never a climb, never off its axis.
+ *
+ * Shared by the history the server seeds and the steps the client takes afterwards, so the line
+ * that arrives after a tick is the same kind of line as the one that was there at first paint. The
+ * random source is a parameter precisely so the server can pass a seeded one and stay deterministic.
+ */
+export function nextCelsius(c: NormalizeCase, current: number, rnd: () => number = Math.random): number {
+	const step = c.drift * 0.5 * (rnd() - 0.5) * 2;
+	return Math.min(c.celsius + c.drift, Math.max(c.celsius - c.drift, current + step));
+}
+
+/**
+ * mulberry32, so a build is reproducible.
+ *
+ * `Math.random()` at render time would give every build a different set of lines — a diff in the
+ * generated HTML on every deploy, and no way to tell a real change from noise.
+ */
+function prng(seed: number): () => number {
+	let a = seed >>> 0;
+	return () => {
+		a = (a + 0x6d2b79f5) >>> 0;
+		let t = Math.imul(a ^ (a >>> 15), 1 | a);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+/**
+ * The readings this device has already sent, oldest first, ending at the one on the card.
+ *
+ * Seeded off the case's index and its own starting value, so the four lines differ from each other
+ * and neither one changes when a neighbour is edited.
+ */
+export function seedSeries(c: NormalizeCase, i: number, n: number = NORMALIZE_WINDOW): number[] {
+	const rnd = prng(0x9e3779b9 ^ Math.imul(i + 1, 2654435761) ^ Math.round(c.celsius * 10));
+	const out = [c.celsius];
+	while (out.length < n) out.push(nextCelsius(c, out[out.length - 1], rnd));
+	return out;
+}
+
+/**
+ * The band the line is plotted against: the walk's own bounds, not the window's min and max.
+ *
+ * Fitting each window to its own extremes would rescale the line every tick — a reading that had
+ * not moved would appear to swing, because the frame moved under it. The walk cannot leave
+ * `celsius ± drift`, so that IS the axis, and a still device draws a still line.
+ */
+export function sparkDomain(c: NormalizeCase): [number, number] {
+	const pad = c.drift * 0.25;
+	return [c.celsius - c.drift - pad, c.celsius + c.drift + pad];
+}
