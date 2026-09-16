@@ -236,11 +236,15 @@ const TWIN_HEAD_H = 80;
 // The zone frame, when the unit is nested one level deeper. It runs from below the telemetry line
 // all the way to the frame's bottom padding, so the commands connector and its name are INSIDE the
 // zone rather than under it — the arrow is in the room it is addressing.
-const ZONE_TOP = 88;
-const ZONE_PAD = 12;
+const ZONE_TOP = 86;
+const ZONE_PAD = 10;
 const ZONE_HEAD = 22;
-const ZONE_GAP = 2;
-const ZONE_H = BODY - FRAME_PAD - ZONE_TOP;
+const ZONE_GAP = 0;
+// Down to 6u of the site's own edge rather than stopping at its padding: how high the zone can
+// start is capped by the telemetry run above it, so the room the commands name needs comes from
+// the other end. An area abutting the wall of the building it is in is how floor plans read anyway.
+const ZONE_FOOT = 6;
+const ZONE_H = BODY - ZONE_FOOT - ZONE_TOP;
 
 // The height budget, top to bottom: padding, the site's name, the telemetry corridor, the unit (or
 // the zone frame holding it), the commands corridor, padding. Whatever the block in the middle
@@ -255,11 +259,12 @@ const BLOCK_GAP = (zone ? ZONE_TOP : UNIT_TOP) - FRAME_PAD - HEAD_H;
 // for the corner, and nested, the riser crosses the zone's own border on the way — the unit is what
 // talks, not the room it stands in, so both ends sit on the unit's edges either way.
 const UP_Y = TWIN_HEAD_H;
-const DOWN_Y = UNIT_BOT + (zone ? 14 : 22);
+const DOWN_Y = UNIT_BOT + (zone ? 16 : 22);
 
 // Far enough from its run to read as a caption rather than as part of the line. Nested, the
-// commands name sits inside the zone and has its floor to clear as well, so it rides closer.
-const LABEL_GAP = zone ? 16 : 22;
+// commands name sits inside the zone and has its floor to clear as well, so it rides a little
+// closer — 10u of hatch below it now, where raising the zone found the room.
+const LABEL_GAP = zone ? 18 : 22;
 
 // Both risers stand on the unit's centre line. Collinear on purpose — one above the card and one
 // below it, so the pair reads as a single axis the unit sits on rather than as two stray lines.
@@ -315,6 +320,7 @@ const vars = [
 	`--tc-twin: ${COL.twin}`,
 	`--tc-body: ${BODY}`,
 	`--tc-pad: ${FRAME_PAD}`,
+	`--tc-pad-b: ${zone ? ZONE_FOOT : FRAME_PAD}`,
 	`--tc-head: ${HEAD_H}`,
 	`--tc-block-gap: ${BLOCK_GAP}`,
 	`--tc-zone-gap: ${ZONE_GAP}`,
@@ -539,7 +545,13 @@ const vars = [
 	// which is what a site is, and it leaves the hatched zone as the only texture on that side.
 	.tc__site {
 		grid-column: 1;
-		padding: u(var(--tc-pad));
+		// Pinned, not stretched. Nested, its content adds up to exactly the body's height, so without
+		// a height of its own the frame grew by its two 1px borders and hung below the composition.
+		height: u(var(--tc-body));
+		// The bottom is its own number because the zone runs down into it: the frame's height is the
+		// body's, so anything the zone gains below has to come OUT of this padding rather than be
+		// added to it. Left unchanged, the frame grew 7.7u past the composition.
+		padding: u(var(--tc-pad)) u(var(--tc-pad)) u(var(--tc-pad-b));
 		border: 1px solid var(--color-border, #ebebeb);
 		// The cards' own radius, so the frame is one more card and not a different kind of shape.
 		border-radius: u(var(--flow-radius, 8));
@@ -581,7 +593,8 @@ const vars = [
 	// the warehouse floor, not another card. The stripes are drawn in design units, so they scale
 	// with everything else — a gradient in pixels would be one more thing that does not.
 	.tc__zone {
-		height: u(var(--tc-zone-h));
+		// Less the frame's 2px of border, which `box-sizing` takes out of the space this sits in.
+		height: calc(#{u(var(--tc-zone-h))} - 2px);
 		margin-top: u(var(--tc-block-gap));
 		padding: u(var(--tc-zone-pad));
 		// No outline of its own. An area is not a card, and once the hatch is heavy enough to read as
@@ -590,7 +603,7 @@ const vars = [
 		background: repeating-linear-gradient(
 			45deg,
 			transparent 0 #{u(12)},
-			var(--color-border-strong, #d5d7dd) #{u(12)} #{u(20)}
+			var(--color-border, #ebebeb) #{u(12)} #{u(20)}
 		);
 	}
 
