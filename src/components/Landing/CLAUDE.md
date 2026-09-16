@@ -99,9 +99,19 @@ can be redrawn without retyping the words and a marketing page can import the sa
   `_panels/*.astro`.
 - **`grid-template-columns: auto` takes max-content**, so `max-width: 100%` on a child never bites
   and the row escapes its box. Use `minmax(0, 1fr)`.
-- **Ubuntu is loaded at 300 / 400 / 400-italic / 500 / 700, Ubuntu Mono at 400 / 700. There is no
-  600.** `$font-weight-semibold` exists as a variable and the browser synthesises it — fine on a
-  heading that snaps to 700, visibly wrong inside a paragraph. Use `$font-weight-medium`.
+- **There is no Ubuntu 600 anywhere.** `$font-weight-semibold` exists as a variable and the browser
+  synthesises the face — fine on a heading that snaps to 700, visibly wrong inside a paragraph. Use
+  `$font-weight-medium`.
+- **The two pages do not load the same faces**, which matters because the sandbox is where the
+  decisions get made:
+
+  | | Ubuntu | Ubuntu Mono |
+  | --- | --- | --- |
+  | `/internal/home-preview/` (BaseLayout → Starlight) | 300, 400, 400-italic, 500, 700 | 400, 700 |
+  | `/internal/launch-visuals/` (`PlaygroundLayout`) | 300, 400, 500, 700 | **400 only** |
+
+  So bold monospace — a chip, an axis label — is a real face on the home preview and a synthesised
+  one in the sandbox. Check `document.fonts` on the page you are actually looking at.
 
 ## Verifying
 
@@ -117,14 +127,39 @@ OOMs — and per the root CLAUDE.md, ask before running one.
 Path aliases: `@root`, `@components`, `@layouts`, `@styles`, `@data`, `@util`, `@models`,
 `@includes`. There is no `@assets`.
 
-## Working on several visuals at once
+## The workflow
 
-Components never collide; the shared files do. Use one git worktree per visual, on its own branch,
-and give each its own dev server — `.claude/launch.json` declares `tb-site` (4321), `tb-site-b`
-(4322) and `tb-site-c` (4323), because two sessions sharing one server will restart it under each
-other mid-measurement.
+One visual goes through this loop, and it is the loop rather than any one step that has kept the
+shipped page stable through several rejected directions:
 
-Still shared, so coordinate before touching them: `home-preview.astro`, `_key-visuals.ts`,
+1. **Draft as a new component**, named for its idea (`ConnectCloud`, `TwinTree`), never as an edit
+   to the visual the home preview renders.
+2. **Give it a canvas** — a `FeatureRow` in its panel, plus probes at 525px (the home row at 1440)
+   and 335px (the phone). The candidate goes FIRST in the panel and the incumbent below it; put it
+   second and the incumbent quietly stays the incumbent.
+3. **Measure it in the browser**, and report the numbers rather than an impression.
+4. **Judge it in the row**, not in isolation.
+5. **Promote or retire.** Promoting means the home preview imports it. Retiring means the ✕ in its
+   caption, and a deletion pass later.
+
+Rejected work is committed, not discarded — with the reason in the message. `TwinTree` is on the
+branch and is not used anywhere; the compact family was deleted only after it had been parked long
+enough to be sure.
+
+### Several visuals at once
+
+Components never collide; the shared files do. One git worktree per visual, on its own branch, one
+session per visual, and its own dev server — `.claude/launch.json` declares `tb-site` (4321),
+`tb-site-b` (4322) and `tb-site-c` (4323), because two sessions sharing one server will restart it
+under each other mid-measurement.
+
+A session per visual is also about context: these sessions get long, and a compacted one has lost
+the measurements it took two hours ago. Start fresh per visual and let this file carry the method.
+
+Merge the branches back **one at a time** — each will have touched `_key-visuals.ts` and the two
+one-line lists in `launch-visuals.astro`.
+
+Shared, so coordinate before touching: `home-preview.astro`, `_key-visuals.ts`,
 `FeatureBlockSection.astro` (which also reaches the PE and Edge product pages), `TwinUnit.astro`,
 and `src/styles/_connect-terms.scss`.
 
