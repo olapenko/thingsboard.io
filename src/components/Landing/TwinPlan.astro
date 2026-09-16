@@ -172,7 +172,10 @@ const ZONE_BOX = { x: FRAME_PAD, y: 110, w: COL.site - FRAME_PAD * 2, h: 216 };
 const ZONE_PAD = 8;
 
 // Centred on the same axis the other two put it on, so the risers stand where they always have.
-const UNIT = { x: 58, y: 168, w: 142, h: 94 };
+//
+// Among peers it is smaller and one of three in a row — the middle one, which is what keeps that
+// axis — and its name moves above it, because a box this size cannot hold one.
+const UNIT = peers ? { x: 96, y: 200, w: 66, h: 70 } : { x: 58, y: 168, w: 142, h: 94 };
 const UNIT_TOP = UNIT.y;
 const UNIT_BOT = UNIT.y + UNIT.h;
 
@@ -183,23 +186,26 @@ const DOOR = { y: 196, h: 44, swing: 34 };
 
 // Racking on the open floor, so the zone reads as an area OF a warehouse rather than as the whole
 // of one. Below the telemetry run and above the zone, which is the only band they fit in.
-const RACKS = peers
-	? []
-	: [
-			{ x: 12, y: 78, w: 68, h: 22 },
-			{ x: 178, y: 78, w: 68, h: 22 },
-		];
+const RACKS = [
+	{ x: 12, y: 78, w: 68, h: 22 },
+	{ x: 178, y: 78, w: 68, h: 22 },
+];
 
-// The other cold rooms, when there are any: two out on the floor and one sharing the zone, so the
-// subject is one of several both in the building and in its own area. Faded and unnamed — they are
-// there to be counted, not read — and placed clear of both risers, which stand on x = 129.
+// The other cold rooms: the same size as the subject and in line with it, so the three read as a
+// rank of identical rooms and the only thing that distinguishes ours is that it is named and that
+// the platform is talking to it. Three across the zone's width — 66 each with 10 between — which is
+// what sets the subject's own size.
 const PEERS = peers
 	? [
-			{ x: 12, y: 72, w: 78, h: 34 },
-			{ x: 168, y: 72, w: 78, h: 34 },
-			{ x: 20, y: 272, w: 74, h: 46 },
+			{ x: 20, y: UNIT.y, w: UNIT.w, h: UNIT.h },
+			{ x: 172, y: UNIT.y, w: UNIT.w, h: UNIT.h },
 		]
 	: [];
+
+// Above the unit rather than inside it, and knocked out of the telemetry riser on its way down —
+// the family's own treatment for a name that has to sit on a line. Centred on the unit, so it is
+// unambiguous which of the three it belongs to.
+const UNIT_LABEL_Y = UNIT.y - 32;
 
 const UNIT_X = UNIT.x + UNIT.w / 2;
 const TWIN_X = COL.site + COL.gut;
@@ -268,6 +274,7 @@ const vars = [
 	`--tp-unit-y: ${UNIT.y}`,
 	`--tp-unit-w: ${UNIT.w}`,
 	`--tp-unit-h: ${UNIT.h}`,
+	`--tp-unit-label-y: ${UNIT_LABEL_Y}`,
 	// Two walls' worth: the plan's own outline, which the risers cross on their way out of the
 	// building, is 2px and box-sizing takes it out of the space everything inside is placed in.
 	`--tp-nudge: 2px`,
@@ -297,9 +304,8 @@ const vars = [
 					</p>
 				</div>
 
-				<div class="tp__unit">
-					<span>{UNIT_NAME}</span>
-				</div>
+				<div class="tp__unit">{!peers && <span>{UNIT_NAME}</span>}</div>
+				{peers && <p class="tp__unit-name">{UNIT_NAME}</p>}
 
 				{
 					/* The door, over the unit's wall: a gap where the leaf is, then the leaf and its swing
@@ -608,6 +614,24 @@ const vars = [
 		line-height: u(22);
 		text-align: center;
 		color: #fff;
+	}
+
+	// Centred over its unit and above it, with a chip of the floor behind it so the riser coming down
+	// passes behind the words rather than through them. `z-index` over the wire layer, which is 2.
+	.tp__unit-name {
+		position: absolute;
+		z-index: 3;
+		top: u(var(--tp-unit-label-y));
+		left: calc(u(var(--tp-unit-x)) + u(var(--tp-unit-w)) / 2);
+		margin: 0;
+		padding: 0 u(6);
+		transform: translateX(-50%);
+		background: var(--color-bg, #fff);
+		font-size: u(15);
+		font-weight: $font-weight-semibold;
+		line-height: u(22);
+		white-space: nowrap;
+		color: var(--color-text);
 	}
 
 	.tp__door {
