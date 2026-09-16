@@ -10,12 +10,25 @@ Two pages render them, both internal and both `noindex`:
 | Page | What it is |
 | --- | --- |
 | `/internal/home-preview/` | The homepage as proposed. The only place a visual is seen in context. |
-| `/internal/launch-visuals/` | The sandbox. One tab per visual, each exhibit at a known width. |
+| `/internal/launch-visuals/` | The sandbox index. One card per visual. |
+| `/internal/launch-visuals/<id>/` | One visual, its exhibits at known widths. |
 
-The sandbox page is a frame only: the tab strip, the page-wide controls, and one `<Panel />` each.
-Every visual's exhibits live in `src/pages/internal/_panels/_<id>.astro`, one file per visual, so
-that two people — or two sessions — working on different visuals never edit the same file. Copy
-comes from `src/pages/internal/_key-visuals.ts`, addressed by `kv('twin')` and never by index.
+**One route per visual**, each its own file:
+
+```
+_key-visuals.ts              the copy and the tab labels; addressed by kv('twin'), never by index
+_VisualPage.astro            the shell every visual's page shares: the strip of links between
+                             them, the retire control, and the stage chrome (is:global)
+launch-visuals/index.astro   the index
+launch-visuals/twin.astro    one visual's stages — <VisualPage visual="twin"> … </VisualPage>
+```
+
+Add a visual: an entry in `_key-visuals.ts` and a page in `launch-visuals/`. It appears on the
+index and in every other page's strip with no further edit. Remove one: delete those two things.
+
+This replaced a single 1346-line page holding all nine as tab panels. Opening it compiled and
+rendered fifty-eight stages to look at six, and pulled the stylesheets of twenty components;
+a visual's own page pulls four or five and its first compile is milliseconds rather than 2.5s.
 
 ## The design unit
 
@@ -174,15 +187,16 @@ the measurements it took two hours ago. Start fresh per visual and let this file
 Merge the branches back **one at a time** — each will have touched `_key-visuals.ts` and the two
 one-line lists in `launch-visuals.astro`.
 
-Shared, so coordinate before touching: `home-preview.astro`, `_key-visuals.ts`,
+Shared, so coordinate before touching: `home-preview.astro`, `_key-visuals.ts`, `_VisualPage.astro`,
 `FeatureBlockSection.astro` (which also reaches the PE and Edge product pages), `TwinUnit.astro`,
-and `src/styles/_connect-terms.scss`.
+and `src/styles/_connect-terms.scss`. A visual's own page is not shared, which is the point.
 
 ## Retiring a stage
 
 The sandbox has more exhibits than anyone can hold in their head. Each stage's caption has a ✕ that
 marks it as no longer wanted: the stage greys out and the key goes into
-`localStorage['launch-visuals:retire']` as `panel/position → caption`.
+`localStorage['launch-visuals:retire']` as `visual/position → caption`. The store is shared across
+every visual's page, so the count and the copied list cover the whole sandbox wherever you are.
 
 Marking is not deleting. To act on the list, read that key off the page and then, for each entry,
 check that nothing outside the sandbox imports the component before removing it. **Deletion is its
