@@ -49,9 +49,22 @@ interface Props {
 	 * deleting it outright would leave four arrows aimed at something unnamed.
 	 */
 	nodeLabel?: boolean;
+	/**
+	 * Whether anything moves along the connectors.
+	 *
+	 * `still` is the default and is what the component was: the numbers step and the lines slide,
+	 * the connectors do not. The comment at the top of `NormalizeFlow` is worth keeping in mind —
+	 * the flow visual carries the page's motion and this one is a diagram — so `pulse` is an
+	 * exploration, not a decision.
+	 *
+	 * `pulse` sends one pip per device along its curve into the node, and out again to its row a
+	 * transit later, so a single payload can be followed through the platform to the row it lands
+	 * in. Four packets on one beat, not eight decorative loops.
+	 */
+	motion?: 'still' | 'pulse';
 }
 
-const { nodeLabel = false } = Astro.props;
+const { nodeLabel = false, motion = 'still' } = Astro.props;
 
 // The composition. Narrower than the family's 630 because the gutters are: 70 units each against
 // the incumbent's 83, which pulls the three columns together and takes the whole drawing to 574.
@@ -79,17 +92,66 @@ const MID = BODY_H / 2;
 const chipCy = NORMALIZE_CASES.map((_, i) => CHIP.h / 2 + i * (CHIP.h + CHIP.gap));
 const rowCy = NORMALIZE_CASES.map((_, i) => ROW_H / 2 + i * ROW_H);
 
-// Horizontal control points at the gutter's midpoint: the curve leaves flat and arrives flat, so
-// four of them stack into a bundle rather than crossing.
-const bend = COL.gut / 2;
-const converge = chipCy.map((cy) => `M 0,${cy} C ${bend},${cy} ${bend},${MID} ${COL.gut},${MID}`);
-const diverge = rowCy.map((cy) => `M 0,${MID} C ${bend},${MID} ${bend},${cy} ${COL.gut},${cy}`);
+// A straight run at each end, then the cubic between them.
+//
+// Horizontal control points already make the tangent horizontal AT the endpoint, but a tangent is
+// a limit and a chevron has length. Measured on the 70-unit gutter, the outer curves were still
+// climbing 8.9 degrees across the last 6 units — exactly the span the chevron occupies — and only
+// 3 units of the approach were within 5 degrees of flat. The arrowheads read as skewed because the
+// line under them genuinely was. Widening the gutter would fix it by giving the curve more room,
+// but the gutters are narrow on purpose now.
+//
+// So the flat part is drawn rather than approached: the last LEAD units are a straight line, the
+// chevron sits inside it, and the join is horizontal by construction at any width. The cubic gets
+// the middle and is steeper for it, which is the trade — and it is the middle, where nothing has
+// to line up with anything.
+const LEAD = 12;
+const span = COL.gut - LEAD * 2;
+const bend = LEAD + span / 2;
+const converge = chipCy.map(
+	(cy) =>
+		`M 0,${cy} L ${LEAD},${cy} C ${bend},${cy} ${COL.gut - bend},${MID} ${COL.gut - LEAD},${MID} L ${COL.gut},${MID}`
+);
+const diverge = rowCy.map(
+	(cy) =>
+		`M 0,${MID} L ${LEAD},${MID} C ${bend},${MID} ${COL.gut - bend},${cy} ${COL.gut - LEAD},${cy} L ${COL.gut},${cy}`
+);
 
 // An open chevron, apex on the gutter's far edge so it touches the card the curve runs into.
 const head = (y: number) => `M ${COL.gut - 6},${y - 4} L ${COL.gut},${y} L ${COL.gut - 6},${y + 4}`;
 
 // The sparkline's own coordinate space, stretched to the row by `preserveAspectRatio="none"`.
 const VIEW = { w: 100, h: 24, pad: 3 };
+
+// How often a device reports. Declared here and handed to BOTH the stylesheet and the client
+// script, because the pip is only honest if it arrives when the number changes: two 2600s, one in
+// a keyframe and one in a module constant, would drift apart the first time either was tuned.
+const STEP_MS = 2600;
+// How long a pip takes to cross one gutter.
+//
+// Speed is set by the dash pattern rather than by a duration: the animation always runs one beat,
+// and the pip is only ON the path for the fraction of the pattern the path occupies. A 419-unit
+// repeat over a 100-unit path means it crosses in 100/419 of the beat and the connector is empty
+// for the rest — so making the signal faster also makes the gaps between signals longer, which is
+// most of what reads as snap. Halving the travel from the beat's half to under a quarter cost
+// nothing else in the composition.
+const TRAVEL_TARGET_MS = 620;
+const DASH = 8;
+// The repeat, in the same normalised units the path is measured in.
+const PATTERN = Math.round((100 * STEP_MS) / TRAVEL_TARGET_MS);
+// What that rounding actually bought, and the number the delays below are wound from — the pip has
+// to LAND on the beat, so the delays are derived from the real travel and not from the target.
+const TRAVEL_MS = (STEP_MS * 100) / PATTERN;
+// Four devices reporting independently, not one machine ticking. Small enough that the four still
+// read as one beat rather than as four unrelated animations.
+const STAGGER_MS = 130;
+// How long after a pip reaches a row that row answers it.
+//
+// The order is the whole point of the pulse: something arrives, and THEN the model changes. Long
+// enough to read as consequence rather than coincidence, short enough that it is not a separate
+// event — under about 100ms the two look simultaneous, and over about 300ms the row looks like it
+// changed on its own.
+const REACT_MS = 150;
 
 /**
  * One seeded history per device, plus the reading about to arrive.
@@ -124,6 +186,10 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 	<div
 		class="norm"
 		data-norm
+		data-motion={motion}
+		data-step={STEP_MS}
+		data-stagger={STAGGER_MS}
+		data-react={REACT_MS}
 		data-view={`${VIEW.w},${VIEW.h},${VIEW.pad}`}
 		data-window={NORMALIZE_WINDOW}
 		style={[
@@ -144,6 +210,11 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 			`--norm-row-h: ${ROW_H}`,
 			`--norm-chip-h: ${CHIP.h}`,
 			`--norm-chip-gap: ${CHIP.gap}`,
+			`--norm-beat: ${STEP_MS}ms`,
+			`--norm-travel: ${TRAVEL_MS}ms`,
+			`--norm-stagger: ${STAGGER_MS}ms`,
+			`--norm-dash: ${DASH} ${PATTERN - DASH}`,
+			`--norm-pattern: ${PATTERN}`,
 		].join('; ')}
 	>
 		{/* Nested, so one parse is cheaper to read than four attributes to reassemble. */}
@@ -182,6 +253,17 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 		}
 		<svg class="norm__gut norm__gut--in" viewBox={`0 0 ${COL.gut} ${BODY_H}`} aria-hidden="true">
 			{converge.map((d) => <path class="norm__curve" d={d} />)}
+			{
+				/* Same `d` as the rail beneath it, so the pip cannot travel anywhere the connector does
+			    not go. `pathLength` normalises every curve to 100 whatever its real length, which is
+			    what lets one dash pattern serve four curves of four different lengths — and what
+			    keeps the pip the same size at every width, since the pattern is then in the same
+			    normalised space the path is. */
+			}
+			{
+				motion === 'pulse' &&
+					converge.map((d, i) => <path class="norm__pip" d={d} pathLength="100" style={`--i: ${i}`} />)
+			}
 			<path class="norm__head" d={head(MID)}></path>
 		</svg>
 
@@ -198,6 +280,14 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 
 		<svg class="norm__gut norm__gut--out" viewBox={`0 0 ${COL.gut} ${BODY_H}`} aria-hidden="true">
 			{diverge.map((d) => <path class="norm__curve" d={d} />)}
+			{
+				/* A transit behind its own device's incoming pip, so what leaves the node for row `i` is
+			    what arrived from chip `i`. The two halves are one packet rather than two loops. */
+			}
+			{
+				motion === 'pulse' &&
+					diverge.map((d, i) => <path class="norm__pip norm__pip--out" d={d} pathLength="100" style={`--i: ${i}`} />)
+			}
 			{rowCy.map((cy) => <path class="norm__head" d={head(cy)} />)}
 		</svg>
 
@@ -257,7 +347,10 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 	 * Only the numeric token and the value move as text. Keys, quotes and units are fixed by the
 	 * format, so they are left alone rather than rebuilt every frame.
 	 */
-	const STEP_MS = 2600; // how often a device reports
+	// How often a device reports, read off the root: the frontmatter declares it once and the
+	// connector keyframes are wound from the same number, so a pip cannot arrive on a beat the
+	// readings are not keeping.
+	const STEP_FALLBACK = 2600;
 	const TWEEN_MS = 600; // how long the number takes to get there, and the line to slide
 
 	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -265,6 +358,17 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 	type Plot = {
 		num: HTMLElement | null;
 		read: HTMLElement | null;
+		row: HTMLElement | null;
+		/**
+		 * How long after a step this row moves.
+		 *
+		 * Zero when nothing is travelling: with no pip to wait for, four rows changing at once is
+		 * the honest picture and is what the still version has always done. Under `pulse` it is the
+		 * moment this device's own pip lands, plus the beat it takes the row to answer.
+		 */
+		offset: number;
+		/** When the current tween began, or null between tweens. */
+		startAt: number | null;
 		g: SVGGElement | null;
 		line: SVGPathElement | null;
 		area: SVGPathElement | null;
@@ -277,6 +381,18 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 
 	type Live = {
 		root: HTMLElement;
+		/** Only `pulse` has anything for a row to answer, so only `pulse` marks one as answering. */
+		pulse: boolean;
+		step: number;
+		/**
+		 * The instant the connector animations began, read off a pip.
+		 *
+		 * Both clocks are nominally the beat, but they are two clocks: the keyframes start when the
+		 * element first renders and this loop starts when the module runs. Reading the animation's
+		 * own start time and stepping in exact multiples from it is what stops a pip arriving a
+		 * little further from its row's answer every minute.
+		 */
+		origin: number;
 		view: SparkView;
 		window: number;
 		plots: Plot[];
@@ -308,22 +424,39 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 		return Array.from(document.querySelectorAll<HTMLElement>('[data-norm]')).map((root) => {
 			const [w, h, pad] = (root.dataset.view ?? '100,24,3').split(',').map(Number);
 			const win = Number(root.dataset.window ?? NORMALIZE_WINDOW);
+			const pulse = root.dataset.motion === 'pulse';
+			const stagger = Number(root.dataset.stagger) || 0;
+			const react = Number(root.dataset.react) || 0;
+			// A pip's own animation, asked when it started. `startTime` is on the document timeline,
+			// which shares its origin with `performance.now()`.
+			const pip = root.querySelector<SVGPathElement>('.norm__pip');
+			const clock = pip?.getAnimations?.()[0];
+			const origin = pulse && clock?.startTime != null ? Number(clock.startTime) : now;
 			// Seeded server-side and read back rather than regenerated: one generator, one history.
 			const seeded: { series: number[]; domain: Domain }[] = JSON.parse(
 				root.querySelector('[data-norm-plots]')?.textContent ?? '[]'
 			);
 			return {
 				root,
+				pulse,
+				origin,
+				step: Number(root.dataset.step) || STEP_FALLBACK,
 				view: { w, h, pad },
 				window: win,
 				started: 0,
-				lastStep: now,
+				lastStep: origin,
 				plots: NORMALIZE_CASES.map((_, i) => {
 					const g = root.querySelector<SVGGElement>(`[data-norm-plot="${i}"]`);
 					const s = seeded[i];
 					return {
 						num: root.querySelector<HTMLElement>(`[data-norm-tok="${i}"]`),
 						read: root.querySelector<HTMLElement>(`[data-norm-read="${i}"]`),
+						row: root.querySelectorAll<HTMLElement>('.norm__row')[i] ?? null,
+						// The out-pip is delayed by a transit and crosses in another, so it reaches row
+						// `i` one whole beat after its cycle began — which is this many milliseconds
+						// past a step boundary.
+						offset: pulse ? i * stagger + react : 0,
+						startAt: null,
 						g,
 						line: g?.querySelector<SVGPathElement>('.norm__spark-line') ?? null,
 						area: g?.querySelector<SVGPathElement>('.norm__spark-area') ?? null,
@@ -356,21 +489,31 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 				if (!visible.has(l.root)) return;
 				const seg = segmentWidth(l.window, l.view);
 
-				if (now - l.lastStep >= STEP_MS) {
-					l.lastStep = now;
+				if (now - l.lastStep >= l.step) {
+					// Stepped in exact multiples of the beat from the connectors' own clock, so the two
+					// cannot drift. A root that has been off screen for a while is snapped forward to
+					// the current beat rather than replaying every one it missed.
+					const beats = Math.floor((now - l.origin) / l.step);
+					l.lastStep = l.origin + beats * l.step;
+					l.plots.forEach((p) => (p.startAt = l.lastStep + p.offset));
 					l.started = now;
 				}
 				if (!l.started) return;
 
-				const t = Math.min(1, (now - l.started) / TWEEN_MS);
-				// easeOutCubic: quick to move, settles rather than stopping dead.
-				const e = 1 - Math.pow(1 - t, 3);
-
 				l.plots.forEach((p, i) => {
+					// Its pip has not landed yet. The row holds what it had — which is the point: the
+					// model changes because something arrived, not because the clock moved.
+					if (p.startAt === null || now < p.startAt) return;
+
+					const t = Math.min(1, (now - p.startAt) / TWEEN_MS);
+					// easeOutCubic: quick to move, settles rather than stopping dead.
+					const e = 1 - Math.pow(1 - t, 3);
 					const from = p.hist[p.hist.length - 1] ?? p.pending;
 					paint(p, i, from + (p.pending - from) * e);
+
 					if (t < 1) {
 						p.g?.setAttribute('transform', `translate(${(-seg * e).toFixed(3)} 0)`);
+						if (l.pulse) p.row?.classList.add('is-live');
 						return;
 					}
 					// Advance and redraw at rest. The point that was one segment past the right edge is
@@ -381,9 +524,11 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 					p.pending = nextCelsius(NORMALIZE_CASES[i], p.pending);
 					p.g?.setAttribute('transform', 'translate(0 0)');
 					draw(p, i, l);
+					if (l.pulse) p.row?.classList.remove('is-live');
+					p.startAt = null;
 				});
 
-				if (t >= 1) l.started = 0;
+				if (l.plots.every((p) => p.startAt === null)) l.started = 0;
 			});
 
 			requestAnimationFrame(frame);
@@ -412,6 +557,17 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 		--u: var(--flow-u);
 		--norm-rail-color: var(--color-text-secondary, #5b616e);
 		--norm-rail-w: max(1px, #{u(2)});
+		// Whiteish, but measurably NOT the page.
+		//
+		// A signal at or near white reads as a GAP travelling down the connector — the line looking
+		// broken rather than lit — because at two pixels there is no rail left either side of it to
+		// say otherwise. Measured: at 10% brand the signal came out rgb(236, 238, 254), which is
+		// 1.15:1 against the page, and that is exactly what it looked like. At 28% it is
+		// rgb(201, 206, 252) — 1.45:1 against the page and 3.4:1 against the rail, so it is plainly
+		// lighter than the line it runs on and plainly not a hole in it.
+		//
+		// This is the knob if the signal wants to be hotter or cooler; nothing else depends on it.
+		--norm-signal-color: color-mix(in srgb, var(--color-primary, #3d50f5) 28%, #fff);
 
 		// A syntax ramp of this visual's own, rather than borrowed tokens, and tuned for the dark
 		// chip the payloads sit on. See `NormalizeFlow` for why the palette's own hues are all
@@ -613,6 +769,65 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 		stroke-linejoin: round;
 	}
 
+	// One payload, travelling. Deliberately NOT `non-scaling-stroke`, unlike the rail it runs on:
+	// the rail wants a hairline that never thins, while the pip is an object in the drawing and
+	// should grow and shrink with it like everything else does.
+	//
+	// The repeat is several times the normalised path, so at most one pip is ever on a curve: it
+	// crosses quickly and the connector is empty until the next one. A pattern SHORTER than the
+	// path would put a string of pips on every connector, which reads as a conveyor rather than as
+	// a reading arriving.
+	//
+	// Linear, and deliberately. Easing would be the obvious way to add snap, but the timing
+	// function applies across the whole beat while the pip is visible for only part of it — an
+	// ease would make the travel cover its distance in something other than `--norm-travel`, and
+	// the arrival would no longer line up with the row that answers it. Snap comes from the short
+	// travel and the long gap instead, both of which are exact.
+	.norm__pip {
+		fill: none;
+		stroke: var(--norm-signal-color);
+		// The rail's own weight, not a heavier one. A thicker pip made the signal a bulge travelling
+		// down the connector; at the same weight it is the connector itself lighting up, and colour
+		// is the only thing that changes. Two units matches `--norm-rail-w` at every width the
+		// composition is used at — the rail's `max(1px, …)` only exceeds two units below a 290px
+		// container, where the pip is under a pixel anyway.
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-dasharray: var(--norm-dash);
+		animation: norm-pip var(--norm-beat) linear infinite;
+		// Wound BACKWARDS from the moment it has to arrive rather than forwards from zero. The pip
+		// into the node has two gutters left to cross, so it starts two travels before the beat;
+		// change the speed and both delays follow, and the packet still lands on the beat.
+		animation-delay: calc(var(--i) * var(--norm-stagger) + var(--norm-beat) - 2 * var(--norm-travel));
+	}
+
+	// Its own device's pip, leaving the node exactly as the incoming one reaches it — so the packet
+	// that arrived is the packet that leaves, rather than the two sides pulsing at each other.
+	.norm__pip--out {
+		animation-delay: calc(var(--i) * var(--norm-stagger) + var(--norm-beat) - var(--norm-travel));
+	}
+
+	// One full pattern of travel per beat. Start and end are the same picture, so the loop has no
+	// seam; the dash is only on the path for the slice of it that moves the pip end to end.
+	@keyframes norm-pip {
+		from {
+			stroke-dashoffset: var(--norm-pattern);
+		}
+
+		to {
+			stroke-dashoffset: 0;
+		}
+	}
+
+	// The connectors are the one thing here that moves for its own sake — the numbers and the lines
+	// are showing data — so this is the one thing that goes when motion is unwelcome. Not a width
+	// query: a visual does not know the viewport, but it may know what the reader has asked for.
+	@media (prefers-reduced-motion: reduce) {
+		.norm__pip {
+			display: none;
+		}
+	}
+
 	// --- what it becomes ------------------------------------------------------
 
 	.norm__model {
@@ -680,6 +895,44 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 		stroke-linejoin: round;
 		// preserveAspectRatio="none" stretches the box, which would stretch the stroke with it.
 		vector-effect: non-scaling-stroke;
+	}
+
+	// Connectors in the brand, carrying a near-white signal, rather than grey ones carrying a blue
+	// one. It puts the flow in the same colour as the thing it flows into — the badge — so the
+	// picture reads as one system rather than as neutral plumbing with a coloured box in it.
+	//
+	// Scoped to `pulse` on purpose: the still stage beside it is the committed candidate and is what
+	// this is being judged against, so it keeps its grey rails. Lifting this one declaration out of
+	// the block makes it the composition's default, if that is the answer.
+	.norm[data-motion='pulse'] {
+		--norm-rail-color: var(--color-primary, #3d50f5);
+	}
+
+	// What a row does when its signal lands.
+	//
+	// Only under `pulse`: with nothing travelling there is nothing to answer, and the still version
+	// stays exactly what was committed. The lift is fast and the return is slow, which is what makes
+	// it read as a reaction rather than a blink — the same asymmetry a needle has.
+	.norm[data-motion='pulse'] {
+		.norm__val {
+			transition: color 560ms ease-out;
+		}
+
+		.norm__spark-area {
+			transition: opacity 560ms ease-out;
+		}
+
+		.norm__row.is-live {
+			.norm__val {
+				color: var(--color-primary, #3d50f5);
+				transition-duration: 120ms;
+			}
+
+			.norm__spark-area {
+				opacity: 0.2;
+				transition-duration: 120ms;
+			}
+		}
 	}
 
 	.norm__val {
