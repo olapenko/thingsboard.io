@@ -87,10 +87,6 @@ export const KEY_VISUALS: KeyVisual[] = [
 		body: WHITELABEL_COPY.body,
 		link: WHITELABEL_COPY.link,
 	},
-	{
-		id: 'compact',
-		label: 'Compact · 448',
-	},
 ];
 
 /** The entry for `id`. Throws at build time rather than rendering a row with no copy in it. */
