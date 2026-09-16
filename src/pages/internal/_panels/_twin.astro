@@ -21,6 +21,31 @@ import { kv } from '@root/pages/internal/_key-visuals';
 {/* --- Digital twin ---------------------------------------------------------------------- */}
 <section id="page-panel-twin" role="tabpanel" aria-labelledby="page-tab-twin" data-page-panel="twin" hidden>
 	{
+		/* --- the label knob -------------------------------------------------------------------
+	    Both pairs of captions in `TwinCorridor` — the stage names and the connector names — read one
+	    inherited property, so setting it here turns every instance in this panel at once: the two
+	    feature rows and all four probes, which is the point. A size is easy to argue about from a
+	    screenshot and easy to settle by turning it in the row it ships in.
+
+	    It writes to `localStorage` like the retire marks do, so a reload does not lose where you got
+	    to. The number it lands on still has to be written into the component; this only finds it. */
+	}
+	<div class="page-ctl" data-label-ctl>
+		<span class="page-ctl__name">Caption size</span>
+		<input
+			type="range"
+			min="12"
+			max="22"
+			step="1"
+			value="17"
+			data-label-range
+			aria-label="Caption size in design units"
+		/>
+		<span class="page-ctl__count" data-label-out>17u</span>
+		<button type="button" data-label-reset>Reset to 17</button>
+	</div>
+
+	{
 		/* --- the corridor routing, geometry pass ----------------------------------------------
 	    First in the panel because it is the one being judged. `DigitalTwin`, which the home preview
 	    used to show, is below it and untouched, so the two can still be put side by side.
@@ -153,3 +178,63 @@ import { kv } from '@root/pages/internal/_key-visuals';
 		</div>
 	</figure>
 </section>
+
+<style is:global>
+	/* The stage chrome lives in the page's own `is:global` block; this control is this panel's, so it
+	   sits here — but it still has to be global, because a scoped rule cannot reach markup a panel
+	   renders. It borrows `.page-ctl` for everything but the slider. */
+	[data-label-ctl] input[type='range'] {
+		width: 180px;
+		accent-color: var(--color-primary, #3d50f5);
+	}
+</style>
+
+<script>
+	/**
+	 * Turns `--kv-label` on the twin panel, which every `TwinCorridor` under it inherits.
+	 *
+	 * Sandbox-only: nothing outside this page sets the property, so the component falls back to its
+	 * own default everywhere else. Whatever this settles on has to be typed into the component — the
+	 * knob finds the number, it does not store it.
+	 */
+	const KEY = 'launch-visuals:twin-label';
+
+	const panel = document.querySelector<HTMLElement>('[data-page-panel="twin"]');
+	const range = document.querySelector<HTMLInputElement>('[data-label-range]');
+	const out = document.querySelector<HTMLElement>('[data-label-out]');
+	const reset = document.querySelector<HTMLButtonElement>('[data-label-reset]');
+
+	if (panel && range && out && reset) {
+		const DEFAULT = range.value;
+
+		const apply = (value: string, remember = true) => {
+			range.value = value;
+			out.textContent = `${value}u`;
+			panel.style.setProperty('--kv-label', value);
+			if (!remember) return;
+			try {
+				localStorage.setItem(KEY, value);
+			} catch {
+				/* private window, cleared site data — the knob still works, it just will not persist */
+			}
+		};
+
+		let saved: string | null = null;
+		try {
+			saved = localStorage.getItem(KEY);
+		} catch {
+			/* as above */
+		}
+		apply(saved ?? DEFAULT, false);
+
+		range.addEventListener('input', () => apply(range.value));
+		reset.addEventListener('click', () => {
+			try {
+				localStorage.removeItem(KEY);
+			} catch {
+				/* as above */
+			}
+			apply(DEFAULT, false);
+		});
+	}
+</script>
