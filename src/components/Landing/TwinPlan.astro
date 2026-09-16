@@ -40,6 +40,21 @@ import { segmentWidth, sparkPaths, sparkY } from '@util/sparkline';
  * and to the twin's left, drawn on one layer over the whole composition.
  */
 
+interface Props {
+	/**
+	 * Put the unit among its peers: three more cold rooms on the floor, faded and unlabelled, and
+	 * no door drawn on any of them.
+	 *
+	 * It changes what the picture is about. Alone, the unit is THE cold storage unit and the plan is
+	 * its address. Among others it becomes one of several, which is the truer thing for a platform
+	 * whose argument is that it models a whole estate — and it is why the subject needs a name that
+	 * identifies it rather than describes its type.
+	 */
+	peers?: boolean;
+}
+
+const { peers = false } = Astro.props;
+
 // --- content ------------------------------------------------------------------------------
 
 const SITE = { name: PHYSICAL_ASSET.path[0], icon: 'tabler:building-warehouse' };
@@ -47,6 +62,14 @@ const ZONE = { name: PHYSICAL_ASSET.path[1], icon: 'tabler:map-pin' };
 
 /** As deep as the plan goes, so the two halves describe the same containment. */
 const PATH = ['Acme Inc', ...PHYSICAL_ASSET.path];
+
+/**
+ * Among peers the unit needs a name that picks it out rather than one that says what it is: every
+ * rectangle on that floor is a cold storage unit. Overridden here rather than in the shared data,
+ * which the other candidates and the shipped visual are still reading.
+ */
+const UNIT_NAME = peers ? 'Cold storage 02' : PHYSICAL_ASSET.name;
+const TWIN_NAME = peers ? `${UNIT_NAME} twin` : TWIN.name;
 
 const telemetry = TWIN_FLOWS.find((f) => f.to === 'twin');
 const commands = TWIN_FLOWS.find((f) => f.to === 'physical');
@@ -158,12 +181,25 @@ const UNIT_BOT = UNIT.y + UNIT.h;
 // the wall the connectors do not use — they take the top and bottom edges.
 const DOOR = { y: 196, h: 44, swing: 34 };
 
-// Racks on the open floor, so the zone reads as an area OF a warehouse rather than as the whole of
-// one. Below the telemetry run and above the zone, which is the only band they fit in.
-const RACKS = [
-	{ x: 12, y: 78, w: 68, h: 22 },
-	{ x: 178, y: 78, w: 68, h: 22 },
-];
+// Racking on the open floor, so the zone reads as an area OF a warehouse rather than as the whole
+// of one. Below the telemetry run and above the zone, which is the only band they fit in.
+const RACKS = peers
+	? []
+	: [
+			{ x: 12, y: 78, w: 68, h: 22 },
+			{ x: 178, y: 78, w: 68, h: 22 },
+		];
+
+// The other cold rooms, when there are any: two out on the floor and one sharing the zone, so the
+// subject is one of several both in the building and in its own area. Faded and unnamed — they are
+// there to be counted, not read — and placed clear of both risers, which stand on x = 129.
+const PEERS = peers
+	? [
+			{ x: 12, y: 72, w: 78, h: 34 },
+			{ x: 168, y: 72, w: 78, h: 34 },
+			{ x: 20, y: 272, w: 74, h: 46 },
+		]
+	: [];
 
 const UNIT_X = UNIT.x + UNIT.w / 2;
 const TWIN_X = COL.site + COL.gut;
@@ -252,6 +288,7 @@ const vars = [
 				</p>
 
 				{RACKS.map((r) => <i class="tp__rack" style={`--x: ${r.x}; --y: ${r.y}; --w: ${r.w}; --h: ${r.h}`} />)}
+				{PEERS.map((r) => <i class="tp__peer" style={`--x: ${r.x}; --y: ${r.y}; --w: ${r.w}; --h: ${r.h}`} />)}
 
 				<div class="tp__zone">
 					<p class="tp__zone-name">
@@ -261,24 +298,29 @@ const vars = [
 				</div>
 
 				<div class="tp__unit">
-					<span>{PHYSICAL_ASSET.name}</span>
+					<span>{UNIT_NAME}</span>
 				</div>
 
 				{
 					/* The door, over the unit's wall: a gap where the leaf is, then the leaf and its swing
-				    across the floor. Drawn last so it sits on top of the dark. */
+				    across the floor. Drawn last so it sits on top of the dark. Dropped among peers,
+				    where three more rooms are already saying what kind of thing these are. */
 				}
-				<svg
-					class="tp__door"
-					viewBox={`0 0 ${COL.site} ${BODY}`}
-					preserveAspectRatio="none"
-					aria-hidden="true"
-					focusable="false"
-				>
-					<rect class="tp__door-gap" x={UNIT.x - 2} y={DOOR.y} width="4" height={DOOR.h}></rect>
-					<path class="tp__door-line" d={door.leaf}></path>
-					<path class="tp__door-line tp__door-line--swing" d={door.arc}></path>
-				</svg>
+				{
+					!peers && (
+						<svg
+							class="tp__door"
+							viewBox={`0 0 ${COL.site} ${BODY}`}
+							preserveAspectRatio="none"
+							aria-hidden="true"
+							focusable="false"
+						>
+							<rect class="tp__door-gap" x={UNIT.x - 2} y={DOOR.y} width="4" height={DOOR.h} />
+							<path class="tp__door-line" d={door.leaf} />
+							<path class="tp__door-line tp__door-line--swing" d={door.arc} />
+						</svg>
+					)
+				}
 			</div>
 
 			{/* --- its twin ------------------------------------------------------------------ */}
@@ -300,7 +342,7 @@ const vars = [
 					</p>
 					<p class="tp__name">
 						<Icon name="tabler:box-model" aria-hidden="true" />
-						<span>{TWIN.name}</span>
+						<span>{TWIN_NAME}</span>
 					</p>
 				</header>
 
@@ -497,6 +539,21 @@ const vars = [
 		height: u(var(--h));
 		border: 1px solid var(--tp-shade);
 		border-radius: u(2);
+	}
+
+	// The other rooms. The unit's own surface at a fraction of its strength, and no shadow — the same
+	// kind of thing, receded, so they can be counted without being read. Unlabelled on purpose: names
+	// on them would make the floor a list.
+	.tp__peer {
+		display: block;
+		position: absolute;
+		top: u(var(--y));
+		left: u(var(--x));
+		width: u(var(--w));
+		height: u(var(--h));
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--flow-chrome, #1b1e27);
+		opacity: 0.16;
 	}
 
 	.tp__zone {
