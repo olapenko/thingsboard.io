@@ -57,8 +57,9 @@ const { peers = false } = Astro.props;
 
 // --- content ------------------------------------------------------------------------------
 
-const SITE = { name: PHYSICAL_ASSET.path[0], icon: 'tabler:building-warehouse' };
-const ZONE = { name: PHYSICAL_ASSET.path[1], icon: 'tabler:map-pin' };
+// Names only. The plan carries no glyphs — see the note on `.tp__site-name` below.
+const SITE = { name: PHYSICAL_ASSET.path[0] };
+const ZONE = { name: PHYSICAL_ASSET.path[1] };
 
 /** As deep as the plan goes, so the two halves describe the same containment. */
 const PATH = ['Acme Inc', ...PHYSICAL_ASSET.path];
@@ -197,15 +198,20 @@ const RACKS = [
 // what sets the subject's own size.
 const PEERS = peers
 	? [
-			{ x: 20, y: UNIT.y, w: UNIT.w, h: UNIT.h },
-			{ x: 172, y: UNIT.y, w: UNIT.w, h: UNIT.h },
+			{ x: 20, y: UNIT.y, w: UNIT.w, h: UNIT.h, n: '01' },
+			{ x: 172, y: UNIT.y, w: UNIT.w, h: UNIT.h, n: '03' },
 		]
 	: [];
 
-// Above the unit rather than inside it, and knocked out of the telemetry riser on its way down —
-// the family's own treatment for a name that has to sit on a line. Centred on the unit, so it is
-// unambiguous which of the three it belongs to.
-const UNIT_LABEL_Y = UNIT.y - 32;
+/**
+ * What is written on the box. Among peers that is a number and nothing else: three identical rooms
+ * in a rank are told apart by their position in it, which is how a plan numbers bays. It also ends
+ * the problem a name had — any name wide enough to read was wider than a 66u box, so it had to go
+ * above and be knocked out of the riser coming down into it. A number sits inside.
+ *
+ * The twin opposite still carries the full name. The plan is a plan; the record is the record.
+ */
+const UNIT_MARK = peers ? '02' : UNIT_NAME;
 
 const UNIT_X = UNIT.x + UNIT.w / 2;
 const TWIN_X = COL.site + COL.gut;
@@ -274,7 +280,6 @@ const vars = [
 	`--tp-unit-y: ${UNIT.y}`,
 	`--tp-unit-w: ${UNIT.w}`,
 	`--tp-unit-h: ${UNIT.h}`,
-	`--tp-unit-label-y: ${UNIT_LABEL_Y}`,
 	// Two walls' worth: the plan's own outline, which the risers cross on their way out of the
 	// building, is 2px and box-sizing takes it out of the space everything inside is placed in.
 	`--tp-nudge: 2px`,
@@ -289,23 +294,24 @@ const vars = [
 		<div class="tp__body">
 			{/* --- the warehouse, from above ------------------------------------------------- */}
 			<div class="tp__plan">
-				<p class="tp__site-name">
-					<Icon name={SITE.icon} aria-hidden="true" />
-					<span>{SITE.name}</span>
-				</p>
+				<p class="tp__site-name">{SITE.name}</p>
 
 				{RACKS.map((r) => <i class="tp__rack" style={`--x: ${r.x}; --y: ${r.y}; --w: ${r.w}; --h: ${r.h}`} />)}
-				{PEERS.map((r) => <i class="tp__peer" style={`--x: ${r.x}; --y: ${r.y}; --w: ${r.w}; --h: ${r.h}`} />)}
+				{
+					PEERS.map((r) => (
+						<span class="tp__peer" style={`--x: ${r.x}; --y: ${r.y}; --w: ${r.w}; --h: ${r.h}`}>
+							{r.n}
+						</span>
+					))
+				}
 
 				<div class="tp__zone">
-					<p class="tp__zone-name">
-						<Icon name={ZONE.icon} aria-hidden="true" />
-						<span>{ZONE.name}</span>
-					</p>
+					<p class="tp__zone-name">{ZONE.name}</p>
 				</div>
 
-				<div class="tp__unit">{!peers && <span>{UNIT_NAME}</span>}</div>
-				{peers && <p class="tp__unit-name">{UNIT_NAME}</p>}
+				<div class="tp__unit">
+					<span>{UNIT_MARK}</span>
+				</div>
 
 				{
 					/* The door, over the unit's wall: a gap where the leaf is, then the leaf and its swing
@@ -512,13 +518,12 @@ const vars = [
 		border-radius: u(var(--flow-radius, 8));
 	}
 
+	// No glyph. On a plan the words label the space they sit in, and a building icon inside a drawing
+	// of the building was saying the same thing twice.
 	.tp__site-name {
-		display: flex;
 		position: absolute;
 		top: u(var(--tp-pad));
 		left: u(var(--tp-pad));
-		align-items: center;
-		gap: u(8);
 		height: u(var(--tp-head));
 		margin: 0;
 		font-size: u(15);
@@ -526,12 +531,6 @@ const vars = [
 		line-height: u(22);
 		white-space: nowrap;
 		color: var(--color-text-secondary, #5b616e);
-
-		[data-icon] {
-			flex: none;
-			width: u(18);
-			height: u(18);
-		}
 	}
 
 	// Racking, outlined and empty. It is context, not content: enough to say the zone is an area of a
@@ -547,19 +546,24 @@ const vars = [
 		border-radius: u(2);
 	}
 
-	// The other rooms. The unit's own surface at a fraction of its strength, and no shadow — the same
-	// kind of thing, receded, so they can be counted without being read. Unlabelled on purpose: names
-	// on them would make the floor a list.
+	// The other rooms: a colour of their own rather than the subject's at low opacity. Faded, they
+	// took the hatch behind them and went muddy over it; solid, they are plainly rooms, just not the
+	// one being talked about. Their numbers stay legible on it — mid grey ground, secondary ink.
 	.tp__peer {
-		display: block;
+		display: flex;
 		position: absolute;
 		top: u(var(--y));
 		left: u(var(--x));
+		align-items: center;
+		justify-content: center;
 		width: u(var(--w));
 		height: u(var(--h));
 		border-radius: u(var(--flow-radius, 8));
-		background: var(--flow-chrome, #1b1e27);
-		opacity: 0.16;
+		background: var(--color-border-strong, #d5d7dd);
+		font-size: u(18);
+		font-weight: $font-weight-semibold;
+		line-height: u(24);
+		color: var(--color-text-secondary, #5b616e);
 	}
 
 	.tp__zone {
@@ -574,21 +578,12 @@ const vars = [
 	}
 
 	.tp__zone-name {
-		display: flex;
-		align-items: center;
-		gap: u(8);
 		margin: 0;
 		font-size: u(15);
 		font-weight: $font-weight-medium;
 		line-height: u(22);
 		white-space: nowrap;
 		color: var(--color-text-secondary, #5b616e);
-
-		[data-icon] {
-			flex: none;
-			width: u(18);
-			height: u(18);
-		}
 	}
 
 	// The unit, in plan: a rectangle standing on the floor with its name in it. The family's dark
@@ -609,29 +604,11 @@ const vars = [
 		box-shadow:
 			0 1px 2px rgba(16, 24, 40, 0.08),
 			0 #{u(14)} #{u(32)} #{u(-10)} rgba(16, 24, 40, 0.28);
-		font-size: u(16);
+		font-size: u(18);
 		font-weight: $font-weight-semibold;
-		line-height: u(22);
+		line-height: u(24);
 		text-align: center;
 		color: #fff;
-	}
-
-	// Centred over its unit and above it, with a chip of the floor behind it so the riser coming down
-	// passes behind the words rather than through them. `z-index` over the wire layer, which is 2.
-	.tp__unit-name {
-		position: absolute;
-		z-index: 3;
-		top: u(var(--tp-unit-label-y));
-		left: calc(u(var(--tp-unit-x)) + u(var(--tp-unit-w)) / 2);
-		margin: 0;
-		padding: 0 u(6);
-		transform: translateX(-50%);
-		background: var(--color-bg, #fff);
-		font-size: u(15);
-		font-weight: $font-weight-semibold;
-		line-height: u(22);
-		white-space: nowrap;
-		color: var(--color-text);
 	}
 
 	.tp__door {
