@@ -237,7 +237,7 @@ const TWIN_HEAD_H = 80;
 // all the way to the frame's bottom padding, so the commands connector and its name are INSIDE the
 // zone rather than under it — the arrow is in the room it is addressing.
 const ZONE_TOP = 86;
-const ZONE_PAD = 10;
+const ZONE_PAD = 8;
 const ZONE_HEAD = 22;
 const ZONE_GAP = 0;
 // Down to 6u of the site's own edge rather than stopping at its padding: how high the zone can
@@ -246,20 +246,29 @@ const ZONE_GAP = 0;
 const ZONE_FOOT = 6;
 const ZONE_H = BODY - ZONE_FOOT - ZONE_TOP;
 
-// The height budget, top to bottom: padding, the site's name, the telemetry corridor, the unit (or
-// the zone frame holding it), the commands corridor, padding. Whatever the block in the middle
+// A hatched bar over the site's name, in the version with no zone in it: the same marking the
+// zone carries, so the two versions are decorated by one hand and the plain one is not simply the
+// other with something removed. Nested, the zone is the marking and a second one would be noise.
+const BAR_H = 8;
+const BAR_GAP = 6;
+
+// The height budget, top to bottom: padding, the bar, the site's name, the telemetry corridor, the
+// unit (or the zone holding it), the commands corridor, padding. Whatever the block in the middle
 // takes, the corridors get the rest — which is why the unit holds three devices and not four.
-const TOP_CORRIDOR = 70;
-const UNIT_TOP = zone ? ZONE_TOP + ZONE_PAD + ZONE_HEAD + ZONE_GAP : FRAME_PAD + HEAD_H + TOP_CORRIDOR;
+const INNER_TOP = FRAME_PAD + (zone ? 0 : BAR_H + BAR_GAP) + HEAD_H;
+const TOP_CORRIDOR = 48;
+const UNIT_TOP = zone ? ZONE_TOP + ZONE_PAD + ZONE_HEAD + ZONE_GAP : INNER_TOP + TOP_CORRIDOR;
 const UNIT_BOT = UNIT_TOP + UNIT_H;
-const BLOCK_GAP = (zone ? ZONE_TOP : UNIT_TOP) - FRAME_PAD - HEAD_H;
+const BLOCK_GAP = (zone ? ZONE_TOP : UNIT_TOP) - INNER_TOP;
 
 // The telemetry run lands on the twin's header band, at its lower edge: the line points at what the
 // card IS before it points at what the card reads. Everything on the left hangs below it with room
 // for the corner, and nested, the riser crosses the zone's own border on the way — the unit is what
 // talks, not the room it stands in, so both ends sit on the unit's edges either way.
 const UP_Y = TWIN_HEAD_H;
-const DOWN_Y = UNIT_BOT + (zone ? 16 : 22);
+// Far enough under the unit that the elbow has a straight run to turn out of: the corner eats 12u
+// of whatever this is, so at 16 the riser was almost all corner.
+const DOWN_Y = UNIT_BOT + (zone ? 22 : 28);
 
 // Far enough from its run to read as a caption rather than as part of the line. Nested, the
 // commands name sits inside the zone and has its floor to clear as well, so it rides a little
@@ -321,6 +330,8 @@ const vars = [
 	`--tc-body: ${BODY}`,
 	`--tc-pad: ${FRAME_PAD}`,
 	`--tc-pad-b: ${zone ? ZONE_FOOT : FRAME_PAD}`,
+	`--tc-bar-h: ${BAR_H}`,
+	`--tc-bar-gap: ${BAR_GAP}`,
 	`--tc-head: ${HEAD_H}`,
 	`--tc-block-gap: ${BLOCK_GAP}`,
 	`--tc-zone-gap: ${ZONE_GAP}`,
@@ -352,6 +363,7 @@ const vars = [
 			    this candidate makes. */
 			}
 			<div class="tc__site">
+				{!zone && <i class="tc__bar" aria-hidden="true" />}
 				<p class="tc__site-name">
 					<Icon name={SITE.icon} aria-hidden="true" />
 					<span>{SITE.name}</span>
@@ -495,6 +507,15 @@ const vars = [
 		@return calc(#{$n} * var(--u));
 	}
 
+	// Floor marking: white bands on a washed ground, both of them the composition's own colours, so
+	// the hatch carries its own background instead of letting whatever the row is tinted with show
+	// through the gaps. Drawn in design units, so it scales with everything else — a gradient in
+	// pixels would be one more thing that does not.
+	@mixin hatch {
+		background:
+			repeating-linear-gradient(45deg, transparent 0 #{u(12)}, #fff #{u(12)} #{u(20)}), var(--color-border, #ebebeb);
+	}
+
 	.tc-fit {
 		container-type: inline-size;
 	}
@@ -557,6 +578,15 @@ const vars = [
 		border-radius: u(var(--flow-radius, 8));
 	}
 
+	// The same marking as the zone's, as a band over the site's name.
+	.tc__bar {
+		display: block;
+		height: u(var(--tc-bar-h));
+		margin-bottom: u(var(--tc-bar-gap));
+		border-radius: u(2);
+		@include hatch;
+	}
+
 	.tc__site-name {
 		display: flex;
 		align-items: center;
@@ -597,14 +627,10 @@ const vars = [
 		height: calc(#{u(var(--tc-zone-h))} - 2px);
 		margin-top: u(var(--tc-block-gap));
 		padding: u(var(--tc-zone-pad));
-		// No outline of its own. An area is not a card, and once the hatch is heavy enough to read as
-		// a surface, a border was drawing a box around something that is not one.
+		// No outline of its own. An area is not a card, and once the hatch carries the surface, a
+		// border was drawing a box around something that is not one.
 		border-radius: u(var(--flow-radius, 8));
-		background: repeating-linear-gradient(
-			45deg,
-			transparent 0 #{u(12)},
-			var(--color-border, #ebebeb) #{u(12)} #{u(20)}
-		);
+		@include hatch;
 	}
 
 	// The same line as the warehouse's above it: one level down is said by where it sits and by the
