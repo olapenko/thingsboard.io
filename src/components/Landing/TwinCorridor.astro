@@ -18,7 +18,7 @@ import { segmentWidth, sparkPaths, sparkY } from '@util/sparkline';
  * space, and cross. The gutter then only has to be wide enough to be crossed: 96u -> 18u.
  *
  *     shipped    frame 242.7 | gutter 96 | twin 291.3     (measured)
- *     here       frame 258   | gutter 18 | twin 314
+ *     here       frame 258   | gutter 18 | twin 282
  *
  * Elbows, not the family's cubic curves. A curve is the right shape for a connector that leaves
  * and arrives horizontally; these leave vertically and arrive horizontally, and a 90-degree turn
@@ -31,10 +31,14 @@ import { segmentWidth, sparkPaths, sparkY } from '@util/sparkline';
  *
  * --- what the twin says ----------------------------------------------------------------------
  *
- * The path sits ABOVE the name, as an address does: `Acme Inc > Warehouse 3 > Zone B`, then
- * `CS-04 twin`. An earlier cut had the ancestors listed under the title, which reads backwards —
- * the child first and its parents below it — and that inversion was most of why the hierarchy
- * looked like metadata rather than structure.
+ * The path sits ABOVE the name, as an address does: `Acme Inc > Warehouse 3`, then `CS-04 twin`.
+ * An earlier cut had the ancestors listed under the title, which reads backwards — the child first
+ * and its parents below it — and that inversion was most of why the hierarchy looked like metadata
+ * rather than structure.
+ *
+ * `zone` is the other direction: the unit nested in a Zone B frame on the left AND Zone B as the
+ * path's last step on the right, so the same containment is shown twice — once as geometry, once as
+ * an address — and the comparison is what says the twin knows where the thing lives.
  *
  * Three devices against three attributes, in the same order down both cards: temp probe against
  * temperature, power meter against power, door sensor against door. The order is the argument —
@@ -42,9 +46,12 @@ import { segmentWidth, sparkPaths, sparkY } from '@util/sparkline';
  *
  * Each history takes the form of its kind, and the three shapes are deliberately unlike:
  *
- *   temperature   a spline, because it is a continuous measurement
- *   power         straight segments, because it switches — the plateaus ARE the compressor
- *   door          a segment band, which is how the platform's State chart draws `doorState`
+ *   temperature   a spline in cold teal, because it is a continuous measurement
+ *   power         straight segments in amber, because it switches — the plateaus ARE the compressor
+ *   door          a violet segment band, which is how the platform's State chart draws `doorState`
+ *
+ * A hue each rather than three blues: the rows are three different KINDS of reading, and one colour
+ * across all of them said they were three samples of the same thing.
  *
  * The power meter carries the compressor rather than a row of its own. A cut that gave the
  * compressor its own row had to show it as a duty cycle — 56 % over the day, one aggregate sitting
@@ -60,15 +67,33 @@ import { segmentWidth, sparkPaths, sparkY } from '@util/sparkline';
  * visual carries the page's motion.
  */
 
+interface Props {
+	/**
+	 * Show the zone on BOTH sides: the unit nested in a Zone B frame inside the site on the left,
+	 * and Zone B as the last step of the path on the right.
+	 *
+	 * Off by default, which is the shorter reading — site on the left, site as the path's last step.
+	 * On, the two halves show the same containment twice, once as geometry and once as an address,
+	 * and the comparison is the argument. It costs the corridors about 19u each.
+	 */
+	zone?: boolean;
+}
+
+const { zone = false } = Astro.props;
+
 // --- content ------------------------------------------------------------------------------
 
 const SITE = { name: PHYSICAL_ASSET.path[0], icon: 'tabler:building-warehouse' };
+const ZONE = { name: PHYSICAL_ASSET.path[1], icon: 'tabler:map-pin' };
 
 /**
- * The hierarchy the twin knows, root first, as a path over the name. No glyphs: three icons in a
- * row at this size read as decoration, and the separators already say it is a path.
+ * The hierarchy the twin knows, root first, as a path over the name. No glyphs: icons in a row at
+ * this size read as decoration, and the separators already say it is a path.
+ *
+ * The path goes exactly as deep as the left side does, so the two halves are describing the same
+ * containment rather than two different ones.
  */
-const PATH = ['Acme Inc', ...PHYSICAL_ASSET.path];
+const PATH = zone ? ['Acme Inc', ...PHYSICAL_ASSET.path] : ['Acme Inc', SITE.name];
 
 /**
  * Three devices, in the twin's own row order. Picked by label rather than sliced, so the pairing
@@ -159,7 +184,7 @@ const spans = (flags: boolean[]) => {
 
 const DOOR_SPANS = spans(DOOR_OPEN);
 
-const CHART_H = 48;
+const CHART_H = 38;
 const BAND_H = 14;
 
 const TEMP_VIEW = { w: 100, h: CHART_H, pad: 0 };
@@ -179,8 +204,8 @@ const power = {
 
 // --- geometry -----------------------------------------------------------------------------
 
-const NATIVE = 590;
-const COL = { site: 258, gut: 18, twin: 314 };
+const NATIVE = 558;
+const COL = { site: 258, gut: 18, twin: 282 };
 
 // The shipped composition's body, measured in the browser at the sandbox row: 337.6u. Held, so the
 // two can be laid over each other and the footprint compared rather than argued.
@@ -189,23 +214,39 @@ const BODY = 338;
 const FRAME_PAD = 12;
 const HEAD_H = 24; // the site's own name, on the frame's top line
 
-// TwinUnit's metrics, mirrored so the arrows can be aimed: 12 + 22 + 12 for the head band,
-// 8 + 26 + 8 for a device row.
+// TwinUnit's metrics, mirrored so the arrows can be aimed. Its head band is 12 + 22 + 12; its rows
+// are 8 + 22 + 8 rather than the 8 + 26 + 8 it ships, because the type overrides at the foot of
+// this file bring its line height down to the twin's.
 const UNIT_HEAD_H = 46;
-const UNIT_ROW_H = 42;
+const UNIT_ROW_H = 38;
 const UNIT_H = UNIT_HEAD_H + UNIT.devices.length * UNIT_ROW_H;
 
-// The height budget, top to bottom: padding, the site's name, the telemetry corridor, the unit,
-// the commands corridor, padding. The unit takes what the corridors leave, which is why it holds
-// three devices and not four.
-const UNIT_TOP = 88;
+// The zone frame, when the unit is nested one level deeper. Tighter than the site frame around it:
+// a second frame at the same padding reads as two boxes rather than as containment.
+const ZONE_PAD = 8;
+const ZONE_HEAD = 18;
+const ZONE_GAP = 4;
+const ZONE_H = ZONE_PAD * 2 + ZONE_HEAD + ZONE_GAP + UNIT_H;
+
+// The height budget, top to bottom: padding, the site's name, the telemetry corridor, the unit (or
+// the zone frame holding it), the commands corridor, padding. Whatever the block in the middle
+// takes, the corridors get the rest — which is why the unit holds three devices and not four.
+const BLOCK_H = zone ? ZONE_H : UNIT_H;
+const INNER_TOP = FRAME_PAD + HEAD_H;
+const CORRIDOR = (BODY - FRAME_PAD * 2 - HEAD_H - BLOCK_H) / 2;
+
+const BLOCK_TOP = INNER_TOP + CORRIDOR;
+const UNIT_TOP = BLOCK_TOP + (zone ? ZONE_PAD + ZONE_HEAD + ZONE_GAP : 0);
 const UNIT_BOT = UNIT_TOP + UNIT_H;
-const UNIT_GAP = UNIT_TOP - FRAME_PAD - HEAD_H;
+const BLOCK_BOT = BLOCK_TOP + BLOCK_H;
+const UNIT_GAP = BLOCK_TOP - INNER_TOP;
 
 // The two flat runs. The telemetry run is set by where it has to LAND — just under the twin's
-// header band, on the first row of readings — and the unit hangs below it with room for the corner.
+// header band, on the first row of readings — and everything on the left hangs below it with room
+// for the corner. Nested, the risers cross the zone frame's own border on the way: the unit is what
+// talks, not the room it stands in, so they start and end on the unit's edges either way.
 const UP_Y = 70;
-const DOWN_Y = 296;
+const DOWN_Y = Math.round((BLOCK_BOT + BODY - FRAME_PAD) / 2);
 
 // Both risers stand on the unit's centre line. Collinear on purpose — one above the card and one
 // below it, so the pair reads as a single axis the unit sits on rather than as two stray lines.
@@ -231,10 +272,19 @@ const wires = {
  * outgrows its band shows as an overflow rather than by quietly pushing the card past the frame.
  */
 const CARD_PAD_B = 14;
+
+/**
+ * A hue each, from the accents `ConnectCloud` already uses, rather than three blues at different
+ * opacities. They are doing a job: the three rows are three different KINDS of reading, and one
+ * colour across all of them said they were three samples of the same thing.
+ *
+ * Cold for the temperature, energy for the power, and the family's violet — the twin's own badge
+ * colour — for the door, which is the one that is a state rather than a measurement.
+ */
 const ROWS = [
-	{ key: 'temperature', value: attr('temperature'), h: 98, kind: 'spline' },
-	{ key: 'power', value: `${POWER[POWER.length - 1].toFixed(1)} kW`, h: 98, kind: 'steps' },
-	{ key: 'door', value: attr('door'), h: 62, kind: 'band' },
+	{ key: 'temperature', value: attr('temperature'), h: 94, kind: 'spline', accent: '#0e7490' },
+	{ key: 'power', value: `${POWER[POWER.length - 1].toFixed(1)} kW`, h: 94, kind: 'steps', accent: '#b45309' },
+	{ key: 'door', value: attr('door'), h: 70, kind: 'band', accent: '#7b3fe4' },
 ];
 
 /** As a share of the body's box, so a name tracks the drawing and not the grid. */
@@ -249,11 +299,17 @@ const vars = [
 	`--tc-body: ${BODY}`,
 	`--tc-pad: ${FRAME_PAD}`,
 	`--tc-head: ${HEAD_H}`,
-	`--tc-unit-gap: ${UNIT_GAP}`,
+	`--tc-block-gap: ${UNIT_GAP}`,
+	`--tc-zone-gap: ${ZONE_GAP}`,
+	`--tc-zone-pad: ${ZONE_PAD}`,
+	`--tc-zone-head: ${ZONE_HEAD}`,
 	`--tc-unit-h: ${UNIT_H}`,
 	`--tc-chart-h: ${CHART_H}`,
 	`--tc-band-h: ${BAND_H}`,
 	`--tc-card-pad-b: ${CARD_PAD_B}`,
+	// One pixel per card border the risers cross on their way to the unit's edge: the site frame
+	// always, and the zone frame as well when the unit is nested inside one.
+	`--tc-nudge: ${zone ? 2 : 1}px`,
 ].join(';');
 ---
 
@@ -274,7 +330,19 @@ const vars = [
 					<Icon name={SITE.icon} aria-hidden="true" />
 					<span>{SITE.name}</span>
 				</p>
-				<TwinUnit unit={UNIT} class="tc__unit" />
+				{
+					zone ? (
+						<div class="tc__zone">
+							<p class="tc__zone-name">
+								<Icon name={ZONE.icon} aria-hidden="true" />
+								<span>{ZONE.name}</span>
+							</p>
+							<TwinUnit unit={UNIT} class="tc__unit" />
+						</div>
+					) : (
+						<TwinUnit unit={UNIT} class="tc__unit" />
+					)
+				}
 			</div>
 
 			{/* --- its twin ------------------------------------------------------------------ */}
@@ -304,7 +372,7 @@ const vars = [
 				<ul class="tc__attrs">
 					{
 						ROWS.map((row) => (
-							<li class="tc__attr" style={`--h: ${row.h}`} data-twin-attr={row.key}>
+							<li class="tc__attr" style={`--h: ${row.h}; --accent: ${row.accent}`} data-twin-attr={row.key}>
 								<span class="tc__k">{row.key}</span>
 								<span class="tc__v">{row.value}</span>
 
@@ -480,7 +548,71 @@ const vars = [
 	// row losing 4px of its padding is not. So the error is spent there instead.
 	.tc__unit {
 		height: u(var(--tc-unit-h));
-		margin-top: u(var(--tc-unit-gap));
+	}
+
+	.tc__site > .tc__unit {
+		margin-top: u(var(--tc-block-gap));
+	}
+
+	// One level deeper, and quieter than the site frame it sits in: no fill of its own, a dashed
+	// hairline, and tighter padding. A second solid box at the same weight reads as two rooms side
+	// by side rather than one inside the other.
+	.tc__zone {
+		margin-top: u(var(--tc-block-gap));
+		padding: u(var(--tc-zone-pad));
+		border: 1px dashed var(--color-border-strong, #d5d7dd);
+		border-radius: u(var(--flow-radius, 8));
+	}
+
+	.tc__zone-name {
+		display: flex;
+		align-items: center;
+		gap: u(6);
+		height: u(var(--tc-zone-head));
+		margin: 0;
+		font-size: u(14);
+		line-height: u(18);
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+
+		[data-icon] {
+			flex: none;
+			width: u(14);
+			height: u(14);
+		}
+	}
+
+	.tc__zone > .tc__unit {
+		margin-top: u(var(--tc-zone-gap));
+	}
+
+	// TwinUnit is shared — `DigitalTwin` and the sandbox gallery render it too — so its type is
+	// matched from HERE rather than changed there. Scoped to `.tc`, so nothing outside this
+	// composition sees it; by class name, because a scoped rule cannot otherwise reach another
+	// component's markup. Astro compiles TwinUnit's own rules to `:where()`, which scores zero, so
+	// these win on specificity alone.
+	//
+	// What it buys: the unit's name matches the twin's name, and its device rows match the twin's
+	// keys — same size, same weight, same line height. It shipped a step larger and a step heavier
+	// on both, which read as two different cards rather than two views of one object. The name also
+	// leaves $font-weight-semibold behind, which has no real face and was being synthesised.
+	.tc :global(.unit__name) {
+		font-size: u(16);
+		font-weight: $font-weight-medium;
+		line-height: u(22);
+	}
+
+	.tc :global(.unit__list li) {
+		gap: u(10);
+		padding: u(8) u(16);
+		font-size: u(14);
+		font-weight: $font-weight-normal;
+		line-height: u(22);
+	}
+
+	.tc :global(.unit__list [data-icon]) {
+		width: u(18);
+		height: u(18);
 	}
 
 	// --- the twin -------------------------------------------------------------------
@@ -606,17 +738,17 @@ const vars = [
 
 	.tc__chart-area,
 	.tc__band-off {
-		fill: var(--color-primary, #3d50f5);
+		fill: var(--accent);
 		opacity: 0.1;
 	}
 
 	.tc__band-on {
-		fill: var(--color-primary, #3d50f5);
+		fill: var(--accent);
 	}
 
 	.tc__chart-line {
 		fill: none;
-		stroke: var(--color-primary, #3d50f5);
+		stroke: var(--accent);
 		stroke-width: max(1px, #{u(2)});
 		stroke-linecap: round;
 		stroke-linejoin: round;
@@ -631,10 +763,11 @@ const vars = [
 		top: 0;
 		left: 0;
 		// Every card in the drawing sits 1px inside its own border, and the arithmetic above cannot
-		// see that border — so measured, both unit-side endpoints came up 1px short of the edge they
-		// are meant to touch. A pixel, because what it corrects is a pixel: it must not scale with
-		// the unit, or it would overshoot at the desktop cap and undershoot on a phone.
-		transform: translateY(1px);
+		// see that border — so measured, both unit-side endpoints came up short of the edge they are
+		// meant to touch, by exactly one pixel per border between the frame's top and the unit's.
+		// Nested, that is two. Pixels, because what they correct is pixels: they must not scale with
+		// the unit, or they would overshoot at the desktop cap and undershoot on a phone.
+		transform: translateY(var(--tc-nudge));
 		// Not optional: a global reset gives every svg `max-width: 100%`, which would scale this one
 		// down against its container and leave every arrow short, with no error anywhere.
 		width: u(var(--tc-native));
