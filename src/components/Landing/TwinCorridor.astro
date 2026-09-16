@@ -230,16 +230,21 @@ const UNIT_H = UNIT_HEAD_H + UNIT.devices.length * UNIT_ROW_H;
 
 // The twin's header: the path, a clear gap, then the name. The name sits in a band the size of the
 // unit's own head — 12 + 22 + 12 — so the two cards are headed alike, with the path as the one
-// thing the twin has and the unit does not.
-const TWIN_HEAD_H = 80;
+// thing the twin has and the unit does not. Broken out because the telemetry run lands on the name
+// and has to know where its line ends.
+const TWIN_HEAD_PAD = 12;
+const PATH_H = 18;
+const PATH_GAP = 14;
+const NAME_H = 22;
+const TWIN_HEAD_H = TWIN_HEAD_PAD + PATH_H + PATH_GAP + NAME_H + 14;
 
 // The zone frame, when the unit is nested one level deeper. It runs from below the telemetry line
 // all the way to the frame's bottom padding, so the commands connector and its name are INSIDE the
 // zone rather than under it — the arrow is in the room it is addressing.
-const ZONE_TOP = 86;
+const ZONE_TOP = 72;
 const ZONE_PAD = 8;
 const ZONE_HEAD = 22;
-const ZONE_GAP = 0;
+const ZONE_GAP = 8;
 // Down to 6u of the site's own edge rather than stopping at its padding: how high the zone can
 // start is capped by the telemetry run above it, so the room the commands name needs comes from
 // the other end. An area abutting the wall of the building it is in is how floor plans read anyway.
@@ -249,26 +254,32 @@ const ZONE_H = BODY - ZONE_FOOT - ZONE_TOP;
 // A hatched bar over the site's name, in the version with no zone in it: the same marking the
 // zone carries, so the two versions are decorated by one hand and the plain one is not simply the
 // other with something removed. Nested, the zone is the marking and a second one would be noise.
-const BAR_H = 8;
-const BAR_GAP = 6;
+const BAR_H = 10;
+const BAR_GAP = 14;
 
 // The height budget, top to bottom: padding, the bar, the site's name, the telemetry corridor, the
 // unit (or the zone holding it), the commands corridor, padding. Whatever the block in the middle
 // takes, the corridors get the rest — which is why the unit holds three devices and not four.
-const INNER_TOP = FRAME_PAD + (zone ? 0 : BAR_H + BAR_GAP) + HEAD_H;
-const TOP_CORRIDOR = 48;
+// The bar is full-bleed, so it stands in for the frame's top padding rather than sitting inside it.
+const INNER_TOP = (zone ? FRAME_PAD : BAR_H + BAR_GAP) + HEAD_H;
+const TOP_CORRIDOR = 50;
 const UNIT_TOP = zone ? ZONE_TOP + ZONE_PAD + ZONE_HEAD + ZONE_GAP : INNER_TOP + TOP_CORRIDOR;
 const UNIT_BOT = UNIT_TOP + UNIT_H;
 const BLOCK_GAP = (zone ? ZONE_TOP : UNIT_TOP) - INNER_TOP;
 
-// The telemetry run lands on the twin's header band, at its lower edge: the line points at what the
-// card IS before it points at what the card reads. Everything on the left hangs below it with room
-// for the corner, and nested, the riser crosses the zone's own border on the way — the unit is what
-// talks, not the room it stands in, so both ends sit on the unit's edges either way.
-const UP_Y = TWIN_HEAD_H;
+// The telemetry run lands on the twin's NAME, at the lower edge of its line: the connector points
+// at what the card is before it points at what the card reads. Everything on the left hangs below
+// it, and nested, the riser crosses into the zone on the way — the unit is what talks, not the room
+// it stands in, so both ends sit on the unit's edges either way.
+//
+// Its height is what caps how high the zone can start, and through that how much run the bottom
+// elbow gets. Landing on the head's lower edge left the nested elbow 6u short of the plain one;
+// landing a line higher, on the name itself, is what lets the two match.
+const UP_Y = TWIN_HEAD_PAD + PATH_H + PATH_GAP + NAME_H;
 // Far enough under the unit that the elbow has a straight run to turn out of: the corner eats 12u
-// of whatever this is, so at 16 the riser was almost all corner.
-const DOWN_Y = UNIT_BOT + (zone ? 22 : 28);
+// of whatever this is, so at 16 the riser was almost all corner. The same in both versions now,
+// which is what raising the telemetry run bought.
+const DOWN_Y = UNIT_BOT + 28;
 
 // Far enough from its run to read as a caption rather than as part of the line. Nested, the
 // commands name sits inside the zone and has its floor to clear as well, so it rides a little
@@ -329,9 +340,14 @@ const vars = [
 	`--tc-twin: ${COL.twin}`,
 	`--tc-body: ${BODY}`,
 	`--tc-pad: ${FRAME_PAD}`,
+	`--tc-pad-t: ${FRAME_PAD}`,
 	`--tc-pad-b: ${zone ? ZONE_FOOT : FRAME_PAD}`,
 	`--tc-bar-h: ${BAR_H}`,
 	`--tc-bar-gap: ${BAR_GAP}`,
+	`--tc-path-h: ${PATH_H}`,
+	`--tc-path-gap: ${PATH_GAP}`,
+	`--tc-name-h: ${NAME_H}`,
+	`--tc-head-pad: ${TWIN_HEAD_PAD}`,
 	`--tc-head: ${HEAD_H}`,
 	`--tc-block-gap: ${BLOCK_GAP}`,
 	`--tc-zone-gap: ${ZONE_GAP}`,
@@ -511,9 +527,13 @@ const vars = [
 	// the hatch carries its own background instead of letting whatever the row is tinted with show
 	// through the gaps. Drawn in design units, so it scales with everything else — a gradient in
 	// pixels would be one more thing that does not.
+	// White takes the larger share, 12u of every 20u, so the ground reads as a wash the marking is cut
+	// into rather than as a grey panel with white lines drawn on it. The ground stays a token that is
+	// visible against white, since the composition sits on white as often as on a tinted row —
+	// `--color-bg-light` is the truer wash but comes out at about a 3% difference there.
 	@mixin hatch {
 		background:
-			repeating-linear-gradient(45deg, transparent 0 #{u(12)}, #fff #{u(12)} #{u(20)}), var(--color-border, #ebebeb);
+			repeating-linear-gradient(45deg, #fff 0 #{u(12)}, transparent #{u(12)} #{u(20)}), var(--color-border, #ebebeb);
 	}
 
 	.tc-fit {
@@ -572,18 +592,23 @@ const vars = [
 		// The bottom is its own number because the zone runs down into it: the frame's height is the
 		// body's, so anything the zone gains below has to come OUT of this padding rather than be
 		// added to it. Left unchanged, the frame grew 7.7u past the composition.
-		padding: u(var(--tc-pad)) u(var(--tc-pad)) u(var(--tc-pad-b));
+		padding: u(var(--tc-pad-t)) u(var(--tc-pad)) u(var(--tc-pad-b));
 		border: 1px solid var(--color-border, #ebebeb);
 		// The cards' own radius, so the frame is one more card and not a different kind of shape.
 		border-radius: u(var(--flow-radius, 8));
 	}
 
-	// The same marking as the zone's, as a band over the site's name.
+	// The same marking as the zone's, as a band across the top of the site. Full bleed: pulled out
+	// through the frame's padding on three sides so it meets the border, because inset by a margin it
+	// read as a strip laid on the card rather than as the edge of the floor. It takes the place of
+	// the frame's top padding, which is why `INNER_TOP` counts it instead.
 	.tc__bar {
 		display: block;
 		height: u(var(--tc-bar-h));
-		margin-bottom: u(var(--tc-bar-gap));
-		border-radius: u(2);
+		margin: calc(-1 * #{u(var(--tc-pad))}) calc(-1 * #{u(var(--tc-pad))}) u(var(--tc-bar-gap));
+		// The frame's own radius at the top, square below, so it sits into the corners rather than
+		// across them.
+		border-radius: u(var(--flow-radius, 8)) u(var(--flow-radius, 8)) 0 0;
 		@include hatch;
 	}
 
@@ -720,15 +745,15 @@ const vars = [
 		display: flex;
 		flex-direction: column;
 		height: u(var(--tc-twin-head));
-		padding: u(12) u(16) u(14);
+		padding: u(var(--tc-head-pad)) u(16) u(14);
 		background: var(--color-bg-light, #f7f9fc);
 	}
 
 	// Quieter than the name under it: it is where the object is, not what it is.
 	.tc__path {
-		margin: 0 0 u(14);
+		margin: 0 0 u(var(--tc-path-gap));
 		font-size: u(14);
-		line-height: u(18);
+		line-height: u(var(--tc-path-h));
 		white-space: nowrap;
 		color: var(--color-text-secondary, #5b616e);
 	}
@@ -748,7 +773,7 @@ const vars = [
 		margin: 0;
 		font-size: u(16);
 		font-weight: $font-weight-semibold;
-		line-height: u(22);
+		line-height: u(var(--tc-name-h));
 		white-space: nowrap;
 
 		[data-icon] {
