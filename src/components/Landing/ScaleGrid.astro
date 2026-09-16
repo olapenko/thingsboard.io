@@ -1,0 +1,597 @@
+---
+import { Icon } from 'astro-icon/components';
+import { SCALE_SETUP, type ScaleSetupTier } from '@data/scale-visual';
+
+/**
+ * The abstract cut of the scale visual, beside ScaleSetup rather than instead of it.
+ *
+ * ScaleSetup draws an INVENTORY: every machine is on the card, in its role colour, and the reader is
+ * invited to count them. This one draws a FOOTPRINT. A field of squircles stands for capacity you
+ * have not taken yet, and the few that are lit are what a deployment occupies: one cell, then two of
+ * different kinds joined, then a small connected patch. Nothing is countable against a table and
+ * nothing needs a key, which is why the legend is gone — two lit colours joined by a bridge say
+ * "these are different things and they talk to each other" without naming either.
+ *
+ * The trade against ScaleSetup, stated plainly: this cannot be checked. ScaleSetup's twelve machines
+ * are a claim with a docs table behind them, and its fade was added precisely so the count would not
+ * be read as one. Here there is no claim to get wrong — and equally no information a reader can act
+ * on. It is a mood, not a diagram.
+ *
+ * The grid is deliberately quiet. Unlit cells are chrome at 7%, which is a little above the page
+ * background and a long way below the type, so the field reads as texture and the lit cells are the
+ * only thing with weight. Nothing is stroked: the reference for this had outlined tiles and the
+ * outlines were most of what you saw.
+ */
+
+interface Props {
+	tiers?: ScaleSetupTier[];
+	/**
+	 * Give every card the same height, so the row is three equal panels.
+	 *
+	 * The stepped default says "these get bigger" with the cards themselves. Levelling them says it
+	 * only with what is inside — the lit patch in the field and the length of the chip stack — and
+	 * buys a row that sits on a single baseline top and bottom. It is the quieter of the two and the
+	 * one that survives a section where something else is already doing the growing.
+	 */
+	equalHeight?: boolean;
+	/**
+	 * Give the cluster a third colour.
+	 *
+	 * Two colours say "platform and its data". A third says the cluster has a class of machine the
+	 * smaller modes do not: the queue and the things that keep it agreeing with itself. It is a
+	 * separate prop from `equalHeight` so the two can be judged apart — they arrived together but
+	 * they are not one idea.
+	 */
+	thirdRole?: boolean;
+	/**
+	 * Put each technology's own mark in its chip.
+	 *
+	 * Drawn MONOCHROME, in the chip's own ink, rather than in brand colours. Four logos at full
+	 * strength would add four hues to a card built on one, and would outrank the two accents that
+	 * are actually carrying meaning in the field above. Simple Icons publishes these as single-path
+	 * marks intended to be recoloured, so this is how they are meant to be used.
+	 *
+	 * The mark REPLACES the word rather than joining it, so a chip is a pill with a logo on it and
+	 * nothing else. The name is still in the markup for screen readers and as a tooltip; what goes is
+	 * only the visible text. That makes a chip about a quarter of its former width, which is what lets
+	 * five of them sit on one line instead of five — the reason this version is no taller than the
+	 * one without marks rather than forty units taller.
+	 *
+	 * What it costs: PostgreSQL and Cassandra as bare silhouettes at 12 units are not easy to tell
+	 * apart, and Zookeeper is not its own mark at all. A reader who does not already know these logos
+	 * learns nothing from them.
+	 */
+	logos?: boolean;
+	/**
+	 * Break the chips into what STORES the data and what MOVES it, rather than one arbitrary run.
+	 *
+	 * The flat list reads in the order the data happens to hold — PostgreSQL, Cassandra, Kafka,
+	 * Zookeeper, Redis — which is no order at all. Two groups say something: the first line is where
+	 * telemetry lands, the second is the plumbing that gets it there and keeps the cluster agreeing
+	 * with itself. It also makes the Hybrid-to-Cluster step legible as "the second group appears".
+	 */
+	grouped?: boolean;
+}
+
+const { tiers = SCALE_SETUP, equalHeight = false, thirdRole = false, logos = false, grouped = false } = Astro.props;
+
+/** What holds telemetry. Everything else in a stack moves it or caches it. */
+const STORAGE = new Set(['PostgreSQL', 'Cassandra', 'TimescaleDB']);
+
+/**
+ * Split a stack into storage first, then the rest — or one unlabelled group, when not grouping.
+ *
+ * The groups are LABELLED, because two rows of marks with a gap between them is not self-evident:
+ * without a word the split reads as wrapping rather than as a division, which is worse than the flat
+ * run it replaced. The labels are what make the Hybrid-to-Cluster step legible as "a second kind of
+ * thing appears".
+ */
+const split = (stack: string[]): { label?: string; items: string[] }[] =>
+	grouped
+		? [
+				{ label: 'Storage', items: stack.filter((x) => STORAGE.has(x)) },
+				{ label: 'Queue & cache', items: stack.filter((x) => !STORAGE.has(x)) },
+			].filter((g) => g.items.length > 0)
+		: [{ items: stack }];
+
+/**
+ * Chip label to icon name. Every entry is the project's own mark.
+ *
+ * There is no Zookeeper here because there is no Zookeeper chip: Simple Icons publishes no mark for
+ * it, the generic Apache feather was standing in, and at full size that read as a different kind of
+ * thing rather than as another piece of infrastructure. It left the chip set rather than the logo
+ * set — see `SCALE_SETUP` for why that was the cheaper of the two.
+ */
+const LOGOS: Record<string, string> = {
+	PostgreSQL: 'simple-icons:postgresql',
+	Cassandra: 'simple-icons:apachecassandra',
+	Kafka: 'simple-icons:apachekafka',
+	Redis: 'simple-icons:redis',
+};
+
+const COL_W = 140;
+const COL_GAP = 24;
+const NATIVE = tiers.length * COL_W + (tiers.length - 1) * COL_GAP;
+
+/**
+ * The field: six across, four down, in design units.
+ *
+ * It stays INSIDE the column rather than running out to the card's edges. A full-bleed version was
+ * tried and taken out again: the card is only 10 units wider than its content on each side, so the
+ * field met the card's border with nothing between them and the cells collided with the rounded
+ * corners. The field needs that margin to read as something sitting in the card.
+ */
+const COLS = 6;
+const ROWS = 4;
+
+/**
+ * Cell and gap are both DERIVED from the column width, holding one ratio.
+ *
+ * The field has to span the column exactly — six cells and five gaps making 140 units — and there
+ * are two ways to get there from seven columns down to six. Widening the gap and keeping the cell at
+ * 15 does span it, but it thins the texture: the same number of marks with more air between them
+ * reads as a sparser field, not the same field with one column removed. Scaling the CELL and holding
+ * the cell-to-gap ratio at 3:1 keeps the density exactly as it was and simply draws it larger.
+ *
+ * Solving 6S + 5(S/3) = 140 gives a cell of about 18.3 units against the old 15.
+ */
+const RATIO = 3; // cell : gap
+const S = (COL_W * RATIO) / (COLS * RATIO + (COLS - 1));
+const G = S / RATIO;
+const FIELD_W = COL_W;
+const FIELD_H = ROWS * S + (ROWS - 1) * G;
+/** A squircle rather than a rounded square: the corner eats a third of the side, as before. */
+const R = S / 3;
+
+const r2 = (v: number) => +v.toFixed(2);
+const px = (c: number) => r2(c * (S + G));
+
+type Kind = 'a' | 'b' | 'c';
+interface Cell {
+	c: number;
+	r: number;
+	k: Kind;
+}
+interface Pattern {
+	cells: Cell[];
+	/** Pairs of cell indices to bridge. Only ever between neighbours. */
+	links: [number, number][];
+}
+
+/**
+ * One pattern per mode, growing left to right along the floor of the field.
+ *
+ * They are drawn from the bottom-left because that is where a reader's eye lands after the type
+ * above, and because growth that starts in a corner has somewhere to go. `a` is the platform and `b`
+ * is its data — the second colour appears exactly when the database stops sharing a machine, which
+ * is the one architectural fact this cut still carries.
+ */
+const PATTERNS: Pattern[] = [
+	// Monolith: one cell, and it is both things at once, so there is no second colour and nothing to
+	// join. The whole deployment is a single lit square in an empty field.
+	{ cells: [{ c: 0, r: 3, k: 'a' }], links: [] },
+	// Hybrid: two kinds, joined. The bridge is the point of the card.
+	{
+		cells: [
+			{ c: 0, r: 3, k: 'a' },
+			{ c: 1, r: 3, k: 'b' },
+		],
+		links: [[0, 1]],
+	},
+	// Cluster: a connected patch that has started to climb out of the row. Still one `b`, because the
+	// data layer does not multiply just because the application does. The `c` cell is appended below
+	// when `thirdRole` is on, so the two patterns stay one list and cannot drift apart.
+	{
+		cells: [
+			{ c: 0, r: 3, k: 'a' },
+			{ c: 1, r: 3, k: 'a' },
+			{ c: 2, r: 3, k: 'a' },
+			{ c: 3, r: 3, k: 'a' },
+			{ c: 1, r: 2, k: 'a' },
+			{ c: 2, r: 2, k: 'a' },
+			{ c: 2, r: 1, k: 'a' },
+			{ c: 0, r: 2, k: 'b' },
+			// A second store, hung off the far end of the bottom row. The pair brackets the blue, and
+			// two of a kind is the one place this drawing says a quantity rather than a kind — the
+			// cluster is where the data layer stops being a single machine.
+			{ c: 4, r: 3, k: 'b' },
+		],
+		links: [
+			[0, 1],
+			[1, 2],
+			[2, 3],
+			[4, 1],
+			[5, 2],
+			[6, 5],
+			[7, 0],
+			[8, 3],
+		],
+	},
+];
+
+/**
+ * The third colour, hung off the far end of the cluster's bottom row.
+ *
+ * Placed at the opposite end from the `b` cell so the two accents bracket the blue rather than
+ * crowding each other, and kept to a single cell for the same reason `b` is: one of a kind reads as
+ * a kind, several read as a quantity.
+ */
+if (thirdRole) {
+	const cluster = PATTERNS[2];
+	cluster.cells = [...cluster.cells, { c: 3, r: 2, k: 'c' }];
+	cluster.links = [...cluster.links, [cluster.cells.length - 1, 3]];
+}
+
+/** The bridge between two neighbouring cells: a bar in the gap, never a stroke. */
+function bridge(a: Cell, b: Cell) {
+	const T = S / 3; // thickness, held against the cell rather than fixed
+	const bleed = S / 15; // tuck under both squircles so no seam shows
+	if (a.r === b.r) {
+		const l = a.c < b.c ? a : b;
+		return {
+			x: r2(px(l.c) + S - bleed),
+			y: r2(px(l.r) + (S - T) / 2),
+			width: r2(G + bleed * 2),
+			height: T,
+		};
+	}
+	const t = a.r < b.r ? a : b;
+	return {
+		x: r2(px(t.c) + (S - T) / 2),
+		y: r2(px(t.r) + S - bleed),
+		width: T,
+		height: r2(G + bleed * 2),
+	};
+}
+
+const TINTS = [9, 15, 22];
+const CARD_TINTS = [3, 6, 10];
+
+/**
+ * The height of each card's content box, in design units — the stepped scale.
+ *
+ * A MINIMUM, not a fixed height, and each clears its own column's natural content (219, 262 and 267
+ * units measured). If a stack ever outgrows its number the card gets taller and the step degrades
+ * instead of the chips being clipped.
+ *
+ * Safe as constants because nothing here is sized in pixels: a column is 140 units wide at every
+ * screen width, so the text wraps identically and the content height in units does not change
+ * between the feature row and the phone.
+ */
+const STEPPED_H = [178, 208, 232];
+/**
+ * Minimum heights, used ONLY for the stepped row. The levelled row does not use a number at all.
+ *
+ * Levelling by a constant was wrong three times running: a hand-picked height has to clear the
+ * tallest column's content, that content changes with every variant — marks instead of words, one
+ * group or two, a label above each — and when the number falls short the cards silently size to
+ * themselves and the row stops being level, which is the one property the variant exists to show.
+ * Each time it was caught by measuring rather than by looking.
+ *
+ * `align-items: stretch` asks the browser for the same thing and cannot be out of date: every card
+ * becomes as tall as the tallest content in the row, so the tallest has no dead space at all and no
+ * constant needs maintaining. The steps still need numbers, because a step is a choice.
+ */
+const CARD_H = STEPPED_H;
+
+const vars = [
+	`--sg2-u: min(1.45px, calc(100cqw / ${NATIVE}))`,
+	`--sg2-native: ${NATIVE}`,
+	`--sg2-cols: ${tiers.length}`,
+	`--sg2-gap: ${COL_GAP}`,
+	`--sg2-field-h: ${FIELD_H}`,
+].join('; ');
+---
+
+<div class="sg2-fit">
+	<ul class:list={['sg2', equalHeight && 'sg2--level']} style={vars}>
+		{
+			tiers.map((t, i) => (
+				<li
+					class="sg2__tier"
+					style={`--sg2-tint: ${TINTS[i]}%; --sg2-card: ${CARD_TINTS[i]}%; --sg2-h: ${equalHeight ? 0 : CARD_H[i]}`}
+				>
+					{/* The field, at the top of the card. `xMinYMid` so it starts on the same left edge as
+					    the type below it — the default centres a viewBox narrower than its box. */}
+					<svg
+						class="sg2__field"
+						viewBox={`0 0 ${FIELD_W} ${FIELD_H}`}
+						preserveAspectRatio="xMinYMid meet"
+						role="img"
+						aria-label={`${t.mode}: ${PATTERNS[i].cells.length} of a field of ${COLS * ROWS}`}
+					>
+						{/* Unlit capacity. */}
+						{Array.from({ length: COLS * ROWS }).map((_, n) => (
+							<rect class="sg2__cell" x={px(n % COLS)} y={px(Math.floor(n / COLS))} width={S} height={S} rx={R} />
+						))}
+
+						{/* Bridges go under the lit cells, so the bleed is hidden rather than drawn over. */}
+						{PATTERNS[i].links.map(([a, b]) => {
+							const g = bridge(PATTERNS[i].cells[a], PATTERNS[i].cells[b]);
+							return <rect class="sg2__link" x={g.x} y={g.y} width={g.width} height={g.height} rx="2" />;
+						})}
+
+						{PATTERNS[i].cells.map((cell) => (
+							<rect
+								class:list={['sg2__lit', `sg2__lit--${cell.k}`]}
+								x={px(cell.c)}
+								y={px(cell.r)}
+								width={S}
+								height={S}
+								rx={R}
+							/>
+						))}
+					</svg>
+
+					<div class="sg2__head">
+						<p class="sg2__mode">{t.mode}</p>
+						<p class="sg2__trait">{t.trait}</p>
+					</div>
+
+					{/* One flowing line rather than three stacked ones: "Up to / 100K / devices" set as a
+					    block cost three line-boxes in every card and was most of what made them tall. */}
+					<p class="sg2__devices">
+						{t.lead && <span class="sg2__lead">{t.lead} </span>}
+						<span class="sg2__num">{t.devices}</span>
+						{t.plus && <span class="sg2__plus">+</span>}
+						{(t.unit ?? 'devices') && <span class="sg2__unit"> {t.unit ?? 'devices'}</span>}
+					</p>
+
+					<div class="sg2__stacks">
+						{split(t.stack).map((group) => (
+							<div class="sg2__group">
+								{group.label && <p class="sg2__glabel">{group.label}</p>}
+								<ul class:list={['sg2__stack', logos && 'sg2__stack--logos']}>
+									{group.items.map((s) =>
+										logos && LOGOS[s] ? (
+											<li title={s}>
+												<Icon name={LOGOS[s]} aria-hidden="true" />
+												{/* The name leaves the surface, not the document. */}
+												<span class="sg2__sr">{s}</span>
+											</li>
+										) : (
+											<li>{s}</li>
+										)
+									)}
+								</ul>
+							</div>
+						))}
+					</div>
+				</li>
+			))
+		}
+	</ul>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.sg2-fit {
+		container-type: inline-size;
+	}
+
+	.sg2 {
+		--u: var(--sg2-u);
+		display: grid;
+		grid-template-columns: repeat(var(--sg2-cols), minmax(0, 1fr));
+		// Stepped: bottom-aligned so the cards share a floor. Levelled: stretched, so the browser makes
+		// every card as tall as the tallest content rather than a constant having to predict it.
+		align-items: end;
+		gap: u(var(--sg2-gap));
+		max-width: u(var(--sg2-native));
+		margin: 0 auto;
+		padding: u(20) 0 0;
+		list-style: none;
+	}
+
+	// Two groups, not one run. The field, the heading and the count ride the TOP of the card in
+	// reading order; the chips are pinned to the floor by the `margin-top: auto` on `.sg2__stack`.
+	// The card's own height comes from `--sg2-h`, so whatever a column does not use collects between
+	// the count and the chips.
+	.sg2--level {
+		align-items: stretch;
+	}
+
+	.sg2__tier {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: u(10);
+		min-height: u(var(--sg2-h, 0));
+	}
+
+	.sg2__tier::before {
+		content: '';
+		position: absolute;
+		inset: u(-16) u(-10);
+		border-radius: u(14);
+		background: color-mix(in srgb, var(--color-primary, #3d50f5) var(--sg2-card, 4%), transparent);
+	}
+
+	.sg2__tier > * {
+		position: relative;
+	}
+
+	// --- the field --------------------------------------------------------------------------
+
+	// The global reset gives every svg `max-width: 100%`, which would scale this down inside its
+	// track and break the left edge it shares with the type.
+	.sg2__field {
+		display: block;
+		width: 100%;
+		max-width: none;
+		height: u(var(--sg2-field-h));
+	}
+
+	// White, so the field reads as light punched out of the tinted card rather than as grey laid on
+	// top of it. It also means the texture gets QUIETER as the cards deepen left to right, which is
+	// the right direction: the busiest card is the one whose lit cells most need the contrast.
+	.sg2__cell {
+		fill: var(--color-bg, #fff);
+	}
+
+	.sg2__lit--a,
+	.sg2__link {
+		fill: var(--color-primary, #3d50f5);
+	}
+
+	// The second colour, and a token the palette already owns rather than a new hue invented for this
+	// card. It marks the data layer — the one thing this cut still says about architecture.
+	.sg2__lit--b {
+		fill: var(--color-edge, #009688);
+	}
+
+	// The third, also from the palette. Queue and coordination: the class of machine that only the
+	// cluster has, which is why it appears on no other card.
+	.sg2__lit--c {
+		fill: var(--color-product-gw, #6d28d9);
+	}
+
+	// --- the type ---------------------------------------------------------------------------
+
+	.sg2__head {
+		display: grid;
+		gap: u(3);
+	}
+
+	.sg2__mode {
+		margin: 0;
+		font-size: u(15);
+		line-height: u(20);
+		font-weight: $font-weight-medium;
+		color: var(--color-text);
+	}
+
+	.sg2__trait {
+		margin: 0;
+		font-size: u(14);
+		line-height: u(18);
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	.sg2__devices {
+		margin: 0;
+		font-size: u(14);
+		line-height: u(22);
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	.sg2__lead,
+	.sg2__unit {
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.sg2__num {
+		font-family: $font-family-mono;
+		font-size: u(20);
+		font-weight: $font-weight-bold;
+		color: var(--color-text);
+		white-space: nowrap;
+	}
+
+	.sg2__plus {
+		color: var(--color-primary, #3d50f5);
+	}
+
+	// `margin: auto 0 0` rather than a separate `margin-top: auto` rule above this one: Astro scoped
+	// CSS compiles to `:where(.astro-hash)`, so both would have zero specificity and the shorthand
+	// here would win on source order and silently reset the pin.
+	// The pin to the floor lives here now that a card can hold two groups. Set as the shorthand's own
+	// top value, never as a `margin-top` rule above it: Astro scoped CSS is zero-specificity, so a
+	// later shorthand would silently reset it.
+	.sg2__stacks {
+		display: flex;
+		flex-direction: column;
+		gap: u(12);
+		margin: auto 0 0;
+	}
+
+	.sg2__group {
+		display: grid;
+		gap: u(5);
+	}
+
+	// Quieter than the description above it and smaller than anything else in the card: it names the
+	// row, it is not a thing to read.
+	.sg2__glabel {
+		margin: 0;
+		font-size: u(12);
+		line-height: u(15);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.sg2__stack {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		align-content: flex-start;
+		gap: u(4);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			padding: u(2) u(7);
+			border-radius: u(var(--flow-radius, 8));
+			font-family: $font-family-mono;
+			font-size: u(12);
+			// Medium, not bold: the sandbox loads Ubuntu Mono 400 only, so a bold chip here is a
+			// synthesised face there and a real one on the home preview.
+			font-weight: $font-weight-medium;
+			line-height: u(17);
+			color: var(--color-text);
+			background: color-mix(in srgb, var(--color-primary, #3d50f5) var(--sg2-tint, 12%), transparent);
+		}
+	}
+
+	// No pill at all: the mark stands on the card. Once the word is gone the chip's job — bounding a
+	// short string so a run of them reads as separate items — is done by the spacing instead, and a
+	// tinted rounded box around a logo only competes with it.
+	.sg2__stack--logos {
+		gap: u(8);
+	}
+
+	.sg2__stack--logos li {
+		display: flex;
+		align-items: center;
+		padding: 0;
+		background: none;
+	}
+
+	// Off the surface, still in the document.
+	.sg2__sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	// Sized in design units, NOT with astro-icon's width/height attributes, which are absolute pixels
+	// and would not scale with `--u`. `currentColor` is what keeps these off the palette: the marks
+	// are brand logos rendered in the card's own ink rather than in four competing brand colours.
+	//
+	// 28 units and full strength, up from 12 at 75% — which on the phone probe was 8.6px, close to
+	// meaningless for a bare silhouette with no word beside it.
+	//
+	// 28 is the ceiling, not a preference: the longest stack is four marks, and four at 28 with three
+	// 8-unit gaps is 136 of the column's 140. Anything larger wraps, and a wrapped mark row costs a
+	// whole line of card height in a row that has to stay level.
+	.sg2__stack--logos [data-icon] {
+		flex: none;
+		width: u(28);
+		height: u(28);
+		color: var(--color-text);
+	}
+</style>

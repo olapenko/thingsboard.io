@@ -200,3 +200,206 @@ export const SCALE_TIERS: ScaleTier[] = [
 
 /** The same story with the unevidenced middle tier removed. Both counts here are sums of a table. */
 export const SCALE_TIERS_PAIR: ScaleTier[] = [SCALE_TIERS[0], SCALE_TIERS[2]];
+
+// -------------------------------------------------------------------------------------------
+// A fifth cut, and the first drawn from a proposal rather than from the benchmark tables.
+//
+// The proposal was a SLIDER: drag from 5 devices to 5M+ and a card answers with a badge, a stack
+// and a sentence. Three things in it are kept — the reader's own fleet as the way in, one range
+// rather than a menu, and three facts per answer. The slider is not, because a homepage visual is
+// read rather than operated, because a readout of "4.9M" is a precision that is an artifact of
+// pixel position, and because the range ran to 5M+ when nothing in this repo benchmarks past 1M.
+//
+// WHAT THE SLIDER GOT RIGHT AND THIS FILE HAD WRONG. The proposal put single-node at about 10K
+// devices. The first draft of this cut put it at 100K, taken from the docs. Worked through, the
+// proposal is closer to honest, and the two numbers are not in conflict — they are the same server
+// under different workloads. PostgreSQL carries ~5,000 data points/sec, which at 3 data points a
+// message is ~1,667 messages/sec, so ONE SERVER HOLDS:
+//
+//     devices reporting every 10 s      ~16,700     <- the proposal's ~10K
+//     devices reporting every 60 s      ~100,000    <- the figure taken from the docs
+//     devices reporting every 15 min    ~1,500,000
+//
+// The benchmark labelled "100K devices" is a 90-second interval (1,111 msg/sec across 100K
+// devices); `deployment-scenarios` describes 100K meters at a 15-minute interval. Two pages, the
+// same headline number, assumptions an order of magnitude apart. Meanwhile the docs' own 20K GPS
+// trackers produce 10,000 data points/sec, which is TWICE what PostgreSQL will take — so a single
+// server does not reach 100K of anything that reports often.
+//
+// Hence: every tier is a RANGE, not a point, and the interval that sets it is stated once
+// underneath. A single number here is the thing that generates the support ticket.
+// -------------------------------------------------------------------------------------------
+
+/** What a machine is doing, which is all the drawing needs in order to colour it. */
+export type ScaleRole = 'app' | 'infra' | 'db';
+
+export interface ScaleSetupTier {
+	/** The mode, in the docs\' own words: monolithic, hybrid, cluster. Reads as the card\'s title. */
+	mode: string;
+	/** Read before the figure. Empty on the column whose figure is not a count. */
+	lead?: string;
+	/**
+	 * The figure itself, and a CEILING rather than a band.
+	 *
+	 * Four versions of this field have been wrong. A bare "100K" promised one server covers 100K of
+	 * anything. "Up to 10K – 100K" folded the workload caveat into the number and produced a fork
+	 * inside a bound. "5 – 100K" fixed the floor but made the other columns read as bands too, and a
+	 * band has a bottom — which put a chatty 20K fleet in the wrong column, since the docs' own 20K
+	 * GPS trackers already exceed what one server with PostgreSQL will take.
+	 *
+	 * A ceiling has no such problem: every mode covers everything below its number, the columns
+	 * overlap honestly, and you choose between them on rate and uptime rather than on fleet size.
+	 * The five-device start moved into `trait`, where it is a sentence rather than a bound.
+	 */
+	devices: string;
+	/** Open-ended, drawn as a mark on the figure rather than as a word in front of it. */
+	plus?: boolean;
+	/**
+	 * The word under the figure. Defaults to "devices", and is blanked on the Cluster column, whose
+	 * figure is not a device count — "Any size devices" is not a phrase.
+	 */
+	unit?: string;
+	/**
+	 * What choosing this mode gets you — the reason to be in this column rather than the one beside.
+	 *
+	 * The row exists because without it the columns claim something false: read as a progression
+	 * driven by fleet size, the third says "a cluster is what you need at a million devices", which
+	 * is wrong in both directions. Scenario A is "No — single point of failure" and Scenario B is
+	 * "still a single ThingsBoard process — no HA for the application", so a 20K fleet with an uptime
+	 * commitment needs the cluster too; and benchmark E served 1M devices on ONE instance, so a
+	 * million devices does not by itself require one.
+	 *
+	 * STATED AS A GAIN, NOT A RISK. The first version of this row printed "Single point of failure"
+	 * under two of the three columns, which is accurate and is also us running down our own product
+	 * on our own homepage. The information that matters is that HIGH AVAILABILITY IS WHAT THE CLUSTER
+	 * IS FOR; naming that as the cluster\'s trait carries it without the other two columns having to
+	 * describe themselves as a liability. The caveat itself belongs in the docs, which state it
+	 * plainly, and in the section copy.
+	 */
+	trait: string;
+	/** One entry per machine, so the count is drawn by counting rather than asserted. */
+	machines: ScaleRole[];
+	/**
+	 * Draw the machines as a shape that continues rather than as a countable total.
+	 *
+	 * Set on the Cluster column, where a literal count cannot be honest. The twelve were the sum of
+	 * the 1M smart-meter table, which runs PostgreSQL and no Cassandra; the cluster that DOES run
+	 * Cassandra is the GPS one, at sixty-eight machines. Drawing the first count beside the second
+	 * one\'s database described a deployment that exists in neither table — the precise mistake this
+	 * file warns about twice above. A column whose fleet reads "Any size" cannot have a fixed
+	 * machine count anyway, so the grid fades out instead of stopping.
+	 */
+	openEnded?: boolean;
+	/** Drawn on the single machine that also carries its own database. */
+	onboardDb?: boolean;
+	/**
+	 * What runs, BESIDES ThingsBoard.
+	 *
+	 * ThingsBoard used to be chip one in all three columns, on the argument that the constant is the
+	 * point. In the row it just read as three-fifths of the ink saying the same word, and the word a
+	 * reader on our own homepage least needs. It is still in the drawing — every blue machine is a
+	 * ThingsBoard machine — and the legend says so once.
+	 */
+	stack: string[];
+}
+
+/**
+ * Three modes, and the machine count is the story: 1 -> 3 -> 12.
+ *
+ * Ceilings, derived rather than chosen. PostgreSQL carries ~5,000 data points/sec, which at 3 data
+ * points a message is ~1,667 messages/sec, so one server reaches ~16K devices reporting every ten
+ * seconds and ~150K reporting every ninety. Rounded conservatively, that is the first column.
+ * Benchmark E measured 33.3K data points/sec on one instance with Kafka and Cassandra, which is
+ * 6.7x the PostgreSQL figure and lands the second column at ~100K chatty or ~1M moderate devices —
+ * the same arithmetic, one tier up.
+ *
+ * The middle tier reaching 1M is not a typo and is the most interesting fact here: every row of
+ * that benchmark table is "a single ThingsBoard instance in monolithic mode". So the cluster is not
+ * what rescues you from running out of capacity. You move to it for high availability, and for what
+ * lies past the numbers we publish.
+ */
+export const SCALE_SETUP: ScaleSetupTier[] = [
+	{
+		mode: 'Monolith',
+		lead: 'Up to',
+		devices: '100K',
+		// Carries the five-device start that used to be the bottom of a band, and says what the mode
+		// actually costs you to run — which is the reason to be in this column rather than the next.
+		trait: 'One machine, from five devices up',
+		machines: ['app'],
+		onboardDb: true,
+		stack: ['PostgreSQL'],
+	},
+	{
+		mode: 'Hybrid',
+		lead: 'Up to',
+		devices: '1M',
+		trait: 'Telemetry moves to its own database',
+		// Application, queue, database. Kafka is not optional at this rate: the in-memory queue is
+		// documented as unreliable past ~3K data points/sec, and this tier starts above that.
+		machines: ['app', 'infra', 'db'],
+		// Cassandra stands for "or TimescaleDB"; the docs offer them as alternatives for hybrid mode.
+		stack: ['PostgreSQL', 'Kafka', 'Cassandra'],
+	},
+	{
+		mode: 'Cluster',
+		// NOT "1M+". A cluster is the answer to an uptime requirement at any fleet size, and pinning
+		// it to a device count told a reader with 50K devices and an SLA that they did not need one.
+		// The million-device claim has not been given up: it moved to the column that actually earns
+		// it, Hybrid, where the benchmark put it on a single instance.
+		devices: 'Any size',
+		unit: '',
+		trait: 'Redundant instances, added for uptime',
+		// Enough machines to read as a cluster, in roughly the proportion the docs show — a third of
+		// them running ThingsBoard and the rest infrastructure. NOT a count to be taken literally:
+		// see `openEnded`. The two cluster tables in the docs are twelve machines and sixty-eight,
+		// and which one you land on is set by message rate rather than by fleet size.
+		machines: ['app', 'app', 'app', 'app', 'infra', 'infra', 'infra', 'infra', 'infra', 'infra', 'infra', 'db'],
+		openEnded: true,
+		// Cassandra is here on the Recommendations table\'s own authority: "500K+ devices, 15K+ dp/sec
+		// -> Microservices cluster, Cassandra, Kafka". Leaving it out made the column read as a
+		// regression from Hybrid, with telemetry apparently moving BACK to PostgreSQL as the fleet
+		// grew, which nothing in the docs says.
+		//
+		// This list is only safe to state alongside a grid that does not claim a total. PostgreSQL
+		// holds entities in every deployment; Zookeeper and Redis are in the component table; and the
+		// time-series store answers message rate, so both appear across the cluster tables.
+		stack: ['PostgreSQL', 'Cassandra', 'Kafka', 'Redis'],
+	},
+];
+
+/**
+ * Said once, because the colour coding is otherwise a question the card cannot answer.
+ *
+ * Two squares appeared in the drawing with no key at all, and "what do the grey ones mean" was the
+ * first thing asked about it. This also keeps ThingsBoard in the visual after its chip came out of
+ * all three stacks: it is the blue machines, stated once instead of three times.
+ */
+export const SCALE_SETUP_LEGEND = [
+	{ role: 'app' as ScaleRole, label: 'ThingsBoard' },
+	// Its own entry rather than folded into the one below, because the drawing gives it its own
+	// treatment — and because where the data lives is exactly what moves between the first column
+	// and the second. A key that named two things while the drawing showed three left the darkest
+	// square on the card, the one the eye goes to, undecoded.
+	{ role: 'db' as ScaleRole, label: 'Database' },
+	{ role: 'infra' as ScaleRole, label: 'Queue, coordination' },
+];
+
+/**
+ * WHERE THE INTERVAL CAVEAT WENT, because it is load-bearing and it is not in this component.
+ *
+ * A sentence explaining that the ceilings move with reporting interval used to render under the
+ * three columns. It came out: this is a visual, and a paragraph under a drawing is a second copy
+ * block competing with the one the section already has. ScaleTiers made the same move earlier and
+ * for the same reason — "the sentences that were here have gone to the section copy, where a
+ * sentence belongs."
+ *
+ * It still has to be said somewhere, or the first column promises that one server covers 100K of
+ * anything, which is the reading that came back from review. The place for it is SCALE_COPY.body
+ * above, which is the row\'s own copy column. Proposed wording, not yet applied because that string
+ * is shared with the four other cuts:
+ *
+ *   "...Every step is benchmarked: you know the machine, the database, and how much headroom is
+ *    left. How often your devices report sets the ceiling — one server covers ~10K devices
+ *    reporting every few seconds, or ~100K reporting every 15 minutes."
+ */

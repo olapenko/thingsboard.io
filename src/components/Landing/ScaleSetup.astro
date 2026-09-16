@@ -1,0 +1,539 @@
+---
+import { Icon } from 'astro-icon/components';
+import { SCALE_SETUP, SCALE_SETUP_LEGEND, type ScaleRole, type ScaleSetupTier } from '@data/scale-visual';
+
+/**
+ * A fifth cut of the scale visual, beside ScaleChart, ScaleMachines, ScaleTiers and ScaleGrowth
+ * rather than instead of any of them.
+ *
+ * Five things per column: the mode, the fleet it covers, what happens when a machine dies, the
+ * machines it takes, and what runs on them. No rate, no CPU percentage, no instance specs — those
+ * live in the cuts above, where a number has a scenario printed beside it.
+ *
+ * THE MACHINE COUNT IS THE STORY, and it is drawn rather than stated: one, then three, then twelve.
+ * A machine is the same square in all three columns, which is what lets twelve of them read as
+ * twelve of the thing the first column has one of. Colour says what a machine is doing —
+ * ThingsBoard, or the infrastructure under it — so the twelve read as four and eight rather than as
+ * an undifferentiated dozen.
+ *
+ * Five corrections are baked in, each from a rejected version of this same component:
+ *
+ *   - The middle tier is THREE machines, not two. Above ~5K data points/sec the docs require Kafka
+ *     as well as a time-series store, so "a server and a database" understated the step.
+ *   - The bands read plainly and start at 5, where the product starts. An attempt to fold the
+ *     message-rate caveat into the figure itself produced "Up to
+ *     10K – 100K": a fork inside a bound, which no one reads naturally. The caveat belongs to the
+ *     copy; the number says the simple thing.
+ *   - The Cluster column is "Any size", not "1M+". Tying it to a device count claimed that a
+ *     cluster is what you need at a million devices, which is wrong both ways round — the first two
+ *     modes are a single ThingsBoard process at ANY size, and one instance has served 1M. Its trait
+ *     names high availability as a gain rather than naming the other two as a liability.
+ *   - Nothing is captioned underneath, and there is no paragraph under the columns. The mode leads
+ *     each card, and the interval caveat belongs to the section copy — see `@data/scale-visual`.
+ *   - ThingsBoard is named ONCE, in the legend, rather than as the first chip of all three stacks.
+ *     Every blue machine is a ThingsBoard machine; the stacks carry only what changes.
+ *
+ * R, the number that predicts the phone, is 468 native / 12 smallest = 39, so the chips land near
+ * 9.4px on a 375px phone. The chips are the floor and they are mono and one word long, which is the
+ * kind of type that survives it; everything else in the column is 14 units or more.
+ *
+ * See `SCALE_SETUP` in `@data/scale-visual` for the arithmetic behind the ranges.
+ */
+
+interface Props {
+	tiers?: ScaleSetupTier[];
+	/**
+	 * How a machine is drawn.
+	 *
+	 * `square` is the original: an abstract tile, so a dozen of them read as a countable quantity and
+	 * nothing else. `icon` names the kind of machine instead. The trade is legibility at size — a
+	 * square is still a square at 16 units on a phone, where an icon's interior detail is close to
+	 * the limit — against a drawing that says what the machines ARE without the legend.
+	 *
+	 * A prop rather than a second component, so the two cannot drift: they share the layout, the
+	 * fade, the roles and the data, and differ only in what gets stamped at each position.
+	 */
+	glyph?: 'square' | 'icon';
+}
+
+const { tiers = SCALE_SETUP, glyph = 'square' } = Astro.props;
+
+/** One glyph per role. The database keeps the cylinder it has everywhere else in this family. */
+const ICONS: Record<ScaleRole, string> = {
+	app: 'tabler:server',
+	db: 'tabler:database',
+	// Kafka, Zookeeper and Redis — the queue and the things that keep a cluster agreeing with itself.
+	infra: 'tabler:stack-2',
+};
+
+// SVG ids must be unique per instance, or two of these on one page silently share a mask.
+const uid = `ss-${crypto.randomUUID().slice(0, 8)}`;
+
+const COL_W = 140;
+const COL_GAP = 24;
+const NATIVE = tiers.length * COL_W + (tiers.length - 1) * COL_GAP;
+
+/**
+ * The machine grid, in design units. Six to a row at 16 + 6 fits a 140-unit column with room for
+ * the card's own inset, so twelve is exactly two rows and the block's height is a known number
+ * rather than whatever the content happens to make it.
+ */
+const M = 16;
+const G = 6;
+const PER_ROW = 6;
+const ROWS = Math.max(...tiers.map((t) => Math.ceil(t.machines.length / PER_ROW)));
+const GRID_W = PER_ROW * M + (PER_ROW - 1) * G;
+const GRID_H = ROWS * M + (ROWS - 1) * G;
+
+const r2 = (v: number) => +v.toFixed(2);
+
+/** Where machine `i` sits. Rows fill left to right, so a short last row reads as a count. */
+const at = (i: number) => ({
+	x: r2((i % PER_ROW) * (M + G)),
+	y: r2(Math.floor(i / PER_ROW) * (M + G)),
+});
+
+// One hue at three depths: these tiers are stages of one thing rather than categories of it, so a
+// single-hue ramp rather than three colours. Two ramps, because the card sits UNDER the chips — one
+// set of values for both would put the third column's chips on a background their own colour.
+const TINTS = [9, 15, 22];
+const CARD_TINTS = [3, 6, 10];
+
+/**
+ * How far each card reaches ABOVE its content, in design units — the stepped scale.
+ *
+ * Illustrative, not measured: the cards get bigger because the deployment does, and no reader is
+ * meant to divide one height by another. Evenly spaced, so the step reads as a scale rather than as
+ * an accident.
+ *
+ * The step is taken ABOVE the content rather than inside it, and it is kept small: the row's overall
+ * height is set by the TALLEST card, so every unit of headroom added to Cluster is a unit added to
+ * the whole section. A first pass at 16/52/88 stepped more obviously and made the block taller than
+ * the version it was meant to shrink.
+ * Giving each card a minimum height
+ * instead pushed the chips to the floor and left a hole between the drawing and them — height spent
+ * on nothing, in the middle of the card, where it read as a missing row. Now the groups sit one
+ * after another with the same gap throughout, the whole block hangs from the floor, and the only
+ * empty space is the headroom above the title that makes the card taller than its neighbour.
+ */
+const CARD_GROW = [-16, -40, -64];
+
+const vars = [
+	`--ss-u: min(1.45px, calc(100cqw / ${NATIVE}))`,
+	`--ss-native: ${NATIVE}`,
+	`--ss-cols: ${tiers.length}`,
+	`--ss-gap: ${COL_GAP}`,
+	`--ss-grid-h: ${GRID_H}`,
+].join('; ');
+---
+
+<div class="ss-fit">
+	<div class="ss" style={vars}>
+		<ul class="ss__tiers">
+			{
+				tiers.map((t, i) => (
+					<li
+						class="ss__tier"
+						style={`--ss-tint: ${TINTS[i]}%; --ss-card: ${CARD_TINTS[i]}%; --ss-grow: ${CARD_GROW[i]}`}
+					>
+						{/* 1 — the mode and what it gets you, set as ONE block with its own tight gap. The
+						    description qualifies the title, so it belongs to it rather than floating at the same
+						    distance as the rows below. Stated as a gain: the version that named the other two as
+						    a single point of failure was accurate and was also an argument against ourselves. */}
+						<div class="ss__head">
+							<p class="ss__mode">{t.mode}</p>
+							<p class="ss__trait">{t.trait}</p>
+						</div>
+
+						{/* 3 — the band, said plainly. The mark is a sibling element so it can take its own
+						    colour, and `.ss__num` is a flex container so that it touches the figure: Astro does
+						    NOT strip the newline between these two lines, and under `white-space: nowrap` that
+						    collapses to a real space and renders "1M +". Flex drops the whitespace instead of
+						    relying on how a formatter happens to break the line. */}
+						<p class="ss__devices">
+							{t.lead && <span class="ss__lead">{t.lead}</span>}
+							<span class="ss__num">
+								{t.devices}
+								{t.plus && <span class="ss__plus">+</span>}
+							</span>
+							<span class="ss__unit">{t.unit ?? 'devices'}</span>
+						</p>
+
+						{/* 4 — the machines, counted. Icons are laid out by the same six-per-row arithmetic as
+						    the squares, so the two versions occupy an identical block and can be compared in
+						    place rather than by memory.
+						    `xMinYMid` because the viewBox is 126 units wide inside a 140-unit column: the
+						    default `xMidYMid` centres it and lands every machine 7 units right of the text
+						    above, which is exactly the misalignment this fixes. */}
+						{glyph === 'icon' ? (
+							<div
+								class:list={['ss__icons', t.openEnded && 'ss__icons--open']}
+								role="img"
+								aria-label={
+									t.openEnded
+										? 'A cluster of machines'
+										: `${t.machines.length} ${t.machines.length === 1 ? 'machine' : 'machines'}`
+								}
+							>
+								{t.machines.map((role) => (
+									<Icon name={ICONS[role]} class:list={['ss__i', `ss__i--${role}`]} aria-hidden="true" />
+								))}
+								{/* The database that lives ON the one server, rather than beside it. */}
+								{t.onboardDb && <Icon name={ICONS.db} class:list={['ss__i', 'ss__i--db']} aria-hidden="true" />}
+							</div>
+						) : (
+							<svg
+								class="ss__grid"
+								viewBox={`0 0 ${GRID_W} ${GRID_H}`}
+								preserveAspectRatio="xMinYMid meet"
+								role="img"
+								aria-label={
+									t.openEnded
+										? 'A cluster of machines'
+										: `${t.machines.length} ${t.machines.length === 1 ? 'machine' : 'machines'}`
+								}
+							>
+								{/* The open-ended grid runs off its own right edge instead of stopping on a machine,
+							    so it reads as "a cluster" rather than as a total that could be counted and
+							    checked against a table. */}
+								{t.openEnded && (
+									<defs>
+										<linearGradient id={`${uid}-fade`} x1="0" x2="1" y1="0" y2="0">
+											<stop offset="0.62" stop-color="#fff" />
+											<stop offset="1" stop-color="#000" />
+										</linearGradient>
+										<mask id={`${uid}-mask`}>
+											<rect x="0" y="0" width={GRID_W} height={GRID_H} fill={`url(#${uid}-fade)`} />
+										</mask>
+									</defs>
+								)}
+								<g mask={t.openEnded ? `url(#${uid}-mask)` : undefined}>
+									{t.machines.map((role, n) => {
+										const { x, y } = at(n);
+										return (
+											<g>
+												<rect class:list={['ss__m', `ss__m--${role}`]} x={x} y={y} width={M} height={M} rx="3" />
+												{/* Platters. A cylinder does not survive 16 units; two bands across a square
+										    do, and they stop the database reading as one more box. */}
+												{role === 'db' &&
+													[0.36, 0.64].map((f) => (
+														<line
+															class="ss__platter"
+															x1={r2(x + 3.5)}
+															y1={r2(y + M * f)}
+															x2={r2(x + M - 3.5)}
+															y2={r2(y + M * f)}
+														/>
+													))}
+												{/* The one machine that also carries its own database, said as a band along
+										    its foot rather than as a second box — because there is no second box. */}
+												{t.onboardDb && (
+													<rect class="ss__onboard" x={x} y={r2(y + M - 5)} width={M} height="5" rx="2" />
+												)}
+											</g>
+										);
+									})}
+								</g>
+							</svg>
+						)}
+
+						{/* 5 — what runs on them BESIDES ThingsBoard, which the legend names once. */}
+						<ul class="ss__stack">
+							{t.stack.map((s) => (
+								<li>{s}</li>
+							))}
+						</ul>
+					</li>
+				))
+			}
+		</ul>
+
+		{
+			/* A key, not a caption: two colours were carrying the four-and-eight split with nothing on
+		    the page to decode them. It is also where ThingsBoard is now named — once, rather than as
+		    the first chip in all three stacks. */
+		}
+		<ul class="ss__legend">
+			{
+				SCALE_SETUP_LEGEND.map((l) => (
+					<li>
+						{/* The swatch draws the machine exactly as the grid does, platters included, so the
+						    key and the drawing cannot drift apart. */}
+						<svg class="ss__swatch" viewBox="0 0 16 16" aria-hidden="true">
+							<rect class:list={['ss__m', `ss__m--${l.role}`]} x="0" y="0" width="16" height="16" rx="3" />
+							{l.role === 'db' &&
+								[0.36, 0.64].map((f) => (
+									<line class="ss__platter" x1="3.5" y1={r2(16 * f)} x2="12.5" y2={r2(16 * f)} />
+								))}
+						</svg>
+						{l.label}
+					</li>
+				))
+			}
+		</ul>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.ss-fit {
+		container-type: inline-size;
+	}
+
+	.ss {
+		--u: var(--ss-u);
+		display: grid;
+		// The legend sits below all three cards, clear of the 16 units they reach past their content.
+		gap: u(28);
+		max-width: u(var(--ss-native));
+		margin: 0 auto;
+	}
+
+	// The columns are NOT row-aligned any more. Each one stacks from the bottom, so the cards sit on
+	// a shared baseline and grow upward from it — the step reads as height above a floor, the way a
+	// bar does, rather than as three boxes that happen to differ. What that costs is the old subgrid
+	// guarantee that the five rows lined up across the columns; the drawings and the chips now sit
+	// wherever their own column puts them.
+	//
+	.ss__tiers {
+		display: grid;
+		grid-template-columns: repeat(var(--ss-cols), minmax(0, 1fr));
+		// Bottom-aligned, so the three cards share a floor and step up from it.
+		align-items: end;
+		gap: u(var(--ss-gap));
+		margin: 0;
+		padding: u(70) 0 0;
+		list-style: none;
+	}
+
+	// The card is drawn by a pseudo-element rather than by padding, because padding on a subgrid
+	// item shifts its tracks off the parent's row lines and the four rows stop agreeing across the
+	// three columns — which is the one thing subgrid is here to guarantee.
+	// One gap throughout and no slack anywhere inside: the groups follow each other immediately and
+	// the whole block sits on the floor of the card. Whatever makes one card taller than the next is
+	// headroom ABOVE the title, never a hole between two groups.
+	.ss__tier {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		gap: u(12);
+	}
+
+	// Heading and description, closer to each other than to anything else.
+	.ss__head {
+		display: grid;
+		gap: u(3);
+	}
+
+	.ss__tier::before {
+		content: '';
+		position: absolute;
+		// Reaches up by a per-card amount and sits a fixed distance below the content, so the three
+		// share a floor and step up from it. Horizontal is half the column gutter, so separation stays
+		// even whatever the height.
+		//
+		// Still a pseudo-element rather than padding on the column: padding would shrink the content
+		// box from 140 units to 120, and the machine grid is a `width: 100%` SVG, so every machine
+		// would quietly get smaller and the drawing would stop matching the other cuts.
+		inset: u(var(--ss-grow, -16)) u(-10) u(-16) u(-10);
+		border-radius: u(14);
+		background: color-mix(in srgb, var(--color-primary, #3d50f5) var(--ss-card, 4%), transparent);
+	}
+
+	// Above the card. A `z-index` on the pseudo-element instead would need a stacking context here
+	// and would sit under the feature row's own background.
+	.ss__tier > * {
+		position: relative;
+	}
+
+	.ss__mode {
+		margin: 0;
+		font-size: u(15);
+		line-height: u(20);
+		font-weight: $font-weight-medium;
+		color: var(--color-text);
+	}
+
+	.ss__devices {
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 0 u(5);
+		margin: 0;
+	}
+
+	// A range rather than a single figure, so this is set smaller than a headline number would be,
+	// and mono so the digits align down the three columns.
+	.ss__num {
+		// Flex so the open-ended mark sits flush against the figure — see the note in the markup.
+		display: flex;
+		align-items: baseline;
+		font-family: $font-family-mono;
+		font-size: u(20);
+		font-weight: $font-weight-bold;
+		line-height: u(26);
+		color: var(--color-text);
+		white-space: nowrap;
+	}
+
+	// Same size as the figure, not a superscript: this mark is the whole difference between a
+	// ceiling and a starting point.
+	.ss__plus {
+		color: var(--color-primary, #3d50f5);
+	}
+
+	// Read before the figure, on its own line, so the three figures stay level down the row.
+	.ss__lead {
+		flex: 1 0 100%;
+		font-size: u(14);
+		line-height: u(18);
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// Always on its own line. Left to wrap, it sits beside the shortest range and under the longest,
+	// so the word lands on a different line in different columns and the four rows stop reading as
+	// rows. Forcing the break costs nothing and makes the three ranges a single scannable column.
+	.ss__unit {
+		flex: 1 0 100%;
+		font-size: u(14);
+		line-height: u(20);
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.ss__trait {
+		margin: 0;
+		font-size: u(14);
+		line-height: u(18);
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	// The global reset gives every svg `max-width: 100%`, which would silently scale this down
+	// inside its track and pull the machines out of alignment with the other two columns.
+	.ss__grid {
+		display: block;
+		width: 100%;
+		max-width: none;
+		height: u(var(--ss-grid-h));
+	}
+
+	// The icon variant. Same six-per-row block as the SVG grid — 6 x 16 plus 5 x 6 is 126 units wide,
+	// and two rows at 16 with one 6 gap is the same height — so swapping `glyph` does not move
+	// anything else in the card.
+	.ss__icons {
+		display: flex;
+		flex-wrap: wrap;
+		align-content: flex-start;
+		gap: u(6);
+		width: u(126);
+		height: u(var(--ss-grid-h));
+	}
+
+	// Sized in design units, NOT with astro-icon's width/height attributes, which are absolute pixels
+	// and would not scale with `--u`.
+	.ss__icons [data-icon] {
+		flex: none;
+		width: u(16);
+		height: u(16);
+	}
+
+	.ss__i--app {
+		color: var(--color-primary, #3d50f5);
+	}
+
+	.ss__i--infra {
+		color: color-mix(in srgb, var(--flow-chrome, #1b1e27) 55%, transparent);
+	}
+
+	.ss__i--db {
+		color: var(--flow-chrome, #1b1e27);
+	}
+
+	// The same running-off-the-edge the SVG gets from its mask, done with a CSS mask because there is
+	// no viewBox here to hang a gradient in.
+	.ss__icons--open {
+		mask-image: linear-gradient(to right, #000 62%, transparent 100%);
+	}
+
+	.ss__m--app {
+		fill: var(--color-primary, #3d50f5);
+	}
+
+	// Ink rather than a second accent: a different hue here would undo the argument the tints make
+	// one row above, that these tiers are stages of a single thing.
+	.ss__m--infra {
+		fill: color-mix(in srgb, var(--flow-chrome, #1b1e27) 55%, transparent);
+	}
+
+	.ss__m--db {
+		fill: var(--flow-chrome, #1b1e27);
+	}
+
+	.ss__platter {
+		stroke: var(--color-bg, #fff);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.ss__onboard {
+		fill: var(--flow-chrome, #1b1e27);
+	}
+
+	.ss__stack {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		align-content: flex-start;
+		gap: u(4);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			padding: u(2) u(7);
+			border-radius: u(var(--flow-radius, 8));
+			font-family: $font-family-mono;
+			// The smallest type in the visual, so it is what sets R — see the note on the component.
+			font-size: u(12);
+			// Medium, not bold: the sandbox loads Ubuntu Mono 400 only, so a bold chip here is a
+			// synthesised face there and a real one on the home preview.
+			font-weight: $font-weight-medium;
+			line-height: u(17);
+			color: var(--color-text);
+			background: color-mix(in srgb, var(--color-primary, #3d50f5) var(--ss-tint, 12%), transparent);
+		}
+	}
+
+	// A row, not a paragraph: it sits on one line at every width the row is given, so it reads as
+	// part of the drawing rather than as a block of copy under it.
+	.ss__legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: u(6) u(16);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		font-size: u(14);
+		line-height: u(20);
+		color: var(--color-text-secondary, #5b616e);
+
+		li {
+			display: flex;
+			align-items: center;
+			gap: u(6);
+		}
+	}
+
+	.ss__swatch {
+		flex: none;
+		width: u(11);
+		height: u(11);
+		max-width: none;
+	}
+</style>
