@@ -64,25 +64,6 @@ import WhitelabelPanel from '@root/pages/internal/_panels/_whitelabel.astro';
 	</nav>
 
 	{
-		/* Page-wide, not per-panel: the question this answers — does the family want a monospace
-	    face at all — is the same question in every visual, and switching one at a time is how you
-	    end up preferring whichever you happened to look at last.
-
-	    It works by setting `--flow-font-mono`, which every visual's chip and label rules read with
-	    the mono stack as their fallback. Nothing outside this page is affected: with no attribute
-	    set the property is undefined and the fallback stands, which is exactly what a marketing
-	    page renders.
-
-	    CliTerminal is deliberately NOT wired to it. A terminal in a proportional face is not a
-	    design option, it is a mistake. */
-	}
-	<div class="page-ctl" role="group" aria-label="Chip typeface" data-font-switch>
-		<span class="page-ctl__name">Chips &amp; labels</span>
-		<button type="button" data-font-pick="mono" aria-pressed="true">Ubuntu Mono</button>
-		<button type="button" data-font-pick="sans" aria-pressed="false">Ubuntu</button>
-	</div>
-
-	{
 		/* Retiring stages.
 	    A sandbox only earns its keep while you can still see what is in it, and this one is at
 	    forty-eight exhibits. The judgement about whether an exhibit is still worth keeping is only
@@ -211,36 +192,6 @@ import WhitelabelPanel from '@root/pages/internal/_panels/_whitelabel.astro';
 		);
 	});
 
-	// The typeface switch. Same shape as the others; it sets one attribute on <html>, and the rule
-	// in the global block turns that into `--flow-font-mono` for every visual on the page.
-	const FONT_KEY = 'launch-visuals:font';
-	document.querySelectorAll<HTMLElement>('[data-font-switch]').forEach((group) => {
-		const picks = Array.from(group.querySelectorAll<HTMLButtonElement>('[data-font-pick]'));
-		const apply = (value: string) => {
-			if (value === 'mono') delete document.documentElement.dataset.font;
-			else document.documentElement.dataset.font = value;
-			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fontPick === value)));
-		};
-		let saved: string | null = null;
-		try {
-			saved = localStorage.getItem(FONT_KEY);
-		} catch {
-			/* private mode; fine */
-		}
-		if (saved) apply(saved);
-		picks.forEach((b) =>
-			b.addEventListener('click', () => {
-				const value = b.dataset.fontPick ?? 'mono';
-				apply(value);
-				try {
-					localStorage.setItem(FONT_KEY, value);
-				} catch {
-					/* ignore */
-				}
-			})
-		);
-	});
-
 	/**
 	 * The retire control.
 	 *
@@ -344,13 +295,6 @@ import WhitelabelPanel from '@root/pages/internal/_panels/_whitelabel.astro';
 <style lang="scss" is:global>
 	@use '../../styles/variables' as *;
 	@use '../../styles/connect-terms';
-
-	// What the typeface switch above actually does. One property, read by every visual through
-	// `var(--flow-font-mono, <mono stack>)`, so the default costs nothing and the override reaches
-	// all of them at once.
-	:root[data-font='sans'] {
-		--flow-font-mono: #{$font-family-base};
-	}
 
 	// Each visual gets its own band so two of them never share an edge — adjacent visuals read
 	// as one composition otherwise, which is the thing this page exists to avoid.
