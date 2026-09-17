@@ -2,27 +2,30 @@
 import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
 
 /**
- * The cloud, with the vendor names taken out and the four routes folded into three.
+ * The vendor-neutral cloud, with some of the names wired to each other.
  *
- * A CANDIDATE beside `ConnectCloud`, which is untouched and still what the homepage renders. Same
- * composition, same geometry, same 422 units — so the two sit on the sandbox page as a true A/B,
- * and the only variables are the words and the number of colours.
+ * A CANDIDATE beside `ConnectCloudOpen`, which is the same picture without the wires. Everything
+ * about the composition is identical, so the two stages answer one question: does drawing the
+ * relationships help, or is the cloud better as a flat list?
  *
- * WHAT CHANGES
+ * WHAT THE WIRES MEAN. They are not decoration looking for a pattern — each one is a fact:
  *
- * No vendors. `ConnectCloud` names ChirpStack, TTN, LORIOT, ThingPark, AWS IoT, Azure IoT, Pub/Sub
- * and AWS SQS. Where one of those stood, this names the category of thing instead — "MQTT brokers",
- * "Cloud IoT platforms" — which is vendor-neutral and also more honest, since support was never
- * limited to whichever three clouds happened to fit the row.
+ *   MQTT -> MQTT brokers   a broker speaks MQTT; the same protocol, arriving the other way
+ *   MQTT brokers -> Sparkplug B   Sparkplug B is an MQTT payload spec, normally via a broker
+ *   CoAP -> LwM2M          LwM2M runs over CoAP
+ *   Modbus -> S7           both are PLC protocols the gateway translates
  *
- * Three routes, not four: straight in, through a gateway, through an integration. That is how the
- * connectivity guide groups them, and it makes LoRaWAN one integration among several rather than a
- * route of its own. Three accents is worth having on its own — the four were close enough that the
- * tightest pair measured dE 4.02 in OKLab at the chips' tint, and three takes that to dE 8.7.
+ * Each wire is a gradient between the two chips' own accents, so a wire that crosses groups shows
+ * it: MQTT is cyan and MQTT brokers is lime, and the line is the journey between them. A wire
+ * inside one group is a single hue, which is correct — nothing is being crossed.
  *
- * Still products rather than standards: Sigfox, Kafka, RabbitMQ and S7. Stand-ins exist for each —
- * "LPWAN networks", "message brokers" (which would fold Kafka and RabbitMQ into one chip) and "PLC
- * protocols" — and they are the next thing to look at if the concern is brand names as such.
+ * WHY THIS ONE MEASURES AT RUNTIME, against the family's rule. Every other visual computes its
+ * geometry in design units at build time, and this one cannot: the chips are laid out by flex and
+ * grid, so where any given chip lands depends on text metrics the server does not have. The layer
+ * is therefore drawn from `getBoundingClientRect` after layout, and redrawn by a `ResizeObserver`.
+ *
+ * It degrades to the plain cloud: no script, no wires, and the composition is untouched underneath.
+ * Nothing about the chips depends on the layer existing.
  */
 
 // Measured, not chosen — see the note below on how the rows were balanced. Set to the widest row
@@ -46,7 +49,7 @@ interface Props {
 	chipStyle?: 'tint' | 'text';
 }
 
-const { chipStyle = 'tint' } = Astro.props;
+const { chipStyle = 'tint' }: Props = Astro.props;
 
 const NATIVE = 422;
 
@@ -139,6 +142,18 @@ if (missing.length || unplaced.length) {
 	);
 }
 
+/**
+ * Which names are wired, and in which direction the gradient runs. Names must exist in GROUPS; the
+ * build-time check below covers that, and a pair naming a chip that is not placed would draw
+ * nothing rather than fail, so it is checked here too.
+ */
+const LINKS: [string, string][] = [
+	['MQTT', 'MQTT brokers'],
+	['MQTT brokers', 'Sparkplug B'],
+	['CoAP', 'LwM2M'],
+	['Modbus', 'S7'],
+];
+
 const vars = [
 	`--cl-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
 	`--cl-native: ${NATIVE}`,
@@ -150,14 +165,19 @@ const vars = [
 ---
 
 <div class="cl-fit">
-	<div class="cl" style={vars} data-chip={chipStyle}>
+	<div class="cl" style={vars} data-chip={chipStyle} data-links={JSON.stringify(LINKS)}>
+		{/* Drawn after layout; see the note above. Empty and invisible until the script fills it. */}
+		<svg class="cl__links" aria-hidden="true" focusable="false"></svg>
+
 		{
 			ROWS.map((row) =>
 				'chips' in row ? (
 					<ul class="cl__row">
 						{row.chips.map((n) => (
 							<li style={`--cl-accent: ${ACCENT.get(n)}`}>
-								<span class="cl__chip">{n}</span>
+								<span class="cl__chip" data-name={n}>
+									{n}
+								</span>
 							</li>
 						))}
 					</ul>
@@ -166,7 +186,9 @@ const vars = [
 						<ul class="cl__side cl__side--l">
 							{row.left.map((n) => (
 								<li style={`--cl-accent: ${ACCENT.get(n)}`}>
-									<span class="cl__chip">{n}</span>
+									<span class="cl__chip" data-name={n}>
+										{n}
+									</span>
 								</li>
 							))}
 						</ul>
@@ -177,7 +199,9 @@ const vars = [
 						<ul class="cl__side cl__side--r">
 							{row.right.map((n) => (
 								<li style={`--cl-accent: ${ACCENT.get(n)}`}>
-									<span class="cl__chip">{n}</span>
+									<span class="cl__chip" data-name={n}>
+										{n}
+									</span>
 								</li>
 							))}
 						</ul>
@@ -383,4 +407,101 @@ const vars = [
 			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
 		);
 	}
+
+	// --- the wires -------------------------------------------------------------------
+
+	.cl {
+		position: relative;
+	}
+
+	.cl__links {
+		position: absolute;
+		inset: 0;
+		// Not optional: the global reset gives every svg `max-width: 100%`, which here would resolve
+		// against the grid track and shrink the layer out of register with the chips it is drawn from.
+		width: 100%;
+		max-width: none;
+		height: 100%;
+		overflow: visible;
+		// Under the chips, so a wire passes BEHIND a name and comes out the other side. Over them it
+		// would read as a line drawn on top of the cloud rather than as the cloud being wired.
+		z-index: 0;
+		pointer-events: none;
+
+		:global(path) {
+			fill: none;
+			stroke-width: max(1px, #{u(2)});
+			stroke-linecap: round;
+			opacity: 0.9;
+		}
+	}
+
+	.cl__row,
+	.cl__row--split {
+		position: relative;
+		z-index: 1;
+	}
 </style>
+
+<script>
+	/**
+	 * Draws the wires after layout.
+	 *
+	 * Runtime, not build time, and the component's doc says why: the chips are placed by flex and
+	 * grid from text metrics the server does not have, so nothing knows where a chip lands until the
+	 * browser has laid it out. Redrawn on resize, because the unit is derived from the container.
+	 *
+	 * Gradient ids are per-instance. The sandbox renders this component three times on one page, and
+	 * an id is document-global in SVG — three instances sharing `cl-link-0` means the last one to
+	 * render wins and the other two get its colours.
+	 */
+	let seq = 0;
+
+	const draw = (root: HTMLElement, uid: string) => {
+		const svg = root.querySelector('.cl__links');
+		if (!svg) return;
+		const pairs: [string, string][] = JSON.parse(root.dataset.links || '[]');
+		const box = root.getBoundingClientRect();
+		if (!box.width) return;
+		svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+
+		const at = (name: string) => {
+			const el = root.querySelector<HTMLElement>(`[data-name="${CSS.escape(name)}"]`);
+			if (!el) return null;
+			const r = el.getBoundingClientRect();
+			const li = el.closest('li');
+			const accent = li ? getComputedStyle(li).getPropertyValue('--cl-accent').trim() : '';
+			return { x: r.left - box.left + r.width / 2, y: r.top - box.top + r.height / 2, accent: accent || '#5b616e' };
+		};
+
+		let defs = '';
+		let paths = '';
+		pairs.forEach(([a, b], i) => {
+			const A = at(a);
+			const B = at(b);
+			if (!A || !B) return;
+			const id = `${uid}-${i}`;
+			// userSpaceOnUse and the two chip centres as endpoints: the gradient then runs along the
+			// wire itself whatever direction it takes, rather than across the element's bounding box.
+			defs +=
+				`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}">` +
+				`<stop offset="0" stop-color="${A.accent}"/><stop offset="1" stop-color="${B.accent}"/></linearGradient>`;
+			// A gentle bow, perpendicular to the line and capped: straight wires between chips in the
+			// same row disappear into the row's own gaps, and a long one would cut across the cloud.
+			const mx = (A.x + B.x) / 2;
+			const my = (A.y + B.y) / 2;
+			const dx = B.x - A.x;
+			const dy = B.y - A.y;
+			const len = Math.hypot(dx, dy) || 1;
+			const bow = Math.min(22, len * 0.18);
+			paths += `<path d="M ${A.x} ${A.y} Q ${mx - (dy / len) * bow} ${my + (dx / len) * bow} ${B.x} ${B.y}" stroke="url(#${id})"/>`;
+		});
+		svg.innerHTML = `<defs>${defs}</defs>${paths}`;
+	};
+
+	document.querySelectorAll<HTMLElement>('.cl[data-links]').forEach((root) => {
+		const uid = `cl-link-${seq++}`;
+		draw(root, uid);
+		new ResizeObserver(() => draw(root, uid)).observe(root);
+	});
+</script>
