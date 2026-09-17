@@ -46,17 +46,24 @@ const CYAN = '#0e7490'; // direct
 const PURPLE = '#7b3fe4'; // gateway
 const LIME = '#65a30d'; // integration
 
+// Eight of the twenty-one, three direct / three gateway / two integration, which is roughly the
+// proportion the full set has. Dealt so NEITHER column is one colour: the first pass put Modbus,
+// OPC UA and BACnet together and the right-hand side read as a purple list with one odd chip.
+//
+// Seven characters is the ceiling — the column is 100 units and a 20u mono chip costs 10 a
+// character plus 24 of padding — which is why the integrations here are LoRaWAN and Sigfox rather
+// than "MQTT brokers" or "Cloud platforms".
 const LEFT = [
 	{ name: 'MQTT', accent: CYAN },
-	{ name: 'CoAP', accent: CYAN },
+	{ name: 'Modbus', accent: PURPLE },
 	{ name: 'LoRaWAN', accent: LIME },
-	{ name: 'BLE', accent: PURPLE },
+	{ name: 'OCPP', accent: CYAN },
 ];
 const RIGHT = [
-	{ name: 'Modbus', accent: PURPLE },
 	{ name: 'OPC UA', accent: PURPLE },
-	{ name: 'BACnet', accent: PURPLE },
-	{ name: 'OCPP', accent: CYAN },
+	{ name: 'CoAP', accent: CYAN },
+	{ name: 'Sigfox', accent: LIME },
+	{ name: 'BLE', accent: PURPLE },
 ];
 
 // --- the box ---------------------------------------------------------------------------------
@@ -70,7 +77,9 @@ const BADGE = 104;
 const NATIVE = STUB + COL + GUT + BADGE + GUT + COL + STUB;
 
 const CHIP_H = 40;
-const PITCH = 68;
+// 56, not 68: sixteen units of air between chips. The curves still separate because they fan onto
+// the badge's face rather than converging, so the pitch is free to close up.
+const PITCH = 56;
 const HEIGHT = LEFT.length * PITCH;
 
 const MID_X = NATIVE / 2;
@@ -125,9 +134,13 @@ const vars = [
 			aria-hidden="true"
 			focusable="false"
 		>
-			{/* The curves in: one grey family line each, as in the flow and twin visuals. */}
-			{LEFT.map((_, i) => <path class="hub__wire" d={curveLeft(i)} />)}
-			{RIGHT.map((_, i) => <path class="hub__wire" d={curveRight(i)} />)}
+			{
+				/* Each curve in its chip's own accent, at full strength. They were a grey hairline, which
+			    made the composition two unrelated systems — coloured chips, grey plumbing. One colour
+			    per route, carried the whole way in, is the same coding the chips use. */
+			}
+			{LEFT.map((c, i) => <path class="hub__wire" d={curveLeft(i)} stroke={c.accent} />)}
+			{RIGHT.map((c, i) => <path class="hub__wire" d={curveRight(i)} stroke={c.accent} />)}
 		</svg>
 
 		{
@@ -181,10 +194,12 @@ const vars = [
 		overflow: visible;
 	}
 
+	// Stroke comes from the markup, per chip. Weight matches the fade on the other side of the chip,
+	// so what crosses the picture is one line with a chip sitting in the middle of it.
 	.hub__wire {
 		fill: none;
-		stroke: var(--sl-color-hairline-light, #d8dbe2);
 		stroke-width: max(1px, #{u(2)});
+		stroke-linecap: round;
 		vector-effect: non-scaling-stroke;
 	}
 
@@ -203,15 +218,15 @@ const vars = [
 		transform: translateY(-50%);
 	}
 
+	// Flush against the chip, no margin: the run out and the curve in are the same line passing
+	// through, and a gap on one side only made the chip look detached from its own tail.
 	.hub__chip--l::after {
 		right: 100%;
-		margin-right: u(8);
 		background: linear-gradient(to left, var(--hub-accent), transparent);
 	}
 
 	.hub__chip--r::after {
 		left: 100%;
-		margin-left: u(8);
 		background: linear-gradient(to right, var(--hub-accent), transparent);
 	}
 
