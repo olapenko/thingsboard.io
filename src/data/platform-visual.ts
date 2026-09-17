@@ -18,6 +18,11 @@
  * the picking is done, so what survives is the chosen name.
  */
 
+import { CONNECT_COPY } from '@data/connect-visual';
+import { DIGITAL_TWIN_COPY } from '@data/digital-twin-visual';
+import { NORMALIZE_COPY } from '@data/normalize-visual';
+import { SOLUTION_COPY } from '@data/solution-flow';
+
 /** The row's copy. One claim, and the diagram is the evidence for it. */
 export const PLATFORM_COPY = {
 	title: 'Your equipment, your people, one platform between them',
@@ -79,18 +84,11 @@ export interface PlatformStage {
 	name: string;
 	note: string;
 	/**
-	 * The stage's own hue, carried by its icon.
+	 * The stage's own hue, carried by its icon. Comes from the section's badge — see below.
 	 *
 	 * Read by `PlatformRaised`, where the card is white and the runs are grey, so the icons are the
-	 * only colour in the picture and the four stages are told apart by it. `PlatformLoop` ignores it
-	 * and draws all four in the platform's indigo. It lives here rather than in the component for the
-	 * same reason the connect routes' accents live in `connect-visual.ts`.
-	 *
-	 * Four hues off the ramp this family already draws from — the same 600/700 steps as the connect
-	 * route accents and the two zone colours. Ordered so that no two ADJACENT columns are near
-	 * neighbours in hue: indigo, rose, lime, violet puts the only close pair (indigo and violet) at
-	 * opposite ends of the row, where they are never read side by side. Deliberately not cyan or
-	 * amber, which are spoken for by the equipment and people columns.
+	 * only colour in the picture. `PlatformLoop` ignores it and draws all four in the platform's
+	 * indigo.
 	 */
 	accent: string;
 }
@@ -99,15 +97,50 @@ export interface PlatformStage {
  * What the platform does, as four stages in the order you meet them. The names are verbs because
  * the column beside them is a list of nouns, and the contrast is what says one side is a thing you
  * own and the other is work being done to it.
+ *
+ * EACH STAGE IS A SECTION OF THE PAGE, and takes that section's own badge — its icon and its
+ * colour, by reference rather than by copy, so the two cannot drift apart:
+ *
+ *   Connect   -> the connect section        plug-connected   #0e7490
+ *   Model     -> the digital twin section   binary-tree      #7b3fe4
+ *   Automate  -> the normalize section      database-search   #c2703a
+ *   Operate   -> the solution section       layout-dashboard #3d50f5
+ *
+ * That makes the platform column a legend for the rest of the page: whoever reads the diagram
+ * meets each of these four again further down, in the same colour under the same mark. It is also
+ * why three of the icons changed. `binary-tree` was on Automate and is the digital twin's own mark,
+ * so it moves to Model, which is what the twin section is called ("Model your real world");
+ * `box-model` and `chart-dots` were this component's inventions and had no section behind them.
+ *
+ * The fifth section, scale, has no stage to take it — it is not a step, it is a property of all
+ * four, which is exactly the argument the foundations strip makes. Its badge is the obvious source
+ * for "Scalable architecture" there if that strip is ever turned back on.
  */
 export const PLATFORM_STAGES: PlatformStage[] = [
-	{ icon: 'tabler:plug-connected', name: 'Connect', note: 'Devices, gateways, integrations', accent: '#3d50f5' },
-	{ icon: 'tabler:box-model', name: 'Model', note: 'Assets, relations, profiles', accent: '#be185d' },
-	// Lime 700, not the 600 the connect visual uses. Measured on the white card, 600 came to 3.09:1
-	// against the other three at 5.7–6.0, and a thin icon stroke at 3.09 reads as a lighter weight
-	// rather than a different colour. 700 is 4.99 and sits in the same band as its siblings.
-	{ icon: 'tabler:binary-tree', name: 'Automate', note: 'Rule chains, calculated fields, alarms', accent: '#4d7c0f' },
-	{ icon: 'tabler:chart-dots', name: 'Operate', note: 'Dashboards, SCADA, reports', accent: '#7b3fe4' },
+	{
+		name: 'Connect',
+		note: 'Devices, gateways, integrations',
+		icon: CONNECT_COPY.badge.icon,
+		accent: CONNECT_COPY.badge.color,
+	},
+	{
+		name: 'Model',
+		note: 'Assets, relations, profiles',
+		icon: DIGITAL_TWIN_COPY.badge.icon,
+		accent: DIGITAL_TWIN_COPY.badge.color,
+	},
+	{
+		name: 'Automate',
+		note: 'Rule chains, calculated fields, alarms',
+		icon: NORMALIZE_COPY.badge.icon,
+		accent: NORMALIZE_COPY.badge.color,
+	},
+	{
+		name: 'Operate',
+		note: 'Dashboards, SCADA, reports',
+		icon: SOLUTION_COPY.badge.icon,
+		accent: SOLUTION_COPY.badge.color,
+	},
 ];
 
 /**
