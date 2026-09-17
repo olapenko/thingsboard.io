@@ -9,7 +9,7 @@ Two pages render them, both internal and both `noindex`:
 
 | Page | What it is |
 | --- | --- |
-| `/internal/home-preview/` | The homepage as proposed. The only place a visual is seen in context. |
+| `/` | The homepage. Where the visuals actually run, and the only place one is seen in context. |
 | `/internal/launch-visuals/` | The sandbox index. One card per visual. |
 | `/internal/launch-visuals/<id>/` | One visual, its exhibits at known widths. |
 
@@ -130,7 +130,7 @@ can be redrawn without retyping the words and a marketing page can import the sa
 
   | | Ubuntu | Ubuntu Mono |
   | --- | --- | --- |
-  | `/internal/home-preview/` (BaseLayout → Starlight) | 300, 400, 400-italic, 500, 700 | 400, 700 |
+  | `/` (BaseLayout → Starlight) | 300, 400, 400-italic, 500, 700 | 400, 700 |
   | `/internal/launch-visuals/` (`PlaygroundLayout`) | 300, 400, 500, 700 | **400 only** |
 
   So bold monospace — a chip, an axis label — is a real face on the home preview and a synthesised
@@ -160,7 +160,7 @@ NOT match `pkill -f "astro dev"` — the command line is `node …/astro.js`, so
 kills nothing and leaves the orphans holding their ports.
 
 Measured costs, so the loop can be judged rather than guessed: dev server boot ~31s; first
-compile of `/internal/launch-visuals/` 2.5s and of `/internal/home-preview/` 7.6s; afterwards
+compile of `/internal/launch-visuals/` 2.5s and of `/` 7.6s; afterwards
 21ms and 59ms. Once it is up, it is fast — so keep it up.
 
 Path aliases: `@root`, `@components`, `@layouts`, `@styles`, `@data`, `@util`, `@models`,
@@ -199,7 +199,8 @@ the measurements it took two hours ago. Start fresh per visual and let this file
 Merge the branches back **one at a time** — each will have touched `_key-visuals.ts` and the two
 one-line lists in `launch-visuals.astro`.
 
-Shared, so coordinate before touching: `home-preview.astro`, `_key-visuals.ts`, `_VisualPage.astro`,
+Shared, so coordinate before touching: `index.astro` (the homepage — the visuals ship from it now),
+`_key-visuals.ts`, `_VisualPage.astro`,
 `FeatureBlockSection.astro` (which also reaches the PE and Edge product pages), `TwinUnit.astro`,
 and `src/styles/_connect-terms.scss`. A visual's own page is not shared, which is the point.
 
