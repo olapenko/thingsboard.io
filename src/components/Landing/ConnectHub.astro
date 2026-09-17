@@ -38,6 +38,8 @@ interface Props {
 	 * Which cut.
 	 *
 	 *   four         four a side, larger chips, colour as texture in four hues.
+	 *   five         the same again with a fifth arm a side — same chip size, column and pitch, so
+	 *                the two differ only in how much the picture carries.
 	 *   six-advised  the twelve the CEO advised, as drawn, with the same four-hue rotation. The set
 	 *                is the point of this one, so it is kept exactly.
 	 *   six          the same twelve arms, but names chosen four per route so colour can CODE the
@@ -49,7 +51,7 @@ interface Props {
 	 * A prop rather than three components because only the name list, the chip metrics and the
 	 * spread of the fan differ; everything else derives from the arm count.
 	 */
-	arms?: 'four' | 'six' | 'six-advised' | 'six-stagger';
+	arms?: 'four' | 'five' | 'six' | 'six-advised' | 'six-stagger';
 }
 
 const { nodeLabel = false, arms = 'four' }: Props = Astro.props;
@@ -196,7 +198,40 @@ const SIX_STAGGER = {
 	],
 };
 
-const SET = isStagger ? SIX_STAGGER : arms === 'six' ? SIX : arms === 'six-advised' ? SIX_ADVISED : FOUR;
+/**
+ * Ten: the four-arm set plus HTTP and BACnet, both of which a reader arrives knowing and neither of
+ * which pushes the column — seven characters is the ceiling at 20u in a 100-unit column.
+ *
+ * Ten chips will not divide four hues evenly, so this is 3/3/2/2 rather than the flat rotation the
+ * eight gets. What still holds is the part that shows: no hue repeats down a column or across a
+ * row, which is what stops either side reading as a block.
+ */
+const FIVE = {
+	left: [
+		{ name: 'MQTT', accent: BLUE },
+		{ name: 'Modbus', accent: BEIGE },
+		{ name: 'LoRaWAN', accent: GREEN },
+		{ name: 'HTTP', accent: LAVENDER },
+		{ name: 'OCPP', accent: BLUE },
+	],
+	right: [
+		{ name: 'OPC UA', accent: LAVENDER },
+		{ name: 'CoAP', accent: BLUE },
+		{ name: 'Sigfox', accent: BEIGE },
+		{ name: 'BACnet', accent: GREEN },
+		{ name: 'BLE', accent: LAVENDER },
+	],
+};
+
+const SET = isStagger
+	? SIX_STAGGER
+	: arms === 'six'
+		? SIX
+		: arms === 'six-advised'
+			? SIX_ADVISED
+			: arms === 'five'
+				? FIVE
+				: FOUR;
 const LEFT = SET.left;
 const RIGHT = SET.right;
 
@@ -284,7 +319,10 @@ const cyOf = (list: Arm[], i: number) => {
 // Where the lines land on the badge's face: spread over the middle of it rather than meeting at a
 // point. Wider with six arms, because the same 60 units shared by six arrivals puts them 12 apart
 // and the fan closes into a bundle; 76 keeps them 15 apart and still clear of the badge's corners.
-const FAN = isSix ? 76 : 60;
+// Wider with more arms, so the arrivals stay about 15 units apart however many there are. The
+// badge's straight edge is only 37 units, so most of these land on its corners — which is fine now
+// that the curves aim at the rounded silhouette rather than the bounding box.
+const FAN = isSix ? 76 : arms === 'five' ? 68 : 60;
 const ay = (i: number, n: number) => MID_Y - FAN / 2 + (FAN / (n - 1)) * i;
 
 /**
