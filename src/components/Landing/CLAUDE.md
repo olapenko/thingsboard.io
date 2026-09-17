@@ -103,6 +103,22 @@ can be redrawn without retyping the words and a marketing page can import the sa
   "Failed to reload" errors — and the stale styles got blamed on HMR. **Before blaming HMR, check
   the server is alive.** Restarting costs about 31 seconds and was, for a while, the single largest
   tax on the loop.
+- **A live server can still serve stale compiled CSS**, which is the third thing that looks like
+  stale HMR and is neither of the two above. Seen while building `PlatformLoop`: the HTML was new on
+  every reload — new markup, new attributes, new text — and the stylesheet was several edits old, so
+  half the rules in the file simply did not exist in the browser. The server was alive and logging
+  `200`s, and a cache-busting query string changed nothing, because the staleness was upstream of
+  the browser. What preceded it was editing the component several times in quick succession while it
+  was throwing at render (a constant used before the data file exported it); vite appears to have
+  kept the style module it had from before the error and never re-emitted after it cleared.
+  **The check that tells the three apart in one command**, since the browser cannot:
+
+  ```bash
+  curl -s 'http://localhost:PORT/src/components/Landing/YourThing.astro?astro&type=style&index=0&lang.css' | grep your-new-class
+  ```
+
+  No match while the file on disk has it means the server is serving stale CSS; restart it. A
+  connection error means the server is dead. A match means look at specificity instead.
 - **`astro check` does not compile SCSS.** It will pass over a stylesheet that cannot build. Only a
   real build or a page load proves the styles.
 - **The global reset gives every `<svg>` `max-width: 100%`.** An SVG whose viewBox is wider than its
@@ -185,8 +201,8 @@ enough to be sure.
 
 Components never collide; the shared files do. One git worktree per visual, on its own branch, one
 session per visual, and its own dev server — `.claude/launch.json` declares `tb-site` (4321),
-`tb-site-b` (4322) and `tb-site-c` (4323), because two sessions sharing one server will restart it
-under each other mid-measurement.
+`tb-site-b` (4322), `tb-site-c` (4323) and `tb-site-d` (4324), because two sessions sharing one
+server will restart it under each other mid-measurement.
 
 A session per visual is also about context: these sessions get long, and a compacted one has lost
 the measurements it took two hours ago. Start fresh per visual and let this file carry the method.

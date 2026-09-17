@@ -21,8 +21,19 @@ import { PLATFORM_COPY } from '@data/platform-visual';
 	<p class="lede">{PLATFORM_COPY.body}</p>
 
 	{
+		/* The foundations strip is off in the component. It is three more things to read in the
+	    densest part of the picture and it carries none of the argument, but it is the only claim
+	    about what sits under the four stages — so it is switchable here rather than deleted, and the
+	    switch covers every probe at once so the two states are compared like for like. */
+	}
+	<div class="page-ctl">
+		<span class="page-ctl__name">Foundations strip</span>
+		<button type="button" data-found-toggle aria-pressed="false">Off</button>
+	</div>
+
+	{
 		[
-			{ w: 1200, note: 'full-bleed section at a 1440 viewport · floor 14.0px' },
+			{ w: 1200, note: 'full-bleed section at a 1440 viewport' },
 			{ w: 1160, note: 'native · floor 13.5px (the 1.15x cap starts at 1334)' },
 			{ w: 1040, note: 'wide, last comfortable width · floor 12.1px' },
 			{ w: 960, note: 'stacked · first width below the threshold, capped at 600' },
@@ -44,13 +55,47 @@ import { PLATFORM_COPY } from '@data/platform-visual';
 	}
 </VisualPage>
 
+<script>
+	// The foundations switch. Sets the attribute the component's own CSS reads, on every probe at
+	// once, and remembers the choice so a reload does not reset it mid-comparison — the same shape
+	// as the token switch in `_FeatureRow`.
+	const KEY = 'launch-visuals:platform-foundations';
+	const btn = document.querySelector<HTMLButtonElement>('[data-found-toggle]');
+	const targets = Array.from(document.querySelectorAll<HTMLElement>('.plat'));
+
+	const apply = (on: boolean) => {
+		targets.forEach((t) => t.toggleAttribute('data-found', on));
+		if (!btn) return;
+		btn.setAttribute('aria-pressed', String(on));
+		btn.textContent = on ? 'On' : 'Off';
+	};
+
+	let saved = false;
+	try {
+		saved = localStorage.getItem(KEY) === 'on';
+	} catch {
+		/* private window; the default is fine */
+	}
+	apply(saved);
+
+	btn?.addEventListener('click', () => {
+		const on = btn.getAttribute('aria-pressed') !== 'true';
+		apply(on);
+		try {
+			localStorage.setItem(KEY, on ? 'on' : 'off');
+		} catch {
+			/* ignore */
+		}
+	});
+</script>
+
 <style lang="scss">
 	@use '../../../styles/variables' as *;
 
 	.lede {
 		@include text-s;
 		max-width: 1200px;
-		margin: 0 auto $spacing-8;
+		margin: 0 auto $spacing-6;
 		color: var(--color-text-secondary, #5b616e);
 	}
 </style>

@@ -25,6 +25,13 @@ export const PLATFORM_COPY = {
 	link: { text: 'See what the platform covers', href: '/products/thingsboard-pe/' },
 };
 
+/**
+ * The middle column's lockup. Two fields rather than one string because the mark sits beside them
+ * and the brand is set bolder than the product — "ThingsBoard Platform" as one string would have to
+ * be split back apart in the component to do that.
+ */
+export const PLATFORM_CORE = { brand: 'ThingsBoard', product: 'Platform' };
+
 export interface ZoneItem {
 	icon: string;
 	/** Two or three words. The note underneath carries the specifics. */

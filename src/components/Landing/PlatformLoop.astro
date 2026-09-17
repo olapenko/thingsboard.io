@@ -5,9 +5,11 @@ import {
 	PLATFORM_STAGES,
 	PLATFORM_FOUNDATIONS,
 	PLATFORM_RUNS,
+	PLATFORM_CORE,
 	type Zone,
 	type PlatformRun,
 } from '@data/platform-visual';
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
 
 /**
  * The platform overview: equipment on the left, people on the right, and a clockwise loop through
@@ -38,6 +40,15 @@ import {
  * Only the "in & out" arrow layout survives. The sandbox also carried an inline variant with all
  * four arrows on the cards' own centre line, which read as one two-way pipe rather than a loop.
  *
+ * HOW THE THREE COLUMNS STAY IN STEP. The two outer cards are stretched across all three middle
+ * rows, so a run always meets a card edge; their three items then divide that height equally
+ * (`flex: 1 1 0`) rather than stacking from the top and leaving the remainder at the bottom. Both
+ * cards hold three items of equal height in a box of equal height, so row one on the left is level
+ * with row one on the right at every width, with nothing measured and no magic number to keep in
+ * step. It also means the slack shows up as breathing room between rows instead of a hole under the
+ * last one — and there is little of it left, because the middle column is no longer carrying the
+ * foundations row (see `foundations` below).
+ *
  * WHAT THIS VISUAL CANNOT DO. It is authored at 1160 units with a 13.5-unit floor (the notes under
  * each item and each stage), so R = 86 — and R is the whole story on a narrow screen, because the
  * rendered size of the smallest type is exactly `container ÷ R`. At 1160px the floor is 13.5px; at
@@ -48,12 +59,33 @@ import {
  * visual still only knows how much room it was handed.
  */
 
+interface Props {
+	/**
+	 * Show the foundations strip under the four stages.
+	 *
+	 * OFF by default. It was three more things to read in the densest part of the picture, and it
+	 * was the part carrying none of the argument — the loop is the argument, and identity, APIs and
+	 * scale are true of every platform in the category. It is kept rather than deleted because it is
+	 * the one claim about what is underneath the four stages, and the sandbox can switch it back on
+	 * to compare. The markup renders either way and CSS does the hiding, so the sandbox's toggle can
+	 * reach it without the page re-rendering anything.
+	 */
+	foundations?: boolean;
+}
+
+const { foundations = false } = Astro.props;
+
 // --- the grid, in design units -------------------------------------------------------------
 //
 // The column widths are real numbers rather than `fr`, because the connector geometry below is
 // computed from them. Written as `fr` they would live in two places and be free to disagree, and
 // the symptom would be elbows that miss the platform's edge at some widths and not others.
-const COL = { side: 248, gut: 56, mid: 552 };
+//
+// The outer columns took 24 units each off the gutters and the middle (from 248/56/552). Measured,
+// 248 was eight units short of holding "Gateways and platforms" on one line, and that one wrap was
+// what made the left column's rows sit lower than the right column's. Widening it is what lets the
+// two sets of three line up as three equal rows rather than as five lines against four.
+const COL = { side: 272, gut: 44, mid: 528 };
 const NATIVE = COL.side * 2 + COL.gut * 2 + COL.mid; // 1160 — the site's own measure
 
 /** The stacked composition's native width. See the note above about R. */
@@ -62,7 +94,7 @@ const NARROW = 480;
 // --- the four runs -------------------------------------------------------------------------
 
 /** How far a run drops or rises between a gutter lane and the platform's edge. */
-const BAND = 36;
+const BAND = 30;
 /** A lane's distance from the band's outer edge, leaving room for an arrowhead's wings. */
 const LANE = 6;
 /** The corner radius where a run turns. */
@@ -74,16 +106,16 @@ const WING = 4;
 // x is measured from the band's own left edge, which is the equipment card's right edge: a band
 // spans the two gutters and the platform column, so it never overlaps a card and never has to be
 // offset to account for one.
-const BAND_W = COL.gut * 2 + COL.mid; // 664
+const BAND_W = COL.gut * 2 + COL.mid; // 616
 const X = { eq: 0, people: BAND_W };
 
-// The two turn columns, set symmetrically about the platform's centre. At 116 units either side
+// The two turn columns, set symmetrically about the platform's centre. At 112 units either side
 // they land at 29% and 71% of the platform column — far enough in that a run reads as entering the
 // box rather than clipping its corner, far enough out that the four stages still have the middle.
-const TURN = 116;
+const TURN = 112;
 const MID_C = COL.gut + COL.mid / 2;
-const IN_X = MID_C - TURN; // 216 — where the inbound runs meet the platform
-const OUT_X = MID_C + TURN; // 448 — where the outbound runs leave it
+const IN_X = MID_C - TURN; // where the inbound runs meet the platform
+const OUT_X = MID_C + TURN; // where the outbound runs leave it
 
 // Every arc sweeps the same way, because the loop goes one way: right→down, up→right, down→left
 // and left→up are all clockwise turns in a y-down coordinate system. If one of these ever has to
@@ -160,7 +192,7 @@ const vars = [
 ---
 
 <div class="plat-fit">
-	<div class="plat" style={vars}>
+	<div class="plat" style={vars} data-found={foundations ? '' : undefined}>
 		{
 			PLATFORM_ZONES.map((z) => (
 				<section class={`plat__zone plat__zone--${z.id}`} aria-labelledby={`plat-${z.id}`}>
@@ -170,6 +202,8 @@ const vars = [
 							{z.title}
 						</h3>
 					</header>
+					{/* Three rows dividing the card's height equally, so the left column's rows are level
+					    with the right column's without either of them knowing the other exists. */}
 					<ul class="plat__items">
 						{zoneItems(z).map((it) => (
 							<li class="plat__item">
@@ -228,7 +262,18 @@ const vars = [
 		}
 
 		<section class="plat__core" aria-labelledby="plat-core">
-			<h3 class="plat__core-title" id="plat-core">ThingsBoard</h3>
+			{
+				/* The product lockup: the mark, then the name in bold and the product in medium. The
+			    mark is inlined rather than an `<img>` so it draws in `currentColor` and takes the
+			    platform's accent like everything else in this column. */
+			}
+			<header class="plat__core-head">
+				<span class="plat__core-mark" aria-hidden="true" set:html={mark} />
+				<h3 class="plat__core-title" id="plat-core">
+					<b>{PLATFORM_CORE.brand}</b>
+					{PLATFORM_CORE.product}
+				</h3>
+			</header>
 
 			<div class="plat__stages-wrap">
 				{
@@ -322,10 +367,12 @@ const vars = [
 	// --- the two outer zones ---------------------------------------------------------------
 
 	// Stretched across all three middle rows, so a run always meets a card edge rather than starting
-	// in mid-air beside one.
+	// in mid-air beside one. A column, so the items below can take what the head does not.
 	.plat__zone {
+		display: flex;
+		flex-direction: column;
 		grid-row: 2 / 5;
-		padding: u(15) u(19) u(6);
+		padding: u(13) u(17);
 		border: max(1px, #{u(1)}) solid var(--plat-line);
 		border-radius: u(10);
 		background: var(--plat-paper);
@@ -341,54 +388,53 @@ const vars = [
 		grid-column: 5;
 	}
 
+	// Inline, not stacked. The source drawing gave this an 84px column of its own with the emblem
+	// above the words; at the sizes the rest of the card now runs at, that was the single largest
+	// piece of empty space in the composition.
 	.plat__zone-head {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		gap: u(9);
-		min-height: u(80);
-		margin-bottom: u(15);
+		padding-bottom: u(11);
+		border-bottom: max(1px, #{u(1)}) solid var(--plat-line);
 	}
 
-	// STROKE WEIGHT IS NOT ADJUSTABLE HERE, and it cost an hour to establish. The source drawing
-	// thinned this emblem to 1.45 because at 42px the default 2 reads as a heavy marker beside the
-	// smaller icons. `astro-icon` renders `<use href="#ai:tabler:cpu">` against a sprite, and the
-	// sprite's own `<symbol>` carries `<g stroke-width="2">` — a presentation attribute on the
-	// referenced content, which beats any value inherited through the `<use>`. A rule on the `<svg>`
-	// changes the computed style of the `<use>` element and nothing that is drawn. So the emblem
-	// takes the same relative weight as every other icon on the site, which is the consistent answer
-	// anyway; reaching into the sprite to change one icon would not be.
 	.plat__zone-emblem {
-		width: u(40);
-		height: u(40);
+		flex: none;
+		width: u(24);
+		height: u(24);
 		color: var(--zone);
 	}
 
 	.plat__zone-title {
 		margin: 0;
-		font-size: u(14);
+		font-size: u(15);
 		font-weight: $font-weight-medium;
-		line-height: 1.25;
+		line-height: 1.2;
 		letter-spacing: -0.005em;
-		text-align: center;
 		color: var(--zone);
 	}
 
 	.plat__items {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
 		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
 
+	// `flex: 1 1 0` — three equal shares of whatever the card's height turns out to be. This is what
+	// aligns the left column's rows with the right column's: both cards are the same height and hold
+	// the same number of rows, so nothing has to agree on a row height in advance. It also spends the
+	// card's spare height as space between the rows instead of leaving a hole under the last one.
 	.plat__item {
 		display: flex;
-		gap: u(13);
-		padding: u(14) 0;
-
-		&:first-child {
-			padding-top: u(2);
-		}
+		flex: 1 1 0;
+		align-items: center;
+		gap: u(12);
+		padding: u(10) 0;
 
 		& + & {
 			border-top: max(1px, #{u(1)}) solid var(--plat-line);
@@ -397,9 +443,8 @@ const vars = [
 
 	.plat__item-icon {
 		flex: none;
-		width: u(28);
-		height: u(28);
-		margin-top: u(-2);
+		width: u(26);
+		height: u(26);
 		color: var(--zone);
 	}
 
@@ -425,23 +470,39 @@ const vars = [
 	.plat__core {
 		grid-column: 3;
 		grid-row: 3;
-		padding: u(15) u(25) u(25);
+		padding: u(13) u(22) u(20);
 		border: max(1px, #{u(1)}) solid var(--plat-edge);
 		border-radius: u(10);
 		background: var(--plat-surface);
 	}
 
-	// Same 80-unit head box as the two zones, so the three titles sit on one line across the row.
-	.plat__core-title {
+	.plat__core-head {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		min-height: u(80);
-		margin: 0 0 u(15);
-		font-size: u(26);
-		font-weight: $font-weight-bold;
+		gap: u(10);
+		padding-bottom: u(15);
+	}
+
+	.plat__core-mark {
+		display: block;
+		flex: none;
+		width: u(26);
+		height: u(26);
+		color: var(--plat-platform);
+	}
+
+	.plat__core-title {
+		margin: 0;
+		font-size: u(24);
+		font-weight: $font-weight-medium;
+		line-height: 1.1;
 		letter-spacing: -0.025em;
 		color: var(--plat-platform);
+
+		b {
+			font-weight: $font-weight-bold;
+		}
 	}
 
 	.plat__stages-wrap {
@@ -451,7 +512,7 @@ const vars = [
 	.plat__stages {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
-		column-gap: u(19);
+		column-gap: u(18);
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -459,11 +520,11 @@ const vars = [
 
 	.plat__rail {
 		position: absolute;
-		top: u(14.5);
+		top: u(13.5);
 		left: 0;
 		// Stops where the fourth stage begins, so the head points into the last one rather than past
 		// it. A percentage because the four columns are `fr` and may be re-divided.
-		right: calc(25% - #{u(14)});
+		right: calc(25% - #{u(13)});
 		display: flex;
 		align-items: center;
 	}
@@ -490,7 +551,7 @@ const vars = [
 
 	.plat__stage {
 		position: relative;
-		padding-top: u(45);
+		padding-top: u(42);
 	}
 
 	// Paints the surface behind itself, which is what breaks the rail into segments.
@@ -499,9 +560,9 @@ const vars = [
 		top: 0;
 		left: 0;
 		box-sizing: content-box;
-		width: u(32);
-		height: u(32);
-		padding-right: u(13);
+		width: u(30);
+		height: u(30);
+		padding-right: u(12);
 		background: var(--plat-surface);
 		color: var(--plat-platform);
 	}
@@ -516,28 +577,32 @@ const vars = [
 	}
 
 	.plat__stage-note {
-		margin: u(6) 0 0;
+		margin: u(5) 0 0;
 		font-size: u(13.5);
 		line-height: 1.35;
 		color: var(--plat-muted);
 	}
 
 	// Not a fifth stage: these are true of all four, so they sit under a rule rather than beside
-	// them in the row.
+	// them in the row. Off unless asked for — see the `foundations` prop for why.
 	.plat__found {
-		display: grid;
+		display: none;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
-		column-gap: u(19);
-		margin: u(25) 0 0;
-		padding: u(19) 0 0;
+		column-gap: u(18);
+		margin: u(20) 0 0;
+		padding: u(16) 0 0;
 		border-top: max(1px, #{u(1)}) solid var(--plat-edge);
 		list-style: none;
+	}
+
+	.plat[data-found] .plat__found {
+		display: grid;
 	}
 
 	.plat__found-item {
 		display: flex;
 		align-items: center;
-		gap: u(10);
+		gap: u(9);
 		font-size: u(14);
 		font-weight: $font-weight-medium;
 		letter-spacing: -0.01em;
@@ -546,8 +611,8 @@ const vars = [
 
 	.plat__found-icon {
 		flex: none;
-		width: u(22);
-		height: u(22);
+		width: u(21);
+		height: u(21);
 	}
 
 	// --- the four runs ------------------------------------------------------------------------
@@ -641,13 +706,13 @@ const vars = [
 	.plat__run--telemetry,
 	.plat__run--views {
 		grid-row: 1;
-		margin-bottom: u(10);
+		margin-bottom: u(8);
 	}
 
 	.plat__run--commands,
 	.plat__run--actions {
 		grid-row: 5;
-		margin-top: u(10);
+		margin-top: u(8);
 	}
 
 	// The stem is the stacked form's arrow. Hidden here, where the bands draw the runs.
@@ -690,7 +755,7 @@ const vars = [
 			// The gaps between the zones ARE the run rows — no row-gap, so a stem spans the whole
 			// distance from one card's edge to the next and the loop stays continuous. `minmax` so a
 			// label that needs a third line takes it rather than overflowing its row.
-			grid-template-rows: auto minmax(u(56), auto) auto minmax(u(56), auto) auto;
+			grid-template-rows: auto minmax(u(48), auto) auto minmax(u(48), auto) auto;
 			max-width: u(var(--plat-narrow));
 			row-gap: 0;
 		}
@@ -775,17 +840,11 @@ const vars = [
 		// because the thing it said (that the four are a sequence) it can no longer say in one line.
 		.plat__stages {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
-			row-gap: u(22);
+			row-gap: u(20);
 		}
 
 		.plat__rail {
 			display: none;
-		}
-
-		// The 80-unit head boxes lined three titles up across a row that no longer exists.
-		.plat__core-title,
-		.plat__zone-head {
-			min-height: 0;
 		}
 	}
 </style>
