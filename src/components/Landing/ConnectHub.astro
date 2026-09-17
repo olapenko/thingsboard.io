@@ -35,14 +35,27 @@ interface Props {
 	/** Draws the caption under the badge. Off, as on the other Connect cuts. */
 	nodeLabel?: boolean;
 	/**
-	 * How many arms a side. Four is the tighter reading; six carries half the keyword set and makes
-	 * the fan the subject. A prop rather than a second component because only the name list and the
-	 * spread of the fan differ — everything else, geometry included, derives from the arm count.
+	 * Which cut.
+	 *
+	 *   four         four a side, larger chips, colour as texture in four hues.
+	 *   six-advised  the twelve the CEO advised, as drawn, with the same four-hue rotation. The set
+	 *                is the point of this one, so it is kept exactly.
+	 *   six          the same twelve arms, but names chosen four per route so colour can CODE the
+	 *                route rather than decorate. Three names differ from the advised set.
+	 *   six-stagger  the advised twelve again, in two ranks: four on an inner rank and two tucked
+	 *                into the gaps further out, their lines running through between. Shorter, and
+	 *                considerably wider — see the note on NATIVE.
+	 *
+	 * A prop rather than three components because only the name list, the chip metrics and the
+	 * spread of the fan differ; everything else derives from the arm count.
 	 */
-	arms?: 'four' | 'six';
+	arms?: 'four' | 'six' | 'six-advised' | 'six-stagger';
 }
 
 const { nodeLabel = false, arms = 'four' }: Props = Astro.props;
+/** Both six-arm cuts share every number; only their names and colour rule differ. */
+const isSix = arms === 'six' || arms === 'six-advised' || arms === 'six-stagger';
+const isStagger = arms === 'six-stagger';
 
 /**
  * Four a side, from the sketch. Accents follow the three routes the other cuts use — straight in,
@@ -120,7 +133,64 @@ const SIX = {
 	],
 };
 
-const SET = arms === 'six' ? SIX : FOUR;
+/**
+ * The twelve as advised, kept exactly as drawn — CAN, BLE and OCPP included, which the route-coded
+ * cut swaps out.
+ *
+ * Colour here is the four-hue rotation, not the route, and that is forced rather than chosen: this
+ * set holds five direct protocols, six gateway ones and a single integration, so coding it by route
+ * would put one lime chip among six purples. With the names fixed, texture is the only honest rule.
+ * Three of each hue, none repeating down a column or across a row.
+ */
+const SIX_ADVISED = {
+	left: [
+		{ name: 'MQTT', accent: BLUE },
+		{ name: 'Modbus', accent: BEIGE },
+		{ name: 'LoRaWAN', accent: GREEN },
+		{ name: 'OPC UA', accent: LAVENDER },
+		{ name: 'CoAP', accent: BLUE },
+		{ name: 'BACnet', accent: BEIGE },
+	],
+	right: [
+		{ name: 'S7', accent: GREEN },
+		{ name: 'HTTP', accent: LAVENDER },
+		{ name: 'CAN', accent: BLUE },
+		{ name: 'LwM2M', accent: BEIGE },
+		{ name: 'BLE', accent: GREEN },
+		{ name: 'OCPP', accent: LAVENDER },
+	],
+};
+
+/**
+ * The advised twelve again, in two ranks.
+ *
+ * `rank: 1` sits one column further out and takes its y from the GAP between the inner chips either
+ * side of it, which is what makes the arrangement short: the outer chips overlap their neighbours
+ * vertically and clear them horizontally. Their lines then run through the gap to the badge.
+ *
+ * Which names go outer is chosen so no rank is one colour and so an outer chip differs from both
+ * inner chips it sits between.
+ */
+const SIX_STAGGER = {
+	left: [
+		{ name: 'MQTT', accent: BLUE, rank: 0 },
+		{ name: 'Modbus', accent: BEIGE, rank: 1 },
+		{ name: 'LoRaWAN', accent: GREEN, rank: 0 },
+		{ name: 'CoAP', accent: BLUE, rank: 0 },
+		{ name: 'OPC UA', accent: LAVENDER, rank: 1 },
+		{ name: 'BACnet', accent: BEIGE, rank: 0 },
+	],
+	right: [
+		{ name: 'S7', accent: GREEN, rank: 0 },
+		{ name: 'HTTP', accent: LAVENDER, rank: 1 },
+		{ name: 'CAN', accent: BLUE, rank: 0 },
+		{ name: 'BLE', accent: GREEN, rank: 0 },
+		{ name: 'LwM2M', accent: BEIGE, rank: 1 },
+		{ name: 'OCPP', accent: LAVENDER, rank: 0 },
+	],
+};
+
+const SET = isStagger ? SIX_STAGGER : arms === 'six' ? SIX : arms === 'six-advised' ? SIX_ADVISED : FOUR;
 const LEFT = SET.left;
 const RIGHT = SET.right;
 
@@ -139,51 +209,109 @@ const BADGE = 104;
 // overlap. 42 against a 32-unit chip leaves 10 units of air, which is the tightest that still reads
 // as separate rows. The assertion below is there because getting this wrong looks like a rendering
 // bug rather than a number being too small.
-const CHIP_H = arms === 'six' ? 32 : 40;
-const CHIP_FONT = arms === 'six' ? 17 : 20;
-const PITCH = arms === 'six' ? 42 : 56;
+const CHIP_H = isSix ? 32 : 40;
+const CHIP_FONT = isSix ? 17 : 20;
+// Four rows rather than six in the staggered cut: the outer two live in the gaps, so they need no
+// row of their own. That is where its height comes from.
+const PITCH = isStagger ? 56 : isSix ? 42 : 56;
+const INNER_ROWS = isStagger ? 4 : LEFT.length;
 // The column only has to hold the longest name: 7 characters at 8.5 a character plus 20 of padding
 // for the small chip, at 10 and 24 for the large one.
 // 92 for six, not 84: `RabbitMQ` is eight characters and needs 88 units at the small chip's 8.5 a
 // character plus 20 of padding. Four-arm names top out at seven.
-const COL = arms === 'six' ? 92 : 100;
-const NATIVE = STUB + COL + GUT + BADGE + GUT + COL + STUB;
+const COL = isStagger ? 84 : isSix ? 92 : 100;
+// The lane between the two ranks: an inner chip's fade plus clear air. Only the staggered cut has
+// one, and it is what the arrangement costs — a second chip column on each side.
+const LANE = isStagger ? 44 : 0;
+const RANKS = isStagger ? 2 : 1;
+// The inner rank's edge, and with it the width. A second rank costs a whole chip column plus its
+// lane on BOTH sides — 256 units here — which is the arrangement's real price and shows up as R:
+// this cut is much wider than the single-rank six, so its type lands smaller on a phone. Measured
+// numbers are in the sandbox caption.
+const CHIP_IN = STUB + COL + (RANKS - 1) * (LANE + COL);
+const NATIVE = 2 * (CHIP_IN + GUT) + BADGE;
 
 if (PITCH <= CHIP_H) {
 	throw new Error(`ConnectHub: pitch ${PITCH} is not greater than chip height ${CHIP_H} — the chips would overlap.`);
 }
-const HEIGHT = LEFT.length * PITCH;
+const HEIGHT = INNER_ROWS * PITCH;
 
 const MID_X = NATIVE / 2;
 const MID_Y = HEIGHT / 2;
 
 // x landmarks, left to right
-const CHIP_L = STUB + COL; // inner edge of the left chips
+const CHIP_L = CHIP_IN; // inner edge of the left chips, inner rank
 const BADGE_L = MID_X - BADGE / 2;
 const BADGE_R = MID_X + BADGE / 2;
-const CHIP_R = NATIVE - STUB - COL; // inner edge of the right chips
+const CHIP_R = NATIVE - CHIP_IN; // inner edge of the right chips, inner rank
 
-const cy = (i: number) => PITCH / 2 + i * PITCH;
+/** An arm. `rank` is 0 — the inner column — unless a cut says otherwise. */
+interface Arm {
+	name: string;
+	accent: string;
+	rank?: number;
+}
+
+/** A chip's own inner edge: one column further out for every rank it is off the inner one. */
+const edgeL = (rank: number) => CHIP_L - rank * (LANE + COL);
+const edgeR = (rank: number) => CHIP_R + rank * (LANE + COL);
+
+/**
+ * Where a chip sits vertically.
+ *
+ * Inner chips take the row they are in. An outer chip takes the MIDPOINT of the gap above it, which
+ * is what lets it overlap its neighbours vertically while clearing them horizontally — and what
+ * makes its line pass cleanly between them.
+ */
+const rankOf = (c: Arm) => c.rank ?? 0;
+const rowOf = (list: Arm[], i: number) => list.slice(0, i + 1).filter((c) => rankOf(c) === 0).length - 1;
+const cyOf = (list: Arm[], i: number) => {
+	const row = rowOf(list, i);
+	return PITCH / 2 + row * PITCH + (rankOf(list[i]) === 0 ? 0 : PITCH / 2);
+};
 
 // Where the lines land on the badge's face: spread over the middle of it rather than meeting at a
 // point. Wider with six arms, because the same 60 units shared by six arrivals puts them 12 apart
 // and the fan closes into a bundle; 76 keeps them 15 apart and still clear of the badge's corners.
-const FAN = arms === 'six' ? 76 : 60;
+const FAN = isSix ? 76 : 60;
 const ay = (i: number, n: number) => MID_Y - FAN / 2 + (FAN / (n - 1)) * i;
+
+/**
+ * How far the badge's painted edge sits inside its bounding box at a given y.
+ *
+ * The badge is a squircle — `border-radius: 32%` of 104 units, so a 33.3-unit corner. A line aimed
+ * at BADGE_L lands on the bounding box, which for any arrival inside a corner is short of the shape
+ * by up to the full radius. Measured before the fix: the outermost arm each side stopped 6.2 units
+ * clear of the badge and read as not reaching it, while the middle four touched exactly. That is
+ * why it looked like only SOME arms failed.
+ *
+ * Standard rounded-rect inset: zero along the straight part of the edge, rising to the radius at
+ * the very corner.
+ */
+const RADIUS = BADGE * 0.32;
+const inset = (y: number) => {
+	const dy = Math.min(y - (MID_Y - BADGE / 2), MID_Y + BADGE / 2 - y);
+	if (dy >= RADIUS) return 0;
+	return RADIUS - Math.sqrt(Math.max(0, RADIUS * RADIUS - (RADIUS - dy) ** 2));
+};
 
 const EASE = 0.55;
 
 const curveLeft = (i: number) => {
-	const y0 = cy(i);
+	const y0 = cyOf(LEFT, i);
 	const y1 = ay(i, LEFT.length);
-	const k = (BADGE_L - CHIP_L) * EASE;
-	return `M ${CHIP_L},${y0} C ${CHIP_L + k},${y0} ${BADGE_L - k},${y1} ${BADGE_L},${y1}`;
+	const x0 = edgeL(rankOf(LEFT[i]));
+	const x1 = BADGE_L + inset(y1);
+	const k = (x1 - x0) * EASE;
+	return `M ${x0},${y0} C ${x0 + k},${y0} ${x1 - k},${y1} ${x1},${y1}`;
 };
 const curveRight = (i: number) => {
-	const y0 = cy(i);
+	const y0 = cyOf(RIGHT, i);
 	const y1 = ay(i, RIGHT.length);
-	const k = (CHIP_R - BADGE_R) * EASE;
-	return `M ${CHIP_R},${y0} C ${CHIP_R - k},${y0} ${BADGE_R + k},${y1} ${BADGE_R},${y1}`;
+	const x0 = edgeR(rankOf(RIGHT[i]));
+	const x1 = BADGE_R - inset(y1);
+	const k = (x0 - x1) * EASE;
+	return `M ${x0},${y0} C ${x0 - k},${y0} ${x1 + k},${y1} ${x1},${y1}`;
 };
 
 const vars = [
@@ -219,14 +347,20 @@ const vars = [
 
 		{
 			LEFT.map((c, i) => (
-				<span class="hub__chip hub__chip--l" style={`--hub-accent: ${c.accent}; --hub-y: ${cy(i)}`}>
+				<span
+					class="hub__chip hub__chip--l"
+					style={`--hub-accent: ${c.accent}; --hub-y: ${cyOf(LEFT, i)}; --hub-edge: ${edgeL(rankOf(c))}`}
+				>
 					{c.name}
 				</span>
 			))
 		}
 		{
 			RIGHT.map((c, i) => (
-				<span class="hub__chip hub__chip--r" style={`--hub-accent: ${c.accent}; --hub-y: ${cy(i)}`}>
+				<span
+					class="hub__chip hub__chip--r"
+					style={`--hub-accent: ${c.accent}; --hub-y: ${cyOf(RIGHT, i)}; --hub-edge: ${edgeR(rankOf(c))}`}
+				>
 					{c.name}
 				</span>
 			))
@@ -326,12 +460,14 @@ const vars = [
 
 	// Against the gutter on the inside, ragged on the outside: the curves all start on one vertical,
 	// which is what makes them read as a fan rather than as eight unrelated arcs.
+	// Each chip aligns to its own rank's inner edge — the same number its curve leaves from, so the
+	// two cannot drift apart.
 	.hub__chip--l {
-		right: calc((var(--hub-native) - var(--hub-stub) - var(--hub-col)) * var(--u));
+		right: calc((var(--hub-native) - var(--hub-edge)) * var(--u));
 	}
 
 	.hub__chip--r {
-		left: calc((var(--hub-native) - var(--hub-stub) - var(--hub-col)) * var(--u));
+		left: calc(var(--hub-edge) * var(--u));
 	}
 
 	// The other Connect cuts' badge, verbatim: the mark is a white glyph and needs the squircle under
