@@ -128,11 +128,16 @@ const PATTERNS: { c: number; r: number }[][] = [
  *
  * These are alternatives rather than steps, so a single hue at two depths would have said "later,
  * bigger" — the thing every earlier cut in this family had to keep denying. Two different hues at
- * the same strength say "two of these" instead. Both are palette tokens; the pair is chosen for
- * distance, since the purple that used to mark coordination sits too close to the primary blue to
- * read as a different subject at a glance.
+ * the same strength say "two of these" instead.
+ *
+ * Both are palette tokens, and both flip for dark mode, which is the reason to use the product
+ * accent rather than a literal. The pair is CLOSE: 234° against 263°, where the teal this replaces
+ * sat 60° off the blue. That is a deliberate trade — a near pair reads as two members of one family
+ * rather than as two unrelated products, which is what these two modes are — and it puts more of
+ * the work on the shapes in the field and on the marks along the floor, which were already carrying
+ * it.
  */
-const HUES = ['var(--color-primary, #3d50f5)', 'var(--color-edge, #009688)'];
+const HUES = ['var(--color-primary, #3d50f5)', 'var(--color-product-gw, #6d28d9)'];
 
 /**
  * Every orthogonally adjacent pair of lit cells, bridged.
@@ -201,8 +206,29 @@ function hops(cells: { c: number; r: number }[]) {
 
 const STEPS = PATTERNS.map(hops);
 
+/**
+ * The card's description, in units, and the pixel size it resolves to.
+ *
+ * The cap on the design unit comes FROM THE COPY rather than from the drawing, because everything
+ * in the card is expressed in units — so pinning the one line of running text pins the mode, the
+ * figure, the cells and the marks along with it.
+ *
+ * At 1.45px a unit put that description at 19.6px against the section paragraph's 18px: the
+ * supporting text was louder than the copy it supports. Matching the two exactly fixed the volume
+ * but left them level, and they are not level — the card text supports the section text. One step
+ * further down, onto the site's base 16px, makes the card subordinate to the section and takes the
+ * drawing's whole footprint with it.
+ *
+ * TRAIT_U has to stay in step with `.sd__trait`'s `font-size: u(14)` below; it is the one number
+ * here that the stylesheet repeats rather than reads.
+ */
+const TRAIT_U = 14;
+const TRAIT_PX = 16;
+
 const vars = [
-	`--sd-u: min(1.45px, calc(100cqw / ${NATIVE}))`,
+	// `100cqw / NATIVE` still takes over in any container too narrow for the cap, so the phone widths
+	// are untouched by this — only containers wide enough to have been capped anyway.
+	`--sd-u: min(calc(${TRAIT_PX}px / ${TRAIT_U}), calc(100cqw / ${NATIVE}))`,
 	`--sd-native: ${NATIVE}`,
 	`--sd-cols: ${modes.length}`,
 	`--sd-gap: ${COL_GAP}`,
@@ -228,7 +254,7 @@ const vars = [
 							<rect class="sd__cell" x={px(n % COLS)} y={px(Math.floor(n / COLS))} width={S} height={S} rx={R} />
 						))}
 						{bridges(PATTERNS[i]).map((b) => (
-							<rect class="sd__lit" x={b.x} y={b.y} width={b.width} height={b.height} />
+							<rect class="sd__link" x={b.x} y={b.y} width={b.width} height={b.height} />
 						))}
 						{PATTERNS[i].map((cell) => (
 							<rect class="sd__lit" x={px(cell.c)} y={px(cell.r)} width={S} height={S} rx={R} />
@@ -349,6 +375,16 @@ const vars = [
 		fill: var(--sd-hue);
 	}
 
+	// The connectors are the RELATIONSHIP, not the machines. At full strength they welded the stack
+	// into one solid mass and the nodes stopped being countable at all; held back, they still join,
+	// but the cells stay the thing the eye lands on first. `fill-opacity` rather than `opacity` so
+	// nothing changes about stacking — the bars are still painted under the cells, and the BLEED that
+	// buries their ends inside the cells is still covered by opaque fill on top.
+	.sd__link {
+		fill: var(--sd-hue);
+		fill-opacity: 0.45;
+	}
+
 	// One hop is 100ms and each ring expands over 324ms — 9% of the 3.6s cycle. The stack is two hops
 	// deep, so the whole wave is over in 524ms and the field is then still for the rest of the loop.
 	// The REST is what makes this readable beside a column of copy: a continuous shimmer is a
@@ -394,11 +430,19 @@ const vars = [
 		gap: u(3);
 	}
 
+	// The weight sits on the NAME, not on the number. The figure was bold because in Ubuntu Mono a
+	// regular weight reads thin and technical; in Ubuntu it just became the heaviest thing on the
+	// card, so the reader met "1M" before "Monolith" and had to work back up to find out what the
+	// million was a million of. The name goes semibold and the figure drops to medium — it is still
+	// the largest type here at 24 units against 21, so size carries it without weight having to.
+	//
+	// Semibold rather than bold: the section heading beside these cards is 32px at medium, and a card
+	// title heavier than the heading above it would trade one inversion for another.
 	.sd__mode {
 		margin: 0;
 		font-size: u(21);
 		line-height: u(26);
-		font-weight: $font-weight-medium;
+		font-weight: $font-weight-semibold;
 		color: var(--color-text);
 	}
 
@@ -419,12 +463,18 @@ const vars = [
 		align-self: start;
 	}
 
+	// Ubuntu throughout, including the figure. Mono was buying tabular digits nothing here lines up
+	// against — the two figures sit in separate cards, so the columns it aligns do not exist — and
+	// paying for it with a second typeface on a card that has four words on it.
 	.sd__num {
-		font-family: $font-family-mono;
 		font-size: u(24);
-		font-weight: $font-weight-bold;
+		font-weight: $font-weight-medium;
 		line-height: u(30);
-		color: var(--color-text);
+		// The card's hue, so the colour runs the whole column — field, figure, marks — instead of
+		// stopping at the drawing and picking up again at the floor. `Up to` and `devices` stay
+		// secondary grey, which leaves the coloured words as exactly the two a scanner needs: the
+		// figure, and nothing else in the phrase around it.
+		color: var(--sd-hue);
 		white-space: nowrap;
 	}
 
