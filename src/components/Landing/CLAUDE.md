@@ -1,7 +1,7 @@
 # Key visuals
 
 The illustrations on the experimental homepage: `ConnectCloud`, `ConnectFlow`, `DigitalTwin`,
-`NormalizeFlow`, `ScaleGrowth`, `SolutionFlow`, `DeployFork`, `WhiteLabelApp` and their candidates.
+`NormalizeSeries`, `ScaleGrowth`, `SolutionFlow`, `DeployFork`, `WhiteLabelApp` and their candidates.
 They are drawn in CSS and SVG, not exported as images, so they take the page's tokens and stay
 sharp at any size.
 
@@ -10,12 +10,25 @@ Two pages render them, both internal and both `noindex`:
 | Page | What it is |
 | --- | --- |
 | `/internal/home-preview/` | The homepage as proposed. The only place a visual is seen in context. |
-| `/internal/launch-visuals/` | The sandbox. One tab per visual, each exhibit at a known width. |
+| `/internal/launch-visuals/` | The sandbox index. One card per visual. |
+| `/internal/launch-visuals/<id>/` | One visual, its exhibits at known widths. |
 
-The sandbox page is a frame only: the tab strip, the page-wide controls, and one `<Panel />` each.
-Every visual's exhibits live in `src/pages/internal/_panels/_<id>.astro`, one file per visual, so
-that two people — or two sessions — working on different visuals never edit the same file. Copy
-comes from `src/pages/internal/_key-visuals.ts`, addressed by `kv('twin')` and never by index.
+**One route per visual**, each its own file:
+
+```
+_key-visuals.ts              the copy and the tab labels; addressed by kv('twin'), never by index
+_VisualPage.astro            the shell every visual's page shares: the strip of links between
+                             them, the retire control, and the stage chrome (is:global)
+launch-visuals/index.astro   the index
+launch-visuals/twin.astro    one visual's stages — <VisualPage visual="twin"> … </VisualPage>
+```
+
+Add a visual: an entry in `_key-visuals.ts` and a page in `launch-visuals/`. It appears on the
+index and in every other page's strip with no further edit. Remove one: delete those two things.
+
+This replaced a single 1346-line page holding all nine as tab panels. Opening it compiled and
+rendered fifty-eight stages to look at six, and pulled the stylesheets of twenty components;
+a visual's own page pulls four or five and its first compile is milliseconds rather than 2.5s.
 
 ## The design unit
 
@@ -82,8 +95,14 @@ can be redrawn without retyping the words and a marketing page can import the sa
 
 ## Gotchas, each of which has cost an hour
 
-- **Astro's scoped-style HMR goes stale.** After editing SCSS, a reload is not enough — the browser
-  keeps serving the old rules and you measure a change that never happened. Restart the dev server.
+- **HMR works; a dead server looks exactly like stale HMR.** This file used to say that scoped-style
+  HMR goes stale and the dev server must be restarted after every SCSS edit. Measured, that is
+  false: changing a value in a component's scoped block, adding a brand-new selector to it, and
+  editing the page's `is:global` block all reach the browser live, with no reload. What actually
+  happened was that the dev server had died — the console showed `ERR_CONNECTION_REFUSED` and vite
+  "Failed to reload" errors — and the stale styles got blamed on HMR. **Before blaming HMR, check
+  the server is alive.** Restarting costs about 31 seconds and was, for a while, the single largest
+  tax on the loop.
 - **`astro check` does not compile SCSS.** It will pass over a stylesheet that cannot build. Only a
   real build or a page load proves the styles.
 - **The global reset gives every `<svg>` `max-width: 100%`.** An SVG whose viewBox is wider than its
@@ -128,6 +147,22 @@ Run them as separate commands. A pipe (`… | tail -2`) swallows a non-zero exit
 caused unformatted code to be committed. A full build is `pnpm build:fast` — bare `astro build`
 OOMs — and per the root CLAUDE.md, ask before running one.
 
+**`pnpm run dev -- --port 4322` does not work**: pnpm swallows the `--` and Astro falls back to
+4321, then auto-increments if that is taken — which can land on the port you asked for and look
+like success. `pnpm run dev --port 4322`, with no `--`, is correct. `.claude/launch.json` uses that
+form for `tb-site-b` and `tb-site-c`.
+
+**Astro never fails on a busy port, it moves.** Ask for 4323 while 4323–4325 are taken and it
+starts on 4326 and says so in one line you did not read. So the server you are measuring may not
+be the one you think, and a dev server that seems to ignore your edits is often a different
+server. `lsof -nP -iTCP -sTCP:LISTEN | grep 43` lists them with pids. Note that these processes do
+NOT match `pkill -f "astro dev"` — the command line is `node …/astro.js`, so that pkill silently
+kills nothing and leaves the orphans holding their ports.
+
+Measured costs, so the loop can be judged rather than guessed: dev server boot ~31s; first
+compile of `/internal/launch-visuals/` 2.5s and of `/internal/home-preview/` 7.6s; afterwards
+21ms and 59ms. Once it is up, it is fast — so keep it up.
+
 Path aliases: `@root`, `@components`, `@layouts`, `@styles`, `@data`, `@util`, `@models`,
 `@includes`. There is no `@assets`.
 
@@ -164,15 +199,16 @@ the measurements it took two hours ago. Start fresh per visual and let this file
 Merge the branches back **one at a time** — each will have touched `_key-visuals.ts` and the two
 one-line lists in `launch-visuals.astro`.
 
-Shared, so coordinate before touching: `home-preview.astro`, `_key-visuals.ts`,
+Shared, so coordinate before touching: `home-preview.astro`, `_key-visuals.ts`, `_VisualPage.astro`,
 `FeatureBlockSection.astro` (which also reaches the PE and Edge product pages), `TwinUnit.astro`,
-and `src/styles/_connect-terms.scss`.
+and `src/styles/_connect-terms.scss`. A visual's own page is not shared, which is the point.
 
 ## Retiring a stage
 
 The sandbox has more exhibits than anyone can hold in their head. Each stage's caption has a ✕ that
 marks it as no longer wanted: the stage greys out and the key goes into
-`localStorage['launch-visuals:retire']` as `panel/position → caption`.
+`localStorage['launch-visuals:retire']` as `visual/position → caption`. The store is shared across
+every visual's page, so the count and the copied list cover the whole sandbox wherever you are.
 
 Marking is not deleting. To act on the list, read that key off the page and then, for each entry,
 check that nothing outside the sandbox imports the component before removing it. **Deletion is its

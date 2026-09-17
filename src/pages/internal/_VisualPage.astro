@@ -1,81 +1,62 @@
 ---
-/**
- * Working surface for the launch visuals.
- *
- * Internal reference page: not linked from anywhere, `noindex` via the layout, and so kept out
- * of the sitemap. Its job is to hold each new visual on its own, at the width it will really
- * get, with nothing else on the page competing for judgement — one page tab per visual.
- *
- * This file is only the frame: the tab strip, the page-wide controls, and one `<Panel />` per
- * visual. Every panel's stages live in `_panels/_<id>.astro`, so two people — or two sessions —
- * working on different visuals never edit the same file.
- *
- * ADD a visual: an entry in `_key-visuals.ts`, a file in `_panels/`, and one line in each of the
- * two lists below. REMOVE one: delete the panel file and those same two lines. Nothing else on
- * the page knows a given visual exists.
- *
- * Inside a panel, wrap each exhibit in `<figure class="stage" data-stage="<id>">`. `data-w` picks
- * the frame width — `full`, `half` or `card` — matching the three widths a visual actually lands
- * in on the marketing pages, and `data-stage` is what the retire control marks. `_FeatureRow` is
- * the homepage row a visual is headed for, with its token switch.
- *
- * Stage chrome is declared `is:global` below, not scoped: a scoped rule here cannot reach markup
- * that lives in a panel file.
- *
- * This page is scaffolding, not shipped content: nothing here needs to survive into a
- * marketing page except the components themselves.
- */
 import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
-import { KEY_VISUALS } from '@root/pages/internal/_key-visuals';
-import CliPanel from '@root/pages/internal/_panels/_cli.astro';
-import SolutionPanel from '@root/pages/internal/_panels/_solution.astro';
-import TwinPanel from '@root/pages/internal/_panels/_twin.astro';
-import NormalizePanel from '@root/pages/internal/_panels/_normalize.astro';
-import GatewayPanel from '@root/pages/internal/_panels/_gateway.astro';
-import ConnectPanel from '@root/pages/internal/_panels/_connect.astro';
-import ScalePanel from '@root/pages/internal/_panels/_scale.astro';
-import DeployPanel from '@root/pages/internal/_panels/_deploy.astro';
-import WhitelabelPanel from '@root/pages/internal/_panels/_whitelabel.astro';
+import { KEY_VISUALS, kv } from '@root/pages/internal/_key-visuals';
+
+/**
+ * One visual's page in the sandbox: the shell every one of them shares.
+ *
+ * The sandbox used to be a single page holding all nine visuals as tab panels. Looking at six
+ * stages meant compiling and rendering fifty-eight, and the tab strip was machinery that existed
+ * only because they were on one page. Now each visual is its own route and its own file, and this
+ * carries what they have in common — the strip of links between them, the retire control, and the
+ * stage chrome.
+ *
+ * The chrome is `is:global` on purpose, not scoped: the stages are written in the PAGE that uses
+ * this component, and an Astro scoped rule only matches markup in its own file. Scoped here, every
+ * probe in the sandbox would silently lose its width.
+ */
+
+interface Props {
+	/** The key-visual id this page shows. Names the page, and keys its retire marks. */
+	visual: string;
+}
+
+const { visual } = Astro.props;
+const me = kv(visual);
 ---
 
-<PlaygroundLayout
-	title="Launch visuals"
-	description="Each visual on its own, at the width it gets in the page it is headed for. One tab per visual."
->
-	{
-		/* Page tabs: one per key visual. Each shows only its own stages, so a visual is judged without
-	    the others in the corner of the eye. The pick is remembered across reloads. */
-	}
-	<nav class="page-tabs" role="tablist" aria-label="Key visual" data-page-tabs>
+<PlaygroundLayout title={me.label} description={me.title ?? 'Stages for one key visual.'}>
+	{/* Every visual is one click away, and the current one is marked rather than linked. */}
+	<nav class="vnav" aria-label="Key visual">
+		<a class="vnav__home" href="/internal/launch-visuals/">Sandbox</a>
 		{
-			KEY_VISUALS.map((kv, i) => (
-				<button
-					type="button"
-					role="tab"
-					id={`page-tab-${kv.id}`}
-					aria-selected={i === 0 ? 'true' : 'false'}
-					aria-controls={`page-panel-${kv.id}`}
-					data-page-tab={kv.id}
-				>
-					{kv.label}
-				</button>
-			))
+			KEY_VISUALS.map((v) =>
+				v.id === visual ? (
+					<span class="vnav__here" aria-current="page">
+						{v.label}
+					</span>
+				) : (
+					<a class="vnav__link" href={`/internal/launch-visuals/${v.id}/`}>
+						{v.label}
+					</a>
+				)
+			)
 		}
 	</nav>
 
 	{
 		/* Retiring stages.
-	    A sandbox only earns its keep while you can still see what is in it, and this one is at
-	    forty-eight exhibits. The judgement about whether an exhibit is still worth keeping is only
-	    good while you are looking at the exhibit — so it is made there, with the ✕ in each stage's
-	    caption, and collected here.
+	    The judgement about whether an exhibit is still worth keeping is only good while you are
+	    looking at the exhibit — so it is made there, with the ✕ in each stage's caption, and
+	    collected here.
 
-	    Marking is not deleting. It records a decision in localStorage and greys the stage; the
-	    files go when someone reads the list back and removes them, which is a separate commit and
-	    a revert if it turns out to be wrong. Copy the list before clearing site data — this is the
-	    only place it lives. */
+	    Marking is not deleting. It records a decision in localStorage and greys the stage; the files
+	    go when someone reads the list back and removes them, which is a separate commit and a revert
+	    if it turns out to be wrong. The store is shared across every visual's page, so the count and
+	    the copied list are the whole sandbox, not just this page. Copy it before clearing site data —
+	    this is the only place it lives. */
 	}
-	<div class="page-ctl" data-retire-bar hidden>
+	<div class="page-ctl" data-retire-bar data-visual={visual} hidden>
 		<span class="page-ctl__name">Retired</span>
 		<span class="page-ctl__count" data-retire-count>0</span>
 		<button type="button" data-retire-copy>Copy list</button>
@@ -83,125 +64,21 @@ import WhitelabelPanel from '@root/pages/internal/_panels/_whitelabel.astro';
 		<button type="button" data-retire-clear>Clear marks</button>
 	</div>
 
-	<CliPanel />
-	<SolutionPanel />
-	<TwinPanel />
-	<NormalizePanel />
-	<GatewayPanel />
-	<ConnectPanel />
-	<ScalePanel />
-	<DeployPanel />
-	<WhitelabelPanel />
+	<slot />
 </PlaygroundLayout>
 
 <script>
-	// The page tabs. One panel showing at a time; the pick is remembered like the token set.
-	const TAB_KEY = 'launch-visuals:tab';
-	document.querySelectorAll<HTMLElement>('[data-page-tabs]').forEach((list) => {
-		const tabs = Array.from(list.querySelectorAll<HTMLButtonElement>('[data-page-tab]'));
-		const panels = Array.from(document.querySelectorAll<HTMLElement>('[data-page-panel]'));
-		const show = (id: string) => {
-			tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.pageTab === id)));
-			panels.forEach((p) => (p.hidden = p.dataset.pagePanel !== id));
-		};
-		let saved: string | null = null;
-		try {
-			saved = localStorage.getItem(TAB_KEY);
-		} catch {
-			/* private mode; fine */
-		}
-		if (saved && tabs.some((t) => t.dataset.pageTab === saved)) show(saved);
-		tabs.forEach((t) =>
-			t.addEventListener('click', () => {
-				const id = t.dataset.pageTab ?? '';
-				show(id);
-				try {
-					localStorage.setItem(TAB_KEY, id);
-				} catch {
-					/* ignore */
-				}
-			})
-		);
-	});
-
-	// The cloud's chip coding. Drives `data-chip` on every ConnectCloud in the panel, which is the
-	// same attribute the component's own prop sets — so the sandbox and a real page cannot disagree
-	// about what a value means.
-	const CHIP_KEY = 'launch-visuals:chip';
-	document.querySelectorAll<HTMLElement>('[data-chip-switch]').forEach((group) => {
-		const picks = Array.from(group.querySelectorAll<HTMLButtonElement>('[data-chip-pick]'));
-		const clouds = Array.from(document.querySelectorAll<HTMLElement>('[data-page-panel="connect"] .cl'));
-		// Two things from one pick: `data-chip` chooses the coding, `--connect-tint` its strength. The
-		// property goes on :root rather than on the clouds because the section's copy reads it too,
-		// and that copy is not inside any of them.
-		const apply = (value: string) => {
-			clouds.forEach((c) => c.setAttribute('data-chip', value === 'tint-light' ? 'tint' : value));
-			if (value === 'tint-light') document.documentElement.style.setProperty('--connect-tint', '10%');
-			else document.documentElement.style.removeProperty('--connect-tint');
-			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.chipPick === value)));
-		};
-		let saved: string | null = null;
-		try {
-			saved = localStorage.getItem(CHIP_KEY);
-		} catch {
-			/* private mode; fine */
-		}
-		if (saved) apply(saved);
-		picks.forEach((b) =>
-			b.addEventListener('click', () => {
-				const value = b.dataset.chipPick ?? 'tint';
-				apply(value);
-				try {
-					localStorage.setItem(CHIP_KEY, value);
-				} catch {
-					/* ignore */
-				}
-			})
-		);
-	});
-
-	// How the section's copy keys the cloud. One attribute on <html>; `_connect-terms.scss` turns it
-	// into either a tint behind the four terms or a squircle before them.
-	const LEGEND_KEY = 'launch-visuals:legend';
-	document.querySelectorAll<HTMLElement>('[data-legend-switch]').forEach((group) => {
-		const picks = Array.from(group.querySelectorAll<HTMLButtonElement>('[data-legend-pick]'));
-		// Swatch is the default, so it is the ABSENCE of the attribute — the sandbox can only ever
-		// add the opt-in, which keeps a real page rendering the candidate with no script at all.
-		const apply = (value: string) => {
-			if (value === 'highlight') document.documentElement.dataset.legend = 'highlight';
-			else delete document.documentElement.dataset.legend;
-			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.legendPick === value)));
-		};
-		let saved: string | null = null;
-		try {
-			saved = localStorage.getItem(LEGEND_KEY);
-		} catch {
-			/* private mode; fine */
-		}
-		if (saved) apply(saved);
-		picks.forEach((b) =>
-			b.addEventListener('click', () => {
-				const value = b.dataset.legendPick ?? 'swatch';
-				apply(value);
-				try {
-					localStorage.setItem(LEGEND_KEY, value);
-				} catch {
-					/* ignore */
-				}
-			})
-		);
-	});
-
 	/**
 	 * The retire control.
 	 *
 	 * Every `.stage` gets a ✕ in its caption. Clicking it marks that stage as no longer wanted and
 	 * greys it; the bar at the top of the page counts the marks and copies them out.
 	 *
-	 * A stage is keyed by its panel and its position in it, and the key is stored WITH the caption's
-	 * text. The key alone would rot the first time a stage moved; the text alone is not unique
-	 * (every feature row is called "Feature row"). Together they survive either one changing, which
-	 * matters because the list is read back days later by someone deleting files.
+	 * A stage is keyed by its visual and its position on the page, and the key is stored WITH the
+	 * caption's text. The key alone would rot the first time a stage moved; the text alone is not
+	 * unique (every feature row is called "Feature row"). Together they survive either one changing,
+	 * which matters because the list is read back days later by someone deleting files. The store is
+	 * shared by every visual's page, so the count and the copied list cover the whole sandbox.
 	 *
 	 * Nothing here deletes anything. It writes a decision down at the moment the decision is good.
 	 */
@@ -228,14 +105,14 @@ import WhitelabelPanel from '@root/pages/internal/_panels/_whitelabel.astro';
 		const countEl = document.querySelector<HTMLElement>('[data-retire-count]');
 		const stages = Array.from(document.querySelectorAll<HTMLElement>('.stage'));
 
-		// panel id + position, so a key says where to look as well as what to remove
+		// visual id + position, so a key says where to look as well as what to remove
 		const seen: Record<string, number> = {};
 		const keyed = stages.map((stage) => {
-			const panel = stage.closest<HTMLElement>('[data-page-panel]')?.dataset.pagePanel ?? 'page';
-			seen[panel] = (seen[panel] ?? 0) + 1;
+			const page = bar?.dataset.visual ?? 'page';
+			seen[page] = (seen[page] ?? 0) + 1;
 			const name = stage.querySelector('.stage__name')?.textContent?.trim() ?? '';
 			const note = stage.querySelector('.stage__note')?.textContent?.trim() ?? '';
-			return { stage, key: `${panel}/${seen[panel]}`, label: note ? `${name} — ${note}` : name };
+			return { stage, key: `${page}/${seen[page]}`, label: note ? `${name} — ${note}` : name };
 		});
 
 		const paint = () => {
@@ -485,35 +362,45 @@ import WhitelabelPanel from '@root/pages/internal/_panels/_whitelabel.astro';
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
-	@use '../../styles/variables' as *;
-
-	// Page tabs, on the same left edge as the title and the stages.
-	.page-tabs {
+	// The strip of links between visuals. Replaced a tab strip, and is a different thing: a tab hid
+	// eight panels that were still on the page, this leaves them on disk.
+	.vnav {
 		display: flex;
-		gap: $spacing-1;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: $spacing-1 $spacing-3;
 		max-width: 1200px;
 		margin: 0 auto $spacing-10;
 		padding-bottom: $spacing-3;
 		border-bottom: 1px solid var(--sl-color-hairline-light);
+	}
 
-		button {
-			@include text-s;
-			padding: $spacing-1 $spacing-3;
-			border: 0;
-			border-radius: $radius-md;
-			background: none;
-			font-weight: $font-weight-medium;
-			color: var(--color-text-secondary, #5b616e);
-			cursor: pointer;
+	.vnav__home {
+		@include text-xs;
+		margin-right: $spacing-2;
+		font-family: $font-family-mono;
+		color: var(--color-text-secondary, #5b616e);
+	}
 
-			&:hover {
-				color: var(--color-text, #17181c);
-			}
+	.vnav__link,
+	.vnav__here {
+		@include text-s;
+		padding: $spacing-1 $spacing-3;
+		border-radius: $radius-md;
+		font-weight: $font-weight-medium;
+		text-decoration: none;
+	}
 
-			&[aria-selected='true'] {
-				background: var(--color-text, #17181c);
-				color: #fff;
-			}
+	.vnav__link {
+		color: var(--color-text-secondary, #5b616e);
+
+		&:hover {
+			color: var(--color-text, #17181c);
 		}
+	}
+
+	.vnav__here {
+		background: var(--color-text, #17181c);
+		color: #fff;
 	}
 </style>

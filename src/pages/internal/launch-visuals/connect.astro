@@ -1,4 +1,5 @@
 ---
+import VisualPage from '@root/pages/internal/_VisualPage.astro';
 import FeatureRow from '@root/pages/internal/_FeatureRow.astro';
 import ConnectCloud from '@components/Landing/ConnectCloud.astro';
 import ConnectFlow from '@components/Landing/ConnectFlow.astro';
@@ -8,17 +9,13 @@ import { kv } from '@root/pages/internal/_key-visuals';
 /**
  * Connect devices — the cloud, which is the launch candidate, and the routes version it replaced.
  *
- * One panel of the launch-visuals sandbox. Split one file per key visual so that two people —
- * or two sessions — working on different visuals never touch the same file; before the split
- * every one of them edited the same 1300-line page.
- *
- * Stage chrome (`.stage`, `.stage__cap`, `.probe`, `.page-ctl`, `.unit-row`) is declared in the
- * page's `is:global` block, because a scoped rule there cannot reach markup that lives here.
+ * Its own route, so opening it compiles and renders this visual and nothing else. `_VisualPage`
+ * carries what every visual's page shares: the strip of links between them, the retire control
+ * and the stage chrome.
  */
 ---
 
-{/* --- Connect devices ------------------------------------------------------------------- */}
-<section id="page-panel-connect" role="tabpanel" aria-labelledby="page-tab-connect" data-page-panel="connect" hidden>
+<VisualPage visual="connect">
 	{
 		/* Replaces the section's grid of protocol logos. The names are set as the subject and the
 	    route — devices, gateways, networks — is demoted to the caption over them, which is the
@@ -248,4 +245,77 @@ import { kv } from '@root/pages/internal/_key-visuals';
 			</div>
 		</div>
 	</figure>
-</section>
+</VisualPage>
+
+<script>
+	// The cloud's chip coding. Drives `data-chip` on every ConnectCloud in the panel, which is the
+	// same attribute the component's own prop sets — so the sandbox and a real page cannot disagree
+	// about what a value means.
+	const CHIP_KEY = 'launch-visuals:chip';
+	document.querySelectorAll<HTMLElement>('[data-chip-switch]').forEach((group) => {
+		const picks = Array.from(group.querySelectorAll<HTMLButtonElement>('[data-chip-pick]'));
+		// Every cloud on the page. It used to be scoped to `[data-page-panel="connect"]`, back when
+		// nine visuals shared one page and the selector had to say which panel it meant; this page
+		// holds nothing but Connect, and that wrapper no longer exists.
+		const clouds = Array.from(document.querySelectorAll<HTMLElement>('.cl'));
+		// Two things from one pick: `data-chip` chooses the coding, `--connect-tint` its strength. The
+		// property goes on :root rather than on the clouds because the section's copy reads it too,
+		// and that copy is not inside any of them.
+		const apply = (value: string) => {
+			clouds.forEach((c) => c.setAttribute('data-chip', value === 'tint-light' ? 'tint' : value));
+			if (value === 'tint-light') document.documentElement.style.setProperty('--connect-tint', '10%');
+			else document.documentElement.style.removeProperty('--connect-tint');
+			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.chipPick === value)));
+		};
+		let saved: string | null = null;
+		try {
+			saved = localStorage.getItem(CHIP_KEY);
+		} catch {
+			/* private mode; fine */
+		}
+		if (saved) apply(saved);
+		picks.forEach((b) =>
+			b.addEventListener('click', () => {
+				const value = b.dataset.chipPick ?? 'tint';
+				apply(value);
+				try {
+					localStorage.setItem(CHIP_KEY, value);
+				} catch {
+					/* ignore */
+				}
+			})
+		);
+	});
+
+	// How the section's copy keys the cloud. One attribute on <html>; `_connect-terms.scss` turns it
+	// into either a tint behind the four terms or a squircle before them.
+	const LEGEND_KEY = 'launch-visuals:legend';
+	document.querySelectorAll<HTMLElement>('[data-legend-switch]').forEach((group) => {
+		const picks = Array.from(group.querySelectorAll<HTMLButtonElement>('[data-legend-pick]'));
+		// Swatch is the default, so it is the ABSENCE of the attribute — the sandbox can only ever
+		// add the opt-in, which keeps a real page rendering the candidate with no script at all.
+		const apply = (value: string) => {
+			if (value === 'highlight') document.documentElement.dataset.legend = 'highlight';
+			else delete document.documentElement.dataset.legend;
+			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.legendPick === value)));
+		};
+		let saved: string | null = null;
+		try {
+			saved = localStorage.getItem(LEGEND_KEY);
+		} catch {
+			/* private mode; fine */
+		}
+		if (saved) apply(saved);
+		picks.forEach((b) =>
+			b.addEventListener('click', () => {
+				const value = b.dataset.legendPick ?? 'swatch';
+				apply(value);
+				try {
+					localStorage.setItem(LEGEND_KEY, value);
+				} catch {
+					/* ignore */
+				}
+			})
+		);
+	});
+</script>

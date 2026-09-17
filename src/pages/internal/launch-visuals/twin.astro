@@ -1,4 +1,5 @@
 ---
+import VisualPage from '@root/pages/internal/_VisualPage.astro';
 import FeatureRow from '@root/pages/internal/_FeatureRow.astro';
 import DigitalTwin from '@components/Landing/DigitalTwin.astro';
 import TwinCorridor from '@components/Landing/TwinCorridor.astro';
@@ -10,17 +11,13 @@ import { kv } from '@root/pages/internal/_key-visuals';
 /**
  * Model your real world — the twin composition and its candidates.
  *
- * One panel of the launch-visuals sandbox. Split one file per key visual so that two people —
- * or two sessions — working on different visuals never touch the same file; before the split
- * every one of them edited the same 1300-line page.
- *
- * Stage chrome (`.stage`, `.stage__cap`, `.probe`, `.page-ctl`, `.unit-row`) is declared in the
- * page's `is:global` block, because a scoped rule there cannot reach markup that lives here.
+ * Its own route, so opening it compiles and renders this visual and nothing else. `_VisualPage`
+ * carries what every visual's page shares: the strip of links between them, the retire control
+ * and the stage chrome.
  */
 ---
 
-{/* --- Digital twin ---------------------------------------------------------------------- */}
-<section id="page-panel-twin" role="tabpanel" aria-labelledby="page-tab-twin" data-page-panel="twin" hidden>
+<VisualPage visual="twin">
 	{
 		/* --- the label knob -------------------------------------------------------------------
 	    Both pairs of captions in `TwinCorridor` — the stage names and the connector names — read one
@@ -241,12 +238,12 @@ import { kv } from '@root/pages/internal/_key-visuals';
 			</div>
 		</div>
 	</figure>
-</section>
+</VisualPage>
 
 <style is:global>
-	/* The stage chrome lives in the page's own `is:global` block; this control is this panel's, so it
-	   sits here — but it still has to be global, because a scoped rule cannot reach markup a panel
-	   renders. It borrows `.page-ctl` for everything but the slider. */
+	/* The stage chrome lives in `_VisualPage`'s own `is:global` block; this control belongs to this
+	   route, so it sits here — but it still has to be global, because a scoped rule cannot reach
+	   markup the page renders. It borrows `.page-ctl` for everything but the slider. */
 	[data-label-ctl] input[type='range'] {
 		width: 180px;
 		accent-color: var(--color-primary, #3d50f5);
@@ -255,26 +252,31 @@ import { kv } from '@root/pages/internal/_key-visuals';
 
 <script>
 	/**
-	 * Turns `--kv-label` on the twin panel, which every `TwinCorridor` under it inherits.
+	 * Turns `--kv-label`, which every `TwinCorridor` and `TwinPlan` on the page inherits.
 	 *
-	 * Sandbox-only: nothing outside this page sets the property, so the component falls back to its
+	 * Set on the document rather than on a wrapper: the sandbox used to be one page of panels and
+	 * this hung off the twin panel's own element, which the split into a route per visual removed.
+	 * The page holds nothing but this visual now, so the root is the right place and there is no
+	 * wrapper left to depend on.
+	 *
+	 * Sandbox-only: nothing outside this page sets the property, so the components fall back to their
 	 * own default everywhere else. Whatever this settles on has to be typed into the component — the
 	 * knob finds the number, it does not store it.
 	 */
 	const KEY = 'launch-visuals:twin-label';
 
-	const panel = document.querySelector<HTMLElement>('[data-page-panel="twin"]');
+	const root = document.documentElement;
 	const range = document.querySelector<HTMLInputElement>('[data-label-range]');
 	const out = document.querySelector<HTMLElement>('[data-label-out]');
 	const reset = document.querySelector<HTMLButtonElement>('[data-label-reset]');
 
-	if (panel && range && out && reset) {
+	if (range && out && reset) {
 		const DEFAULT = range.value;
 
 		const apply = (value: string, remember = true) => {
 			range.value = value;
 			out.textContent = `${value}u`;
-			panel.style.setProperty('--kv-label', value);
+			root.style.setProperty('--kv-label', value);
 			if (!remember) return;
 			try {
 				localStorage.setItem(KEY, value);
