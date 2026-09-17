@@ -86,6 +86,23 @@ const OUT_X = MID_C + TURN;
  */
 const LEG = IN_X; // === BAND_W - OUT_X
 
+/**
+ * The app badge in the middle of the platform: the page's shared squircle, as the connect section
+ * draws it — 32% radius, the mark in white on the brand, and the same 69% mark-to-tile it settled
+ * on, which is what `PAD` below is for.
+ */
+const BADGE = 64;
+const BADGE_PAD = Math.round((BADGE * (1 - 0.69)) / 2); // 10 -> a 44-unit mark in a 64-unit tile
+
+/**
+ * The equipment column is coloured as Connect and the people column as Operate — the stage each of
+ * them actually meets, since the loop enters the platform at the first stage and leaves it at the
+ * last. Read off `PLATFORM_STAGES` by position rather than restated here, so the pair cannot drift
+ * from the icons it is meant to match.
+ */
+const ZONE_IN = PLATFORM_STAGES[0].accent;
+const ZONE_OUT = PLATFORM_STAGES[PLATFORM_STAGES.length - 1].accent;
+
 /** One sweep for all four, because the loop goes one way. */
 const CW = 1;
 const LO = BAND - LANE;
@@ -137,6 +154,10 @@ const vars = [
 	`--plat-col-mid: ${COL.mid}`,
 	`--plat-band: ${BAND}`,
 	`--plat-leg: ${LEG}`,
+	`--plat-badge: ${BADGE}`,
+	`--plat-badge-pad: ${BADGE_PAD}`,
+	`--plat-equipment: ${ZONE_IN}`,
+	`--plat-people: ${ZONE_OUT}`,
 ].join('; ');
 ---
 
@@ -202,7 +223,7 @@ const vars = [
 
 		<section class="plat__core" aria-labelledby="plat-r-core">
 			<header class="plat__core-head">
-				<span class="plat__core-mark" aria-hidden="true" set:html={mark} />
+				<span class="plat__core-badge" aria-hidden="true" set:html={mark} />
 				<h3 class="plat__core-title" id="plat-r-core">{PLATFORM_CORE.brand} {PLATFORM_CORE.product}</h3>
 			</header>
 
@@ -250,9 +271,10 @@ const vars = [
 	.plat {
 		--u: var(--plat-u);
 
-		--plat-equipment: #0e7490;
+		// `--plat-equipment` and `--plat-people` are published by the frontmatter, off the first and
+		// last stage's accent. They are deliberately NOT restated here: a fallback would be a second
+		// copy of the pairing, free to go stale the moment a stage's hue changes.
 		--plat-platform: #{$color-brand};
-		--plat-people: #b45309;
 
 		// White, like the two zones. The platform is told apart by being LIFTED, not by being tinted —
 		// a shadow and a fill were two answers to the same question, and the tint was also the last
@@ -386,27 +408,40 @@ const vars = [
 			0 #{u(12)} #{u(28)} #{u(-8)} rgba(16, 24, 40, 0.12);
 	}
 
+	// A column now: the badge sits above the words rather than beside them, so the card opens with
+	// the product's mark the way an app does.
 	.plat__core-head {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		gap: u(13);
+		gap: u(12);
 		padding-bottom: u(20);
 	}
 
-	// 38 rather than 26. The mark carries the emphasis the heading's two weights used to.
-	.plat__core-mark {
-		display: block;
+	// The connect section's badge, at this card's size: the page's shared 32% squircle, the mark in
+	// white on the brand, and the badge shadow — a tile that reads as an app icon rather than as a
+	// logo set in a line of type.
+	.plat__core-badge {
+		display: flex;
 		flex: none;
-		width: u(38);
-		height: u(38);
-		color: var(--plat-platform);
+		align-items: center;
+		justify-content: center;
+		width: u(var(--plat-badge));
+		height: u(var(--plat-badge));
+		padding: u(var(--plat-badge-pad));
+		border-radius: 32%;
+		color: var(--color-white, #fff);
+		background: var(--plat-platform);
+		box-shadow:
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22);
 	}
 
-	// One weight for both words — a lockup in one voice rather than two.
+	// Smaller, because the badge above it is now carrying the identity: the heading only has to name
+	// what the badge already showed.
 	.plat__core-title {
 		margin: 0;
-		font-size: u(26);
+		font-size: u(22);
 		font-weight: $font-weight-bold;
 		line-height: 1.1;
 		letter-spacing: -0.025em;
