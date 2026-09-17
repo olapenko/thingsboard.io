@@ -9,7 +9,12 @@
 
 export const CONNECT_COPY = {
 	title: 'Connect any IoT devices',
-	body: "Mix sensors, industrial machines, and any equipment you need in one solution. Browse pre-integrated devices from IoT Hub, or use emulators when hardware isn't ready. Connect directly, through an IoT gateway, from a LoRaWAN or LPWAN network, or via a platform integration.",
+	// The routes open the paragraph, as they did before the colour key existed: the fragment answers
+	// "how do I connect?" in six words. It only moved to the end so the key could land where the
+	// eye lands last, and the key is gone. Four routes rather than the original three — LoRaWAN
+	// became its own family in the visual after that sentence was written, and the copy should not
+	// describe less than the picture shows.
+	body: "Directly, through an IoT gateway, from a LoRaWAN or LPWAN network, or via a platform integration. Mix sensors, industrial machines, and any equipment you need in one solution. Browse pre-integrated devices from IoT Hub, or use emulators when hardware isn't ready.",
 	// The doc is titled "How to Connect IoT Devices", and its own description names the same routes
 	// this visual draws: direct MQTT/HTTP/CoAP, the IoT Gateway, and LoRaWAN or integrations.
 	link: { text: 'Connectivity guide', href: '/docs/user-guide/connectivity-guide/' },
@@ -133,63 +138,3 @@ export const CONNECT_ROUTES: ConnectGroup[] = [
 		names: ['AWS IoT', 'Azure IoT', 'Pub/Sub', 'Kafka'],
 	},
 ];
-
-/**
- * The same body, with the four routes carrying their own accents — the key for `ConnectCloud`.
- *
- * That visual drops the group captions, so nothing in it says what its four colours mean. Rather
- * than print a legend under the drawing, the paragraph beside it does the teaching: each route is
- * marked in the colour its chips wear, in the order the guide lists them. A reader who never makes
- * the connection still reads a correct sentence, which is the property a legend does not have.
- *
- * The marked terms are in the LAST sentence, not the first. A paragraph that opens with four
- * highlighted phrases reads as a list of links before it reads as a sentence; opening with what the
- * platform does for you and closing with how you reach it puts the key where a key belongs — after
- * the thing it explains.
- *
- * Not colour on the type. Colouring it meant darkening every accent to clear 4.5:1 for the green's
- * sake, so the words and the chips they keyed were never quite the same colour.
- *
- * Two codings ship in this markup — a tint behind the words and a squircle before them — and
- * `_connect-terms.scss` decides which one is visible. Neither is committed to yet, and rendering
- * both means the thing being compared is the thing that renders.
- *
- * Composed from CONNECT_ROUTES rather than written out, so a re-coloured route re-colours its mark.
- *
- * Declared AFTER CONNECT_ROUTES, and it has to be: the terms are built while this module evaluates,
- * so a `const` referenced from above its own declaration is a temporal-dead-zone crash rather than
- * a type error — which means `astro check` would pass it and the page would be blank.
- */
-const accentOf = (category: string) => CONNECT_ROUTES.find((r) => r.category === category)!.accent;
-
-/**
- * One term, in both codings at once.
- *
- * The mark and the highlight both ship in the markup and `_connect-terms.scss` shows whichever the
- * `data-legend` attribute asks for. Only the accent is inline, because only the accent varies per
- * term — everything else is the same for all four and belongs in a stylesheet.
- *
- * The mark and the first word are held together; see the note in the body.
- */
-const term = (category: string, words: string) => {
-	// The mark and the FIRST word are wrapped together and held `nowrap`. An inline-block is an
-	// atomic inline, and a line may break between it and the text after it — measured: "through an
-	// [square]" ended one line and "IoT gateway" started the next, which is a key pointing at
-	// nothing. Only the first word is held; the rest of the phrase wraps as normal prose, which
-	// matters for "LoRaWAN or LPWAN network" on a phone.
-	const [first, ...rest] = words.split(' ');
-	const tail = rest.length ? ` ${rest.join(' ')}` : '';
-	return (
-		`<span class="conn-term" style="--term: ${accentOf(category)}">` +
-		`<span class="conn-term__lead"><i class="conn-term__mark" aria-hidden="true"></i>${first}</span>${tail}` +
-		`</span>`
-	);
-};
-
-export const CONNECT_BODY_HTML = [
-	'Mix sensors, industrial machines, and any equipment you need in one solution. ',
-	'Browse pre-integrated devices from IoT Hub, or use emulators when hardware isn&rsquo;t ready. ',
-	`Connect ${term('Direct connection', 'directly')}, through an ${term('IoT Gateway', 'IoT gateway')}, `,
-	`from a ${term('LoRaWAN & LPWAN', 'LoRaWAN or LPWAN network')}, `,
-	`or via a ${term('Platform integrations', 'platform integration')}.`,
-].join('');

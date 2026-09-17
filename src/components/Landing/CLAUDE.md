@@ -201,8 +201,8 @@ one-line lists in `launch-visuals.astro`.
 
 Shared, so coordinate before touching: `index.astro` (the homepage — the visuals ship from it now),
 `_key-visuals.ts`, `_VisualPage.astro`,
-`FeatureBlockSection.astro` (which also reaches the PE and Edge product pages), `TwinUnit.astro`,
-and `src/styles/_connect-terms.scss`. A visual's own page is not shared, which is the point.
+`FeatureBlockSection.astro` (which also reaches the PE and Edge product pages) and `TwinUnit.astro`.
+A visual's own page is not shared, which is the point.
 
 ## Retiring a stage
 

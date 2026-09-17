@@ -20,8 +20,6 @@ export interface KeyVisual {
 	label: string;
 	title?: string;
 	body?: string;
-	/** The body with markup, when the row's copy carries part of the visual's meaning. */
-	bodyHtml?: string;
 	link?: { text: string; href: string };
 }
 
