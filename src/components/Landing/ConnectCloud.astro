@@ -1,6 +1,5 @@
 ---
 import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
-import { CONNECT_ROUTES } from '@data/connect-visual';
 
 /**
  * Connect, as a cloud of tags around the platform rather than four labelled routes into it.
@@ -80,50 +79,47 @@ const GAP = 6;
 const BADGE = 104;
 const HOLE = 76;
 
-/** Category -> accent, so the colour coding cannot drift from the routes it codes. */
-const ACCENT_BY_CATEGORY = new Map(CONNECT_ROUTES.map((r) => [r.category, r.accent] as const));
-
 /**
- * Names this cut carries beyond the route version's, and where each one is documented.
+ * The three ways in, and the names each one carries.
  *
- * They live here rather than in `connect-visual.ts` because `ConnectFlow` fits exactly one row of
- * chips per route — a sixth name there wraps the card and overflows a fixed height. A cloud has no
- * such constraint, so it can afford the longer answer to "is my thing supported".
+ * Local, not `CONNECT_ROUTES`: that set is four routes and names vendors, and `ConnectFlow` still
+ * draws it in the sandbox. This cut answers "will it work with my stuff", and for that question the
+ * useful grouping is the three the connectivity guide itself uses — straight in, through a gateway,
+ * or through an integration. LoRaWAN stops being a route of its own and becomes one integration
+ * among several, which is what it is.
  *
- * Every name is on a page in this repo:
+ * Three accents rather than four for the same reason, and it is worth what it buys: the four were
+ * close enough that the tightest pair measured dE 4.02 in OKLab at the chips' tint, and dropping to
+ * three takes the tightest pair to dE 8.7. Three colours a reader can actually tell apart.
  *
- *   Sparkplug B  — its own row in the Direct Connection table, `connectivity-guide.mdx`. It is a
- *                  payload convention over MQTT rather than a sixth transport, which is why the
- *                  five transports beside it are the complete set and this is the one addition.
- *   CAN, OCPP    — two of the gateway's fifteen built-in connectors,
- *                  `_includes/docs/iot-gateway/connectors.mdx`.
- *   ThingPark    — a LoRaWAN network server, from the integration type list rendered at
- *                  /docs/pe/user-guide/integrations/.
- *   RabbitMQ,    — messaging integrations from that same list.
- *   AWS SQS
+ * WHERE A VENDOR STOOD, THIS NAMES THE CATEGORY. `ConnectFlow` says ChirpStack, TTN, LORIOT,
+ * ThingPark, AWS IoT, Azure IoT, Pub/Sub and AWS SQS; this says "MQTT brokers" and "Cloud IoT
+ * platforms". More honest as well as vendor-neutral — support was never limited to whichever three
+ * clouds happened to fit the row.
  *
- * Cut from an earlier, longer draft, on the grounds that a cloud is only persuasive while every
- * name in it is one somebody recognises: ODBC and Socket (generic where the rest are protocols),
- * Pulsar (Kafka and RabbitMQ already carry messaging), TCP and UDP (they say less than the named
- * integrations beside them), KPN Things (regional, and the least recognised name in the set).
- *
- * Deliberately never here: IBM Watson and Everynet (no doc page — the first survives only as a dead
- * enum value in two config dumps), and OceanConnect (same). A name in a marketing visual has to be
- * a page someone can be sent to.
+ * Still products rather than standards: Sigfox, Kafka, RabbitMQ and S7. Stand-ins exist for each —
+ * "LPWAN networks", "message brokers" (which would fold Kafka and RabbitMQ into one chip) and "PLC
+ * protocols" — and they are the next thing to look at if the concern is brand names as such.
  */
-const EXTRA: Record<string, string[]> = {
-	'Direct connection': ['Sparkplug B'],
-	'IoT Gateway': ['CAN', 'OCPP'],
-	'LoRaWAN & LPWAN': ['ThingPark'],
-	'Platform integrations': ['RabbitMQ', 'AWS SQS'],
-};
+const GROUPS = [
+	{
+		category: 'Direct connection',
+		accent: '#0e7490',
+		names: ['MQTT', 'HTTP', 'CoAP', 'LwM2M', 'SNMP', 'Sparkplug B', 'OCPP'],
+	},
+	{
+		category: 'IoT Gateway',
+		accent: '#7b3fe4',
+		names: ['Modbus', 'OPC UA', 'S7', 'BACnet', 'KNX', 'CAN', 'BLE', 'TCP/UDP'],
+	},
+	{
+		category: 'Integrations',
+		accent: '#65a30d',
+		names: ['LoRaWAN', 'Sigfox', 'MQTT brokers', 'Kafka', 'RabbitMQ', 'Cloud IoT platforms'],
+	},
+];
 
-const ACCENT = new Map<string, string>([
-	...CONNECT_ROUTES.flatMap((r) => r.names.map((n) => [n, r.accent] as const)),
-	...Object.entries(EXTRA).flatMap(([category, names]) =>
-		names.map((n) => [n, ACCENT_BY_CATEGORY.get(category)!] as const)
-	),
-]);
+const ACCENT = new Map(GROUPS.flatMap((g) => g.names.map((n) => [n, g.accent] as const)));
 
 /**
  * The cloud, authored row by row.
@@ -134,6 +130,15 @@ const ACCENT = new Map<string, string>([
  * four, and the rows come out close enough in width that the silhouette is a block rather than a
  * lens.
  *
+ * The chip either side of the badge wants to be a wide one. The bite is 8 units and a chip's
+ * padding is 10, so a glyph is safe by construction — but on `S7`, 37 units wide, that left two
+ * units of daylight and read as cramped. `MQTT brokers` takes the bite instead, which is why the
+ * plate row's left side is ordered short-then-long where the others are not.
+ *
+ * Measured and adjusted once: the last row came out at 328 units against 418 for the middle rows,
+ * which tapers the block into a lens. BLE moved down from the second row, whose width is set by its
+ * other side and so did not change; the spread went from 90 units to about 38.
+ *
  * That last one is why the straddle rows carry two a side. The hole plus its two gaps is 104 units
  * that a full row does not pay, so a straddle row needs about two fewer chips than a full one to
  * measure the same — six across and two a side is the pairing that lands. The side pairs are also
@@ -143,11 +148,11 @@ const ACCENT = new Map<string, string>([
  * `left`/`right` rows straddle the badge. The three of them are the band it covers.
  */
 const ROWS: ({ chips: string[] } | { left: string[]; right: string[]; plate?: true })[] = [
-	{ chips: ['Modbus', 'MQTT', 'Sigfox', 'Pub/Sub', 'BLE', 'HTTP'] },
-	{ left: ['Sparkplug B', 'KNX'], right: ['RabbitMQ', 'LORIOT'] },
-	{ left: ['Azure IoT', 'LwM2M'], right: ['ChirpStack', 'OCPP'], plate: true },
-	{ left: ['ThingPark', 'Kafka'], right: ['BACnet', 'AWS IoT'] },
-	{ chips: ['CoAP', 'OPC UA', 'TTN', 'AWS SQS', 'CAN', 'SNMP'] },
+	{ chips: ['Cloud IoT platforms', 'Modbus', 'MQTT', 'Sigfox'] },
+	{ left: ['Sparkplug B', 'CAN'], right: ['Kafka'] },
+	{ left: ['S7', 'MQTT brokers'], right: ['LwM2M', 'BACnet'], plate: true },
+	{ left: ['RabbitMQ', 'SNMP'], right: ['TCP/UDP', 'OCPP'] },
+	{ chips: ['KNX', 'CoAP', 'OPC UA', 'HTTP', 'BLE', 'LoRaWAN'] },
 ];
 
 // Every name placed above has to be one this component knows, and every name it knows has to be
@@ -159,7 +164,7 @@ const unplaced = [...ACCENT.keys()].filter((n) => !placed.includes(n));
 if (missing.length || unplaced.length) {
 	throw new Error(
 		`ConnectCloud is out of step with its name list.` +
-			(missing.length ? ` Not in CONNECT_ROUTES or EXTRA: ${missing.join(', ')}.` : '') +
+			(missing.length ? ` Not in GROUPS: ${missing.join(', ')}.` : '') +
 			(unplaced.length ? ` Known but not placed: ${unplaced.join(', ')}.` : '')
 	);
 }
