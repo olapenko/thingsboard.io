@@ -95,25 +95,34 @@ can be redrawn without retyping the words and a marketing page can import the sa
 
 ## Gotchas, each of which has cost an hour
 
-- **Scoped-style HMR usually works, and sometimes does not.** Both halves are measured, and the
-  difference matters because the failure is silent.
+- **Three different things look identical from the page, and the browser cannot tell them apart.**
+  A style change does not show. It is one of: your selector is wrong, the server is dead, or the
+  server is alive and serving a stale stylesheet.
 
-  On a freshly started server a single SCSS edit reaches the browser live, with no reload —
-  changing a value in a component's scoped block, adding a brand-new selector, and editing a page's
-  `is:global` block were all tested and all worked. So the old blanket rule here ("restart after
-  every SCSS edit") was wrong, and restarting costs about 31 seconds a time.
+  The third is real and was hit independently in two sessions. Seen on `ConnectHub`: the source had
+  no `margin-right`, the served stylesheet still had `margin-right:calc(8 * var(--u))`, and the
+  markup from that same file was current in the same page load. Seen on `PlatformLoop`: new markup
+  on every reload while the stylesheet was several edits old, so half the rules did not exist in the
+  browser. Both times the server was alive and logging 200s, and a browser reload did not clear it.
 
-  But after a long session of many edits — including files created and deleted — a component's
-  scoped stylesheet can go stale and **survive a browser reload**. Seen: the source had no
-  `margin-right`, the served
-  `…ConnectHub.astro?astro&type=style&index=0&lang.css` still had
-  `margin-right:calc(8 * var(--u))`, and the markup from the same file was up to date in the same
-  page load. A restart cleared it.
+  What preceded the `PlatformLoop` case is worth knowing, since it is probably the trigger: the
+  component was edited several times in quick succession **while it was throwing at render** (a
+  constant used before its data file exported it). Vite appears to keep the style module it had from
+  before the error and never re-emit once the error clears.
 
-  So: do not restart reflexively, and do not trust the browser blindly either. When a style change
-  does not show, **curl the component's own stylesheet from the dev server and grep for it.** That
-  one command distinguishes "my selector is wrong", "the server is dead" and "the module is stale",
-  which otherwise look identical from the page.
+  **The one command that separates the three**, since the page cannot:
+
+  ```bash
+  curl -s 'http://localhost:PORT/src/components/Landing/YourThing.astro?astro&type=style&index=0&lang.css' | grep your-new-class
+  ```
+
+  No match while the file on disk has it → stale CSS, restart the server. Connection error → the
+  server is dead. A match → the CSS is fine, look at specificity.
+
+  What this does NOT mean is "restart after every SCSS edit". That blanket rule was here once and
+  was wrong: on a healthy server a single edit reaches the browser live, tested three ways —
+  changing a value in a scoped block, adding a new selector, and editing a page's `is:global` block.
+  Restarting costs about 31 seconds, so diagnose before reaching for it.
 - **`astro check` does not compile SCSS.** It will pass over a stylesheet that cannot build. Only a
   real build or a page load proves the styles.
 - **The global reset gives every `<svg>` `max-width: 100%`.** An SVG whose viewBox is wider than its
@@ -201,8 +210,8 @@ went the same way, after being parked long enough to be sure.
 
 Components never collide; the shared files do. One git worktree per visual, on its own branch, one
 session per visual, and its own dev server — `.claude/launch.json` declares `tb-site` (4321),
-`tb-site-b` (4322) and `tb-site-c` (4323), because two sessions sharing one server will restart it
-under each other mid-measurement.
+`tb-site-b` (4322), `tb-site-c` (4323) and `tb-site-d` (4324), because two sessions sharing one
+server will restart it under each other mid-measurement.
 
 A session per visual is also about context: these sessions get long, and a compacted one has lost
 the measurements it took two hours ago. Start fresh per visual and let this file carry the method.

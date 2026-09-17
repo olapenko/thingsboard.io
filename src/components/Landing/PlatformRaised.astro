@@ -1,0 +1,764 @@
+---
+import { Icon } from 'astro-icon/components';
+import {
+	PLATFORM_ZONES,
+	PLATFORM_STAGES,
+	PLATFORM_FOUNDATIONS,
+	PLATFORM_RUNS,
+	PLATFORM_CORE,
+	type Zone,
+	type PlatformRun,
+} from '@data/platform-visual';
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+
+/**
+ * The platform overview with the middle column treated as an object rather than a panel: the same
+ * three zones and the same clockwise loop, but the platform is lifted off the page.
+ *
+ * A CANDIDATE BESIDE `PlatformLoop`, not a replacement for it. The two are separate files on
+ * purpose — the same reason `ConnectCloud` and `ConnectFlow` are, and `DeployFork` restates the
+ * connect visual's vocabulary rather than importing it: a rejected direction has to be able to die
+ * without taking the other one with it. The path arithmetic below is therefore deliberately a copy,
+ * and the numbers it is fed are this version's own.
+ *
+ * What differs from `PlatformLoop`, all of it in the middle column except the first:
+ *
+ * - LOOSER. `PlatformLoop` was tightened until the composition was 316 units tall, which turned
+ *   out to be a few units past comfortable. The band is 34 rather than 30 and the paddings inside
+ *   all three cards come back up; the inline heads, which is where most of the tightening actually
+ *   came from, stay inline.
+ * - RAISED. The platform carries the page's ambient shadow and no border. A hairline as well as a
+ *   shadow reads as a card with an outline drawn on it; the shadow alone is what makes it sit above
+ *   the two zones, which is the whole point of the treatment.
+ * - NO RAIL. The arrow through the four stages is gone. It said the four were a sequence, which is
+ *   a claim the four verbs already make on their own, and it was competing with the four runs
+ *   around the outside — which are the arrows that carry the argument. Removing it also removes the
+ *   knockout machinery it needed: the stage icons no longer paint the surface behind themselves or
+ *   carry a gap on the right, because there is no longer a line for them to break.
+ * - THE TYPE IN THE MIDDLE IS INK. The four verbs and the heading are both near-black; the colour
+ *   in that column is the badge and the four stage icons and nothing else.
+ * - THE MARK IS A BADGE, straddling the card's top edge the way the ecosystem cards place a product
+ *   mark, at one weight below it rather than a lockup in two voices.
+ * - THE FOUR STAGES ARE CODED AS THE FOUR SECTIONS. Each takes its section's colour, by reference
+ *   from `platform-visual.ts`, so the column is a legend for the rest of the page; the icons stay
+ *   the stage's own. The two outer columns follow from it: equipment takes the first stage's hue
+ *   and people the last, being the stages they meet.
+ *
+ * Everything else — the geometry, the palette, the stacking threshold, the R of 86 — is as
+ * `PlatformLoop` documents it, and that file is the one to read for why.
+ */
+
+interface Props {
+	/** Show the foundations strip under the four stages. Off by default; see `PlatformLoop`. */
+	foundations?: boolean;
+}
+
+const { foundations = false } = Astro.props;
+
+// --- the grid, in design units -------------------------------------------------------------
+
+// The side columns are as narrow as the copy allows and no narrower. Measured: "Gateways and
+// platforms" needs 179.6 units on one line, and a card spends 73 on chrome (17 of padding a side,
+// a 1px border, a 25-unit icon and the 12 beside it) — so 253 is the floor, and 256 clears it by
+// three. A name that wraps is not a cosmetic problem here: the three items divide the card's height
+// equally, so one taller row in the left column would put it out of step with the right, which is
+// the alignment this composition is built on.
+//
+// This is the first section of the page and runs full width and centred, so the 40 units the sides
+// give up go to the middle, where the four stages are what the section is for.
+const COL = { side: 256, gut: 44, mid: 560 };
+const NATIVE = COL.side * 2 + COL.gut * 2 + COL.mid; // 1160
+const NARROW = 480;
+
+// --- the four runs -------------------------------------------------------------------------
+
+/** 34 rather than `PlatformLoop`'s 30: the loosening starts here, where the picture breathes most. */
+const BAND = 34;
+const LANE = 6;
+const BEND = 10;
+const HEAD = 6;
+const WING = 4;
+
+const BAND_W = COL.gut * 2 + COL.mid; // 648
+const X = { eq: 0, people: BAND_W };
+
+const TURN = 112;
+const MID_C = COL.gut + COL.mid / 2;
+const IN_X = MID_C - TURN;
+const OUT_X = MID_C + TURN;
+
+/**
+ * The horizontal part of a run: from the card edge it leaves to the column where it turns.
+ *
+ * Each run label is a box of exactly this width, so centring the text inside it centres the text on
+ * the arrow — and a label that is later made longer or shorter stays centred, because the box never
+ * moves. The two sides are the same number because `TURN` is symmetric about the middle.
+ */
+const LEG = IN_X; // === BAND_W - OUT_X
+
+/**
+ * The app badge in the middle of the platform: the page's shared squircle, as the connect section
+ * draws it — 32% radius, the mark in white on the brand, and the same 69% mark-to-tile it settled
+ * on, which is what `PAD` below is for.
+ */
+const BADGE = 64;
+const BADGE_PAD = Math.round((BADGE * (1 - 0.69)) / 2); // 10 -> a 44-unit mark in a 64-unit tile
+
+/**
+ * The equipment column is coloured as Connect and the people column as Operate — the stage each of
+ * them actually meets, since the loop enters the platform at the first stage and leaves it at the
+ * last. Read off `PLATFORM_STAGES` by position rather than restated here, so the pair cannot drift
+ * from the icons it is meant to match.
+ */
+const ZONE_IN = PLATFORM_STAGES[0].accent;
+const ZONE_OUT = PLATFORM_STAGES[PLATFORM_STAGES.length - 1].accent;
+
+/**
+ * Stacked, the distance from the card's centre to each run's stem.
+ *
+ * The two lanes used to sit at the far edges of the card — measured 291px apart at the 960 probe —
+ * which read as two rails down the sides with a hole between them rather than as two channels
+ * joining one card to the next. At 56 they flank the middle, and the labels go OUTBOARD of them so
+ * the two never meet in the centre.
+ *
+ * 56 is also the floor: the badge straddling the platform's top edge is 64 wide, so it reaches 32
+ * either side of the same centre line, and a stem at 56 clears its edge by 17.
+ */
+const LANE_X = 56;
+
+/** One sweep for all four, because the loop goes one way. */
+const CW = 1;
+const LO = BAND - LANE;
+
+const TOP = {
+	telemetry: {
+		line: `M ${X.eq},${LANE} H ${IN_X - BEND} A ${BEND},${BEND} 0 0 ${CW} ${IN_X},${LANE + BEND} V ${BAND}`,
+		head: `M ${IN_X - WING},${BAND - HEAD} L ${IN_X},${BAND} L ${IN_X + WING},${BAND - HEAD}`,
+	},
+	views: {
+		line: `M ${OUT_X},${BAND} V ${LANE + BEND} A ${BEND},${BEND} 0 0 ${CW} ${OUT_X + BEND},${LANE} H ${X.people}`,
+		head: `M ${X.people - HEAD},${LANE - WING} L ${X.people},${LANE} L ${X.people - HEAD},${LANE + WING}`,
+	},
+};
+
+const BOT = {
+	commands: {
+		line: `M ${IN_X},0 V ${LO - BEND} A ${BEND},${BEND} 0 0 ${CW} ${IN_X - BEND},${LO} H ${X.eq}`,
+		head: `M ${X.eq + HEAD},${LO - WING} L ${X.eq},${LO} L ${X.eq + HEAD},${LO + WING}`,
+	},
+	actions: {
+		line: `M ${X.people},${LO} H ${OUT_X + BEND} A ${BEND},${BEND} 0 0 ${CW} ${OUT_X},${LO - BEND} V 0`,
+		head: `M ${OUT_X - WING},${HEAD} L ${OUT_X},0 L ${OUT_X + WING},${HEAD}`,
+	},
+};
+
+const BANDS = { in: [TOP.telemetry, TOP.views], out: [BOT.commands, BOT.actions] };
+
+// --- the stacked form's arrows ---------------------------------------------------------------
+
+const STEM = { w: 14, h: 12 };
+const HEAD_D = `M ${STEM.w / 2 - WING},${STEM.h - HEAD} L ${STEM.w / 2},${STEM.h} L ${STEM.w / 2 + WING},${STEM.h - HEAD}`;
+
+const ORDER = ['equipment', 'platform', 'people'];
+const dirOf = (r: PlatformRun) => (ORDER.indexOf(r.from) < ORDER.indexOf(r.to) ? 'down' : 'up');
+
+const srcOf = (id: PlatformRun['id']) => PLATFORM_RUNS.find((r) => r.id === id)!.from;
+const bandSrc = { in: ['telemetry', 'views'], out: ['commands', 'actions'] } as const;
+
+const zoneItems = (z: Zone) => z.items;
+
+const vars = [
+	`--plat-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
+	`--plat-u-narrow: min(1px, calc(100cqw / ${NARROW}))`,
+	`--plat-native: ${NATIVE}`,
+	`--plat-narrow: ${NARROW}`,
+	`--plat-col-side: ${COL.side}`,
+	`--plat-col-gut: ${COL.gut}`,
+	`--plat-col-mid: ${COL.mid}`,
+	`--plat-band: ${BAND}`,
+	`--plat-lane: ${LANE_X}`,
+	`--plat-leg: ${LEG}`,
+	`--plat-badge: ${BADGE}`,
+	`--plat-badge-pad: ${BADGE_PAD}`,
+	`--plat-equipment: ${ZONE_IN}`,
+	`--plat-people: ${ZONE_OUT}`,
+].join('; ');
+---
+
+<div class="plat-fit">
+	<div class="plat" style={vars} data-found={foundations ? '' : undefined}>
+		{
+			PLATFORM_ZONES.map((z) => (
+				<section class={`plat__zone plat__zone--${z.id}`} aria-labelledby={`plat-r-${z.id}`}>
+					<header class="plat__zone-head">
+						<Icon class="plat__zone-emblem" name={z.icon} aria-hidden="true" />
+						<h3 class="plat__zone-title" id={`plat-r-${z.id}`}>
+							{z.title}
+						</h3>
+					</header>
+					<ul class="plat__items">
+						{zoneItems(z).map((it) => (
+							<li class="plat__item">
+								<Icon class="plat__item-icon" name={it.icon} aria-hidden="true" />
+								<div>
+									<p class="plat__item-name">{it.name}</p>
+									<p class="plat__item-note">{it.note}</p>
+								</div>
+							</li>
+						))}
+					</ul>
+				</section>
+			))
+		}
+
+		{
+			PLATFORM_RUNS.map((r) => (
+				<p class={`plat__run plat__run--${r.id}`} data-src={r.from}>
+					<span class="plat__stem" data-dir={dirOf(r)} aria-hidden="true">
+						<span class="plat__stem-line" />
+						<svg class="plat__stem-head" viewBox={`0 0 ${STEM.w} ${STEM.h}`}>
+							<path d={HEAD_D} />
+						</svg>
+					</span>
+					<span>{r.label}</span>
+				</p>
+			))
+		}
+
+		{
+			/* Before the platform in the DOM, so the card paints over the last unit of each run and a
+		    rounded join cannot show a seam at the edge. The card's shadow falls across those same
+		    units, which is the right reading: the runs pass under something raised. */
+		}
+		{
+			(['in', 'out'] as const).map((which) => (
+				<div class={`plat__band plat__band--${which}`} aria-hidden="true">
+					<svg class="plat__wires" viewBox={`0 0 ${BAND_W} ${BAND}`} preserveAspectRatio="none">
+						{BANDS[which].map((r, i) => (
+							<Fragment>
+								<path class="plat__wire" data-src={srcOf(bandSrc[which][i])} d={r.line} />
+								<path class="plat__head" data-src={srcOf(bandSrc[which][i])} d={r.head} />
+							</Fragment>
+						))}
+					</svg>
+				</div>
+			))
+		}
+
+		<section class="plat__core" aria-labelledby="plat-r-core">
+			{
+				/* Straddling the card's top edge rather than sitting inside it — the placement the
+			    ecosystem cards and the deployment visual give a product mark. Out of flow, so the
+			    heading's position does not depend on how big the badge is. */
+			}
+			<span class="plat__core-badge" aria-hidden="true" set:html={mark} />
+			<h3 class="plat__core-title" id="plat-r-core">{PLATFORM_CORE.brand} {PLATFORM_CORE.product}</h3>
+
+			{
+				/* No rail, so no absolute positioning and no knockout: a stage is just an icon, a verb
+			    and a line of detail, in that order and in normal flow. */
+			}
+			<ol class="plat__stages">
+				{
+					PLATFORM_STAGES.map((s) => (
+						<li class="plat__stage" style={`--stage: ${s.accent}`}>
+							<Icon class="plat__stage-icon" name={s.icon} aria-hidden="true" />
+							<p class="plat__stage-name">{s.name}</p>
+							<p class="plat__stage-note">{s.note}</p>
+						</li>
+					))
+				}
+			</ol>
+
+			<ul class="plat__found">
+				{
+					PLATFORM_FOUNDATIONS.map((f) => (
+						<li class="plat__found-item">
+							<Icon class="plat__found-icon" name={f.icon} aria-hidden="true" />
+							<span>{f.label}</span>
+						</li>
+					))
+				}
+			</ul>
+		</section>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.plat-fit {
+		container-type: inline-size;
+	}
+
+	.plat {
+		--u: var(--plat-u);
+
+		// `--plat-equipment` and `--plat-people` are published by the frontmatter, off the first and
+		// last stage's accent. They are deliberately NOT restated here: a fallback would be a second
+		// copy of the pairing, free to go stale the moment a stage's hue changes.
+		--plat-platform: #{$color-brand};
+
+		// White, like the two zones. The platform is told apart by being LIFTED, not by being tinted —
+		// a shadow and a fill were two answers to the same question, and the tint was also the last
+		// thing making the middle column a coloured area rather than a white card with coloured marks
+		// on it.
+		--plat-paper: var(--color-bg-surface, #fff);
+		--plat-surface: var(--plat-paper);
+		// One grey for every part of a run: the wire, its head, and the label that names it. Colour
+		// has moved off the runs and onto the icons, so a run is a connector and nothing else.
+		--plat-wire: var(--color-text-secondary, #63656c);
+		--plat-line: var(--color-border, #ebebeb);
+		--plat-ink: var(--color-text, #17181c);
+		--plat-muted: var(--color-text-secondary, #5b616e);
+
+		display: grid;
+		grid-template-columns:
+			u(var(--plat-col-side)) u(var(--plat-col-gut)) u(var(--plat-col-mid))
+			u(var(--plat-col-gut)) u(var(--plat-col-side));
+		grid-template-rows: auto u(var(--plat-band)) auto u(var(--plat-band)) auto;
+		max-width: u(var(--plat-native));
+		margin: 0 auto;
+	}
+
+	// --- the two outer zones ---------------------------------------------------------------
+
+	.plat__zone {
+		display: flex;
+		flex-direction: column;
+		grid-row: 2 / 5;
+		padding: u(16) u(17);
+		border: max(1px, #{u(1)}) solid var(--plat-line);
+		border-radius: u(10);
+		background: var(--plat-paper);
+	}
+
+	.plat__zone--equipment {
+		--zone: var(--plat-equipment);
+		grid-column: 1;
+	}
+
+	.plat__zone--people {
+		--zone: var(--plat-people);
+		grid-column: 5;
+	}
+
+	// A FIXED HEIGHT, sized for a title on two lines (2 x 15 at 1.2, plus the 14 below it).
+	//
+	// The two titles are not the same length, and at 256-unit columns "Your people and operations"
+	// needs 190.6 units for one line and has 184 — so it wraps and the equipment title does not.
+	// Without this the two heads differ by exactly that line, and since the items below divide
+	// whatever height is left, every row in the left column sits above its opposite number: measured
+	// 10, 6.7 and 3.3 units of drift down the card. Pinning the head means the two cannot disagree,
+	// whichever title wraps and whatever the copy is changed to later.
+	.plat__zone-head {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: u(52);
+		gap: u(10);
+		padding-bottom: u(14);
+		border-bottom: max(1px, #{u(1)}) solid var(--plat-line);
+	}
+
+	.plat__zone-emblem {
+		flex: none;
+		width: u(26);
+		height: u(26);
+		color: var(--zone);
+	}
+
+	.plat__zone-title {
+		margin: 0;
+		font-size: u(15);
+		font-weight: $font-weight-medium;
+		line-height: 1.2;
+		letter-spacing: -0.005em;
+		color: var(--zone);
+	}
+
+	.plat__items {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// Three equal shares of the card's height: what keeps the left column's rows level with the
+	// right column's without either of them knowing the other exists.
+	.plat__item {
+		display: flex;
+		flex: 1 1 0;
+		align-items: center;
+		gap: u(12);
+		padding: u(14) 0;
+
+		& + & {
+			border-top: max(1px, #{u(1)}) solid var(--plat-line);
+		}
+	}
+
+	.plat__item-icon {
+		flex: none;
+		width: u(25);
+		height: u(25);
+		color: var(--zone);
+	}
+
+	.plat__item-name {
+		margin: 0;
+		font-size: u(16);
+		font-weight: $font-weight-bold;
+		line-height: 1.2;
+		letter-spacing: -0.015em;
+		color: var(--plat-ink);
+	}
+
+	/* The floor of the composition, and so the number the stacking threshold is set from. */
+	.plat__item-note {
+		margin: u(3) 0 0;
+		font-size: u(13.5);
+		line-height: 1.35;
+		color: var(--plat-muted);
+	}
+
+	// --- the platform, raised ------------------------------------------------------------------
+
+	// No border. A hairline as well as a shadow reads as a card with an outline drawn on it; the
+	// shadow on its own is what lifts it off the two zones. The recipe is the page's — a 1px contact
+	// shadow that does not scale, over an ambient one that does.
+	.plat__core {
+		position: relative;
+		grid-column: 3;
+		grid-row: 3;
+		// Top padding is the badge's lower half plus the air under it, so the heading clears a badge
+		// that is half outside the card: BADGE / 2 + 12.
+		padding: calc(u(var(--plat-badge)) / 2 + #{u(12)}) u(26) u(24);
+		border-radius: u(12);
+		background: var(--plat-surface);
+		// Overridable through `--flow-shadow`, as the other visuals in this family are, so a token set
+		// on the row can retune every one of them at once instead of this being the one that ignores it.
+		box-shadow: var(
+			--flow-shadow,
+			0 1px 2px rgba(16, 24, 40, 0.04),
+			0 #{u(12)} #{u(28)} #{u(-8)} rgba(16, 24, 40, 0.12)
+		);
+	}
+
+	// The connect section's badge, placed the way the ecosystem cards place theirs: centred on the
+	// card's TOP EDGE, half above it and half below. The page's shared 32% squircle, the mark in
+	// white on the brand, and a shadow that lifts the tile off the card it overlaps.
+	//
+	// The shadow is the unit-scaled one the connect visual uses, not the ecosystem card's fixed
+	// pixels — that card is not built on a design unit, this is, and a px shadow would be the same
+	// size at every scale.
+	.plat__core-badge {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: u(var(--plat-badge));
+		height: u(var(--plat-badge));
+		padding: u(var(--plat-badge-pad));
+		border-radius: 32%;
+		color: var(--color-white, #fff);
+		background: var(--plat-platform);
+		box-shadow: var(
+			--flow-shadow-badge,
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
+		);
+	}
+
+	// Smaller, because the badge above it is now carrying the identity: the heading only has to name
+	// what the badge already showed.
+	// Ink, not the brand. With the four stages now coded to the four sections, the brand indigo is
+	// spoken for — it is the solution section's, which Operate carries — and a heading in it read as
+	// a fifth code rather than as a title. The badge holds the brand on its own.
+	.plat__core-title {
+		margin: 0 0 u(20);
+		text-align: center;
+		font-size: u(22);
+		font-weight: $font-weight-bold;
+		line-height: 1.1;
+		letter-spacing: -0.025em;
+		color: var(--plat-ink);
+	}
+
+	.plat__stages {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		column-gap: u(18);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// In flow, not absolute: the rail it used to have to dodge is gone.
+	.plat__stage-icon {
+		display: block;
+		width: u(30);
+		height: u(30);
+		margin-bottom: u(13);
+		// The only colour left in the middle column, and the thing that tells the four apart.
+		color: var(--stage);
+	}
+
+	// Ink, not indigo. The heading, the mark and the icons are the column's colour; the four verbs
+	// are its content, and colouring them made all four things compete for the same attention.
+	.plat__stage-name {
+		margin: 0;
+		font-size: u(20);
+		font-weight: $font-weight-bold;
+		line-height: 1.15;
+		letter-spacing: -0.025em;
+		color: var(--plat-ink);
+	}
+
+	.plat__stage-note {
+		margin: u(6) 0 0;
+		font-size: u(13.5);
+		line-height: 1.35;
+		color: var(--plat-muted);
+	}
+
+	.plat__found {
+		display: none;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		column-gap: u(18);
+		margin: u(22) 0 0;
+		padding: u(18) 0 0;
+		border-top: max(1px, #{u(1)}) solid var(--plat-line);
+		list-style: none;
+	}
+
+	.plat[data-found] .plat__found {
+		display: grid;
+	}
+
+	.plat__found-item {
+		display: flex;
+		align-items: center;
+		gap: u(9);
+		font-size: u(14);
+		font-weight: $font-weight-medium;
+		letter-spacing: -0.01em;
+		color: var(--plat-platform);
+	}
+
+	.plat__found-icon {
+		flex: none;
+		width: u(21);
+		height: u(21);
+	}
+
+	// --- the four runs ------------------------------------------------------------------------
+
+	.plat__band {
+		grid-column: 2 / 5;
+	}
+
+	.plat__band--in {
+		grid-row: 2;
+	}
+
+	.plat__band--out {
+		grid-row: 4;
+	}
+
+	// The global reset gives every `svg` a `max-width: 100%`; stated away rather than relied on.
+	.plat__wires {
+		display: block;
+		width: 100%;
+		max-width: none;
+		height: 100%;
+	}
+
+	.plat__wire,
+	.plat__head {
+		fill: none;
+		stroke: var(--plat-wire);
+		stroke-width: 3;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	// The box IS the run's horizontal leg — same number the path is drawn from — so centring the text
+	// inside it centres the text on the arrow, at every width and whatever the label says.
+	// Set in caps, which is what separates a label on a line from the prose in the cards either side
+	// of it without needing a second colour or a rule.
+	//
+	// 13.5, NOT smaller, even though a caps label usually is. 13.5 is the composition's floor — the
+	// notes under each item and each stage — and dropping the labels below it would raise R above 86
+	// and make the phone worse for every other element too. Caps at the floor still read as a label
+	// because of the tracking; caps below it would just be the new floor.
+	.plat__run {
+		width: u(var(--plat-leg));
+		margin: 0;
+		font-size: u(13.5);
+		text-transform: uppercase;
+		letter-spacing: 0.085em;
+		text-align: center;
+		font-weight: $font-weight-medium;
+		line-height: 1.3;
+		color: var(--plat-wire);
+	}
+
+	.plat__run--telemetry,
+	.plat__run--commands {
+		grid-column: 2 / 4;
+		justify-self: start;
+	}
+
+	.plat__run--views,
+	.plat__run--actions {
+		grid-column: 3 / 5;
+		justify-self: end;
+	}
+
+	// 4, not 10. A label belongs to its line, and at ten units of air it read as a caption floating
+	// above the band rather than as the name of the arrow under it.
+	.plat__run--telemetry,
+	.plat__run--views {
+		grid-row: 1;
+		margin-bottom: u(4);
+	}
+
+	.plat__run--commands,
+	.plat__run--actions {
+		grid-row: 5;
+		margin-top: u(4);
+	}
+
+	.plat__stem {
+		display: none;
+	}
+
+	.plat__stem-line {
+		flex: 1 1 auto;
+		width: u(3);
+		border-radius: u(1.5);
+		background: currentColor;
+	}
+
+	.plat__stem-head {
+		flex: none;
+		width: u(14);
+		height: u(12);
+		max-width: none;
+		margin-top: u(-6);
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 3;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	// --- stacked -------------------------------------------------------------------------------
+	//
+	// As `PlatformLoop`: below a 1000px container the wide composition's floor is under 11.6px and
+	// falling, so the picture stacks and re-derives its unit from 480 units. A container query, not
+	// a media query.
+	@container (max-width: 1000px) {
+		.plat {
+			--u: var(--plat-u-narrow);
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			grid-template-rows: auto minmax(u(52), auto) auto minmax(u(52), auto) auto;
+			max-width: u(var(--plat-narrow));
+			row-gap: 0;
+		}
+
+		.plat__zone--equipment {
+			grid-column: 1 / -1;
+			grid-row: 1;
+		}
+
+		.plat__core {
+			grid-column: 1 / -1;
+			grid-row: 3;
+		}
+
+		.plat__zone--people {
+			grid-column: 1 / -1;
+			grid-row: 5;
+		}
+
+		.plat__band {
+			display: none;
+		}
+
+		.plat__run {
+			display: flex;
+			align-items: center;
+			gap: u(10);
+			width: auto;
+			max-width: 100%;
+			margin: 0;
+		}
+
+		// Both lanes are pulled in to the middle and their labels hang outboard, away from the centre
+		// line, so the two can never collide however long the copy gets. The padding is what sets a
+		// stem's distance from centre: the column's inner edge IS the centre, so the lane minus half a
+		// stem puts the stem's axis exactly `--plat-lane` units out.
+		.plat__run--telemetry,
+		.plat__run--views {
+			grid-column: 1;
+			justify-self: end;
+			flex-direction: row-reverse;
+			padding-right: calc(#{u(var(--plat-lane))} - #{u(7)});
+			text-align: right;
+		}
+
+		.plat__run--commands,
+		.plat__run--actions {
+			grid-column: 2;
+			justify-self: start;
+			padding-left: calc(#{u(var(--plat-lane))} - #{u(7)});
+			text-align: left;
+		}
+
+		.plat__run--telemetry,
+		.plat__run--commands {
+			grid-row: 2;
+		}
+
+		.plat__run--views,
+		.plat__run--actions {
+			grid-row: 4;
+		}
+
+		.plat__stem {
+			display: flex;
+			flex: none;
+			flex-direction: column;
+			align-items: center;
+			align-self: stretch;
+			width: u(14);
+		}
+
+		.plat__stem[data-dir='up'] {
+			flex-direction: column-reverse;
+
+			.plat__stem-head {
+				margin: 0 0 u(-6);
+				transform: scaleY(-1);
+			}
+		}
+
+		// Four stages in a 480-unit column give each one 110 units, which will not hold
+		// "Rule chains, calculated fields, alarms". Two rows of two.
+		.plat__stages {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			row-gap: u(22);
+		}
+	}
+</style>

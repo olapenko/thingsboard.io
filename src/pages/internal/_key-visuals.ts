@@ -6,6 +6,7 @@
  * own. Addressed by id through `kv()`, never by array position: the panels used to say
  * `KEY_VISUALS[6]`, which meant inserting a visual silently retitled four others.
  */
+import { PLATFORM_COPY } from '@data/platform-visual';
 import { SOLUTION_COPY } from '@data/solution-flow';
 import { DIGITAL_TWIN_COPY } from '@data/digital-twin-visual';
 import { NORMALIZE_COPY } from '@data/normalize-visual';
@@ -27,6 +28,13 @@ export const KEY_VISUALS: KeyVisual[] = [
 	{
 		id: 'cli',
 		label: 'CLI',
+	},
+	{
+		id: 'platform',
+		label: 'Platform',
+		title: PLATFORM_COPY.title,
+		body: PLATFORM_COPY.body,
+		link: PLATFORM_COPY.link,
 	},
 	{
 		id: 'solution',
