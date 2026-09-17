@@ -34,9 +34,15 @@ import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
 interface Props {
 	/** Draws the caption under the badge. Off, as on the other Connect cuts. */
 	nodeLabel?: boolean;
+	/**
+	 * How many arms a side. Four is the tighter reading; six carries half the keyword set and makes
+	 * the fan the subject. A prop rather than a second component because only the name list and the
+	 * spread of the fan differ — everything else, geometry included, derives from the arm count.
+	 */
+	arms?: 'four' | 'six';
 }
 
-const { nodeLabel = false }: Props = Astro.props;
+const { nodeLabel = false, arms = 'four' }: Props = Astro.props;
 
 /**
  * Four a side, from the sketch. Accents follow the three routes the other cuts use — straight in,
@@ -53,33 +59,79 @@ const LIME = '#65a30d'; // integration
 // Seven characters is the ceiling — the column is 100 units and a 20u mono chip costs 10 a
 // character plus 24 of padding — which is why the integrations here are LoRaWAN and Sigfox rather
 // than "MQTT brokers" or "Cloud platforms".
-const LEFT = [
-	{ name: 'MQTT', accent: CYAN },
-	{ name: 'Modbus', accent: PURPLE },
-	{ name: 'LoRaWAN', accent: LIME },
-	{ name: 'OCPP', accent: CYAN },
-];
-const RIGHT = [
-	{ name: 'OPC UA', accent: PURPLE },
-	{ name: 'CoAP', accent: CYAN },
-	{ name: 'Sigfox', accent: LIME },
-	{ name: 'BLE', accent: PURPLE },
-];
+const FOUR = {
+	left: [
+		{ name: 'MQTT', accent: CYAN },
+		{ name: 'Modbus', accent: PURPLE },
+		{ name: 'LoRaWAN', accent: LIME },
+		{ name: 'OCPP', accent: CYAN },
+	],
+	right: [
+		{ name: 'OPC UA', accent: PURPLE },
+		{ name: 'CoAP', accent: CYAN },
+		{ name: 'Sigfox', accent: LIME },
+		{ name: 'BLE', accent: PURPLE },
+	],
+};
+
+/**
+ * Twelve, from the sketch, dealt so neither column is one hue — the sketch had every direct
+ * protocol down the left and every gateway one down the right, which would have made the same
+ * purple-list mistake the four-arm cut started with.
+ *
+ * One caveat worth seeing rather than hiding: the twelve names contain exactly one integration
+ * (LoRaWAN), so lime appears once in a picture with six purples. That is the sketch's set, kept as
+ * drawn. Swapping CAN for Sigfox would even it and is a one-line change.
+ */
+const SIX = {
+	left: [
+		{ name: 'MQTT', accent: CYAN },
+		{ name: 'Modbus', accent: PURPLE },
+		{ name: 'LoRaWAN', accent: LIME },
+		{ name: 'OPC UA', accent: PURPLE },
+		{ name: 'CoAP', accent: CYAN },
+		{ name: 'BACnet', accent: PURPLE },
+	],
+	right: [
+		{ name: 'S7', accent: PURPLE },
+		{ name: 'HTTP', accent: CYAN },
+		{ name: 'CAN', accent: PURPLE },
+		{ name: 'LwM2M', accent: CYAN },
+		{ name: 'BLE', accent: PURPLE },
+		{ name: 'OCPP', accent: CYAN },
+	],
+};
+
+const SET = arms === 'six' ? SIX : FOUR;
+const LEFT = SET.left;
+const RIGHT = SET.right;
 
 // --- the box ---------------------------------------------------------------------------------
 //
 // Tighter than the sketch, which had roughly a chip's height of air between rows. The pitch here is
 // 1.7 chips, which is enough for the curves to separate and no more.
 const STUB = 36; // the fading run outside each chip
-const COL = 100; // the chip column; chips sit against the gutter, ragged on the outside
 const GUT = 74; // chip to badge
 const BADGE = 104;
+
+// Six arms get smaller chips and a closer pitch. Four names a side can afford 20u type; twelve of
+// them at that size makes a wall, and the picture's subject is the fan rather than any one word.
+//
+// PITCH is the constraint that matters, and it is not free: it must stay above CHIP_H or the chips
+// overlap. 42 against a 32-unit chip leaves 10 units of air, which is the tightest that still reads
+// as separate rows. The assertion below is there because getting this wrong looks like a rendering
+// bug rather than a number being too small.
+const CHIP_H = arms === 'six' ? 32 : 40;
+const CHIP_FONT = arms === 'six' ? 17 : 20;
+const PITCH = arms === 'six' ? 42 : 56;
+// The column only has to hold the longest name: 7 characters at 8.5 a character plus 20 of padding
+// for the small chip, at 10 and 24 for the large one.
+const COL = arms === 'six' ? 84 : 100;
 const NATIVE = STUB + COL + GUT + BADGE + GUT + COL + STUB;
 
-const CHIP_H = 40;
-// 56, not 68: sixteen units of air between chips. The curves still separate because they fan onto
-// the badge's face rather than converging, so the pitch is free to close up.
-const PITCH = 56;
+if (PITCH <= CHIP_H) {
+	throw new Error(`ConnectHub: pitch ${PITCH} is not greater than chip height ${CHIP_H} — the chips would overlap.`);
+}
 const HEIGHT = LEFT.length * PITCH;
 
 const MID_X = NATIVE / 2;
@@ -93,9 +145,10 @@ const CHIP_R = NATIVE - STUB - COL; // inner edge of the right chips
 
 const cy = (i: number) => PITCH / 2 + i * PITCH;
 
-// Where the four lines land on the badge's face: spread over the middle of it rather than meeting
-// at a point. 60 units of the badge's 104, so the outermost pair still sit clear of its corners.
-const FAN = 60;
+// Where the lines land on the badge's face: spread over the middle of it rather than meeting at a
+// point. Wider with six arms, because the same 60 units shared by six arrivals puts them 12 apart
+// and the fan closes into a bundle; 76 keeps them 15 apart and still clear of the badge's corners.
+const FAN = arms === 'six' ? 76 : 60;
 const ay = (i: number, n: number) => MID_Y - FAN / 2 + (FAN / (n - 1)) * i;
 
 const EASE = 0.55;
@@ -119,6 +172,7 @@ const vars = [
 	`--hub-h: ${HEIGHT}`,
 	`--hub-badge: ${BADGE}`,
 	`--hub-chip-h: ${CHIP_H}`,
+	`--hub-chip-font: ${CHIP_FONT}`,
 	`--hub-stub: ${STUB}`,
 	`--hub-col: ${COL}`,
 	`--hub-mid-y: ${MID_Y}`,
@@ -230,8 +284,8 @@ const vars = [
 		background: linear-gradient(to right, var(--hub-accent), transparent);
 	}
 
-	// Bigger than the cloud's chips — 20u against 17u — because there are eight of them rather than
-	// twenty-one and they are the only text in the picture.
+	// Size comes from the arm count: 20u with four a side, where the chips are the only text in the
+	// picture and can afford it; 17u with six, matching the cloud, because twelve at 20 is a wall.
 	.hub__chip {
 		position: absolute;
 		top: calc(var(--hub-y) * var(--u));
@@ -243,7 +297,7 @@ const vars = [
 		border-radius: u(10);
 		background: color-mix(in srgb, var(--hub-accent) 16%, transparent);
 		font-family: $font-family-mono;
-		font-size: u(20);
+		font-size: u(var(--hub-chip-font));
 		font-weight: $font-weight-bold;
 		line-height: 1;
 		white-space: nowrap;
