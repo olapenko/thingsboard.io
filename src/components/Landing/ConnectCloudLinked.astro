@@ -412,9 +412,10 @@ const vars = [
 
 		:global(line) {
 			fill: none;
-			stroke-width: max(1px, #{u(2)});
-			stroke-linecap: round;
-			opacity: 0.9;
+			// Heavier than the flow visuals' rail and at full strength, because what shows of any one
+			// wire is six units of gap: at 2u and 0.9 the whole layer read as dust.
+			stroke-width: max(1.5px, #{u(3)});
+			stroke-linecap: butt;
 		}
 	}
 
@@ -449,10 +450,15 @@ const vars = [
 		const chips = [...root.querySelectorAll<HTMLElement>('.cl__chip')].map((el) => {
 			const r = el.getBoundingClientRect();
 			const li = el.closest('li');
+			const cs = getComputedStyle(el);
 			return {
 				x: r.left - box.left + r.width / 2,
 				y: r.top - box.top + r.height / 2,
+				left: r.left - box.left,
+				top: r.top - box.top,
+				w: r.width,
 				h: r.height,
+				r: parseFloat(cs.borderTopLeftRadius) || 0,
 				accent: (li ? getComputedStyle(li).getPropertyValue('--cl-accent').trim() : '') || '#5b616e',
 			};
 		});
@@ -488,7 +494,31 @@ const vars = [
 				`<stop offset="0" stop-color="${A.accent}"/><stop offset="1" stop-color="${B.accent}"/></linearGradient>`;
 			paths += `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="url(#${id})"/>`;
 		});
-		svg.innerHTML = `<defs>${defs}</defs>${paths}`;
+		// The chips are translucent — an 18% wash — so a wire BEHIND one still shows through it, and
+		// the layer reads as lines drawn over the cloud rather than as wiring underneath it. Masking
+		// each chip out of the layer is what puts the connections properly in the background: what
+		// survives is only the part crossing the gaps. No padding: the gap is 6 units and a wire that
+		// stopped short of both edges would have nothing left to draw — measured, 2 units a side left
+		// a 3px stub that read as a speck. A connector should meet what it connects.
+		const PAD = 0;
+		const holes = chips
+			.map(
+				(c) =>
+					`<rect x="${c.left - PAD}" y="${c.top - PAD}" width="${c.w + PAD * 2}" height="${c.h + PAD * 2}" rx="${c.r + PAD}" fill="#000"/>`
+			)
+			.join('');
+		// The badge too: it sits over the layer already, but its shadow does not, and a wire running
+		// under the shadow reads as a smudge.
+		const badge = root.querySelector('.cl__badge');
+		let badgeHole = '';
+		if (badge) {
+			const b = badge.getBoundingClientRect();
+			badgeHole = `<rect x="${b.left - box.left - PAD}" y="${b.top - box.top - PAD}" width="${b.width + PAD * 2}" height="${b.height + PAD * 2}" rx="${b.width * 0.32}" fill="#000"/>`;
+		}
+		svg.innerHTML =
+			`<defs>${defs}<mask id="${uid}-m" maskUnits="userSpaceOnUse">` +
+			`<rect x="0" y="0" width="${box.width}" height="${box.height}" fill="#fff"/>${holes}${badgeHole}</mask></defs>` +
+			`<g mask="url(#${uid}-m)">${paths}</g>`;
 	};
 
 	document.querySelectorAll<HTMLElement>('.cl[data-links]').forEach((root) => {
