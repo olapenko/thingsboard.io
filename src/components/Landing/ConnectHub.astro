@@ -199,7 +199,7 @@ const RIGHT = SET.right;
 // Tighter than the sketch, which had roughly a chip's height of air between rows. The pitch here is
 // 1.7 chips, which is enough for the curves to separate and no more.
 const STUB = 36; // the fading run outside each chip
-const GUT = 74; // chip to badge
+const GUT = isStagger ? 56 : 74; // chip to badge
 const BADGE = 104;
 
 // Six arms get smaller chips and a closer pitch. Four names a side can afford 20u type; twelve of
@@ -222,7 +222,10 @@ const INNER_ROWS = isStagger ? 4 : LEFT.length;
 const COL = isStagger ? 84 : isSix ? 92 : 100;
 // The lane between the two ranks: an inner chip's fade plus clear air. Only the staggered cut has
 // one, and it is what the arrangement costs — a second chip column on each side.
-const LANE = isStagger ? 44 : 0;
+// 8, not 44: the outer rank tucks right up against the inner one. It can, because the two never
+// share a y — an outer chip lives in the GAP between two inner ones — so the only thing the lane
+// has to clear is the chips' own rounding.
+const LANE = isStagger ? 8 : 0;
 const RANKS = isStagger ? 2 : 1;
 // The inner rank's edge, and with it the width. A second rank costs a whole chip column plus its
 // lane on BOTH sides — 256 units here — which is the arrangement's real price and shows up as R:
@@ -297,22 +300,44 @@ const inset = (y: number) => {
 
 const EASE = 0.55;
 
+/**
+ * An outer arm runs FLAT until it is clear of the inner rank, and only then turns for the badge.
+ *
+ * Curving from the outer chip directly would cross the inner column diagonally — measured, the
+ * outer arm passed straight through the inner chip below it, because it descends from its own y to
+ * its place on the fan while still inside the inner chips' x range. The flat run keeps it in the
+ * gap it was placed in, which is the whole reason the gap exists, and it is what the sketch draws.
+ *
+ * `turn` is where the bend starts: the inner rank's edge for an outer arm, the chip itself for an
+ * inner one.
+ */
 const curveLeft = (i: number) => {
 	const y0 = cyOf(LEFT, i);
 	const y1 = ay(i, LEFT.length);
 	const x0 = edgeL(rankOf(LEFT[i]));
+	const turn = rankOf(LEFT[i]) === 0 ? x0 : CHIP_L;
 	const x1 = BADGE_L + inset(y1);
-	const k = (x1 - x0) * EASE;
-	return `M ${x0},${y0} C ${x0 + k},${y0} ${x1 - k},${y1} ${x1},${y1}`;
+	const k = (x1 - turn) * EASE;
+	const run = turn > x0 ? `L ${turn},${y0} ` : '';
+	return `M ${x0},${y0} ${run}C ${turn + k},${y0} ${x1 - k},${y1} ${x1},${y1}`;
 };
 const curveRight = (i: number) => {
 	const y0 = cyOf(RIGHT, i);
 	const y1 = ay(i, RIGHT.length);
 	const x0 = edgeR(rankOf(RIGHT[i]));
+	const turn = rankOf(RIGHT[i]) === 0 ? x0 : CHIP_R;
 	const x1 = BADGE_R - inset(y1);
-	const k = (x0 - x1) * EASE;
-	return `M ${x0},${y0} C ${x0 - k},${y0} ${x1 + k},${y1} ${x1},${y1}`;
+	const k = (turn - x1) * EASE;
+	const run = turn < x0 ? `L ${turn},${y0} ` : '';
+	return `M ${x0},${y0} ${run}C ${turn - k},${y0} ${x1 + k},${y1} ${x1},${y1}`;
 };
+
+/**
+ * Only the outermost chip on a line carries the fade. With two ranks an inner chip's fade would
+ * point back into the lane the outer rank occupies, and the fade means "and whatever else is out
+ * there" — which is a thing the edge of the composition says, not something every chip says.
+ */
+const hasFade = (c: Arm) => !isStagger || rankOf(c) > 0;
 
 const vars = [
 	`--hub-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
@@ -349,6 +374,7 @@ const vars = [
 			LEFT.map((c, i) => (
 				<span
 					class="hub__chip hub__chip--l"
+					data-fade={hasFade(c) ? '' : undefined}
 					style={`--hub-accent: ${c.accent}; --hub-y: ${cyOf(LEFT, i)}; --hub-edge: ${edgeL(rankOf(c))}`}
 				>
 					{c.name}
@@ -359,6 +385,7 @@ const vars = [
 			RIGHT.map((c, i) => (
 				<span
 					class="hub__chip hub__chip--r"
+					data-fade={hasFade(c) ? '' : undefined}
 					style={`--hub-accent: ${c.accent}; --hub-y: ${cyOf(RIGHT, i)}; --hub-edge: ${edgeR(rankOf(c))}`}
 				>
 					{c.name}
@@ -417,7 +444,7 @@ const vars = [
 	// chips sit against the gutter and are ragged on the outside, so their outer edges are at four
 	// different x — an SVG line at a fixed x started in mid-air beside the short ones. Anchored to
 	// the chip, it starts where the chip ends by construction.
-	.hub__chip::after {
+	.hub__chip[data-fade]::after {
 		content: '';
 		position: absolute;
 		top: 50%;
@@ -428,12 +455,12 @@ const vars = [
 
 	// Flush against the chip, no margin: the run out and the curve in are the same line passing
 	// through, and a gap on one side only made the chip look detached from its own tail.
-	.hub__chip--l::after {
+	.hub__chip--l[data-fade]::after {
 		right: 100%;
 		background: linear-gradient(to left, var(--hub-accent), transparent);
 	}
 
-	.hub__chip--r::after {
+	.hub__chip--r[data-fade]::after {
 		left: 100%;
 		background: linear-gradient(to right, var(--hub-accent), transparent);
 	}
