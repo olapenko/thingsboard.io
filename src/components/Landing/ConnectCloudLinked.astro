@@ -2,30 +2,24 @@
 import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
 
 /**
- * The vendor-neutral cloud, with some of the names wired to each other.
+ * The vendor-neutral cloud, with each name wired to the ones nearest it.
  *
- * A CANDIDATE beside `ConnectCloudOpen`, which is the same picture without the wires. Everything
- * about the composition is identical, so the two stages answer one question: does drawing the
- * relationships help, or is the cloud better as a flat list?
+ * A CANDIDATE beside `ConnectCloudOpen`, which is the same picture without the wires. The
+ * composition is identical, so the two stages answer one question: do the wires help?
  *
- * WHAT THE WIRES MEAN. They are not decoration looking for a pattern — each one is a fact:
+ * The wires are PROXIMITY, not meaning. Each chip joins the one or two chips closest to it, and
+ * that is the whole rule — no claim is made about protocols being related. A short straight segment
+ * between neighbours, drawn behind the chips so only the part crossing the gap is visible, which is
+ * what keeps it a texture rather than a diagram.
  *
- *   MQTT -> MQTT brokers   a broker speaks MQTT; the same protocol, arriving the other way
- *   MQTT brokers -> Sparkplug B   Sparkplug B is an MQTT payload spec, normally via a broker
- *   CoAP -> LwM2M          LwM2M runs over CoAP
- *   Modbus -> S7           both are PLC protocols the gateway translates
+ * Each segment is a gradient between the two chips' own accents. Between neighbours in the same
+ * group that is a single hue; between groups it is the blend, which is the only place the wiring
+ * says anything at all.
  *
- * Each wire is a gradient between the two chips' own accents, so a wire that crosses groups shows
- * it: MQTT is cyan and MQTT brokers is lime, and the line is the journey between them. A wire
- * inside one group is a single hue, which is correct — nothing is being crossed.
- *
- * WHY THIS ONE MEASURES AT RUNTIME, against the family's rule. Every other visual computes its
- * geometry in design units at build time, and this one cannot: the chips are laid out by flex and
- * grid, so where any given chip lands depends on text metrics the server does not have. The layer
- * is therefore drawn from `getBoundingClientRect` after layout, and redrawn by a `ResizeObserver`.
- *
- * It degrades to the plain cloud: no script, no wires, and the composition is untouched underneath.
- * Nothing about the chips depends on the layer existing.
+ * Runtime, against the family's build-time rule, and unavoidably: the chips are placed by flex and
+ * grid from text metrics the server does not have, so which chips are near each other is not known
+ * until the browser has laid them out. Redrawn by a `ResizeObserver`, since the unit comes from the
+ * container. Degrades to the plain cloud: no script, no wires, composition untouched.
  */
 
 // Measured, not chosen — see the note below on how the rows were balanced. Set to the widest row
@@ -142,18 +136,6 @@ if (missing.length || unplaced.length) {
 	);
 }
 
-/**
- * Which names are wired, and in which direction the gradient runs. Names must exist in GROUPS; the
- * build-time check below covers that, and a pair naming a chip that is not placed would draw
- * nothing rather than fail, so it is checked here too.
- */
-const LINKS: [string, string][] = [
-	['MQTT', 'MQTT brokers'],
-	['MQTT brokers', 'Sparkplug B'],
-	['CoAP', 'LwM2M'],
-	['Modbus', 'S7'],
-];
-
 const vars = [
 	`--cl-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
 	`--cl-native: ${NATIVE}`,
@@ -165,7 +147,7 @@ const vars = [
 ---
 
 <div class="cl-fit">
-	<div class="cl" style={vars} data-chip={chipStyle} data-links={JSON.stringify(LINKS)}>
+	<div class="cl" style={vars} data-chip={chipStyle} data-links>
 		{/* Drawn after layout; see the note above. Empty and invisible until the script fills it. */}
 		<svg class="cl__links" aria-hidden="true" focusable="false"></svg>
 
@@ -428,7 +410,7 @@ const vars = [
 		z-index: 0;
 		pointer-events: none;
 
-		:global(path) {
+		:global(line) {
 			fill: none;
 			stroke-width: max(1px, #{u(2)});
 			stroke-linecap: round;
@@ -445,56 +427,66 @@ const vars = [
 
 <script>
 	/**
-	 * Draws the wires after layout.
+	 * Wires each chip to its nearest neighbours, after layout.
 	 *
-	 * Runtime, not build time, and the component's doc says why: the chips are placed by flex and
-	 * grid from text metrics the server does not have, so nothing knows where a chip lands until the
-	 * browser has laid it out. Redrawn on resize, because the unit is derived from the container.
-	 *
-	 * Gradient ids are per-instance. The sandbox renders this component three times on one page, and
-	 * an id is document-global in SVG — three instances sharing `cl-link-0` means the last one to
-	 * render wins and the other two get its colours.
+	 * Gradient ids are per-instance: an SVG id is document-global, and the sandbox renders this
+	 * component three times on one page, so shared ids would give two of them the third's colours.
 	 */
 	let seq = 0;
+
+	/** How far a neighbour may be, as a multiple of a chip's own height. Beyond this it is not near. */
+	const REACH = 2.1;
+	/** At most this many wires leave any one chip, so a dense corner does not become a mesh. */
+	const PER_CHIP = 2;
 
 	const draw = (root: HTMLElement, uid: string) => {
 		const svg = root.querySelector('.cl__links');
 		if (!svg) return;
-		const pairs: [string, string][] = JSON.parse(root.dataset.links || '[]');
 		const box = root.getBoundingClientRect();
 		if (!box.width) return;
 		svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
 
-		const at = (name: string) => {
-			const el = root.querySelector<HTMLElement>(`[data-name="${CSS.escape(name)}"]`);
-			if (!el) return null;
+		const chips = [...root.querySelectorAll<HTMLElement>('.cl__chip')].map((el) => {
 			const r = el.getBoundingClientRect();
 			const li = el.closest('li');
-			const accent = li ? getComputedStyle(li).getPropertyValue('--cl-accent').trim() : '';
-			return { x: r.left - box.left + r.width / 2, y: r.top - box.top + r.height / 2, accent: accent || '#5b616e' };
-		};
+			return {
+				x: r.left - box.left + r.width / 2,
+				y: r.top - box.top + r.height / 2,
+				h: r.height,
+				accent: (li ? getComputedStyle(li).getPropertyValue('--cl-accent').trim() : '') || '#5b616e',
+			};
+		});
+		if (chips.length < 2) return;
+
+		const reach = chips[0].h * REACH;
+		const seen = new Set<string>();
+		const pairs: [number, number][] = [];
+		chips.forEach((c, i) => {
+			const near = chips
+				.map((o, j) => ({ j, d: Math.hypot(o.x - c.x, o.y - c.y) }))
+				.filter((n) => n.j !== i && n.d <= reach)
+				.sort((a, b) => a.d - b.d)
+				.slice(0, PER_CHIP);
+			near.forEach(({ j }) => {
+				const key = i < j ? `${i}:${j}` : `${j}:${i}`;
+				if (seen.has(key)) return;
+				seen.add(key);
+				pairs.push([i, j]);
+			});
+		});
 
 		let defs = '';
 		let paths = '';
-		pairs.forEach(([a, b], i) => {
-			const A = at(a);
-			const B = at(b);
-			if (!A || !B) return;
-			const id = `${uid}-${i}`;
-			// userSpaceOnUse and the two chip centres as endpoints: the gradient then runs along the
-			// wire itself whatever direction it takes, rather than across the element's bounding box.
+		pairs.forEach(([i, j], n) => {
+			const A = chips[i];
+			const B = chips[j];
+			const id = `${uid}-${n}`;
+			// userSpaceOnUse with the two centres as endpoints, so the blend runs along the wire
+			// whichever way it points rather than across the layer's bounding box.
 			defs +=
 				`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}">` +
 				`<stop offset="0" stop-color="${A.accent}"/><stop offset="1" stop-color="${B.accent}"/></linearGradient>`;
-			// A gentle bow, perpendicular to the line and capped: straight wires between chips in the
-			// same row disappear into the row's own gaps, and a long one would cut across the cloud.
-			const mx = (A.x + B.x) / 2;
-			const my = (A.y + B.y) / 2;
-			const dx = B.x - A.x;
-			const dy = B.y - A.y;
-			const len = Math.hypot(dx, dy) || 1;
-			const bow = Math.min(22, len * 0.18);
-			paths += `<path d="M ${A.x} ${A.y} Q ${mx - (dy / len) * bow} ${my + (dx / len) * bow} ${B.x} ${B.y}" stroke="url(#${id})"/>`;
+			paths += `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="url(#${id})"/>`;
 		});
 		svg.innerHTML = `<defs>${defs}</defs>${paths}`;
 	};
