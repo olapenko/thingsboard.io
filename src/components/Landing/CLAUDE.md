@@ -1,7 +1,7 @@
 # Key visuals
 
 The illustrations on the experimental homepage: `ConnectCloud`, `ConnectFlow`, `DigitalTwin`,
-`NormalizeSeries`, `ScaleGrowth`, `SolutionFlow`, `DeployFork`, `WhiteLabelApp` and their candidates.
+`NormalizeSeries`, `ScaleDuo`, `SolutionFlow`, `DeployFork`, `WhiteLabelApp` and their candidates.
 They are drawn in CSS and SVG, not exported as images, so they take the page's tokens and stay
 sharp at any size.
 
