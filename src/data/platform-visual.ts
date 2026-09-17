@@ -78,6 +78,21 @@ export interface PlatformStage {
 	icon: string;
 	name: string;
 	note: string;
+	/**
+	 * The stage's own hue, carried by its icon.
+	 *
+	 * Read by `PlatformRaised`, where the card is white and the runs are grey, so the icons are the
+	 * only colour in the picture and the four stages are told apart by it. `PlatformLoop` ignores it
+	 * and draws all four in the platform's indigo. It lives here rather than in the component for the
+	 * same reason the connect routes' accents live in `connect-visual.ts`.
+	 *
+	 * Four hues off the ramp this family already draws from — the same 600/700 steps as the connect
+	 * route accents and the two zone colours. Ordered so that no two ADJACENT columns are near
+	 * neighbours in hue: indigo, rose, lime, violet puts the only close pair (indigo and violet) at
+	 * opposite ends of the row, where they are never read side by side. Deliberately not cyan or
+	 * amber, which are spoken for by the equipment and people columns.
+	 */
+	accent: string;
 }
 
 /**
@@ -86,10 +101,13 @@ export interface PlatformStage {
  * own and the other is work being done to it.
  */
 export const PLATFORM_STAGES: PlatformStage[] = [
-	{ icon: 'tabler:plug-connected', name: 'Connect', note: 'Devices, gateways, integrations' },
-	{ icon: 'tabler:box-model', name: 'Model', note: 'Assets, relations, profiles' },
-	{ icon: 'tabler:binary-tree', name: 'Automate', note: 'Rule chains, calculated fields, alarms' },
-	{ icon: 'tabler:chart-dots', name: 'Operate', note: 'Dashboards, SCADA, reports' },
+	{ icon: 'tabler:plug-connected', name: 'Connect', note: 'Devices, gateways, integrations', accent: '#3d50f5' },
+	{ icon: 'tabler:box-model', name: 'Model', note: 'Assets, relations, profiles', accent: '#be185d' },
+	// Lime 700, not the 600 the connect visual uses. Measured on the white card, 600 came to 3.09:1
+	// against the other three at 5.7–6.0, and a thin icon stroke at 3.09 reads as a lighter weight
+	// rather than a different colour. 700 is 4.99 and sits in the same band as its siblings.
+	{ icon: 'tabler:binary-tree', name: 'Automate', note: 'Rule chains, calculated fields, alarms', accent: '#4d7c0f' },
+	{ icon: 'tabler:chart-dots', name: 'Operate', note: 'Dashboards, SCADA, reports', accent: '#7b3fe4' },
 ];
 
 /**
