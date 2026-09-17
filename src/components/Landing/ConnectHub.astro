@@ -1,0 +1,310 @@
+---
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+
+/**
+ * Connect as a hub: the platform in the middle, protocols either side, each on the end of a line
+ * that runs off and fades out.
+ *
+ * A CANDIDATE, sandbox only. A structural draft from a sketch, and it argues something the cloud
+ * cannot: the cloud says "whatever you have is in here" and is deliberately unordered, while this
+ * says "everything arrives at one place" and draws the arrival.
+ *
+ * --- the fade, which is the whole idea ------------------------------------------------------
+ *
+ * The sketch had a device icon on the outer end of every line — a solar panel, a robot arm, a
+ * charger. Those are gone, and the line dissolves into the page instead. Two reasons. Eight device
+ * glyphs is eight more things to read in a picture whose subject is the protocols, and each one
+ * makes a claim about which device speaks which protocol that is a simplification at best: Modbus
+ * is not solar panels. A line that fades says "and whatever else you have" without naming anything,
+ * which is both truer and quieter.
+ *
+ * The fade runs in the chip's own accent, so the colour leaves the composition the way it arrived.
+ *
+ * --- geometry -------------------------------------------------------------------------------
+ *
+ * Computed here in design units, unlike `ConnectCloudLinked`, which has to measure at runtime. The
+ * difference is that this structure is fixed: four chips a side at a known pitch, so every endpoint
+ * is known before the browser sees it. Nothing here depends on layout having happened.
+ *
+ * Curves are cubics with horizontal control points, as everywhere else in the family, so each one
+ * leaves its chip flat and arrives at the badge flat. They fan onto the badge's face rather than
+ * converging on its centre — four lines meeting at a point reads as a star, not as arrivals.
+ */
+
+interface Props {
+	/** Draws the caption under the badge. Off, as on the other Connect cuts. */
+	nodeLabel?: boolean;
+}
+
+const { nodeLabel = false }: Props = Astro.props;
+
+/**
+ * Four a side, from the sketch. Accents follow the three routes the other cuts use — straight in,
+ * through a gateway, through an integration — so a chip means the same thing in every version.
+ */
+const CYAN = '#0e7490'; // direct
+const PURPLE = '#7b3fe4'; // gateway
+const LIME = '#65a30d'; // integration
+
+// Eight of the twenty-one, three direct / three gateway / two integration, which is roughly the
+// proportion the full set has. Dealt so NEITHER column is one colour: the first pass put Modbus,
+// OPC UA and BACnet together and the right-hand side read as a purple list with one odd chip.
+//
+// Seven characters is the ceiling — the column is 100 units and a 20u mono chip costs 10 a
+// character plus 24 of padding — which is why the integrations here are LoRaWAN and Sigfox rather
+// than "MQTT brokers" or "Cloud platforms".
+const LEFT = [
+	{ name: 'MQTT', accent: CYAN },
+	{ name: 'Modbus', accent: PURPLE },
+	{ name: 'LoRaWAN', accent: LIME },
+	{ name: 'OCPP', accent: CYAN },
+];
+const RIGHT = [
+	{ name: 'OPC UA', accent: PURPLE },
+	{ name: 'CoAP', accent: CYAN },
+	{ name: 'Sigfox', accent: LIME },
+	{ name: 'BLE', accent: PURPLE },
+];
+
+// --- the box ---------------------------------------------------------------------------------
+//
+// Tighter than the sketch, which had roughly a chip's height of air between rows. The pitch here is
+// 1.7 chips, which is enough for the curves to separate and no more.
+const STUB = 36; // the fading run outside each chip
+const COL = 100; // the chip column; chips sit against the gutter, ragged on the outside
+const GUT = 74; // chip to badge
+const BADGE = 104;
+const NATIVE = STUB + COL + GUT + BADGE + GUT + COL + STUB;
+
+const CHIP_H = 40;
+// 56, not 68: sixteen units of air between chips. The curves still separate because they fan onto
+// the badge's face rather than converging, so the pitch is free to close up.
+const PITCH = 56;
+const HEIGHT = LEFT.length * PITCH;
+
+const MID_X = NATIVE / 2;
+const MID_Y = HEIGHT / 2;
+
+// x landmarks, left to right
+const CHIP_L = STUB + COL; // inner edge of the left chips
+const BADGE_L = MID_X - BADGE / 2;
+const BADGE_R = MID_X + BADGE / 2;
+const CHIP_R = NATIVE - STUB - COL; // inner edge of the right chips
+
+const cy = (i: number) => PITCH / 2 + i * PITCH;
+
+// Where the four lines land on the badge's face: spread over the middle of it rather than meeting
+// at a point. 60 units of the badge's 104, so the outermost pair still sit clear of its corners.
+const FAN = 60;
+const ay = (i: number, n: number) => MID_Y - FAN / 2 + (FAN / (n - 1)) * i;
+
+const EASE = 0.55;
+
+const curveLeft = (i: number) => {
+	const y0 = cy(i);
+	const y1 = ay(i, LEFT.length);
+	const k = (BADGE_L - CHIP_L) * EASE;
+	return `M ${CHIP_L},${y0} C ${CHIP_L + k},${y0} ${BADGE_L - k},${y1} ${BADGE_L},${y1}`;
+};
+const curveRight = (i: number) => {
+	const y0 = cy(i);
+	const y1 = ay(i, RIGHT.length);
+	const k = (CHIP_R - BADGE_R) * EASE;
+	return `M ${CHIP_R},${y0} C ${CHIP_R - k},${y0} ${BADGE_R + k},${y1} ${BADGE_R},${y1}`;
+};
+
+const vars = [
+	`--hub-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
+	`--hub-native: ${NATIVE}`,
+	`--hub-h: ${HEIGHT}`,
+	`--hub-badge: ${BADGE}`,
+	`--hub-chip-h: ${CHIP_H}`,
+	`--hub-stub: ${STUB}`,
+	`--hub-col: ${COL}`,
+	`--hub-mid-y: ${MID_Y}`,
+].join('; ');
+---
+
+<div class="hub-fit">
+	<div class="hub" style={vars} data-node-label={nodeLabel ? 'on' : 'off'}>
+		<svg
+			class="hub__wires"
+			viewBox={`0 0 ${NATIVE} ${HEIGHT}`}
+			preserveAspectRatio="none"
+			aria-hidden="true"
+			focusable="false"
+		>
+			{
+				/* Each curve in its chip's own accent, at full strength. They were a grey hairline, which
+			    made the composition two unrelated systems — coloured chips, grey plumbing. One colour
+			    per route, carried the whole way in, is the same coding the chips use. */
+			}
+			{LEFT.map((c, i) => <path class="hub__wire" d={curveLeft(i)} stroke={c.accent} />)}
+			{RIGHT.map((c, i) => <path class="hub__wire" d={curveRight(i)} stroke={c.accent} />)}
+		</svg>
+
+		{
+			LEFT.map((c, i) => (
+				<span class="hub__chip hub__chip--l" style={`--hub-accent: ${c.accent}; --hub-y: ${cy(i)}`}>
+					{c.name}
+				</span>
+			))
+		}
+		{
+			RIGHT.map((c, i) => (
+				<span class="hub__chip hub__chip--r" style={`--hub-accent: ${c.accent}; --hub-y: ${cy(i)}`}>
+					{c.name}
+				</span>
+			))
+		}
+
+		<span class="hub__badge" aria-hidden="true" set:html={mark} />
+		<span class="hub__label">ThingsBoard</span>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.hub-fit {
+		container-type: inline-size;
+	}
+
+	.hub {
+		--u: var(--hub-u);
+		position: relative;
+		width: u(var(--hub-native));
+		max-width: 100%;
+		height: u(var(--hub-h));
+		margin-inline: auto;
+	}
+
+	.hub__wires {
+		position: absolute;
+		inset: 0;
+		// Not optional: the global reset gives every svg `max-width: 100%`, which would resolve against
+		// the parent and scale the drawing out of register with the chips placed over it.
+		width: 100%;
+		max-width: none;
+		height: 100%;
+		overflow: visible;
+	}
+
+	// Stroke comes from the markup, per chip. Weight matches the fade on the other side of the chip,
+	// so what crosses the picture is one line with a chip sitting in the middle of it.
+	.hub__wire {
+		fill: none;
+		stroke-width: max(1px, #{u(2)});
+		stroke-linecap: round;
+		vector-effect: non-scaling-stroke;
+	}
+
+	// The run out, dissolving into the page: this is what replaced the sketch's device icons.
+	//
+	// A pseudo-element on the chip rather than a line in the SVG, and that is not a preference. The
+	// chips sit against the gutter and are ragged on the outside, so their outer edges are at four
+	// different x — an SVG line at a fixed x started in mid-air beside the short ones. Anchored to
+	// the chip, it starts where the chip ends by construction.
+	.hub__chip::after {
+		content: '';
+		position: absolute;
+		top: 50%;
+		width: u(var(--hub-stub));
+		height: max(1px, #{u(2)});
+		transform: translateY(-50%);
+	}
+
+	// Flush against the chip, no margin: the run out and the curve in are the same line passing
+	// through, and a gap on one side only made the chip look detached from its own tail.
+	.hub__chip--l::after {
+		right: 100%;
+		background: linear-gradient(to left, var(--hub-accent), transparent);
+	}
+
+	.hub__chip--r::after {
+		left: 100%;
+		background: linear-gradient(to right, var(--hub-accent), transparent);
+	}
+
+	// Bigger than the cloud's chips — 20u against 17u — because there are eight of them rather than
+	// twenty-one and they are the only text in the picture.
+	.hub__chip {
+		position: absolute;
+		top: calc(var(--hub-y) * var(--u));
+		display: flex;
+		align-items: center;
+		height: u(var(--hub-chip-h));
+		padding: 0 u(12);
+		transform: translateY(-50%);
+		border-radius: u(10);
+		background: color-mix(in srgb, var(--hub-accent) 16%, transparent);
+		font-family: $font-family-mono;
+		font-size: u(20);
+		font-weight: $font-weight-bold;
+		line-height: 1;
+		white-space: nowrap;
+		color: var(--color-text, #17181c);
+	}
+
+	// Against the gutter on the inside, ragged on the outside: the curves all start on one vertical,
+	// which is what makes them read as a fan rather than as eight unrelated arcs.
+	.hub__chip--l {
+		right: calc((var(--hub-native) - var(--hub-stub) - var(--hub-col)) * var(--u));
+	}
+
+	.hub__chip--r {
+		left: calc((var(--hub-native) - var(--hub-stub) - var(--hub-col)) * var(--u));
+	}
+
+	// The other Connect cuts' badge, verbatim: the mark is a white glyph and needs the squircle under
+	// it. Rendered without one it is a black shape on the page, which is what the first pass did.
+	.hub__badge {
+		position: absolute;
+		top: calc(var(--hub-mid-y) * var(--u));
+		left: 50%;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: u(var(--hub-badge));
+		height: u(var(--hub-badge));
+		padding: u(16);
+		transform: translate(-50%, -50%);
+		// The page's shared squircle.
+		border-radius: 32%;
+		background: var(--color-primary, #3d50f5);
+		color: var(--color-white, #fff);
+		box-shadow: var(
+			--flow-shadow-badge,
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
+		);
+
+		:global(svg) {
+			display: block;
+			width: 100%;
+			max-width: none;
+			height: 100%;
+		}
+	}
+
+	.hub__label {
+		position: absolute;
+		top: calc((var(--hub-mid-y) + var(--hub-badge) / 2 + 10) * var(--u));
+		left: 50%;
+		transform: translateX(-50%);
+		font-size: u(16);
+		line-height: u(20);
+		font-weight: $font-weight-medium;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.hub[data-node-label='off'] .hub__label {
+		@include visually-hidden;
+	}
+</style>

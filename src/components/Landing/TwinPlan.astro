@@ -1,0 +1,832 @@
+---
+import { Icon } from 'astro-icon/components';
+import { DIGITAL_TWIN_STAGES, PHYSICAL_ASSET, TWIN, TWIN_FLOWS, TWIN_HISTORY } from '@data/digital-twin-visual';
+import { segmentWidth, sparkPaths, sparkY } from '@util/sparkline';
+
+/**
+ * The twin composition with the physical half drawn as a FLOOR PLAN, seen from above. A third
+ * candidate beside `TwinCorridor`'s two, which are untouched — the plain one and the nested one are
+ * both still in the panel and the nested one is still what the home preview shows.
+ *
+ * --- what is different ------------------------------------------------------------------------
+ *
+ * The other two draw the physical side as cards: a frame for the site, a card for the unit, a list
+ * of devices inside it. This draws the place instead. The warehouse is a plan, the zone is an area
+ * marked on its floor, and the cold storage unit is a rectangle standing in that area — no header
+ * band, no device rows, no status light.
+ *
+ * The argument for it: containment stops being a stack of rounded rectangles and becomes what it
+ * actually is, a thing standing somewhere. The twin opposite says `Acme Inc > Warehouse 3 > Zone B`
+ * in words; the plan says the same in plan. Nothing has to assert a hierarchy that the drawing is
+ * already showing.
+ *
+ * The argument against, and it is the thing to judge: the unit stops listing its devices, so the
+ * word "devices" in the copy beside the visual has nothing in the picture any more — only the twin's
+ * three rows imply them. And a plan of one object risks looking like an empty room, which is why
+ * there are two racks on the floor and a door on the unit rather than a bare box.
+ *
+ * The door is the detail that makes it a plan rather than three nested rectangles: a gap in the
+ * unit's wall with its swing drawn, in the plan convention. It is also the one the twin reports on,
+ * so the two halves are describing the same door.
+ *
+ * --- what is shared ---------------------------------------------------------------------------
+ *
+ * The twin's card, its three rows and the whole of the day's data are copied from `TwinCorridor`
+ * rather than shared, because that component is what the home preview renders and the directory's
+ * rule is not to edit a shipped visual to try an idea. If this one wins, the two should be folded
+ * back together; while it is a draft, the duplication is the cheaper mistake.
+ *
+ * The connectors work exactly as they do there: elbows, anchored to the unit's top and bottom edges
+ * and to the twin's left, drawn on one layer over the whole composition.
+ */
+
+interface Props {
+	/**
+	 * Put the unit among its peers: three more cold rooms on the floor, faded and unlabelled, and
+	 * no door drawn on any of them.
+	 *
+	 * It changes what the picture is about. Alone, the unit is THE cold storage unit and the plan is
+	 * its address. Among others it becomes one of several, which is the truer thing for a platform
+	 * whose argument is that it models a whole estate — and it is why the subject needs a name that
+	 * identifies it rather than describes its type.
+	 */
+	peers?: boolean;
+}
+
+const { peers = false } = Astro.props;
+
+// --- content ------------------------------------------------------------------------------
+
+// Names only. The plan carries no glyphs — see the note on `.tp__site-name` below.
+const SITE = { name: PHYSICAL_ASSET.path[0] };
+const ZONE = { name: PHYSICAL_ASSET.path[1] };
+
+/** As deep as the plan goes, so the two halves describe the same containment. */
+const PATH = ['Acme Inc', ...PHYSICAL_ASSET.path];
+
+/**
+ * Among peers the unit needs a name that picks it out rather than one that says what it is: every
+ * rectangle on that floor is a cold storage unit. Overridden here rather than in the shared data,
+ * which the other candidates and the shipped visual are still reading.
+ */
+const UNIT_NAME = peers ? 'Cold storage 02' : PHYSICAL_ASSET.name;
+const TWIN_NAME = peers ? `${UNIT_NAME} twin` : TWIN.name;
+
+const telemetry = TWIN_FLOWS.find((f) => f.to === 'twin');
+const commands = TWIN_FLOWS.find((f) => f.to === 'physical');
+
+const attr = (key: string) => TWIN.attributes.find((a) => a.key === key)?.value ?? '';
+
+// --- the day ------------------------------------------------------------------------------
+//
+// Copied from `TwinCorridor`. See the note above on why this is a copy.
+
+const TAU = Math.PI * 2;
+const STEP_H = 0.5;
+const STEPS = TWIN_HISTORY.hours / STEP_H;
+const START_H = 1;
+
+const bump = (t: number) => Math.pow(Math.max(0, Math.sin((TAU * t) / 6)), 6);
+const tempAt = (t: number) =>
+	-18.3 + 0.9 * Math.sin((TAU * t) / 9 + 0.6) + 0.3 * Math.sin((TAU * t) / 2.3) + 1.1 * bump(t);
+
+const SERIES = Array.from({ length: STEPS + 1 }, (_, i) => Math.round(tempAt(START_H + i * STEP_H) * 100) / 100);
+
+const WINDOW = 5;
+const smooth = (i: number) => {
+	const lo = Math.max(0, i - (WINDOW >> 1));
+	const hi = Math.min(SERIES.length - 1, i + (WINDOW >> 1));
+	let sum = 0;
+	for (let j = lo; j <= hi; j++) sum += SERIES[j];
+	return sum / (hi - lo + 1);
+};
+const RUNNING = Array.from({ length: STEPS }, (_, i) => smooth(i + 1) < smooth(i));
+
+const IDLE_KW = 0.35;
+const RUN_KW = 2.4;
+const POWER = Array.from({ length: STEPS + 1 }, (_, i) => {
+	const on = RUNNING[Math.min(i, STEPS - 1)];
+	return Math.round(((on ? RUN_KW : IDLE_KW) + 0.05 * Math.sin(i * 1.7)) * 100) / 100;
+});
+
+const DOOR_OPEN = Array.from({ length: STEPS }, (_, i) => {
+	const t = START_H + i * STEP_H;
+	return bump(t) > 0.55 && Math.floor(t / 6) % 2 === 1;
+});
+
+const spans = (flags: boolean[]) => {
+	const out: { x: number; w: number }[] = [];
+	for (let i = 0; i < flags.length; i++) {
+		if (!flags[i]) continue;
+		const start = i;
+		while (flags[i + 1]) i++;
+		out.push({ x: (start / flags.length) * 100, w: ((i - start + 1) / flags.length) * 100 });
+	}
+	return out;
+};
+
+const DOOR_SPANS = spans(DOOR_OPEN);
+
+const CHART_H = 30;
+const BAND_H = 12;
+
+const TEMP_VIEW = { w: 100, h: CHART_H, pad: 0 };
+const temp = sparkPaths(SERIES, TWIN_HISTORY.domain, TEMP_VIEW);
+
+const POWER_VIEW = { w: 100, h: CHART_H, pad: 0 };
+const POWER_DOMAIN: [number, number] = [0, 3];
+const POWER_SEG = segmentWidth(POWER.length, POWER_VIEW);
+const powerPts = POWER.map((v, i) => `${(i * POWER_SEG).toFixed(2)},${sparkY(v, POWER_DOMAIN, POWER_VIEW).toFixed(2)}`);
+const power = {
+	line: `M ${powerPts.join(' L ')}`,
+	area: `M ${powerPts.join(' L ')} L ${POWER_VIEW.w},${POWER_VIEW.h} L 0,${POWER_VIEW.h} Z`,
+};
+
+// --- geometry -----------------------------------------------------------------------------
+//
+// The same footprint as the other two, so all three can be laid over each other.
+
+const NATIVE = 558;
+const COL = { site: 258, gut: 18, twin: 282 };
+const BODY = 338;
+
+const FRAME_PAD = 12;
+const HEAD_H = 24; // the warehouse's name, on the plan's top line
+
+const TWIN_HEAD_PAD = 12;
+const PATH_H = 18;
+const PATH_GAP = 14;
+const NAME_H = 22;
+const TWIN_HEAD_H = TWIN_HEAD_PAD + PATH_H + PATH_GAP + NAME_H + 14;
+
+// --- the plan ------------------------------------------------------------------------------
+//
+// Everything on the left is placed in the column's own 258 x 338 units, so the whole plan scales
+// with the composition and nothing has to be positioned as a percentage of something else.
+//
+// Read top to bottom: the warehouse's name, then open floor with two racks on it, then the zone
+// marked out across the lower two thirds, with the unit standing in it. The telemetry line runs
+// across that open floor, which is the same corridor trade the other two make — here it reads as
+// the link leaving the building rather than as an arrow in a gutter.
+
+const ZONE_BOX = { x: FRAME_PAD, y: 110, w: COL.site - FRAME_PAD * 2, h: 216 };
+const ZONE_PAD = 8;
+
+// Centred on the same axis the other two put it on, so the risers stand where they always have.
+//
+// Among peers it is smaller and one of three in a row — the middle one, which is what keeps that
+// axis — and its name moves above it, because a box this size cannot hold one.
+const UNIT = peers ? { x: 96, y: 200, w: 66, h: 70 } : { x: 58, y: 168, w: 142, h: 94 };
+const UNIT_TOP = UNIT.y;
+const UNIT_BOT = UNIT.y + UNIT.h;
+
+// A door in the unit's left wall, drawn the way a plan draws one: a gap in the wall, and the leaf
+// swung open across the floor it opens onto. It faces the aisle rather than the twin, and it is on
+// the wall the connectors do not use — they take the top and bottom edges.
+const DOOR = { y: 196, h: 44, swing: 34 };
+
+// Structural columns across the open floor, in the building's own stroke, so the plan reads as a
+// building rather than as a box with two things in it. Six on a near-regular grid, in the one band
+// they fit: below the telemetry run and above the zone.
+//
+// The middle spacing is 38 where the others are 42, which puts the gap on the telemetry riser's
+// line — 129. A column grid with a wider bay in it is what a plan does anyway, and it means the
+// riser drops down an aisle instead of through a column.
+const COLUMN = 16;
+const COLUMNS = [18, 60, 102, 140, 182, 224].map((x) => ({ x, y: 80 }));
+
+// The other cold rooms: the same size as the subject and in line with it, so the three read as a
+// rank of identical rooms and the only thing that distinguishes ours is that it is named and that
+// the platform is talking to it. Three across the zone's width — 66 each with 10 between — which is
+// what sets the subject's own size.
+const PEERS = peers
+	? [
+			{ x: 20, y: UNIT.y, w: UNIT.w, h: UNIT.h, n: '01' },
+			{ x: 172, y: UNIT.y, w: UNIT.w, h: UNIT.h, n: '03' },
+		]
+	: [];
+
+/**
+ * What is written on the box. Among peers that is a number and nothing else: three identical rooms
+ * in a rank are told apart by their position in it, which is how a plan numbers bays. It also ends
+ * the problem a name had — any name wide enough to read was wider than a 66u box, so it had to go
+ * above and be knocked out of the riser coming down into it. A number sits inside.
+ *
+ * The twin opposite still carries the full name. The plan is a plan; the record is the record.
+ */
+const UNIT_MARK = peers ? '02' : UNIT_NAME;
+
+const UNIT_X = UNIT.x + UNIT.w / 2;
+const TWIN_X = COL.site + COL.gut;
+
+const UP_Y = TWIN_HEAD_PAD + PATH_H + PATH_GAP + NAME_H;
+const DOWN_Y = UNIT_BOT + 28;
+const LABEL_GAP = 16;
+const LABEL_X = (UNIT_X + COL.site) / 2;
+
+const R = 12;
+const HEAD = 8;
+const WING = 5;
+
+const wires = {
+	up: `M ${UNIT_X},${UNIT_TOP} L ${UNIT_X},${UP_Y + R} Q ${UNIT_X},${UP_Y} ${UNIT_X + R},${UP_Y} L ${TWIN_X},${UP_Y}`,
+	upHead: `M ${TWIN_X - HEAD},${UP_Y - WING} L ${TWIN_X},${UP_Y} L ${TWIN_X - HEAD},${UP_Y + WING}`,
+	down: `M ${TWIN_X},${DOWN_Y} L ${UNIT_X + R},${DOWN_Y} Q ${UNIT_X},${DOWN_Y} ${UNIT_X},${DOWN_Y - R} L ${UNIT_X},${UNIT_BOT}`,
+	downHead: `M ${UNIT_X - WING},${UNIT_BOT + HEAD} L ${UNIT_X},${UNIT_BOT} L ${UNIT_X + WING},${UNIT_BOT + HEAD}`,
+};
+
+/** The door leaf and its swing, in the plan's own coordinates. */
+const door = {
+	leaf: `M ${UNIT.x},${DOOR.y} L ${UNIT.x - DOOR.swing},${DOOR.y}`,
+	arc: `M ${UNIT.x - DOOR.swing},${DOOR.y} A ${DOOR.swing},${DOOR.swing} 0 0 0 ${UNIT.x},${DOOR.y + DOOR.swing}`,
+};
+
+const CARD_PAD_B = 14;
+const ROWS = [
+	{ key: 'temperature', value: attr('temperature'), h: 90, kind: 'spline', accent: '#0e7490', on: null },
+	{
+		key: 'power',
+		value: `${POWER[POWER.length - 1].toFixed(1)} kW`,
+		h: 90,
+		kind: 'steps',
+		accent: '#b45309',
+		on: null,
+	},
+	{ key: 'door', value: attr('door'), h: 64, kind: 'band', accent: '#b23c33', on: null },
+];
+
+const at = (x: number, y: number) => `--x: ${((x / NATIVE) * 100).toFixed(3)}%; --y: ${((y / BODY) * 100).toFixed(3)}%`;
+
+const vars = [
+	`--tp-u: clamp(0.45px, calc(100cqw / ${NATIVE}), 1.15px)`,
+	`--tp-native: ${NATIVE}`,
+	`--tp-site: ${COL.site}`,
+	`--tp-gut: ${COL.gut}`,
+	`--tp-twin: ${COL.twin}`,
+	`--tp-body: ${BODY}`,
+	`--tp-pad: ${FRAME_PAD}`,
+	`--tp-head: ${HEAD_H}`,
+	`--tp-twin-head: ${TWIN_HEAD_H}`,
+	`--tp-head-pad: ${TWIN_HEAD_PAD}`,
+	`--tp-path-h: ${PATH_H}`,
+	`--tp-path-gap: ${PATH_GAP}`,
+	`--tp-name-h: ${NAME_H}`,
+	`--tp-chart-h: ${CHART_H}`,
+	`--tp-band-h: ${BAND_H}`,
+	`--tp-card-pad-b: ${CARD_PAD_B}`,
+	`--tp-zone-x: ${ZONE_BOX.x}`,
+	`--tp-zone-y: ${ZONE_BOX.y}`,
+	`--tp-zone-w: ${ZONE_BOX.w}`,
+	`--tp-zone-h: ${ZONE_BOX.h}`,
+	`--tp-zone-pad: ${ZONE_PAD}`,
+	`--tp-column: ${COLUMN}`,
+	// The rooms' own fills. The two that are only there to be counted take a flat dark grey; the one
+	// the platform is talking to takes the primary, deepened — darker than the connectors running
+	// into it, so it reads as the thing they arrive at rather than as more of the same line.
+	`--tp-unit-bg: ${peers ? '#1f2a8a' : 'var(--flow-chrome, #1b1e27)'}`,
+	`--tp-unit-x: ${UNIT.x}`,
+	`--tp-unit-y: ${UNIT.y}`,
+	`--tp-unit-w: ${UNIT.w}`,
+	`--tp-unit-h: ${UNIT.h}`,
+	// Two walls' worth: the plan's own outline, which the risers cross on their way out of the
+	// building, is 2px and box-sizing takes it out of the space everything inside is placed in.
+	`--tp-nudge: 2px`,
+].join(';');
+---
+
+<div class="tp-fit">
+	<div class="tp" style={vars} data-twin-plan>
+		<p class="tp__stage">{DIGITAL_TWIN_STAGES.physical}</p>
+		<p class="tp__stage tp__stage--right">{DIGITAL_TWIN_STAGES.twin}</p>
+
+		<div class="tp__body">
+			{/* --- the warehouse, from above ------------------------------------------------- */}
+			<div class="tp__plan">
+				<p class="tp__site-name">{SITE.name}</p>
+
+				{COLUMNS.map((c) => <i class="tp__column" style={`--x: ${c.x}; --y: ${c.y}`} />)}
+				{
+					PEERS.map((r) => (
+						<span class="tp__peer" style={`--x: ${r.x}; --y: ${r.y}; --w: ${r.w}; --h: ${r.h}`}>
+							{r.n}
+						</span>
+					))
+				}
+
+				<div class="tp__zone">
+					<p class="tp__zone-name">{ZONE.name}</p>
+				</div>
+
+				<div class="tp__unit">
+					<span>{UNIT_MARK}</span>
+				</div>
+
+				{
+					/* The door, over the unit's wall: a gap where the leaf is, then the leaf and its swing
+				    across the floor. Drawn last so it sits on top of the dark. Dropped among peers,
+				    where three more rooms are already saying what kind of thing these are. */
+				}
+				{
+					!peers && (
+						<svg
+							class="tp__door"
+							viewBox={`0 0 ${COL.site} ${BODY}`}
+							preserveAspectRatio="none"
+							aria-hidden="true"
+							focusable="false"
+						>
+							<rect class="tp__door-gap" x={UNIT.x - 2} y={DOOR.y} width="4" height={DOOR.h} />
+							<path class="tp__door-line" d={door.leaf} />
+							<path class="tp__door-line tp__door-line--swing" d={door.arc} />
+						</svg>
+					)
+				}
+			</div>
+
+			{/* --- its twin ------------------------------------------------------------------ */}
+			<div class="tp__card">
+				<header class="tp__head">
+					<p class="tp__path">
+						{
+							PATH.map((step, i) => (
+								<Fragment>
+									{i > 0 && (
+										<span class="tp__sep" aria-hidden="true">
+											›
+										</span>
+									)}
+									<span>{step}</span>
+								</Fragment>
+							))
+						}
+					</p>
+					<p class="tp__name">
+						<Icon name="tabler:box-model" aria-hidden="true" />
+						<span>{TWIN_NAME}</span>
+					</p>
+				</header>
+
+				<ul class="tp__attrs">
+					{
+						ROWS.map((row) => (
+							<li
+								class="tp__attr"
+								style={`--h: ${row.h}; --accent: ${row.accent}; --accent-on: ${row.on ?? row.accent}`}
+								data-twin-attr={row.key}
+							>
+								<span class="tp__k">{row.key}</span>
+								<span class="tp__v">{row.value}</span>
+
+								{row.kind === 'band' ? (
+									<span class="tp__band">
+										<svg viewBox={`0 0 100 ${BAND_H}`} preserveAspectRatio="none" aria-hidden="true">
+											<rect class="tp__band-off" x="0" y="0" width="100" height={BAND_H} />
+											{DOOR_SPANS.map((s) => (
+												<rect class="tp__band-on" x={s.x} y="0" width={s.w} height={BAND_H} />
+											))}
+										</svg>
+									</span>
+								) : (
+									<span class="tp__chart">
+										<svg viewBox={`0 0 100 ${CHART_H}`} preserveAspectRatio="none" aria-hidden="true">
+											<path class="tp__chart-area" d={row.kind === 'steps' ? power.area : temp.area} />
+											<path class="tp__chart-line" d={row.kind === 'steps' ? power.line : temp.line} />
+										</svg>
+									</span>
+								)}
+							</li>
+						))
+					}
+				</ul>
+			</div>
+
+			<svg
+				class="tp__wires"
+				viewBox={`0 0 ${NATIVE} ${BODY}`}
+				preserveAspectRatio="none"
+				aria-hidden="true"
+				focusable="false"
+			>
+				<path class="tp__wire" d={wires.up}></path>
+				<path class="tp__wire tp__wire--head" d={wires.upHead}></path>
+				<path class="tp__wire" d={wires.down}></path>
+				<path class="tp__wire tp__wire--head" d={wires.downHead}></path>
+			</svg>
+
+			<span class="tp__flow-name" style={at(LABEL_X, UP_Y - LABEL_GAP)}>{telemetry?.label}</span>
+			<span class="tp__flow-name" style={at(LABEL_X, DOWN_Y + LABEL_GAP)}>{commands?.label}</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	/** The two readings tick, as in the other two. Nothing else moves. */
+	const BEAT_MS = 3000;
+	const TEMPS = [-18.4, -18.2, -18.6, -18.3, -18.7, -18.1];
+	const KW = [2.4, 2.3, 2.5, 2.4, 2.6, 2.3];
+
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	document.querySelectorAll<HTMLElement>('[data-twin-plan]').forEach((root) => {
+		if (reduce) return;
+		const temp = root.querySelector<HTMLElement>('[data-twin-attr="temperature"] .tp__v');
+		const power = root.querySelector<HTMLElement>('[data-twin-attr="power"] .tp__v');
+		if (!temp || !power) return;
+
+		let beat = 0;
+		let visible = false;
+		let timer = 0;
+
+		const tick = () => {
+			if (!visible) return;
+			beat++;
+			temp.textContent = `−${Math.abs(TEMPS[beat % TEMPS.length]).toFixed(1)} °C`;
+			power.textContent = `${KW[beat % KW.length].toFixed(1)} kW`;
+			timer = window.setTimeout(tick, BEAT_MS);
+		};
+
+		new IntersectionObserver(
+			(entries) => {
+				visible = entries.some((e) => e.isIntersecting);
+				clearTimeout(timer);
+				if (visible) timer = window.setTimeout(tick, BEAT_MS);
+			},
+			{ rootMargin: '80px' }
+		).observe(root);
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	// The same floor marking the other two use, and here it is doing its literal job.
+	@mixin hatch {
+		background: repeating-linear-gradient(45deg, var(--tp-shade) 0 #{u(12)}, transparent #{u(12)} #{u(20)});
+	}
+
+	.tp-fit {
+		container-type: inline-size;
+	}
+
+	.tp {
+		--u: var(--tp-u);
+		--tp-label: var(--kv-label, 16);
+		// A shade rather than a grey, so the plan takes the hue of whatever it is laid on. See the
+		// note in TwinCorridor for the measurements behind it.
+		--tp-shade: rgba(0, 0, 0, 0.06);
+		display: grid;
+		grid-template-columns: u(var(--tp-site)) u(var(--tp-gut)) u(var(--tp-twin));
+		justify-content: center;
+		max-width: u(var(--tp-native));
+		margin: 0 auto;
+	}
+
+	:global([data-theme='dark']) .tp {
+		--tp-shade: rgba(255, 255, 255, 0.08);
+	}
+
+	.tp__stage {
+		grid-column: 1;
+		min-height: u(24);
+		margin: 0 0 u(8);
+		font-size: u(var(--tp-label));
+		line-height: u(24);
+		text-align: center;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.tp__stage--right {
+		grid-column: 3;
+	}
+
+	.tp__body {
+		position: relative;
+		display: grid;
+		grid-column: 1 / -1;
+		grid-template-columns: u(var(--tp-site)) u(var(--tp-gut)) u(var(--tp-twin));
+		height: u(var(--tp-body));
+	}
+
+	// --- the plan -------------------------------------------------------------------
+
+	// The building. Everything inside is placed absolutely in the column's own units, which is what
+	// makes this a drawing rather than a stack of boxes — a plan has no flow.
+	.tp__plan {
+		position: relative;
+		grid-column: 1;
+		height: u(var(--tp-body));
+		border: 2px solid var(--tp-shade);
+		border-radius: u(var(--flow-radius, 8));
+	}
+
+	// No glyph. On a plan the words label the space they sit in, and a building icon inside a drawing
+	// of the building was saying the same thing twice.
+	.tp__site-name {
+		position: absolute;
+		top: u(var(--tp-pad));
+		left: u(var(--tp-pad));
+		height: u(var(--tp-head));
+		margin: 0;
+		font-size: u(15);
+		font-weight: $font-weight-medium;
+		line-height: u(22);
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// A column, in the same stroke as the building around it — the two are the same structure, drawn
+	// at two sizes. Context, not content: enough to say this is a floor, quiet enough not to be read
+	// as another object on it.
+	.tp__column {
+		display: block;
+		position: absolute;
+		top: u(var(--y));
+		left: u(var(--x));
+		width: u(var(--tp-column));
+		height: u(var(--tp-column));
+		border: 2px solid var(--tp-shade);
+		border-radius: u(2);
+	}
+
+	// The other rooms: a colour of their own rather than the subject's at low opacity. Faded, they
+	// took the hatch behind them and went muddy over it; solid, they are plainly rooms, just not the
+	// one being talked about. Their numbers stay legible on it — mid grey ground, secondary ink.
+	.tp__peer {
+		display: flex;
+		position: absolute;
+		top: u(var(--y));
+		left: u(var(--x));
+		align-items: center;
+		justify-content: center;
+		width: u(var(--w));
+		height: u(var(--h));
+		border-radius: u(var(--flow-radius, 8));
+		background: #6e7079;
+		font-size: u(18);
+		font-weight: $font-weight-semibold;
+		line-height: u(24);
+		color: #fff;
+	}
+
+	.tp__zone {
+		position: absolute;
+		top: u(var(--tp-zone-y));
+		left: u(var(--tp-zone-x));
+		width: u(var(--tp-zone-w));
+		height: u(var(--tp-zone-h));
+		padding: u(var(--tp-zone-pad));
+		border-radius: u(var(--flow-radius, 8));
+		@include hatch;
+	}
+
+	.tp__zone-name {
+		margin: 0;
+		font-size: u(15);
+		font-weight: $font-weight-medium;
+		line-height: u(22);
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// The unit, in plan: a rectangle standing on the floor with its name in it. The family's dark
+	// surface and its shadow, so it is still the one solid object in the picture — but no head band,
+	// no rows and no status light, because from above a cold room is a box.
+	.tp__unit {
+		display: flex;
+		position: absolute;
+		top: u(var(--tp-unit-y));
+		left: u(var(--tp-unit-x));
+		align-items: center;
+		justify-content: center;
+		width: u(var(--tp-unit-w));
+		height: u(var(--tp-unit-h));
+		padding: 0 u(16);
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--tp-unit-bg);
+		box-shadow:
+			0 1px 2px rgba(16, 24, 40, 0.08),
+			0 #{u(14)} #{u(32)} #{u(-10)} rgba(16, 24, 40, 0.28);
+		font-size: u(18);
+		font-weight: $font-weight-semibold;
+		line-height: u(24);
+		text-align: center;
+		color: #fff;
+	}
+
+	.tp__door {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: u(var(--tp-site));
+		max-width: none;
+		height: u(var(--tp-body));
+		overflow: visible;
+		pointer-events: none;
+	}
+
+	// The opening itself, knocked through the unit's wall in the floor's own colour.
+	.tp__door-gap {
+		fill: var(--color-bg, #fff);
+	}
+
+	.tp__door-line {
+		fill: none;
+		stroke: var(--color-text-secondary, #5b616e);
+		stroke-width: max(1px, #{u(2)});
+		stroke-linecap: round;
+		vector-effect: non-scaling-stroke;
+	}
+
+	// The swing is lighter than the leaf: it is where the door goes, not a thing that is there.
+	.tp__door-line--swing {
+		stroke: var(--color-text-secondary, #5b616e);
+		stroke-dasharray: 3 3;
+		opacity: 0.5;
+	}
+
+	// --- the twin -------------------------------------------------------------------
+
+	.tp__card {
+		grid-column: 3;
+		display: flex;
+		overflow: hidden;
+		flex-direction: column;
+		height: u(var(--tp-body));
+		padding-bottom: u(var(--tp-card-pad-b));
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-surface, #fff);
+		box-shadow:
+			0 1px 2px rgba(16, 24, 40, 0.04),
+			0 #{u(5)} #{u(12)} #{u(-6)} rgba(16, 24, 40, 0.1);
+	}
+
+	.tp__head {
+		display: flex;
+		flex-direction: column;
+		height: u(var(--tp-twin-head));
+		padding: u(var(--tp-head-pad)) u(16) u(14);
+		background: var(--color-bg-light, #f7f9fc);
+	}
+
+	.tp__path {
+		margin: 0 0 u(var(--tp-path-gap));
+		font-size: u(14);
+		line-height: u(var(--tp-path-h));
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.tp__sep {
+		display: inline-block;
+		margin: 0 u(6);
+		font-size: u(19);
+		line-height: 0;
+		vertical-align: -0.08em;
+		opacity: 0.55;
+	}
+
+	.tp__name {
+		display: flex;
+		align-items: center;
+		gap: u(8);
+		margin: 0;
+		font-size: u(16);
+		font-weight: $font-weight-semibold;
+		line-height: u(var(--tp-name-h));
+		white-space: nowrap;
+
+		[data-icon] {
+			flex: none;
+			width: u(18);
+			height: u(18);
+			color: var(--color-text-secondary, #5b616e);
+		}
+	}
+
+	.tp__attrs {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.tp__attr {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		align-items: baseline;
+		height: u(var(--h));
+		padding: u(10) u(16) 0;
+		gap: 0 u(12);
+		font-size: u(15);
+		line-height: u(24);
+
+		& + & {
+			border-top: 1px solid var(--sl-color-hairline-light, #ebebeb);
+		}
+	}
+
+	.tp__k {
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.tp__v {
+		justify-self: end;
+		font-weight: $font-weight-medium;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+		color: var(--color-text);
+	}
+
+	.tp__chart,
+	.tp__band {
+		grid-column: 1 / -1;
+		margin-top: u(6);
+
+		svg {
+			display: block;
+			width: 100%;
+			height: 100%;
+		}
+	}
+
+	.tp__chart {
+		height: u(var(--tp-chart-h));
+
+		svg {
+			overflow: visible;
+		}
+	}
+
+	.tp__band {
+		overflow: hidden;
+		height: u(var(--tp-band-h));
+		border-radius: u(3);
+	}
+
+	.tp__chart-area,
+	.tp__band-off {
+		fill: var(--accent);
+		opacity: 0.1;
+	}
+
+	.tp__band-on {
+		fill: var(--accent-on);
+	}
+
+	.tp__chart-line {
+		fill: none;
+		stroke: var(--accent);
+		stroke-width: max(1px, #{u(2)});
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		vector-effect: non-scaling-stroke;
+	}
+
+	// --- the connectors -------------------------------------------------------------
+
+	.tp__wires {
+		position: absolute;
+		z-index: 2;
+		top: 0;
+		left: 0;
+		transform: translateY(var(--tp-nudge));
+		pointer-events: none;
+		width: u(var(--tp-native));
+		max-width: none;
+		height: u(var(--tp-body));
+		overflow: visible;
+	}
+
+	.tp__wire {
+		fill: none;
+		stroke: var(--color-primary, #3d50f5);
+		stroke-width: max(1px, #{u(2)});
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.tp__wire--head {
+		fill: none;
+	}
+
+	.tp__flow-name {
+		position: absolute;
+		z-index: 3;
+		top: var(--y);
+		left: var(--x);
+		transform: translate(-50%, -50%) translateY(var(--tp-nudge));
+		font-size: u(var(--tp-label));
+		line-height: calc(#{u(var(--tp-label))} + #{u(3)});
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+		color: var(--color-primary, #3d50f5);
+	}
+</style>

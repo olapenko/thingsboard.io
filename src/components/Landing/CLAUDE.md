@@ -1,7 +1,7 @@
 # Key visuals
 
 The illustrations on the experimental homepage: `ConnectCloud`, `ConnectFlow`, `DigitalTwin`,
-`NormalizeFlow`, `ScaleGrowth`, `SolutionFlow`, `DeployFork`, `WhiteLabelApp` and their candidates.
+`NormalizeSeries`, `ScaleGrowth`, `SolutionFlow`, `DeployFork`, `WhiteLabelApp` and their candidates.
 They are drawn in CSS and SVG, not exported as images, so they take the page's tokens and stay
 sharp at any size.
 
@@ -9,7 +9,7 @@ Two pages render them, both internal and both `noindex`:
 
 | Page | What it is |
 | --- | --- |
-| `/internal/home-preview/` | The homepage as proposed. The only place a visual is seen in context. |
+| `/` | The homepage. Where the visuals actually run, and the only place one is seen in context. |
 | `/internal/launch-visuals/` | The sandbox index. One card per visual. |
 | `/internal/launch-visuals/<id>/` | One visual, its exhibits at known widths. |
 
@@ -49,7 +49,7 @@ much room it was handed, and the same component appears at four different widths
 
 Geometry that has to line up — curve endpoints, arrow tips, column widths — is computed in the
 frontmatter in design units and passed down as custom properties, so the drawing and the layout
-cannot disagree. See `ConnectFlow.astro` and `TwinTree.astro`.
+cannot disagree. See `ConnectFlow.astro`.
 
 ## R — the one number that predicts a phone
 
@@ -66,7 +66,7 @@ A 375px phone gives a visual about a 367px column. So:
 | --- | --- |
 | 52.5 (`DigitalTwin`, 630u / 12u) | 7.0px |
 | 45 | 8.2px |
-| 39 (`TwinTree`, 552u / 14u) | 9.4px |
+| 39 (`TwinTree`, 552u / 14u — retired) | 9.4px |
 | 28 (the compact family, 448u / 16u) | 13.1px |
 
 Two consequences worth knowing before proposing anything:
@@ -95,14 +95,25 @@ can be redrawn without retyping the words and a marketing page can import the sa
 
 ## Gotchas, each of which has cost an hour
 
-- **HMR works; a dead server looks exactly like stale HMR.** This file used to say that scoped-style
-  HMR goes stale and the dev server must be restarted after every SCSS edit. Measured, that is
-  false: changing a value in a component's scoped block, adding a brand-new selector to it, and
-  editing the page's `is:global` block all reach the browser live, with no reload. What actually
-  happened was that the dev server had died — the console showed `ERR_CONNECTION_REFUSED` and vite
-  "Failed to reload" errors — and the stale styles got blamed on HMR. **Before blaming HMR, check
-  the server is alive.** Restarting costs about 31 seconds and was, for a while, the single largest
-  tax on the loop.
+- **Scoped-style HMR usually works, and sometimes does not.** Both halves are measured, and the
+  difference matters because the failure is silent.
+
+  On a freshly started server a single SCSS edit reaches the browser live, with no reload —
+  changing a value in a component's scoped block, adding a brand-new selector, and editing a page's
+  `is:global` block were all tested and all worked. So the old blanket rule here ("restart after
+  every SCSS edit") was wrong, and restarting costs about 31 seconds a time.
+
+  But after a long session of many edits — including files created and deleted — a component's
+  scoped stylesheet can go stale and **survive a browser reload**. Seen: the source had no
+  `margin-right`, the served
+  `…ConnectHub.astro?astro&type=style&index=0&lang.css` still had
+  `margin-right:calc(8 * var(--u))`, and the markup from the same file was up to date in the same
+  page load. A restart cleared it.
+
+  So: do not restart reflexively, and do not trust the browser blindly either. When a style change
+  does not show, **curl the component's own stylesheet from the dev server and grep for it.** That
+  one command distinguishes "my selector is wrong", "the server is dead" and "the module is stale",
+  which otherwise look identical from the page.
 - **`astro check` does not compile SCSS.** It will pass over a stylesheet that cannot build. Only a
   real build or a page load proves the styles.
 - **The global reset gives every `<svg>` `max-width: 100%`.** An SVG whose viewBox is wider than its
@@ -110,7 +121,11 @@ can be redrawn without retyping the words and a marketing page can import the sa
   that overflows its track needs `max-width: none` and an explicit width.
 - **Pixels do not scale.** A `1px` border or hairline is the same size at every unit, so it breaks
   unit arithmetic — worst at phone scale, where the unit is smallest. `TwinUnit` carries 4px of
-  border chrome; `TwinTree` documents the two ways to absorb it.
+  border chrome — a border top and bottom and a hairline between each pair of rows — so the card
+  measures 4px taller than unit arithmetic predicts. Two ways to absorb it, both measured in
+  `08a8c189f`: give the frame the COMPUTED height and let the 4px come out of its bottom padding,
+  which leaves the worst connector landing ~3px high of its row's centre; or stretch the drawing to
+  the card's measured height, which trades that for ~2.9px at the other end. Neither is free.
 - **Astro scoped CSS compiles to `:where(.astro-hash)` — zero specificity.** Two equal selectors are
   decided by source order, so a rule declared later wins even if it looks more specific.
 - **A scoped rule cannot reach markup in another component.** This is why the sandbox's stage chrome
@@ -126,7 +141,7 @@ can be redrawn without retyping the words and a marketing page can import the sa
 
   | | Ubuntu | Ubuntu Mono |
   | --- | --- | --- |
-  | `/internal/home-preview/` (BaseLayout → Starlight) | 300, 400, 400-italic, 500, 700 | 400, 700 |
+  | `/` (BaseLayout → Starlight) | 300, 400, 400-italic, 500, 700 | 400, 700 |
   | `/internal/launch-visuals/` (`PlaygroundLayout`) | 300, 400, 500, 700 | **400 only** |
 
   So bold monospace — a chip, an axis label — is a real face on the home preview and a synthesised
@@ -156,7 +171,7 @@ NOT match `pkill -f "astro dev"` — the command line is `node …/astro.js`, so
 kills nothing and leaves the orphans holding their ports.
 
 Measured costs, so the loop can be judged rather than guessed: dev server boot ~31s; first
-compile of `/internal/launch-visuals/` 2.5s and of `/internal/home-preview/` 7.6s; afterwards
+compile of `/internal/launch-visuals/` 2.5s and of `/` 7.6s; afterwards
 21ms and 59ms. Once it is up, it is fast — so keep it up.
 
 Path aliases: `@root`, `@components`, `@layouts`, `@styles`, `@data`, `@util`, `@models`,
@@ -177,9 +192,10 @@ shipped page stable through several rejected directions:
 5. **Promote or retire.** Promoting means the home preview imports it. Retiring means the ✕ in its
    caption, and a deletion pass later.
 
-Rejected work is committed, not discarded — with the reason in the message. `TwinTree` is on the
-branch and is not used anywhere; the compact family was deleted only after it had been parked long
-enough to be sure.
+Rejected work is committed, not discarded — with the reason in the message. `TwinTree` was drafted
+in `08a8c189f`, judged on its canvas, and deleted once its direction was dropped; the commit still
+holds the component and its measurements, which is what makes deleting it cheap. The compact family
+went the same way, after being parked long enough to be sure.
 
 ### Several visuals at once
 
@@ -194,9 +210,10 @@ the measurements it took two hours ago. Start fresh per visual and let this file
 Merge the branches back **one at a time** — each will have touched `_key-visuals.ts` and the two
 one-line lists in `launch-visuals.astro`.
 
-Shared, so coordinate before touching: `home-preview.astro`, `_key-visuals.ts`, `_VisualPage.astro`,
-`FeatureBlockSection.astro` (which also reaches the PE and Edge product pages), `TwinUnit.astro`,
-and `src/styles/_connect-terms.scss`. A visual's own page is not shared, which is the point.
+Shared, so coordinate before touching: `index.astro` (the homepage — the visuals ship from it now),
+`_key-visuals.ts`, `_VisualPage.astro`,
+`FeatureBlockSection.astro` (which also reaches the PE and Edge product pages) and `TwinUnit.astro`.
+A visual's own page is not shared, which is the point.
 
 ## Retiring a stage
 

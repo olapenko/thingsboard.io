@@ -1,34 +1,25 @@
 ---
 import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
-import { CONNECT_ROUTES } from '@data/connect-visual';
 
 /**
- * Connect, as a cloud of tags around the platform rather than four labelled routes into it.
+ * The vendor-neutral cloud, with each name wired to the ones nearest it.
  *
- * A CANDIDATE, in the sandbox only. `ConnectFlow` is what the home preview renders and nothing here
- * touches it — the two share their names and their accents through `connect-visual.ts`, so a
- * protocol added there appears in both, but every other decision is this file's own.
+ * A CANDIDATE beside `ConnectCloudOpen`, which is the same picture without the wires. The
+ * composition is identical, so the two stages answer one question: do the wires help?
  *
- * What it argues differently: the route version says "there are four ways in, and here is what each
- * one speaks". This says "whatever you have, it is already in here". The first is a better answer
- * to "how do I connect a Modbus PLC"; the second is a better answer to "will this work with my
- * stuff", which is the question a homepage is actually being asked.
+ * The wires are PROXIMITY, not meaning. Each chip joins the one or two chips closest to it, and
+ * that is the whole rule — no claim is made about protocols being related. A short straight segment
+ * between neighbours, drawn behind the chips so only the part crossing the gap is visible, which is
+ * what keeps it a texture rather than a diagram.
  *
- * --- the thing this arrangement costs, and where it went -----------------------------------
+ * Each segment is a gradient between the two chips' own accents. Between neighbours in the same
+ * group that is a single hue; between groups it is the blend, which is the only place the wiring
+ * says anything at all.
  *
- * The captions. In the route version each group is headed by what it IS, and the accent is a
- * second, redundant signal. Take the headings away and the accent carries the whole categorisation
- * on its own — four colours a reader has never been taught. An unexplained colour coding is
- * decoration that looks like information, which is worse than no coding at all.
- *
- * This carried a legend for a while, which fixed that and cost a two-by-two block under the cloud
- * saying four things the section's own copy was already most of the way to saying. That legend then
- * moved into the copy as four colour-marked terms, and has now been removed from there too.
- *
- * So the four accents currently teach nobody anything: they group twenty-four names into families
- * that the page never names. Read that as texture rather than as a coding — which is a decision,
- * not an oversight, and the thing to revisit if the grouping turns out to matter. The body copy
- * still lists the four routes in words; it just no longer points at the colours.
+ * Runtime, against the family's build-time rule, and unavoidably: the chips are placed by flex and
+ * grid from text metrics the server does not have, so which chips are near each other is not known
+ * until the browser has laid them out. Redrawn by a `ResizeObserver`, since the unit comes from the
+ * container. Degrades to the plain cloud: no script, no wires, composition untouched.
  */
 
 // Measured, not chosen — see the note below on how the rows were balanced. Set to the widest row
@@ -52,7 +43,7 @@ interface Props {
 	chipStyle?: 'tint' | 'text';
 }
 
-const { chipStyle = 'tint' } = Astro.props;
+const { chipStyle = 'tint' }: Props = Astro.props;
 
 const NATIVE = 422;
 
@@ -80,50 +71,14 @@ const GAP = 6;
 const BADGE = 104;
 const HOLE = 76;
 
-/** Category -> accent, so the colour coding cannot drift from the routes it codes. */
-const ACCENT_BY_CATEGORY = new Map(CONNECT_ROUTES.map((r) => [r.category, r.accent] as const));
+/** The three ways in. Local to this file: `CONNECT_ROUTES` is the four-route set and ConnectFlow still draws it. */
+const GROUPS = [
+	{ accent: '#0e7490', names: ['MQTT', 'HTTP', 'CoAP', 'LwM2M', 'SNMP', 'Sparkplug B', 'OCPP'] },
+	{ accent: '#7b3fe4', names: ['Modbus', 'OPC UA', 'S7', 'BACnet', 'KNX', 'CAN', 'BLE', 'TCP/UDP'] },
+	{ accent: '#65a30d', names: ['LoRaWAN', 'Sigfox', 'MQTT brokers', 'Kafka', 'RabbitMQ', 'Cloud platforms'] },
+];
 
-/**
- * Names this cut carries beyond the route version's, and where each one is documented.
- *
- * They live here rather than in `connect-visual.ts` because `ConnectFlow` fits exactly one row of
- * chips per route — a sixth name there wraps the card and overflows a fixed height. A cloud has no
- * such constraint, so it can afford the longer answer to "is my thing supported".
- *
- * Every name is on a page in this repo:
- *
- *   Sparkplug B  — its own row in the Direct Connection table, `connectivity-guide.mdx`. It is a
- *                  payload convention over MQTT rather than a sixth transport, which is why the
- *                  five transports beside it are the complete set and this is the one addition.
- *   CAN, OCPP    — two of the gateway's fifteen built-in connectors,
- *                  `_includes/docs/iot-gateway/connectors.mdx`.
- *   ThingPark    — a LoRaWAN network server, from the integration type list rendered at
- *                  /docs/pe/user-guide/integrations/.
- *   RabbitMQ,    — messaging integrations from that same list.
- *   AWS SQS
- *
- * Cut from an earlier, longer draft, on the grounds that a cloud is only persuasive while every
- * name in it is one somebody recognises: ODBC and Socket (generic where the rest are protocols),
- * Pulsar (Kafka and RabbitMQ already carry messaging), TCP and UDP (they say less than the named
- * integrations beside them), KPN Things (regional, and the least recognised name in the set).
- *
- * Deliberately never here: IBM Watson and Everynet (no doc page — the first survives only as a dead
- * enum value in two config dumps), and OceanConnect (same). A name in a marketing visual has to be
- * a page someone can be sent to.
- */
-const EXTRA: Record<string, string[]> = {
-	'Direct connection': ['Sparkplug B'],
-	'IoT Gateway': ['CAN', 'OCPP'],
-	'LoRaWAN & LPWAN': ['ThingPark'],
-	'Platform integrations': ['RabbitMQ', 'AWS SQS'],
-};
-
-const ACCENT = new Map<string, string>([
-	...CONNECT_ROUTES.flatMap((r) => r.names.map((n) => [n, r.accent] as const)),
-	...Object.entries(EXTRA).flatMap(([category, names]) =>
-		names.map((n) => [n, ACCENT_BY_CATEGORY.get(category)!] as const)
-	),
-]);
+const ACCENT = new Map(GROUPS.flatMap((g) => g.names.map((n) => [n, g.accent] as const)));
 
 /**
  * The cloud, authored row by row.
@@ -134,6 +89,23 @@ const ACCENT = new Map<string, string>([
  * four, and the rows come out close enough in width that the silhouette is a block rather than a
  * lens.
  *
+ * EVERY SIDE CARRIES AT LEAST TWO CHIPS. A side with one leaves the fr track it shares sized to the
+ * other side and mostly empty, which reads as a hole in the cloud rather than as breathing room —
+ * a single chip opposite `Sparkplug B, CAN` left 96 units of daylight in the top right. That rule
+ * costs some row-width evenness and is worth it: a gap is a defect, an uneven row is a texture.
+ *
+ * Searched rather than hand-placed. Twenty-one names is three fewer than the shipped cloud carries,
+ * and by hand the rows kept coming out either uneven or with a side left half-empty. The search
+ * enumerated arrangements under the constraints above — two chips a side minimum, no two neighbours
+ * sharing an accent including across the hole, no row past 422 units, and a wide chip either side of
+ * the hole on the plate row so the badge's 8-unit bite lands on padding with room to spare — and
+ * optimised for side fill first, row evenness second.
+ *
+ * The result fills every straddle side to 100% of its track: no side is a hole. It costs some row
+ * evenness, 350 to 418, and that spread sits almost entirely in the plate row, which is wide because
+ * the badge is in it. A cloud that bulges where the app sits reads as the app pushing the rows
+ * apart; a side with 96 units of daylight reads as a mistake.
+ *
  * That last one is why the straddle rows carry two a side. The hole plus its two gaps is 104 units
  * that a full row does not pay, so a straddle row needs about two fewer chips than a full one to
  * measure the same — six across and two a side is the pairing that lands. The side pairs are also
@@ -143,11 +115,11 @@ const ACCENT = new Map<string, string>([
  * `left`/`right` rows straddle the badge. The three of them are the band it covers.
  */
 const ROWS: ({ chips: string[] } | { left: string[]; right: string[]; plate?: true })[] = [
-	{ chips: ['Modbus', 'MQTT', 'Sigfox', 'Pub/Sub', 'BLE', 'HTTP'] },
-	{ left: ['Sparkplug B', 'KNX'], right: ['RabbitMQ', 'LORIOT'] },
-	{ left: ['Azure IoT', 'LwM2M'], right: ['ChirpStack', 'OCPP'], plate: true },
-	{ left: ['ThingPark', 'Kafka'], right: ['BACnet', 'AWS IoT'] },
-	{ chips: ['CoAP', 'OPC UA', 'TTN', 'AWS SQS', 'CAN', 'SNMP'] },
+	{ chips: ['RabbitMQ', 'HTTP', 'Kafka', 'OPC UA', 'OCPP'] },
+	{ left: ['Modbus', 'MQTT'], right: ['BACnet', 'CoAP'] },
+	{ left: ['S7', 'MQTT brokers'], right: ['Sparkplug B', 'KNX'], plate: true },
+	{ left: ['LoRaWAN', 'BLE'], right: ['SNMP', 'Sigfox'] },
+	{ chips: ['Cloud platforms', 'CAN', 'LwM2M', 'TCP/UDP'] },
 ];
 
 // Every name placed above has to be one this component knows, and every name it knows has to be
@@ -159,7 +131,7 @@ const unplaced = [...ACCENT.keys()].filter((n) => !placed.includes(n));
 if (missing.length || unplaced.length) {
 	throw new Error(
 		`ConnectCloud is out of step with its name list.` +
-			(missing.length ? ` Not in CONNECT_ROUTES or EXTRA: ${missing.join(', ')}.` : '') +
+			(missing.length ? ` Not in GROUPS: ${missing.join(', ')}.` : '') +
 			(unplaced.length ? ` Known but not placed: ${unplaced.join(', ')}.` : '')
 	);
 }
@@ -175,14 +147,19 @@ const vars = [
 ---
 
 <div class="cl-fit">
-	<div class="cl" style={vars} data-chip={chipStyle}>
+	<div class="cl" style={vars} data-chip={chipStyle} data-links>
+		{/* Drawn after layout; see the note above. Empty and invisible until the script fills it. */}
+		<svg class="cl__links" aria-hidden="true" focusable="false"></svg>
+
 		{
 			ROWS.map((row) =>
 				'chips' in row ? (
 					<ul class="cl__row">
 						{row.chips.map((n) => (
 							<li style={`--cl-accent: ${ACCENT.get(n)}`}>
-								<span class="cl__chip">{n}</span>
+								<span class="cl__chip" data-name={n}>
+									{n}
+								</span>
 							</li>
 						))}
 					</ul>
@@ -191,7 +168,9 @@ const vars = [
 						<ul class="cl__side cl__side--l">
 							{row.left.map((n) => (
 								<li style={`--cl-accent: ${ACCENT.get(n)}`}>
-									<span class="cl__chip">{n}</span>
+									<span class="cl__chip" data-name={n}>
+										{n}
+									</span>
 								</li>
 							))}
 						</ul>
@@ -202,7 +181,9 @@ const vars = [
 						<ul class="cl__side cl__side--r">
 							{row.right.map((n) => (
 								<li style={`--cl-accent: ${ACCENT.get(n)}`}>
-									<span class="cl__chip">{n}</span>
+									<span class="cl__chip" data-name={n}>
+										{n}
+									</span>
 								</li>
 							))}
 						</ul>
@@ -408,4 +389,141 @@ const vars = [
 			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
 		);
 	}
+
+	// --- the wires -------------------------------------------------------------------
+
+	.cl {
+		position: relative;
+	}
+
+	.cl__links {
+		position: absolute;
+		inset: 0;
+		// Not optional: the global reset gives every svg `max-width: 100%`, which here would resolve
+		// against the grid track and shrink the layer out of register with the chips it is drawn from.
+		width: 100%;
+		max-width: none;
+		height: 100%;
+		overflow: visible;
+		// Under the chips, so a wire passes BEHIND a name and comes out the other side. Over them it
+		// would read as a line drawn on top of the cloud rather than as the cloud being wired.
+		z-index: 0;
+		pointer-events: none;
+
+		:global(line) {
+			fill: none;
+			// Heavier than the flow visuals' rail and at full strength, because what shows of any one
+			// wire is six units of gap: at 2u and 0.9 the whole layer read as dust.
+			stroke-width: max(1.5px, #{u(3)});
+			stroke-linecap: butt;
+		}
+	}
+
+	.cl__row,
+	.cl__row--split {
+		position: relative;
+		z-index: 1;
+	}
 </style>
+
+<script>
+	/**
+	 * Wires each chip to its nearest neighbours, after layout.
+	 *
+	 * Gradient ids are per-instance: an SVG id is document-global, and the sandbox renders this
+	 * component three times on one page, so shared ids would give two of them the third's colours.
+	 */
+	let seq = 0;
+
+	/** How far a neighbour may be, as a multiple of a chip's own height. Beyond this it is not near. */
+	const REACH = 2.1;
+	/** At most this many wires leave any one chip, so a dense corner does not become a mesh. */
+	const PER_CHIP = 2;
+
+	const draw = (root: HTMLElement, uid: string) => {
+		const svg = root.querySelector('.cl__links');
+		if (!svg) return;
+		const box = root.getBoundingClientRect();
+		if (!box.width) return;
+		svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+
+		const chips = [...root.querySelectorAll<HTMLElement>('.cl__chip')].map((el) => {
+			const r = el.getBoundingClientRect();
+			const li = el.closest('li');
+			const cs = getComputedStyle(el);
+			return {
+				x: r.left - box.left + r.width / 2,
+				y: r.top - box.top + r.height / 2,
+				left: r.left - box.left,
+				top: r.top - box.top,
+				w: r.width,
+				h: r.height,
+				r: parseFloat(cs.borderTopLeftRadius) || 0,
+				accent: (li ? getComputedStyle(li).getPropertyValue('--cl-accent').trim() : '') || '#5b616e',
+			};
+		});
+		if (chips.length < 2) return;
+
+		const reach = chips[0].h * REACH;
+		const seen = new Set<string>();
+		const pairs: [number, number][] = [];
+		chips.forEach((c, i) => {
+			const near = chips
+				.map((o, j) => ({ j, d: Math.hypot(o.x - c.x, o.y - c.y) }))
+				.filter((n) => n.j !== i && n.d <= reach)
+				.sort((a, b) => a.d - b.d)
+				.slice(0, PER_CHIP);
+			near.forEach(({ j }) => {
+				const key = i < j ? `${i}:${j}` : `${j}:${i}`;
+				if (seen.has(key)) return;
+				seen.add(key);
+				pairs.push([i, j]);
+			});
+		});
+
+		let defs = '';
+		let paths = '';
+		pairs.forEach(([i, j], n) => {
+			const A = chips[i];
+			const B = chips[j];
+			const id = `${uid}-${n}`;
+			// userSpaceOnUse with the two centres as endpoints, so the blend runs along the wire
+			// whichever way it points rather than across the layer's bounding box.
+			defs +=
+				`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}">` +
+				`<stop offset="0" stop-color="${A.accent}"/><stop offset="1" stop-color="${B.accent}"/></linearGradient>`;
+			paths += `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="url(#${id})"/>`;
+		});
+		// The chips are translucent — an 18% wash — so a wire BEHIND one still shows through it, and
+		// the layer reads as lines drawn over the cloud rather than as wiring underneath it. Masking
+		// each chip out of the layer is what puts the connections properly in the background: what
+		// survives is only the part crossing the gaps. No padding: the gap is 6 units and a wire that
+		// stopped short of both edges would have nothing left to draw — measured, 2 units a side left
+		// a 3px stub that read as a speck. A connector should meet what it connects.
+		const PAD = 0;
+		const holes = chips
+			.map(
+				(c) =>
+					`<rect x="${c.left - PAD}" y="${c.top - PAD}" width="${c.w + PAD * 2}" height="${c.h + PAD * 2}" rx="${c.r + PAD}" fill="#000"/>`
+			)
+			.join('');
+		// The badge too: it sits over the layer already, but its shadow does not, and a wire running
+		// under the shadow reads as a smudge.
+		const badge = root.querySelector('.cl__badge');
+		let badgeHole = '';
+		if (badge) {
+			const b = badge.getBoundingClientRect();
+			badgeHole = `<rect x="${b.left - box.left - PAD}" y="${b.top - box.top - PAD}" width="${b.width + PAD * 2}" height="${b.height + PAD * 2}" rx="${b.width * 0.32}" fill="#000"/>`;
+		}
+		svg.innerHTML =
+			`<defs>${defs}<mask id="${uid}-m" maskUnits="userSpaceOnUse">` +
+			`<rect x="0" y="0" width="${box.width}" height="${box.height}" fill="#fff"/>${holes}${badgeHole}</mask></defs>` +
+			`<g mask="url(#${uid}-m)">${paths}</g>`;
+	};
+
+	document.querySelectorAll<HTMLElement>('.cl[data-links]').forEach((root) => {
+		const uid = `cl-link-${seq++}`;
+		draw(root, uid);
+		new ResizeObserver(() => draw(root, uid)).observe(root);
+	});
+</script>
