@@ -168,14 +168,20 @@ const SIX_ADVISED = {
  * side of it, which is what makes the arrangement short: the outer chips overlap their neighbours
  * vertically and clear them horizontally. Their lines then run through the gap to the badge.
  *
- * Which names go outer is chosen so no rank is one colour and so an outer chip differs from both
- * inner chips it sits between.
+ * WHICH NAMES GO OUTER: the longest. LoRaWAN and OPC UA on the left, LwM2M and HTTP on the right,
+ * so the chips nearest the badge are the short ones and the silhouette tapers inward. Ordering the
+ * other way put a seven-character chip next to the badge and a two-character one out at the edge,
+ * which read as scattered rather than arranged.
+ *
+ * Colour still has to hold: three of each hue, none repeating down a column, and — because the two
+ * ranks interleave — none repeating across a row either. That last constraint is what fixes which
+ * of the two equally-long names goes outer.
  */
 const SIX_STAGGER = {
 	left: [
 		{ name: 'MQTT', accent: BLUE, rank: 0 },
-		{ name: 'Modbus', accent: BEIGE, rank: 1 },
-		{ name: 'LoRaWAN', accent: GREEN, rank: 0 },
+		{ name: 'LoRaWAN', accent: GREEN, rank: 1 },
+		{ name: 'Modbus', accent: BEIGE, rank: 0 },
 		{ name: 'CoAP', accent: BLUE, rank: 0 },
 		{ name: 'OPC UA', accent: LAVENDER, rank: 1 },
 		{ name: 'BACnet', accent: BEIGE, rank: 0 },
@@ -213,7 +219,9 @@ const CHIP_H = isSix ? 32 : 40;
 const CHIP_FONT = isSix ? 17 : 20;
 // Four rows rather than six in the staggered cut: the outer two live in the gaps, so they need no
 // row of their own. That is where its height comes from.
-const PITCH = isStagger ? 56 : isSix ? 42 : 56;
+// 48 for the staggered cut: a 32-unit chip with 16 units between rows, and the outer chips' flat
+// runs pass through the middle of that gap with 8 units clear either side.
+const PITCH = isStagger ? 48 : isSix ? 42 : 56;
 const INNER_ROWS = isStagger ? 4 : LEFT.length;
 // The column only has to hold the longest name: 7 characters at 8.5 a character plus 20 of padding
 // for the small chip, at 10 and 24 for the large one.
@@ -333,11 +341,14 @@ const curveRight = (i: number) => {
 };
 
 /**
- * Only the outermost chip on a line carries the fade. With two ranks an inner chip's fade would
- * point back into the lane the outer rank occupies, and the fade means "and whatever else is out
- * there" — which is a thing the edge of the composition says, not something every chip says.
+ * Every chip carries a fade, both ranks.
+ *
+ * An inner chip's fade does run back past the outer rank's column, and that turns out to be fine
+ * rather than a collision: the two ranks never share a y, so an inner fade always sits in a lane
+ * the outer chips have left empty. Restricting it to the outer rank was tried and made the inner
+ * four look like a different kind of thing from the outer two.
  */
-const hasFade = (c: Arm) => !isStagger || rankOf(c) > 0;
+const hasFade = (_c: Arm) => true;
 
 const vars = [
 	`--hub-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
