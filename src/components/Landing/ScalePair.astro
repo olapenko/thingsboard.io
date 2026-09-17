@@ -1,0 +1,567 @@
+---
+import { Icon } from 'astro-icon/components';
+import { SCALE_PAIR, SCALE_JOIN, type ScaleTopology } from '@data/scale-visual';
+
+/**
+ * A sixth cut, taking ScaleGrid's field and logos and dropping its central claim: that there are
+ * three of anything.
+ *
+ * TWO TOPOLOGIES AS PEERS, AND STORAGE AS THE THING THAT JOINS THEM. `overview.mdx` says
+ * "ThingsBoard supports two deployment architectures" — monolithic and microservices — and puts
+ * storage in a separate table, SQL against Hybrid. Two axes. Every earlier cut in this family drew
+ * them as one scale, which meant the middle card was a database mode posing as a topology, and the
+ * row implied you pass through it on the way to a cluster. You do not: benchmarks D and E are a
+ * single instance running Cassandra, and the docs' own twelve-instance cluster runs PostgreSQL.
+ *
+ * What changes as a consequence, beyond the layout:
+ *
+ *   - THE TINTS STOP STEPPING. A ramp says "later, bigger". These two are alternatives, so they
+ *     take the same tint and the same weight, and the only depth left on the page belongs to the
+ *     join, which is a different kind of thing rather than a further step.
+ *   - EACH CARD CARRIES TWO FIGURES, what it reaches on PostgreSQL and what it reaches once
+ *     telemetry moves. The step between them is the join's doing, and drawing it inside the card is
+ *     the clearest statement of the two axes this family has managed.
+ *   - THE COPY STOPS SAYING "next". Nothing reads "start here" or "for uptime, not capacity" as a
+ *     sequence any more; each card answers why you would be on it rather than the other one.
+ */
+
+interface Props {
+	topologies?: ScaleTopology[];
+	join?: typeof SCALE_JOIN;
+}
+
+const { topologies = SCALE_PAIR, join = SCALE_JOIN } = Astro.props;
+
+/** Every entry is the project's own mark. No stand-ins — see ScaleGrid for why Zookeeper has none. */
+const LOGOS: Record<string, string> = {
+	PostgreSQL: 'simple-icons:postgresql',
+	Cassandra: 'simple-icons:apachecassandra',
+	TimescaleDB: 'simple-icons:timescale',
+	Kafka: 'simple-icons:apachekafka',
+	Redis: 'simple-icons:redis',
+};
+
+// Two cards, with the join as a band UNDERNEATH spanning both.
+//
+// It was tried in the gutter between them, as a narrow bridge. That is a truer diagram — the thing
+// really does attach to both — and it read badly: a tall thin column of centred text wedged between
+// two cards, competing with them for the same horizontal space and leaving each card narrower for
+// no gain. A wide short band below, with stems up into each card, says the same thing and lets the
+// cards keep their width.
+const COL_W = 220;
+// 40, not 24. The cards' backgrounds reach 14 units past their columns on each side, so a 24-unit
+// gutter left them overlapping by four — the two panels touched and read as one shape with a seam.
+// Forty gives twelve units of daylight between the drawn edges.
+const COL_GAP = 40;
+const NATIVE = topologies.length * COL_W + (topologies.length - 1) * COL_GAP;
+
+/**
+ * The field, at the same density as ScaleGrid's — cell and gap derived from the column so the cells
+ * tile it exactly, holding the 3:1 ratio. Nine columns rather than six, because the card is wider
+ * and the cell should not grow with it.
+ */
+const COLS = 9;
+const ROWS = 4;
+const RATIO = 3;
+const S = (COL_W * RATIO) / (COLS * RATIO + (COLS - 1));
+const G = S / RATIO;
+const FIELD_W = COL_W;
+const FIELD_H = ROWS * S + (ROWS - 1) * G;
+const R = S / 3;
+
+const r2 = (v: number) => +v.toFixed(2);
+const px = (c: number) => r2(c * (S + G));
+
+type Kind = 'a' | 'b' | 'c';
+interface Cell {
+	c: number;
+	r: number;
+	k: Kind;
+}
+
+/**
+ * One lit cell against a connected patch of several kinds.
+ *
+ * A pass in one colour made the cluster a blue blob: the only thing it said was "more", which the
+ * count of cells already says. The kinds are what make a cluster a cluster — application instances,
+ * a store, the queue and cache between them — so they take their own colours, as they did in
+ * ScaleGrid. One server has a single cell and a single kind, which is exactly the contrast.
+ */
+const PATTERNS: { cells: Cell[]; links: [number, number][] }[] = [
+	{ cells: [{ c: 0, r: 3, k: 'a' }], links: [] },
+	{
+		cells: [
+			{ c: 0, r: 3, k: 'a' },
+			{ c: 1, r: 3, k: 'a' },
+			{ c: 2, r: 3, k: 'a' },
+			{ c: 3, r: 3, k: 'c' },
+			{ c: 1, r: 2, k: 'a' },
+			{ c: 2, r: 2, k: 'c' },
+			{ c: 2, r: 1, k: 'a' },
+			{ c: 0, r: 2, k: 'b' },
+		],
+		links: [
+			[0, 1],
+			[1, 2],
+			[2, 3],
+			[4, 1],
+			[5, 2],
+			[6, 5],
+			[7, 0],
+		],
+	},
+];
+
+/** The bridge between two neighbouring cells: a bar in the gap, never a stroke. */
+function bridge(a: Cell, b: Cell) {
+	const T = S / 3;
+	const bleed = S / 15;
+	if (a.r === b.r) {
+		const l = a.c < b.c ? a : b;
+		return { x: r2(px(l.c) + S - bleed), y: r2(px(l.r) + (S - T) / 2), width: r2(G + bleed * 2), height: T };
+	}
+	const t = a.r < b.r ? a : b;
+	return { x: r2(px(t.c) + (S - T) / 2), y: r2(px(t.r) + S - bleed), width: T, height: r2(G + bleed * 2) };
+}
+
+/**
+ * The band's own field: the same vocabulary as the cards, at a size that fits a band.
+ *
+ * Two lit cells joined, because what the band offers IS two machines' worth of store — Cassandra or
+ * TimescaleDB beside the PostgreSQL that stays for entities. Without it the band was the only block
+ * on the page with no drawing in it, which made it read as a footnote rather than as a third thing
+ * the pair can take.
+ */
+const J_COLS = 3;
+const J_ROWS = 2;
+const J_S = 14;
+const J_G = J_S / RATIO;
+const J_W = J_COLS * J_S + (J_COLS - 1) * J_G;
+const J_H = J_ROWS * J_S + (J_ROWS - 1) * J_G;
+const jpx = (n: number) => r2(n * (J_S + J_G));
+const J_CELLS: Cell[] = [
+	{ c: 0, r: 1, k: 'b' },
+	{ c: 1, r: 1, k: 'b' },
+];
+
+const vars = [
+	`--sp-u: min(1.45px, calc(100cqw / ${NATIVE}))`,
+	`--sp-native: ${NATIVE}`,
+	`--sp-cols: ${topologies.length}`,
+	`--sp-gap: ${COL_GAP}`,
+	`--sp-field-h: ${FIELD_H}`,
+	`--sp-join-w: ${r2(J_W)}`,
+	`--sp-join-h: ${r2(J_H)}`,
+].join('; ');
+---
+
+<div class="sp-fit">
+	<div class="sp" style={vars}>
+		<ul class="sp__cards">
+			{
+				topologies.map((t, i) => (
+					<li class="sp__card">
+						<svg
+							class="sp__field"
+							viewBox={`0 0 ${FIELD_W} ${FIELD_H}`}
+							preserveAspectRatio="xMinYMid meet"
+							role="img"
+							aria-label={`${t.mode}: ${PATTERNS[i].cells.length === 1 ? 'one machine' : 'many machines, connected'}`}
+						>
+							{Array.from({ length: COLS * ROWS }).map((_, n) => (
+								<rect class="sp__cell" x={px(n % COLS)} y={px(Math.floor(n / COLS))} width={S} height={S} rx={R} />
+							))}
+							{PATTERNS[i].links.map(([a, b]) => {
+								const g = bridge(PATTERNS[i].cells[a], PATTERNS[i].cells[b]);
+								return <rect class="sp__link" x={g.x} y={g.y} width={g.width} height={g.height} rx={r2(S / 9)} />;
+							})}
+							{PATTERNS[i].cells.map((cell) => (
+								<rect
+									class:list={['sp__lit', `sp__lit--${cell.k}`]}
+									x={px(cell.c)}
+									y={px(cell.r)}
+									width={S}
+									height={S}
+									rx={R}
+								/>
+							))}
+						</svg>
+
+						<div class="sp__head">
+							<p class="sp__mode">{t.mode}</p>
+							<p class="sp__trait">{t.trait}</p>
+						</div>
+
+						{/* Two figures where storage moves the ceiling, one where it does not. TWO TYPE STYLES
+						    ONLY: both figures share the same ink and weight, and the arrow sits with the unit
+						    in the quiet grey. An earlier pass gave the second figure the band's green, which
+						    tied it to hybrid storage but put four treatments — ink mono, grey glyph, green
+						    mono, grey sans — into one short line. The tie is made by position instead: the
+						    band sits directly beneath. */}
+						<p class="sp__reach">
+							<span class="sp__num">{t.sql}</span>
+							{t.hybrid !== t.sql && (
+								<>
+									<Icon name="tabler:arrow-right" class="sp__arrow" aria-hidden="true" />
+									<span class="sp__num">{t.hybrid}</span>
+								</>
+							)}
+							{(t.unit ?? 'devices') && <span class="sp__unit">{t.unit ?? 'devices'}</span>}
+						</p>
+
+						<ul class="sp__stack">
+							{t.stack.map((s) => (
+								<li title={s}>
+									<Icon name={LOGOS[s]} aria-hidden="true" />
+									<span class="sp__sr">{s}</span>
+								</li>
+							))}
+						</ul>
+					</li>
+				))
+			}
+		</ul>
+
+		{
+			/* A band, not a card: one row of label, sentence and marks, so it stays short. The stems tie
+		    it to each card above. */
+		}
+		<div class="sp__join">
+			<svg class="sp__join-field" viewBox={`0 0 ${J_W} ${J_H}`} preserveAspectRatio="xMinYMid meet" aria-hidden="true">
+				{
+					Array.from({ length: J_COLS * J_ROWS }).map((_, n) => (
+						<rect
+							class="sp__cell"
+							x={jpx(n % J_COLS)}
+							y={jpx(Math.floor(n / J_COLS))}
+							width={J_S}
+							height={J_S}
+							rx={r2(J_S / 3)}
+						/>
+					))
+				}
+				<rect
+					class="sp__link sp__link--join"
+					x={r2(jpx(0) + J_S - J_S / 15)}
+					y={r2(jpx(1) + (J_S - J_S / 3) / 2)}
+					width={r2(J_G + (J_S / 15) * 2)}
+					height={r2(J_S / 3)}
+					rx={r2(J_S / 9)}></rect>
+				{
+					J_CELLS.map((cell) => (
+						<rect
+							class="sp__lit sp__lit--b"
+							x={jpx(cell.c)}
+							y={jpx(cell.r)}
+							width={J_S}
+							height={J_S}
+							rx={r2(J_S / 3)}
+						/>
+					))
+				}
+			</svg>
+			<div class="sp__join-text">
+				<p class="sp__join-label">{join.label}</p>
+				<p class="sp__join-body">{join.body}</p>
+			</div>
+			<ul class="sp__join-stack">
+				{
+					join.stack.map((s) => (
+						<li title={s}>
+							<Icon name={LOGOS[s]} aria-hidden="true" />
+							<span class="sp__sr">{s}</span>
+						</li>
+					))
+				}
+			</ul>
+		</div>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.sp-fit {
+		container-type: inline-size;
+	}
+
+	.sp {
+		--u: var(--sp-u);
+		display: grid;
+		// Room for the stems that rise from the band into the cards.
+		gap: u(26);
+		max-width: u(var(--sp-native));
+		margin: 0 auto;
+	}
+
+	// Four shared rows, so the fields, the headings, the figures and the logos each sit on one line
+	// across both cards. `1fr` on the last keeps the logos on the floor.
+	// Above the band, so the stems that reach up from it disappear behind these rather than crossing
+	// them.
+	.sp__cards {
+		position: relative;
+		z-index: 1;
+		display: grid;
+		grid-template-columns: repeat(var(--sp-cols), minmax(0, 1fr));
+		grid-template-rows: auto auto auto 1fr;
+		align-items: stretch;
+		gap: u(20) u(var(--sp-gap));
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// No `gap` here: a subgrid declaring its own gutters overrides the parent's, which silently
+	// collapses every row onto the next.
+	.sp__card {
+		position: relative;
+		display: grid;
+		grid-row: span 4;
+		grid-template-rows: subgrid;
+	}
+
+	// Both cards take the SAME tint. A ramp would say "later, bigger", and these are alternatives.
+	.sp__card::before {
+		content: '';
+		position: absolute;
+		inset: u(-16) u(-14);
+		border-radius: u(14);
+		background: color-mix(in srgb, var(--color-primary, #3d50f5) 5%, transparent);
+	}
+
+	.sp__card > * {
+		position: relative;
+	}
+
+	.sp__field {
+		display: block;
+		width: 100%;
+		max-width: none;
+		height: u(var(--sp-field-h));
+		margin-bottom: u(8);
+	}
+
+	.sp__cell {
+		fill: var(--color-bg, #fff);
+	}
+
+	.sp__lit--a,
+	.sp__link {
+		fill: var(--color-primary, #3d50f5);
+	}
+
+	// The store, in the same colour the band below uses — so the one green cell in the cluster and
+	// the band that offers to replace it are read as the same subject.
+	.sp__lit--b {
+		fill: var(--color-edge, #009688);
+	}
+
+	// Queue and cache: the parts that only exist once there is more than one instance to coordinate.
+	.sp__lit--c {
+		fill: var(--color-product-gw, #6d28d9);
+	}
+
+	// Packed to the top, or the leftover height in the shorter column is shared into both rows and
+	// the description drops below its neighbour's first line.
+	.sp__head {
+		display: grid;
+		align-content: start;
+		gap: u(3);
+	}
+
+	.sp__mode {
+		margin: 0;
+		font-size: u(17);
+		line-height: u(22);
+		font-weight: $font-weight-medium;
+		color: var(--color-text);
+	}
+
+	.sp__trait {
+		margin: 0;
+		font-size: u(14);
+		line-height: u(19);
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	.sp__reach {
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 0 u(6);
+		margin: 0;
+		align-self: start;
+	}
+
+	.sp__num {
+		font-family: $font-family-mono;
+		font-size: u(22);
+		font-weight: $font-weight-bold;
+		line-height: u(28);
+		color: var(--color-text);
+		white-space: nowrap;
+	}
+
+	.sp__reach [data-icon].sp__arrow {
+		align-self: center;
+		flex: none;
+		width: u(16);
+		height: u(16);
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.sp__unit {
+		font-size: u(14);
+		line-height: u(20);
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.sp__stack {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: u(10);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		align-self: end;
+
+		li {
+			display: flex;
+			align-items: center;
+		}
+	}
+
+	.sp__stack [data-icon] {
+		flex: none;
+		width: u(26);
+		height: u(26);
+		color: var(--color-text);
+	}
+
+	// --- the join -----------------------------------------------------------------------------
+
+	// The bridge. The only thing here with its own colour, because it is the only thing that is not a
+	// topology. It spans the first three rows and stops above the logo row, so it reads as a band
+	// through the pair rather than as a full third panel.
+	//
+	// The negative inline margin tucks it under both card edges — the cards' own backgrounds reach 14
+	// units past their columns — so there is no seam between the bridge and what it bridges.
+	// ONE ROW: label, sentence, marks. A GRID rather than a wrapping flex row — flex let the marks
+	// drop under the label the moment the three items wanted more than the width, which put the band
+	// at a third of a card's height and stopped it being a band at all. Three explicit columns cannot
+	// do that, and no media query is needed for the narrow probes because everything here is sized in
+	// design units: the proportions are identical at 335 units and at 673.
+	// Field, then the words, then the marks. The label and the sentence share ONE column rather than
+	// taking two: at four columns the sentence was left about 185 units wide and wrapped to seven
+	// lines, which put the band at nearly half a card's height — taller than the version that had no
+	// drawing in it at all. Stacking the two text rows gives the sentence the label's width back.
+	.sp__join {
+		position: relative;
+		z-index: 0;
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		// Top edges, not centres: the field, the words and the marks are three different heights, and
+		// centring them put three different amounts of air above each.
+		align-items: start;
+		gap: u(18);
+		padding: u(12) u(18);
+		border-radius: u(12);
+		background: color-mix(in srgb, var(--color-edge, #009688) 10%, transparent);
+	}
+
+	// Two stems into the cards above, at each card's centre — what makes this read as something BOTH
+	// take rather than as a next step.
+	//
+	// They run PAST the gap and under the cards: 70 units against a 26-unit gutter, with the cards
+	// stacked above on `z-index: 1`, so the overlap is hidden and each stem reads as continuing
+	// beneath its card rather than stopping short at the edge.
+	.sp__join::before,
+	.sp__join::after {
+		content: '';
+		position: absolute;
+		bottom: 100%;
+		width: u(5);
+		height: u(70);
+		border-radius: u(2) u(2) 0 0;
+		background: color-mix(in srgb, var(--color-edge, #009688) 30%, transparent);
+	}
+
+	.sp__join::before {
+		left: 25%;
+	}
+
+	.sp__join::after {
+		left: 75%;
+	}
+
+	.sp__join-field {
+		display: block;
+		width: u(var(--sp-join-w));
+		max-width: none;
+		height: u(var(--sp-join-h));
+	}
+
+	// The bridge inside the band's own field, in the band's colour rather than the cards' blue.
+	.sp__link--join {
+		fill: var(--color-edge, #009688);
+	}
+
+	.sp__join-text {
+		display: grid;
+		gap: u(2);
+	}
+
+	.sp__join-label {
+		margin: 0;
+		font-size: u(15);
+		line-height: u(20);
+		font-weight: $font-weight-medium;
+		color: var(--color-text);
+	}
+
+	// Takes the slack, so the label and the marks sit at the two ends of the band.
+	.sp__join-body {
+		margin: 0;
+		font-size: u(13);
+		line-height: u(18);
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	.sp__join-stack {
+		display: flex;
+		gap: u(10);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			display: flex;
+			align-items: center;
+		}
+	}
+
+	.sp__join-stack [data-icon] {
+		flex: none;
+		width: u(34);
+		height: u(34);
+		color: var(--color-text);
+	}
+
+	.sp__sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+</style>

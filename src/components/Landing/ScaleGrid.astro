@@ -170,13 +170,28 @@ const PATTERNS: Pattern[] = [
 	// Monolith: one cell, and it is both things at once, so there is no second colour and nothing to
 	// join. The whole deployment is a single lit square in an empty field.
 	{ cells: [{ c: 0, r: 3, k: 'a' }], links: [] },
-	// Hybrid: two kinds, joined. The bridge is the point of the card.
+	// Hybrid: THREE kinds in a row, joined — the platform, the store its telemetry moves to, and the
+	// queue that gets it there. Two cells understated it: this mode is three machines, and Kafka is
+	// not optional at the rate that puts you here, since the in-memory queue is documented as
+	// unreliable past ~3K data points/sec and this column starts above that.
+	//
+	// The third cell is unconditional, unlike the cluster's, which `thirdRole` gates. Three of three
+	// machines is the whole of what this column has, so omitting one is an understatement rather than
+	// a simplification; the cluster has many, and the third colour there is a refinement.
 	{
 		cells: [
 			{ c: 0, r: 3, k: 'a' },
 			{ c: 1, r: 3, k: 'b' },
+			// Stacked above the pair rather than continued beside it. Three in a row was the same
+			// gesture as the cluster's bottom row, only shorter, so the two columns read as more-of-the
+			// -same; going up instead makes this a small shape rather than a short queue, and keeps the
+			// cluster's spread as the thing that says "many".
+			{ c: 1, r: 2, k: 'c' },
 		],
-		links: [[0, 1]],
+		links: [
+			[0, 1],
+			[2, 1],
+		],
 	},
 	// Cluster: a connected patch that has started to climb out of the row. Still one `b`, because the
 	// data layer does not multiply just because the application does. The `c` cell is appended below
@@ -392,8 +407,46 @@ const vars = [
 	// reading order; the chips are pinned to the floor by the `margin-top: auto` on `.sg2__stack`.
 	// The card's own height comes from `--sg2-h`, so whatever a column does not use collects between
 	// the count and the chips.
+	// Levelled: the three columns share ROW LINES, not just a height.
+	//
+	// Stretching alone made the cards equal but let each column lay its own rows out, so a
+	// three-line description pushed its count down while a one-line one did not, and the figures —
+	// the row a reader compares straight across — sat at three different heights. Subgrid hands the
+	// four rows to the parent, so the field, the description block, the count and the chips each sit
+	// on one line across all three.
+	//
+	// The last row takes `1fr` and the chips align to its end, which keeps them on the floor without
+	// the `margin-top: auto` that did the job while this was a flex column.
 	.sg2--level {
 		align-items: stretch;
+		grid-template-rows: auto auto auto 1fr;
+		// Subgrid rows take the PARENT's row gap, so this one number is the space between every group
+		// in every card. It was 12, inherited from the flex gap it replaced, and that was too tight:
+		// sharing row lines already packs the rows to the tallest column's content, so the same gap
+		// that looked right when each column laid itself out reads as squeezed once they are locked
+		// together. Room between the groups is what the levelled row is spending its height on.
+		row-gap: u(20);
+	}
+
+	// No `gap` here on purpose. A subgrid that declares its own gutters OVERRIDES the parent's, so
+	// `gap: 0` — carried over from the flex rules this replaced — silently discarded the row gap set
+	// above and packed every group onto the next. Leaving it unset is what lets the parent's row-gap
+	// through, and it is the only place the spacing of this variant is decided.
+	.sg2--level .sg2__tier {
+		display: grid;
+		grid-row: span 4;
+		grid-template-rows: subgrid;
+	}
+
+	.sg2--level .sg2__stacks {
+		align-self: end;
+		margin: 0;
+	}
+
+	// The field is a different kind of thing from the three text rows under it, so it gets a little
+	// more air than they give each other.
+	.sg2--level .sg2__field {
+		margin-bottom: u(8);
 	}
 
 	.sg2__tier {
@@ -453,8 +506,14 @@ const vars = [
 
 	// --- the type ---------------------------------------------------------------------------
 
+	// `align-content: start` is load-bearing, not tidiness. This is a grid, and a grid's default
+	// `normal` behaves as STRETCH for auto rows: in a column whose description is shorter than the
+	// tallest, the leftover height is shared out into both rows, inflating the title's box and
+	// dropping the description below its neighbours' — measured at 13px out across the row. Packing
+	// the rows to the top puts every description's first line on one baseline.
 	.sg2__head {
 		display: grid;
+		align-content: start;
 		gap: u(3);
 	}
 

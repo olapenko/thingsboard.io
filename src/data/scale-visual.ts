@@ -322,24 +322,51 @@ export const SCALE_SETUP: ScaleSetupTier[] = [
 	{
 		mode: 'Monolith',
 		lead: 'Up to',
-		devices: '100K',
-		// Carries the five-device start that used to be the bottom of a band, and says what the mode
-		// actually costs you to run — which is the reason to be in this column rather than the next.
-		trait: 'One machine, from five devices up',
+		// 300K, not 100K. Two independent places in the docs put it there: Scenario A states "Max
+		// devices ~300,000 (depending on message rate)", and overview.mdx works the arithmetic —
+		// "300K devices reporting once per minute produce ~5K data points/sec", which is exactly
+		// PostgreSQL's ceiling. 100K came from the Recommendations table's ≤100K band, which is a
+		// RECOMMENDATION at ≤3K dp/sec rather than a limit, and it undersold one server by 3x.
+		devices: '300K',
+		// "Start here" rather than a number. The five-device start came from the proposal's slider,
+		// survived as the bottom of a band, and when the bands became ceilings it moved into this
+		// sentence — still carrying the floor semantics it should have shed. "From five devices up"
+		// reads as a minimum, which is the same mistake as the band bottom and is also a COMMERCIAL
+		// fact (the Cloud free tier) sitting in a row that answers what you operate.
+		trait: 'Start here. One machine to install, run and back up.',
 		machines: ['app'],
 		onboardDb: true,
 		stack: ['PostgreSQL'],
 	},
 	{
-		mode: 'Hybrid',
+		// "Hybrid storage", not "Hybrid". Monolith and Cluster are the docs' two DEPLOYMENT modes;
+		// hybrid is a DATABASE mode, and calling it a peer of the other two made three cards out of
+		// two different axes. The benchmark header settles it: every row of that table is "a single
+		// ThingsBoard instance in monolithic mode", so scenarios D and E — 500K and 1M devices — are
+		// monoliths running hybrid storage. This column is not an alternative to the first one; it is
+		// the first one with its telemetry moved.
+		mode: 'Hybrid storage',
 		lead: 'Up to',
 		devices: '1M',
-		trait: 'Telemetry moves to its own database',
+		// Leads with the counterintuitive half, because it is the only claim on this row a competitor
+		// cannot copy without running the benchmarks: scenario E reached 1M devices on ONE instance at
+		// 55% CPU. "A million devices" directly above "still one server" is the pairing worth reading,
+		// and it also stops this column being read as a topology step that it is not.
+		//
+		// The second sentence keeps the caveat the numbers structurally cannot carry. Every band here
+		// is a proxy for a data-point rate we do not show, and overview.mdx says so outright: "device
+		// count alone doesn't determine throughput — 300K devices reporting once per minute produce
+		// ~5K data points/sec, while 50K devices reporting every second produce 50K data points/sec".
+		// A 50K fleet can belong in this column; a 300K one may not.
+		trait: 'Still one server. Telemetry moves to a store built for the write rate.',
 		// Application, queue, database. Kafka is not optional at this rate: the in-memory queue is
 		// documented as unreliable past ~3K data points/sec, and this tier starts above that.
 		machines: ['app', 'infra', 'db'],
 		// Cassandra stands for "or TimescaleDB"; the docs offer them as alternatives for hybrid mode.
-		stack: ['PostgreSQL', 'Kafka', 'Cassandra'],
+		// Storage first, then transport — the same order the cluster below uses. They were
+		// [PostgreSQL, Kafka, Cassandra] and [PostgreSQL, Cassandra, Kafka, Redis], so Kafka sat in a
+		// different position in each and the two rows of marks could not be compared at a glance.
+		stack: ['PostgreSQL', 'Cassandra', 'Kafka'],
 	},
 	{
 		mode: 'Cluster',
@@ -349,7 +376,9 @@ export const SCALE_SETUP: ScaleSetupTier[] = [
 		// it, Hybrid, where the benchmark put it on a single instance.
 		devices: 'Any size',
 		unit: '',
-		trait: 'Redundant instances, added for uptime',
+		// Parallel to Hybrid's, and load-bearing for the same reason: benchmark E served 1M devices on
+		// a single instance, so a cluster is not what rescues you from running out of capacity.
+		trait: 'Instances cover for each other through failures and upgrades.',
 		// Enough machines to read as a cluster, in roughly the proportion the docs show — a third of
 		// them running ThingsBoard and the rest infrastructure. NOT a count to be taken literally:
 		// see `openEnded`. The two cluster tables in the docs are twelve machines and sixty-eight,
@@ -403,3 +432,223 @@ export const SCALE_SETUP_LEGEND = [
  *    left. How often your devices report sets the ceiling — one server covers ~10K devices
  *    reporting every few seconds, or ~100K reporting every 15 minutes."
  */
+
+// -------------------------------------------------------------------------------------------
+// A sixth cut, and the first that stops pretending there are three of anything.
+//
+// Monolith, Hybrid and Cluster were never a progression. `overview.mdx` says "ThingsBoard supports
+// two deployment architectures" and lists monolithic and microservices; storage is a SEPARATE table
+// in the same document, SQL against Hybrid. Two axes, not one scale. All four combinations exist in
+// the docs: benchmarks D and E are "a single ThingsBoard instance in monolithic mode" running
+// Cassandra — a monolith on hybrid storage — while the twelve-instance cluster in
+// deployment-scenarios runs PostgreSQL, a cluster on SQL.
+//
+// So: two topology cards as PEERS, and hybrid storage drawn as the thing that joins them, because
+// it is an option on either rather than a step between them. The consequence worth having is that
+// each topology can now state both of its ceilings — what it reaches on PostgreSQL, and what the
+// same shape reaches once telemetry moves — which is the clearest statement of the two axes the
+// visual has managed.
+// -------------------------------------------------------------------------------------------
+
+export interface ScaleTopology {
+	/** The deployment architecture, in the docs' own words. */
+	mode: string;
+	/** Why you would be on this one rather than the other. */
+	trait: string;
+	/** What it reaches on PostgreSQL alone. */
+	sql: string;
+	/**
+	 * What the same topology reaches once telemetry moves off PostgreSQL.
+	 *
+	 * EQUAL TO `sql` when the storage change does not move this topology's ceiling, and the component
+	 * then draws one figure instead of two. A cluster's answer is "any size" either way — printing
+	 * "Any size -> Any size" put an arrow between two identical values and said nothing at all.
+	 */
+	hybrid: string;
+	/** The word after the figures. Blank where the figure is not a count. */
+	unit?: string;
+	/** What runs, besides ThingsBoard and besides the time-series store the join adds. */
+	stack: string[];
+}
+
+/**
+ * Two topologies, as equals.
+ *
+ * The monolith's two figures are the whole argument for the pair: 300K on PostgreSQL (Scenario A's
+ * stated maximum, and the count overview.mdx works out to ~5K data points/sec at a one-minute
+ * interval), and 1M once telemetry moves — benchmark E, on ONE instance at 55% CPU. The step from
+ * one number to the other is a storage change, not a topology change, which is exactly what the
+ * three-card version could not say.
+ *
+ * The cluster's figures are open at both ends on purpose. Its ceiling is not published, and it is
+ * chosen for uptime rather than for capacity, so a number there would be answering a question
+ * nobody asked of it.
+ */
+export const SCALE_PAIR: ScaleTopology[] = [
+	{
+		mode: 'One server',
+		// Said as what you get, not as what is absent. "Everything on one machine. Nothing else to
+		// operate." spent half its words on an absence, and the row had three more like it — "no
+		// single machine to lose", "not capacity", "not a different shape". A reader counting
+		// negations is not reading the value.
+		trait: 'One machine to install, run and back up.',
+		sql: '300K',
+		hybrid: '1M',
+		stack: ['PostgreSQL'],
+	},
+	{
+		mode: 'Cluster',
+		trait: 'Instances cover for each other through failures and upgrades.',
+		sql: 'Any size',
+		hybrid: 'Any size',
+		unit: '',
+		// Kafka between the services and Redis for cache — the two that make a cluster a cluster.
+		// PostgreSQL is here because the docs' own 1M cluster runs it: a cluster is not automatically
+		// on hybrid storage, which is the point the join below makes.
+		stack: ['PostgreSQL', 'Kafka', 'Redis'],
+	},
+];
+
+/**
+ * The join: hybrid storage, drawn across both rather than beside them.
+ *
+ * Its copy has one job — to say that this is an OPTION on either topology and that it moves a
+ * ceiling rather than a shape. The threshold is the one real number in the whole visual, and it is
+ * a rate: PostgreSQL carries ~5K data points/sec, and overview.mdx is blunt that the fleet size does
+ * not tell you when you will hit it.
+ */
+export const SCALE_JOIN = {
+	label: 'Hybrid storage',
+	// Pitched between two versions that were both wrong. The first ran to forty words and turned the
+	// band into a second copy block competing with the section's own; the second cut it to "Optional
+	// on either", which named the option but left the reader with no idea what it changes or when.
+	// This keeps the three facts that matter — it applies to both, there is a threshold, and the
+	// threshold is a RATE — and drops the explanation of why rate is not device count, which belongs
+	// to the section copy.
+	body: 'Available on both. Past ~5K data points a second, telemetry moves to Cassandra or TimescaleDB.',
+	stack: ['Cassandra', 'TimescaleDB'],
+};
+
+/**
+ * Section copy for the abstract candidate, kept SEPARATE from `SCALE_COPY` above.
+ *
+ * `SCALE_COPY` feeds `_key-visuals.ts`, which feeds the home preview and every other feature row in
+ * the sandbox, so rewriting it in place would re-caption four visuals it was not written for. This
+ * is passed to the candidate's row directly instead. Fold it into `SCALE_COPY` only if and when the
+ * candidate is promoted.
+ *
+ * Written against what the candidate actually shows, because the old body no longer matched it:
+ *
+ *   - "From a pilot on one small server to a million devices" promised a million on ONE SERVER,
+ *     while the card beside it says 300K there and reserves the million for hybrid storage. The two
+ *     halves of the row disagreed about the same number.
+ *   - "you know the machine, the database, and how much headroom is left" described ScaleGrowth,
+ *     which prints CPU headroom and instance specs. This cut deliberately drops both.
+ *   - "Every step is benchmarked" had nothing left to point at once the benchmark figures came out
+ *     of the drawing — so the claim moves into the copy, where the link can carry it.
+ *
+ * It also lands the interval caveat that has been homeless all along: the visual cannot say that a
+ * data-point rate rather than a device count decides which column you are in, and a sentence can.
+ */
+export const SCALE_CANDIDATE_COPY = {
+	id: 'scale',
+	title: SCALE_COPY.title,
+	body: 'One server carries 300K devices — a million once telemetry moves to a database built for the write rate. What sets the number is how often your devices report. Every figure comes from our own 24-hour benchmarks.',
+	link: SCALE_COPY.link,
+};
+
+// -------------------------------------------------------------------------------------------
+// A seventh cut. Two deployment modes and nothing else — hybrid storage stops being a thing on the
+// page at all, and becomes what it actually is: a choice of database, listed with the others.
+//
+// That is the last piece of the category error to go. Monolith and Cluster are the docs' two
+// deployment architectures; SQL and Hybrid are a database mode. Earlier cuts drew the database mode
+// as a third card, then as a step, then as a band joining two cards. Listing PostgreSQL, Citus and
+// Cassandra side by side on each card says the same thing with no extra furniture: these are what
+// you can run underneath, and which one you pick is a rate question rather than a topology one.
+//
+// It also resolves a contradiction that has been in the row since the copy was written. The section
+// says "From a pilot on one small server to a million devices", and every previous cut put 300K on
+// the single-server card and reserved the million for a second one — so the sentence and the drawing
+// disagreed about the same number. Benchmark E ran 1M devices on ONE ThingsBoard instance, so the
+// million belongs on that card, and the original copy is correct beside this visual for the first
+// time.
+// -------------------------------------------------------------------------------------------
+
+export interface ScaleMode {
+	mode: string;
+	trait: string;
+	/** Read before the figure. Absent where the figure is not a ceiling. */
+	lead?: string;
+	devices: string;
+	/** Blank where the figure is not a count. */
+	unit?: string;
+	stack: string[];
+}
+
+/**
+ * Two modes, and the stacks differ by exactly what a cluster adds: a queue and a cache.
+ *
+ * CITUS is PE-only, off by default, and applied to live schema — effectively a one-way switch. It is
+ * on both cards because it is a real answer to "how do I scale the database without leaving
+ * PostgreSQL", but it is the one chip here that a reader cannot simply turn on, and that is worth
+ * confirming with whoever owns the commercial claim before this ships.
+ *
+ * VALKEY rather than Redis follows the docs, which name the component "Redis / Valkey" in both the
+ * microservices and cloud architecture tables.
+ */
+export const SCALE_MODES: ScaleMode[] = [
+	{
+		// "Monolith", not "One server". It is the docs' own word — "a single server running ThingsBoard
+		// in monolithic mode" — and it pairs with Cluster as one of the two deployment architectures.
+		// It is also the more accurate of the two now that the chips include Citus and Cassandra: those
+		// spread the DATABASE across nodes while ThingsBoard stays a single process, so "one server"
+		// describes the deployment wrongly while "monolith" still describes it exactly.
+		mode: 'Monolith',
+		trait: 'A single ThingsBoard instance carries the whole fleet.',
+		// "Up to", because this is a ceiling rather than a flat claim — and a published one rather than
+		// a real one: benchmark E reached 1M devices at 55% CPU, so there was headroom left at the
+		// largest point anyone measured.
+		lead: 'Up to',
+		devices: '1M',
+		stack: ['PostgreSQL', 'Citus', 'Cassandra'],
+	},
+	{
+		mode: 'Cluster',
+		trait: 'Keeps running through hardware failures and upgrades.',
+		devices: 'Any size',
+		unit: '',
+		// The same stores, plus the two things that only exist once there is more than one instance to
+		// coordinate.
+		stack: ['PostgreSQL', 'Citus', 'Cassandra', 'Kafka', 'Valkey'],
+	},
+];
+
+/**
+ * A second draft of the CARD copy, kept beside `SCALE_MODES` rather than replacing it.
+ *
+ * The first draft described the architecture — "a single ThingsBoard instance carries the whole
+ * fleet", "keeps running through hardware failures and upgrades". True, and both sentences spend
+ * their words on what the thing IS. These spend them on what it does for the reader: what you
+ * operate day to day on the left, and what happens on the bad day on the right.
+ *
+ * The cluster line is the docs' own failover sequence said in one clause — "the entity partitions
+ * owned by the failed node are redistributed across surviving nodes" — with "automatically" doing
+ * the work that matters commercially: nobody is paged.
+ */
+export const SCALE_MODES_ALT: ScaleMode[] = [
+	{
+		mode: 'Monolith',
+		trait: 'One process to run, back up and upgrade.',
+		lead: 'Up to',
+		devices: '1M',
+		stack: ['PostgreSQL', 'Citus', 'Cassandra'],
+	},
+	{
+		mode: 'Cluster',
+		trait: 'Surviving nodes pick up the work automatically.',
+		devices: 'Any size',
+		unit: '',
+		stack: ['PostgreSQL', 'Citus', 'Cassandra', 'Kafka', 'Valkey'],
+	},
+];

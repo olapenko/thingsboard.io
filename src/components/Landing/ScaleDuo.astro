@@ -1,0 +1,503 @@
+---
+import { Icon } from 'astro-icon/components';
+import { SCALE_MODES, type ScaleMode } from '@data/scale-visual';
+
+/**
+ * A seventh cut: two deployment modes, one colour, and no third element of any kind.
+ *
+ * Every earlier cut carried hybrid storage as furniture — a third card, then a step between two,
+ * then a band joining them. It is none of those: it is a choice of database, and it belongs in the
+ * list of databases. Dropping it takes the last of the category error out of the drawing, and takes
+ * a whole block of chrome with it.
+ *
+ * THE FIELD IS DELIBERATELY DUMBER than ScaleGrid's: one colour rather than three, and no roles.
+ * The role colours were carrying an argument about kinds of machine that the chips underneath make
+ * better; what is left is the only thing the field was ever good at — one, against many.
+ *
+ * The million sits on the SINGLE-SERVER card, which is what benchmark E measured: 1M devices,
+ * 33.3K data points/sec, one instance in monolithic mode, 55% CPU. That is also what lets the
+ * section's original copy stand beside this visual without contradicting it.
+ */
+
+interface Props {
+	modes?: ScaleMode[];
+	/**
+	 * Ripple the lit cells outward from the entry node, as data arriving and being taken up.
+	 *
+	 * INGEST, not failover. A cluster losing a node and recovering is the only thing these drawings
+	 * could animate that the static frame cannot say — and it is the wrong thing to loop: replayed
+	 * every few seconds a recovery reads as "this keeps falling over", and it argues against the card
+	 * beside it, which has no redundancy and is carrying the stronger claim. Arrival is what both
+	 * modes do all day, it is symmetric, and it makes the bridges earn their place by showing work
+	 * crossing them.
+	 *
+	 * The monolith pulses once with nowhere to propagate; the cluster passes the same pulse along its
+	 * connections. The asymmetry IS the difference between the two cards, rather than a gap in one.
+	 */
+	animate?: boolean;
+}
+
+const { modes = SCALE_MODES, animate = false } = Astro.props;
+
+/**
+ * Chip label to mark. Citus and Valkey are LOCAL files under `src/icons/`, because Simple Icons
+ * publishes neither — they were supplied as brand SVGs and redrawn in `currentColor`, so every mark
+ * in the row is the project's own rather than a stand-in.
+ */
+const LOGOS: Record<string, string> = {
+	PostgreSQL: 'simple-icons:postgresql',
+	Citus: 'citus',
+	Cassandra: 'simple-icons:apachecassandra',
+	Kafka: 'simple-icons:apachekafka',
+	Valkey: 'valkey',
+};
+
+const COL_W = 220;
+const COL_GAP = 40;
+const NATIVE = modes.length * COL_W + (modes.length - 1) * COL_GAP;
+
+/**
+ * The field, derived from the column so the cells tile it exactly.
+ *
+ * COLS is the only free variable: the cells are sized to fill the column whatever the count is, so
+ * dropping a column scales the whole drawing up rather than leaving a gap on the right. Five across
+ * at a 5:1 cell-to-gap ratio is about as far as this can usefully go — the cells are now big enough
+ * to read as objects rather than as texture, while the gaps stay narrow enough that the field still
+ * reads as one surface instead of a scatter of tiles.
+ *
+ * Three rows, which is exactly what the taller pattern needs: the stack reaches the top row, so
+ * there is no empty band above it. The field is now the drawing's extent rather than a frame around
+ * it — it gives up the headroom that used to read as capacity not yet taken, and gets the density
+ * back in exchange.
+ */
+const COLS = 5;
+const ROWS = 3;
+const RATIO = 5;
+const S = (COL_W * RATIO) / (COLS * RATIO + (COLS - 1));
+const G = S / RATIO;
+const FIELD_W = COL_W;
+const FIELD_H = ROWS * S + (ROWS - 1) * G;
+const R = S / 3;
+
+const r2 = (v: number) => +v.toFixed(2);
+const px = (c: number) => r2(c * (S + G));
+
+/**
+ * How far the ripple grows, and the bleed the field reserves for it.
+ *
+ * Both patterns sit on the field's floor and start at its left edge, so a halo drawn around those
+ * cells has nowhere to go: an SVG clips to its viewBox, and the ripple was being cut off square on
+ * two sides. The viewBox is padded by exactly the halo's overhang and the box grows to match, with
+ * the same amount taken straight back off the margins — so every cell lands where it did before,
+ * and the only thing the padding adds is somewhere to spill.
+ *
+ * PAD is DERIVED from PULSE_SCALE, and the keyframe reads that scale back out of a custom property,
+ * so the two cannot drift apart the way a hand-written pad would the first time the scale is tuned.
+ */
+const PULSE_SCALE = 1.75;
+// Rounded UP, never down: two decimals of shortfall at the floor is still a flat edge on the halo.
+const PAD = Math.ceil(((S * (PULSE_SCALE - 1)) / 2) * 100) / 100;
+const BOX_W = r2(FIELD_W + PAD * 2);
+const BOX_H = r2(FIELD_H + PAD * 2);
+
+/**
+ * One lit cell against a stack of six.
+ *
+ * Three on the floor, then two, then one: a pile with its weight at the bottom, which reads as mass
+ * rather than as a shape. The earlier patch was an outline — you counted its cells. This one you do
+ * not, which is the right instinct to leave the reader with, because the figure underneath already
+ * says how many and the drawing should only say "more than one".
+ *
+ * Both start on the same floor cell, so the difference between the cards is only what is built on
+ * it.
+ */
+const PATTERNS: { c: number; r: number }[][] = [
+	[{ c: 0, r: ROWS - 1 }],
+	[
+		{ c: 0, r: ROWS - 3 },
+		{ c: 0, r: ROWS - 2 },
+		{ c: 1, r: ROWS - 2 },
+		{ c: 0, r: ROWS - 1 },
+		{ c: 1, r: ROWS - 1 },
+		{ c: 2, r: ROWS - 1 },
+	],
+];
+
+/**
+ * One hue per card, and the lit cells take their own card's.
+ *
+ * These are alternatives rather than steps, so a single hue at two depths would have said "later,
+ * bigger" — the thing every earlier cut in this family had to keep denying. Two different hues at
+ * the same strength say "two of these" instead. Both are palette tokens; the pair is chosen for
+ * distance, since the purple that used to mark coordination sits too close to the primary blue to
+ * read as a different subject at a glance.
+ */
+const HUES = ['var(--color-primary, #3d50f5)', 'var(--color-edge, #009688)'];
+
+/**
+ * Every orthogonally adjacent pair of lit cells, bridged.
+ *
+ * Derived rather than listed, so the joins can never fall out of step with the pattern above — the
+ * hand-written link lists in earlier cuts had to be renumbered by hand every time a cell moved. A
+ * bar in the gap, never a stroke, and drawn UNDER the cells so the overlap is hidden.
+ *
+ * SQUARE ENDS, no radius. A bar only buries BLEED (S/15) of itself inside each cell, so any corner
+ * radius larger than that surfaces in the open gap and pinches the bar at both ends — the earlier
+ * S/9 left 0.044*S of visible curve on each end of every bridge. The bar is T (S/3) wide against a
+ * cell corner radius of the same S/3, which means its long edges land exactly on the straight
+ * middle third of the cell's edge: square meets flat, and the join disappears.
+ */
+const T = S / 3;
+const BLEED = S / 15;
+function bridges(cells: { c: number; r: number }[]) {
+	const out: { x: number; y: number; width: number; height: number }[] = [];
+	cells.forEach((a, i) =>
+		cells.slice(i + 1).forEach((b) => {
+			if (a.r === b.r && Math.abs(a.c - b.c) === 1) {
+				const l = a.c < b.c ? a : b;
+				out.push({
+					x: r2(px(l.c) + S - BLEED),
+					y: r2(px(l.r) + (S - T) / 2),
+					width: r2(G + BLEED * 2),
+					height: r2(T),
+				});
+			} else if (a.c === b.c && Math.abs(a.r - b.r) === 1) {
+				const t = a.r < b.r ? a : b;
+				out.push({
+					x: r2(px(t.c) + (S - T) / 2),
+					y: r2(px(t.r) + S - BLEED),
+					width: r2(T),
+					height: r2(G + BLEED * 2),
+				});
+			}
+		})
+	);
+	return out;
+}
+
+/**
+ * Hops from the entry cell, breadth-first over orthogonal adjacency.
+ *
+ * The entry is the bottom-left lit cell, which is where both patterns start, so the wave runs the
+ * way the eye already reads them. Derived rather than authored: a hand-numbered sequence would have
+ * to be renumbered every time a cell moves, which is the mistake the link lists made twice.
+ */
+function hops(cells: { c: number; r: number }[]) {
+	const key = (x: { c: number; r: number }) => `${x.c},${x.r}`;
+	const start = cells.reduce((a, b) => (b.r > a.r || (b.r === a.r && b.c < a.c) ? b : a), cells[0]);
+	const dist = new Map<string, number>([[key(start), 0]]);
+	const queue = [start];
+	while (queue.length) {
+		const cur = queue.shift()!;
+		cells.forEach((n) => {
+			if (dist.has(key(n))) return;
+			if (Math.abs(n.c - cur.c) + Math.abs(n.r - cur.r) !== 1) return;
+			dist.set(key(n), dist.get(key(cur))! + 1);
+			queue.push(n);
+		});
+	}
+	return cells.map((x) => dist.get(key(x)) ?? 0);
+}
+
+const STEPS = PATTERNS.map(hops);
+
+const vars = [
+	`--sd-u: min(1.45px, calc(100cqw / ${NATIVE}))`,
+	`--sd-native: ${NATIVE}`,
+	`--sd-cols: ${modes.length}`,
+	`--sd-gap: ${COL_GAP}`,
+	`--sd-field-h: ${BOX_H}`,
+	`--sd-pad: ${PAD}`,
+	`--sd-pulse-scale: ${PULSE_SCALE}`,
+].join('; ');
+---
+
+<div class="sd-fit">
+	<ul class="sd" style={vars}>
+		{
+			modes.map((m, i) => (
+				<li class="sd__card" style={`--sd-hue: ${HUES[i % HUES.length]}`}>
+					<svg
+						class="sd__field"
+						viewBox={`${-PAD} ${-PAD} ${BOX_W} ${BOX_H}`}
+						preserveAspectRatio="xMinYMid meet"
+						role="img"
+						aria-label={`${m.mode}: ${PATTERNS[i].length === 1 ? 'one machine' : `${PATTERNS[i].length} machines`}`}
+					>
+						{Array.from({ length: COLS * ROWS }).map((_, n) => (
+							<rect class="sd__cell" x={px(n % COLS)} y={px(Math.floor(n / COLS))} width={S} height={S} rx={R} />
+						))}
+						{bridges(PATTERNS[i]).map((b) => (
+							<rect class="sd__lit" x={b.x} y={b.y} width={b.width} height={b.height} />
+						))}
+						{PATTERNS[i].map((cell) => (
+							<rect class="sd__lit" x={px(cell.c)} y={px(cell.r)} width={S} height={S} rx={R} />
+						))}
+						{/* The ripple rides ON TOP of the lit cells rather than replacing their fill, so the
+						    still frame — reduced motion, and the OG image, which cannot animate at all — is
+						    the finished drawing rather than a frame of an animation. */}
+						{animate &&
+							PATTERNS[i].map((cell, n) => (
+								<rect
+									class="sd__pulse"
+									style={`--sd-step: ${STEPS[i][n]}`}
+									x={px(cell.c)}
+									y={px(cell.r)}
+									width={S}
+									height={S}
+									rx={R}
+								/>
+							))}
+					</svg>
+
+					<div class="sd__head">
+						<p class="sd__mode">{m.mode}</p>
+						<p class="sd__trait">{m.trait}</p>
+					</div>
+
+					<p class="sd__reach">
+						{m.lead && <span class="sd__lead">{m.lead}</span>}
+						<span class="sd__num">{m.devices}</span>
+						{(m.unit ?? 'devices') && <span class="sd__unit">{m.unit ?? 'devices'}</span>}
+					</p>
+
+					{/* Marks, with no words and no pills. Possible here only because Citus and Valkey were
+					    supplied as files — Simple Icons has neither, and two stand-ins out of five was the
+					    trap that took Zookeeper off the page entirely. */}
+					<ul class="sd__stack">
+						{m.stack.map((s) => (
+							<li title={s}>
+								<Icon name={LOGOS[s]} aria-hidden="true" />
+								<span class="sd__sr">{s}</span>
+							</li>
+						))}
+					</ul>
+				</li>
+			))
+		}
+	</ul>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.sd-fit {
+		container-type: inline-size;
+	}
+
+	// Four shared rows, so the fields, the headings, the figures and the chips each sit on one line
+	// across both cards. `1fr` on the last keeps the chips on the floor.
+	.sd {
+		--u: var(--sd-u);
+		display: grid;
+		grid-template-columns: repeat(var(--sd-cols), minmax(0, 1fr));
+		grid-template-rows: auto auto auto 1fr;
+		align-items: stretch;
+		row-gap: u(20);
+		column-gap: u(var(--sd-gap));
+		max-width: u(var(--sd-native));
+		margin: 0 auto;
+		padding: 0;
+		list-style: none;
+	}
+
+	// No `gap` declaration: a subgrid that sets its own gutters overrides the parent's and collapses
+	// every row onto the next.
+	.sd__card {
+		position: relative;
+		display: grid;
+		grid-row: span 4;
+		grid-template-rows: subgrid;
+	}
+
+	// Each card is tinted with its own hue, at the same strength as its neighbour — the difference
+	// between them is which colour, never how much.
+	.sd__card::before {
+		content: '';
+		position: absolute;
+		inset: u(-16) u(-14);
+		border-radius: u(14);
+		background: color-mix(in srgb, var(--sd-hue) 6%, transparent);
+	}
+
+	.sd__card > * {
+		position: relative;
+	}
+
+	// The box is the field PLUS the ripple's overhang on every side, with the overhang taken straight
+	// back off the margins. Every cell lands exactly where it did before — 100% is the column, and the
+	// column is u(220) at every width — but the halo now grows inside the element instead of against
+	// its edge. Written as one `margin` shorthand: a later shorthand silently resets a longhand set
+	// above it, and these rules carry no specificity to protect them.
+	.sd__field {
+		display: block;
+		width: calc(100% + 2 * #{u(var(--sd-pad))});
+		max-width: none;
+		height: u(var(--sd-field-h));
+		margin: calc(-1 * #{u(var(--sd-pad))}) 0 calc(#{u(6)} - #{u(var(--sd-pad))}) calc(-1 * #{u(var(--sd-pad))});
+	}
+
+	.sd__cell {
+		fill: var(--color-bg, #fff);
+	}
+
+	.sd__lit {
+		fill: var(--sd-hue);
+	}
+
+	// One hop is 100ms and each ring expands over 324ms — 9% of the 3.6s cycle. The stack is two hops
+	// deep, so the whole wave is over in 524ms and the field is then still for the rest of the loop.
+	// The REST is what makes this readable beside a column of copy: a continuous shimmer is a
+	// distraction, a quick pulse with a long pause is a heartbeat. Speed belongs in the ring and the
+	// hop; the cycle is the pause, and shortening that would make it busy rather than fast.
+	.sd__pulse {
+		fill: var(--sd-hue);
+		transform-box: fill-box;
+		transform-origin: center;
+		animation: sd-pulse 3.6s ease-out infinite;
+		animation-delay: calc(var(--sd-step, 0) * 100ms);
+	}
+
+	@keyframes sd-pulse {
+		0% {
+			opacity: 0.55;
+			transform: scale(1);
+		}
+		9% {
+			opacity: 0;
+			transform: scale(var(--sd-pulse-scale));
+		}
+		100% {
+			opacity: 0;
+			transform: scale(var(--sd-pulse-scale));
+		}
+	}
+
+	// The drawing is complete without it, so there is nothing to substitute — the ripple simply does
+	// not run.
+	@media (prefers-reduced-motion: reduce) {
+		.sd__pulse {
+			animation: none;
+			opacity: 0;
+		}
+	}
+
+	// Packed to the top, or the leftover height in the shorter column is shared into both rows and
+	// the description drops below its neighbour's first line.
+	.sd__head {
+		display: grid;
+		align-content: start;
+		gap: u(3);
+	}
+
+	.sd__mode {
+		margin: 0;
+		font-size: u(21);
+		line-height: u(26);
+		font-weight: $font-weight-medium;
+		color: var(--color-text);
+	}
+
+	.sd__trait {
+		margin: 0;
+		font-size: u(14);
+		line-height: u(19);
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	.sd__reach {
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 0 u(6);
+		margin: 0;
+		align-self: start;
+	}
+
+	.sd__num {
+		font-family: $font-family-mono;
+		font-size: u(24);
+		font-weight: $font-weight-bold;
+		line-height: u(30);
+		color: var(--color-text);
+		white-space: nowrap;
+	}
+
+	.sd__unit {
+		font-size: u(14);
+		line-height: u(20);
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// Marks on the card, no pills. The longest row is five, and five at 34 units with four 9-unit
+	// gaps is 206 of the column's 220 — still one row, with 14 units to spare.
+	.sd__stack {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: u(9);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		align-self: end;
+
+		li {
+			display: flex;
+			align-items: center;
+		}
+	}
+
+	// Sized in design units, NOT with astro-icon's width/height attributes, which are absolute pixels
+	// and would not scale with `--u`.
+	//
+	// They take the CARD's hue, like the lit cells above them, so the colour owns the whole column
+	// rather than stopping at the drawing. In ink they left the Cluster card teal at the top and
+	// near-black at the foot, which read as two unrelated halves.
+	.sd__stack [data-icon] {
+		flex: none;
+		width: u(34);
+		height: u(34);
+		color: var(--sd-hue);
+	}
+
+	// The Cassandra mark is a lens: full width in its box, but half its height. Measured against its
+	// neighbours it covers 52% of its square where the elephant covers 96%, so at an equal box it
+	// carries about half the ink and reads as the runt of the row. Sized by what it COVERS rather than
+	// by its box — a flat mark has to run wider than its neighbours to weigh the same.
+	//
+	// +18% rather than the +36% that would equalise the areas outright, which on a 2:1 mark would let
+	// it run away with the row. Five marks then measure 212 of the column's 220: still one line.
+	//
+	// `li` is in the selector to outrank the rule above it on specificity rather than on source order.
+	// Astro scopes with `:where()`, which adds nothing, so these two would otherwise tie and the
+	// winner would be whichever was written last.
+	.sd__stack li [data-icon='simple-icons:apachecassandra'] {
+		width: u(40);
+		height: u(40);
+	}
+
+	// Inline with the figure, not a line of its own. Stacked, it read as a label over a number; on
+	// the same line it reads as one phrase — "Up to 1M devices".
+	.sd__lead {
+		font-size: u(14);
+		line-height: u(20);
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// Off the surface, still in the document.
+	.sd__sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+</style>
