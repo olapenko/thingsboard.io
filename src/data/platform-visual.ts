@@ -98,47 +98,48 @@ export interface PlatformStage {
  * the column beside them is a list of nouns, and the contrast is what says one side is a thing you
  * own and the other is work being done to it.
  *
- * EACH STAGE IS A SECTION OF THE PAGE, and takes that section's own badge — its icon and its
- * colour, by reference rather than by copy, so the two cannot drift apart:
+ * EACH STAGE IS CODED AS A SECTION OF THE PAGE. The colour comes from that section's badge, by
+ * reference rather than by copy, so the two cannot drift apart:
  *
- *   Connect   -> the connect section        plug-connected   #0e7490
- *   Model     -> the digital twin section   binary-tree      #7b3fe4
- *   Automate  -> the normalize section      database-search   #c2703a
- *   Operate   -> the solution section       layout-dashboard #3d50f5
+ *   Connect   -> the connect section        #0e7490
+ *   Model     -> the digital twin section   #7b3fe4
+ *   Automate  -> the normalize section      #c2703a
+ *   Operate   -> the solution section       #3d50f5
  *
- * That makes the platform column a legend for the rest of the page: whoever reads the diagram
- * meets each of these four again further down, in the same colour under the same mark. It is also
- * why three of the icons changed. `binary-tree` was on Automate and is the digital twin's own mark,
- * so it moves to Model, which is what the twin section is called ("Model your real world");
- * `box-model` and `chart-dots` were this component's inventions and had no section behind them.
+ * That makes the platform column a legend for the rest of the page: whoever reads the diagram meets
+ * each of these four again further down, in the same colour.
  *
- * The fifth section, scale, has no stage to take it — it is not a step, it is a property of all
- * four, which is exactly the argument the foundations strip makes. Its badge is the obvious source
- * for "Scalable architecture" there if that strip is ever turned back on.
+ * THE ICONS ARE THE STAGE'S OWN, not the section's badge glyph, and are the four the original
+ * drawing chose. A section badge has to stand for a whole section in one mark; a stage here sits
+ * above a verb and a line of detail and only has to stand for that. Where the two agree they are
+ * the same glyph — Connect takes `plug-connected` either way — and where they do not, the stage
+ * wins: `binary-tree` reads as branching logic beside "Rule chains", which is Automate's job, and
+ * the twin's own box is what `DigitalTwin.astro` draws its unit with, which is Model's.
  */
 export const PLATFORM_STAGES: PlatformStage[] = [
 	{
 		name: 'Connect',
 		note: 'Devices, gateways, integrations',
-		icon: CONNECT_COPY.badge.icon,
+		icon: 'tabler:plug-connected',
 		accent: CONNECT_COPY.badge.color,
 	},
 	{
 		name: 'Model',
 		note: 'Assets, relations, profiles',
-		icon: DIGITAL_TWIN_COPY.badge.icon,
+		// The twin's own box — the glyph `DigitalTwin.astro` draws its unit with.
+		icon: 'tabler:box-model',
 		accent: DIGITAL_TWIN_COPY.badge.color,
 	},
 	{
 		name: 'Automate',
 		note: 'Rule chains, calculated fields, alarms',
-		icon: NORMALIZE_COPY.badge.icon,
+		icon: 'tabler:binary-tree',
 		accent: NORMALIZE_COPY.badge.color,
 	},
 	{
 		name: 'Operate',
 		note: 'Dashboards, SCADA, reports',
-		icon: SOLUTION_COPY.badge.icon,
+		icon: 'tabler:chart-dots',
 		accent: SOLUTION_COPY.badge.color,
 	},
 ];
