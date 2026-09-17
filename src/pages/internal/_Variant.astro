@@ -1,0 +1,249 @@
+---
+import FeatureBlockSection from '@components/Landing/FeatureBlockSection.astro';
+import type { KeyVisual } from '@root/pages/internal/_key-visuals';
+
+/**
+ * ONE DIRECTION, as one section.
+ *
+ * The sandbox used to lay a direction out as three separate exhibits in a row: the feature row, a
+ * bare probe at the shipping width, and a phone probe. Each carried its own caption and its own
+ * retire ✕, so three views of ONE idea looked like three competing versions, and the connect page
+ * came to thirty exhibits for eight directions. Anyone scrolling it was counting versions that did
+ * not exist.
+ *
+ * A direction is now a section with a header and two views inside it — desktop and phone — and it
+ * is promoted or retired as a whole, because a direction is the thing you actually decide about.
+ * The middle probe is gone: it duplicated the desktop row at the same width and was only ever there
+ * because the row was drawn at the wrong one.
+ *
+ * The component is passed as a VALUE rather than through the slot, and rendered twice from that one
+ * reference. Two slots would have meant writing every variant's markup twice in the page, and two
+ * copies of a thing that must stay identical is how the desktop and phone views end up testing
+ * different props.
+ */
+
+interface Props {
+	/**
+	 * Supplies the row's copy. The homepage reads the same object.
+	 *
+	 * Typed as what this component USES rather than as a whole `KeyVisual`, so a copy draft kept
+	 * beside the real entry — `SCALE_CANDIDATE_COPY` — can be passed without being given a `label`
+	 * it would never show.
+	 */
+	visual: Pick<KeyVisual, 'id' | 'title' | 'body' | 'link'>;
+	/** What this direction IS. The thing being decided about, so it goes in the header. */
+	name: string;
+	/** One line on what makes it different from its neighbours. */
+	note?: string;
+	/** The visual itself. Rendered twice — once per view — from this one reference. */
+	component: any;
+	/** Props for it. The same object both times, so the two views cannot drift apart. */
+	props?: Record<string, unknown>;
+	/**
+	 * Overrides for the phone view only, merged over `props`. For the handful of props that are
+	 * genuinely about the width — a rotation that has no room to be noticed, a motion that costs
+	 * more than it says on a small drawing. Anything else belongs in `props`, where both views get
+	 * it and the comparison stays honest.
+	 */
+	phoneProps?: Record<string, unknown>;
+	/** Media on the left, as the homepage's alternating rows do it for some visuals. */
+	imageFirst?: boolean;
+	/**
+	 * The ground it ships on. The homepage alternates, so a visual lands on the tint or on white
+	 * depending on where its row falls, and the two are not equally kind to a pale diagram.
+	 */
+	wash?: boolean;
+	/** Phone width. 335 is the column a 375px phone gives, which is where these get decided. */
+	phone?: number;
+	/**
+	 * For a visual that is a full-bleed SECTION rather than a row's media: the desktop view becomes a
+	 * probe at this width instead of the feature row. A row hands its media 525px, and a section
+	 * diagram is already in its stacked form at that width — putting one in a row would be judging a
+	 * different picture. The section still groups and still promotes or retires as one.
+	 */
+	deskWidth?: number;
+}
+
+const {
+	visual,
+	name,
+	note,
+	component: C,
+	props = {},
+	phoneProps,
+	imageFirst = false,
+	wash = true,
+	phone = 335,
+	deskWidth,
+} = Astro.props;
+
+const onPhone = phoneProps ? { ...props, ...phoneProps } : props;
+
+// Keyed by visual and name rather than by position: the mark is read back days later by someone
+// deleting files, and a key that says WHICH direction survives the section moving up the page.
+const key = `${visual.id}/${name}`;
+---
+
+<section class="vx" data-variant data-vx-key={key} data-vx-label={`${visual.id} · ${name}`}>
+	<header class="vx__cap">
+		<h2 class="vx__name">{name}</h2>
+		{note && <p class="vx__note">{note}</p>}
+		{/* The two commands are appended here by the page's script. */}
+		<div class="vx__cmds" data-vx-cmds></div>
+	</header>
+
+	<div class="vx__views">
+		{/* Desktop: the real row, not a copy of it. Same component, same styles as the homepage. */}
+		<div class="vx__view vx__view--desk">
+			<p class="vx__vlabel">
+				{deskWidth ? `Desktop · ${deskWidth}px section` : 'Desktop · 525px in the row'}
+			</p>
+			{
+				deskWidth ? (
+					<div class="vx__frame vx__frame--plain">
+						<div class="probe" style={`--probe: ${deskWidth}px`}>
+							<C {...props} />
+						</div>
+					</div>
+				) : (
+					<div class:list={['new-rows', !wash && 'new-rows--plain']}>
+						<FeatureBlockSection
+							heading={visual.title ?? name}
+							description={visual.body ?? ''}
+							links={visual.link ? [{ href: visual.link.href, text: visual.link.text }] : []}
+							imageFirst={imageFirst}
+							imageEqual
+						>
+							<C {...props} />
+						</FeatureBlockSection>
+					</div>
+				)
+			}
+		</div>
+
+		{
+			/* Phone: the visual alone at the width a phone hands it. The row's own stacking is the
+		    homepage's job and is checked there; what is being read here is the visual. */
+		}
+		<div class="vx__view vx__view--phone">
+			<p class="vx__vlabel">
+				Phone · {phone}px{
+					phoneProps && (
+						<span class="vx__diff">
+							{' '}
+							·{' '}
+							{Object.entries(phoneProps)
+								.map(([k, v]) => `${k}=${v}`)
+								.join(' ')}
+						</span>
+					)
+				}
+			</p>
+			<div class="vx__frame">
+				<div class="probe" style={`--probe: ${phone}px`}>
+					<C {...onPhone} />
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+{
+	/* The homepage's own row overrides, the same file `index.astro` reads. Global because they are
+	   overrides ON a shared component and match ITS class names, which a scoped rule cannot reach.
+	   Astro emits a component's styles once however many instances a page has. */
+}
+<style lang="scss" is:global>
+	@use '../../styles/home-rows';
+</style>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// A section, with a rule above it: the point of the refactor is that the eye can find where one
+	// direction stops and the next starts without reading the captions.
+	.vx {
+		max-width: 1200px;
+		margin: 0 auto $spacing-16;
+		padding-top: $spacing-6;
+		border-top: 2px solid var(--color-text, #17181c);
+
+		// Marked, not hidden — a decision stays visible and can be taken back.
+		&[data-vx-state='retire'] {
+			opacity: 0.4;
+
+			.vx__name {
+				text-decoration: line-through;
+			}
+		}
+
+		&[data-vx-state='promote'] {
+			border-top-color: $color-brand;
+		}
+	}
+
+	.vx__cap {
+		display: flex;
+		align-items: baseline;
+		gap: $spacing-3;
+		margin-bottom: $spacing-8;
+	}
+
+	.vx__name {
+		@include card-title-sm;
+		margin: 0;
+		font-family: $font-family-mono;
+	}
+
+	.vx__note {
+		@include text-xs;
+		margin: 0;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.vx__cmds {
+		display: flex;
+		gap: $spacing-2;
+		margin-left: auto;
+	}
+
+	// Desktop above, phone below. Side by side would put the 525 row and the 335 probe at the same
+	// optical size on a laptop, which is the one comparison this page must not invite.
+	.vx__views {
+		display: grid;
+		gap: $spacing-10;
+	}
+
+	.vx__vlabel {
+		@include text-xs;
+		margin: 0 0 $spacing-2;
+		font-family: $font-family-mono;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// A phone override is stated on the label, because a view that is not testing the same thing as
+	// the one above it has to say so where it is looked at.
+	.vx__diff {
+		color: $color-brand;
+	}
+
+	// The checkerboard shows where a visual's own background stops and the page's begins — a
+	// transparent edge is invisible against a plain white frame.
+	.vx__frame {
+		padding: $spacing-6 0;
+		background:
+			linear-gradient(45deg, #f2f4f8 25%, transparent 25%, transparent 75%, #f2f4f8 75%),
+			linear-gradient(45deg, #f2f4f8 25%, transparent 25%, transparent 75%, #f2f4f8 75%);
+		background-position:
+			0 0,
+			8px 8px;
+		background-size: 16px 16px;
+		border-radius: $radius-xl;
+	}
+
+	// For visuals carrying their own white surface: the checkerboard reads as a background competing
+	// with the card fills rather than as the absence of one.
+	.vx__frame--plain {
+		background: none;
+	}
+</style>

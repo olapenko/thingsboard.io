@@ -193,13 +193,15 @@ shipped page stable through several rejected directions:
 
 1. **Draft as a new component**, named for its idea (`ConnectCloud`, `TwinTree`), never as an edit
    to the visual the home preview renders.
-2. **Give it a canvas** — a `FeatureRow` in its panel, plus probes at 525px (the home row at 1440)
-   and 335px (the phone). The candidate goes FIRST in the panel and the incumbent below it; put it
-   second and the incumbent quietly stays the incumbent.
+2. **Give it a canvas** — one `<Variant>` in the visual's page. That is the whole canvas: a section
+   with the direction's name, the real homepage row above and the phone below. The candidate goes
+   FIRST on the page and the incumbent below it; put it second and the incumbent quietly stays the
+   incumbent.
 3. **Measure it in the browser**, and report the numbers rather than an impression.
 4. **Judge it in the row**, not in isolation.
-5. **Promote or retire.** Promoting means the home preview imports it. Retiring means the ✕ in its
-   caption, and a deletion pass later.
+5. **Promote or retire.** Two buttons in the section's header, and one decision per direction
+   rather than one per exhibit. Promote means `index.astro` imports it; retire means a deletion
+   pass later. Both are a mark, not the act.
 
 Rejected work is committed, not discarded — with the reason in the message. `TwinTree` was drafted
 in `08a8c189f`, judged on its canvas, and deleted once its direction was dropped; the commit still
@@ -216,21 +218,47 @@ server will restart it under each other mid-measurement.
 A session per visual is also about context: these sessions get long, and a compacted one has lost
 the measurements it took two hours ago. Start fresh per visual and let this file carry the method.
 
-Merge the branches back **one at a time** — each will have touched `_key-visuals.ts` and the two
-one-line lists in `launch-visuals.astro`.
+Merge the branches back **one at a time** — each will have touched `_key-visuals.ts`.
 
 Shared, so coordinate before touching: `index.astro` (the homepage — the visuals ship from it now),
-`_key-visuals.ts`, `_VisualPage.astro`,
-`FeatureBlockSection.astro` (which also reaches the PE and Edge product pages) and `TwinUnit.astro`.
+`_key-visuals.ts`, `_VisualPage.astro`, `_Variant.astro`, `styles/_home-rows.scss` (the homepage
+row, which the sandbox now reads too), `FeatureBlockSection.astro` (which also reaches the PE and
+Edge product pages) and `TwinUnit.astro`.
 A visual's own page is not shared, which is the point.
 
-## Retiring a stage
+## The sandbox's shape
 
-The sandbox has more exhibits than anyone can hold in their head. Each stage's caption has a ✕ that
-marks it as no longer wanted: the stage greys out and the key goes into
-`localStorage['launch-visuals:retire']` as `visual/position → caption`. The store is shared across
-every visual's page, so the count and the copied list cover the whole sandbox wherever you are.
+A page is a list of DIRECTIONS, and a direction is a `<Variant>`: one section, one name, and two
+views inside it — the real homepage row, and the visual alone at 335px.
 
-Marking is not deleting. To act on the list, read that key off the page and then, for each entry,
-check that nothing outside the sandbox imports the component before removing it. **Deletion is its
-own commit**, never mixed with design work, so a change of mind is one revert.
+`<Variant>` takes the component as a VALUE and renders it twice from that one reference, so the
+desktop and phone views cannot end up testing different props. `phoneProps` exists for the few that
+are genuinely about width (a rotation with no room to be noticed); it is printed on the phone label
+in brand colour, because a view not testing the same thing as the one above it has to say so.
+
+The desktop view is the real `FeatureBlockSection` inside a real `.new-rows`, reading
+`styles/_home-rows.scss` — the same file `index.astro` reads. It used to be a hand-built copy of
+that row, and the copy had drifted to a 1160 measure with a 72px gap, handing the visuals 673px
+where the homepage hands them 525. **Every judgement made in the old sandbox was made at the wrong
+width.** There is no copy now, so there is nothing to drift.
+
+Two things are NOT a Variant. A visual that is a full-bleed section rather than a row's media takes
+`deskWidth` (platform, ConnectFlow's split cut), which swaps the row for a probe — a row would hand
+it 525px, where it is already in its stacked form, and judging that is judging a different picture.
+And a technical EXHIBIT — a breakpoint pinned down, a component's parts laid out — stays a plain
+`.stage` with no commands on it, because the way to be rid of one is to delete it.
+
+### Promote and retire
+
+Two buttons in every section's header. A direction is unmarked, promoted or retired; pressing the
+state it already has clears it, pressing the other moves it. Marks go to
+`localStorage['launch-visuals:marks']` as `visual/name → {state, label}`, shared across every
+visual's page, so the counts and the copied list cover the whole sandbox wherever you are. Copy
+prints promotions first, because what to ship and what to delete are different jobs.
+
+Retire alone was not enough. The good news had nowhere to go, so the only way to record a winner
+was to retire everything else — which reads exactly like abandoning the whole visual.
+
+Marking is not doing. To act on the list, read that key off the page; for a retirement check that
+nothing outside the sandbox imports the component before removing it. **Deletion is its own
+commit**, never mixed with design work, so a change of mind is one revert.
