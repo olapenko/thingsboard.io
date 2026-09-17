@@ -119,5 +119,8 @@ export const PLATFORM_RUNS: PlatformRun[] = [
 	{ id: 'telemetry', from: 'equipment', to: 'platform', label: 'Telemetry' },
 	{ id: 'views', from: 'platform', to: 'people', label: 'Views and alerts' },
 	{ id: 'actions', from: 'people', to: 'platform', label: 'Actions' },
-	{ id: 'commands', from: 'platform', to: 'equipment', label: 'Commands and updates' },
+	// "Commands", not "Commands and updates". The longer form was the only label of the four that
+	// needed two lines, and the "and updates" half was doing the least work in the picture — firmware
+	// going down the same wire is a detail for the copy beside the visual, not for the wire.
+	{ id: 'commands', from: 'platform', to: 'equipment', label: 'Commands' },
 ];
