@@ -1,5 +1,6 @@
 ---
 import VisualPage from '@root/pages/internal/_VisualPage.astro';
+import PlatformRaised from '@components/Landing/PlatformRaised.astro';
 import PlatformLoop from '@components/Landing/PlatformLoop.astro';
 import { PLATFORM_COPY } from '@data/platform-visual';
 
@@ -11,9 +12,13 @@ import { PLATFORM_COPY } from '@data/platform-visual';
  * composition is already in its stacked form. Judging it in a row would be judging a different
  * picture. The widths below are the ones a full-bleed section actually gets.
  *
- * The probes bracket the stacking threshold deliberately — 1040 and 960 are the same visual either
- * side of the switch, and putting them next to each other is the only way to see whether the
- * threshold is in the right place.
+ * `PlatformRaised` is the candidate and goes FIRST, with `PlatformLoop` under it as the incumbent
+ * at two widths. That order is not cosmetic: put the candidate second and the incumbent quietly
+ * stays the incumbent, because it is the one that got looked at first.
+ *
+ * The candidate's probes bracket the stacking threshold deliberately — 1040 and 960 are the same
+ * visual either side of the switch, and putting them next to each other is the only way to see
+ * whether the threshold is in the right place.
  */
 ---
 
@@ -21,15 +26,17 @@ import { PLATFORM_COPY } from '@data/platform-visual';
 	<p class="lede">{PLATFORM_COPY.body}</p>
 
 	{
-		/* The foundations strip is off in the component. It is three more things to read in the
+		/* The foundations strip is off in both components. It is three more things to read in the
 	    densest part of the picture and it carries none of the argument, but it is the only claim
 	    about what sits under the four stages — so it is switchable here rather than deleted, and the
-	    switch covers every probe at once so the two states are compared like for like. */
+	    switch covers every probe on the page at once so the two states are compared like for like. */
 	}
 	<div class="page-ctl">
 		<span class="page-ctl__name">Foundations strip</span>
 		<button type="button" data-found-toggle aria-pressed="false">Off</button>
 	</div>
+
+	<p class="vsep">Candidate · raised platform, no rail, verbs in ink</p>
 
 	{
 		[
@@ -37,8 +44,28 @@ import { PLATFORM_COPY } from '@data/platform-visual';
 			{ w: 1160, note: 'native · floor 13.5px (the 1.15x cap starts at 1334)' },
 			{ w: 1040, note: 'wide, last comfortable width · floor 12.1px' },
 			{ w: 960, note: 'stacked · first width below the threshold, capped at 600' },
-			{ w: 673, note: 'stacked · what a feature row would hand it' },
 			{ w: 335, note: 'phone · floor 9.4px' },
+		].map((probe) => (
+			<figure class="stage" data-w="full">
+				<figcaption class="stage__cap">
+					<span class="stage__name">PlatformRaised · {probe.w}px</span>
+					<span class="stage__note">{probe.note}</span>
+				</figcaption>
+				<div class="stage__frame stage__frame--plain">
+					<div class="probe" style={`--probe: ${probe.w}px`}>
+						<PlatformRaised />
+					</div>
+				</div>
+			</figure>
+		))
+	}
+
+	<p class="vsep">Incumbent · flat platform, stage rail, verbs in indigo</p>
+
+	{
+		[
+			{ w: 1160, note: 'native · the tighter cut' },
+			{ w: 335, note: 'phone' },
 		].map((probe) => (
 			<figure class="stage" data-w="full">
 				<figcaption class="stage__cap">
@@ -56,9 +83,10 @@ import { PLATFORM_COPY } from '@data/platform-visual';
 </VisualPage>
 
 <script>
-	// The foundations switch. Sets the attribute the component's own CSS reads, on every probe at
+	// The foundations switch. Sets the attribute both components' own CSS reads, on every probe at
 	// once, and remembers the choice so a reload does not reset it mid-comparison — the same shape
-	// as the token switch in `_FeatureRow`.
+	// as the token switch in `_FeatureRow`. Both components name their root `.plat`, scoped
+	// separately, so one selector reaches the candidate and the incumbent alike.
 	const KEY = 'launch-visuals:platform-foundations';
 	const btn = document.querySelector<HTMLButtonElement>('[data-found-toggle]');
 	const targets = Array.from(document.querySelectorAll<HTMLElement>('.plat'));
@@ -97,5 +125,17 @@ import { PLATFORM_COPY } from '@data/platform-visual';
 		max-width: 1200px;
 		margin: 0 auto $spacing-6;
 		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// Marks where the candidate's probes end and the incumbent's begin. Two versions of one picture
+	// on one page is only useful if you can tell at a glance which one you are looking at.
+	.vsep {
+		@include text-xs;
+		max-width: 1200px;
+		margin: 0 auto $spacing-4;
+		padding-bottom: $spacing-2;
+		border-bottom: 1px solid var(--color-text, #17181c);
+		font-family: $font-family-mono;
+		color: var(--color-text, #17181c);
 	}
 </style>
