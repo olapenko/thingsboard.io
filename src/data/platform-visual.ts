@@ -45,15 +45,20 @@ export const PLATFORM_COPY = {
  * it is a second thing to look at in the largest line on the page — which is also why the homepage
  * paints its own wordmark black rather than blue.
  *
- * The lede is the diagram in words, in the order the diagram reads: the three sources on the left,
- * the four steps in the middle, the three audiences on the right, and the two directions the runs
- * go. Every noun in it is on the drawing, and it makes no claim the picture does not make — which
- * is the test a lede under a diagram has to pass, because the reader is looking at both at once.
+ * The lede does NOT describe the drawing. The first draft did — three sources, four steps, three
+ * audiences, both directions — and it was the caption to a picture the reader is already looking at,
+ * which is the one job a lede under a diagram does not have. The drawing says what the parts are;
+ * the words have to say why any of it is worth having.
+ *
+ * So: scope, compatibility, cost. One product rather than a stack, it works with what is already
+ * installed, and there is no integration bill and no add-on bill. Nothing here is a competitive
+ * claim — "fewer products than the alternatives" would need a number this repo does not have — and
+ * the second sentence is `PLATFORM_COPY.body` unchanged, because it was already the value line.
  */
 export const PLATFORM_SECTION_DRAFT = {
 	title: 'ThingsBoard is an all-in-one platform to build, deploy, and scale IoT solutions',
 	description:
-		'Machines and sensors, the gateways and platforms already carrying your data, and the business systems that give it context all arrive in one place. Connect them, model them as assets and relations, automate what happens next, and operate it from dashboards and SCADA. Telemetry and views go out to operators, service teams and owners; commands and actions come back the same way.',
+		'From device connectivity to dashboards, in one product that works with the equipment and systems you already run. Nothing to integrate between the steps, and nothing to buy as an add-on.',
 };
 
 /**
