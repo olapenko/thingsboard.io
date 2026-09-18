@@ -272,12 +272,31 @@ that file is the homepage's row, and nothing sandbox-only belongs in it. The fra
 through a `storage` listener — that event fires in every OTHER same-origin document, which is
 exactly what an iframe is.
 
-**The strip is sticky and in the page's order.** Sticky because these pages run to twelve thousand
-pixels and it was only reachable from the top of one, which is the opposite of when you want it.
+**The strip is the first thing in the document**, above the page's own heading, through
+`PlaygroundLayout`'s `nav` slot — a page title is not navigation, and a sticky bar only reads as a
+bar if it starts at the top edge rather than sliding up to it. Full bleed, by cancelling the body
+padding on three sides and paying it back as its own. Sticky because these pages run to twelve
+thousand pixels and it was reachable only from the top of one, which is the opposite of when you
+want it.
+
 Order is `KEY_VISUALS`, and that array is the strip and nothing else — everything is addressed by id
 through `kv()`. Platform first (it is meant to open the homepage as a centred section, though it is
 not on the page yet), then the five rows as `index.astro` runs them, then everything not on the
-homepage at all.
+homepage at all, with a rule marking that seam. The way back to the index is an icon: it was the
+word "Sandbox" in grey mono at the head of a row of pills, reading as a label for them rather than a
+link out — and `InternalNav`, fixed in the corner of every one of these pages, already says
+"Sandbox".
+
+**ASTRO-ICON AND THE FRAMES.** `astro-icon` writes each glyph's `<symbol>` inline in its FIRST use on
+a page and a bare `<use href="#ai:…">` everywhere after, so on a page of twelve directions every
+definition sits in the first one. Lifting one row out of the middle left its `<use>` pointing at
+nothing — a badge tile with no glyph, on ten of the eleven connect frames. The frame script now
+carries every symbol that is not already inside the row across in a hidden sprite. If you write
+anything else that moves part of one of these pages into another document, it has the same problem.
+
+Worth knowing when auditing this: the test is whether a `<use>`'s symbol EXISTS, not whether the
+icon painted. Several paint at zero on purpose — the read-more chevron is hidden by
+`_home-rows.scss`, and `SolutionFlow` renders every customer's mark and shows one.
 
 Two things are NOT a Variant. A visual that is a full-bleed section rather than a row's media takes
 `deskWidth` (platform, ConnectFlow's split cut), which swaps the row for a probe — a row would hand

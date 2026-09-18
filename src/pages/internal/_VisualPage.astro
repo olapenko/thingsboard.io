@@ -1,4 +1,5 @@
 ---
+import { Icon } from 'astro-icon/components';
 import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
 import { KEY_VISUALS, kv } from '@root/pages/internal/_key-visuals';
 
@@ -25,6 +26,15 @@ const { visual } = Astro.props;
 const me = kv(visual);
 
 /**
+ * Where the strip's divider goes: after the last visual that is a row on the homepage.
+ *
+ * Counted from the array rather than typed, so putting a sixth row on the page moves the rule by
+ * moving the entry — the order and the seam cannot disagree.
+ */
+const ON_HOME = ['platform', 'connect', 'solution', 'twin', 'normalize', 'scale'];
+const HOME_COUNT = KEY_VISUALS.filter((v) => ON_HOME.includes(v.id)).length;
+
+/**
  * FRAME MODE. `?frame=<visual/name>` turns this page into one direction's row and nothing else, so a
  * phone preview can load it in a 375px iframe and have the row's own media queries fire against a
  * real phone viewport. It is the same route rather than one of its own, which is the point: the
@@ -40,21 +50,38 @@ const me = kv(visual);
 ---
 
 <PlaygroundLayout title={me.label} description={me.title ?? 'Directions for one key visual.'}>
-	{/* Every visual is one click away, and the current one is marked rather than linked. */}
-	<nav class="vnav" aria-label="Key visual">
-		<a class="vnav__home" href="/internal/launch-visuals/">Sandbox</a>
+	{
+		/* Every visual one click away, the current one marked rather than linked, in the order the
+	    homepage runs them.
+
+	    The rule after `scale` is the seam in that order: everything before it is a row on the
+	    homepage, everything after is drawn and waiting for a section. It was implied by the order
+	    and invisible, which is the kind of thing that gets forgotten between sessions.
+
+	    The way back to the index is the icon, not a word. It was the word "Sandbox" in grey mono,
+	    sitting at the head of a row of pills and reading as a label for them rather than as a link
+	    out — and `InternalNav`, fixed in the corner of every one of these pages, already carries a
+	    "Sandbox" link. One of the two had to stop being a word. */
+	}
+	<nav class="vnav" slot="nav" aria-label="Key visual">
+		<a class="vnav__up" href="/internal/launch-visuals/" title="All visuals" aria-label="All visuals">
+			<Icon name="tabler:layout-grid" aria-hidden="true" />
+		</a>
 		{
-			KEY_VISUALS.map((v) =>
-				v.id === visual ? (
-					<span class="vnav__here" aria-current="page">
-						{v.label}
-					</span>
-				) : (
-					<a class="vnav__link" href={`/internal/launch-visuals/${v.id}/`}>
-						{v.label}
-					</a>
-				)
-			)
+			KEY_VISUALS.map((v, i) => (
+				<Fragment>
+					{i === HOME_COUNT && <span class="vnav__seam" aria-hidden="true" />}
+					{v.id === visual ? (
+						<span class="vnav__here" aria-current="page">
+							{v.label}
+						</span>
+					) : (
+						<a class="vnav__link" href={`/internal/launch-visuals/${v.id}/`}>
+							{v.label}
+						</a>
+					)}
+				</Fragment>
+			))
 		}
 	</nav>
 
@@ -154,7 +181,28 @@ const me = kv(visual);
 		document.documentElement.dataset.ground = readGround();
 
 		const row = document.querySelector(`.vx[data-vx-key="${CSS.escape(FRAME)}"] [data-vx-row]`);
-		if (row) document.body.replaceChildren(row);
+
+		/**
+		 * Carry the icon definitions across with the row.
+		 *
+		 * `astro-icon` writes each glyph's `<symbol>` inline in its FIRST use on the page and a bare
+		 * `<use href="#ai:…">` everywhere after. Both the section badge and every icon inside a visual
+		 * go through it, and on a page of twelve directions the definitions therefore all sit in the
+		 * first one. Keeping row seven and dropping the rest left seven's `<use>` pointing at nothing:
+		 * a 40px badge tile with no glyph in it, which is what the phone previews were showing — ten
+		 * of eleven on the connect page, every one except the first.
+		 *
+		 * So every symbol NOT already inside the row comes along, in a hidden sprite. Filtered rather
+		 * than cloned wholesale, because a duplicate id would shadow the real one in the row itself.
+		 */
+		if (row) {
+			const orphans = Array.from(document.querySelectorAll('symbol[id]')).filter((sym) => !row.contains(sym));
+			const sprite = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			sprite.setAttribute('aria-hidden', 'true');
+			sprite.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden');
+			orphans.forEach((sym) => sprite.appendChild(sym.cloneNode(true)));
+			document.body.replaceChildren(sprite, row);
+		}
 
 		/**
 		 * An iframe has no intrinsic height — it defaults to 150px and clips. Only this document knows
@@ -610,44 +658,79 @@ const me = kv(visual);
 	// the top of one. It is what you use after deciding something, which is exactly when you are at
 	// the bottom.
 	//
-	// It needs its own background: sticky only takes it out of flow, so without one the rows scroll
-	// through it. Opaque rather than a blur — what scrolls under it is the tinted row, and a blur
-	// would tint the strip along with it.
+	// FULL BLEED, by cancelling the playground's body padding on three sides and paying it back as
+	// its own. A bar that stops 24px short of the window does not read as a bar; it reads as a row of
+	// pills that happens not to scroll. The negative top margin is what lets it sit against the top
+	// edge rather than sliding up to it — it is the first element in the document now, above the
+	// page's own heading, because a page title is not navigation.
+	//
+	// It needs an opaque background: sticky only takes it out of flow, so without one the rows scroll
+	// through it. Opaque rather than a blur — what passes under is the tinted row, and a blur would
+	// tint the strip along with it.
 	.vnav {
 		position: sticky;
 		top: 0;
 		z-index: 10;
 		display: flex;
 		flex-wrap: wrap;
-		align-items: baseline;
-		gap: $spacing-1 $spacing-3;
-		max-width: 1200px;
-		margin: 0 auto $spacing-10;
-		padding: $spacing-3 0;
+		align-items: center;
+		gap: 2px;
+		margin: calc(-1 * #{$spacing-10}) calc(-1 * #{$spacing-6}) $spacing-10;
+		padding: $spacing-2 $spacing-6;
 		background: #fff;
-		border-bottom: 1px solid var(--sl-color-hairline-light);
+		border-bottom: 1px solid var(--color-border, #ebebeb);
 	}
 
-	.vnav__home {
-		@include text-xs;
+	// The way out, as a mark. See the note on the markup for why it stopped being the word "Sandbox".
+	.vnav__up {
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
 		margin-right: $spacing-2;
-		font-family: $font-family-mono;
+		border-radius: $radius-sm;
 		color: var(--color-text-secondary, #5b616e);
+
+		[data-icon] {
+			width: 16px;
+			height: 16px;
+		}
+
+		&:hover,
+		&:focus-visible {
+			background: var(--sl-color-hairline-light, #ebebeb);
+			color: var(--color-text, #17181c);
+		}
 	}
 
+	// The seam between what is on the homepage and what is not. A rule rather than a gap: a gap in a
+	// wrapping row is just where a line happened to break.
+	.vnav__seam {
+		width: 1px;
+		height: 14px;
+		margin: 0 $spacing-2;
+		background: var(--color-border, #ebebeb);
+	}
+
+	// Compact: 12px in a 2px gutter, so ten of them hold one line at the measure these pages are read
+	// at. They were 14px in a 12px gutter and wrapped to two.
 	.vnav__link,
 	.vnav__here {
-		@include text-s;
-		padding: $spacing-1 $spacing-3;
-		border-radius: $radius-md;
+		@include text-xs;
+		padding: 3px $spacing-2;
+		border-radius: $radius-sm;
 		font-weight: $font-weight-medium;
+		line-height: 1.5;
 		text-decoration: none;
+		white-space: nowrap;
 	}
 
 	.vnav__link {
 		color: var(--color-text-secondary, #5b616e);
 
-		&:hover {
+		&:hover,
+		&:focus-visible {
+			background: var(--sl-color-hairline-light, #ebebeb);
 			color: var(--color-text, #17181c);
 		}
 	}
