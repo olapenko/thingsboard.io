@@ -1,4 +1,6 @@
 ---
+import { Icon } from 'astro-icon/components';
+
 interface Props {
 	/**
 	 * Section title
@@ -25,12 +27,18 @@ interface Props {
 	 * to `section-title` moved nothing on the homepage. Stating it as a prop puts the decision back on
 	 * the call site and the values back in the scale.
 	 */
-	titleSize?: 'page' | 'section' | 'subsection';
+	titleSize?: 'display' | 'title' | 'section';
 	/**
 	 * Measure for the subtitle. `wide` is this component's own 900px; `copy` is the 65ch the homepage
 	 * sets so its ledes share one measure — previously `#overflow .section-header__subtitle`.
 	 */
 	subtitleMeasure?: 'wide' | 'copy';
+	/**
+	 * The section's mark, as the feature rows carry one: the page's squircle in the section's own
+	 * hue, above the title. Same 48px tile and 32% radius as `FeatureBlockSection`, centred here
+	 * because this header is.
+	 */
+	badge?: { icon: string; color: string };
 	class?: string;
 }
 
@@ -41,6 +49,7 @@ const {
 	theme = 'light',
 	titleSize = 'section',
 	subtitleMeasure = 'wide',
+	badge,
 	class: className = '',
 } = Astro.props;
 ---
@@ -55,6 +64,13 @@ const {
 		className,
 	]}
 >
+	{
+		badge && (
+			<span class="section-header__badge" style={`--badge-color: ${badge.color}`} aria-hidden="true">
+				<Icon name={badge.icon} />
+			</span>
+		)
+	}
 	<h2 class="section-header__title">{title}</h2>
 	{subtitle && <p class="section-header__subtitle">{subtitle}</p>}
 	<slot />
@@ -62,6 +78,33 @@ const {
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
+
+	// The same tile as the rows carry, to the pixel — which is 40 at a 24 glyph, NOT the 48/28 the
+	// shared row component declares. `_home-rows.scss` takes the row badges down to 40/24 on this
+	// page, with the reason written there: at 48 with a 28 glyph the tile and the mark read as a
+	// square with something in it rather than as one object. A section mark a third larger than the
+	// row marks beside it would be a second idea of what a tile is. The 32% radius is a percentage,
+	// so it survives the smaller size without retuning.
+	.section-header__badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		margin-bottom: 18px;
+		border-radius: 32%;
+		background: var(--badge-color, #{$color-brand});
+		color: #fff;
+
+		:global([data-icon]) {
+			width: 24px;
+			height: 24px;
+		}
+	}
+
+	.section-header--center .section-header__badge {
+		margin-inline: auto;
+	}
 
 	.section-header {
 		margin-bottom: $spacing-12;
@@ -97,28 +140,26 @@ const {
 		}
 
 		&__title {
-			@include section-title;
+			@include type-section;
 			margin-bottom: $spacing-5;
 			color: var(--sh-title-color);
 		}
 
 		&__subtitle {
-			@include text-m;
+			@include type-body;
 			max-width: 900px;
 			margin: 0;
 			color: var(--sh-subtitle-color);
 		}
 
-		// The three steps the title can take, each one a mixin from the shared scale rather than a
-		// number typed here. `--title-section` is the default and is left to `&__title` above; the
-		// other two exist because the homepage needs a band lead (48) and a continuation (32), and
-		// used to get them from ID-keyed rules that no token could reach.
-		&--title-page .section-header__title {
-			@include page-title;
+		// The three steps the title can take, each one a role from the ladder rather than a number
+		// typed here. `--title-section` is the default and is left to `&__title` above.
+		&--title-display .section-header__title {
+			@include type-display;
 		}
 
-		&--title-subsection .section-header__title {
-			@include subsection-title;
+		&--title-title .section-header__title {
+			@include type-title;
 		}
 
 		&--subtitle-copy .section-header__subtitle {
