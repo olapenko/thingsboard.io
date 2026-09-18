@@ -1,6 +1,7 @@
 ---
 import { Icon } from 'astro-icon/components';
 import SmartImage from '@components/SmartImage.astro';
+import ImageComparison from '@components/UseCase/ImageComparison.astro';
 import type { CarouselItem } from '@data/homeCarousel';
 
 // One board on top, the case that produced it underneath. The named list is the
@@ -29,14 +30,29 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 	<div class="dashshow__board">
 		{
 			items.map((item, i) => (
-				<div class="dashshow__frame" id={`${id}-board-${i}`} hidden={i !== 0}>
-					<SmartImage
-						src={item.src}
-						alt={item.alt}
-						width={item.width}
-						height={item.height}
-						loading={i === 0 ? 'eager' : 'lazy'}
-					/>
+				<div
+					class="dashshow__frame"
+					id={`${id}-board-${i}`}
+					hidden={i !== 0}
+					style={item.overlaySrc ? `--cmp-ratio: ${item.width} / ${item.height}` : undefined}
+				>
+					{item.overlaySrc ? (
+						<ImageComparison
+							id={`${id}-compare-${i}`}
+							baseImage={item.src}
+							baseImageAlt={item.alt}
+							overlayImage={item.overlaySrc}
+							overlayImageAlt={item.overlayAlt ?? item.alt}
+						/>
+					) : (
+						<SmartImage
+							src={item.src}
+							alt={item.alt}
+							width={item.width}
+							height={item.height}
+							loading={i === 0 ? 'eager' : 'lazy'}
+						/>
+					)}
 				</div>
 			))
 		}
@@ -146,10 +162,38 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 		box-shadow: var(--shadow-card);
 	}
 
+	// Ten shots at three aspect ratios: the eight original cases are 1920x866, the
+	// two SCADA ones 2238x1207 and 1286x660. Sized by their own height the board
+	// grew and shrank by ~100px on every tab change, taking the copy under it with
+	// it. The frame is pinned to the ratio the eight share, and the odd two sit
+	// inside it — a little air down each side rather than a moving page.
+	.dashshow__frame {
+		aspect-ratio: 1920 / 866;
+	}
+
 	.dashshow__frame :global(img) {
 		display: block;
 		width: 100%;
-		height: auto;
+		height: 100%;
+		object-fit: contain;
+	}
+
+	// ImageComparison is built for a use-case page, where it spaces itself off the
+	// prose around it. In the board it IS the board, so the margin comes off.
+	//
+	// It takes its OWN shot's ratio rather than the frame's: letting it fill a
+	// wider frame would leave the drag handle travelling across blank ground at
+	// both ends, where there is no picture under it to compare.
+	.dashshow__frame :global(.uc-img-comparison) {
+		height: 100%;
+		aspect-ratio: var(--cmp-ratio);
+		margin: 0 auto;
+	}
+
+	// Both halves have to fit the SAME box or the two shots drift out of register
+	// under the slider — the component's own `cover` crops each to fill instead.
+	.dashshow__frame :global(.uc-img-overlay img) {
+		object-fit: contain;
 	}
 
 	// Over the board's corner rather than in the body, so the list below stays a

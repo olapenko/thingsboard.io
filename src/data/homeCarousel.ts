@@ -3,6 +3,10 @@ export interface CarouselItem {
 	icon?: string;
 	src: string;
 	alt: string;
+	/** Second shot of the SAME view. Present means the board renders as a
+	 *  draggable comparison rather than a single image. */
+	overlaySrc?: string;
+	overlayAlt?: string;
 	title: string;
 	description: string;
 	linkLabel: string;
@@ -107,5 +111,31 @@ export const homeCarouselItems: CarouselItem[] = [
 		href: '/use-cases/smart-retail/',
 		width: 1920,
 		height: 866,
+	},
+	{
+		src: '/src/assets/images/usecases/scada/traditional.webp',
+		overlaySrc: '/src/assets/images/usecases/scada/high-performance.webp',
+		alt: 'Traditional SCADA swimming pool dashboard',
+		overlayAlt: 'High-performance SCADA swimming pool dashboard',
+		title: 'SCADA swimming pool',
+		icon: 'tabler:pool',
+		description:
+			'Valves, pumps, filters and tanks as live SCADA symbols. Watch the equipment run, catch alarms as they happen and control the process from the dashboard. Drag the slider to compare the traditional and high-performance styles.',
+		linkLabel: 'Compare the two HMI styles',
+		href: '/use-cases/scada/',
+		width: 2238,
+		height: 1207,
+	},
+	{
+		src: '/src/assets/images/usecases/scada-energy-management/scada-energy-management-1.webp',
+		alt: 'SCADA energy management dashboard example',
+		title: 'SCADA energy',
+		icon: 'tabler:plug',
+		description:
+			'Track generation, distribution and consumption across a site. Meter readings, power quality and load are read in real time, with alarms raised when a line drifts out of range.',
+		linkLabel: 'See how power flow is tracked',
+		href: '/use-cases/scada-energy-management/',
+		width: 1286,
+		height: 660,
 	},
 ];
