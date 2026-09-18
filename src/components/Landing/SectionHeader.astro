@@ -16,14 +16,44 @@ interface Props {
 	 * Color theme
 	 */
 	theme?: 'light' | 'dark';
+	/**
+	 * Which step of the shared type scale the title takes.
+	 *
+	 * The page used to say this instead, in rules keyed to the section's ID — `#products
+	 * .section-header__title` and a blanket `#overflow h2`. Those score (1,1,0) and (1,0,1), so the
+	 * component could not be corrected from its own stylesheet and neither could the mixins: a change
+	 * to `section-title` moved nothing on the homepage. Stating it as a prop puts the decision back on
+	 * the call site and the values back in the scale.
+	 */
+	titleSize?: 'page' | 'section' | 'subsection';
+	/**
+	 * Measure for the subtitle. `wide` is this component's own 900px; `copy` is the 65ch the homepage
+	 * sets so its ledes share one measure — previously `#overflow .section-header__subtitle`.
+	 */
+	subtitleMeasure?: 'wide' | 'copy';
 	class?: string;
 }
 
-const { title, subtitle, align = 'center', theme = 'light', class: className = '' } = Astro.props;
+const {
+	title,
+	subtitle,
+	align = 'center',
+	theme = 'light',
+	titleSize = 'section',
+	subtitleMeasure = 'wide',
+	class: className = '',
+} = Astro.props;
 ---
 
 <div
-	class:list={['section-header', `section-header--${align}`, `section-header--${theme}`, className]}
+	class:list={[
+		'section-header',
+		`section-header--${align}`,
+		`section-header--${theme}`,
+		`section-header--title-${titleSize}`,
+		`section-header--subtitle-${subtitleMeasure}`,
+		className,
+	]}
 >
 	<h2 class="section-header__title">{title}</h2>
 	{subtitle && <p class="section-header__subtitle">{subtitle}</p>}
@@ -77,6 +107,24 @@ const { title, subtitle, align = 'center', theme = 'light', class: className = '
 			max-width: 900px;
 			margin: 0;
 			color: var(--sh-subtitle-color);
+		}
+
+		// The three steps the title can take, each one a mixin from the shared scale rather than a
+		// number typed here. `--title-section` is the default and is left to `&__title` above; the
+		// other two exist because the homepage needs a band lead (48) and a continuation (32), and
+		// used to get them from ID-keyed rules that no token could reach.
+		&--title-page .section-header__title {
+			@include page-title;
+		}
+
+		&--title-subsection .section-header__title {
+			@include subsection-title;
+		}
+
+		&--subtitle-copy .section-header__subtitle {
+			// 65ch, matching the intro statement and the feature rows: one lede measure per page. The
+			// component's own 900px runs to about 110 characters a line at this size.
+			max-width: 65ch;
 		}
 
 		// Dark theme

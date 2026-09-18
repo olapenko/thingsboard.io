@@ -1,0 +1,666 @@
+---
+import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
+import InternalNav from '@root/pages/internal/_InternalNav.astro';
+
+/**
+ * The type scale, declared and as used.
+ *
+ * Two questions this page exists to answer, side by side, because neither is answerable from the
+ * source alone:
+ *
+ *   1. WHAT THE SYSTEM SAYS. `_variables.scss` carries 21 typographic mixins on top of a
+ *      `$font-size-*` scale. Reading them tells you the numbers but not the ladder — whether
+ *      `card-title` and `subsection-title` are a step apart or the same size twice, whether the
+ *      line-heights are one ratio or four. Rendered at real size, in one column, that reads at a
+ *      glance.
+ *   2. WHAT THE PAGE DOES. The homepage is harvested live through an iframe, every rendered
+ *      combination of size, weight, line-height and family counted. A combination that matches a
+ *      declared step is on the system. One that does not is a decision somebody made in a
+ *      component and nobody can see from here — which is most of them.
+ *
+ * Harvested rather than listed, so it cannot go stale: change a component and reload.
+ *
+ * SMALL UI GETS ITS OWN SECTION because that is where the drift concentrates. Everything under
+ * 16px — badges, eyebrows, chips, notes, table cells — is below the sizes the mixins were written
+ * for, so it tends to be typed as a literal, and there are more distinct values down there than in
+ * the whole heading ladder above it.
+ */
+
+const SPECIMENS = [
+	{ group: 'Semantic — titles', items: ['page-title', 'section-title', 'subsection-title'] },
+	{ group: 'Semantic — cards', items: ['card-title-lg', 'card-title', 'card-title-sm'] },
+	{ group: 'Semantic — body', items: ['text-overlay', 'text-m', 'text-card', 'text-s', 'text-card-sm', 'text-xs'] },
+	{
+		group: 'Semantic — chrome',
+		items: ['text-tab', 'text-table-header', 'text-table-cell', 'text-breadcrumb', 'section-badge', 'action-link'],
+	},
+	{ group: 'Semantic — display', items: ['stat-value'] },
+	{
+		group: 'Base heading ladder',
+		items: ['heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'body-text'],
+	},
+];
+
+const SAMPLE = 'Connect any IoT devices';
+---
+
+<PlaygroundLayout
+	title="Type scale"
+	description="Every typographic mixin rendered at real size, against every combination the homepage actually paints. Measured in the browser, so the numbers are the ones that ship."
+>
+	<InternalNav slot="nav" />
+
+	<div class="ty">
+		<section class="ty__block">
+			<header class="ty__head">
+				<h2>Declared</h2>
+				<p>
+					The 21 typographic mixins in <code>_variables.scss</code>, each rendered through the mixin itself rather than
+					a copy of its numbers. Measurements are read off these nodes after layout, at this window width — resize and
+					reload to see the steps that move.
+				</p>
+			</header>
+
+			{
+				SPECIMENS.map((g) => (
+					<div class="ty__group">
+						<h3 class="ty__group-name">{g.group}</h3>
+						<ol class="ty__list">
+							{g.items.map((name) => (
+								<li class="ty__row" data-spec={name}>
+									<div class="ty__meta">
+										<code class="ty__name">{name}</code>
+										<span class="ty__nums" data-nums />
+									</div>
+									<div class:list={['ty__sample', `m-${name}`]}>{SAMPLE}</div>
+								</li>
+							))}
+						</ol>
+					</div>
+				))
+			}
+		</section>
+
+		<section class="ty__block">
+			<header class="ty__head">
+				<h2>In use, on the homepage</h2>
+				<p>
+					Harvested from <code>/</code> in the frame below — page typography only. One row per distinct combination of size,
+					weight, line-height and family, commonest first. <b data-onscale-count>—</b> of them land on a declared step; the
+					rest are numbers typed into a component.
+				</p>
+				<p>
+					The key visuals are held out and counted <a href="#visual-type">separately below</a>. They are not on this
+					scale and are not meant to be: each one sizes its type off a design unit tied to its own container, so it
+					renders at whatever fraction the container gives it. Mixed in, they were most of the rows and none of them
+					were actionable.
+				</p>
+			</header>
+
+			{
+				/* The reconciliation list, derived rather than eyeballed: one size set at several
+				   leadings is the drift you can actually act on, because the size is already agreed and
+				   only the leading is in dispute. */
+			}
+			<div class="ty__finding" data-leading-block hidden>
+				<h3 class="ty__group-name">One size, several line-heights</h3>
+				<ul class="ty__leading" data-leading></ul>
+			</div>
+
+			<div class="ty__cols">
+				<div>
+					<h3 class="ty__group-name">Page — every combination</h3>
+					<table class="ty__table" data-used-table>
+						<thead>
+							<tr><th>Size</th><th>Wt</th><th>Line</th><th>n</th><th>On scale</th><th>Example</th></tr>
+						</thead>
+						<tbody data-used-body>
+							<tr><td colspan="6" class="ty__pending">Reading the homepage…</td></tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div>
+					<h3 class="ty__group-name">Page — small UI, under 16px</h3>
+					<p class="ty__note">
+						Badges, eyebrows, chips, notes. The sizes the mixins were not written for, so this is where the literals
+						collect.
+					</p>
+					<table class="ty__table" data-small-table>
+						<thead>
+							<tr><th>Size</th><th>Wt</th><th>Line</th><th>n</th><th>On scale</th><th>Example</th></tr>
+						</thead>
+						<tbody data-small-body>
+							<tr><td colspan="6" class="ty__pending">Reading the homepage…</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<details class="ty__aside" id="visual-type">
+				<summary>
+					Inside the key visuals — <b data-visual-count>—</b>, off the scale by design
+				</summary>
+				<p class="ty__note">
+					Every element here inherits a <code>--*-u</code> design unit from the visual around it, which is how they are told
+					apart: the unit is <code>min(Npx, 100cqw / NATIVE)</code>, so type size is a function of container width and
+					lands on fractions no scale contains. Reconciling these means changing a visual's <code>NATIVE</code>, not its
+					CSS — the sandbox is where that gets decided.
+				</p>
+				<table class="ty__table" data-visual-table>
+					<thead>
+						<tr><th>Size</th><th>Wt</th><th>Line</th><th>n</th><th>Example</th></tr>
+					</thead>
+					<tbody data-visual-body>
+						<tr><td colspan="5" class="ty__pending">Reading the homepage…</td></tr>
+					</tbody>
+				</table>
+			</details>
+
+			{
+				/* Rendered, never displayed. This started inside a `<details>` so the page being read
+				   could be looked at, and that quietly broke the measurement: a closed `<details>` skips
+				   layout for its contents, so every `getBoundingClientRect()` inside the frame came back
+				   zero and the harvest counted nothing while the frame beside it held a fully loaded
+				   homepage. Off-screen at a fixed 1200 x 900 instead, which also pins the width the
+				   numbers are measured at — otherwise every reading moved with the browser window. */
+			}
+			<iframe class="ty__probe" src="/" title="Homepage, read for its type" loading="eager" data-home></iframe>
+			<p class="ty__note ty__note--foot">
+				Read at 1200 × 900. <a href="/" target="_blank" rel="noreferrer">Open the homepage</a> to look at it.
+			</p>
+		</section>
+	</div>
+</PlaygroundLayout>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.ty {
+		max-width: 1200px;
+		margin-inline: auto;
+	}
+
+	.ty__block {
+		margin-bottom: $spacing-20;
+	}
+
+	.ty__head {
+		max-width: 68ch;
+		margin-bottom: $spacing-10;
+
+		h2 {
+			margin: 0 0 $spacing-2;
+			font-size: 24px;
+			font-weight: $font-weight-bold;
+			line-height: 1.2;
+		}
+
+		p {
+			margin: 0;
+			font-size: 15px;
+			line-height: 1.6;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+	}
+
+	.ty__group {
+		margin-bottom: $spacing-10;
+	}
+
+	.ty__group-name {
+		margin: 0 0 $spacing-4;
+		font-family: $font-family-mono;
+		font-size: 12px;
+		font-weight: $font-weight-bold;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.ty__list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		border-top: 1px solid var(--color-border, #{$color-border});
+	}
+
+	// The metrics column is fixed so the specimens all start on one left edge — the whole point is
+	// comparing them to each other, which a ragged start defeats.
+	.ty__row {
+		display: grid;
+		grid-template-columns: 210px minmax(0, 1fr);
+		gap: $spacing-6;
+		align-items: baseline;
+		padding: $spacing-4 0;
+		border-bottom: 1px solid var(--color-border, #{$color-border});
+	}
+
+	.ty__meta {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding-top: 4px;
+	}
+
+	.ty__name {
+		font-family: $font-family-mono;
+		font-size: 13px;
+		color: var(--color-text, #{$color-text-primary});
+	}
+
+	.ty__nums {
+		font-family: $font-family-mono;
+		font-size: 11.5px;
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.ty__sample {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.ty__cols {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+		gap: $spacing-10;
+		align-items: start;
+	}
+
+	.ty__finding {
+		margin-bottom: $spacing-10;
+		padding: $spacing-5 $spacing-6 $spacing-6;
+		border-left: 3px solid var(--color-brand, #{$color-brand});
+		background: var(--color-bg-light, #{$color-bg-light});
+	}
+
+	.ty__leading {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-2;
+		font-family: $font-family-mono;
+		font-size: 12.5px;
+		font-variant-numeric: tabular-nums;
+
+		li {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: baseline;
+			gap: $spacing-2;
+		}
+
+		b {
+			min-width: 46px;
+		}
+
+		em {
+			min-width: 96px;
+			font-style: normal;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+	}
+
+	.ty__lead {
+		padding: 1px 6px;
+		border: 1px solid var(--color-border, #{$color-border});
+		border-radius: $radius-sm;
+		background: var(--color-bg-white, #{$color-white});
+
+		i {
+			margin-left: 4px;
+			font-style: normal;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+	}
+
+	.ty__note {
+		max-width: 46ch;
+		margin: 0 0 $spacing-4;
+		font-size: 13px;
+		line-height: 1.5;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.ty__table {
+		width: 100%;
+		border-collapse: collapse;
+		font-family: $font-family-mono;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+
+		th,
+		td {
+			padding: 5px 8px 5px 0;
+			text-align: left;
+			border-bottom: 1px solid var(--color-border, #{$color-border});
+			white-space: nowrap;
+		}
+
+		th {
+			font-weight: $font-weight-bold;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+
+		td:last-child {
+			white-space: normal;
+			overflow-wrap: anywhere;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+	}
+
+	.ty__pending {
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	// Held out rather than hidden: the count is on the summary, so the size of what was excluded is
+	// visible without opening it.
+	.ty__aside {
+		margin-top: $spacing-12;
+		padding-top: $spacing-6;
+		border-top: 1px solid var(--color-border, #{$color-border});
+
+		summary {
+			font-size: 14px;
+			color: var(--color-text, #{$color-text-primary});
+			cursor: pointer;
+		}
+
+		.ty__table {
+			max-width: 620px;
+			margin-top: $spacing-4;
+		}
+
+		.ty__note {
+			max-width: 68ch;
+			margin-top: $spacing-4;
+		}
+	}
+
+	// Off-screen rather than hidden: `display: none`, `visibility: hidden` and a closed `<details>`
+	// all skip layout, and a frame whose layout is skipped measures zero for everything in it.
+	.ty__probe {
+		position: absolute;
+		left: -20000px;
+		top: 0;
+		width: 1200px;
+		height: 900px;
+		border: 0;
+	}
+
+	.ty__note--foot {
+		margin-top: $spacing-8;
+		font-family: $font-family-mono;
+		font-size: 11.5px;
+	}
+
+	// --- the specimens ---------------------------------------------------------------------------
+	// Each through its own mixin, so this page cannot disagree with the scale.
+
+	.m-page-title {
+		@include page-title;
+	}
+	.m-section-title {
+		@include section-title;
+	}
+	.m-subsection-title {
+		@include subsection-title;
+	}
+	.m-card-title-lg {
+		@include card-title-lg;
+	}
+	.m-card-title {
+		@include card-title;
+	}
+	.m-card-title-sm {
+		@include card-title-sm;
+	}
+	.m-text-overlay {
+		@include text-overlay;
+	}
+	.m-text-m {
+		@include text-m;
+	}
+	.m-text-card {
+		@include text-card;
+	}
+	.m-text-s {
+		@include text-s;
+	}
+	.m-text-card-sm {
+		@include text-card-sm;
+	}
+	.m-text-xs {
+		@include text-xs;
+	}
+	.m-text-tab {
+		@include text-tab;
+	}
+	.m-text-table-header {
+		@include text-table-header;
+	}
+	.m-text-table-cell {
+		@include text-table-cell;
+	}
+	.m-text-breadcrumb {
+		@include text-breadcrumb;
+	}
+	.m-section-badge {
+		@include section-badge;
+	}
+	.m-action-link {
+		@include action-link;
+	}
+	.m-stat-value {
+		@include stat-value;
+	}
+	.m-heading-1 {
+		@include heading-1;
+	}
+	.m-heading-2 {
+		@include heading-2;
+	}
+	.m-heading-3 {
+		@include heading-3;
+	}
+	.m-heading-4 {
+		@include heading-4;
+	}
+	.m-heading-5 {
+		@include heading-5;
+	}
+	.m-body-text {
+		@include body-text;
+	}
+
+	@media (max-width: 720px) {
+		.ty__row {
+			grid-template-columns: minmax(0, 1fr);
+			gap: $spacing-2;
+		}
+	}
+</style>
+
+<script>
+	/**
+	 * Measure the specimens, then read the homepage through the frame and count what it paints.
+	 *
+	 * Both halves are measured rather than parsed: computed style is the only thing that knows what
+	 * a media query, a container query and four competing selectors actually settled on.
+	 */
+	const fmt = (px: string) => (px.endsWith('px') ? `${Math.round(parseFloat(px) * 100) / 100}` : px);
+
+	// --- declared -----------------------------------------------------------------------------
+	const declared = new Set<string>();
+
+	document.querySelectorAll<HTMLElement>('[data-spec]').forEach((row) => {
+		const sample = row.querySelector<HTMLElement>('.ty__sample');
+		const out = row.querySelector<HTMLElement>('[data-nums]');
+		if (!sample || !out) return;
+		const cs = getComputedStyle(sample);
+		const size = fmt(cs.fontSize);
+		const line = fmt(cs.lineHeight);
+		const ratio = (parseFloat(cs.lineHeight) / parseFloat(cs.fontSize)).toFixed(2);
+		out.textContent = `${size} / ${line}  ·  ${ratio}  ·  ${cs.fontWeight}`;
+		declared.add(`${size}|${cs.fontWeight}|${line}`);
+	});
+
+	// --- as used ------------------------------------------------------------------------------
+	const frame = document.querySelector<HTMLIFrameElement>('[data-home]');
+
+	/**
+	 * Is this node inside a key visual?
+	 *
+	 * The test is the design unit itself. Every visual declares `--<name>-u` on its root — `--plat-u`,
+	 * `--hub-u`, `--flow-u`, `--norm-u`, `--tc-u`, `--sd-u` — and custom properties inherit, so any
+	 * descendant resolves one and nothing outside does. That beats a list of component class names,
+	 * which would need editing every time a visual is added or renamed, and it beats an inline-style
+	 * check, which misses the two that declare the unit from a stylesheet rather than a `style`
+	 * attribute. Measured across the page: 109 of 288 text nodes, in 97ms.
+	 */
+	const inVisual = (el: Element) => Array.from(getComputedStyle(el)).some((p) => /^--[a-z0-9]+-u$/.test(p));
+
+	const harvest = () => {
+		const doc = frame?.contentDocument;
+		if (!doc) return;
+
+		type Row = { size: string; weight: string; line: string; family: string; n: number; eg: string };
+		const seen = new Map<string, Row>();
+		const seenVisual = new Map<string, Row>();
+
+		doc.querySelectorAll<HTMLElement>('.page *').forEach((el) => {
+			// The internal review strip is on the page but is not the page.
+			if (el.closest('[data-internal-nav]')) return;
+			// Only elements that paint text of their own — a wrapper inherits its child's numbers and
+			// would count the same decision twice.
+			const own = Array.from(el.childNodes)
+				.filter((n) => n.nodeType === 3)
+				.map((n) => n.textContent?.trim() ?? '')
+				.join(' ')
+				.trim();
+			if (!own) return;
+			const r = el.getBoundingClientRect();
+			// `> 1`, not `truthy`: the visually-hidden pattern clips to a 1px box rather than hiding the
+			// element, so `.sr-only` text is laid out and has a computed font size. Counted, it put
+			// "AWS" and "PostgreSQL" among the page's commonest type — text nobody will ever see set in.
+			if (r.width <= 1 || r.height <= 1) return;
+
+			const cs = getComputedStyle(el);
+			const size = fmt(cs.fontSize);
+			const line = fmt(cs.lineHeight);
+			const family = cs.fontFamily.split(',')[0].replace(/["']/g, '');
+			const key = `${size}|${cs.fontWeight}|${line}|${family}`;
+			const bucket = inVisual(el) ? seenVisual : seen;
+			const hit = bucket.get(key);
+			if (hit) {
+				hit.n += 1;
+			} else {
+				bucket.set(key, { size, weight: cs.fontWeight, line, family, n: 1, eg: own.slice(0, 34) });
+			}
+		});
+
+		const byUse = (a: Row, b: Row) => b.n - a.n || parseFloat(b.size) - parseFloat(a.size);
+		const rows = [...seen.values()].sort(byUse);
+		const visualRows = [...seenVisual.values()].sort(byUse);
+		const onScale = (r: Row) => declared.has(`${r.size}|${r.weight}|${r.line}`);
+
+		const esc = (s: string) => s.replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'));
+		const fam = (r: Row) => (/Ubuntu Mono/.test(r.family) ? ' mono' : /Ubuntu/.test(r.family) ? '' : ` ${r.family}`);
+
+		/** `scale: false` drops the on-scale column — it is a question the visuals are not answering. */
+		const paint = (body: Element | null, list: Row[], scale = true) => {
+			if (!body) return;
+			const cols = scale ? 6 : 5;
+			if (!list.length) {
+				body.innerHTML = `<tr><td colspan="${cols}" class="ty__pending">Nothing here.</td></tr>`;
+				return;
+			}
+			body.innerHTML = list
+				.map((r) => {
+					const mark = scale ? `<td>${onScale(r) ? '✓' : '·'}</td>` : '';
+					return `<tr><td>${r.size}${fam(r)}</td><td>${r.weight}</td><td>${r.line}</td><td>${r.n}</td>${mark}<td>${esc(r.eg)}</td></tr>`;
+				})
+				.join('');
+		};
+
+		paint(document.querySelector('[data-used-body]'), rows);
+		paint(
+			document.querySelector('[data-small-body]'),
+			rows.filter((r) => parseFloat(r.size) < 16)
+		);
+		paint(document.querySelector('[data-visual-body]'), visualRows, false);
+
+		const hits = rows.filter(onScale).length;
+		const tally = document.querySelector('[data-onscale-count]');
+		if (tally) tally.textContent = `${hits} of ${rows.length}`;
+
+		const vTally = document.querySelector('[data-visual-count]');
+		const vNodes = visualRows.reduce((sum, r) => sum + r.n, 0);
+		if (vTally) vTally.textContent = `${visualRows.length} combinations across ${vNodes} elements`;
+
+		// One size at several leadings. Sorted by how many leadings it carries, because that is the
+		// order they are worth settling in.
+		const leadings = new Map<string, Map<string, number>>();
+		rows.forEach((r) => {
+			const at = leadings.get(r.size) ?? new Map<string, number>();
+			at.set(r.line, (at.get(r.line) ?? 0) + r.n);
+			leadings.set(r.size, at);
+		});
+		const split = [...leadings.entries()]
+			.filter(([, at]) => at.size > 1)
+			.sort((a, b) => b[1].size - a[1].size || parseFloat(a[0]) - parseFloat(b[0]));
+
+		const list = document.querySelector('[data-leading]');
+		const block = document.querySelector('[data-leading-block]');
+		if (list && block) {
+			list.innerHTML = split
+				.map(([size, at]) => {
+					const parts = [...at.entries()]
+						.sort((a, b) => b[1] - a[1])
+						.map(([line, n]) => `<span class="ty__lead">${line}<i>×${n}</i></span>`)
+						.join('');
+					return `<li><b>${size}px</b> <em>${at.size} leadings</em> ${parts}</li>`;
+				})
+				.join('');
+			(block as HTMLElement).hidden = split.length === 0;
+		}
+	};
+
+	/**
+	 * A fresh iframe already has a document — `about:blank`, `readyState: "complete"` — so a bare
+	 * readiness check passes instantly and harvests nothing, which is what this page did: every count
+	 * came out 0 while the frame beside it held a fully loaded homepage. And the `load` event cannot
+	 * be relied on alone either, because an eager frame can finish before a module script runs.
+	 *
+	 * So readiness is asked about the document that matters — the real URL, complete, with the page
+	 * root present — and asked repeatedly until it is true.
+	 */
+	const ready = () => {
+		const d = frame?.contentDocument;
+		return !!d && d.readyState === 'complete' && d.location.href !== 'about:blank' && !!d.querySelector('.page');
+	};
+
+	if (frame) {
+		let settled = false;
+		const attempt = () => {
+			if (settled || !ready()) return false;
+			settled = true;
+			harvest();
+			return true;
+		};
+
+		if (!attempt()) {
+			frame.addEventListener('load', attempt);
+			// Backstop for the frame that finished before this module: ~15s of polling, then give up
+			// rather than spin. The tables keep their "Reading the homepage…" row if it never resolves,
+			// which is the honest state to leave them in.
+			let tries = 0;
+			const poll = window.setInterval(() => {
+				if (attempt() || ++tries > 60) window.clearInterval(poll);
+			}, 250);
+		}
+	}
+</script>

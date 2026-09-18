@@ -204,6 +204,8 @@ const HERO_BACKGROUND = '/images/hero/tb-cover.webp';
 						title="Products"
 						subtitle="The same platform and the same features either way — what changes is who runs it. We host, scale and upgrade it for you, or you deploy it inside your own network."
 						theme="dark"
+						titleSize="page"
+						subtitleMeasure="copy"
 					/>
 					<div class="product-list">
 						{homeProducts.map((product) => <EcosystemCard {...product} />)}
@@ -217,6 +219,8 @@ const HERO_BACKGROUND = '/images/hero/tb-cover.webp';
 					<SectionHeader
 						title="Product ecosystem"
 						subtitle="Add what your project needs — protocol bridges, analytics, edge nodes, a mobile app, and a library of ready-made components."
+						titleSize="subsection"
+						subtitleMeasure="copy"
 					/>
 					<div class="product-ecosystem-list">
 						{
@@ -250,6 +254,8 @@ const HERO_BACKGROUND = '/images/hero/tb-cover.webp';
 				<SectionHeader
 					title="Build real-time IoT dashboards"
 					subtitle="Build the view your users need from 600+ widgets, and control devices from the same screen. No front-end work required."
+					titleSize="subsection"
+					subtitleMeasure="copy"
 				>
 					<div class="view-all-link">
 						<a href="/use-cases/">Browse all use cases</a>
@@ -265,6 +271,8 @@ const HERO_BACKGROUND = '/images/hero/tb-cover.webp';
 				<SectionHeader
 					title="ThingsBoard Features"
 					subtitle="What you get out of the box, before writing a line of code."
+					titleSize="subsection"
+					subtitleMeasure="copy"
 				/>
 				<div id="cards">
 					{homeFeatures.map((feature) => <FeatureTile {...feature} />)}
@@ -778,33 +786,27 @@ const HERO_BACKGROUND = '/images/hero/tb-cover.webp';
 		}
 	}
 
-	// Section headings step down so the hero leads on size as well as weight, and
-	// go bold to match it — Ubuntu has no 600, so 700 is both "semibold" and the
-	// ceiling; setting it explicitly just makes that intent visible.
-	#overflow h2,
-	#overflow h3 {
-		font-weight: $font-weight-bold;
-	}
-
-	#overflow h2 {
-		font-size: $font-size-4xl;
-		line-height: 1.2;
-	}
-
-	// Colour is scoped away from SectionHeader's titles: `#overflow h2` is
-	// (1,0,1) and outranked the component's own `--dark` rule, so every themed
-	// header on this page came out dark-on-dark. The component is authoritative
-	// for its own titles now; everything else keeps the darker heading colour.
-	#overflow h2:not(.section-header__title) {
-		color: var(--color-text);
-	}
-
-	// The logomark now carries the brand at the top of the section, so the
-	// wordmark inside the heading doesn't need to as well — black reads as one
-	// sentence rather than a link dropped into a title.
-	#overflow .intro-section__title a {
-		color: var(--color-text);
-	}
+	// THE `#overflow` HEADING RULES ARE GONE, and this note is what they leave behind.
+	//
+	// There were four: a blanket weight on every h2 and h3, a blanket 32px on every h2, a colour on
+	// the h2s that were not SectionHeader's, and a colour on the wordmark link inside the intro
+	// title. Between them they decided the type of five section headings and five row headings from
+	// here, keyed to an ID — (1,0,1) and (1,1,0), which no class, no mixin and no custom property in
+	// any component can reach. The practical effect was that the shared type scale had no authority
+	// on this page: editing `section-title` in `_variables.scss` moved nothing, and a fix to
+	// `SectionHeader` for its own `theme="dark"` had already had to be rerouted through a custom
+	// property to get out from under one of them. The comment that shipped with that fix says so.
+	//
+	// Where each went, all of it checked against a computed-style snapshot of the whole page:
+	//
+	//   weight    Redundant. Every one of these headings reaches 700 through its own mixin now that
+	//             `$font-weight-semibold` is an alias of `$font-weight-bold` — which is what they
+	//             were painting all along, since Ubuntu has no 600.
+	//   size      `SectionHeader`'s new `titleSize` prop, whose three values are the three mixins.
+	//             The intro statement keeps its own 32px in `_home-intro.scss`, class-only, where it
+	//             was already stated and already documented as being shadowed by the ID rule.
+	//   colour    `IntroSection` already sets `color: var(--color-text)` on its own title, and the
+	//             wordmark link is already black from `_home-intro.scss`. Both were duplicates.
 
 	@media (prefers-reduced-motion: reduce) {
 		.n-button--filled:hover::after,
@@ -964,43 +966,25 @@ const HERO_BACKGROUND = '/images/hero/tb-cover.webp';
 		margin-bottom: $spacing-12;
 	}
 
-	// Products leads the band, so it keeps page-title (48px, with its own mobile
-	// step). The ecosystem reads as a continuation of that decision rather than a
-	// peer section, so its heading steps down and sits closer to its own cards.
-	#products .section-header__title {
-		@include page-title;
-	}
-
-	// Section subtitles shipped at max-width 900px — the same 16px copy the intro
-	// sets at 65ch (587px) and the rows set at 46ch (415px), so the page had one
-	// lede type at three different measures, the widest running ~110 characters a
-	// line. 65ch matches the intro. Scoped here: SectionHeader is shared, and
-	// re-measuring every other page's subtitles was not the ask.
-	#overflow .section-header__subtitle {
-		max-width: 65ch;
-	}
-
-	// One heading colour. The row headings and the dashboards tab titles came
-	// through at #353841 — the body text colour — while every other heading on
-	// the page sits at #17181c: 30-odd of them, from the 48px Products title down
-	// to the 16px feature tiles. Oddly React's own "Microservices" was already
-	// #17181c despite sharing `.phrase-heading` with the two that weren't.
+	// Products leads the band, so it takes `titleSize="page"` (48px, with its own mobile step) and the
+	// ecosystem reads as a continuation rather than a peer, so it takes `titleSize="subsection"`. Both
+	// are stated at the call sites above; they used to be `#products .section-header__title` and a
+	// nested rule under `#product-ecosystem`, which is why the mixins could not be edited.
 	//
-	// Listed by section rather than by class so React's "Process and React" keeps
-	// its white — it is on the dark strip.
-	#manage .phrase-heading,
-	#scada .phrase-heading,
-	#dashboard_description .dashshow__title {
-		color: var(--color-text);
-	}
+	// The subtitle measure went the same way, as `subtitleMeasure="copy"`. It shipped at the
+	// component's 900px against the intro's 65ch (587px) and the rows' 46ch (415px) — one lede type
+	// at three measures, the widest running about 110 characters a line. `SectionHeader` turns out to
+	// have exactly one caller, this file, so the prop is the whole story rather than a homepage patch.
 
+	// The row headings and the dashboards tab titles used to come through at #353841, the body text
+	// colour, against #17181c everywhere else on the page. The rule that fixed it listed `#manage`
+	// and `#scada` — neither of which exists on this page, so two thirds of it never matched
+	// anything. `.dashshow__title` now sets the colour in `DashboardShowcase` itself, which is the
+	// only place it is used, and the row headings were already reaching #17181c on their own.
+
+	// Spacing only. The title size that used to be nested in here is `titleSize="subsection"` now.
 	#product-ecosystem .section-header {
 		margin-bottom: $spacing-8;
-
-		.section-header__title {
-			font-size: $font-size-4xl;
-			line-height: 1.2;
-		}
 	}
 
 	// The heading sat flush against the band's top edge (padding-top was 0), and
