@@ -2,22 +2,39 @@
 import SmartImage from '@components/SmartImage.astro';
 import { Icon } from 'astro-icon/components';
 
-// One cluster per category, reused from the IoT Hub's own hero artwork.
-import deviceCluster from '@root/assets/iot-hub/hero-device-cluster.svg';
-import solutionCluster from '@root/assets/iot-hub/hero-solution-template-cluster.svg';
-import widgetCluster from '@root/assets/iot-hub/hero-widget-cluster.svg';
-import calcCluster from '@root/assets/iot-hub/hero-calculated-field-cluster.svg';
-import alarmCluster from '@root/assets/iot-hub/hero-alarm-rule-cluster.svg';
-import ruleChainCluster from '@root/assets/iot-hub/hero-rule-chain-cluster.svg';
-
-const clusterBySlug: Record<string, { src: string }> = {
-	devices: deviceCluster,
-	'solution-templates': solutionCluster,
-	widgets: widgetCluster,
-	'calculated-fields': calcCluster,
-	'alarm-rules': alarmCluster,
-	'rule-chains': ruleChainCluster,
-};
+// DISABLED — hover clusters. Marked for removal or repair; do not re-enable as-is.
+//
+// One cluster per category, reused from the IoT Hub's own hero artwork. The intent: hovering a
+// category tile throws that category's hero cluster across the card at 22% opacity.
+//
+// Why it is off. EVERY rule for this artwork — including the `position: absolute` and `opacity: 0`
+// that hide it — lives inside a single `@include media-up(lg)` block in the stylesheet below. Only
+// the hover REVEAL belongs behind that breakpoint; the hiding does not. So under 1024px none of it
+// applies and all six SVGs render as ordinary flow content. Measured at 1000px wide: six images at
+// 858px each, 1302px of stacked artwork, card height 1806px. It is the whole tablet range, not an
+// edge case.
+//
+// To repair: lift `.ecosystem-card__clusters` (absolute, inset 0, overflow hidden) and
+// `.ecosystem-card__cluster` (absolute, opacity 0) OUT of the `media-up(lg)` block, leaving only
+// the `:has()` hover rules inside it. Then restore the markup below and re-check at 375, 1000 and
+// 1440. To remove: delete this block, the markup below, and the `.ecosystem-card__clusters` /
+// `__cluster` rules; the six SVGs in `assets/iot-hub/` are the Hub hero's own and stay.
+//
+// import deviceCluster from '@root/assets/iot-hub/hero-device-cluster.svg';
+// import solutionCluster from '@root/assets/iot-hub/hero-solution-template-cluster.svg';
+// import widgetCluster from '@root/assets/iot-hub/hero-widget-cluster.svg';
+// import calcCluster from '@root/assets/iot-hub/hero-calculated-field-cluster.svg';
+// import alarmCluster from '@root/assets/iot-hub/hero-alarm-rule-cluster.svg';
+// import ruleChainCluster from '@root/assets/iot-hub/hero-rule-chain-cluster.svg';
+//
+// const clusterBySlug: Record<string, { src: string }> = {
+// 	devices: deviceCluster,
+// 	'solution-templates': solutionCluster,
+// 	widgets: widgetCluster,
+// 	'calculated-fields': calcCluster,
+// 	'alarm-rules': alarmCluster,
+// 	'rule-chains': ruleChainCluster,
+// };
 import { externalLinkAttrs } from '@util/external-links';
 
 interface Props {
@@ -43,7 +60,14 @@ interface Props {
 	wide?: boolean;
 	videoWebm?: string;
 	videoMp4?: string;
-	stores?: { label: string; href: string }[];
+	/**
+	 * `region` renders the header sign-in menu's own US/EU mark before the label;
+	 * `icon` renders a Tabler glyph there instead. A store has one or the other.
+	 */
+	stores?: { label: string; href: string; region?: 'us' | 'eu'; icon?: string }[];
+	/** Monochrome marks naming where the product can run. Decorative — the labels are
+	 *  carried as `title`/`aria-label` on each mark, and the copy above names them too. */
+	targets?: { label: string; icon: string }[];
 	flipped?: boolean;
 	tiles?: { slug: string; label: string; href: string; color: string; icon: string }[];
 	class?: string;
@@ -65,6 +89,7 @@ const {
 	videoWebm,
 	videoMp4,
 	stores,
+	targets,
 	flipped = false,
 	tiles,
 	class: className = '',
@@ -135,27 +160,55 @@ if (nameHighlight) {
 		</h3>
 		<p class="ecosystem-card__description">{description}</p>
 
+		{
+			/* Buttons above the link, so the card ends on the lighter of the two.
+			   The buttons are the thing to do — signing up, installing — and they sit
+			   directly under the sentence that argues for it; the link is the "read
+			   more first" path and closes the card as a footnote. The card-wide click
+			   target is unaffected: it is `__link::after` at `inset: 0`, positioned
+			   against the card rather than against its place in this column. */
+		}
 		<div class="ecosystem-card__actions">
+			{
+				(stores || targets) && (
+					<div class="ecosystem-card__stores">
+						{stores?.map((store) => (
+							<a class="ecosystem-card__store" href={store.href} {...externalLinkAttrs(store.href)}>
+								{store.region && (
+									<span class:list={['region-badge', `region-badge--${store.region}`]} aria-hidden="true">
+										{store.region.toUpperCase()}
+									</span>
+								)}
+								{store.icon && <Icon name={store.icon} class="ecosystem-card__store-icon" aria-hidden="true" />}
+								{store.label}
+							</a>
+						))}
+
+						{targets && (
+							<ul class="ecosystem-card__targets">
+								{targets.map((t) => (
+									<li>
+										<Icon name={t.icon} aria-hidden="true" />
+										<span class="sr-only">{t.label}</span>
+									</li>
+								))}
+							</ul>
+						)}
+					</div>
+				)
+			}
+
 			<a href={href} class="ecosystem-card__link" {...externalLinkAttrs(href)}>
 				{action}
 				<span class="sr-only">— {name}</span>
 			</a>
-
-			{
-				stores && (
-					<div class="ecosystem-card__stores">
-						{stores.map((store) => (
-							<a class="ecosystem-card__store" href={store.href} {...externalLinkAttrs(store.href)}>
-								{store.label}
-							</a>
-						))}
-					</div>
-				)
-			}
 		</div>
 	</div>
 
 	{
+		/* DISABLED — see the note in the frontmatter. Renders six full-size SVGs as flow content
+		   below 1024px, because the rules that hide them are inside a `media-up(lg)` block.
+
 		tiles && (
 			<div class="ecosystem-card__clusters" aria-hidden="true">
 				{tiles.map((tile) => (
@@ -163,6 +216,7 @@ if (nameHighlight) {
 				))}
 			</div>
 		)
+		*/
 	}
 
 	{
@@ -244,8 +298,19 @@ if (nameHighlight) {
 		// line of text riding up under it.
 		margin-top: calc($badge / 2);
 		padding: calc($badge / 2 + #{$spacing-5}) $spacing-5 $spacing-5;
-		border: 1px solid var(--sl-color-hairline-light);
+		// No stroke, at rest or on hover. The card is defined by its fill against the
+		// band behind it; an outline on top of that was a second edge saying the same
+		// thing, and on the dark deployments band it was the weaker of the two.
 		border-radius: $radius-lg;
+		// Fill alone was not enough on the LIGHT band: white on #f5f6ff is a
+		// luminance ratio of 1.076, which holds on a good display and disappears on
+		// a poor one. So the edge the stroke used to draw is given back as depth
+		// instead of as a line — deliberately far under the hover shadow (24px blur
+		// at 8%), so hover still reads as a change rather than as more of the same.
+		// It does nothing on the dark band, where the fill already carries the card.
+		box-shadow:
+			0 1px 2px rgba(0, 0, 0, 0.04),
+			0 8px 16px -8px rgba(0, 0, 0, 0.06);
 		background-color: var(--color-bg-surface);
 		text-align: center;
 		color: var(--color-text);
@@ -422,6 +487,34 @@ if (nameHighlight) {
 		height: 100%;
 	}
 
+	// Where it runs, as marks rather than a second sentence — and in the button's
+	// own row, so the line reads "Install … on these". Monochrome and at the label's
+	// grey, so four vendor logos cost the card one ink instead of four brand colours
+	// — the point of `simple-icons`, which is single-path and takes `currentColor`.
+	// The names are already in the paragraph above, so these are decorative and
+	// carry their text for a screen reader only.
+	.ecosystem-card__targets {
+		display: flex;
+		align-items: center;
+		gap: $spacing-3;
+		// Centred against the 36px button rather than sitting on its baseline; the
+		// row's own gap is 8px, and a little more separates the marks from the
+		// control they qualify.
+		margin: 0 0 0 $spacing-1;
+		padding: 0;
+		list-style: none;
+		color: #6e7481;
+
+		li {
+			display: flex;
+		}
+
+		:global([data-icon]) {
+			width: 24px;
+			height: 24px;
+		}
+	}
+
 	// Pinned to the foot so links line up across a row of unequal text lengths.
 	.ecosystem-card__actions {
 		margin-top: auto;
@@ -471,7 +564,27 @@ if (nameHighlight) {
 			transparent 84%
 		);
 
-		@include media-up(lg) {
+		// `md`, not `lg`, and the reason is that this card's width does not follow the
+		// viewport's. The grid around it is 3 columns from `lg` up and a wide card
+		// spans 2 of them; below `lg` the grid is 2 columns and the card spans BOTH,
+		// so it is the full 960 measure. Measured:
+		//
+		//   viewport 1151 -> grid 3 cols -> card 633px
+		//   viewport 1000 -> grid 2 cols -> card 960px
+		//
+		// The card gets 327px WIDER as the viewport narrows. Keyed to `lg` this split
+		// therefore turned itself off exactly where the card had the most room, and no
+		// viewport breakpoint can express it, because card width is not monotonic in
+		// viewport width. `md` is the point the grid itself collapses to one column,
+		// so the card is now two columns for precisely as long as the grid is
+		// multi-column — the two breakpoints describe the same thing and should be the
+		// same one. The narrowest two-column case stays 633px, which is what `lg`
+		// already shipped.
+		//
+		// The robust version is a container query on the card's own width, which would
+		// survive the grid being re-laid-out again; it needs a wrapper element to
+		// query, since an element cannot query itself.
+		@include media-up(md) {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
 			// `stretch` lets the body run the card's full height so its actions can
@@ -557,7 +670,6 @@ if (nameHighlight) {
 	.ecosystem-card:not(.ecosystem-card--wide) {
 		cursor: pointer;
 		transition:
-			border-color 0.18s ease,
 			box-shadow 0.18s ease,
 			transform 0.18s ease;
 
@@ -569,8 +681,8 @@ if (nameHighlight) {
 
 		&:hover,
 		&:focus-within {
-			// Fill stays white; the stroke carries the colour.
-			border-color: var(--accent);
+			// The lift and the shadow carry it; the stroke that used to take `--accent`
+			// is gone along with the resting one.
 			box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
 			transform: translateY(-2px);
 
@@ -579,14 +691,6 @@ if (nameHighlight) {
 				text-underline-offset: 3px;
 			}
 		}
-	}
-
-	// The shared card-hover rule above is also (0,3,0) and paints the stroke with
-	// --accent, which is grey on these two. Same weight, stated after it, so this
-	// wins — the deployment cards take their own colour.
-	.ecosystem-card--product:not(.ecosystem-card--wide):hover,
-	.ecosystem-card--product:not(.ecosystem-card--wide):focus-within {
-		border-color: var(--badge-fill);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -608,7 +712,9 @@ if (nameHighlight) {
 	// Flipped mirror of the app card: visual first, copy second. `order` keeps the
 	// DOM in reading order — copy before the tile links — while swapping columns.
 	.ecosystem-card--flipped {
-		@include media-up(lg) {
+		// Matched to the wide card's split above — see the note there. Flipping the
+		// columns only means anything while there are two of them.
+		@include media-up(md) {
 			// Glow follows the badge to the copy column.
 			--card-glow-x: 75%;
 
@@ -616,8 +722,15 @@ if (nameHighlight) {
 				order: 2;
 			}
 
-			// Hovering a category throws its own hero cluster across the card. `:has()`
-			// keeps this in CSS — no JS, and the artwork is the Hub's, not an imitation.
+			// DISABLED — nothing renders with these class names right now; the markup is
+			// commented out in the frontmatter, which is also where the reason and the
+			// repair are written down. Kept rather than deleted so a fix is one block to
+			// restore rather than a reconstruction.
+			//
+			// THE BUG IS THIS NESTING. Only the `:has()` hover rules below belong inside
+			// `media-up(lg)`. The two rules that HIDE the artwork are in here with them,
+			// so under 1024px the images had no `position` and no `opacity: 0` and laid
+			// themselves out as content.
 			.ecosystem-card__clusters {
 				position: absolute;
 				inset: 0;
@@ -717,7 +830,21 @@ if (nameHighlight) {
 	.ecosystem-card__stores {
 		display: flex;
 		flex-wrap: wrap;
+		// The row used to hold buttons only, all one height; it now also holds the
+		// target marks, so it has to say where they sit.
+		align-items: center;
+		justify-content: center;
 		gap: $spacing-2;
+	}
+
+	// The hero's Install button sizes its glyph at 18px beside 16px type; this row
+	// is 14px, so the glyph steps down with it rather than carrying the hero's
+	// number into a smaller button.
+	.ecosystem-card__store-icon {
+		width: 16px;
+		height: 16px;
+		margin-right: 6px;
+		flex: 0 0 auto;
 	}
 
 	.ecosystem-card__store {

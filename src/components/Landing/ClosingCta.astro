@@ -1,29 +1,30 @@
 ---
 import { Icon } from 'astro-icon/components';
-
-interface Props {
-	/**
-	 * Static backdrop. `filter: blur()` over a playing video re-runs on every
-	 * decoded frame; over an image it is computed once — and at 28% behind an
-	 * 18px blur the motion was imperceptible, so the video bought nothing.
-	 */
-	backdrop?: string;
-}
-
-const { backdrop = '/images/hero/tb-cover.webp' } = Astro.props;
+import PricingBackground from '@components/Pricing/PricingBackground.astro';
 ---
 
+{
+	/*
+	The page's two dark sections are a bookend, so this carries the deployments
+	band's ground rather than one of its own: the same near-black tinted with the
+	primary, and the same wave field over it.
+
+	It replaced a blurred crop of the hero photo. Two dark grounds that were
+	nearly-but-not-quite alike read as an inconsistency rather than a pair, and
+	the photo was the one carrying no meaning — it was the hero's image at 45%
+	behind an 18px blur, i.e. texture. The wave field is already on the page and
+	already paid for.
+*/
+}
 <section class="closing-cta">
-	<div class="closing-cta__backdrop" aria-hidden="true">
-		<img src={backdrop} alt="" loading="lazy" decoding="async" />
-	</div>
+	<PricingBackground contained />
 
 	<div class="closing-cta__inner">
 		<h2 class="closing-cta__title">Ready to build your IoT solution with ThingsBoard?</h2>
 
 		<p class="closing-cta__lead">
-			Start free in the cloud, install On-premises on your own infrastructure, or talk to our team about your specific use
-			case.
+			Start free in the cloud, install On-premises on your own infrastructure, or talk to our team about your specific
+			use case.
 		</p>
 
 		<div class="closing-cta__actions">
@@ -54,30 +55,31 @@ const { backdrop = '/images/hero/tb-cover.webp' } = Astro.props;
 	.closing-cta {
 		position: relative;
 		overflow: hidden;
-		background-color: #000;
+		// The deployments band's ground, to the value: color-mix(in srgb,
+		// #3d50f5 8%, #0e0f13). Set in both places rather than shared through a
+		// token, since the two sections are the only things on the site using it
+		// and a token would imply it is a theme colour.
+		background-color: #121425;
 		color: #fff;
+		// `isolation` makes this a stacking context so the field's z-index:-1
+		// lands above this background instead of dropping behind it — the same
+		// reason `#products` carries it.
+		isolation: isolate;
 		padding: 96px 0;
 
 		@include media-down(md) {
 			padding: 64px 0;
 		}
-	}
 
-	// Blur plus a low opacity turns the footage into ground rather than content —
-	// legible enough to read as motion, quiet enough to sit under type.
-	.closing-cta__backdrop {
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-
-		img {
-			width: 100%;
-			height: 100%;
-			object-fit: cover;
-			opacity: 0.45;
-			filter: blur(18px);
-			// Hides the soft edge the blur leaves at the frame boundary.
-			transform: scale(1.08);
+		// 3.5–5.5% ink: the brand indigo is not visible at that opacity on a
+		// near-black, so the wave lightens while the band keeps the brand. Same
+		// value as the deployments band.
+		//
+		// `:global()` because the field is another component's markup, which a
+		// scoped rule cannot reach — without it this compiles to a selector that
+		// matches nothing and the field silently keeps the pricing page's blue.
+		:global(.pricing-bg) {
+			--pricing-wave-color: #8b9bff;
 		}
 	}
 
