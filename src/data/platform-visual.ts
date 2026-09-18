@@ -70,7 +70,7 @@ export const PLATFORM_COPY = {
  * number this repo does not have.
  */
 export const PLATFORM_SECTION_COPY = {
-	title: 'ThingsBoard is an all-in-one platform to build, deploy, and scale IoT solutions',
+	title: 'Build, deploy, and scale IoT solutions',
 	description:
 		'From device connectivity to dashboards, in one product that works with the equipment and systems you already run. Every step is the same platform, so there is nothing to integrate between them.',
 };
