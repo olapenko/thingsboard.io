@@ -19,7 +19,10 @@ export const CONNECT_COPY = {
 	// this visual draws: direct MQTT/HTTP/CoAP, the IoT Gateway, and LoRaWAN or integrations.
 	link: { text: 'Connectivity guide', href: '/docs/user-guide/connectivity-guide/' },
 	/** The section's badge. Lives with the copy so every page that renders this row gets the same one. */
-	badge: { icon: 'tabler:plug-connected', color: '#0e7490' },
+	// #007c7b, not #0e7490. The old one was invented — Tailwind's cyan-700, in this repo only here and
+	// on two twin splines — where this is the Edge teal's hue at the badge set's own weight. Note it
+	// is the section's colour only: ConnectHub's four chip hues are texture and stay as they are.
+	badge: { icon: 'tabler:plug-connected', color: '#007c7b' },
 };
 
 /** What the routes converge on. */

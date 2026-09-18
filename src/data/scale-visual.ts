@@ -22,7 +22,10 @@ export const SCALE_COPY = {
 	// benchmark to cite.
 	body: 'From a pilot on one small server to a million devices. Every step is benchmarked: you know the machine, the database, and how much headroom is left before you need the next one.',
 	link: { text: 'See the benchmarks', href: '/docs/reference/architecture/performance/' },
-	badge: { icon: 'tabler:trending-up', color: '#1f8b4d' },
+	// #008242, a dE 3.2 nudge off #1f8b4d. Deliberately no longer EQUAL to `$color-success`: that token
+	// means "this went well" in status contexts, and a section badge that is literally the success
+	// colour borrows a meaning it does not have. Same hue, so the family reading is intact.
+	badge: { icon: 'tabler:trending-up', color: '#008242' },
 };
 
 /** What the chart plots, said once so the percentages have a unit. */

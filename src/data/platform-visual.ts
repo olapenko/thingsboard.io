@@ -34,7 +34,10 @@ export const PLATFORM_COPY = {
 	link: { text: 'See what the platform covers', href: '/products/thingsboard-pe/' },
 	// The brand's own, and by elimination: the four stages inside this visual already carry the
 	// four section badges below (see STAGES), so the umbrella cannot take any of them.
-	badge: { icon: 'tabler:topology-star-3', color: '#3d50f5' },
+	// #006bc7, the Trendz blue's hue — NOT `$color-brand` any more. It was the brand indigo, which made
+	// it dE 0.0 from the solution row's badge, and put the same colour on the app squircle, the Operate
+	// stage and the people zone inside this visual. A slot of its own is the whole point.
+	badge: { icon: 'tabler:topology-star-3', color: '#006bc7' },
 };
 
 /**
@@ -143,13 +146,21 @@ export interface PlatformStage {
  * EACH STAGE IS CODED AS A SECTION OF THE PAGE. The colour comes from that section's badge, by
  * reference rather than by copy, so the two cannot drift apart:
  *
- *   Connect   -> the connect section        #0e7490
- *   Model     -> the digital twin section   #7b3fe4
- *   Automate  -> the normalize section      #c2703a
+ *   Connect   -> the connect section        #007c7b
+ *   Model     -> the digital twin section   #7a37e7
+ *   Automate  -> the normalize section      #b44100
  *   Operate   -> the solution section       #3d50f5
  *
- * That makes the platform column a legend for the rest of the page: whoever reads the diagram meets
- * each of these four again further down, in the same colour.
+ * Whoever reads the diagram meets each of these four again further down, in the same colour. Two
+ * things keep that from being the full legend it once claimed to be, and they are worth stating
+ * rather than leaving to be discovered:
+ *
+ *   - THE ORDER DIFFERS. Left to right the stages run connect, twin, normalize, solution; top to
+ *     bottom the page runs connect, solution, twin, normalize, scale. The mapping is by MEANING,
+ *     which is right — Operate is dashboards, so it takes the solution row — but it means the two
+ *     sequences only agree on the first one.
+ *   - SCALE IS NOT HERE. The fifth row's green appears nowhere in this drawing, because there is no
+ *     fifth stage for it to attach to.
  *
  * THE ICONS ARE THE STAGE'S OWN, not the section's badge glyph, and are the four the original
  * drawing chose. A section badge has to stand for a whole section in one mark; a stage here sits

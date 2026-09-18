@@ -13,7 +13,11 @@ export const NORMALIZE_COPY = {
 	title: 'Turn IoT data into action',
 	body: 'Normalize data from any device or protocol. Spot anomalies before they hit production. Filter signals from noise before alerts reach your team. Push data and notifications into your CRM, ERP, or other external app — your data, your workflows.',
 	link: { text: 'Process IoT data', href: '/docs/pe/user-guide/rule-engine/' },
-	badge: { icon: 'tabler:database-search', color: '#c2703a' },
+	// #b44100, not #c2703a. The biggest move in the set — dE 10.6, and visibly deeper. The old one was
+	// invented and was the outlier that made the row of badges look unsystematic: L* 62.6 against the
+	// others' 52-56, and 3.70:1 with a white glyph, the only one under the text threshold. This is the
+	// IoT Hub orange's hue at the set's weight, and 5.68:1.
+	badge: { icon: 'tabler:database-search', color: '#b44100' },
 };
 
 /** The two sides, as the design labels them. */
