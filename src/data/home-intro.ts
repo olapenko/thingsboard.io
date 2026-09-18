@@ -6,11 +6,15 @@
  * visual, because a centred section above the rows is where that visual is headed. A string copied
  * into the second of those is a string that will be edited in one of them.
  *
- * The published wording. An earlier pass rewrote it to set up the five rows; this is the approved
- * copy, restored exactly, and `IntroSection` supplies the "ThingsBoard" link the title opens with.
+ * The published wording, less the clause that claimed everything: "gives you everything you need"
+ * is the sentence promising rather than saying, and what follows it — build, deploy, scale — is
+ * already the specific version of the same claim.
+ *
+ * It carries its own "ThingsBoard" now. The word used to be a link into the docs that
+ * `IntroSection` supplied, so the string began mid-sentence at " is an…".
  */
 export const HOME_INTRO = {
-	title: ' is an all-in-one IoT platform that gives you everything you need to build, deploy, and scale IoT solutions',
+	title: 'ThingsBoard is an all-in-one IoT platform to build, deploy, and scale IoT solutions',
 	description:
 		'It enables device connectivity via industry-standard IoT protocols - Modbus, LoRaWAN, MQTT, and CoAP, and supports both cloud and on-premises deployments. ThingsBoard combines scalability, fault tolerance, and performance so you will never lose your data.',
 };
