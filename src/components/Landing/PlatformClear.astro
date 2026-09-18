@@ -227,7 +227,7 @@ const RUN_W = CORE_IN - ATTACH_L;
  * `PATTERN` is longer than the longest path (about 310 units), so exactly one pip is on a wire at a
  * time and there is a dark beat between them rather than a chain of dashes.
  */
-const CYCLE_MS = 2400;
+const CYCLE_MS = 1800;
 const PIP_DASH = 14;
 const PIP_PATTERN = 380;
 /** Golden-ratio phases, so four runs never pulse together and the loop has no beat of its own. */
@@ -285,8 +285,6 @@ const HEAD_BOX_H = STEM.h + HEAD_STROKE / 2; // 13.5
 const ORDER = ['equipment', 'platform', 'people'];
 const dirOf = (r: PlatformRun) => (ORDER.indexOf(r.from) < ORDER.indexOf(r.to) ? 'down' : 'up');
 
-const srcOf = (id: PlatformRun['id']) => PLATFORM_RUNS.find((r) => r.id === id)!.from;
-
 /**
  * The zone a run belongs to — the end of it that is not the platform.
  *
@@ -317,6 +315,7 @@ const vars = [
 	`--plat-pip-dash: ${PIP_DASH} ${PIP_PATTERN - PIP_DASH}`,
 	`--plat-pip-pattern: ${PIP_PATTERN}`,
 	`--plat-cycle: ${CYCLE_MS}ms`,
+	...PLATFORM_STAGES.map((st, i) => `--plat-stage-${i + 1}: ${st.accent}`),
 	`--plat-head-h: ${HEAD_BOX_H}`,
 	`--plat-band: ${BAND}`,
 	`--plat-lane: ${LANE_X}`,
@@ -383,7 +382,7 @@ const vars = [
 
 		{
 			PLATFORM_RUNS.map((r) => (
-				<p class={`plat__run plat__run--${r.id}`} data-src={r.from} data-zone={zoneOf(r.id)}>
+				<p class={`plat__run plat__run--${r.id}`} data-zone={zoneOf(r.id)}>
 					<span class="plat__stem" data-dir={dirOf(r)} aria-hidden="true">
 						<span class="plat__stem-line" />
 						<svg class="plat__stem-head" viewBox={`0 0 ${STEM.w} ${HEAD_BOX_H}`}>
@@ -406,26 +405,14 @@ const vars = [
 					<svg class="plat__wires" viewBox={`0 0 ${NATIVE} ${BAND}`} preserveAspectRatio="none">
 						{BANDS[which].map((r, i) => (
 							<Fragment>
-								<path
-									class="plat__wire"
-									data-src={srcOf(bandSrc[which][i])}
-									data-zone={zoneOf(bandSrc[which][i])}
-									d={r.line}
-								/>
+								<path class="plat__wire" data-zone={zoneOf(bandSrc[which][i])} d={r.line} />
 								<path
 									class="plat__pip"
 									data-zone={zoneOf(bandSrc[which][i])}
 									d={r.line}
 									style={`--pip-phase: ${pipPhase(which === 'in' ? i : i + 2)}ms`}
 								/>
-								{r.head && (
-									<path
-										class="plat__head"
-										data-src={srcOf(bandSrc[which][i])}
-										data-zone={zoneOf(bandSrc[which][i])}
-										d={r.head}
-									/>
-								)}
+								{r.head && <path class="plat__head" data-zone={zoneOf(bandSrc[which][i])} d={r.head} />}
 							</Fragment>
 						))}
 					</svg>
@@ -507,7 +494,7 @@ const vars = [
 		// A run belongs to the zone it touches, so it takes that zone's hue rather than the drawing's
 		// grey: the pair on the left is Connect's accent — the first stage, which is the same colour
 		// the equipment zone already titles itself in — and the pair on the right is the brand.
-		// `data-src` was already on every wire and label for exactly this.
+		// `data-zone` is on every wire, head and label for exactly this.
 		--plat-wire-in: var(--plat-equipment);
 		--plat-wire-out: var(--color-primary, #{$color-brand});
 		--plat-line: var(--color-border, #ebebeb);
@@ -573,10 +560,18 @@ const vars = [
 	// the tail's card end, so the point meets the card rather than the row boundary.
 	.plat__tail-head {
 		flex: none;
+		// Over the line whatever the DOM order is, so the line can run under the chevron from either
+		// side without its rounded cap showing past the point.
+		position: relative;
+		z-index: 1;
 		width: u(14);
 		height: u(var(--plat-head-h));
 		max-width: none;
-		margin-top: u(-6);
+		// 12, not 6. At 6 the two inks met exactly — and "exactly" is the arms' OPEN ends, so the
+		// line stopped where the V starts and left a triangular void either side of it, which reads
+		// as an arrowhead floating off the end of its line. The chevron's ink is 6 units deep, so a
+		// further 6 runs the line all the way to the apex and the arms sit on it.
+		margin-top: u(-12);
 		fill: none;
 		stroke: var(--plat-wire);
 		stroke-width: 3;
@@ -585,7 +580,7 @@ const vars = [
 	}
 
 	.plat__tail-head--up {
-		margin: 0 0 u(-6);
+		margin: 0 0 u(-12);
 		transform: scaleY(-1);
 	}
 
@@ -784,10 +779,24 @@ const vars = [
 		grid-template-columns: repeat(4, minmax(0, 1fr));
 		column-gap: u(12);
 		margin: 0;
-		// The rule under the heading. Same hairline the foundations strip uses — `max(1px, …)`
-		// because a sub-pixel border disappears at small units, and pixels do not scale.
+		// The rule under the heading, carrying the four stages' own accents left to right — each
+		// colour sits over the stage it belongs to, so the line is a key to the row under it rather
+		// than a divider that happens to be coloured.
+		//
+		// A background rather than a border: a border cannot take a gradient, and at one pixel there
+		// was nothing for four colours to happen in. Three units gives them room. It paints in the
+		// top of the padding box, so the gap between it and the icons is unchanged.
 		padding: u(16) 0 0;
-		border-top: max(1px, #{u(1)}) solid var(--plat-line);
+		background-image: linear-gradient(
+			90deg,
+			var(--plat-stage-1) 12.5%,
+			var(--plat-stage-2) 37.5%,
+			var(--plat-stage-3) 62.5%,
+			var(--plat-stage-4) 87.5%
+		);
+		background-repeat: no-repeat;
+		background-size: 100% #{u(3)};
+		border-radius: u(1.5);
 		list-style: none;
 	}
 
@@ -891,7 +900,7 @@ const vars = [
 		color: var(--plat-wire-out);
 	}
 
-	// The CSS halves of the U's, which are not in the SVG and so cannot be reached by `data-src`.
+	// The CSS halves of the U's, which are not in the SVG and so cannot be reached by `data-zone`.
 	.plat__col--equipment {
 		--plat-wire: var(--plat-wire-in);
 	}
