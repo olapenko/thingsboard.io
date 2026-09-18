@@ -38,12 +38,13 @@ export const PLATFORM_COPY = {
 };
 
 /**
- * SANDBOX ONLY, for now.
+ * The homepage's centred section: the statement between the hero and the five rows, with
+ * `PlatformRaised` under it.
  *
- * Copy for the centred section this visual is headed for, drafted against the DRAWING rather than
- * adapted from the homepage's existing statement. `index.astro` still renders `HOME_INTRO` and is
- * untouched; only `launch-visuals/platform` reads this. When it is approved the two should become
- * one object rather than two.
+ * It was sandbox-only and is not any more — `index.astro` renders this now, in place of the
+ * statement that used to be there. That displaced `HOME_INTRO`, which was the published wording, so
+ * the old copy is worth knowing about: it is in the commit that deleted `data/home-intro.ts` and one
+ * revert away if this section does not survive review.
  *
  * The heading drops the link. "ThingsBoard" is the first word of a sentence here, and a link inside
  * it is a second thing to look at in the largest line on the page — which is also why the homepage
@@ -65,7 +66,7 @@ export const PLATFORM_COPY = {
  * Nothing here is a competitive claim either — "fewer products than the alternatives" would need a
  * number this repo does not have.
  */
-export const PLATFORM_SECTION_DRAFT = {
+export const PLATFORM_SECTION_COPY = {
 	title: 'ThingsBoard is an all-in-one platform to build, deploy, and scale IoT solutions',
 	description:
 		'From device connectivity to dashboards, in one product that works with the equipment and systems you already run. Every step is the same platform, so there is nothing to integrate between them.',
