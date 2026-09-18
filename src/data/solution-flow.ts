@@ -70,7 +70,10 @@ export const SOLUTION_COPY = {
 	title: 'Build IoT solutions from device to end-user',
 	body: 'ThingsBoard enables development of the complete use-case and is white-labeled for your customers or your team: ship complete IoT applications, not just data pipelines.',
 	link: { text: 'Why ThingsBoard', href: '/products/' },
-	badge: { icon: 'tabler:layout-dashboard', color: '#3d50f5' },
+	// `tools`. It says BUILDING, which is the section's verb — "Build IoT solutions from device to
+	// end-user" — where `layout-dashboard` said the output instead, and the output is already spoken
+	// for: the Operate stage in the platform overview carries it with `chart-dots`.
+	badge: { icon: 'tabler:tools', color: '#3d50f5' },
 };
 
 /** How many points of history the sparkline shows at once. */

@@ -17,7 +17,10 @@ export const NORMALIZE_COPY = {
 	// invented and was the outlier that made the row of badges look unsystematic: L* 62.6 against the
 	// others' 52-56, and 3.70:1 with a white glyph, the only one under the text threshold. This is the
 	// IoT Hub orange's hue at the set's weight, and 5.68:1.
-	badge: { icon: 'tabler:database-search', color: '#b44100' },
+	// `binary-tree`, the glyph the AUTOMATE stage carries in the platform overview — this section is
+	// the one Automate is coded to, so they now say the same thing. It was `database-search`, which
+	// described the mechanism rather than the section.
+	badge: { icon: 'tabler:binary-tree', color: '#b44100' },
 };
 
 /** The two sides, as the design labels them. */

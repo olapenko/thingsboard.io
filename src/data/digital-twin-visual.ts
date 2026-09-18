@@ -14,7 +14,11 @@ export const DIGITAL_TWIN_COPY = {
 	// #7a37e7, a dE 1.3 nudge off #7b3fe4 — same violet, brought onto the set's L* 53 and the brand's
 	// chroma. It is worth knowing this hue is the GATEWAY's in `homeEcosystem`, which this row has
 	// always borrowed; the normalisation does not change that, it just stops the two being identical.
-	badge: { icon: 'tabler:binary-tree', color: '#7a37e7' },
+	// `box-model`, the glyph the twin visual itself uses and the one the Model stage carries in the
+	// platform overview — so the section, its drawing and its stage in the loop are one mark. It was
+	// `binary-tree`, which the AUTOMATE stage also uses; that glyph now belongs to the normalize
+	// section, whose stage Automate is.
+	badge: { icon: 'tabler:box-model', color: '#7a37e7' },
 };
 
 /** The two halves, as the design labels them. */
