@@ -403,8 +403,41 @@ const curveRight = (i: number) => {
  */
 const hasFade = (_c: Arm) => true;
 
+/* --- the signal ------------------------------------------------------------------------------
+ *
+ * The same pip NormalizeSeries runs, on the same terms: a second copy of each wire carrying a dash
+ * the length of a packet, with `pathLength="100"` so one dash pattern serves arms of a dozen
+ * different lengths and the pip stays the same size at every width. Speed is the PATTERN, not a
+ * duration — the animation always runs one cycle and the pip is only on the wire for the fraction
+ * of the pattern the wire occupies, so a faster signal also means longer gaps between signals.
+ * That ratio is most of what reads as snap.
+ *
+ * What differs from Normalize is the ORDER. There, four devices report on a beat and the pips are
+ * evenly staggered because they are one event seen four times. Here ten protocols arrive from ten
+ * places that have never heard of each other, and an even stagger would draw exactly what this
+ * picture must not claim: a sweep, top to bottom, as though something were polling them in turn.
+ *
+ * So the phases are scattered — but by the golden ratio rather than by a random number. Random
+ * would clump: with ten draws on one cycle you reliably get two arms firing together and a visible
+ * dead stretch, and being genuinely random is no defence when the eye reads the clump as meaning
+ * something. `frac(i · φ⁻¹)` is the standard low-discrepancy alternative, and it is the useful
+ * property here: every new arm lands in the largest remaining gap, so no two signals ever coincide
+ * and no stretch of the cycle is ever empty, while the ORDER around the fan has no pattern a reader
+ * can pick up. Seemingly random is the goal; actually random is the thing that fails at it.
+ */
+const CYCLE_MS = 4800;
+// How long one pip takes to cross its wire, as a target — see PATTERN for what it is rounded to.
+const TRAVEL_TARGET_MS = 620;
+const DASH = 8;
+const PATTERN = Math.round((100 * CYCLE_MS) / TRAVEL_TARGET_MS);
+/** Where arm `i` sits in the cycle. Negative delay, so every phase is already live on frame one. */
+const phase = (i: number) => +(((i * 0.618033988749895) % 1) * CYCLE_MS).toFixed(1);
+
 const vars = [
 	`--hub-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
+	`--hub-cycle: ${CYCLE_MS}ms`,
+	`--hub-dash: ${DASH} ${PATTERN - DASH}`,
+	`--hub-pattern: ${PATTERN}`,
 	`--hub-native: ${NATIVE}`,
 	`--hub-h: ${HEIGHT}`,
 	`--hub-badge: ${BADGE}`,
@@ -432,6 +465,29 @@ const vars = [
 			}
 			{LEFT.map((c, i) => <path class="hub__wire" d={curveLeft(i)} stroke={c.accent} />)}
 			{RIGHT.map((c, i) => <path class="hub__wire" d={curveRight(i)} stroke={c.accent} />)}
+
+			{
+				/* Same `d` as the wire beneath it, so the signal cannot travel anywhere the wire does
+			    not go. The index runs straight through both sides rather than restarting on the
+			    right: two sequences of the same length would phase-mirror each other, and a picture
+			    whose left and right fire in step is a picture with a pattern in it. */
+			}
+			{LEFT.map((c, i) => (
+				<path
+					class="hub__pip"
+					d={curveLeft(i)}
+					pathLength="100"
+					style={`--pip-accent: ${c.accent}; --pip-phase: ${phase(i)}ms`}
+				/>
+			))}
+			{RIGHT.map((c, i) => (
+				<path
+					class="hub__pip"
+					d={curveRight(i)}
+					pathLength="100"
+					style={`--pip-accent: ${c.accent}; --pip-phase: ${phase(LEFT.length + i)}ms`}
+				/>
+			))}
 		</svg>
 
 		{
@@ -500,6 +556,51 @@ const vars = [
 		stroke-width: max(1px, #{u(2)});
 		stroke-linecap: round;
 		vector-effect: non-scaling-stroke;
+	}
+
+	// The signal, travelling chip to badge — the direction the wire's own `d` runs, which is the
+	// direction this picture argues: everything arrives at one place.
+	//
+	// Near white, not white. Pure white on a coloured wire reads as a GAP travelling down it — the
+	// line looking broken rather than lit — so the pip is the wire's OWN accent mixed to 28%, which
+	// lands close enough to white to read as light while keeping the route's colour. That also means
+	// ten arms need no palette of their own: each signal is already the colour of the thing it is
+	// travelling along.
+	//
+	// The rail's own weight, not a heavier one. A thicker pip reads as a bulge moving down the wire;
+	// at the same weight it is the wire itself lighting up, and colour is all that changes.
+	.hub__pip {
+		fill: none;
+		stroke: color-mix(in srgb, var(--pip-accent, var(--color-primary, #3d50f5)) 28%, #fff);
+		stroke-width: max(1px, #{u(2)});
+		stroke-linecap: round;
+		vector-effect: non-scaling-stroke;
+		stroke-dasharray: var(--hub-dash);
+		// Negative, so the cycle is already under way on the first frame. A positive delay would hold
+		// nine of the ten arms dark for up to a full cycle after the visual scrolls into view, which
+		// is the one moment it is actually being looked at.
+		animation: hub-pip var(--hub-cycle) linear infinite;
+		animation-delay: calc(-1 * var(--pip-phase, 0ms));
+	}
+
+	// One full pattern per cycle. Start and end are the same picture, so the loop has no seam; the
+	// dash is only on the wire for the slice of the pattern that carries it end to end.
+	@keyframes hub-pip {
+		from {
+			stroke-dashoffset: var(--hub-pattern);
+		}
+
+		to {
+			stroke-dashoffset: 0;
+		}
+	}
+
+	// The wires are the one thing here that moves for its own sake, so this is what goes when motion
+	// is unwelcome. The picture is complete without it — the signal is emphasis, not information.
+	@media (prefers-reduced-motion: reduce) {
+		.hub__pip {
+			display: none;
+		}
 	}
 
 	// The run out, dissolving into the page: this is what replaced the sketch's device icons.
