@@ -248,7 +248,7 @@ const vars = [
 							<path d={HEAD_D} />
 						</svg>
 					</span>
-					<span>{r.label}</span>
+					<span class="plat__run-label">{r.label}</span>
 				</p>
 			))
 		}
@@ -729,7 +729,8 @@ const vars = [
 		.plat {
 			--u: var(--plat-u-narrow);
 			grid-template-columns: repeat(2, minmax(0, 1fr));
-			// 48, not 52: a label over a 26-unit arrow. The band was 52 units of mostly nothing.
+			// 48, not 52. `minmax` rather than a fixed height so a label that needs a second line takes
+			// it rather than overflowing its row — "Views and alerts" does, at this width.
 			grid-template-rows: auto minmax(u(48), auto) auto minmax(u(48), auto) auto;
 			max-width: u(var(--plat-narrow));
 			margin-inline: auto;
@@ -765,45 +766,61 @@ const vars = [
 			display: none;
 		}
 
-		// THE LABEL GOES OVER THE ARROW, not beside it, and that one move is what fixed this row.
+		// SIDE LABELS, as `PlatformLoop` does it: inbound on the left, outbound on the right, each pair
+		// filling the gap between two cards. Both lanes are pulled in towards the middle and the
+		// labels hang OUTBOARD, away from the centre line, so the two can never collide however long
+		// the copy gets. The padding is what sets a stem's distance from centre — the column's inner
+		// edge IS the centre, so the lane minus half a stem puts the stem's axis exactly `--plat-lane`
+		// units out.
 		//
-		// Beside it, the label needs the half-column minus the lane, minus the stem, minus the gap —
-		// 97 units at this width, against the 148 "Views and alerts" needs. It only ever fitted
-		// because the composition was 480 units wide, which is the same 480 that was making the cards
-		// too wide for their contents. Over the arrow, the label has the whole half to itself and
-		// still fits on one line at 340.
+		// At 340 units the label gets 97 of them, which holds three of the four on one line and gives
+		// "Views and alerts" two. That is what the row's `minmax(…, auto)` is for, and it is the
+		// trade this arrangement makes: a label beside its arrow cannot have the half-column that one
+		// above it would, because the lane cannot come in past the badge — 64 units wide, straddling
+		// the core's top edge, so a stem inside 48 would be behind it.
 		//
-		// Each run is then simply centred in its half, so the two stems land on the quarter points —
-		// 85 and 255 — with no lane arithmetic at all. That also clears the badge, which straddles
-		// the core's top edge and reaches 32 either side of centre.
-		//
-		// The label sits at the run's SOURCE end: above a downward arrow, below an upward one. So
-		// every arrowhead touches the card it points at, and the words name the flow where it starts.
+		// `min-width: 0` on the label is what makes that trade work rather than break. A flex item
+		// defaults to `min-width: auto`, which is "never shrink below your content", so the run
+		// ignored its own `max-width` and pushed "Views and alerts" 49 units off the left edge of the
+		// drawing, where it was clipped to "WS AND ALERTS". `PlatformLoop` never hits this because at
+		// 480 units the label has 167 and fits; the bug was always there, just out of reach.
 		.plat__run {
 			display: flex;
 			align-items: center;
-			gap: u(4);
-			width: 100%;
+			gap: u(8);
+			width: auto;
 			max-width: 100%;
 			margin: 0;
-			justify-self: center;
-			text-align: center;
 		}
 
-		// Reversed, because the stem comes FIRST in the markup. A downward run wants the label on top
-		// and the arrowhead at the bottom edge, touching the card it points into; an upward run wants
-		// the opposite. Getting this the wrong way round leaves each head 22 units short of its card,
-		// which is exactly the unattached look this row is being fixed for.
+		// `white-space: normal` UNDOES the `nowrap` the wide cut needs, and `min-width: 0` undoes a
+		// flex item's default refusal to shrink below its content. Both are required: either on its
+		// own still pushed "Views and alerts" 49 units off the left edge of the drawing, where it was
+		// clipped to "WS AND ALERTS".
+		//
+		// The nowrap is right where it comes from — up there a label centres on its arrow inside a box
+		// only as wide as the arrow's leg, and has the whole band to overflow into. Down here there is
+		// no band and the half-column is the limit, so the same rule is exactly wrong.
+		.plat__run-label {
+			min-width: 0;
+			white-space: normal;
+		}
+
 		.plat__run--telemetry,
 		.plat__run--views {
 			grid-column: 1;
-			flex-direction: column-reverse;
+			justify-self: end;
+			flex-direction: row-reverse;
+			padding-right: calc(#{u(var(--plat-lane))} - #{u(7)});
+			text-align: right;
 		}
 
 		.plat__run--commands,
 		.plat__run--actions {
 			grid-column: 2;
-			flex-direction: column;
+			justify-self: start;
+			padding-left: calc(#{u(var(--plat-lane))} - #{u(7)});
+			text-align: left;
 		}
 
 		.plat__run--telemetry,
@@ -816,15 +833,14 @@ const vars = [
 			grid-row: 4;
 		}
 
-		// `flex: 1` rather than a fixed height: the stem takes whatever the label leaves, so the arrow
-		// still spans the gap from one card to the other however the label wraps.
+		// Stretched, so it reaches both cards whatever height the label gives the row.
 		.plat__stem {
 			display: flex;
-			flex: 1 1 auto;
+			flex: none;
 			flex-direction: column;
 			align-items: center;
+			align-self: stretch;
 			width: u(14);
-			min-height: u(26);
 		}
 
 		// 4 units and a 2px floor, against 3 units and none. At 480 units this line rendered 2.1px
