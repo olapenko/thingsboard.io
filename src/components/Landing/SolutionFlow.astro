@@ -24,7 +24,7 @@ import { SOLUTION_CASES, SOLUTION_RAIL, type SolutionCase } from '@data/solution
  * not identity — so it stays fixed while everything else recolours. Swapping it with the brand
  * would say a customer can rebrand what "urgent" looks like.
  *
- * The composition never reflows. It is authored at 630px — the tightest width the three-column
+ * The composition never reflows. It is authored at 560px — the tightest width the three-column
  * reading survives — and every size inside is a multiple of one design unit derived from the width
  * the component is GIVEN (a container query unit, not a viewport one: dropped into the narrow half
  * of a two-column section it gets about 440px on a 1440px viewport, where a viewport query would
@@ -54,6 +54,14 @@ interface Props {
 	cases?: SolutionCase[];
 	/** Step the readings inside the panel, as a live dashboard would. */
 	animate?: boolean;
+	/**
+	 * Where the three cards sit in the row.
+	 *
+	 * `center` hangs them on one middle axis, which is what the page ships: the shell is taller than
+	 * the two lists and centring is what stops the row reading as a staircase. `top` stacks them to
+	 * one top edge instead, so the three cards start together and end wherever their content does.
+	 */
+	align?: 'center' | 'top';
 }
 
 const {
@@ -62,7 +70,10 @@ const {
 			title: 'Connect devices',
 			rows: [
 				{ label: 'Sensors', icon: 'tabler:access-point' },
-				{ label: 'Gateways', icon: 'tabler:router' },
+				// A hub, not a router: a gateway's job in this row is that many devices arrive and one
+				// uplink leaves, and a star topology draws exactly that. The router glyph drew a box
+				// with aerials — a product, where the other three rows name a kind of thing.
+				{ label: 'Gateways', icon: 'tabler:topology-star' },
 				{ label: 'Machines', icon: 'tabler:engine' },
 				{ label: 'Meters', icon: 'tabler:gauge' },
 			],
@@ -80,16 +91,23 @@ const {
 	appTitle = 'Share with your users',
 	cases = SOLUTION_CASES,
 	animate = true,
+	align = 'center',
 } = Astro.props;
 
 // The app's navigation, shared with the comparison page so the two cannot disagree. Rule chains
 // and the digital twin are deliberately absent: they are how the solution behaves and how it is
 // modelled, not screens a user opens.
 const rail = SOLUTION_RAIL;
+
+// How many rows the taller stage carries. Top-aligned, the connectors have no centred row to hang
+// on and must be placed against the card itself, so the CSS needs the card's height — and a card's
+// height is its row count. Passed as a number rather than measured, because this renders on the
+// server and a measurement would arrive a frame after the picture.
+const rowCount = Math.max(...stages.map((st) => st.rows.length));
 ---
 
 <div class="flow-fit">
-	<div class="flow" data-flow>
+	<div class="flow" data-flow data-align={align} style={`--flow-rows: ${rowCount};`}>
 		{
 			stages.map((stage) => (
 				<>
@@ -163,7 +181,7 @@ const rail = SOLUTION_RAIL;
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
-	// One design pixel. The composition is authored at 630px wide — the tightest width the
+	// One design pixel. The composition is authored at 560px wide — the tightest width the
 	// three-column reading survives — and every size inside is a multiple of this unit, so the
 	// whole picture scales as one instead of reflowing. Nothing here rearranges at any width.
 	@function u($n) {
@@ -178,20 +196,30 @@ const rail = SOLUTION_RAIL;
 	}
 
 	.flow {
-		// 1px at 630 wide. Grows with the container up to 1.15x, so a wide row upscales the visual
+		// 1px at 560 wide. Grows with the container up to 1.15x, so a wide row upscales the visual
 		// a little rather than stretching it; the floor stops it collapsing into nothing if some
 		// layout hands it a sliver. The shell reads `--flow-u` for its own unit.
-		--flow-u: clamp(0.45px, calc(100cqw / 630), 1.15px);
+		//
+		// This divisor is the visual's ZOOM, not its width. Below the cap `max-width` resolves to the
+		// container whatever it says, so authoring at 560 rather than 630 maps the same room onto
+		// fewer design pixels and draws everything inside 12.5% larger. It narrows the picture only
+		// where the unit is capped, and there it does: 644px flat out, down from 724.
+		--flow-u: clamp(0.45px, calc(100cqw / 560), 1.15px);
 		--u: var(--flow-u);
 		display: grid;
 		// The app column is the widest: it is the destination, and it carries the most. Arrow tracks
 		// are fixed so both connectors are one length.
-		grid-template-columns: 1fr u(24) 1fr u(24) 1.6fr;
+		//
+		// The app is down from 1.6fr and the tracks from 24: a shorter connector pulls the three
+		// stages into one group rather than three things spaced across a row, and the shell had more
+		// width than its contents needed — the readings sat in a panel that kept growing past them.
+		// Both give their width back to the two stage cards, which carry nowrap labels.
+		grid-template-columns: 1fr u(18) 1fr u(18) 1.45fr;
 		align-items: stretch;
 		// Once the unit hits its cap the grid must stop filling the container, or the fr columns
 		// would stretch the cards while the type stayed put. Below the cap this is the container's
 		// full width.
-		max-width: calc(630 * var(--flow-u));
+		max-width: calc(560 * var(--flow-u));
 		margin: 0 auto;
 
 		// The stage labels sit above the cards, so a connector centred on its whole column lands
@@ -199,6 +227,12 @@ const rail = SOLUTION_RAIL;
 		// declared here and consumed by the label and the connector, so they cannot drift apart.
 		--flow-label-h: #{u(24)}; // 14 on a 24 line
 		--flow-label-gap: #{u(8)};
+
+		// One stage card's height, from the rows it actually has: each row is 28 of line on 8 above
+		// and below, the hairlines between them are literal pixels rather than design ones, and the
+		// card's own border adds two more. Only the top-aligned variant reads it, but it is declared
+		// here beside the band it sits under so the two cannot drift apart.
+		--flow-node-h: calc(var(--flow-rows, 4) * #{u(44)} + (var(--flow-rows, 4) - 1) * 1px + 2px);
 	}
 
 	// Stretched to the row so the card inside can centre in the leftover space. Two things are
@@ -292,7 +326,9 @@ const rail = SOLUTION_RAIL;
 		// The same grey as the stage labels: the connectors state the order, they do not argue it.
 		// In the page's ink they pulled the eye off the cards.
 		--flow-rail-color: var(--color-text-secondary, #5b616e);
-		--flow-rail-w: max(1px, #{u(2)});
+		// Heavier alongside the bigger head below: a 16-unit chevron drawn in a 2-unit stroke read as
+		// an outline of an arrow rather than an arrow.
+		--flow-rail-w: max(1px, #{u(3)});
 	}
 
 	.flow__arrow-line {
@@ -303,13 +339,18 @@ const rail = SOLUTION_RAIL;
 
 	// An open chevron rather than a filled head: two borders of a small square, turned so its
 	// corner points along the line. Turned 45deg, the corner sits half the box's diagonal to the
-	// right of the box's centre — 5 + 10 * 0.7071 — so the box is pulled back by exactly that much
-	// and the line runs under the arms to end at the apex.
+	// right of the box's centre — 8 + 16 * 0.7071 — so the box is pulled back by exactly that much
+	// and the line runs under the arms to end at the apex. The offset is the box times 1.2071; it is
+	// written out rather than calculated so a changed box size cannot silently keep an old pull.
+	//
+	// The apex lands about 3 units past its track and onto the card it points at, which is the same
+	// overlap the 10-unit head had and is what makes the connector meet the card rather than stop
+	// short of it. It grows with the head, so a much bigger chevron would start to sit ON the card.
 	.flow__arrow-head {
 		flex: none;
-		width: u(10);
-		height: u(10);
-		margin-left: u(-12.07);
+		width: u(16);
+		height: u(16);
+		margin-left: u(-19.31);
 		border-top: var(--flow-rail-w) solid var(--flow-rail-color);
 		border-right: var(--flow-rail-w) solid var(--flow-rail-color);
 		transform: rotate(45deg);
@@ -341,6 +382,29 @@ const rail = SOLUTION_RAIL;
 		.flow__arrow-line,
 		.flow__arrow-head {
 			transition-duration: 90ms;
+		}
+	}
+
+	// --- stacked to the top edge --------------------------------------------
+
+	// The variant: three cards on one TOP edge rather than one middle axis. The app shell is the
+	// tallest of the three, so centred it hangs the two lists in the middle of the row and the
+	// picture reads as a shelf; topped, the three start together and the shell simply runs on below.
+	//
+	// The connectors cannot ride along. Centred, they take the whole row minus the label band and
+	// land on the shared axis for free; here there is no shared axis, so each one is cut to the
+	// height of a card and centred inside THAT. `align-self: start` stops the grid stretching it
+	// back to the row, and the height is border-box, so the band is inside the number and the
+	// content box left over is exactly one card.
+	.flow[data-align='top'] {
+		.flow__list,
+		.flow__app-slot {
+			margin: 0 0 auto;
+		}
+
+		.flow__arrow {
+			align-self: start;
+			height: calc(var(--flow-label-h) + var(--flow-label-gap) + var(--flow-node-h));
 		}
 	}
 

@@ -233,7 +233,11 @@ const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}`
 
 	const STEP_MS = 2200; // how often a new reading arrives
 	const TWEEN_MS = 700; // how long the line takes to slide it into place
-	const FADE_MS = 180; // each half of a brand crossfade
+	// How long the outgoing brand takes to leave — the ONLY half this script times. The return is
+	// the CSS transition's own business: the content is already correct when it starts, so nothing
+	// here needs to know how long it runs or in what order the parts arrive. It leaves fast on
+	// purpose; the symmetric crossfade this replaced read as a blink at both ends.
+	const FADE_OUT = 110;
 	// How far ahead of a brand swap the shell says one is coming, so whatever frames it can lead
 	// up to the change rather than react to it. The flow uses this to run its pulse.
 	const LEAD_MS = 1000;
@@ -291,10 +295,10 @@ const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}`
 			applyCase(s);
 			s.el.classList.remove('is-swapping');
 			s.swapping = false;
-			// The first step waits for the fade-in, so the new brand is seen at rest first.
-			s.lastStep = performance.now() + FADE_MS;
+			// The first step waits for the return, so the new brand is seen at rest first.
+			s.lastStep = performance.now() + FADE_OUT;
 			wake();
-		}, FADE_MS);
+		}, FADE_OUT);
 	}
 
 	function beginStep(s: Shell, now: number) {
@@ -479,12 +483,14 @@ const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}`
 
 	// The same dark as the CLI terminal's title bar, so the two visuals share one idea of "chrome".
 	// Kept low: it is a frame around the app, not a part of it.
+	// 15 on a 5.5 padding: a 26 band, up from 24. The address is the only thing in it, and at the
+	// flow's tighter authored width it was the one string in the visual still set below legibility.
 	.shell__chrome {
 		display: flex;
 		align-items: center;
 		gap: u(8);
 		margin: 0;
-		padding: u(5) u(12);
+		padding: u(5.5) u(12);
 		background: var(--flow-chrome, #1b1e27);
 	}
 
@@ -503,8 +509,8 @@ const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}`
 	.shell__chrome-url {
 		min-width: 0;
 		font-family: $font-family-mono;
-		font-size: u(11);
-		line-height: u(14);
+		font-size: u(12);
+		line-height: u(15);
 		white-space: nowrap;
 		color: rgba(255, 255, 255, 0.62);
 	}
@@ -516,12 +522,13 @@ const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}`
 		align-items: center;
 		gap: u(8);
 		margin: 0;
-		// 14 on an 18 line with 7 above and below: the bar keeps its 32 height while the name gets
-		// the size a product name deserves.
-		padding: u(7) u(14);
-		font-size: u(14);
+		// 15 on a 19 line with 8 above and below: a 35 band, up from 32. The customer's name is the
+		// one word in the visual that has to land as a product rather than a label, and the extra
+		// three units are spent on it rather than on the chrome around it.
+		padding: u(8) u(14);
+		font-size: u(15);
 		font-weight: $font-weight-semibold;
-		line-height: u(18);
+		line-height: u(19);
 		color: var(--color-white, #fff);
 		// Eased so a brand swap is a change of colour rather than a cut.
 		background: var(--flow-accent);
@@ -599,25 +606,41 @@ const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}`
 		flex: 1;
 		min-width: 0;
 		flex-direction: column;
-		padding: u(16);
+		// 13 down the sides it shares with the bands, 16 across. The panel was asked to lose height
+		// without losing anything IN it, so every unit here comes out of leading and padding and none
+		// out of the type, the rail or the sparkline — those are the content. Horizontal padding is
+		// deliberately untouched: the longest reading clears its box by about 6 design pixels, and
+		// that margin is not worth spending on height.
+		padding: u(13) u(16);
 	}
 
+	// 14 on a 20 line, down from 24. The label is one short word set well below its own size, so the
+	// leading was doing nothing but holding the panel open.
 	.shell__metric-label {
 		margin: 0;
 		font-size: u(14);
-		line-height: u(24);
+		line-height: u(20);
 		color: var(--color-text-secondary, #5b616e);
 	}
 
+	// 32, not 34, and never wrapped. `10 µg/m³` is the longest reading any case carries and at 34 it
+	// did not fit the panel — it broke after the number and set the unit on a second line, which read
+	// as two facts rather than one. That was true before this panel was narrowed, at every width:
+	// the reading and the box it sits in both scale with the unit, so the overflow was proportional
+	// and permanent, not a width the layout happened to hit. 32 clears it by about 6 design pixels.
+	//
+	// `nowrap` is the guard, not the fix: the shell clips, so a future reading that outgrows the
+	// panel should be caught as a truncated glyph rather than silently relaid out as two lines.
 	.shell__reading {
 		margin: 0;
-		font-size: u(34);
+		font-size: u(32);
 		// The reading is the loudest thing in the panel by size alone: regular weight, so the digits
 		// keep their shape and the number reads as data rather than a headline.
 		font-weight: $font-weight-normal;
 		line-height: $line-height-tight;
 		// Equal-width digits, so a stepping value does not jitter the line beside it.
 		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
 		color: var(--color-text);
 	}
 
@@ -626,7 +649,9 @@ const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}`
 	.shell__spark {
 		width: 100%;
 		height: u(28);
-		margin-top: u(8);
+		// The line keeps its full 28: it is the content, and a history squeezed to gain six pixels is
+		// a worse picture, not a shorter one.
+		margin-top: u(6);
 		overflow: visible;
 		clip-path: inset(u(-4) 0);
 	}
@@ -660,7 +685,7 @@ const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}`
 		display: flex;
 		align-items: center;
 		gap: u(8);
-		margin: u(12) 0 0;
+		margin: u(10) 0 0;
 		padding: u(8) u(12);
 		border-radius: u(6);
 		font-size: u(14);
@@ -698,13 +723,67 @@ const alarmText = (n: number) => (n > 0 ? `${n} ${n === 1 ? 'alarm' : 'alarms'}`
 
 	// --- brand swap ---------------------------------------------------------
 
-	// Everything that changes wording or shape on a swap fades out, changes, fades back. The bars'
+	// Everything that changes wording or shape on a swap leaves, changes, and comes back. The bars'
 	// colours ease on their own transitions above, so the swap reads as one movement.
+	//
+	// The accent is deliberately NOT part of this. The bar holds its colour through the whole swap
+	// and eases to the next one on its own 400ms, so the brand is continuous while its contents are
+	// replaced — which is the claim the visual makes. Fading the bar too made the panel blink.
+	// Asymmetric, and staggered on the way back.
+	//
+	// Out is fast and all at once — 110ms, everything together — because an exit that is savoured is
+	// an exit you wait through. In is slower, eased, and arrives in reading order: address, brand,
+	// metric, reading, history, alarms, each 28ms behind the last and starting two units low. That
+	// ordering is the whole effect. A panel whose parts land together reads as an image being
+	// swapped; one whose parts land in the order you read them reads as an app filling in, which is
+	// what this visual is arguing the product does.
+	//
+	// The delay is on the RESTING state only, so it applies to the return and never to the exit —
+	// a stagger on the way out would just look like lag.
+	//
+	// The 110 above is also in the script, which holds the outgoing brand for exactly that long
+	// before putting the new one in. The two numbers have to agree, and there is no way to make one
+	// read the other: change this and change `FADE_OUT`.
 	.shell__swap {
-		transition: opacity 180ms ease;
+		transition:
+			opacity 200ms ease-out,
+			transform 200ms ease-out;
+		transition-delay: calc(var(--swap-i, 0) * 28ms);
 	}
 
 	.shell.is-swapping .shell__swap {
 		opacity: 0;
+		// Two units, not more: enough that the parts are seen to arrive, little enough that the panel
+		// never looks like it is assembling itself on every rotation.
+		transform: translateY(#{u(-2)});
+		transition-duration: 110ms;
+		transition-timing-function: ease-in;
+		transition-delay: 0ms;
+	}
+
+	// Reading order, which is also top to bottom apart from the mark and the name sharing a line.
+	.shell__chrome-url {
+		--swap-i: 0;
+	}
+
+	.shell__mark,
+	.shell__topbar .shell__swap {
+		--swap-i: 1;
+	}
+
+	.shell__metric-label {
+		--swap-i: 2;
+	}
+
+	.shell__reading {
+		--swap-i: 3;
+	}
+
+	.shell__spark {
+		--swap-i: 4;
+	}
+
+	.shell__alarm-banner {
+		--swap-i: 5;
 	}
 </style>
