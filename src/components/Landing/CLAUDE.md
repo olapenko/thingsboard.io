@@ -142,9 +142,15 @@ can be redrawn without retyping the words and a marketing page can import the sa
   `_panels/*.astro`.
 - **`grid-template-columns: auto` takes max-content**, so `max-width: 100%` on a child never bites
   and the row escapes its box. Use `minmax(0, 1fr)`.
-- **There is no Ubuntu 600 anywhere.** `$font-weight-semibold` exists as a variable and the browser
-  synthesises the face — fine on a heading that snaps to 700, visibly wrong inside a paragraph. Use
-  `$font-weight-medium`.
+- **There is no Ubuntu 600 anywhere,** and nothing synthesises one. CSS font matching walks UP from
+  a desired weight above 500, so `600` selects the 700 face: measured at 40px, 'Handgloves 123' sets
+  identically at 600 and 700 (301.28px) and differently at 500 (295.28px). `$font-weight-semibold`
+  is therefore an alias of `$font-weight-bold`, so the declared weight is the painted one. If you
+  want a weight between normal and bold, `$font-weight-medium` is the only one that exists — say so
+  explicitly rather than reaching for the alias.
+- **The GitHub star button is the exception, and it is deliberate.** It carries GitHub's own
+  `-apple-system` stack rather than Ubuntu, and in that stack 600 IS a distinct face (290.67px
+  against 283.54 at 500 and 297.92 at 700). Leave its `font-weight: 600` alone.
 - **The two pages do not load the same faces**, which matters because the sandbox is where the
   decisions get made:
 
