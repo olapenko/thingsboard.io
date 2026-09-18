@@ -1,6 +1,7 @@
 ---
 import SmartImage from '@components/SmartImage.astro';
 import { Icon } from 'astro-icon/components';
+import EcosystemMark from '@components/Landing/EcosystemMark.astro';
 
 // DISABLED — hover clusters. Marked for removal or repair; do not re-enable as-is.
 //
@@ -43,6 +44,11 @@ interface Props {
 	label: string;
 	description: string;
 	icon: string;
+	/**
+	 * Trial: knock the mark out on a squircle filled with `accent`. An object
+	 * overrides the asset, the ink the mark takes, or the squircle's fill.
+	 */
+	filled?: boolean | { icon?: string; ink?: string; bg?: string };
 	href: string;
 	/** Label colour, passed per product. */
 	accent: string;
@@ -78,6 +84,7 @@ const {
 	label,
 	description,
 	icon,
+	filled = false,
 	href,
 	accent,
 	action,
@@ -94,6 +101,11 @@ const {
 	tiles,
 	class: className = '',
 } = Astro.props;
+
+// Trial settings, so every filled-badge decision is read in one place.
+const trial = filled === true ? {} : filled || null;
+const markSrc = trial?.icon ?? icon;
+const markInk = trial?.ink ?? '#ffffff';
 
 // Split the name so the distinguishing word can carry its badge's colour.
 // Throws rather than silently rendering a flat title if the copy changes.
@@ -125,14 +137,19 @@ if (nameHighlight) {
 		wide && 'ecosystem-card--wide',
 		flipped && 'ecosystem-card--flipped',
 		badgeFill && 'ecosystem-card--product',
+		trial && !badgeFill && 'ecosystem-card--filled',
 		className,
 	]}
-	style={`--accent: ${accent}${badgeFill ? `; --badge-fill: ${badgeFill}` : ''}`}
+	style={`--accent: ${accent}${badgeFill ? `; --badge-fill: ${badgeFill}` : ''}${
+		trial?.bg ? `; --filled-bg: ${trial.bg}` : ''
+	}`}
 >
 	<span class="ecosystem-card__badge" aria-hidden="true">
 		{
 			icon.startsWith('tabler:') ? (
 				<Icon name={icon} class="ecosystem-card__icon ecosystem-card__icon--vector" />
+			) : trial ? (
+				<EcosystemMark src={markSrc} class="ecosystem-card__icon" ink={markInk} filled />
 			) : (
 				<SmartImage src={icon} alt="" class="ecosystem-card__icon" loading="lazy" width="96" height="96" />
 			)
@@ -333,6 +350,21 @@ if (nameHighlight) {
 		// Shadow alone lifts the badge off the card; a stroke as well read as two
 		// competing edges where the squircle overlaps the card's own border.
 		box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+	}
+
+	// Trial: the ecosystem marks knocked out on a filled squircle, as the two
+	// product cards have always been. The mark is inlined by `EcosystemMark` so
+	// its two tones survive as white and transparent white — the product cards'
+	// flat `brightness(0) invert(1)` would collapse both to one opaque white.
+	.ecosystem-card--filled {
+		.ecosystem-card__badge {
+			background-color: var(--filled-bg, var(--accent));
+		}
+
+		// Single-tone glyphs have no second tone to soften; they just knock out.
+		.ecosystem-card__icon--vector {
+			color: #fff;
+		}
 	}
 
 	// Held short of the squircle's corner radius (24% of 72px ≈ 17px) so nothing

@@ -6,6 +6,13 @@ export interface EcosystemItem {
 	label: string;
 	description: string;
 	icon: string;
+	/**
+	 * Trial (filled badge): opt-in per card. `true` fills the squircle with
+	 * `accent` and knocks the mark out white; an object overrides the asset, its
+	 * ink, or the fill. Only the mobile card takes it — the rest were tried
+	 * filled and reverted. Deleting this field and the `filled:` below drops it.
+	 */
+	filled?: boolean | { icon?: string; ink?: string; bg?: string };
 	href: string;
 	/** Accent for the label, so each product is identifiable at a glance. */
 	accent: string;
@@ -76,6 +83,7 @@ export const homeEcosystem: EcosystemItem[] = [
 		description:
 			'Dashboards, alarms and device control in your pocket. Push notifications when something needs attention, and white-label builds you can ship under your own brand.',
 		icon: '/src/assets/images/landings/ce/tb-pe-mobile-icon.svg',
+		filled: { icon: '/src/assets/images/landings/thingsboard-mark.svg', ink: '#17181c', bg: '#ffffff' },
 		href: '/products/mobile-pe/',
 		// Exploratory, not acquisitive — the store buttons below are the download,
 		// so the primary sends you to the product page instead of duplicating them.

@@ -1,0 +1,83 @@
+---
+/**
+ * One ecosystem mark, inlined so its tones can be recoloured.
+ *
+ * Every mark in this set is drawn in exactly two colours — one saturated, one
+ * pale. `filled` knocks them out against a filled squircle: the darker tone
+ * becomes white, the lighter one white at `softness`. The product cards' flat
+ * `filter: brightness(0) invert(1)` cannot do this — it collapses both tones to
+ * one opaque white and the mark loses its internal structure.
+ */
+interface Props {
+	/** Same `/src/assets/images/…` path SmartImage takes. */
+	src: string;
+	class?: string;
+	/** Alpha of the lighter tone once knocked out. */
+	softness?: number;
+	/** Colour the darkest tone becomes. White knocks out of a coloured squircle. */
+	ink?: string;
+	filled?: boolean;
+}
+
+const { src, class: className, softness = 0.5, ink = '#ffffff', filled = false } = Astro.props;
+
+const rawSvgs = import.meta.glob<string>('/src/assets/images/**/*.svg', {
+	query: '?raw',
+	import: 'default',
+});
+
+const loader = rawSvgs[src];
+let markup = loader ? await loader() : '';
+
+/** Relative luminance — only needs to rank two tones against each other. */
+const luminance = (hex: string) => {
+	const h = hex.slice(1);
+	const full = h.length === 3 ? [...h].map((c) => c + c).join('') : h;
+	const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) / 255);
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+if (filled && markup) {
+	// Both syntaxes are in use across these assets: `fill="#1F8B4D"` on most,
+	// `style="fill:#ba91ff"` on the gateway mark. Matching the hex alone covers
+	// both without having to parse either.
+	const tones = [...new Set((markup.match(/#[0-9a-fA-F]{6}\b/g) ?? []).map((t) => t.toLowerCase()))].sort(
+		(a, b) => luminance(a) - luminance(b)
+	);
+
+	// 8-digit hex rather than `rgba()`: it is a valid colour in both the `fill`
+	// presentation attribute and the `style` declaration, which `rgba()` is only
+	// reliably so in the latter.
+	const alpha = Math.round(Math.min(Math.max(softness, 0), 1) * 255)
+		.toString(16)
+		.padStart(2, '0');
+
+	const base = ink.length === 4 ? '#' + [...ink.slice(1)].map((c) => c + c).join('') : ink;
+
+	tones.forEach((tone, i) => {
+		markup = markup.replace(new RegExp(tone, 'gi'), i === 0 ? base : `${base}${alpha}`);
+	});
+}
+
+// The root tag is rewritten rather than styled: the gateway mark carries no
+// viewBox, so inlined at a percentage width it would not scale at all.
+if (markup) {
+	markup = markup.replace(/<svg\b([^>]*)>/, (_match, attrs: string) => {
+		const width = attrs.match(/\bwidth="([\d.]+)"/)?.[1];
+		const height = attrs.match(/\bheight="([\d.]+)"/)?.[1];
+		const viewBox = attrs.match(/\bviewBox="([^"]+)"/)?.[1] ?? (width && height ? `0 0 ${width} ${height}` : null);
+
+		const kept = attrs
+			.replace(/\s*\bwidth="[^"]*"/, '')
+			.replace(/\s*\bheight="[^"]*"/, '')
+			.replace(/\s*\bviewBox="[^"]*"/, '')
+			.replace(/\s*\bclass="[^"]*"/, '');
+
+		return `<svg${kept}${viewBox ? ` viewBox="${viewBox}"` : ''}${
+			className ? ` class="${className}"` : ''
+		} aria-hidden="true">`;
+	});
+}
+---
+
+<Fragment set:html={markup} />
