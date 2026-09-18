@@ -44,8 +44,17 @@ import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
  *   the stage's own. The two outer columns follow from it: equipment takes the first stage's hue
  *   and people the last, being the stages they meet.
  *
- * Everything else — the geometry, the palette, the stacking threshold, the R of 86 — is as
- * `PlatformLoop` documents it, and that file is the one to read for why.
+ * - TWO ROWS OF TWO. The four stages sit two by two rather than four across, which is where this
+ *   cut parts company with `PlatformLoop`'s geometry. It is not a taste change: four across needs a
+ *   560-unit middle, which puts NATIVE at 1160 and R at 86, and R is the whole story — the rendered
+ *   size of the smallest type is exactly `container ÷ R`. This visual is headed for the homepage's
+ *   centred section, whose column is 960, and at R 86 the 13.5-unit floor lands at 11.2px there.
+ *   Two by two needs 310 units: NATIVE 894, R 66.2, floor 14.5px, which is where the rest of the
+ *   family sits. The arrangement is not new either — the stacked cut has always used it.
+ *
+ * Everything else — the palette, the run geometry, what the composition is saying — is as
+ * `PlatformLoop` documents it, and that file is the one to read for why. Its numbers are its own:
+ * it is still 1160 units at R 86 and still stacks at 1000.
  */
 
 interface Props {
@@ -64,10 +73,13 @@ const { foundations = false } = Astro.props;
 // equally, so one taller row in the left column would put it out of step with the right, which is
 // the alignment this composition is built on.
 //
-// This is the first section of the page and runs full width and centred, so the 40 units the sides
-// give up go to the middle, where the four stages are what the section is for.
-const COL = { side: 256, gut: 44, mid: 560 };
-const NATIVE = COL.side * 2 + COL.gut * 2 + COL.mid; // 1160
+// The middle is 310, not 560, because the four stages are TWO ROWS OF TWO here rather than one row
+// of four — see `.plat__stages`. That is what buys the composition its width back.
+//
+// 36 of gutter rather than 44: the sides are at their floor and the middle is now doing the work,
+// so the air between them is the only thing left that was not carrying anything.
+const COL = { side: 256, gut: 36, mid: 310 };
+const NATIVE = COL.side * 2 + COL.gut * 2 + COL.mid; // 894
 const NARROW = 480;
 
 // --- the four runs -------------------------------------------------------------------------
@@ -494,10 +506,26 @@ const vars = [
 		color: var(--plat-ink);
 	}
 
+	// TWO ROWS OF TWO, where this used to be one row of four. It is the arrangement the stacked cut
+	// has always used, for the same reason and in almost the same words: four stages across a middle
+	// column give each one about 113 units, which will not hold "Rule chains, calculated fields,
+	// alarms" in under three lines.
+	//
+	// The reason it is here as well is R. Four across needed a 560-unit middle and put NATIVE at
+	// 1160, so R was 86 — and R is the whole story, because the rendered size of the smallest type is
+	// exactly `container ÷ R`. In the centred section this visual is headed for, the column is 960,
+	// which put the 13.5-unit floor at 11.2px. Two rows of two need 310 units, which takes NATIVE to
+	// 894, R to 66.2, and that floor to 14.5px — the range the rest of the family runs at.
+	//
+	// Measured, not estimated: tightening every other number in the composition and keeping four
+	// across reaches 12.5px and no further, and only by squeezing the stage columns to 99 units,
+	// which is worse than where it started. The side columns cannot help — "Gateways and platforms"
+	// needs 180 units on one line and the card spends 76 on chrome, so 256 is a floor.
 	.plat__stages {
 		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		column-gap: u(18);
+		row-gap: u(22);
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -601,9 +629,22 @@ const vars = [
 	// notes under each item and each stage — and dropping the labels below it would raise R above 86
 	// and make the phone worse for every other element too. Caps at the floor still read as a label
 	// because of the tracking; caps below it would just be the new floor.
+	// NOWRAP, and the box is allowed to be too small for the text.
+	//
+	// The box is still exactly the run's leg, so the text still centres on the arrow — that part has
+	// to stay. But the leg is derived from the middle column, and the middle went from 560 units to
+	// 310 when the stages became two rows of two, which took the leg from 212 to 79. "Views and
+	// alerts" needs 143 units set in caps, so it broke over three lines and read as a paragraph
+	// floating above an arrow.
+	//
+	// Overflowing a centred box is symmetric, so the text keeps its centre and simply runs wider than
+	// its leg. Nothing is in its way: the labels are in grid rows 1 and 5 and the cards are in row 3,
+	// so the only thing they could meet is each other — and measured at the narrowest container the
+	// wide cut is used at, the two top labels are 189 units apart.
 	.plat__run {
 		width: u(var(--plat-leg));
 		margin: 0;
+		white-space: nowrap;
 		font-size: u(13.5);
 		text-transform: uppercase;
 		letter-spacing: 0.085em;
@@ -665,10 +706,12 @@ const vars = [
 
 	// --- stacked -------------------------------------------------------------------------------
 	//
-	// As `PlatformLoop`: below a 1000px container the wide composition's floor is under 11.6px and
-	// falling, so the picture stacks and re-derives its unit from 480 units. A container query, not
-	// a media query.
-	@container (max-width: 1000px) {
+	// 760, not `PlatformLoop`'s 1000. With R at 66.2 the wide composition holds its floor above
+	// 11.5px all the way down to a 760px container, where it used to cross that line at 1000 — so the
+	// switch happens where the type actually gives out rather than where it used to. Below it the
+	// picture stacks and re-derives its unit from 480 units, which puts R at 36 and the floor back at
+	// 10.3px on a 367px phone column. A container query, not a media query.
+	@container (max-width: 760px) {
 		.plat {
 			--u: var(--plat-u-narrow);
 			grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -754,11 +797,8 @@ const vars = [
 			}
 		}
 
-		// Four stages in a 480-unit column give each one 110 units, which will not hold
-		// "Rule chains, calculated fields, alarms". Two rows of two.
-		.plat__stages {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			row-gap: u(22);
-		}
+		// Nothing to say about the stages any more: two rows of two is what the wide cut does now
+		// too, for the same reason it was done here first. The override that used to sit here was
+		// identical to the rule it was overriding.
 	}
 </style>
