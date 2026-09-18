@@ -34,6 +34,29 @@ export const PLATFORM_COPY = {
 };
 
 /**
+ * SANDBOX ONLY, for now.
+ *
+ * Copy for the centred section this visual is headed for, drafted against the DRAWING rather than
+ * adapted from the homepage's existing statement. `index.astro` still renders `HOME_INTRO` and is
+ * untouched; only `launch-visuals/platform` reads this. When it is approved the two should become
+ * one object rather than two.
+ *
+ * The heading drops the link. "ThingsBoard" is the first word of a sentence here, and a link inside
+ * it is a second thing to look at in the largest line on the page — which is also why the homepage
+ * paints its own wordmark black rather than blue.
+ *
+ * The lede is the diagram in words, in the order the diagram reads: the three sources on the left,
+ * the four steps in the middle, the three audiences on the right, and the two directions the runs
+ * go. Every noun in it is on the drawing, and it makes no claim the picture does not make — which
+ * is the test a lede under a diagram has to pass, because the reader is looking at both at once.
+ */
+export const PLATFORM_SECTION_DRAFT = {
+	title: 'ThingsBoard is an all-in-one platform to build, deploy, and scale IoT solutions',
+	description:
+		'Machines and sensors, the gateways and platforms already carrying your data, and the business systems that give it context all arrive in one place. Connect them, model them as assets and relations, automate what happens next, and operate it from dashboards and SCADA. Telemetry and views go out to operators, service teams and owners; commands and actions come back the same way.',
+};
+
+/**
  * The middle column's lockup. Two fields rather than one string because the mark sits beside them
  * and the brand is set bolder than the product — "ThingsBoard Platform" as one string would have to
  * be split back apart in the component to do that.
