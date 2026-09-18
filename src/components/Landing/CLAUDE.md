@@ -248,11 +248,36 @@ deploy, whitelabel and platform were given one — each taking its own component
 component had one to take. A `deskWidth` direction has no row, so its badge goes in the section
 header at 24px instead; no section shows it twice.
 
+**The phone view is an iframe** at a 375px viewport, loading this same page with `?frame=<key>`.
+It has to be: the row stacks on `@media (max-width: 768px)`, a VIEWPORT query, so a 375px box on a
+desktop viewport gets the desktop layout in a quarter of the room — a picture of nothing. Inside a
+frame the viewport really is 375, so the row stacks, the copy reflows, and the media breaks out past
+the gutter to 367px, which is what the homepage actually hands it. The old probes were 335 — the
+copy column's width, not the visual's — so every phone judgement was made 32px too narrow.
+
+The picking is done in the BROWSER. These routes are prerendered (static output, no adapter), so
+`Astro.url.searchParams` is empty at build time and the server cannot see which frame was asked for.
+The script in `_VisualPage` reads the query and `replaceChildren`s the body down to that one row —
+cutting rather than hiding, so the other phone iframes leave the document before any of them load
+and a frame cannot load frames of its own. Two consequences worth knowing: the framed row renders
+`props` and not `phoneProps`, and the server still renders the whole page per frame, which
+`loading="lazy"` is what keeps off the critical path. A `deskWidth` direction has no row to frame and
+keeps a probe.
+
 **Row ground** is a page-level toggle, tint or white, not a per-direction prop. The homepage
 alternates its rows, so which ground a visual gets depends on where its row falls, and the two are
 not equally kind to a pale diagram — a chip that reads on `#f5f6ff` can go white-on-white. That
 makes it a thing to flip while looking. The rule lives in `_VisualPage`, not in `_home-rows.scss`:
-that file is the homepage's row, and nothing sandbox-only belongs in it.
+that file is the homepage's row, and nothing sandbox-only belongs in it. The frames follow it
+through a `storage` listener — that event fires in every OTHER same-origin document, which is
+exactly what an iframe is.
+
+**The strip is sticky and in the page's order.** Sticky because these pages run to twelve thousand
+pixels and it was only reachable from the top of one, which is the opposite of when you want it.
+Order is `KEY_VISUALS`, and that array is the strip and nothing else — everything is addressed by id
+through `kv()`. Platform first (it is meant to open the homepage as a centred section, though it is
+not on the page yet), then the five rows as `index.astro` runs them, then everything not on the
+homepage at all.
 
 Two things are NOT a Variant. A visual that is a full-bleed section rather than a row's media takes
 `deskWidth` (platform, ConnectFlow's split cut), which swaps the row for a probe — a row would hand

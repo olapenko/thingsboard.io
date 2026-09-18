@@ -23,6 +23,20 @@ interface Props {
 
 const { visual } = Astro.props;
 const me = kv(visual);
+
+/**
+ * FRAME MODE. `?frame=<visual/name>` turns this page into one direction's row and nothing else, so a
+ * phone preview can load it in a 375px iframe and have the row's own media queries fire against a
+ * real phone viewport. It is the same route rather than one of its own, which is the point: the
+ * components and their props are already here, and a separate page would have needed a registry
+ * mapping keys back to components — a second place for the truth to live.
+ *
+ * It is done in the BROWSER, not here. These routes are prerendered (static output, no adapter), so
+ * `Astro.url.searchParams` is empty at build time and the server cannot see which frame was asked
+ * for. The script below reads the query, lifts that section's row out, and drops everything else —
+ * including the other phone iframes, before any of them load. The cost is that the server still
+ * renders the whole page per frame; `loading="lazy"` is what keeps that off the critical path.
+ */
 ---
 
 <PlaygroundLayout title={me.label} description={me.title ?? 'Directions for one key visual.'}>
@@ -72,184 +86,277 @@ const me = kv(visual);
 	    Sandbox-only — nothing sets `data-ground` on the homepage, so the rule below stays inert
 	    there. */
 	}
-	<div class="page-ctl" role="group" aria-label="Row ground" data-ground-switch>
-		<span class="page-ctl__name">Row ground</span>
-		<button type="button" data-ground-pick="tint" aria-pressed="true">Tint</button>
-		<button type="button" data-ground-pick="white" aria-pressed="false">White</button>
-	</div>
+	{
+		(
+			<>
+				<div class="page-ctl" role="group" aria-label="Row ground" data-ground-switch>
+					<span class="page-ctl__name">Row ground</span>
+					<button type="button" data-ground-pick="tint" aria-pressed="true">
+						Tint
+					</button>
+					<button type="button" data-ground-pick="white" aria-pressed="false">
+						White
+					</button>
+				</div>
 
-	<div class="page-ctl" data-mark-bar hidden>
-		<span class="page-ctl__name">Marked</span>
-		<span class="page-ctl__count page-ctl__count--up" data-mark-count="promote">0</span>
-		<span class="page-ctl__lbl">promote</span>
-		<span class="page-ctl__count" data-mark-count="retire">0</span>
-		<span class="page-ctl__lbl">retire</span>
-		<button type="button" data-mark-copy>Copy list</button>
-		<button type="button" data-mark-hide aria-pressed="false">Hide retired</button>
-		<button type="button" data-mark-clear>Clear marks</button>
-	</div>
+				<div class="page-ctl" data-mark-bar hidden>
+					<span class="page-ctl__name">Marked</span>
+					<span class="page-ctl__count page-ctl__count--up" data-mark-count="promote">
+						0
+					</span>
+					<span class="page-ctl__lbl">promote</span>
+					<span class="page-ctl__count" data-mark-count="retire">
+						0
+					</span>
+					<span class="page-ctl__lbl">retire</span>
+					<button type="button" data-mark-copy>
+						Copy list
+					</button>
+					<button type="button" data-mark-hide aria-pressed="false">
+						Hide retired
+					</button>
+					<button type="button" data-mark-clear>
+						Clear marks
+					</button>
+				</div>
+			</>
+		)
+	}
 
 	<slot />
 </PlaygroundLayout>
 
 <script>
 	/**
-	 * The promote / retire control.
+	 * FRAME MODE comes first, and everything else is in the `else`.
 	 *
-	 * Every `[data-variant]` section gets two buttons in its header. A section is in one of three
-	 * states — unmarked, promoted, retired — and the buttons toggle between them, so pressing
-	 * Promote on something already retired moves it rather than needing the retire cleared first.
+	 * `?frame=<key>` means this document is inside a phone preview's iframe. The server could not do
+	 * the picking — these routes are prerendered, so `Astro.url.searchParams` is empty at build time
+	 * — so the page renders in full and is cut down to one row here.
 	 *
-	 * A direction is keyed by `visual/name`, written by `_Variant`, and stored WITH its label. The
-	 * key alone would rot the first time a name was edited; the label alone is not unique. Together
-	 * they survive either one changing, which matters because the list is read back days later by
-	 * someone deleting files or moving a component onto the homepage.
-	 *
-	 * Nothing here changes a file. It writes a decision down at the moment the decision is good.
+	 * Cutting it down rather than hiding the rest is deliberate: `replaceChildren` takes the other
+	 * eleven phone iframes out of the document before any of them are scrolled into view, so a frame
+	 * cannot load frames of its own. Hiding them with CSS would leave that door open.
 	 */
-	const MARK_KEY = 'launch-visuals:marks';
+	const FRAME = new URLSearchParams(location.search).get('frame');
+	const GROUND_KEY = 'launch-visuals:ground';
 
-	type State = 'promote' | 'retire';
-	type Mark = { state: State; label: string };
-	type Marks = Record<string, Mark>;
-
-	const readMarks = (): Marks => {
+	const readGround = (): string => {
 		try {
-			return JSON.parse(localStorage.getItem(MARK_KEY) || '{}') as Marks;
+			return localStorage.getItem(GROUND_KEY) === 'white' ? 'white' : 'tint';
 		} catch {
-			return {};
-		}
-	};
-	const writeMarks = (m: Marks) => {
-		try {
-			localStorage.setItem(MARK_KEY, JSON.stringify(m));
-		} catch {
-			/* private window, cleared site data — the marks are a convenience, not the work */
+			return 'tint';
 		}
 	};
 
-	{
-		const bar = document.querySelector<HTMLElement>('[data-mark-bar]');
-		const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-variant]'));
+	if (FRAME) {
+		document.documentElement.dataset.kvFrame = '';
+		document.documentElement.dataset.ground = readGround();
 
-		const paint = () => {
-			const marks = readMarks();
-			sections.forEach((s) => {
-				const mark = marks[s.dataset.vxKey ?? ''];
-				if (mark) s.dataset.vxState = mark.state;
-				else delete s.dataset.vxState;
-				s.querySelectorAll<HTMLButtonElement>('[data-vx-cmd]').forEach((b) =>
-					b.setAttribute('aria-pressed', String(b.dataset.vxCmd === mark?.state))
-				);
-			});
+		const row = document.querySelector(`.vx[data-vx-key="${CSS.escape(FRAME)}"] [data-vx-row]`);
+		if (row) document.body.replaceChildren(row);
 
-			const all = Object.values(marks);
-			(['promote', 'retire'] as State[]).forEach((state) => {
-				const el = document.querySelector<HTMLElement>(`[data-mark-count="${state}"]`);
-				if (el) el.textContent = String(all.filter((m) => m.state === state).length);
-			});
-			if (bar) bar.hidden = all.length === 0;
-		};
-
-		sections.forEach((section) => {
-			const slot = section.querySelector('[data-vx-cmds]');
-			const key = section.dataset.vxKey;
-			const label = section.dataset.vxLabel ?? key ?? '';
-			if (!slot || !key) return;
-
-			(
-				[
-					['promote', 'Promote', 'This is the one to ship'],
-					['retire', 'Retire', 'Done with this direction'],
-				] as const
-			).forEach(([state, text, title]) => {
-				const btn = document.createElement('button');
-				btn.type = 'button';
-				btn.className = 'vx__cmd';
-				btn.dataset.vxCmd = state;
-				btn.title = title;
-				btn.textContent = text;
-				btn.setAttribute('aria-pressed', 'false');
-				btn.addEventListener('click', () => {
-					const marks = readMarks();
-					// Pressing the state it already has clears it; pressing the other one moves it.
-					if (marks[key]?.state === state) delete marks[key];
-					else marks[key] = { state, label };
-					writeMarks(marks);
-					paint();
-				});
-				slot.appendChild(btn);
-			});
-		});
-
-		// Promotions first: the list is read top down by whoever acts on it, and what to ship is a
-		// different job from what to delete.
-		document.querySelector('[data-mark-copy]')?.addEventListener('click', () => {
-			const marks = readMarks();
-			const rows = (state: State) =>
-				Object.entries(marks)
-					.filter(([, m]) => m.state === state)
-					.map(([k, m]) => `${k}\t${m.label}`);
-			const text = [
-				...(rows('promote').length ? ['PROMOTE', ...rows('promote'), ''] : []),
-				...(rows('retire').length ? ['RETIRE', ...rows('retire')] : []),
-			].join('\n');
-			navigator.clipboard?.writeText(text);
-		});
-
-		// Retired sections are dimmed, not hidden, so a mark can be reconsidered. This hides them,
-		// which is the only way to see what the page would look like after the cleanup.
-		document.querySelector<HTMLButtonElement>('[data-mark-hide]')?.addEventListener('click', (e) => {
-			const btn = e.currentTarget as HTMLButtonElement;
-			const on = btn.getAttribute('aria-pressed') === 'true';
-			btn.setAttribute('aria-pressed', on ? 'false' : 'true');
-			btn.textContent = on ? 'Hide retired' : 'Retired hidden';
-			document.documentElement.toggleAttribute('data-hide-retired', !on);
-		});
-
-		document.querySelector('[data-mark-clear]')?.addEventListener('click', () => {
-			writeMarks({});
-			paint();
-		});
-
-		paint();
-	}
-
-	{
 		/**
-		 * The ground switch. Sets `data-ground` on the document, which the rule in this file's global
-		 * block reads, and remembers the pick so a reload does not reset it mid-comparison.
+		 * An iframe has no intrinsic height — it defaults to 150px and clips. Only this document knows
+		 * how tall its row came out, so it measures itself and says; the parent sets the iframe.
 		 *
-		 * On the document rather than on each row: every row on the page moves together, which is the
-		 * only way the comparison is between GROUNDS rather than between rows.
+		 * Re-measured on resize, on any box change, and after fonts land, because a row whose copy is
+		 * still in the fallback face is a different height from the same row a moment later.
 		 */
-		const GROUND_KEY = 'launch-visuals:ground';
-		const picks = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-ground-pick]'));
+		const post = () => {
+			const h = Math.ceil(document.documentElement.getBoundingClientRect().height);
+			window.parent.postMessage({ kvFrameHeight: h, kvFrameKey: FRAME }, '*');
+		};
+		post();
+		window.addEventListener('load', post);
+		window.addEventListener('resize', post);
+		if ('ResizeObserver' in window) new ResizeObserver(post).observe(document.documentElement);
+		document.fonts?.ready.then(post);
 
-		const applyGround = (value: string) => {
-			document.documentElement.dataset.ground = value;
-			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.groundPick === value)));
+		// The page's ground toggle writes to localStorage, which fires `storage` in every OTHER
+		// same-origin document — that is these frames. Without it, flipping the toggle would leave
+		// twelve phones on the old ground until a reload.
+		window.addEventListener('storage', (e) => {
+			if (e.key === GROUND_KEY) document.documentElement.dataset.ground = readGround();
+		});
+	} else {
+		/**
+		 * The promote / retire control.
+		 *
+		 * Every `[data-variant]` section gets two buttons in its header. A section is in one of three
+		 * states — unmarked, promoted, retired — and the buttons toggle between them, so pressing
+		 * Promote on something already retired moves it rather than needing the retire cleared first.
+		 *
+		 * A direction is keyed by `visual/name`, written by `_Variant`, and stored WITH its label. The
+		 * key alone would rot the first time a name was edited; the label alone is not unique. Together
+		 * they survive either one changing, which matters because the list is read back days later by
+		 * someone deleting files or moving a component onto the homepage.
+		 *
+		 * Nothing here changes a file. It writes a decision down at the moment the decision is good.
+		 */
+		const MARK_KEY = 'launch-visuals:marks';
+
+		type State = 'promote' | 'retire';
+		type Mark = { state: State; label: string };
+		type Marks = Record<string, Mark>;
+
+		const readMarks = (): Marks => {
+			try {
+				return JSON.parse(localStorage.getItem(MARK_KEY) || '{}') as Marks;
+			} catch {
+				return {};
+			}
+		};
+		const writeMarks = (m: Marks) => {
+			try {
+				localStorage.setItem(MARK_KEY, JSON.stringify(m));
+			} catch {
+				/* private window, cleared site data — the marks are a convenience, not the work */
+			}
 		};
 
-		let savedGround: string | null = null;
-		try {
-			savedGround = localStorage.getItem(GROUND_KEY);
-		} catch {
-			/* private window; tint is the default and that is fine */
-		}
-		applyGround(savedGround === 'white' ? 'white' : 'tint');
+		{
+			const bar = document.querySelector<HTMLElement>('[data-mark-bar]');
+			const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-variant]'));
 
-		picks.forEach((b) =>
-			b.addEventListener('click', () => {
-				const value = b.dataset.groundPick ?? 'tint';
-				applyGround(value);
-				try {
-					localStorage.setItem(GROUND_KEY, value);
-				} catch {
-					/* ignore */
-				}
-			})
-		);
+			const paint = () => {
+				const marks = readMarks();
+				sections.forEach((s) => {
+					const mark = marks[s.dataset.vxKey ?? ''];
+					if (mark) s.dataset.vxState = mark.state;
+					else delete s.dataset.vxState;
+					s.querySelectorAll<HTMLButtonElement>('[data-vx-cmd]').forEach((b) =>
+						b.setAttribute('aria-pressed', String(b.dataset.vxCmd === mark?.state))
+					);
+				});
+
+				const all = Object.values(marks);
+				(['promote', 'retire'] as State[]).forEach((state) => {
+					const el = document.querySelector<HTMLElement>(`[data-mark-count="${state}"]`);
+					if (el) el.textContent = String(all.filter((m) => m.state === state).length);
+				});
+				if (bar) bar.hidden = all.length === 0;
+			};
+
+			sections.forEach((section) => {
+				const slot = section.querySelector('[data-vx-cmds]');
+				const key = section.dataset.vxKey;
+				const label = section.dataset.vxLabel ?? key ?? '';
+				if (!slot || !key) return;
+
+				(
+					[
+						['promote', 'Promote', 'This is the one to ship'],
+						['retire', 'Retire', 'Done with this direction'],
+					] as const
+				).forEach(([state, text, title]) => {
+					const btn = document.createElement('button');
+					btn.type = 'button';
+					btn.className = 'vx__cmd';
+					btn.dataset.vxCmd = state;
+					btn.title = title;
+					btn.textContent = text;
+					btn.setAttribute('aria-pressed', 'false');
+					btn.addEventListener('click', () => {
+						const marks = readMarks();
+						// Pressing the state it already has clears it; pressing the other one moves it.
+						if (marks[key]?.state === state) delete marks[key];
+						else marks[key] = { state, label };
+						writeMarks(marks);
+						paint();
+					});
+					slot.appendChild(btn);
+				});
+			});
+
+			// Promotions first: the list is read top down by whoever acts on it, and what to ship is a
+			// different job from what to delete.
+			document.querySelector('[data-mark-copy]')?.addEventListener('click', () => {
+				const marks = readMarks();
+				const rows = (state: State) =>
+					Object.entries(marks)
+						.filter(([, m]) => m.state === state)
+						.map(([k, m]) => `${k}\t${m.label}`);
+				const text = [
+					...(rows('promote').length ? ['PROMOTE', ...rows('promote'), ''] : []),
+					...(rows('retire').length ? ['RETIRE', ...rows('retire')] : []),
+				].join('\n');
+				navigator.clipboard?.writeText(text);
+			});
+
+			// Retired sections are dimmed, not hidden, so a mark can be reconsidered. This hides them,
+			// which is the only way to see what the page would look like after the cleanup.
+			document.querySelector<HTMLButtonElement>('[data-mark-hide]')?.addEventListener('click', (e) => {
+				const btn = e.currentTarget as HTMLButtonElement;
+				const on = btn.getAttribute('aria-pressed') === 'true';
+				btn.setAttribute('aria-pressed', on ? 'false' : 'true');
+				btn.textContent = on ? 'Hide retired' : 'Retired hidden';
+				document.documentElement.toggleAttribute('data-hide-retired', !on);
+			});
+
+			document.querySelector('[data-mark-clear]')?.addEventListener('click', () => {
+				writeMarks({});
+				paint();
+			});
+
+			paint();
+		}
+
+		{
+			/**
+			 * The ground switch. Sets `data-ground` on the document, which the rule in this file's global
+			 * block reads, and remembers the pick so a reload does not reset it mid-comparison.
+			 *
+			 * On the document rather than on each row: every row on the page moves together, which is the
+			 * only way the comparison is between GROUNDS rather than between rows.
+			 */
+			const picks = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-ground-pick]'));
+
+			const applyGround = (value: string) => {
+				document.documentElement.dataset.ground = value;
+				picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.groundPick === value)));
+			};
+
+			let savedGround: string | null = null;
+			try {
+				savedGround = localStorage.getItem(GROUND_KEY);
+			} catch {
+				/* private window; tint is the default and that is fine */
+			}
+			applyGround(savedGround === 'white' ? 'white' : 'tint');
+
+			picks.forEach((b) =>
+				b.addEventListener('click', () => {
+					const value = b.dataset.groundPick ?? 'tint';
+					applyGround(value);
+					try {
+						localStorage.setItem(GROUND_KEY, value);
+					} catch {
+						/* ignore */
+					}
+				})
+			);
+
+			// The phone previews are iframes of this same page, so each one runs this script too and reads
+			// the stored ground at load. `storage` fires in every OTHER same-origin document when the key
+			// changes, which is exactly the frames — so flipping the toggle moves them with the page
+			// rather than leaving twelve phones on yesterday's ground until a reload.
+			window.addEventListener('storage', (e) => {
+				if (e.key === GROUND_KEY) applyGround(e.newValue === 'white' ? 'white' : 'tint');
+			});
+		}
+
+		{
+			// Parent side. Each frame says how tall it came out and which direction it is; the message
+			// names its key so twelve of them on one page cannot resize each other.
+			window.addEventListener('message', (e) => {
+				if (e.source === window || typeof e.data !== 'object' || !e.data) return;
+				const { kvFrameHeight, kvFrameKey } = e.data as { kvFrameHeight?: number; kvFrameKey?: string };
+				if (typeof kvFrameHeight !== 'number' || !kvFrameKey) return;
+				const frameEl = document.querySelector<HTMLIFrameElement>(`[data-vx-phone="${CSS.escape(kvFrameKey)}"]`);
+				if (frameEl) frameEl.style.height = `${kvFrameHeight}px`;
+			});
+		}
 	}
 </script>
 
@@ -299,6 +406,22 @@ const me = kv(visual);
 	}
 
 	:root[data-hide-retired] .vx[data-vx-state='retire'] {
+		display: none;
+	}
+
+	// --- frame mode ------------------------------------------------------------------------------
+	//
+	// Inside a phone preview's iframe the document holds one row and nothing else, so the playground's
+	// own page padding has to go: the row paints its ground edge to edge on a phone, and 40px of white
+	// around it would be a margin no phone has.
+	:root[data-kv-frame] body {
+		padding: 0;
+	}
+
+	// Astro injects its dev toolbar into every document, and a phone preview is a document — so each
+	// frame was drawing a floating toolbar over the bottom of the row it exists to show, and
+	// measuring itself tall enough to hold one. Dev-only markup, so this costs nothing in a build.
+	:root[data-kv-frame] astro-dev-toolbar {
 		display: none;
 	}
 
@@ -482,14 +605,26 @@ const me = kv(visual);
 
 	// The strip of links between visuals. Replaced a tab strip, and is a different thing: a tab hid
 	// eight panels that were still on the page, this leaves them on disk.
+	//
+	// STICKY, because these pages run to twelve thousand pixels and the strip was only reachable from
+	// the top of one. It is what you use after deciding something, which is exactly when you are at
+	// the bottom.
+	//
+	// It needs its own background: sticky only takes it out of flow, so without one the rows scroll
+	// through it. Opaque rather than a blur — what scrolls under it is the tinted row, and a blur
+	// would tint the strip along with it.
 	.vnav {
+		position: sticky;
+		top: 0;
+		z-index: 10;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: baseline;
 		gap: $spacing-1 $spacing-3;
 		max-width: 1200px;
 		margin: 0 auto $spacing-10;
-		padding-bottom: $spacing-3;
+		padding: $spacing-3 0;
+		background: #fff;
 		border-bottom: 1px solid var(--sl-color-hairline-light);
 	}
 

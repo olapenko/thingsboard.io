@@ -58,7 +58,12 @@ interface Props {
 	phoneProps?: Record<string, unknown>;
 	/** Media on the left, as the homepage's alternating rows do it for some visuals. */
 	imageFirst?: boolean;
-	/** Phone width. 335 is the column a 375px phone gives, which is where these get decided. */
+	/**
+	 * Phone VIEWPORT width, not the visual's width. 375 is the iPhone the row was sized against; the
+	 * homepage then hands the visual 367 of it, because `_home-rows.scss` breaks the media out past
+	 * the page gutter to 4px of the screen edge. The sandbox used to probe these at 335 — the copy
+	 * column's width, not the visual's — so every phone judgement was made 32px too narrow.
+	 */
 	phone?: number;
 	/**
 	 * For a visual that is a full-bleed SECTION rather than a row's media: the desktop view becomes a
@@ -77,7 +82,7 @@ const {
 	props = {},
 	phoneProps,
 	imageFirst = false,
-	phone = 335,
+	phone = 375,
 	deskWidth,
 } = Astro.props;
 
@@ -123,7 +128,7 @@ const key = `${visual.id}/${name}`;
 						</div>
 					</div>
 				) : (
-					<div class="new-rows">
+					<div class="new-rows" data-vx-row>
 						<FeatureBlockSection
 							heading={visual.title ?? name}
 							description={visual.body ?? ''}
@@ -140,12 +145,27 @@ const key = `${visual.id}/${name}`;
 		</div>
 
 		{
-			/* Phone: the visual alone at the width a phone hands it. The row's own stacking is the
-		    homepage's job and is checked there; what is being read here is the visual. */
+			/* Phone: the row as a phone gets it, not a drawing on a checkerboard.
+
+		    An IFRAME at `phone` CSS pixels, loading this same page with `?frame=<key>`. That matters
+		    because the row stacks on `@media (max-width: 768px)` — a VIEWPORT query — so a 375px box
+		    on a desktop viewport gets the desktop layout at a quarter of the room, which is not a
+		    picture of anything. Inside a frame the viewport really is 375, so the row stacks, the
+		    copy reflows, and the media breaks out past the gutter exactly as it does on a phone.
+
+		    The alternative was to reproduce the stacked row here. That is precisely how the desktop
+		    view came to be drawn at 673px against the homepage's 525, and it is not being done twice.
+
+		    The frame shows THIS section's desktop row, lifted out by the script in `_VisualPage` —
+		    these routes are prerendered, so `Astro.url.searchParams` is empty at build time and the
+		    server cannot do the picking. One consequence worth knowing: the framed row renders
+		    `props`, not `phoneProps`, so a phone-only override shows in the probe under a `deskWidth`
+		    section but not through a frame. Only `whitelabel` uses one today, and rotation is a thing
+		    you watch rather than measure. */
 		}
 		<div class="vx__view vx__view--phone">
 			<p class="vx__vlabel">
-				Phone · {phone}px{
+				Phone · {phone}px viewport{
 					phoneProps && (
 						<span class="vx__diff">
 							{' '}
@@ -157,11 +177,29 @@ const key = `${visual.id}/${name}`;
 					)
 				}
 			</p>
-			<div class="vx__frame">
-				<div class="probe" style={`--probe: ${phone}px`}>
-					<C {...onPhone} />
-				</div>
-			</div>
+			{
+				deskWidth ? (
+					// No row to frame: a full-bleed section is not in a feature row on any page. The
+					// probe stays, on the row's ground rather than the checkerboard.
+					<div class="vx__phonebox">
+						<div class="probe" style={`--probe: ${phone}px`}>
+							<C {...onPhone} />
+						</div>
+					</div>
+				) : (
+					<div class="vx__phonebox">
+						<iframe
+							class="vx__phone"
+							src={`?frame=${encodeURIComponent(key)}`}
+							width={phone}
+							height="600"
+							loading="lazy"
+							title={`${name} at ${phone}px`}
+							data-vx-phone={key}
+						/>
+					</div>
+				)
+			}
 		</div>
 	</div>
 </section>
@@ -262,6 +300,26 @@ const key = `${visual.id}/${name}`;
 	// the one above it has to say so where it is looked at.
 	.vx__diff {
 		color: $color-brand;
+	}
+
+	// The phone sits centred on the page rather than in a frame of its own: the row inside the iframe
+	// paints its own ground edge to edge, which is what a phone shows, and a checkerboard around it
+	// would be a border the homepage does not have.
+	.vx__phonebox {
+		display: flex;
+		justify-content: center;
+		padding: $spacing-6 0;
+	}
+
+	// A device-width slab, not a panel. The shadow says "this is a screen" without drawing a bezel
+	// that would have to be kept honest about which phone it is.
+	.vx__phone {
+		display: block;
+		border: 0;
+		border-radius: $radius-md;
+		box-shadow:
+			0 1px 2px rgb(23 24 28 / 8%),
+			0 8px 24px rgb(23 24 28 / 8%);
 	}
 
 	// The checkerboard shows where a visual's own background stops and the page's begins — a

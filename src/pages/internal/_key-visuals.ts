@@ -1,10 +1,18 @@
 /**
- * The key visuals, one per tab of the launch-visuals sandbox. Copy is the design's, verbatim.
+ * The key visuals, one per link in the sandbox strip. Copy is the design's, verbatim.
  *
  * Its own module because the sandbox page and every one of its panels needs it, and a panel that
  * had to reach back into the page for it would be a panel that cannot be moved or deleted on its
  * own. Addressed by id through `kv()`, never by array position: the panels used to say
- * `KEY_VISUALS[6]`, which meant inserting a visual silently retitled four others.
+ * `KEY_VISUALS[6]`, which meant inserting a visual silently retitled four others. That is also what
+ * makes the order below free to change — this array decides the strip and nothing else.
+ *
+ * THE ORDER IS THE PAGE'S ORDER. Platform first: it is meant to open the homepage as a centred
+ * section above the rows, though it is not on the page yet. Then the five rows in the order
+ * `index.astro` runs them — connect, solution, twin, normalize, scale — so walking the strip walks
+ * the page. Everything after `scale` is not on the homepage at all, and sits at the end for that
+ * reason rather than by age: gateway, deploy and whitelabel are drawn and waiting for a section,
+ * and cli is a token-wiring check with no copy of its own.
  */
 import { PLATFORM_COPY } from '@data/platform-visual';
 import { SOLUTION_COPY } from '@data/solution-flow';
@@ -31,16 +39,20 @@ export interface KeyVisual {
 
 export const KEY_VISUALS: KeyVisual[] = [
 	{
-		id: 'cli',
-		label: 'CLI',
-	},
-	{
 		id: 'platform',
 		label: 'Platform',
 		title: PLATFORM_COPY.title,
 		body: PLATFORM_COPY.body,
 		link: PLATFORM_COPY.link,
 		badge: PLATFORM_COPY.badge,
+	},
+	{
+		id: 'connect',
+		label: 'Connect devices',
+		title: CONNECT_COPY.title,
+		body: CONNECT_COPY.body,
+		link: CONNECT_COPY.link,
+		badge: CONNECT_COPY.badge,
 	},
 	{
 		id: 'solution',
@@ -64,6 +76,14 @@ export const KEY_VISUALS: KeyVisual[] = [
 		badge: NORMALIZE_COPY.badge,
 	},
 	{
+		id: 'scale',
+		label: 'Scale',
+		title: SCALE_COPY.title,
+		body: SCALE_COPY.body,
+		link: SCALE_COPY.link,
+		badge: SCALE_COPY.badge,
+	},
+	{
 		id: 'gateway',
 		label: 'IoT Gateway',
 		// The Gateway's own words, from its `homeEcosystem` entry — description, action label and
@@ -75,22 +95,6 @@ export const KEY_VISUALS: KeyVisual[] = [
 		// `#7b3fe4` twice over: the accent the Gateway carries in `homeEcosystem`, and the only strong
 		// colour in `GatewayDiagram` itself.
 		badge: { icon: 'tabler:router', color: '#7b3fe4' },
-	},
-	{
-		id: 'connect',
-		label: 'Connect devices',
-		title: CONNECT_COPY.title,
-		body: CONNECT_COPY.body,
-		link: CONNECT_COPY.link,
-		badge: CONNECT_COPY.badge,
-	},
-	{
-		id: 'scale',
-		label: 'Scale',
-		title: SCALE_COPY.title,
-		body: SCALE_COPY.body,
-		link: SCALE_COPY.link,
-		badge: SCALE_COPY.badge,
 	},
 	{
 		id: 'deploy',
@@ -107,6 +111,10 @@ export const KEY_VISUALS: KeyVisual[] = [
 		body: WHITELABEL_COPY.body,
 		link: WHITELABEL_COPY.link,
 		badge: WHITELABEL_COPY.badge,
+	},
+	{
+		id: 'cli',
+		label: 'CLI',
 	},
 ];
 
