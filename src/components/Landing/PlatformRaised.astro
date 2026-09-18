@@ -187,6 +187,21 @@ const BANDS = { in: [TOP.telemetry, TOP.views], out: [BOT.commands, BOT.actions]
 const STEM = { w: 14, h: 12 };
 const HEAD_D = `M ${STEM.w / 2 - WING},${STEM.h - HEAD} L ${STEM.w / 2},${STEM.h} L ${STEM.w / 2 + WING},${STEM.h - HEAD}`;
 
+/**
+ * The arrowhead's BOX, which is taller than its path.
+ *
+ * The chevron's point sits at `STEM.h`, the bottom of the viewBox — and a 3-wide stroke with a round
+ * join paints 1.5 further out than the geometry it follows. An `svg` clips to its viewBox by default,
+ * so the point was being sliced flat: every arrowhead in this drawing ended in a chopped stub rather
+ * than a point. Measured, not guessed — the painted box came back exactly the path's 8x6 with the
+ * whole overhang gone.
+ *
+ * So the box carries half a stroke of room at the bottom. The path is unchanged, the point still
+ * lands on the card's edge, and the stroke that draws it now has somewhere to go.
+ */
+const HEAD_STROKE = 3;
+const HEAD_BOX_H = STEM.h + HEAD_STROKE / 2; // 13.5
+
 const ORDER = ['equipment', 'platform', 'people'];
 const dirOf = (r: PlatformRun) => (ORDER.indexOf(r.from) < ORDER.indexOf(r.to) ? 'down' : 'up');
 
@@ -203,6 +218,7 @@ const vars = [
 	`--plat-col-side: ${COL.side}`,
 	`--plat-col-gut: ${COL.gut}`,
 	`--plat-col-mid: ${COL.mid}`,
+	`--plat-head-h: ${HEAD_BOX_H}`,
 	`--plat-band: ${BAND}`,
 	`--plat-lane: ${LANE_X}`,
 	`--plat-leg: ${LEG}`,
@@ -244,7 +260,7 @@ const vars = [
 				<p class={`plat__run plat__run--${r.id}`} data-src={r.from}>
 					<span class="plat__stem" data-dir={dirOf(r)} aria-hidden="true">
 						<span class="plat__stem-line" />
-						<svg class="plat__stem-head" viewBox={`0 0 ${STEM.w} ${STEM.h}`}>
+						<svg class="plat__stem-head" viewBox={`0 0 ${STEM.w} ${HEAD_BOX_H}`}>
 							<path d={HEAD_D} />
 						</svg>
 					</span>
@@ -705,7 +721,9 @@ const vars = [
 	.plat__stem-head {
 		flex: none;
 		width: u(14);
-		height: u(12);
+		// The box, not the path: see `HEAD_BOX_H`. The line is `flex: 1` and absorbs the difference,
+		// so the stem's total height is unchanged and the point still meets the card.
+		height: u(var(--plat-head-h));
 		max-width: none;
 		margin-top: u(-6);
 		fill: none;
@@ -843,13 +861,12 @@ const vars = [
 			width: u(14);
 		}
 
-		// 4 units and a 2px floor, against 3 units and none. At 480 units this line rendered 2.1px
-		// grey in a 36px band of nothing, which is what read as thin and unattached — the geometry was
-		// never the problem, both ends have always touched their cards.
-		.plat__stem-line {
-			width: max(2px, #{u(4)});
-			border-radius: max(1px, #{u(2)});
-		}
+		// NO WEIGHT OVERRIDE HERE ANY MORE. It was 4 units on a 2px floor, from when the composition
+		// was 480 units wide and the line rendered 2.1px. At 340 the base 3 units already renders
+		// 2.95px, so the override was buying nothing and costing something: it made the shaft 3.94px
+		// against an arrowhead whose stroke is 2.95px, and a shaft visibly fatter than its own point
+		// is most of what still looked wrong down here. The two are the same weight again, which is
+		// what the wide cut has always had.
 
 		.plat__stem[data-dir='up'] {
 			flex-direction: column-reverse;

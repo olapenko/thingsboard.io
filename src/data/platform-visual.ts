@@ -26,7 +26,11 @@ import { SOLUTION_COPY } from '@data/solution-flow';
 /** The row's copy. One claim, and the diagram is the evidence for it. */
 export const PLATFORM_COPY = {
 	title: 'Your equipment, your people, one platform between them',
-	body: 'Nothing to integrate between the steps, and nothing to buy as an add-on.',
+	// "and nothing to buy as an add-on" was here and is gone, because it is not true. `homeEcosystem`
+	// marks Edge and Trendz `addOn: true`, and `index.astro` renders that badge on both — roughly a
+	// hundred lines below this section on the same page. What IS true is the half that is left: the
+	// four steps of the loop are one product, so there is nothing to join up between them.
+	body: 'Nothing to integrate between the steps — they are all the same platform.',
 	link: { text: 'See what the platform covers', href: '/products/thingsboard-pe/' },
 	// The brand's own, and by elimination: the four stages inside this visual already carry the
 	// four section badges below (see STAGES), so the umbrella cannot take any of them.
@@ -50,15 +54,21 @@ export const PLATFORM_COPY = {
  * which is the one job a lede under a diagram does not have. The drawing says what the parts are;
  * the words have to say why any of it is worth having.
  *
- * So: scope, compatibility, cost. One product rather than a stack, it works with what is already
- * installed, and there is no integration bill and no add-on bill. Nothing here is a competitive
- * claim — "fewer products than the alternatives" would need a number this repo does not have — and
- * the second sentence is `PLATFORM_COPY.body` unchanged, because it was already the value line.
+ * So: scope, compatibility, and the one cost claim that survives checking. One product rather than a
+ * stack, working with what is already installed, with nothing to integrate between the steps.
+ *
+ * IT USED TO SAY "and nothing to buy as an add-on", and that was false on its own page: Edge and
+ * Trendz are `addOn: true` in `homeEcosystem`, and the products band renders the badge on both about
+ * a hundred lines below this section. A lede that a reader can disprove by scrolling is worse than a
+ * shorter one. The same sentence was in `PLATFORM_COPY.body` and has been cut there too.
+ *
+ * Nothing here is a competitive claim either — "fewer products than the alternatives" would need a
+ * number this repo does not have.
  */
 export const PLATFORM_SECTION_DRAFT = {
 	title: 'ThingsBoard is an all-in-one platform to build, deploy, and scale IoT solutions',
 	description:
-		'From device connectivity to dashboards, in one product that works with the equipment and systems you already run. Nothing to integrate between the steps, and nothing to buy as an add-on.',
+		'From device connectivity to dashboards, in one product that works with the equipment and systems you already run. Every step is the same platform, so there is nothing to integrate between them.',
 };
 
 /**
