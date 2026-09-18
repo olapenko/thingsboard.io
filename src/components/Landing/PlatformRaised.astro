@@ -90,7 +90,13 @@ const { foundations = false } = Astro.props;
 // the number the side column cannot go under.
 const COL = { side: 248, gut: 36, mid: 560 };
 const NATIVE = COL.side * 2 + COL.gut * 2 + COL.mid; // 1128
-const NARROW = 480;
+// 340, not 480. Measured at a 335px phone column, 480 units put the composition's floor at 9.8px
+// and left every card 230 units wider than the longest thing in it, so the text hugged the left edge
+// of a mostly empty box. 340 is what the CORE needs and nothing more: 288 of content after its
+// padding, which gives the two stage columns 135 each and holds "Rule chains, calculated fields,
+// alarms" in two lines. The same column now renders the drawing at 340 x 0.985, so the floor is
+// 13.8px — the type grew by 41% by making the drawing smaller.
+const NARROW = 340;
 
 // --- the four runs -------------------------------------------------------------------------
 
@@ -723,9 +729,21 @@ const vars = [
 		.plat {
 			--u: var(--plat-u-narrow);
 			grid-template-columns: repeat(2, minmax(0, 1fr));
-			grid-template-rows: auto minmax(u(52), auto) auto minmax(u(52), auto) auto;
+			// 48, not 52: a label over a 26-unit arrow. The band was 52 units of mostly nothing.
+			grid-template-rows: auto minmax(u(48), auto) auto minmax(u(48), auto) auto;
 			max-width: u(var(--plat-narrow));
+			margin-inline: auto;
 			row-gap: 0;
+		}
+
+		// The two outer cards are narrower than the core, and centred. 340 is the width the CORE
+		// needs; the zones need 245 — "Gateways and platforms" at 180 plus 65 of chrome — so at the
+		// full width their text ended two thirds of the way across a box with nothing in the rest of
+		// it. 290 leaves them 45 units of slack instead of 95, and makes the platform visibly the
+		// widest thing in the column, which is what the drawing is about.
+		.plat__zone {
+			max-width: u(290);
+			margin-inline: auto;
 		}
 
 		.plat__zone--equipment {
@@ -747,34 +765,45 @@ const vars = [
 			display: none;
 		}
 
+		// THE LABEL GOES OVER THE ARROW, not beside it, and that one move is what fixed this row.
+		//
+		// Beside it, the label needs the half-column minus the lane, minus the stem, minus the gap —
+		// 97 units at this width, against the 148 "Views and alerts" needs. It only ever fitted
+		// because the composition was 480 units wide, which is the same 480 that was making the cards
+		// too wide for their contents. Over the arrow, the label has the whole half to itself and
+		// still fits on one line at 340.
+		//
+		// Each run is then simply centred in its half, so the two stems land on the quarter points —
+		// 85 and 255 — with no lane arithmetic at all. That also clears the badge, which straddles
+		// the core's top edge and reaches 32 either side of centre.
+		//
+		// The label sits at the run's SOURCE end: above a downward arrow, below an upward one. So
+		// every arrowhead touches the card it points at, and the words name the flow where it starts.
 		.plat__run {
 			display: flex;
 			align-items: center;
-			gap: u(10);
-			width: auto;
+			gap: u(4);
+			width: 100%;
 			max-width: 100%;
 			margin: 0;
+			justify-self: center;
+			text-align: center;
 		}
 
-		// Both lanes are pulled in to the middle and their labels hang outboard, away from the centre
-		// line, so the two can never collide however long the copy gets. The padding is what sets a
-		// stem's distance from centre: the column's inner edge IS the centre, so the lane minus half a
-		// stem puts the stem's axis exactly `--plat-lane` units out.
+		// Reversed, because the stem comes FIRST in the markup. A downward run wants the label on top
+		// and the arrowhead at the bottom edge, touching the card it points into; an upward run wants
+		// the opposite. Getting this the wrong way round leaves each head 22 units short of its card,
+		// which is exactly the unattached look this row is being fixed for.
 		.plat__run--telemetry,
 		.plat__run--views {
 			grid-column: 1;
-			justify-self: end;
-			flex-direction: row-reverse;
-			padding-right: calc(#{u(var(--plat-lane))} - #{u(7)});
-			text-align: right;
+			flex-direction: column-reverse;
 		}
 
 		.plat__run--commands,
 		.plat__run--actions {
 			grid-column: 2;
-			justify-self: start;
-			padding-left: calc(#{u(var(--plat-lane))} - #{u(7)});
-			text-align: left;
+			flex-direction: column;
 		}
 
 		.plat__run--telemetry,
@@ -787,13 +816,23 @@ const vars = [
 			grid-row: 4;
 		}
 
+		// `flex: 1` rather than a fixed height: the stem takes whatever the label leaves, so the arrow
+		// still spans the gap from one card to the other however the label wraps.
 		.plat__stem {
 			display: flex;
-			flex: none;
+			flex: 1 1 auto;
 			flex-direction: column;
 			align-items: center;
-			align-self: stretch;
 			width: u(14);
+			min-height: u(26);
+		}
+
+		// 4 units and a 2px floor, against 3 units and none. At 480 units this line rendered 2.1px
+		// grey in a 36px band of nothing, which is what read as thin and unattached — the geometry was
+		// never the problem, both ends have always touched their cards.
+		.plat__stem-line {
+			width: max(2px, #{u(4)});
+			border-radius: max(1px, #{u(2)});
 		}
 
 		.plat__stem[data-dir='up'] {
