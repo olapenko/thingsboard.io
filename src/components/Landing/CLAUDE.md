@@ -242,6 +242,18 @@ that row, and the copy had drifted to a 1160 measure with a 72px gap, handing th
 where the homepage hands them 525. **Every judgement made in the old sandbox was made at the wrong
 width.** There is no copy now, so there is nothing to drift.
 
+It carries the section's BADGE too, from the visual's own copy object, so the row is not judged with
+a 40px hole where the homepage has a glyph. Every visual has one: five already did, and gateway,
+deploy, whitelabel and platform were given one — each taking its own component's accent where the
+component had one to take. A `deskWidth` direction has no row, so its badge goes in the section
+header at 24px instead; no section shows it twice.
+
+**Row ground** is a page-level toggle, tint or white, not a per-direction prop. The homepage
+alternates its rows, so which ground a visual gets depends on where its row falls, and the two are
+not equally kind to a pale diagram — a chip that reads on `#f5f6ff` can go white-on-white. That
+makes it a thing to flip while looking. The rule lives in `_VisualPage`, not in `_home-rows.scss`:
+that file is the homepage's row, and nothing sandbox-only belongs in it.
+
 Two things are NOT a Variant. A visual that is a full-bleed section rather than a row's media takes
 `deskWidth` (platform, ConnectFlow's split cut), which swaps the row for a probe — a row would hand
 it 525px, where it is already in its stacked form, and judging that is judging a different picture.

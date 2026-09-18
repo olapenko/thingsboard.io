@@ -1,4 +1,5 @@
 ---
+import { Icon } from 'astro-icon/components';
 import FeatureBlockSection from '@components/Landing/FeatureBlockSection.astro';
 import type { KeyVisual } from '@root/pages/internal/_key-visuals';
 
@@ -16,6 +17,15 @@ import type { KeyVisual } from '@root/pages/internal/_key-visuals';
  * The middle probe is gone: it duplicated the desktop row at the same width and was only ever there
  * because the row was drawn at the wrong one.
  *
+ * The desktop view passes `badge` along with the copy, because the mark is part of the section and
+ * a row judged without it is a row with a 40px hole where the homepage has a glyph. It comes from
+ * the visual's own copy object, so both pages take the same one from the same place.
+ *
+ * The GROUND under that row — tint or white — is a page-level toggle rather than a prop here. The
+ * homepage alternates, so which one a visual gets depends on where its row happens to fall, and the
+ * two are not equally kind to a pale diagram. That makes it a thing to flip while looking, not a
+ * fact to declare per direction.
+ *
  * The component is passed as a VALUE rather than through the slot, and rendered twice from that one
  * reference. Two slots would have meant writing every variant's markup twice in the page, and two
  * copies of a thing that must stay identical is how the desktop and phone views end up testing
@@ -30,7 +40,7 @@ interface Props {
 	 * beside the real entry — `SCALE_CANDIDATE_COPY` — can be passed without being given a `label`
 	 * it would never show.
 	 */
-	visual: Pick<KeyVisual, 'id' | 'title' | 'body' | 'link'>;
+	visual: Pick<KeyVisual, 'id' | 'title' | 'body' | 'link' | 'badge'>;
 	/** What this direction IS. The thing being decided about, so it goes in the header. */
 	name: string;
 	/** One line on what makes it different from its neighbours. */
@@ -48,11 +58,6 @@ interface Props {
 	phoneProps?: Record<string, unknown>;
 	/** Media on the left, as the homepage's alternating rows do it for some visuals. */
 	imageFirst?: boolean;
-	/**
-	 * The ground it ships on. The homepage alternates, so a visual lands on the tint or on white
-	 * depending on where its row falls, and the two are not equally kind to a pale diagram.
-	 */
-	wash?: boolean;
 	/** Phone width. 335 is the column a 375px phone gives, which is where these get decided. */
 	phone?: number;
 	/**
@@ -72,7 +77,6 @@ const {
 	props = {},
 	phoneProps,
 	imageFirst = false,
-	wash = true,
 	phone = 335,
 	deskWidth,
 } = Astro.props;
@@ -86,6 +90,19 @@ const key = `${visual.id}/${name}`;
 
 <section class="vx" data-variant data-vx-key={key} data-vx-label={`${visual.id} · ${name}`}>
 	<header class="vx__cap">
+		{
+			/* The mark, for the sections that have no row to carry it. A `deskWidth` direction is a
+		    full-bleed section rather than a row's media, so `FeatureBlockSection` never renders — and
+		    without this, platform would be the one page in the sandbox with no icon on it. Only when
+		    there is no row, so nothing ever shows its badge twice. */
+		}
+		{
+			deskWidth && visual.badge && (
+				<span class="vx__badge" style={`--badge-color: ${visual.badge.color}`} aria-hidden="true">
+					<Icon name={visual.badge.icon} />
+				</span>
+			)
+		}
 		<h2 class="vx__name">{name}</h2>
 		{note && <p class="vx__note">{note}</p>}
 		{/* The two commands are appended here by the page's script. */}
@@ -106,11 +123,12 @@ const key = `${visual.id}/${name}`;
 						</div>
 					</div>
 				) : (
-					<div class:list={['new-rows', !wash && 'new-rows--plain']}>
+					<div class="new-rows">
 						<FeatureBlockSection
 							heading={visual.title ?? name}
 							description={visual.body ?? ''}
 							links={visual.link ? [{ href: visual.link.href, text: visual.link.text }] : []}
+							badge={visual.badge}
 							imageFirst={imageFirst}
 							imageEqual
 						>
@@ -187,6 +205,25 @@ const key = `${visual.id}/${name}`;
 		align-items: baseline;
 		gap: $spacing-3;
 		margin-bottom: $spacing-8;
+	}
+
+	// The row's badge, at the caption's scale: 24px around a 15px glyph where the row runs 40 around
+	// 24, and the same 32% rounding, which is a percentage and so holds at either size.
+	.vx__badge {
+		align-self: center;
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		border-radius: 32%;
+		background: var(--badge-color, #{$color-brand});
+		color: #fff;
+
+		[data-icon] {
+			width: 15px;
+			height: 15px;
+		}
 	}
 
 	.vx__name {

@@ -22,6 +22,11 @@ export interface KeyVisual {
 	title?: string;
 	body?: string;
 	link?: { text: string; href: string };
+	/**
+	 * The section's mark, as `FeatureBlockSection` renders it. Lives with each visual's COPY, so the
+	 * homepage and the sandbox take the same one from the same place; this only carries it across.
+	 */
+	badge?: { icon: string; color: string };
 }
 
 export const KEY_VISUALS: KeyVisual[] = [
@@ -35,6 +40,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: PLATFORM_COPY.title,
 		body: PLATFORM_COPY.body,
 		link: PLATFORM_COPY.link,
+		badge: PLATFORM_COPY.badge,
 	},
 	{
 		id: 'solution',
@@ -42,6 +48,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: SOLUTION_COPY.title,
 		body: SOLUTION_COPY.body,
 		link: SOLUTION_COPY.link,
+		badge: SOLUTION_COPY.badge,
 	},
 	{
 		id: 'twin',
@@ -54,6 +61,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: NORMALIZE_COPY.title,
 		body: NORMALIZE_COPY.body,
 		link: NORMALIZE_COPY.link,
+		badge: NORMALIZE_COPY.badge,
 	},
 	{
 		id: 'gateway',
@@ -64,6 +72,9 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: 'Bring legacy equipment online',
 		body: 'Modbus, OPC UA, BACnet, SNMP, KNX and 25+ industrial protocols, translated to MQTT or HTTP. Open-source, runs on any hardware.',
 		link: { text: 'See supported protocols', href: '/docs/iot-gateway/' },
+		// `#7b3fe4` twice over: the accent the Gateway carries in `homeEcosystem`, and the only strong
+		// colour in `GatewayDiagram` itself.
+		badge: { icon: 'tabler:router', color: '#7b3fe4' },
 	},
 	{
 		id: 'connect',
@@ -71,6 +82,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: CONNECT_COPY.title,
 		body: CONNECT_COPY.body,
 		link: CONNECT_COPY.link,
+		badge: CONNECT_COPY.badge,
 	},
 	{
 		id: 'scale',
@@ -78,6 +90,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: SCALE_COPY.title,
 		body: SCALE_COPY.body,
 		link: SCALE_COPY.link,
+		badge: SCALE_COPY.badge,
 	},
 	{
 		id: 'deploy',
@@ -85,6 +98,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: DEPLOY_COPY.title,
 		body: DEPLOY_COPY.body,
 		link: DEPLOY_COPY.link,
+		badge: DEPLOY_COPY.badge,
 	},
 	{
 		id: 'whitelabel',
@@ -92,6 +106,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: WHITELABEL_COPY.title,
 		body: WHITELABEL_COPY.body,
 		link: WHITELABEL_COPY.link,
+		badge: WHITELABEL_COPY.badge,
 	},
 ];
 

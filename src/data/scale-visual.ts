@@ -555,6 +555,10 @@ export const SCALE_CANDIDATE_COPY = {
 	title: SCALE_COPY.title,
 	body: 'One server carries 300K devices — a million once telemetry moves to a database built for the write rate. What sets the number is how often your devices report. Every figure comes from our own 24-hour benchmarks.',
 	link: SCALE_COPY.link,
+	// The section's badge, not a draft of it: this object exists to carry a different BODY, and the
+	// mark is the section's rather than the copy's. Without it the row it feeds was the one section
+	// in the sandbox with a hole where every other one has a glyph.
+	badge: SCALE_COPY.badge,
 };
 
 // -------------------------------------------------------------------------------------------

@@ -28,6 +28,9 @@ export const PLATFORM_COPY = {
 	title: 'Your equipment, your people, one platform between them',
 	body: 'Nothing to integrate between the steps, and nothing to buy as an add-on.',
 	link: { text: 'See what the platform covers', href: '/products/thingsboard-pe/' },
+	// The brand's own, and by elimination: the four stages inside this visual already carry the
+	// four section badges below (see STAGES), so the umbrella cannot take any of them.
+	badge: { icon: 'tabler:topology-star-3', color: '#3d50f5' },
 };
 
 /**

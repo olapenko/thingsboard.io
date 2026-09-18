@@ -22,6 +22,11 @@ export const WHITELABEL_COPY = {
 	// that actually decides deals — whether your customers can do it too.
 	body: 'Your logo, your colours, your domain, across the whole interface in two minutes — no coding, no service restart. Your customers can rebrand their own view, and so can theirs.',
 	link: { text: 'See how white-labeling works', href: '/docs/user-guide/white-labeling/' },
+	// CHOSEN, not taken from the visual: WhiteLabelApp is deliberately greyscale until a customer
+	// brand lands on it, and its three brands (#3d50f5, #1f8b4d, #c2703a) are each some other
+	// section's badge already. Picking one would also privilege one customer in a row whose whole
+	// point is that the colour is theirs, so the badge takes the platform's own indigo.
+	badge: { icon: 'tabler:color-swatch', color: '#3d50f5' },
 };
 
 /**

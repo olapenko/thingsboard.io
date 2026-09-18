@@ -60,6 +60,24 @@ const me = kv(visual);
 	    visual's page, so the counts and the copied list are the whole sandbox, not just this page.
 	    Copy it before clearing site data — this is the only place it lives. */
 	}
+	{
+		/* The ground under every desktop row on the page.
+
+	    The homepage alternates its rows, so which one a visual gets is decided by where its row
+	    happens to fall — and the two grounds are not equally kind to a pale diagram. A visual that
+	    reads on #f5f6ff can lose its lightest strokes on white, and one drawn on white can look like
+	    a card sitting on the tint. Neither is the ground: both are, for three rows and two.
+
+	    Always visible, unlike the marks bar, because it applies whether or not anything is marked.
+	    Sandbox-only — nothing sets `data-ground` on the homepage, so the rule below stays inert
+	    there. */
+	}
+	<div class="page-ctl" role="group" aria-label="Row ground" data-ground-switch>
+		<span class="page-ctl__name">Row ground</span>
+		<button type="button" data-ground-pick="tint" aria-pressed="true">Tint</button>
+		<button type="button" data-ground-pick="white" aria-pressed="false">White</button>
+	</div>
+
 	<div class="page-ctl" data-mark-bar hidden>
 		<span class="page-ctl__name">Marked</span>
 		<span class="page-ctl__count page-ctl__count--up" data-mark-count="promote">0</span>
@@ -196,6 +214,43 @@ const me = kv(visual);
 
 		paint();
 	}
+
+	{
+		/**
+		 * The ground switch. Sets `data-ground` on the document, which the rule in this file's global
+		 * block reads, and remembers the pick so a reload does not reset it mid-comparison.
+		 *
+		 * On the document rather than on each row: every row on the page moves together, which is the
+		 * only way the comparison is between GROUNDS rather than between rows.
+		 */
+		const GROUND_KEY = 'launch-visuals:ground';
+		const picks = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-ground-pick]'));
+
+		const applyGround = (value: string) => {
+			document.documentElement.dataset.ground = value;
+			picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.groundPick === value)));
+		};
+
+		let savedGround: string | null = null;
+		try {
+			savedGround = localStorage.getItem(GROUND_KEY);
+		} catch {
+			/* private window; tint is the default and that is fine */
+		}
+		applyGround(savedGround === 'white' ? 'white' : 'tint');
+
+		picks.forEach((b) =>
+			b.addEventListener('click', () => {
+				const value = b.dataset.groundPick ?? 'tint';
+				applyGround(value);
+				try {
+					localStorage.setItem(GROUND_KEY, value);
+				} catch {
+					/* ignore */
+				}
+			})
+		);
+	}
 </script>
 
 <style lang="scss" is:global>
@@ -245,6 +300,19 @@ const me = kv(visual);
 
 	:root[data-hide-retired] .vx[data-vx-state='retire'] {
 		display: none;
+	}
+
+	// --- the ground under the desktop rows -------------------------------------------------------
+	//
+	// `_home-rows.scss` paints the wash with `:root .new-rows .feature-block-section:nth-child(odd)`,
+	// which is (0,4,0) — and in the sandbox every section holds ONE row, so nth-child(odd) always
+	// matches and every row would be tinted. This is (0,5,0) on the attribute, so it wins outright
+	// rather than tying and being settled by which file the bundler emitted last.
+	//
+	// It lives here, not in `_home-rows.scss`: that file is the homepage's row and the sandbox reads
+	// it, so nothing sandbox-only belongs in it.
+	:root[data-ground='white'] .new-rows .feature-block-section:nth-child(odd) {
+		background: none;
 	}
 
 	// --- exhibits ---------------------------------------------------------------------------------

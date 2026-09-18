@@ -22,6 +22,9 @@ export const DEPLOY_COPY = {
 	// The fork, said once. Everything else in the visual is an icon and two words.
 	body: 'One platform, one decision: who runs it. Fully managed in the region your data has to stay in, or on your own infrastructure — down to a network with no way out.',
 	link: { text: 'See deployment options', href: '/products/thingsboard-pe/' },
+	// The indigo is DeployFork's own — the only accent in that drawing — rather than a colour picked
+	// for the badge and then left to disagree with the visual under it.
+	badge: { icon: 'tabler:server-cog', color: '#3d50f5' },
 };
 
 export interface DeployPoint {
