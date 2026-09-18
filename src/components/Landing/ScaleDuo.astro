@@ -64,9 +64,36 @@ const LOGOS: Record<string, string> = {
 	Valkey: 'valkey',
 };
 
+// How far each card's surface reaches PAST its column, horizontally — the `inset` on
+// `.sd__card::before`. It used to be invisible: a 6% wash bleeding over the gutter is not
+// something anyone sees. A WHITE card on a hued band is, and on a phone it ran off the screen —
+// the container sits in the row's 4px gutter like every other visual, but the surface overhung it
+// and was cut by the viewport edge. Naming it here lets the drawing's real extent include it.
+//
+// Not to be confused with `BLEED` further down, which is how far a bridge bar tucks under a cell.
+const CARD_BLEED = 14;
+
 const COL_W = 220;
-const COL_GAP = 40;
+// 40 read as two cards that happened to be near each other; 34 reads as a pair, which is what the
+// visual argues — one mode against the other, not two independent panels.
+//
+// THE FLOOR IS 28, and it is not a matter of taste. Each card's surface overhangs its column by
+// CARD_BLEED a side, so the ground actually showing between the two white boxes is this number less
+// twice that: 12 units at 40, 6 at 34, and exactly none at 28, where the two surfaces meet and the
+// pair renders as one continuous white slab with two headings on it. That was measured, not
+// guessed — at 28 the right edge of one and the left edge of the next both landed on 937.5px. Any
+// value at or under 28 destroys the thing the visual is for.
+const COL_GAP = 34;
 const NATIVE = modes.length * COL_W + (modes.length - 1) * COL_GAP;
+/**
+ * What the drawing actually occupies, which is the columns PLUS the surface that overhangs them.
+ *
+ * The unit is derived from this rather than from `NATIVE`, so a container narrow enough to drive
+ * the unit sizes the whole visible object to fit rather than sizing the columns and letting the
+ * cards hang over the edge. Above the cap nothing changes — a 525px row divided by either number
+ * is over 1, so the desktop composition is untouched to the pixel.
+ */
+const EXTENT = NATIVE + 2 * CARD_BLEED;
 
 /**
  * The field, derived from the column so the cells tile it exactly.
@@ -244,8 +271,10 @@ const TRAIT_PX = 14;
 const vars = [
 	// `100cqw / NATIVE` still takes over in any container too narrow for the cap, so the phone widths
 	// are untouched by this — only containers wide enough to have been capped anyway.
-	`--sd-u: min(calc(${TRAIT_PX}px / ${TRAIT_U}), calc(100cqw / ${NATIVE}))`,
+	`--sd-u: min(calc(${TRAIT_PX}px / ${TRAIT_U}), calc(100cqw / ${EXTENT}))`,
 	`--sd-native: ${NATIVE}`,
+	`--sd-extent: ${EXTENT}`,
+	`--sd-card-bleed: ${CARD_BLEED}`,
 	`--sd-cols: ${modes.length}`,
 	`--sd-gap: ${COL_GAP}`,
 	`--sd-field-h: ${BOX_H}`,
@@ -344,9 +373,14 @@ const vars = [
 		// without making any of it smaller. Three gaps at six units saved is 18px off the card.
 		row-gap: u(14);
 		column-gap: u(var(--sd-gap));
-		max-width: u(var(--sd-native));
+		// Border-box, so the columns still measure `--sd-native` between the paddings and every
+		// number inside the drawing is unchanged. What the padding buys is that the cards' overhang
+		// now falls INSIDE the element: the white surfaces stop exactly at the container's edges,
+		// which are the row's 4px gutter — the same gutter the other four visuals sit in.
+		box-sizing: border-box;
+		max-width: u(var(--sd-extent));
 		margin: 0 auto;
-		padding: 0;
+		padding: 0 u(var(--sd-card-bleed));
 		list-style: none;
 	}
 
@@ -371,15 +405,12 @@ const vars = [
 
 	// --- hue on the field ---------------------------------------------------
 	//
-	// The inverse: a white card, and the wash moves into the empty cells. The row this visual sits in
-	// is the fifth `feature-block-section`, so `nth-child(odd)` puts it on #f5f6ff and a white card
-	// reads as an object resting on the band — which is the point. It gets a hairline in its own hue
-	// anyway, because the alternation is decided by where the row FALLS: reorder the rows above it
-	// and this one lands on white, where a card with nothing but a white fill would disappear. The
-	// hairline is what makes the change survive that, and it keeps the card inside the colour system
-	// rather than dropping out of it.
+	// The inverse: a white card, and the wash moves into the empty cells. No stroke — this row is the
+	// fifth `feature-block-section`, so `nth-child(odd)` puts it on #f5f6ff, and a white card on a
+	// hued band is already an object resting on it. A hairline was tried and taken out: with the
+	// ground doing the separating, an outline as well was two ways of saying one thing, and it put a
+	// drawn edge on the only visual in the row that had none.
 	.sd[data-hue='field'] .sd__card::before {
-		border: 1px solid color-mix(in srgb, var(--sd-hue) 14%, transparent);
 		background: var(--color-bg, #fff);
 	}
 
@@ -581,6 +612,57 @@ const vars = [
 	}
 
 	// Off the surface, still in the document.
+	// --- the phone exception -------------------------------------------------
+	//
+	// This visual, alone in the row, gets a break in its own scaling on a phone, and it is worth
+	// saying why it is an exception rather than a pattern. Everything here is a multiple of a unit
+	// taken from the container, which is what keeps the drawing and its type in one proportion at
+	// every width. On a phone that proportion is honest and unreadable at the same time: the
+	// container falls to about 367, the unit to roughly 0.74, and the card's supporting line lands
+	// at 11px — below this site's 14px floor for page text, and small enough that nobody reads it.
+	//
+	// So on a phone the drawing keeps the unit and the TYPE stops obeying it. The supporting line
+	// goes, and the three things left — the mode, the figure and its unit — are set at larger
+	// multiples so they land near the floor rather than under it. A phone reader gets the mode, the
+	// number and the marks, which is the whole argument; the sentence was the first thing to lose
+	// because it is the one part the drawing beside it already says.
+	//
+	// A CONTAINER query, not a viewport one. The component is given a width by whatever holds it and
+	// has no business knowing the window — 420 is comfortably above the 367 a phone row hands it and
+	// below the 525 of the desktop row, so the desktop composition never sees any of this.
+	@container (max-width: 420px) {
+		// Hidden from the eye, not from the page. `display: none` would take it out of the
+		// accessibility tree as well, and a screen reader on a phone would lose a sentence that costs
+		// it nothing — the reason to drop this line is that it is too small to read, which is not a
+		// reason a screen reader shares.
+		.sd__trait {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+
+		.sd__mode {
+			font-size: u(27);
+			line-height: u(32);
+		}
+
+		.sd__num {
+			font-size: u(32);
+			line-height: u(38);
+		}
+
+		.sd__lead,
+		.sd__unit {
+			font-size: u(17);
+			line-height: u(22);
+		}
+	}
+
 	.sd__sr {
 		position: absolute;
 		width: 1px;
