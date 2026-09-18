@@ -329,3 +329,49 @@ was to retire everything else — which reads exactly like abandoning the whole 
 Marking is not doing. To act on the list, read that key off the page; for a retirement check that
 nothing outside the sandbox imports the component before removing it. **Deletion is its own
 commit**, never mixed with design work, so a change of mind is one revert.
+
+## Open, and why
+
+Two things known to be wrong and deliberately not fixed yet. Both are cross-cutting: they touch
+several visuals at once, so doing either inside a change to one visual would bury it.
+
+### The platform visual needs optimising and revisiting
+
+`PlatformRaised` renders the homepage's centred section above the rows, and it is the heaviest
+thing in this directory — 898 lines, with `PlatformLoop` beside it at 880 for what is largely the
+same drawing in a different arrangement. That is roughly twice any other visual here and about
+1,800 lines carrying one idea.
+
+What to look at, in the order it is likely to pay:
+
+- **The two files are near-duplicates.** They were drawn as alternatives and both kept. Either
+  one is the visual and the other is a retired cut that should go, or the difference between them
+  is a prop and they are one component. Nobody has decided which, and until someone does, every
+  fix has to be made twice or silently isn't.
+- **It is the first visual on the page.** Whatever it costs is paid before anything else renders,
+  and it is the one visual a reader is guaranteed to see.
+- **Revisit the drawing, not only the code.** The optimisation and the design question arrived
+  together and should be answered together, or the second will undo the first.
+
+### Arrow styles need an audit
+
+There are at least **four different ways of drawing the same arrowhead** in this directory, and no
+reason recorded for any of them being different from the others:
+
+| Visual | How the head is drawn |
+| --- | --- |
+| `SolutionFlow` | CSS: two borders of a box, rotated 45°, pulled back by 1.2071 × the box |
+| `NormalizeSeries`, `NormalizeFlow` | SVG `path`, a three-point chevron at fixed 6/4 units |
+| `GatewayDiagram` | SVG `marker-end`, referencing defs |
+| `ConnectHub` | none at all — the wires fade out instead |
+| `DigitalTwin`, `TwinCorridor` | CSS borders again, but off their own `--twin-rail-*` tokens |
+
+Four techniques means four behaviours under the things these drawings actually do: scaling with a
+design unit, changing stroke weight, taking a colour from a token, and animating. The CSS
+triangle's offset is a magic constant that has to be recomputed by hand whenever the head resizes;
+the SVG chevron does not scale with its rail's weight; `marker-end` inherits colour differently
+from both. None of that is visible until two visuals sit in the same row and their arrows disagree.
+
+The audit is not "make them all the same" — `ConnectHub` having no heads is a decision worth
+keeping. It is to find out which differences are decisions and which are just age, and to leave
+one technique per reason with that reason written down.
