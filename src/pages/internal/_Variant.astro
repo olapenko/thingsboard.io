@@ -1,6 +1,7 @@
 ---
 import { Icon } from 'astro-icon/components';
 import FeatureBlockSection from '@components/Landing/FeatureBlockSection.astro';
+import IntroSection from '@components/Landing/IntroSection.astro';
 import type { KeyVisual } from '@root/pages/internal/_key-visuals';
 
 /**
@@ -72,6 +73,19 @@ interface Props {
 	 * different picture. The section still groups and still promotes or retires as one.
 	 */
 	deskWidth?: number;
+	/**
+	 * Render the homepage's CENTRED statement above the visual instead of putting the visual in a
+	 * row. Pass `HOME_INTRO`.
+	 *
+	 * The centred section is where the platform visual is headed — first thing under the hero, the
+	 * statement over it rather than beside it — so this is that arrangement, with the real
+	 * `IntroSection` and the real copy rather than a mock-up of either. No badge: the centred section
+	 * does not carry one, and that is the difference from a row, not an omission.
+	 *
+	 * It applies to BOTH views. The phone preview frames it like any row, so the statement sits over
+	 * the visual there too, at the sizes a phone gives both.
+	 */
+	intro?: { title: string; description: string };
 }
 
 const {
@@ -84,6 +98,7 @@ const {
 	imageFirst = false,
 	phone = 375,
 	deskWidth,
+	intro,
 } = Astro.props;
 
 const onPhone = phoneProps ? { ...props, ...phoneProps } : props;
@@ -118,10 +133,22 @@ const key = `${visual.id}/${name}`;
 		{/* Desktop: the real row, not a copy of it. Same component, same styles as the homepage. */}
 		<div class="vx__view vx__view--desk">
 			<p class="vx__vlabel">
-				{deskWidth ? `Desktop · ${deskWidth}px section` : 'Desktop · 525px in the row'}
+				{
+					intro
+						? 'Desktop · 960px in the centred section'
+						: deskWidth
+							? `Desktop · ${deskWidth}px section`
+							: 'Desktop · 525px in the row'
+				}
 			</p>
 			{
-				deskWidth ? (
+				intro ? (
+					<div class="new-rows" data-vx-row>
+						<IntroSection title={intro.title} description={intro.description}>
+							<C {...props} />
+						</IntroSection>
+					</div>
+				) : deskWidth ? (
 					<div class="vx__frame vx__frame--plain">
 						<div class="probe" style={`--probe: ${deskWidth}px`}>
 							<C {...props} />
@@ -178,7 +205,7 @@ const key = `${visual.id}/${name}`;
 				}
 			</p>
 			{
-				deskWidth ? (
+				deskWidth && !intro ? (
 					// No row to frame: a full-bleed section is not in a feature row on any page. The
 					// probe stays, on the row's ground rather than the checkerboard.
 					<div class="vx__phonebox">
@@ -211,6 +238,7 @@ const key = `${visual.id}/${name}`;
 }
 <style lang="scss" is:global>
 	@use '../../styles/home-rows';
+	@use '../../styles/home-intro';
 </style>
 
 <style lang="scss">

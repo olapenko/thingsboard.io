@@ -298,6 +298,11 @@ Worth knowing when auditing this: the test is whether a `<use>`'s symbol EXISTS,
 icon painted. Several paint at zero on purpose — the read-more chevron is hidden by
 `_home-rows.scss`, and `SolutionFlow` renders every customer's mark and shows one.
 
+`intro` renders the homepage's CENTRED statement over the visual instead of putting it in a row —
+the real `IntroSection`, the real copy from `data/home-intro.ts`, reading `styles/_home-intro.scss`,
+which `index.astro` reads too. No badge, because the centred section does not carry one. It applies
+to both views. Platform uses it: a centred section above the rows is where that visual is headed.
+
 Two things are NOT a Variant. A visual that is a full-bleed section rather than a row's media takes
 `deskWidth` (platform, ConnectFlow's split cut), which swaps the row for a probe — a row would hand
 it 525px, where it is already in its stacked form, and judging that is judging a different picture.
