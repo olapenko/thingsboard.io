@@ -199,11 +199,24 @@ const CW = 1;
 const LO = BAND - LANE;
 
 /**
+ * The weight every line in this drawing is stroked at.
+ *
+ * 2, matching `ConnectFlow`'s rail and `ConnectHub`'s wires, which are both `max(1px, u(2))`. At 3
+ * these runs were half again heavier than the two connect visuals on the same page, and heavier
+ * than they needed to be against a 14-unit label sitting inside each arch.
+ *
+ * Everything that has to agree with it is DERIVED from it rather than written out again: the half
+ * it paints past its own centreline, the arrowhead box's overhang, and the label well.
+ */
+const WIRE_W = 2;
+const WIRE_HALF = WIRE_W / 2;
+
+/**
  * The label's room inside its U: the wire's painted edge to the card edge its legs land on. The
  * wire is stroked at 3 units, so its ink reaches 1.5 past the lane. The same distance in both
  * bands, so the two are mirrors rather than two sets of numbers.
  */
-const RUN_WELL = BAND - LANE - 1.5; // 26.5
+const RUN_WELL = BAND - LANE - WIRE_HALF; // 27
 
 /**
  * The U-shaped runs.
@@ -286,8 +299,8 @@ const HEAD_D = `M ${STEM.w / 2 - WING},${STEM.h - HEAD} L ${STEM.w / 2},${STEM.h
  * So the box carries half a stroke of room at the bottom. The path is unchanged, the point still
  * lands on the card's edge, and the stroke that draws it now has somewhere to go.
  */
-const HEAD_STROKE = 3;
-const HEAD_BOX_H = STEM.h + HEAD_STROKE / 2; // 13.5
+const HEAD_STROKE = WIRE_W;
+const HEAD_BOX_H = STEM.h + HEAD_STROKE / 2; // 13
 
 const ORDER = ['equipment', 'platform', 'people'];
 const dirOf = (r: PlatformRun) => (ORDER.indexOf(r.from) < ORDER.indexOf(r.to) ? 'down' : 'up');
@@ -320,6 +333,8 @@ const vars = [
 	`--plat-core-out: ${CORE_OUT}`,
 	`--plat-run-w: ${RUN_W}`,
 	`--plat-run-well: ${RUN_WELL}`,
+	`--plat-wire-w: ${WIRE_W}`,
+	`--plat-wire-r: ${WIRE_HALF}`,
 	`--plat-pip-dash: ${PIP_DASH} ${PIP_PATTERN - PIP_DASH}`,
 	`--plat-pip-pattern: ${PIP_PATTERN}`,
 	`--plat-cycle: ${CYCLE_MS}ms`,
@@ -566,8 +581,8 @@ const vars = [
 	// 3 units, matching the wires it continues.
 	.plat__tail-line {
 		flex: 1 1 auto;
-		width: u(3);
-		border-radius: u(1.5);
+		width: u(var(--plat-wire-w));
+		border-radius: u(var(--plat-wire-r));
 		background: var(--plat-wire);
 	}
 
@@ -589,7 +604,7 @@ const vars = [
 		margin-top: u(-12);
 		fill: none;
 		stroke: var(--plat-wire);
-		stroke-width: 3;
+		stroke-width: var(--plat-wire-w);
 		stroke-linecap: round;
 		stroke-linejoin: round;
 	}
@@ -999,7 +1014,7 @@ const vars = [
 	.plat__pip {
 		fill: none;
 		stroke: color-mix(in srgb, var(--plat-wire) 28%, #fff);
-		stroke-width: 3;
+		stroke-width: var(--plat-wire-w);
 		stroke-linecap: round;
 		stroke-dasharray: var(--plat-pip-dash);
 		// Negative, so every wire is already part-way through its cycle on the first frame rather
@@ -1052,7 +1067,7 @@ const vars = [
 	.plat__head {
 		fill: none;
 		stroke: var(--plat-wire);
-		stroke-width: 3;
+		stroke-width: var(--plat-wire-w);
 		stroke-linecap: round;
 		stroke-linejoin: round;
 	}
@@ -1146,8 +1161,8 @@ const vars = [
 
 	.plat__stem-line {
 		flex: 1 1 auto;
-		width: u(3);
-		border-radius: u(1.5);
+		width: u(var(--plat-wire-w));
+		border-radius: u(var(--plat-wire-r));
 		background: currentColor;
 	}
 
@@ -1161,7 +1176,7 @@ const vars = [
 		margin-top: u(-6);
 		fill: none;
 		stroke: currentColor;
-		stroke-width: 3;
+		stroke-width: var(--plat-wire-w);
 		stroke-linecap: round;
 		stroke-linejoin: round;
 	}
