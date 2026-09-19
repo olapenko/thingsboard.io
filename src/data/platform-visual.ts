@@ -30,7 +30,7 @@ export const PLATFORM_COPY = {
 	// marks Edge and Trendz `addOn: true`, and `index.astro` renders that badge on both — roughly a
 	// hundred lines below this section on the same page. What IS true is the half that is left: the
 	// four steps of the loop are one product, so there is nothing to join up between them.
-	body: 'Nothing to integrate between the steps — they are all the same platform.',
+	body: 'Connecting what you already run is the first stage — between the stages there is nothing to join.',
 	link: { text: 'See what the platform covers', href: '/products/thingsboard-pe/' },
 	// The brand's own, and by elimination: the four stages inside this visual already carry the
 	// four section badges below (see STAGES), so the umbrella cannot take any of them.
@@ -58,8 +58,20 @@ export const PLATFORM_COPY = {
  * which is the one job a lede under a diagram does not have. The drawing says what the parts are;
  * the words have to say why any of it is worth having.
  *
- * So: scope, compatibility, and the one cost claim that survives checking. One product rather than a
- * stack, working with what is already installed, with nothing to integrate between the steps.
+ * So: scope, the correction, and where it runs. The claim is that ThingsBoard's own four stages are
+ * one product — NOT that the reader will not be integrating anything. The lede now says the opposite
+ * of that out loud, because Connect IS the first stage and `CONNECT_COPY` sells integrations by name
+ * one section below. "Nothing to integrate between them" read as a blanket denial, contradicted both
+ * the drawing beside it and the product; what survives is the same claim scoped to where it is true,
+ * between the stages.
+ *
+ * The third sentence answers the "deploy, and scale" two thirds of the heading, which the old lede
+ * ignored — and takes its vocabulary from the products band lower on the same page, where the pair
+ * is "Fully managed SaaS" and "Deployed on your infrastructure".
+ *
+ * DO NOT put the broker in any parts list here. TBMQ is a separate product on this same page, and
+ * `homeEcosystem` has it picking up where ThingsBoard's MQTT transport stops — so a one-platform
+ * list containing it is disprovable by scrolling, exactly the way "nothing to buy as an add-on" was.
  *
  * IT USED TO SAY "and nothing to buy as an add-on", and that was false on its own page: Edge and
  * Trendz are `addOn: true` in `homeEcosystem`, and the products band renders the badge on both about
@@ -72,7 +84,7 @@ export const PLATFORM_COPY = {
 export const PLATFORM_SECTION_COPY = {
 	title: 'Build, deploy, and scale IoT solutions',
 	description:
-		'From device connectivity to dashboards, in one product that works with the equipment and systems you already run. Every step is the same platform, so there is nothing to integrate between them.',
+		"ThingsBoard is one platform, not four products to join up. Connecting the equipment and systems you already run is the first stage's work — between the stages there is nothing to join. The same platform runs a pilot or a fleet, in our cloud or on your own infrastructure.",
 };
 
 /**
