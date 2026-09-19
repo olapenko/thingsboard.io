@@ -199,6 +199,13 @@ const CW = 1;
 const LO = BAND - LANE;
 
 /**
+ * The label's room inside its U: the wire's painted edge to the card edge its legs land on. The
+ * wire is stroked at 3 units, so its ink reaches 1.5 past the lane. The same distance in both
+ * bands, so the two are mirrors rather than two sets of numbers.
+ */
+const RUN_WELL = BAND - LANE - 1.5; // 26.5
+
+/**
  * The U-shaped runs.
  *
  * A run no longer leaves a card's inner edge — the platform overlaps that edge now. It leaves the
@@ -312,6 +319,7 @@ const vars = [
 	`--plat-attach: ${ATTACH_L}`,
 	`--plat-core-out: ${CORE_OUT}`,
 	`--plat-run-w: ${RUN_W}`,
+	`--plat-run-well: ${RUN_WELL}`,
 	`--plat-pip-dash: ${PIP_DASH} ${PIP_PATTERN - PIP_DASH}`,
 	`--plat-pip-pattern: ${PIP_PATTERN}`,
 	`--plat-cycle: ${CYCLE_MS}ms`,
@@ -931,6 +939,11 @@ const vars = [
 	.plat__band {
 		// The whole composition, not the middle three tracks: a run now starts over its side card.
 		grid-column: 1 / -1;
+		// The labels share these two cells now and this box is later in the DOM, so without it the
+		// SVG swallows selection and hover on the text underneath. It is `aria-hidden` decoration,
+		// so it costs nothing — and it is the right fix rather than a `z-index` on the label, which
+		// would add another stacking context to a component that has already had one bug there.
+		pointer-events: none;
 	}
 
 	.plat__band--in {
@@ -1073,9 +1086,13 @@ const vars = [
 	// starts — so centring the text inside it centres the text on the arrow, and a label made longer
 	// or shorter later stays centred because the box never moves.
 	.plat__run {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		grid-column: 1 / -1;
 		justify-self: start;
 		width: u(var(--plat-run-w));
+		height: u(var(--plat-run-well));
 	}
 
 	.plat__run--telemetry,
@@ -1088,18 +1105,30 @@ const vars = [
 		margin-left: u(var(--plat-core-out));
 	}
 
-	// 4, not 10. A label belongs to its line, and at ten units of air it read as a caption floating
-	// above the band rather than as the name of the arrow under it.
+	// IN the band, not in a row above and below it — which is 44 units of composition height that was
+	// being spent on two rows holding one line of caps each.
+	//
+	// Anchored to the edge the CARD is on, so the well is measured card-outwards in both bands and
+	// the two U's are mirrors. Rows 1 and 5 stay in `grid-template-rows` and simply hold nothing:
+	// `auto` tracks with no items and no `row-gap` measure 0, so the composition loses the 44 and
+	// nothing renumbers — which also keeps this a short revert.
+	//
+	// The band tracks must stay a FIXED `u(var(--plat-band))` and must never become `minmax()`. The
+	// band SVG is `preserveAspectRatio="none"`, so a track that could grow would stretch the bends
+	// into ovals and pull the arrowheads out of shape with them. That is what makes `white-space:
+	// nowrap` above load-bearing vertically as well as horizontally: a label too long for its well
+	// overflows sideways, symmetrically, towards the legs where it shows — it cannot push the band
+	// taller. The narrow cut does use `minmax()`, and means something else by it.
 	.plat__run--telemetry,
 	.plat__run--views {
-		grid-row: 1;
-		margin-bottom: u(4);
+		grid-row: 2;
+		align-self: end;
 	}
 
 	.plat__run--commands,
 	.plat__run--actions {
-		grid-row: 5;
-		margin-top: u(4);
+		grid-row: 4;
+		align-self: start;
 	}
 
 	.plat__stem {
@@ -1222,6 +1251,16 @@ const vars = [
 			width: auto;
 			max-width: 100%;
 			margin: 0;
+			// BOTH OF THESE UNDO THE WIDE CUT, and the second is what keeps the stacked arrows
+			// touching their cards. Up there the run is pinned to its U's interior and anchored to a
+			// band edge; down here the run's height IS the stem's length, because `.plat__stem` is
+			// `align-self: stretch` inside it — so an unstretched run shortens every arrow from the
+			// row's 48 units to the label's 18 and the stems stop reaching between the cards. The
+			// height has to go back to `auto` as well, or a two-line "Views and alerts" overflows a
+			// box pinned to 26.5 narrow units, which is what that row's `minmax(u(48), auto)` exists
+			// for. Scoped CSS is zero-specificity, so neither is inherited away by source order.
+			height: auto;
+			align-self: stretch;
 		}
 
 		// `white-space: normal` UNDOES the `nowrap` the wide cut needs, and `min-width: 0` undoes a
