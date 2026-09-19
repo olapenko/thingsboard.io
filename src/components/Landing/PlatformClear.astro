@@ -1236,14 +1236,44 @@ const vars = [
 			row-gap: 0;
 		}
 
-		// The two outer cards are narrower than the core, and centred. 340 is the width the CORE
-		// needs; the zones need 245 — "Gateways and platforms" at 180 plus 65 of chrome — so at the
-		// full width their text ended two thirds of the way across a box with nothing in the rest of
-		// it. 290 leaves them 45 units of slack instead of 95, and makes the platform visibly the
-		// widest thing in the column, which is what the drawing is about.
+		// ONE MEASURE FOR ALL THREE CARDS.
+		//
+		// What was here — `max-width: u(290); margin-inline: auto` — never bit. An auto cross-axis
+		// margin cancels `align-self: stretch`, so each card shrink-wrapped to its own widest item
+		// instead: measured 256.6 and 254.2, not 290 and not even equal to each other, beside a core
+		// that was 364 wide. The comment described a width that had never rendered, and three stacked
+		// cards at three different widths is most of what "untidy" meant here.
+		//
+		// The core stays the raised card by its shadow and its badge, which is the treatment designed
+		// to say so. It does not also need to be the widest thing in the column.
+		//
+		// SYMMETRIC PADDING with it: the asymmetric inline padding in the wide cut belongs to the
+		// overlap, where it stops the item rows before the platform starts. Stacked, nothing overlaps,
+		// so the two cards were simply indented 12 units in opposite directions.
 		.plat__zone {
-			max-width: u(290);
-			margin-inline: auto;
+			align-self: stretch;
+			max-width: none;
+			margin-inline: 0;
+			padding: u(14);
+		}
+
+		// Restated rather than left to source order: the base rule is zero-specificity like this one,
+		// so without it the card is one reordering away from an asymmetric box again.
+		.plat__zone--people {
+			padding-inline: u(14);
+		}
+
+		// No floor under the header. The u(32) pins the two card heads so their item rows line up
+		// ACROSS the two columns; stacked there is no column opposite, and at 340 both titles set on
+		// one line.
+		.plat__zone-head {
+			min-height: 0;
+		}
+
+		// 8, not 10. The row's height is its text, so the padding is the only air in it — and nothing
+		// is removed. Six rows, 4 units each.
+		.plat__item {
+			padding: u(8) 0;
 		}
 
 		.plat__col--equipment {
@@ -1256,9 +1286,30 @@ const vars = [
 			display: none;
 		}
 
+		// THE OVERLAP IS THE WIDE CUT'S, AND IT WAS NEVER UNDONE. Up there the core runs 12 units over
+		// each zone card's inner edge and pays for it with a negative inline margin, which is what
+		// makes it the raised object. Stacked, nothing overlaps anything, so all that margin did was
+		// push the card 12 units past the composition on BOTH sides: measured 364 units inside a
+		// `.plat` capped at 340, hanging 7 units past `.plat-fit` at a 390 viewport and 11.8 at 375,
+		// with its rounded corners outside the section's own edge. `#overflow` on the homepage is
+		// `overflow: hidden`, so a narrower phone clips them outright.
+		//
+		// THE BADGE IS DECLARED ON THIS CARD, NOT ON `.plat`. `--plat-badge` is published in `.plat`'s
+		// `style` attribute by the frontmatter, and an inline custom property beats any stylesheet
+		// rule whatever its specificity — put this on `.plat` and it does nothing at all, silently.
+		// Both consumers are inside this subtree, so the card is where it both works and suffices.
+		//
+		// 56, not 76: the same mark is 7.5% of the wide composition and 22% of this one. It pays 10
+		// units back through the top padding, which is `BADGE / 2 + 12`, and the pad keeps the 69%
+		// mark-to-tile the badge is drawn at.
 		.plat__core {
+			--plat-badge: 56;
+			--plat-badge-pad: 9;
+
 			grid-column: 1 / -1;
 			grid-row: 3;
+			margin-inline: 0;
+			padding-bottom: u(18);
 		}
 
 		.plat__col--people {
@@ -1374,12 +1425,65 @@ const vars = [
 			}
 		}
 
-		// Two across, not four. NARROW is 340, and the core hands this row about 324 units — four
-		// columns would be ~72 units each, under the 105.4 that "Calculated fields" needs on one
-		// line. Two gives each stage 156, with 50 to spare on the longest item.
+		// Two across, not four. NARROW is 340, and with the overlap undone the core hands this row
+		// exactly 300 units — four columns would be 72 each, under the 105.4 that "Calculated fields"
+		// needs on one line. Two gives each stage 144, with 38.6 to spare on the longest item.
+		//
+		// 14 of padding above the row (the four-colour rule paints 3 of it) and 16 between the two
+		// stage rows, both down from the wide cut's numbers along with the title's margin above them.
 		.plat__stages {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
-			row-gap: u(22);
+			padding-top: u(14);
+			row-gap: u(16);
+		}
+
+		// THE STAGE HEAD GOES INLINE: the tile beside the verb rather than above it.
+		//
+		// In the wide cut a stage is a 113-unit column and stacking is the only way the two fit; here
+		// the column is 144 and the tile plus the longest verb ("Automate", 82.2) need 128.2 together,
+		// so the two lines become one. That is 45.8 units a stage and 91.6 across the two rows — and
+		// it is also the answer to the lists looking wrong. They looked wrong because a stage was
+		// three objects piled up in a narrow box and the list was the third thing in the pile. Inline,
+		// a stage is a labelled block with its detail under it.
+		//
+		// `auto` in the first track is safe despite the max-content gotcha in this directory's
+		// CLAUDE.md: the only thing in that column is a tile with a fixed width.
+		.plat__stage {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr);
+			align-items: center;
+			column-gap: u(10);
+		}
+
+		// 36, not 44 — the 44 was sized to anchor a 113-unit column. `box-sizing: content-box` in the
+		// base rule is what makes 22 + 7 + 7 = 36; move the glyph without the padding and the tile is
+		// 14 units out. Beside the text it costs the stage nothing, because the row is the tile's
+		// height either way.
+		.plat__stage-icon {
+			width: u(22);
+			height: u(22);
+			padding: u(7);
+			margin-bottom: 0;
+		}
+
+		// FULL WIDTH UNDER THE HEAD, not indented to the verb — measured rather than preferred.
+		// Indenting leaves the list the verb's 98 units and "Calculated fields" sets 105.4, so it
+		// wraps, Automate's row grows and takes Operate with it, and the composition ends up TALLER
+		// than before. That is the rag this list was introduced to remove.
+		//
+		// The font does not move: u(14) is the composition's floor, shared with `.plat__item-note`,
+		// `.plat__run` and `.plat__found-item`, and R = NARROW / floor is the number that predicts a
+		// phone. Only the leading and the gap come in.
+		.plat__stage-list {
+			grid-column: 1 / -1;
+			margin-top: u(8);
+			row-gap: u(4);
+			line-height: 1.2;
+		}
+
+		// 16, not 22, so it keeps its relationship with the stage row's own padding-top above.
+		.plat__core-title {
+			margin-bottom: u(16);
 		}
 	}
 </style>
