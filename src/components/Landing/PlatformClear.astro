@@ -400,7 +400,7 @@ const vars = [
 								{z.title}
 							</p>
 						</header>
-						<ul class="plat__items">
+						<ul class="plat__items" role="list">
 							{zoneItems(z).map((it) => (
 								<li class="plat__item">
 									<Icon class="plat__item-icon" name={it.icon} aria-hidden="true" />
@@ -497,7 +497,7 @@ const vars = [
 				/* No rail, so no absolute positioning and no knockout: a stage is just an icon, a verb
 			    and a line of detail, in that order and in normal flow. */
 			}
-			<ol class="plat__stages">
+			<ol class="plat__stages" role="list">
 				{
 					PLATFORM_STAGES.map((s) => (
 						<li class="plat__stage" style={`--stage: ${s.accent}`}>
@@ -513,7 +513,7 @@ const vars = [
 				}
 			</ol>
 
-			<ul class="plat__found">
+			<ul class="plat__found" role="list">
 				{
 					PLATFORM_FOUNDATIONS.map((f) => (
 						<li class="plat__found-item">
@@ -539,6 +539,12 @@ const vars = [
 
 	.plat-fit {
 		container-type: inline-size;
+		// `container-type: inline-size` zeroes this element's max-content contribution, so the whole
+		// drawing collapses to nothing — silently, no error — the first time it is put in a flex or
+		// grid parent. Every call site gives it a block parent today; this keeps that true by
+		// declaration rather than by luck, and changes nothing now, since the homepage's
+		// `.intro-section .plat-fit` sets the bleed width and outranks this scoped rule.
+		width: 100%;
 	}
 
 	.plat {
@@ -1081,9 +1087,13 @@ const vars = [
 
 	// The only thing in this drawing that moves for its own sake. The picture is complete without
 	// it — the arrowheads already carry the direction, and the signal is emphasis on top of them.
+	// `display: none`, NOT `animation: none`. The dash pattern is unconditional, so stopping the
+	// animation leaves `stroke-dashoffset` at 0 and parks the lit segment on the first 14 units of
+	// every wire — four near-white notches that read as breaks in the lines, which is the exact
+	// artefact the pip's own colour note exists to avoid. `ConnectHub` removes the element too.
 	@media (prefers-reduced-motion: reduce) {
 		.plat__pip {
-			animation: none;
+			display: none;
 		}
 	}
 
@@ -1518,6 +1528,41 @@ const vars = [
 		// 16, not 22, so it keeps its relationship with the stage row's own padding-top above.
 		.plat__core-title {
 			margin-bottom: u(16);
+		}
+	}
+
+	// FORCED COLOURS removes both of the things that tell these three cards apart: `box-shadow` is
+	// forced to `none`, and so is a gradient `background-image`. The platform deliberately carries no
+	// hairline — a shadow and an outline are two answers to one question — so without this it stops
+	// being an object at all, while the two zone cards each show three sides of a box. Giving the
+	// seam borders back means the overlap has to go too, or three borders cross each other.
+	@media (forced-colors: active) {
+		.plat__core {
+			margin-inline: 0;
+			border: 1px solid CanvasText;
+		}
+
+		.plat__zone--equipment {
+			border-right: 1px solid CanvasText;
+			border-top-right-radius: u(10);
+			border-bottom-right-radius: u(10);
+		}
+
+		.plat__zone--people {
+			border-left: 1px solid CanvasText;
+			border-top-left-radius: u(10);
+			border-bottom-left-radius: u(10);
+		}
+
+		.plat__stages {
+			background-image: none;
+			border-top: 1px solid CanvasText;
+		}
+
+		// `outline`, not `border`: the tile is `box-sizing: content-box`, so a border would grow it.
+		.plat__stage-icon {
+			outline: 1px solid CanvasText;
+			outline-offset: -1px;
 		}
 	}
 </style>
