@@ -139,6 +139,23 @@ export const PLATFORM_ZONES: Zone[] = [
 export interface PlatformStage {
 	icon: string;
 	name: string;
+	/**
+	 * One per line in `PlatformClear`, where the note is set as a list rather than as prose.
+	 *
+	 * THREE, ALWAYS — the tuple type is the guard. A fourth item makes that stage a line taller than
+	 * its three neighbours and the row is ragged again, which is the whole thing this fixed.
+	 *
+	 * THE BUDGET IS 107.5 UNITS, measured in the browser rather than computed: each item has to set
+	 * on ONE line at u(14) in a stage column. "Calculated fields" is the longest at 105.4, with 2.1
+	 * units to spare. Anything longer wraps, and one wrapped item undoes the arrangement.
+	 */
+	items: [string, string, string];
+	/**
+	 * The same three as prose, for `PlatformRaised` and `PlatformLoop` — sandbox cuts now that
+	 * `index.astro` renders `PlatformClear`. Written out rather than joined from `items`: a join
+	 * needs a lowercasing rule, which needs a special case for SCADA today and breaks on the next
+	 * acronym. If those two cuts are ever deleted, this field goes with them.
+	 */
 	note: string;
 	/**
 	 * The stage's own hue, carried by its icon. Comes from the section's badge — see below.
@@ -184,12 +201,14 @@ export interface PlatformStage {
 export const PLATFORM_STAGES: PlatformStage[] = [
 	{
 		name: 'Connect',
+		items: ['Devices', 'Gateways', 'Integrations'],
 		note: 'Devices, gateways, integrations',
 		icon: 'tabler:plug-connected',
 		accent: CONNECT_COPY.badge.color,
 	},
 	{
 		name: 'Model',
+		items: ['Assets', 'Relations', 'Profiles'],
 		note: 'Assets, relations, profiles',
 		// The twin's own box — the glyph `DigitalTwin.astro` draws its unit with.
 		icon: 'tabler:box-model',
@@ -197,12 +216,14 @@ export const PLATFORM_STAGES: PlatformStage[] = [
 	},
 	{
 		name: 'Automate',
+		items: ['Rule chains', 'Calculated fields', 'Alarms'],
 		note: 'Rule chains, calculated fields, alarms',
 		icon: 'tabler:binary-tree',
 		accent: NORMALIZE_COPY.badge.color,
 	},
 	{
 		name: 'Operate',
+		items: ['Dashboards', 'SCADA', 'Reports'],
 		note: 'Dashboards, SCADA, reports',
 		icon: 'tabler:chart-dots',
 		accent: SOLUTION_COPY.badge.color,
