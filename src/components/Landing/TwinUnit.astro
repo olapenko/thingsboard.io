@@ -42,6 +42,29 @@ const { unit, class: className } = Astro.props;
 	</ul>
 </div>
 
+<script>
+	/**
+	 * Stops the status LEDs blinking while they are off screen.
+	 *
+	 * The LED itself is observed rather than its card: `unit` is a generic enough class name that a
+	 * document-wide query for it could pick up something unrelated, while `unit__led` cannot.
+	 */
+	const leds = document.querySelectorAll('.unit__led');
+
+	if (leds.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					(e.target as HTMLElement).style.setProperty('--unit-play', e.isIntersecting ? 'running' : 'paused');
+				});
+			},
+			{ rootMargin: '80px' }
+		);
+
+		leds.forEach((l) => io.observe(l));
+	}
+</script>
+
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
@@ -110,6 +133,9 @@ const { unit, class: className } = Astro.props;
 		background: var(--unit-led);
 		box-shadow: 0 0 u(6) 0 color-mix(in srgb, var(--unit-led) 45%, transparent);
 		animation: unit-blink 2.6s steps(1, end) infinite;
+		// Paused while the visual is off screen -- see the script below. Default `running`, so with
+		// no script these behave exactly as they did before rather than freezing for good.
+		animation-play-state: var(--unit-play, running);
 
 		@media (prefers-reduced-motion: reduce) {
 			animation: none;
