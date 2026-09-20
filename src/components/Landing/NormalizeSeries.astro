@@ -402,6 +402,15 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 		 * little further from its row's answer every minute.
 		 */
 		origin: number;
+		/**
+		 * The pip's own animation, kept rather than re-queried.
+		 *
+		 * The beat is read off its `currentTime`, which FREEZES when the animation is paused while
+		 * `startTime` keeps sliding. That is what lets the pips be gated on the viewport: both clocks
+		 * stop together, so a pip still lands on the row that answers it after a round trip off
+		 * screen. Null for `still`, which has no pip and nothing to keep in step.
+		 */
+		clock: Animation | null;
 		view: SparkView;
 		window: number;
 		plots: Plot[];
@@ -462,6 +471,7 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 				root,
 				pulse,
 				origin,
+				clock: pulse ? (clock ?? null) : null,
 				step: Number(root.dataset.step) || STEP_FALLBACK,
 				view: { w, h, pad },
 				window: win,
@@ -505,11 +515,20 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 				if (!visible.has(l.root)) return;
 
 				if (now - l.lastStep >= l.step) {
-					// Stepped in exact multiples of the beat from the connectors' own clock, so the two
-					// cannot drift. A root that has been off screen for a while is snapped forward to
-					// the current beat rather than replaying every one it missed.
-					const beats = Math.floor((now - l.origin) / l.step);
-					l.lastStep = l.origin + beats * l.step;
+					// Stepped from the connectors' OWN clock, so the two cannot drift. A root that has
+					// been off screen for a while is snapped forward to the current beat rather than
+					// replaying every one it missed.
+					//
+					// Read off `currentTime` rather than counted from `startTime`. While the animation
+					// runs the two are equivalent — `now - (currentTime % step)` is exactly the
+					// `origin + step * floor((now - origin) / step)` this used to compute. They stop
+					// being equivalent the moment the pip is PAUSED off screen: `currentTime` freezes
+					// with it while `startTime` slides on, so counting from `startTime` would put the
+					// row's answer further from its pip every time the row was scrolled past. The
+					// fallback is the old arithmetic, for `still`, which has no pip to read.
+					const ct = l.clock?.currentTime;
+					l.lastStep =
+						ct != null ? now - (Number(ct) % l.step) : l.origin + Math.floor((now - l.origin) / l.step) * l.step;
 					l.plots.forEach((p) => (p.startAt = l.lastStep + p.offset));
 					l.started = now;
 				}
@@ -561,9 +580,13 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 		// forward to a binding that does not exist yet.
 		const io = new IntersectionObserver(
 			(entries) => {
-				entries.forEach((e) =>
-					e.isIntersecting ? visible.add(e.target as HTMLElement) : visible.delete(e.target as HTMLElement)
-				);
+				entries.forEach((e) => {
+					const root = e.target as HTMLElement;
+					e.isIntersecting ? visible.add(root) : visible.delete(root);
+					// The pips stop with the loop. Safe only because the beat above is read off the
+					// pip's own `currentTime`, which freezes with it.
+					root.style.setProperty('--norm-play', e.isIntersecting ? 'running' : 'paused');
+				});
 
 				if (visible.size && !running) {
 					running = true;
@@ -837,6 +860,9 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 		stroke-linecap: round;
 		stroke-dasharray: var(--norm-dash);
 		animation: norm-pip var(--norm-beat) linear infinite;
+		// Paused while the row is off screen. See the loop: the beat is read off this animation's own
+		// `currentTime`, so freezing it freezes the row's timing with it rather than desyncing them.
+		animation-play-state: var(--norm-play, running);
 		// Wound BACKWARDS from the moment it has to arrive rather than forwards from zero. The pip
 		// into the node has two gutters left to cross, so it starts two travels before the beat;
 		// change the speed and both delays follow, and the packet still lands on the beat.
