@@ -428,8 +428,8 @@ const vars = [
 		}
 
 		{
-			PLATFORM_RUNS.map((r) => (
-				<p class={`plat__run plat__run--${r.id}`} data-zone={zoneOf(r.id)}>
+			PLATFORM_RUNS.map((r, i) => (
+				<p class={`plat__run plat__run--${r.id}`} data-zone={zoneOf(r.id)} style={`--pip-phase: ${pipPhase(i)}ms`}>
 					<span class="plat__stem" data-dir={dirOf(r)} aria-hidden="true">
 						<span class="plat__stem-line" />
 						<svg class="plat__stem-head" viewBox={`0 0 ${STEM.w} ${HEAD_BOX_H}`}>
@@ -1213,6 +1213,8 @@ const vars = [
 		background: currentColor;
 	}
 
+	}
+
 	.plat__stem-head {
 		flex: none;
 		width: u(14);
@@ -1496,30 +1498,41 @@ const vars = [
 			display: grid;
 			grid-template-columns: auto minmax(0, 1fr);
 			align-items: center;
-			column-gap: u(10);
+			// 6, not 10. The gap and the tile together set where column 2 starts, and column 2 is now
+			// what the list has to fit in — see below.
+			column-gap: u(6);
 		}
 
-		// 36, not 44 — the 44 was sized to anchor a 113-unit column. `box-sizing: content-box` in the
-		// base rule is what makes 22 + 7 + 7 = 36; move the glyph without the padding and the tile is
-		// 14 units out. Beside the text it costs the stage nothing, because the row is the tile's
-		// height either way.
+		// 30, not 44 — the 44 was sized to anchor a 113-unit column, and the tile is now paying for the
+		// list's measure. `box-sizing: content-box` in the base rule is what makes 16 + 7 + 7 = 30;
+		// move the glyph without the padding and the tile is 14 units out. Beside the text it costs
+		// the stage no height, because the row is the tile's height either way.
 		.plat__stage-icon {
-			width: u(22);
-			height: u(22);
+			width: u(16);
+			height: u(16);
 			padding: u(7);
 			margin-bottom: 0;
 		}
 
-		// FULL WIDTH UNDER THE HEAD, not indented to the verb — measured rather than preferred.
-		// Indenting leaves the list the verb's 98 units and "Calculated fields" sets 105.4, so it
-		// wraps, Automate's row grows and takes Operate with it, and the composition ends up TALLER
-		// than before. That is the rag this list was introduced to remove.
+		// ALIGNED WITH THE VERB, in the head's second column — so a stage reads as one block with a
+		// hanging icon rather than as a tile with two unrelated things stacked beside it.
+		//
+		// The measure is what makes this work, and it is exactly why the tile came down. Column 2 is
+		// the stage's 144 units minus the tile and the gap, and "Calculated fields" sets 105.4 of it.
+		// At the old 36-unit tile and 10-unit gap that column was 98 and the item wrapped, which took
+		// Automate's row up and Operate's with it — measured 938 against 920. At 30 and 6 the column
+		// is 108, nothing wraps, and the composition comes in at 908: aligned AND shorter.
+		//
+		// Four across is not available down here and that is the trade: those two stages are narrow,
+		// so the tile is small. One column per stage was measured too — it aligns perfectly and with
+		// far more room, and costs 237px, which is more than every other saving in this cut put
+		// together.
 		//
 		// The font does not move: u(14) is the composition's floor, shared with `.plat__item-note`,
 		// `.plat__run` and `.plat__found-item`, and R = NARROW / floor is the number that predicts a
 		// phone. Only the leading and the gap come in.
 		.plat__stage-list {
-			grid-column: 1 / -1;
+			grid-column: 2;
 			margin-top: u(8);
 			row-gap: u(4);
 			line-height: 1.2;
