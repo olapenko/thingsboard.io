@@ -81,6 +81,28 @@ const LAVENDER = '#7b3fe4'; // IoT gateway
 const BEIGE = '#b45309'; // rotation only, four-arm cut
 const GREEN = '#65a30d'; // integrations
 
+/**
+ * The pip is the wire's own accent mixed to 28% over white, and the chip's pill is the same accent
+ * at 16%. Both were `color-mix()` in the stylesheet, which resolved four build-time constants at
+ * runtime across twenty elements — the inputs are the four literals above, reached through
+ * `c.accent`, so the eight results are knowable here.
+ *
+ * Identical colours, no runtime colour function, and no engine on which the declaration drops out
+ * and takes the pip or the pill with it. The pill is the real exposure there: `background` does not
+ * inherit, so the ten chips would simply lose their tint.
+ */
+const rgb = (c: string) => {
+	const n = parseInt(c.slice(1), 16);
+	return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+/** `color-mix(in srgb, accent 28%, #fff)`, computed. */
+const lit = (c: string) =>
+	`rgb(${rgb(c)
+		.map((v) => Math.round(v * 0.28 + 255 * 0.72))
+		.join(', ')})`;
+/** `color-mix(in srgb, accent 16%, transparent)` — premultiplied, so the accent at .16 alpha. */
+const tint = (c: string) => `rgba(${rgb(c).join(', ')}, 0.16)`;
+
 // Eight of the twenty-one, three direct / three gateway / two integration, which is roughly the
 // proportion the full set has. Dealt so NEITHER column is one colour: the first pass put Modbus,
 // OPC UA and BACnet together and the right-hand side read as a purple list with one odd chip.
@@ -467,7 +489,7 @@ const vars = [
 						class="hub__pip"
 						d={curveLeft(i)}
 						pathLength="100"
-						style={`--pip-accent: ${c.accent}; --pip-phase: ${phase(i)}ms`}
+						style={`--pip-accent: ${lit(c.accent)}; --pip-phase: ${phase(i)}ms`}
 					/>
 				))
 			}
@@ -477,7 +499,7 @@ const vars = [
 						class="hub__pip"
 						d={curveRight(i)}
 						pathLength="100"
-						style={`--pip-accent: ${c.accent}; --pip-phase: ${phase(LEFT.length + i)}ms`}
+						style={`--pip-accent: ${lit(c.accent)}; --pip-phase: ${phase(LEFT.length + i)}ms`}
 					/>
 				))
 			}
@@ -487,7 +509,7 @@ const vars = [
 			LEFT.map((c, i) => (
 				<span
 					class="hub__chip hub__chip--l"
-					style={`--hub-accent: ${c.accent}; --hub-y: ${cyOf(LEFT, i)}; --hub-edge: ${edgeL(rankOf(c))}`}
+					style={`--hub-accent: ${c.accent}; --hub-tint: ${tint(c.accent)}; --hub-y: ${cyOf(LEFT, i)}; --hub-edge: ${edgeL(rankOf(c))}`}
 				>
 					{c.name}
 				</span>
@@ -497,7 +519,7 @@ const vars = [
 			RIGHT.map((c, i) => (
 				<span
 					class="hub__chip hub__chip--r"
-					style={`--hub-accent: ${c.accent}; --hub-y: ${cyOf(RIGHT, i)}; --hub-edge: ${edgeR(rankOf(c))}`}
+					style={`--hub-accent: ${c.accent}; --hub-tint: ${tint(c.accent)}; --hub-y: ${cyOf(RIGHT, i)}; --hub-edge: ${edgeR(rankOf(c))}`}
 				>
 					{c.name}
 				</span>
@@ -580,7 +602,7 @@ const vars = [
 	// The rail's own weight, not a heavier one. A thicker pip reads as a bulge moving down the wire;
 	// at the same weight it is the wire itself lighting up, and colour is all that changes.
 	.hub__pip {
-		stroke: color-mix(in srgb, var(--pip-accent, var(--color-primary, #3d50f5)) 28%, #fff);
+		stroke: var(--pip-accent);
 		stroke-dasharray: var(--hub-dash);
 		// Negative, so the cycle is already under way on the first frame. A positive delay would hold
 		// nine of the ten arms dark for up to a full cycle after the visual scrolls into view, which
@@ -652,7 +674,7 @@ const vars = [
 		padding: 0 u(12);
 		transform: translateY(-50%);
 		border-radius: u(10);
-		background: color-mix(in srgb, var(--hub-accent) 16%, transparent);
+		background: var(--hub-tint);
 		font-family: $font-family-mono;
 		font-size: u(var(--hub-chip-font));
 		font-weight: $font-weight-bold;
