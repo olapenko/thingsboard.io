@@ -284,7 +284,7 @@ const vars = [
 ---
 
 <div class="sd-fit">
-	<ul class="sd" style={vars} data-hue={hue}>
+	<ul class="sd" style={vars} data-hue={hue} data-animate={animate ? '' : undefined}>
 		{
 			modes.map((m, i) => (
 				<li class="sd__card" style={`--sd-hue: ${HUES[i % HUES.length]}`}>
@@ -348,6 +348,33 @@ const vars = [
 		}
 	</ul>
 </div>
+
+<script>
+	/**
+	 * Stops the ripples animating while the field is off screen.
+	 *
+	 * Pausing rather than removing, because the seven cells are stepped apart by `animation-delay`
+	 * and restarting them would collapse the wave into seven cells pulsing together the first time
+	 * the row is looked at.
+	 *
+	 * Safe here because nothing in this file reads the animation's clock. NormalizeSeries does --
+	 * it derives its row timing from its own pip -- so it needs a different treatment.
+	 */
+	const fields = document.querySelectorAll('.sd[data-animate]');
+
+	if (fields.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					(e.target as HTMLElement).style.setProperty('--sd-play', e.isIntersecting ? 'running' : 'paused');
+				});
+			},
+			{ rootMargin: '80px' }
+		);
+
+		fields.forEach((f) => io.observe(f));
+	}
+</script>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
@@ -468,6 +495,13 @@ const vars = [
 		transform-origin: center;
 		animation: sd-pulse 3.6s ease-out infinite;
 		animation-delay: calc(var(--sd-step, 0) * 100ms);
+		// Paused while the row is off screen: seven ripples that sit three viewports below the fold
+		// otherwise run for the life of the page. Must stay BELOW the shorthand on the line above --
+		// Astro scopes to `:where()`, so a later shorthand would silently reset this longhand.
+		//
+		// The default is `running`, not `paused`, so with no script the field animates exactly as it
+		// does today rather than freezing for good.
+		animation-play-state: var(--sd-play, running);
 	}
 
 	@keyframes sd-pulse {
