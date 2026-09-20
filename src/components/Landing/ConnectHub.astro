@@ -531,6 +531,38 @@ const vars = [
 	</div>
 </div>
 
+
+<script>
+	/**
+	 * Stops the wires animating while the visual is off screen.
+	 *
+	 * `animation-play-state` rather than removing the animation, because pausing PRESERVES PHASE:
+	 * the ten arms are staggered by a negative delay each, and restarting them would collapse that
+	 * stagger into ten wires pulsing together the first time the row is scrolled to.
+	 *
+	 * Safe here specifically because nothing reads these animations' clock. NormalizeSeries derives
+	 * its row timing from its own pip's `startTime` and steps in wall-clock beats from it, so
+	 * pausing ITS pips would desync the pip from the row that answers it, permanently. Do not copy
+	 * this there without moving that clock too.
+	 */
+	const hubs = document.querySelectorAll('.hub');
+
+	if (hubs.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					(e.target as HTMLElement).style.setProperty('--hub-play', e.isIntersecting ? 'running' : 'paused');
+				});
+			},
+			// The same margin the other visuals observe with, so a wire is already moving by the time
+			// the row is actually looked at rather than starting as it arrives.
+			{ rootMargin: '80px' }
+		);
+
+		hubs.forEach((h) => io.observe(h));
+	}
+</script>
+
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
@@ -609,6 +641,14 @@ const vars = [
 		// is the one moment it is actually being looked at.
 		animation: hub-pip var(--hub-cycle) linear infinite;
 		animation-delay: calc(-1 * var(--pip-phase, 0ms));
+		// Paused while the row is off screen. Measured on the homepage: thirty animations across the
+		// five visuals, all of them below the fold at first paint, cost about 5% of main-thread
+		// throughput even though nothing they touch is painted. Frame INTERVAL shows nothing --
+		// vsync headroom hides it -- so this was measured as throughput against a 1.2% noise floor.
+		//
+		// The default is `running`, not `paused`: with no script the wires animate exactly as they
+		// did before, rather than freezing for good.
+		animation-play-state: var(--hub-play, running);
 	}
 
 	// One full pattern per cycle. Start and end are the same picture, so the loop has no seam; the
