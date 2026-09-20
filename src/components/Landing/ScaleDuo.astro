@@ -120,6 +120,10 @@ const R = S / 3;
 
 const r2 = (v: number) => +v.toFixed(2);
 const px = (c: number) => r2(c * (S + G));
+// Emitted straight onto attributes, so rounded here rather than in the arithmetic — the unrounded
+// S and R still feed px(), FIELD_H, T, BLEED and PAD, all of which need the full value.
+const S2 = r2(S);
+const R2 = r2(R);
 
 /**
  * How far the ripple grows, and the bleed the field reserves for it.
@@ -269,10 +273,9 @@ const TRAIT_U = 14;
 const TRAIT_PX = 14;
 
 const vars = [
-	// `100cqw / NATIVE` still takes over in any container too narrow for the cap, so the phone widths
+	// `100cqw / EXTENT` still takes over in any container too narrow for the cap, so the phone widths
 	// are untouched by this — only containers wide enough to have been capped anyway.
 	`--sd-u: min(calc(${TRAIT_PX}px / ${TRAIT_U}), calc(100cqw / ${EXTENT}))`,
-	`--sd-native: ${NATIVE}`,
 	`--sd-extent: ${EXTENT}`,
 	`--sd-card-bleed: ${CARD_BLEED}`,
 	`--sd-cols: ${modes.length}`,
@@ -302,13 +305,13 @@ const vars = [
 						aria-hidden="true"
 					>
 						{Array.from({ length: COLS * ROWS }).map((_, n) => (
-							<rect class="sd__cell" x={px(n % COLS)} y={px(Math.floor(n / COLS))} width={S} height={S} rx={R} />
+							<rect class="sd__cell" x={px(n % COLS)} y={px(Math.floor(n / COLS))} width={S2} height={S2} rx={R2} />
 						))}
 						{bridges(PATTERNS[i]).map((b) => (
 							<rect class="sd__link" x={b.x} y={b.y} width={b.width} height={b.height} />
 						))}
 						{PATTERNS[i].map((cell) => (
-							<rect class="sd__lit" x={px(cell.c)} y={px(cell.r)} width={S} height={S} rx={R} />
+							<rect class="sd__lit" x={px(cell.c)} y={px(cell.r)} width={S2} height={S2} rx={R2} />
 						))}
 						{/* The ripple rides ON TOP of the lit cells rather than replacing their fill, so the
 						    still frame — reduced motion, and the OG image, which cannot animate at all — is
@@ -320,9 +323,9 @@ const vars = [
 									style={`--sd-step: ${STEPS[i][n]}`}
 									x={px(cell.c)}
 									y={px(cell.r)}
-									width={S}
-									height={S}
-									rx={R}
+									width={S2}
+									height={S2}
+									rx={R2}
 								/>
 							))}
 					</svg>
@@ -407,7 +410,7 @@ const vars = [
 		// without making any of it smaller. Three gaps at six units saved is 18px off the card.
 		row-gap: u(14);
 		column-gap: u(var(--sd-gap));
-		// Border-box, so the columns still measure `--sd-native` between the paddings and every
+		// Border-box, so the columns still measure NATIVE — 474 units — between the paddings and every
 		// number inside the drawing is unchanged. What the padding buys is that the cards' overhang
 		// now falls INSIDE the element: the white surfaces stop exactly at the container's edges,
 		// which are the row's 4px gutter — the same gutter the other four visuals sit in.
@@ -690,14 +693,7 @@ const vars = [
 		// it nothing — the reason to drop this line is that it is too small to read, which is not a
 		// reason a screen reader shares.
 		.sd__trait {
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			padding: 0;
-			margin: -1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-			white-space: nowrap;
+			@include visually-hidden;
 		}
 
 		.sd__mode {
@@ -718,13 +714,6 @@ const vars = [
 	}
 
 	.sd__sr {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
+		@include visually-hidden;
 	}
 </style>
