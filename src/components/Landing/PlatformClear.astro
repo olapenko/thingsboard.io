@@ -1092,7 +1092,8 @@ const vars = [
 	// every wire — four near-white notches that read as breaks in the lines, which is the exact
 	// artefact the pip's own colour note exists to avoid. `ConnectHub` removes the element too.
 	@media (prefers-reduced-motion: reduce) {
-		.plat__pip {
+		.plat__pip,
+		.plat__stem-line::after {
 			display: none;
 		}
 	}
@@ -1207,12 +1208,49 @@ const vars = [
 	}
 
 	.plat__stem-line {
+		position: relative;
 		flex: 1 1 auto;
 		width: u(var(--plat-wire-w));
 		border-radius: u(var(--plat-wire-r));
 		background: currentColor;
+		overflow: hidden;
 	}
 
+	// THE STACKED CUT'S SIGNAL. The wide cut animates `stroke-dashoffset` on a copy of each SVG wire,
+	// and none of that exists down here: the bands are `display: none` and these stems are CSS boxes.
+	//
+	// So the pip is a gradient band inside the line, swept by `transform` alone — no layout, no paint,
+	// one compositor property, four elements. The band is sized as a PERCENTAGE of the line and the
+	// sweep runs -100% to 100%, so it works at whatever height the row gives the stem and needs no
+	// number from the frontmatter. Same cycle and the same golden-ratio phases as the wide cut, so
+	// the four never pulse together.
+	.plat__stem-line::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(
+			to bottom,
+			transparent 0%,
+			color-mix(in srgb, currentColor 28%, #fff) 6%,
+			transparent 12%
+		);
+		animation: plat-stem-pip var(--plat-cycle) linear infinite;
+		animation-delay: calc(-1 * var(--pip-phase, 0ms));
+	}
+
+	// The run travels the other way, so its signal does too.
+	.plat__stem[data-dir='up'] .plat__stem-line::after {
+		animation-direction: reverse;
+	}
+
+	@keyframes plat-stem-pip {
+		from {
+			transform: translateY(-100%);
+		}
+
+		to {
+			transform: translateY(100%);
+		}
 	}
 
 	.plat__stem-head {
