@@ -393,16 +393,6 @@ const curveRight = (i: number) => {
 	return `M ${x0},${y0} ${run}C ${turn - k},${y0} ${x1 + k},${y1} ${x1},${y1}`;
 };
 
-/**
- * Every chip carries a fade, both ranks.
- *
- * An inner chip's fade does run back past the outer rank's column, and that turns out to be fine
- * rather than a collision: the two ranks never share a y, so an inner fade always sits in a lane
- * the outer chips have left empty. Restricting it to the outer rank was tried and made the inner
- * four look like a different kind of thing from the outer two.
- */
-const hasFade = (_c: Arm) => true;
-
 /* --- the signal ------------------------------------------------------------------------------
  *
  * The same pip NormalizeSeries runs, on the same terms: a second copy of each wire carrying a dash
@@ -444,7 +434,6 @@ const vars = [
 	`--hub-chip-h: ${CHIP_H}`,
 	`--hub-chip-font: ${CHIP_FONT}`,
 	`--hub-stub: ${STUB}`,
-	`--hub-col: ${COL}`,
 	`--hub-mid-y: ${MID_Y}`,
 ].join('; ');
 ---
@@ -472,29 +461,32 @@ const vars = [
 			    right: two sequences of the same length would phase-mirror each other, and a picture
 			    whose left and right fire in step is a picture with a pattern in it. */
 			}
-			{LEFT.map((c, i) => (
-				<path
-					class="hub__pip"
-					d={curveLeft(i)}
-					pathLength="100"
-					style={`--pip-accent: ${c.accent}; --pip-phase: ${phase(i)}ms`}
-				/>
-			))}
-			{RIGHT.map((c, i) => (
-				<path
-					class="hub__pip"
-					d={curveRight(i)}
-					pathLength="100"
-					style={`--pip-accent: ${c.accent}; --pip-phase: ${phase(LEFT.length + i)}ms`}
-				/>
-			))}
+			{
+				LEFT.map((c, i) => (
+					<path
+						class="hub__pip"
+						d={curveLeft(i)}
+						pathLength="100"
+						style={`--pip-accent: ${c.accent}; --pip-phase: ${phase(i)}ms`}
+					/>
+				))
+			}
+			{
+				RIGHT.map((c, i) => (
+					<path
+						class="hub__pip"
+						d={curveRight(i)}
+						pathLength="100"
+						style={`--pip-accent: ${c.accent}; --pip-phase: ${phase(LEFT.length + i)}ms`}
+					/>
+				))
+			}
 		</svg>
 
 		{
 			LEFT.map((c, i) => (
 				<span
 					class="hub__chip hub__chip--l"
-					data-fade={hasFade(c) ? '' : undefined}
 					style={`--hub-accent: ${c.accent}; --hub-y: ${cyOf(LEFT, i)}; --hub-edge: ${edgeL(rankOf(c))}`}
 				>
 					{c.name}
@@ -505,7 +497,6 @@ const vars = [
 			RIGHT.map((c, i) => (
 				<span
 					class="hub__chip hub__chip--r"
-					data-fade={hasFade(c) ? '' : undefined}
 					style={`--hub-accent: ${c.accent}; --hub-y: ${cyOf(RIGHT, i)}; --hub-edge: ${edgeR(rankOf(c))}`}
 				>
 					{c.name}
@@ -531,6 +522,11 @@ const vars = [
 
 	.hub {
 		--u: var(--hub-u);
+		// ONE NUMBER FOR THE WHOLE LINE: the curve in, the pip riding it, and the fade out the other
+		// side of the chip. They are one line with a chip sitting in the middle of it, so they move
+		// together or the line visibly steps where it meets the chip. It was written out in three
+		// places, which made the stroke a three-edit change with two chances to miss one.
+		--hub-wire-w: max(1px, #{u(2)});
 		position: relative;
 		width: u(var(--hub-native));
 		max-width: 100%;
@@ -549,11 +545,16 @@ const vars = [
 		overflow: visible;
 	}
 
-	// Stroke comes from the markup, per chip. Weight matches the fade on the other side of the chip,
-	// so what crosses the picture is one line with a chip sitting in the middle of it.
-	.hub__wire {
+	// Stroke colour comes from the markup, per chip; everything else the wire and its pip share.
+	//
+	// `vector-effect` is load-bearing rather than decoration. Inside the viewBox a `2 * var(--u)` px
+	// stroke is read as user units and scaled again by the CTM, which would paint it under a pixel on
+	// a phone. The `max(1px, …)` floor is NOT what protects that: it only bites below a 262px
+	// container, and the narrowest real one is about 312.
+	.hub__wire,
+	.hub__pip {
 		fill: none;
-		stroke-width: max(1px, #{u(2)});
+		stroke-width: var(--hub-wire-w);
 		stroke-linecap: round;
 		vector-effect: non-scaling-stroke;
 	}
@@ -570,11 +571,7 @@ const vars = [
 	// The rail's own weight, not a heavier one. A thicker pip reads as a bulge moving down the wire;
 	// at the same weight it is the wire itself lighting up, and colour is all that changes.
 	.hub__pip {
-		fill: none;
 		stroke: color-mix(in srgb, var(--pip-accent, var(--color-primary, #3d50f5)) 28%, #fff);
-		stroke-width: max(1px, #{u(2)});
-		stroke-linecap: round;
-		vector-effect: non-scaling-stroke;
 		stroke-dasharray: var(--hub-dash);
 		// Negative, so the cycle is already under way on the first frame. A positive delay would hold
 		// nine of the ten arms dark for up to a full cycle after the visual scrolls into view, which
@@ -609,23 +606,28 @@ const vars = [
 	// chips sit against the gutter and are ragged on the outside, so their outer edges are at four
 	// different x — an SVG line at a fixed x started in mid-air beside the short ones. Anchored to
 	// the chip, it starts where the chip ends by construction.
-	.hub__chip[data-fade]::after {
+	// EVERY CHIP CARRIES A FADE, both ranks — so there is no attribute to test. An inner chip's fade
+	// does run back past the outer rank's column, and that is fine rather than a collision: the two
+	// ranks never share a y, so an inner fade always sits in a lane the outer chips have left empty.
+	// Restricting it to the outer rank was tried and made the inner four look like a different kind
+	// of thing from the outer two.
+	.hub__chip::after {
 		content: '';
 		position: absolute;
 		top: 50%;
 		width: u(var(--hub-stub));
-		height: max(1px, #{u(2)});
+		height: var(--hub-wire-w);
 		transform: translateY(-50%);
 	}
 
 	// Flush against the chip, no margin: the run out and the curve in are the same line passing
 	// through, and a gap on one side only made the chip look detached from its own tail.
-	.hub__chip--l[data-fade]::after {
+	.hub__chip--l::after {
 		right: 100%;
 		background: linear-gradient(to left, var(--hub-accent), transparent);
 	}
 
-	.hub__chip--r[data-fade]::after {
+	.hub__chip--r::after {
 		left: 100%;
 		background: linear-gradient(to right, var(--hub-accent), transparent);
 	}
