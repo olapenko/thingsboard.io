@@ -217,12 +217,18 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 			`--norm-pattern: ${PATTERN}`,
 		].join('; ')}
 	>
-		{/* Nested, so one parse is cheaper to read than four attributes to reassemble. */}
+		{
+			/* Nested, so one parse is cheaper to read than four attributes to reassemble. Rounded to 3dp
+		    on the way out: the client feeds these through `sparkPaths`, which quantises to two
+		    decimals in a 100x24 box, and through `readingText`, which is `toFixed(1)` — so the extra
+		    digits are bytes of nothing. The server's own first paint uses the unrounded `paths`
+		    below, so the rendered HTML is unchanged. */
+		}
 		<script
 			is:inline
 			type="application/json"
 			data-norm-plots
-			set:html={JSON.stringify(plots.map((p) => ({ series: p.series, domain: p.domain })))}
+			set:html={JSON.stringify(plots.map((p) => ({ series: p.series.map((v) => +v.toFixed(3)), domain: p.domain })))}
 		/>
 
 		<p class="norm__label norm__label--in">{NORMALIZE_STAGES.in}</p>
@@ -369,6 +375,9 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 		offset: number;
 		/** When the current tween began, or null between tweens. */
 		startAt: number | null;
+		/** The last strings actually painted, so a frame formatting to the same text touches no DOM. */
+		lastNum: string | null;
+		lastRead: string | null;
 		g: SVGGElement | null;
 		line: SVGPathElement | null;
 		area: SVGPathElement | null;
@@ -413,11 +422,24 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 		p.area.setAttribute('d', d.area);
 	}
 
+	// Cached fields rather than reading `textContent` back, so the unchanged case touches no DOM at
+	// all. Both start null, so the first paint writes once even where it matches the server's markup.
+	//
+	// `payloadTokens`/`readingText` stay as they are: the array they allocate per frame is the price
+	// of having ONE definition of the conversion, which is the whole reason the translation can be
+	// trusted. See the note above.
 	function paint(p: Plot, i: number, celsius: number) {
 		const c = NORMALIZE_CASES[i];
 		const num = payloadTokens(c, celsius).find((t) => t.role === 'num');
-		if (num && p.num) p.num.textContent = num.t;
-		if (p.read) p.read.textContent = readingText(c, celsius);
+		if (num && p.num && num.t !== p.lastNum) {
+			p.num.textContent = num.t;
+			p.lastNum = num.t;
+		}
+		const r = readingText(c, celsius);
+		if (p.read && r !== p.lastRead) {
+			p.read.textContent = r;
+			p.lastRead = r;
+		}
 	}
 
 	function setup(now: number): Live[] {
@@ -457,6 +479,8 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 						// past a step boundary.
 						offset: pulse ? i * stagger + react : 0,
 						startAt: null,
+						lastNum: null,
+						lastRead: null,
 						g,
 						line: g?.querySelector<SVGPathElement>('.norm__spark-line') ?? null,
 						area: g?.querySelector<SVGPathElement>('.norm__spark-area') ?? null,
@@ -474,20 +498,11 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 
 	if (all.length) {
 		const visible = new Set<HTMLElement>();
-		const io = new IntersectionObserver(
-			(entries) => {
-				entries.forEach((e) =>
-					e.isIntersecting ? visible.add(e.target as HTMLElement) : visible.delete(e.target as HTMLElement)
-				);
-			},
-			{ rootMargin: '80px' }
-		);
-		all.forEach((l) => io.observe(l.root));
+		let running = false;
 
 		const frame = (now: number) => {
 			all.forEach((l) => {
 				if (!visible.has(l.root)) return;
-				const seg = segmentWidth(l.window, l.view);
 
 				if (now - l.lastStep >= l.step) {
 					// Stepped in exact multiples of the beat from the connectors' own clock, so the two
@@ -499,6 +514,10 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 					l.started = now;
 				}
 				if (!l.started) return;
+
+				// Below both early returns on purpose: above them it was recomputed every frame for
+				// every root, including the ones with nothing to tween.
+				const seg = segmentWidth(l.window, l.view);
 
 				l.plots.forEach((p, i) => {
 					// Its pip has not landed yet. The row holds what it had — which is the point: the
@@ -531,8 +550,31 @@ const plots = NORMALIZE_CASES.map((c, i) => {
 				if (l.plots.every((p) => p.startAt === null)) l.started = 0;
 			});
 
-			requestAnimationFrame(frame);
+			// Nothing on screen means nothing to do, and re-arming anyway wakes the main thread every
+			// frame for the life of the page. Restarting is free: the beat is snapped forward from
+			// `origin` above rather than replayed, so any gap lands on the current beat.
+			if (visible.size) requestAnimationFrame(frame);
+			else running = false;
 		};
+
+		// Declared after `frame` so becoming visible can restart a parked loop without reaching
+		// forward to a binding that does not exist yet.
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) =>
+					e.isIntersecting ? visible.add(e.target as HTMLElement) : visible.delete(e.target as HTMLElement)
+				);
+
+				if (visible.size && !running) {
+					running = true;
+					requestAnimationFrame(frame);
+				}
+			},
+			{ rootMargin: '80px' }
+		);
+		all.forEach((l) => io.observe(l.root));
+
+		running = true;
 		requestAnimationFrame(frame);
 	}
 </script>
