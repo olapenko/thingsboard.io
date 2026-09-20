@@ -527,6 +527,33 @@ const vars = [
 	</div>
 </div>
 
+<script>
+	/**
+	 * Stops the signals animating while the visual is off screen.
+	 *
+	 * Pausing rather than removing, because the pips are phase-staggered by a negative delay each
+	 * and restarting them would collapse that stagger the first time the row is scrolled to.
+	 *
+	 * Safe here because nothing reads these animations' clock. NormalizeSeries derives its row
+	 * timing from its own pip's `startTime` and steps in wall-clock beats from it, so pausing ITS
+	 * pips would desync the pip from the row that answers it. Do not copy this there as-is.
+	 */
+	const plats = document.querySelectorAll('.plat');
+
+	if (plats.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					(e.target as HTMLElement).style.setProperty('--plat-play', e.isIntersecting ? 'running' : 'paused');
+				});
+			},
+			{ rootMargin: '80px' }
+		);
+
+		plats.forEach((p) => io.observe(p));
+	}
+</script>
+
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
@@ -1063,6 +1090,9 @@ const vars = [
 		// Negative, so every wire is already part-way through its cycle on the first frame rather
 		// than holding dark until its turn comes round.
 		animation: plat-pip var(--plat-cycle) linear infinite;
+		// Paused while the visual is off screen -- see the script below. Default `running`, so with
+		// no script these behave exactly as they did before rather than freezing for good.
+		animation-play-state: var(--plat-play, running);
 		animation-delay: calc(-1 * var(--pip-phase, 0ms));
 	}
 
@@ -1235,6 +1265,9 @@ const vars = [
 			transparent 12%
 		);
 		animation: plat-stem-pip var(--plat-cycle) linear infinite;
+		// Paused while the visual is off screen -- see the script below. Default `running`, so with
+		// no script these behave exactly as they did before rather than freezing for good.
+		animation-play-state: var(--plat-play, running);
 		animation-delay: calc(-1 * var(--pip-phase, 0ms));
 	}
 
