@@ -9,6 +9,13 @@
  * commercial copy and the design it sits in — can be edited apart.
  */
 
+// Link targets used from more than one place below. Declared up here because `paasChoice` reads
+// one of them and a `const` cannot be referenced before its own line has run.
+const CONTACT = '/contact-us/';
+/** The Private Cloud enquiry form. `pcorder` is the flag the contact form routes on — keep it. */
+const CONTACT_PRIVATE_CLOUD = '/contact-us/?subject=Private%20Cloud&pcorder&message=I%20am%20interested%20in%20Private%20Cloud';
+const SUBSCRIPTIONS = '/docs/paas/reference/subscriptions/';
+
 export interface PaasBenefit {
 	/** Tabler name, rendered as the squircle mark the candidate rows carry. */
 	icon: string;
@@ -54,22 +61,40 @@ export const paasBenefits: PaasBenefit[] = [
 	},
 ];
 
-/** Develop's "Public vs Private cloud choice" card, split into the two options it links to. */
+/**
+ * Develop's "Public vs Private cloud choice" card, split into the two options it names.
+ *
+ * This is the page's ONLY call to action for the two deployments, and it sits directly under the
+ * comparison table. It used to lead the page as well, which meant the same two-way decision was put
+ * twice — once before the reader had anything to decide on, and once under the table that answers
+ * it. The table is the answer, so the choice belongs with it.
+ *
+ * `price` is the entry number and nothing more. The full ladder — five Public plans, four Private —
+ * is `/pricing/`'s job, which is what `plansHref` deep-links into; repeating it here would put the
+ * same figures on two pages from two sources and let them drift. Both numbers below are the ones
+ * the matrix already states under "Starting price".
+ */
 export const paasChoice = {
-	title: 'Public vs Private cloud choice',
-	lead: 'Choose Public Cloud for the fastest, shared-infrastructure start — or Private Cloud for a dedicated, isolated cluster with stronger SLA and higher throughput.',
+	title: 'Choose your deployment',
+	lead: 'Public Cloud for the fastest, shared-infrastructure start — or Private Cloud for a dedicated, isolated cluster with a stronger SLA and higher throughput.',
 	options: [
 		{
 			name: 'Public Cloud',
-			href: '/pricing/?product=thingsboard-cloud',
+			price: 'From $0',
+			priceNote: 'Free tier up to 5 devices',
 			summary: 'The fastest, shared-infrastructure start.',
 			points: ['Shared multi-tenant environment', 'Under 5 minutes, self-serve', '30 days free, no card required'],
+			cta: { text: 'Try Cloud for free', href: 'https://thingsboard.cloud/signup' },
+			plansHref: '/pricing/?product=thingsboard-cloud',
 		},
 		{
 			name: 'Private Cloud',
-			href: '/pricing/?product=thingsboard-private-cloud',
+			price: 'From $1,499',
+			priceNote: 'Per month, 5,000 devices',
 			summary: 'A dedicated, isolated cluster with a stronger SLA.',
 			points: ['Dedicated, isolated Kubernetes cluster', 'Provisioned by our team in hours', '99.9% – 99.99% uptime SLA'],
+			cta: { text: 'Contact us', href: CONTACT_PRIVATE_CLOUD },
+			plansHref: '/pricing/?product=thingsboard-private-cloud',
 		},
 	],
 };
@@ -290,8 +315,6 @@ export interface FaqCategory {
 	items: FaqItem[];
 }
 
-const CONTACT = '/contact-us/';
-const SUBSCRIPTIONS = '/docs/paas/reference/subscriptions/';
 
 /**
  * Develop's FAQ, all seven categories and all 82 answers.
@@ -666,16 +689,21 @@ export const paasFaq: FaqCategory[] = [
 	},
 ];
 
-/** The two calls to action the develop page repeats in its hero, matrix footer and closing band. */
+/**
+ * The two calls to action the develop page repeats in its hero and closing band.
+ *
+ * `primary` does NOT keep develop's href. There it points at `/installations/`, the guide to
+ * installing ThingsBoard on your own infrastructure — which is the opposite of what a "try the
+ * managed cloud for free" button on the Cloud page should do, and looks like a copy-paste from a
+ * self-hosted page rather than a decision. It points at the Cloud signup, which is where the
+ * homepage's own "Try for free" goes. The EU region signs up at `eu.thingsboard.cloud/signup`; the
+ * FAQ gives both, and this follows the homepage in offering the one.
+ */
 export const paasCtas = {
-	primary: { text: 'Try Cloud for free', href: '/installations/' },
+	primary: { text: 'Try Cloud for free', href: 'https://thingsboard.cloud/signup' },
 	secondary: {
 		text: 'Talk to an expert',
 		href: '/contact-us/?subject=ThingsBoard%20Products&message=I%20have%20a%20question%20about%20ThingsBoard%20Cloud',
-	},
-	privateCloud: {
-		text: 'Contact us',
-		href: '/contact-us/?subject=Private%20Cloud&pcorder&message=I%20am%20interested%20in%20Private%20Cloud',
 	},
 	privacy: { text: 'ThingsBoard Cloud Privacy policy', href: '/products/paas/privacy-policy/' },
 };

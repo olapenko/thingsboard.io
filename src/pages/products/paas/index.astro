@@ -32,9 +32,12 @@ import {
  *     headline. It carries develop's long statement as its subtitle, so the page says what it is
  *     in the hero rather than in a band below it — which is why there is no `IntroSection` here.
  *   - The customer strip and the "Top supplier retail 2024" badge are both off.
- *   - The five icon cards become four squircle-marked cards plus a chooser. Develop's fifth card,
- *     "Public vs Private cloud choice", was doing a different job from the other four: it picks
- *     between two products where they describe one. It leads instead, as the two-card `#choice`.
+ *   - The five icon cards become four squircle-marked cards. Develop's fifth, "Public vs Private
+ *     cloud choice", was doing a different job from the other four — it picks between two products
+ *     where they describe one — so it is the two-card chooser UNDER the comparison table, with the
+ *     entry price and a call to action on each card. It briefly led the page instead, which put the
+ *     same decision twice: once before the reader had seen anything to decide on, and again as the
+ *     table's own CTA row.
  *   - "Platform features" LEADS the comparison rather than closing it: what you get on either
  *     deployment, then how the two differ. Develop has this the other way round, as the second half
  *     of one table. `White-labeling` did not come with it — it is the one row of that half whose
@@ -91,7 +94,7 @@ const FAQ_VISIBLE = 6;
 		]}
 		layout="split"
 		showArrow={false}
-		anchorLink="#choice"
+		anchorLink="#benefits"
 		videoBackground={{
 			webm: 'https://video.thingsboard.io/pe-cover.webm',
 			mp4: 'https://video.thingsboard.io/pe-cover.mp4',
@@ -99,35 +102,6 @@ const FAQ_VISIBLE = 6;
 	/>
 
 	<section id="overflow">
-		{/* The chooser. Develop states this as a card in the grid; it is the page's first question. */}
-		<section id="choice">
-			<div class="main-div">
-				<SectionHeader title={paasChoice.title} subtitle={paasChoice.lead} titleSize="section" subtitleMeasure="copy" />
-				<div class="choice-grid">
-					{
-						paasChoice.options.map((option) => (
-							<a class="choice-card" href={option.href}>
-								<h3 class="choice-card__name">{option.name}</h3>
-								<p class="choice-card__summary">{option.summary}</p>
-								<ul class="choice-card__points">
-									{option.points.map((point) => (
-										<li>
-											<Icon name="tabler:check" aria-hidden="true" />
-											{point}
-										</li>
-									))}
-								</ul>
-								<span class="choice-card__action">
-									See plans
-									<Icon name="tabler:chevron-right" aria-hidden="true" />
-								</span>
-							</a>
-						))
-					}
-				</div>
-			</div>
-		</section>
-
 		<section id="benefits">
 			<div class="main-div">
 				<SectionHeader
@@ -235,17 +209,47 @@ const FAQ_VISIBLE = 6;
 					</table>
 				</div>
 
-				<div class="matrix-cta">
-					<a class="matrix-cta__primary" href={paasCtas.primary.href}>
-						<Icon name="tabler:cloud-filled" aria-hidden="true" />
-						{paasCtas.primary.text}
-						<span class="sr-only">— ThingsBoard Public Cloud</span>
-					</a>
-					<a class="matrix-cta__secondary" href={paasCtas.privateCloud.href}>
-						{paasCtas.privateCloud.text}
-						<span class="sr-only">— ThingsBoard Private Cloud</span>
-						<Icon name="tabler:chevron-right" aria-hidden="true" />
-					</a>
+				{/* The choice, directly under the table that informs it. Each card is a plain <div>, not
+				    a link: it carries two actions, and an anchor cannot contain another one. */}
+				<div class="choice">
+					<h3 class="choice__title">{paasChoice.title}</h3>
+					<p class="choice__lead">{paasChoice.lead}</p>
+
+					<div class="choice-grid">
+						{
+							paasChoice.options.map((option) => (
+								<div class="choice-card">
+									<h4 class="choice-card__name">{option.name}</h4>
+									<p class="choice-card__price">
+										{option.price}
+										<span class="choice-card__price-note">{option.priceNote}</span>
+									</p>
+									<p class="choice-card__summary">{option.summary}</p>
+									<ul class="choice-card__points">
+										{option.points.map((point) => (
+											<li>
+												<Icon name="tabler:check" aria-hidden="true" />
+												{point}
+											</li>
+										))}
+									</ul>
+									<div class="choice-card__actions">
+										<a class="choice-card__cta" href={option.cta.href}>
+											{option.cta.text}
+											{/* Each card's actions read "Try Cloud for free" and "See plans" — fine beside
+											    their own heading, ambiguous in a list of every link on the page. */}
+											<span class="sr-only">— ThingsBoard {option.name}</span>
+										</a>
+										<a class="choice-card__plans" href={option.plansHref}>
+											See plans
+											<span class="sr-only">for ThingsBoard {option.name}</span>
+											<Icon name="tabler:chevron-right" aria-hidden="true" />
+										</a>
+									</div>
+								</div>
+							))
+						}
+					</div>
 				</div>
 			</div>
 		</section>
@@ -753,125 +757,6 @@ const FAQ_VISIBLE = 6;
 	}
 
 	// ---------------------------------------------------------------------------------------------
-	// The chooser
-	// ---------------------------------------------------------------------------------------------
-	#choice {
-		padding-bottom: $spacing-20;
-
-		@include media-down(md) {
-			padding-bottom: $spacing-12;
-		}
-
-		.section-header {
-			margin-bottom: $spacing-10;
-		}
-	}
-
-	.choice-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: $spacing-6;
-		max-width: 960px;
-		margin-inline: auto;
-
-		@include media-down(md) {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	.choice-card {
-		display: flex;
-		flex-direction: column;
-		gap: $spacing-3;
-		padding: $spacing-8;
-		border: 1px solid rgba(61, 80, 245, 0.16);
-		border-radius: 16px;
-		background-color: #fff;
-		color: var(--color-text);
-		text-decoration: none;
-		transition:
-			border-color 0.15s ease,
-			transform 0.15s ease;
-
-		&:hover,
-		&:focus-visible {
-			border-color: $color-brand;
-			transform: translateY(-2px);
-		}
-
-		&:focus-visible {
-			outline: 2px solid $color-brand;
-			outline-offset: 3px;
-		}
-
-		@media (prefers-reduced-motion: reduce) {
-			transition: border-color 0.15s ease;
-
-			&:hover,
-			&:focus-visible {
-				transform: none;
-			}
-		}
-
-		&__name {
-			@include subsection-title;
-			margin: 0;
-			color: var(--color-text);
-		}
-
-		&__summary {
-			@include type-body;
-			margin: 0;
-			color: var(--color-text-secondary);
-		}
-
-		&__points {
-			@include type-small;
-			display: flex;
-			flex-direction: column;
-			gap: $spacing-2;
-			margin: $spacing-2 0 0;
-			padding: 0;
-			list-style: none;
-
-			li {
-				display: flex;
-				align-items: flex-start;
-				gap: $spacing-2;
-			}
-
-			svg {
-				flex: none;
-				width: 18px;
-				height: 18px;
-				margin-top: 2px;
-				color: $color-brand;
-			}
-		}
-
-		&__action {
-			@include type-action;
-			display: inline-flex;
-			align-items: center;
-			gap: 2px;
-			margin-top: auto;
-			padding-top: $spacing-4;
-			color: $color-brand;
-
-			svg {
-				width: 18px;
-				height: 18px;
-			}
-		}
-
-		&:hover &__action,
-		&:focus-visible &__action {
-			text-decoration: underline;
-			text-underline-offset: 3px;
-		}
-	}
-
-	// ---------------------------------------------------------------------------------------------
 	// Benefits
 	// ---------------------------------------------------------------------------------------------
 	#benefits {
@@ -1098,15 +983,126 @@ const FAQ_VISIBLE = 6;
 		}
 	}
 
-	.matrix-cta {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: $spacing-4;
-		margin-top: $spacing-10;
+	// ---------------------------------------------------------------------------------------------
+	// THE CHOICE, under the table that informs it.
+	//
+	// This was two buttons in a `.matrix-cta` row, with the same decision also put as a full section
+	// at the top of the page. One decision, asked twice, and the first time before the reader had
+	// seen anything to decide on. The cards are the top section's, moved down and given the entry
+	// price and their own call to action.
+	// ---------------------------------------------------------------------------------------------
+	.choice {
+		margin-top: $spacing-16;
 
-		&__primary,
-		&__secondary {
+		@include media-down(md) {
+			margin-top: $spacing-10;
+		}
+
+		&__title {
+			@include subsection-title;
+			margin: 0 0 $spacing-3;
+			text-align: center;
+			color: var(--color-text);
+		}
+
+		&__lead {
+			@include type-body;
+			max-width: 65ch;
+			margin: 0 auto $spacing-8;
+			text-align: center;
+			text-wrap: pretty;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	.choice-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: $spacing-6;
+		max-width: 960px;
+		margin-inline: auto;
+
+		@include media-down(md) {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.choice-card {
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-3;
+		padding: $spacing-8;
+		border: 1px solid rgba(61, 80, 245, 0.16);
+		border-radius: 16px;
+		// The section's band is tinted, so the cards take white to lift off it.
+		background-color: #fff;
+
+		&__name {
+			@include subsection-title;
+			margin: 0;
+			color: var(--color-text);
+		}
+
+		// The entry number and nothing else. The ladder is `/pricing/`'s, which "See plans" opens on
+		// the right product.
+		&__price {
+			@include type-action;
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+			margin: 0;
+			font-weight: $font-weight-bold;
+			color: $color-brand;
+		}
+
+		&__price-note {
+			@include type-small;
+			font-weight: $font-weight-normal;
+			color: var(--color-text-secondary);
+		}
+
+		&__summary {
+			@include type-body;
+			margin: 0;
+			color: var(--color-text-secondary);
+		}
+
+		&__points {
+			@include type-small;
+			display: flex;
+			flex-direction: column;
+			gap: $spacing-2;
+			margin: $spacing-2 0 0;
+			padding: 0;
+			list-style: none;
+
+			li {
+				display: flex;
+				align-items: flex-start;
+				gap: $spacing-2;
+			}
+
+			svg {
+				flex: none;
+				width: 18px;
+				height: 18px;
+				margin-top: 2px;
+				color: $color-brand;
+			}
+		}
+
+		// `margin-top: auto` on the actions, not on the card: the two cards carry different numbers of
+		// lines, and this is what keeps their buttons on one line across the pair.
+		&__actions {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: $spacing-4;
+			margin-top: auto;
+			padding-top: $spacing-6;
+		}
+
+		&__cta {
 			// ClosingCta's geometry, which is the hero pair's — so every button on the page matches.
 			@include type-button;
 			display: inline-flex;
@@ -1115,12 +1111,12 @@ const FAQ_VISIBLE = 6;
 			height: 44px;
 			padding: 0 $spacing-4;
 			border-radius: $radius-md;
+			background-color: $color-brand;
+			color: #fff;
 			text-decoration: none;
 
-			svg {
-				width: 18px;
-				height: 18px;
-				flex: 0 0 auto;
+			&:hover {
+				background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
 			}
 
 			&:focus-visible {
@@ -1129,21 +1125,22 @@ const FAQ_VISIBLE = 6;
 			}
 		}
 
-		&__primary {
-			background-color: $color-brand;
-			color: #fff;
-
-			&:hover {
-				background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
-			}
-		}
-
-		&__secondary {
-			border: 1px solid rgba(61, 80, 245, 0.35);
+		&__plans {
+			@include type-link;
+			display: inline-flex;
+			align-items: center;
+			gap: 2px;
 			color: $color-brand;
 
-			&:hover {
-				background-color: rgba(61, 80, 245, 0.08);
+			svg {
+				width: 18px;
+				height: 18px;
+			}
+
+			&:hover,
+			&:focus-visible {
+				text-decoration: underline;
+				text-underline-offset: 3px;
 			}
 		}
 	}
