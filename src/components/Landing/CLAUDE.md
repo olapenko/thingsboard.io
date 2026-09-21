@@ -355,23 +355,48 @@ What to look at, in the order it is likely to pay:
 
 ### Arrow styles need an audit
 
-There are at least **four different ways of drawing the same arrowhead** in this directory, and no
+NOTHING HAS BEEN HARMONISED. This entry was recorded in `a9d8a5bdd` and is still a description of
+the problem, not of any work done on it. Checked again on 2026-09-21 against every visual on the
+homepage; the table below is the state as of that date.
+
+There are at least **five different ways of drawing the same arrowhead** in this directory, and no
 reason recorded for any of them being different from the others:
 
 | Visual | How the head is drawn |
 | --- | --- |
 | `SolutionFlow` | CSS: two borders of a box, rotated 45°, pulled back by 1.2071 × the box |
 | `NormalizeSeries`, `NormalizeFlow` | SVG `path`, a three-point chevron at fixed 6/4 units |
+| `PlatformClear` | SVG `path` again, but its own three-point chevron off `STEM`/`WING`/`HEAD`, in a box deliberately taller than the path (`HEAD_BOX_H`) |
 | `GatewayDiagram` | SVG `marker-end`, referencing defs |
 | `ConnectHub` | none at all — the wires fade out instead |
 | `DigitalTwin`, `TwinCorridor` | CSS borders again, but off their own `--twin-rail-*` tokens |
 
-Four techniques means four behaviours under the things these drawings actually do: scaling with a
+`PlatformClear` is the row this table was missing, and it is the one that matters most: it opens the
+page as the centred section, so its heads are the first a reader sees. It is a SECOND, independent
+SVG chevron — same technique as `NormalizeSeries`, different constants, written without reference to
+it. Two copies of one idea is the cheapest thing on this list to resolve.
+
+ONE CHANGE HAS LANDED SINCE, AND IT WENT THE OTHER WAY. `3dd0e671e` moved `SolutionFlow`'s rail from
+a filled box to a `border-top` so the rail and its own head resolve to the same weight — Blink floors
+a border to whole device pixels while a filled box keeps its fraction, so at the 367-unit phone
+column the rail painted 1.961px against the head's 1.500px. That is a real fix and should stay, but
+note what it does to this audit: it makes the CSS-border technique load-bearing in that visual for a
+reason no other technique satisfies. Any proposal to move `SolutionFlow` onto SVG has to answer that
+measurement first.
+
+Five techniques means five behaviours under the things these drawings actually do: scaling with a
 design unit, changing stroke weight, taking a colour from a token, and animating. The CSS
 triangle's offset is a magic constant that has to be recomputed by hand whenever the head resizes;
 the SVG chevron does not scale with its rail's weight; `marker-end` inherits colour differently
 from both. None of that is visible until two visuals sit in the same row and their arrows disagree.
 
 The audit is not "make them all the same" — `ConnectHub` having no heads is a decision worth
-keeping. It is to find out which differences are decisions and which are just age, and to leave
-one technique per reason with that reason written down.
+keeping, and `SolutionFlow`'s borders now have a measurement behind them. It is to find out which
+differences are decisions and which are just age, and to leave one technique per reason with that
+reason written down.
+
+Where it is likely to pay, in order: the two SVG chevrons (`NormalizeSeries` and `PlatformClear`)
+are one component with two sets of constants; `GatewayDiagram`'s `marker-end` is the only use of
+that mechanism in the directory and inherits colour differently from everything else; and the
+1.2071 constant in `SolutionFlow` is the one number here that has to be recomputed by hand whenever
+a head resizes.
