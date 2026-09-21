@@ -4,6 +4,7 @@ import { Icon } from 'astro-icon/components';
 import { Products } from '@models/site.models';
 
 import Hero from '@components/Landing/Hero.astro';
+import EcosystemMark from '@components/Landing/EcosystemMark.astro';
 import SectionHeader from '@components/Landing/SectionHeader.astro';
 import PricingBackground from '@components/Pricing/PricingBackground.astro';
 import { heroLcpPreload } from '@util/lcp-preload';
@@ -55,9 +56,10 @@ import {
 
 const HERO_BACKGROUND = '/hero/pe-cover.webp';
 
-// The deployment this page is about. The same mark the candidate's deployments band pins to
-// ThingsBoard Cloud in `homeProducts`, so the product is marked the same way in both places.
-const HERO_TITLE_ICON = 'tabler:cloud-filled';
+// The mark the candidate's deployments band gives ThingsBoard Cloud — `homeProducts` knocks this
+// same asset out white on a squircle filled with the primary, so the product is marked the same way
+// in both places.
+const TB_MARK = '/src/assets/images/landings/thingsboard-mark.svg';
 
 // `Hero` shows the "Top supplier retail 2024" badge for CE, PE and both PaaS products unless a page
 // opts out, and `null` is that opt-out — an omitted prop takes the default instead.
@@ -79,7 +81,6 @@ const FAQ_VISIBLE = 6;
 		product={Products.PAAS}
 		backgroundImage={HERO_BACKGROUND}
 		title="ThingsBoard Cloud"
-		titleIcon={HERO_TITLE_ICON}
 		subtitle="ThingsBoard Cloud is an IoT platform for device management, data processing, and visualization with infrastructure managed by our team"
 		achievement={HERO_ACHIEVEMENT}
 		buttons={[
@@ -99,7 +100,13 @@ const FAQ_VISIBLE = 6;
 			webm: 'https://video.thingsboard.io/pe-cover.webm',
 			mp4: 'https://video.thingsboard.io/pe-cover.mp4',
 		}}
-	/>
+	>
+		{/* `kicker` is Hero's own slot, directly above the headline — the mark is an inlined SVG
+		    rather than a Tabler name, so it cannot ride on a prop the way a glyph would. */}
+		<span slot="kicker" class="hero-mark" aria-hidden="true">
+			<EcosystemMark src={TB_MARK} class="hero-mark__glyph" filled />
+		</span>
+	</Hero>
 
 	<section id="overflow">
 		<section id="benefits">
@@ -107,8 +114,9 @@ const FAQ_VISIBLE = 6;
 				<SectionHeader
 					title="Why ThingsBoard Cloud"
 					subtitle="For everyone who would like to use ThingsBoard but doesn't want to host their own instance of the platform."
-					titleSize="section"
+					titleSize="title"
 					subtitleMeasure="copy"
+					badge={{ icon: 'tabler:bulb', color: '#3d50f5' }}
 				/>
 				<div class="benefit-grid">
 					{
@@ -131,8 +139,9 @@ const FAQ_VISIBLE = 6;
 				<SectionHeader
 					title="Platform features"
 					subtitle="Every capability below is included in ThingsBoard Public Cloud and ThingsBoard Private Cloud alike."
-					titleSize="section"
+					titleSize="title"
 					subtitleMeasure="copy"
+					badge={{ icon: 'tabler:box-model', color: '#047857' }}
 				/>
 				<div class="shared-groups">
 					{
@@ -159,8 +168,9 @@ const FAQ_VISIBLE = 6;
 				<SectionHeader
 					title="Public Cloud vs Private Cloud"
 					subtitle="Where the two differ — infrastructure and scale, reliability and operations, compliance, and what each one costs."
-					titleSize="section"
+					titleSize="title"
 					subtitleMeasure="copy"
+					badge={{ icon: 'tabler:arrows-left-right', color: '#006bc7' }}
 				/>
 
 				{/* `scope` on every header cell: the row labels are headers too, which is what lets a screen
@@ -256,7 +266,11 @@ const FAQ_VISIBLE = 6;
 
 		<section id="faq">
 			<div class="main-div">
-				<SectionHeader title="ThingsBoard Cloud FAQ" titleSize="section" />
+				<SectionHeader
+					title="ThingsBoard Cloud FAQ"
+					titleSize="title"
+					badge={{ icon: 'tabler:help-circle', color: '#c2410c' }}
+				/>
 				{/* Develop's arrangement: a sidebar of topics beside one panel, and each panel showing its
 				    first `FAQ_VISIBLE` answers behind a "Load more". The tabs are real `role="tab"`
 				    buttons with roving tabindex, so the set is operable from the keyboard — arrows to
@@ -751,6 +765,67 @@ const FAQ_VISIBLE = 6;
 		color: #e6edf3;
 	}
 
+	// ---------------------------------------------------------------------------------------------
+	// THE HERO
+	//
+	// `body` on each selector: Astro scopes the component's own rules with `:where()`, which carries
+	// no specificity, but `#hero.split` there and `#hero.split` here would still tie and fall to
+	// whichever sheet the bundler emits last. The element selector breaks it outright.
+	// ---------------------------------------------------------------------------------------------
+
+	// The section's height is the video panel's — 16:9 of two thirds of the measure — and on a tall
+	// window that left the hero about two fifths of the screen with the text column half empty under
+	// it. A floor, not a fixed height, so the panel still grows with the viewport up to its own
+	// 720px cap. Only from `lg`, where the two are side by side; below that they stack and the
+	// height is the sum of the two, which needs no floor.
+	@include media-up(lg) {
+		body #hero.split {
+			min-height: min(88vh, 680px);
+		}
+	}
+
+	// The ground the bookend uses — near-black tinted with the primary — so the page opens and
+	// closes on the same colour instead of opening on flat black.
+	body #hero.split,
+	body #hero.split #hero-content {
+		background-color: #121425;
+	}
+
+	// The hue itself: one soft wash from the top-left corner, behind the type. Kept wide and low in
+	// alpha so it reads as a tint on the ground rather than as a shape.
+	body #hero.split #hero-content {
+		background-image: radial-gradient(115% 85% at 0% 0%, rgba(61, 80, 245, 0.32), transparent 62%);
+	}
+
+	// The product's mark, as the deployments band draws it: the TB glyph knocked out white on a
+	// squircle filled with the primary. 72px and 32% radius are that badge's own numbers.
+	.hero-mark {
+		display: grid;
+		place-items: center;
+		width: 72px;
+		height: 72px;
+		margin-bottom: $spacing-5;
+		border-radius: 32%;
+		background-color: $color-brand;
+
+		// Slotted content never receives Hero's scope hash, so the reveal its siblings get from
+		// `.header-animation` does not reach here — restated, one step ahead of the headline.
+		opacity: 0;
+		transform: translate3d(0, 45px, 0);
+		animation: slideup-in 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
+			opacity: 1;
+			transform: none;
+		}
+
+		&__glyph {
+			width: 40px;
+			height: 40px;
+		}
+	}
+
 	#overflow {
 		position: relative;
 		overflow: hidden;
@@ -762,8 +837,6 @@ const FAQ_VISIBLE = 6;
 	#benefits {
 		padding-top: $spacing-16;
 		padding-bottom: $spacing-20;
-		// The primary-derived light the homepage gives its bands.
-		background-color: #f5f6ff;
 
 		@include media-down(md) {
 			padding-top: $spacing-10;
@@ -791,11 +864,10 @@ const FAQ_VISIBLE = 6;
 		}
 	}
 
+	// No card. These are four claims about one product, and boxing each one made them read as four
+	// products — the mark already gives each its anchor, and on the white band the card would have
+	// needed a border to be a card at all, which is chrome bought to say nothing.
 	.benefit-card {
-		padding: $spacing-8;
-		border-radius: 16px;
-		background-color: #fff;
-
 		&__badge {
 			display: inline-flex;
 			align-items: center;
@@ -815,7 +887,7 @@ const FAQ_VISIBLE = 6;
 		}
 
 		&__title {
-			@include subsection-title;
+			@include type-card;
 			margin: 0 0 $spacing-2;
 			color: var(--color-text);
 		}
@@ -831,13 +903,13 @@ const FAQ_VISIBLE = 6;
 	// The matrix
 	// ---------------------------------------------------------------------------------------------
 	#matrix {
-		// The band moved here from `#shared` when the two sections swapped places, so the page still
-		// alternates: chooser white, why tinted, features white, table tinted, FAQ white.
+		// White. The hue sits on Platform features above, and two tinted bands in a row would read as
+		// one long section rather than two.
 		//
-		// Declared as a custom property because the table's PINNED CELLS have to repaint this exact
-		// colour to hide the values scrolling under them — a plain `background-color` here and `#fff`
-		// there is the pair that silently breaks the moment either one is retuned.
-		--matrix-band: #f5f6ff;
+		// Still declared as a custom property, because the table's PINNED CELLS have to repaint this
+		// exact colour to hide the values scrolling under them — a literal here and another one there
+		// is the pair that silently breaks the moment either is retuned.
+		--matrix-band: #fff;
 		padding-top: $spacing-20;
 		padding-bottom: $spacing-20;
 		background-color: var(--matrix-band);
@@ -1034,7 +1106,6 @@ const FAQ_VISIBLE = 6;
 		padding: $spacing-8;
 		border: 1px solid rgba(61, 80, 245, 0.16);
 		border-radius: 16px;
-		// The section's band is tinted, so the cards take white to lift off it.
 		background-color: #fff;
 
 		&__name {
@@ -1151,6 +1222,8 @@ const FAQ_VISIBLE = 6;
 	#shared {
 		padding-top: $spacing-16;
 		padding-bottom: $spacing-20;
+		// The primary-derived light the homepage gives its bands.
+		background-color: #f5f6ff;
 
 		@include media-down(md) {
 			padding-top: $spacing-10;
