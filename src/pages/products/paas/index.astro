@@ -246,7 +246,14 @@ const faqPageSchema = buildFaqPageSchema(
 						<tbody>
 							<tr>
 								<th scope="row">{paasCompareLead.label}</th>
-								{paasCompareLead.values.map((value) => <td>{value}</td>)}
+								{
+									paasCompareLead.values.map((value, i) => (
+										<td>
+											<span class="matrix__cell-label">{paasChoice.options[i].name}</span>
+											<span>{value}</span>
+										</td>
+									))
+								}
 							</tr>
 							{
 								paasCompare.map((group) => (
@@ -265,8 +272,13 @@ const faqPageSchema = buildFaqPageSchema(
 										{group.rows.map((row) => (
 											<tr>
 												<th scope="row">{row.label}</th>
-												{row.values.map((value) => (
+												{row.values.map((value, i) => (
 													<td class:list={[value === '—' && 'matrix__none']}>
+														{/* The column's name, in the cell. Hidden above 880 where the header row
+														    does the job; below it the table reflows to blocks and this is what
+														    keeps every value attached to its product. Real text rather than a
+														    `::before`, so it survives both a screen reader and an extractor. */}
+														<span class="matrix__cell-label">{paasChoice.options[i].name}</span>
 														{value === '—' ? <span class="sr-only">Not included</span> : null}
 														<span aria-hidden={value === '—' ? 'true' : undefined}>{value}</span>
 													</td>
@@ -1154,18 +1166,6 @@ const faqPageSchema = buildFaqPageSchema(
 			vertical-align: top;
 		}
 
-		// On a phone the label column is 30% OF THE TABLE, not of the screen — 246px of the 335 a
-		// 375px viewport gives it, leaving 89px of the value the reader scrolled across to read. A
-		// fixed 150 leaves 185, which fits "Dedicated, isolated Kubernetes cluster" in three lines
-		// instead of six. The longest labels wrap to three lines at this width, which is the cheaper
-		// of the two costs: a label the reader already has beside them, against a value they cannot
-		// see at all.
-		@include media-down(md) {
-			thead th:first-child,
-			tbody th[scope='row'] {
-				width: 150px;
-			}
-		}
 
 		// THE PINNED COLUMN. The row label is what a value is meaningless without, so it is the one
 		// that stays: scrolled across to Private Cloud, "From $1,499 / month" still has "Starting
@@ -1261,6 +1261,12 @@ const faqPageSchema = buildFaqPageSchema(
 			display: inline-flex;
 			align-items: center;
 			gap: $spacing-3;
+		}
+
+		// The header row says which column is which above 880, so the per-cell label is redundant
+		// there — it exists for the reflow below that width.
+		&__cell-label {
+			display: none;
 		}
 
 		// An em dash is a value here, not an absence of one — the cell says "not included", which the
@@ -1529,6 +1535,94 @@ const faqPageSchema = buildFaqPageSchema(
 				text-decoration: underline;
 				text-underline-offset: 3px;
 			}
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE TABLE BELOW 880: NOT A TABLE.
+	//
+	// It used to scroll sideways here, and that broke the one thing a comparison is for. On a 375px
+	// screen the pinned label took 150 of the 335 available, leaving ~185px for ONE value column —
+	// so reading Public against Private meant scrolling right, holding a sentence in your head, and
+	// scrolling back. The two things being compared were never on screen together.
+	//
+	// So each row becomes a block: the feature, then its two values, each one labelled with the
+	// product it belongs to. Nothing scrolls, and the comparison is adjacent again.
+	//
+	// The labels are REAL TEXT in the cell, not `::before` content. A reflowed table loses its table
+	// semantics the moment `display` stops being `table-*` — no amount of `scope` survives it — so
+	// nothing here leans on that. Every cell says what it is on its own, which is what a screen
+	// reader needs once the grid is gone, and incidentally what makes a row hold together as one
+	// chunk for anything reading the page as text.
+	// ---------------------------------------------------------------------------------------------
+	@media (max-width: 879px) {
+		.matrix-scroll {
+			overflow: visible;
+		}
+
+		.matrix {
+			display: block;
+			min-width: 0;
+		}
+
+		// Every cell names its own column now, so the header row has nothing left to say.
+		.matrix thead {
+			display: none;
+		}
+
+		.matrix tbody,
+		.matrix tr,
+		.matrix th,
+		.matrix td {
+			display: block;
+			width: auto;
+		}
+
+		// The pinning goes with the scrolling that needed it.
+		.matrix thead th:first-child,
+		.matrix tbody th[scope='row'] {
+			position: static;
+			box-shadow: none;
+		}
+
+		.matrix tbody th[scope='row'] {
+			padding: 0 0 $spacing-2;
+			color: var(--color-text);
+			font-weight: $font-weight-bold;
+		}
+
+		.matrix tbody tr:not(.matrix__group) {
+			padding: $spacing-4 0;
+			border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+		}
+
+		// The border moves to the row, since the cells are stacked inside it now.
+		.matrix tbody tr:not(.matrix__group) > * {
+			border-bottom: 0;
+		}
+
+		// 7em is "Private Cloud" plus a little — the longest of the two labels, measured, rather than
+		// a round number. Every pixel over that comes out of the value beside it, which is the column
+		// doing the actual work.
+		.matrix td {
+			display: grid;
+			grid-template-columns: 7em minmax(0, 1fr);
+			gap: $spacing-3;
+			padding: $spacing-1 0;
+		}
+
+		.matrix__cell-label {
+			display: block;
+			font-weight: $font-weight-medium;
+			color: $color-brand;
+		}
+
+		.matrix__group th {
+			padding: $spacing-8 0 $spacing-2;
+		}
+
+		.matrix__group th > span {
+			position: static;
 		}
 	}
 
