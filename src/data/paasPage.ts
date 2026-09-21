@@ -17,12 +17,18 @@ const CONTACT_PRIVATE_CLOUD = '/contact-us/?subject=Private%20Cloud&pcorder&mess
 const SUBSCRIPTIONS = '/docs/paas/reference/subscriptions/';
 
 export interface PaasBenefit {
-	/**
-	 * Tabler name, rendered as a bold black glyph — `FeatureTile`'s treatment on the homepage, which
-	 * is the same kind of item. No hue: identification is the glyph's job across a row of four, and
-	 * an accent per tile would be a colour system with nothing to decode.
-	 */
+	/** Tabler name, rendered as a bare glyph — no fill behind it, as `FeatureTile` draws its own. */
 	icon: string;
+	/**
+	 * The glyph's hue.
+	 *
+	 * These were black, on the reasoning that an accent per tile is a colour system with nothing to
+	 * decode. That is still true — this codes nothing — but six identical glyphs at identical weight
+	 * left the grid with no entry point at all, and "decorative" is not the same as "unwelcome".
+	 * Every value below is already somewhere on this page, so it spreads the existing palette rather
+	 * than introducing one.
+	 */
+	color: string;
 	title: string;
 	description: string;
 }
@@ -37,23 +43,27 @@ export interface PaasBenefit {
 export const paasBenefits: PaasBenefit[] = [
 	{
 		icon: 'tabler:box-multiple',
+		color: '#3d50f5',
 		title: 'Everything you need to build IoT solutions',
 		description:
 			'Everything you need to build an IoT solution is already inside ThingsBoard, from device connectivity to end-user interface.',
 	},
 	{
 		icon: 'tabler:rocket',
+		color: '#c2410c',
 		title: 'Ship faster and pay less',
 		description:
 			"We handle platform maintenance, feature configuration, and infrastructure costs so you don't have to.",
 	},
 	{
 		icon: 'tabler:shield-check',
+		color: '#047857',
 		title: 'High availability',
 		description: 'ThingsBoard Cloud uses microservices architecture and is deployed in multiple availability zones.',
 	},
 	{
 		icon: 'tabler:database',
+		color: '#006bc7',
 		title: 'Data durability',
 		description: "Platform uses data replication and backup procedures to make sure you don't lose the data.",
 	},
@@ -62,6 +72,7 @@ export const paasBenefits: PaasBenefit[] = [
 		// question itself is the `#choose` band's job now, so the sentence loses "Choose … or …" and
 		// says what the product offers instead. The words are develop's.
 		icon: 'tabler:cloud',
+		color: '#7c3aed',
 		title: 'Public or private cloud',
 		description:
 			'Start on shared infrastructure, or run a dedicated, isolated cluster with a stronger SLA and higher throughput.',
@@ -71,6 +82,7 @@ export const paasBenefits: PaasBenefit[] = [
 		// own "Region choice" row rather than written fresh: US or EU on Public Cloud; EU, North
 		// America or APAC, on AWS, Azure or GCP by request, on Private.
 		icon: 'tabler:world',
+		color: '#007c7b',
 		title: 'Data residency you choose',
 		description: 'Run in the US or EU on Public Cloud — or pick EU, North America or APAC on Private Cloud.',
 	},
