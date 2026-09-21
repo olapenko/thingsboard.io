@@ -17,10 +17,12 @@ const CONTACT_PRIVATE_CLOUD = '/contact-us/?subject=Private%20Cloud&pcorder&mess
 const SUBSCRIPTIONS = '/docs/paas/reference/subscriptions/';
 
 export interface PaasBenefit {
-	/** Tabler name, rendered as the squircle mark the candidate rows carry. */
+	/**
+	 * Tabler name, rendered as a bold black glyph — `FeatureTile`'s treatment on the homepage, which
+	 * is the same kind of item. No hue: identification is the glyph's job across a row of four, and
+	 * an accent per tile would be a colour system with nothing to decode.
+	 */
 	icon: string;
-	/** The mark's hue. One of the section colours already on the homepage. */
-	color: string;
 	title: string;
 	description: string;
 }
@@ -34,28 +36,24 @@ export interface PaasBenefit {
  */
 export const paasBenefits: PaasBenefit[] = [
 	{
-		icon: 'tabler:box',
-		color: '#3d50f5',
+		icon: 'tabler:box-multiple',
 		title: 'Everything you need to build IoT solutions',
 		description:
 			'Everything you need to build an IoT solution is already inside ThingsBoard, from device connectivity to end-user interface.',
 	},
 	{
 		icon: 'tabler:rocket',
-		color: '#c2410c',
 		title: 'Ship faster and pay less',
 		description:
 			"We handle platform maintenance, feature configuration, and infrastructure costs so you don't have to.",
 	},
 	{
-		icon: 'tabler:heartbeat',
-		color: '#047857',
+		icon: 'tabler:shield-check',
 		title: 'High availability',
 		description: 'ThingsBoard Cloud uses microservices architecture and is deployed in multiple availability zones.',
 	},
 	{
 		icon: 'tabler:database',
-		color: '#006bc7',
 		title: 'Data durability',
 		description: "Platform uses data replication and backup procedures to make sure you don't lose the data.",
 	},
@@ -110,8 +108,10 @@ export interface CompareRow {
 
 export interface CompareGroup {
 	title: string;
-	/** Tabler name for the group's mark. The hue is the section's, set in the stylesheet. */
+	/** Tabler name for the group's mark. */
 	icon: string;
+	/** The mark's hue. One rotation runs through both this table and the feature list. */
+	color: string;
 	rows: CompareRow[];
 }
 
@@ -125,7 +125,8 @@ export const paasCompareLead: CompareRow = {
 export const paasCompare: CompareGroup[] = [
 	{
 		title: 'Infrastructure & scale',
-		icon: 'tabler:server',
+		icon: 'tabler:stack-2',
+		color: '#3d50f5',
 		rows: [
 			{
 				label: 'Infrastructure model',
@@ -146,7 +147,8 @@ export const paasCompare: CompareGroup[] = [
 	},
 	{
 		title: 'Reliability & operations',
-		icon: 'tabler:shield-check',
+		icon: 'tabler:activity',
+		color: '#047857',
 		rows: [
 			{ label: 'Uptime SLA', values: ['99.9%', '99.9% – 99.99%'] },
 			{ label: 'Application-level HA', values: ['Managed by ThingsBoard Team', 'Included from the Scale plan'] },
@@ -167,7 +169,8 @@ export const paasCompare: CompareGroup[] = [
 	},
 	{
 		title: 'Compliance',
-		icon: 'tabler:certificate',
+		icon: 'tabler:shield-lock',
+		color: '#006bc7',
 		rows: [
 			{
 				label: 'Certifications',
@@ -185,6 +188,7 @@ export const paasCompare: CompareGroup[] = [
 	{
 		title: 'Support & commercials',
 		icon: 'tabler:headset',
+		color: '#c2410c',
 		rows: [
 			{
 				label: 'Starting price',
@@ -214,6 +218,7 @@ export const paasCompare: CompareGroup[] = [
 	{
 		title: 'Add-ons',
 		icon: 'tabler:puzzle',
+		color: '#7c3aed',
 		rows: [
 			{ label: 'ThingsBoard Edge', values: ['From $9 / month', 'From $249 / month'] },
 			{ label: 'Trendz Analytics', values: ['From $29 / month', 'From $449 / month'] },
@@ -229,8 +234,10 @@ export interface SharedRow {
 
 export interface SharedGroup {
 	title: string;
-	/** Tabler name for the group's mark. The hue is the section's, set in the stylesheet. */
+	/** Tabler name for the group's mark. */
 	icon: string;
+	/** The mark's hue. One rotation runs through both the comparison table and this list. */
+	color: string;
 	rows: SharedRow[];
 }
 
@@ -247,7 +254,8 @@ export interface SharedGroup {
 export const paasShared: SharedGroup[] = [
 	{
 		title: 'Connect and control devices',
-		icon: 'tabler:plug-connected',
+		icon: 'tabler:devices',
+		color: '#3d50f5',
 		rows: [
 			{
 				label: 'Device connectivity',
@@ -271,7 +279,8 @@ export const paasShared: SharedGroup[] = [
 	},
 	{
 		title: 'Model and process data',
-		icon: 'tabler:topology-star-3',
+		icon: 'tabler:sitemap',
+		color: '#047857',
 		rows: [
 			{
 				label: 'Asset model & digital twin',
@@ -291,7 +300,8 @@ export const paasShared: SharedGroup[] = [
 	},
 	{
 		title: 'Build the application',
-		icon: 'tabler:layout-dashboard',
+		icon: 'tabler:chart-donut',
+		color: '#006bc7',
 		rows: [
 			{
 				label: 'Dashboards & SCADA',
@@ -309,6 +319,7 @@ export const paasShared: SharedGroup[] = [
 	{
 		title: 'Work faster',
 		icon: 'tabler:bolt',
+		color: '#c2410c',
 		rows: [
 			{
 				label: 'AI assistants & CLI',

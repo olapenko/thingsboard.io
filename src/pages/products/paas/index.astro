@@ -121,9 +121,7 @@ const FAQ_VISIBLE = 6;
 					{
 						paasBenefits.map((benefit) => (
 							<div class="benefit-card">
-								<span class="benefit-card__badge" style={`--badge-color: ${benefit.color}`} aria-hidden="true">
-									<Icon name={benefit.icon} />
-								</span>
+								<Icon name={benefit.icon} class="benefit-card__icon" aria-hidden="true" />
 								<h3 class="benefit-card__title">{benefit.title}</h3>
 								<p class="benefit-card__text">{benefit.description}</p>
 							</div>
@@ -146,7 +144,7 @@ const FAQ_VISIBLE = 6;
 						paasShared.map((group) => (
 							<div class="shared-group">
 								<h3 class="shared-group__title">
-									<span class="group-mark" aria-hidden="true">
+									<span class="group-mark" style={`--group-mark-color: ${group.color}`} aria-hidden="true">
 										<Icon name={group.icon} />
 									</span>
 									{group.title}
@@ -201,7 +199,7 @@ const FAQ_VISIBLE = 6;
 											{/* A group heading spans the table, so it is a header for everything under it. */}
 											<th scope="colgroup" colspan="3">
 												<span>
-													<span class="group-mark" aria-hidden="true">
+													<span class="group-mark" style={`--group-mark-color: ${group.color}`} aria-hidden="true">
 														<Icon name={group.icon} />
 													</span>
 													{group.title}
@@ -328,7 +326,7 @@ const FAQ_VISIBLE = 6;
 									))}
 									{category.items.length > FAQ_VISIBLE && (
 										<button type="button" class="faq-more" aria-expanded="false">
-											<span class="faq-more__label">Load more FAQ</span>
+											<span class="faq-more__label">More questions</span>
 											<Icon name="tabler:chevron-down" class="faq-more__chevron" aria-hidden="true" />
 										</button>
 									)}
@@ -435,7 +433,7 @@ const FAQ_VISIBLE = 6;
 			more.addEventListener('click', () => {
 				const expanded = panel.classList.toggle('is-expanded');
 				more.setAttribute('aria-expanded', String(expanded));
-				if (label) label.textContent = expanded ? 'Show fewer FAQ' : 'Load more FAQ';
+				if (label) label.textContent = expanded ? 'Fewer questions' : 'More questions';
 			});
 		});
 	}
@@ -866,8 +864,14 @@ const FAQ_VISIBLE = 6;
 	// in nine colours would code something the page never decodes; one colour per section says which
 	// half of the comparison you are reading, which is the only distinction here that means anything.
 	.group-mark {
-		display: inline-grid;
-		place-items: center;
+		// `inline-flex` with BOTH axes stated, not `inline-grid` + `place-items`. The table's own
+		// heading rule is `.matrix__group span`, which also matches this span — it is a span inside
+		// that cell — and at (0,1,1) it beat `.group-mark` and forced `display: inline-flex` here.
+		// The glyph then sat at flex-start with no `justify-content` to hold it, jammed against the
+		// left edge of its own squircle. Stating both axes makes the rule survive being re-displayed.
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		flex: none;
 		width: 36px;
 		height: 36px;
@@ -875,9 +879,11 @@ const FAQ_VISIBLE = 6;
 		background-color: var(--group-mark-color, #{$color-brand});
 		color: #fff;
 
-		:global([data-icon]) {
-			width: 22px;
-			height: 22px;
+		// No `:global()`: this block is already global, and the wrapper made the selector a no-op —
+		// which is why the glyph was rendering at its 1em default rather than at the size set here.
+		svg {
+			width: 20px;
+			height: 20px;
 		}
 	}
 
@@ -900,52 +906,48 @@ const FAQ_VISIBLE = 6;
 
 	.benefit-grid {
 		display: grid;
-		// Two across, stated rather than auto-fit. There are four cards, and at the 960 measure
-		// `minmax(300px, 1fr)` fits three — which leaves the fourth alone on a row. Two gives a 2×2
-		// and a 468px column, wide enough for "Everything you need to build IoT solutions" to sit on
-		// two lines instead of three.
-		grid-template-columns: repeat(2, 1fr);
+		// Four across, which is what the 960 measure gives these at 210 a column — the same shape
+		// `#bottom-features` takes on the homepage, and the reason the type steps down with it.
+		grid-template-columns: repeat(4, 1fr);
 		gap: $spacing-6;
 		max-width: 960px;
 		margin-inline: auto;
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(2, 1fr);
+		}
 
 		@include media-down(md) {
 			grid-template-columns: 1fr;
 		}
 	}
 
-	// No card. These are four claims about one product, and boxing each one made them read as four
-	// products — the mark already gives each its anchor, and on the white band the card would have
-	// needed a border to be a card at all, which is chrome bought to say nothing.
+	// No card, and no squircle. `FeatureTile` on the homepage is the same kind of item — one glyph,
+	// one line of title, one line of copy — and it draws the glyph black and solid at 28px with no
+	// fill behind it. Four of these in a row is exactly the case that treatment was written for: a
+	// filled mark per tile would be an accent system with nothing to decode.
 	.benefit-card {
-		&__badge {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			// The 48px tile at 32% radius that `SectionHeader` and `FeatureBlockSection` both draw.
-			width: 48px;
-			height: 48px;
-			margin-bottom: $spacing-4;
-			border-radius: 32%;
-			background-color: var(--badge-color);
-			color: #fff;
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-2;
 
-			svg {
-				width: 26px;
-				height: 26px;
-			}
+		&__icon {
+			width: 28px;
+			height: 28px;
+			color: var(--color-text);
 		}
 
 		&__title {
-			@include type-card;
-			margin: 0 0 $spacing-2;
+			@include type-tile;
+			margin: $spacing-1 0 0;
 			color: var(--color-text);
 		}
 
 		&__text {
-			@include type-body;
+			@include type-small;
 			margin: 0;
 			color: var(--color-text-secondary);
+			text-wrap: pretty;
 		}
 	}
 
@@ -960,8 +962,6 @@ const FAQ_VISIBLE = 6;
 		// exact colour to hide the values scrolling under them — a literal here and another one there
 		// is the pair that silently breaks the moment either is retuned.
 		--matrix-band: #fff;
-		// The section's own hue, carried by every group mark in the table.
-		--group-mark-color: #006bc7;
 		padding-top: $spacing-20;
 		padding-bottom: $spacing-20;
 		background-color: var(--matrix-band);
@@ -1142,7 +1142,9 @@ const FAQ_VISIBLE = 6;
 		// `inline-flex`, NOT `flex`: a block-level box here would fill the cell, which spans all three
 		// columns, and an element as wide as its container cannot move — the pinning would do
 		// nothing. Shrink-to-fit is what lets it hold the left edge while the values scroll past.
-		&__group span {
+		// `th > span`, NOT `span`: the descendant form also matched `.group-mark` nested inside this
+		// one and re-displayed it — see the note on that class.
+		&__group th > span {
 			position: sticky;
 			left: $spacing-4;
 			display: inline-flex;
@@ -1378,9 +1380,6 @@ const FAQ_VISIBLE = 6;
 	}
 
 	.shared-group {
-		// The section's own hue, carried by every mark under it.
-		--group-mark-color: #047857;
-
 		// Sentence case at the body-strong step, matching the matrix's group headings — the two
 		// sections are one table split in half, so their group headings are one treatment.
 		&__title {
@@ -1529,8 +1528,11 @@ const FAQ_VISIBLE = 6;
 		display: block;
 	}
 
+	// The page's outgoing-link treatment, the same one "See plans" takes: base size, medium weight,
+	// underline on hover. It was 14px semibold, which made the one control in the FAQ the only thing
+	// in that section still set below the body step.
 	.faq-more {
-		@include type-small-strong;
+		@include type-link;
 		display: inline-flex;
 		align-items: center;
 		gap: $spacing-2;
