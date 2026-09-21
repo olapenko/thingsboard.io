@@ -123,10 +123,14 @@ export const paasChoice = {
 			// which is the only difference that matters here. Public carries no modifier at all, so
 			// the lock reads as something Private ADDS rather than as two competing symbols.
 			icon: 'tabler:cloud',
-			price: 'From $0',
+			price: 'Free',
 			priceNote: 'Free tier up to 5 devices',
 			summary: 'The fastest, shared-infrastructure start.',
-			points: ['Shared multi-tenant environment', 'Under 5 minutes, self-serve', '30 days free, no card required'],
+			// NOT "30 days free": the free tier is capped on DEVICE COUNT, not on time, and the
+			// price note directly above already states that cap. The two claims were contradicting
+			// each other inside one card — a reader who believed the third bullet would expect the
+			// thing to stop after a month, which is not what happens.
+			points: ['Shared multi-tenant environment', 'Under 5 minutes, self-serve', 'No card required to start'],
 			// "Start for free" rather than the hero's "Try Cloud for free": the card is headed Public
 			// Cloud and priced From $0 directly above the button, so repeating either word in the
 			// label spends the line saying what the card has already said twice.
@@ -254,7 +258,7 @@ export const paasCompare: CompareGroup[] = [
 				],
 			},
 			{ label: 'Architecture consultations', values: ['—', 'Available from the Scale plan, purchased separately'] },
-			{ label: 'Trial', values: ['30 days free, no card required', 'Not available — evaluate on Public Cloud first'] },
+			{ label: 'Free tier', values: ['Free to 5 devices, no card required', 'Not available — evaluate on Public Cloud first'] },
 			{ label: 'Payment', values: ['Stripe · monthly', 'Card or wire · monthly, or annual with 10% off'] },
 			{ label: 'Commitment', values: ['Cancel anytime', 'No lock-in · 30 days’ notice · no setup or cancellation fee'] },
 			// Develop files this under "Build the application", in the half where every other row is

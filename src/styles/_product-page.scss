@@ -15,6 +15,30 @@
 //                       because the table's PINNED CELLS repaint it to hide the
 //                       values scrolling under them — a literal in one place and
 //                       another elsewhere is the pair that breaks silently.
+//   --page-accent       the fill on the page's own primaries — the hero button,
+//                       the bookend's primary, the licence chooser's CTA — and
+//                       their focus rings. NOT `.n-button--filled`: that is the
+//                       site header's "Try for free" and the footer's
+//                       "Subscribe", chrome that stays brand purple everywhere.
+//   --page-hero-ground  the near-black the split hero sits on.
+//   --page-hero-wash    the corner wash over that ground. A colour WITH alpha —
+//                       it is dropped into a `radial-gradient` whose second stop
+//                       is transparent.
+//   --page-band         the bookend's light ground.
+//   --page-accent-light the accent's readable tone on the DARK bands — the
+//                       chooser's prices. The accent itself is 2.1:1 there.
+//   --page-accent-ink   the accent as TEXT on a light ground. Separate from
+//                       `--page-accent` because a colour that carries white at
+//                       button size is not automatically readable as body text:
+//                       `$color-pe-dark` is 3.82:1 on the pinned row, where
+//                       `$color-pe-link` is 5.74:1.
+//   --page-sticky-band  the ground under the comparison's pinned header row.
+//   --page-wave         the hue of the animated field in the chooser and the
+//                       bookend. A LIFTED tone, not the accent: it is drawn at
+//                       3.5–10% opacity, and the accent disappears there. This
+//                       one is passed to `PricingBackground`'s own
+//                       `--pricing-wave-color`, which the Pricing page still
+//                       sets for itself.
 //
 // Anything else a page needs, it adds after the `@use`.
 //
@@ -127,6 +151,18 @@
 		color: #fff;
 	}
 
+	// `.n-button--filled` above is NOT the page's to recolour: it is the site header's "Try for
+	// free" and the footer's "Subscribe", which stay the brand purple on every page. The three
+	// primaries that DO belong to the page take `--page-accent` instead — see the file header.
+	// Hero's OWN scoped rule sets this button at `#hero.split #hero-content .button.brand`, which
+	// outranks a plain `#hero .button.brand` — so the accent has to match that shape to land at
+	// all. The border travels with the fill: Hero declares both, and recolouring half of a button
+	// reads as a mistake rather than a choice.
+	body #hero.split #hero-content .button.brand {
+		background-color: var(--page-accent, #{$color-brand});
+		border-color: var(--page-accent, #{$color-brand});
+	}
+
 	// The bookend's secondary is NOT in the rule above: two filled purples would close the page on
 	// one choice made twice. It carries an outline instead, declared with the rest of `.page-closing`
 	// below. No shimmer scaffolding either — that sweep is a white highlight, which on the light
@@ -172,7 +208,7 @@
 	// change on :focus-visible, which is not a focus indicator on a dark ground.
 	.page-closing__primary:focus-visible,
 	.page-closing__secondary:focus-visible {
-		outline: 2px solid $color-brand;
+		outline: 2px solid var(--page-accent, #{$color-brand});
 		outline-offset: 3px;
 	}
 
@@ -376,13 +412,13 @@
 	// closes on the same colour instead of opening on flat black.
 	body #hero.split,
 	body #hero.split #hero-content {
-		background-color: #121425;
+		background-color: var(--page-hero-ground, #121425);
 	}
 
 	// The hue itself: one soft wash from the top-left corner, behind the type. Kept wide and low in
 	// alpha so it reads as a tint on the ground rather than as a shape.
 	body #hero.split #hero-content {
-		background-image: radial-gradient(115% 85% at 0% 0%, rgba(61, 80, 245, 0.32), transparent 62%);
+		background-image: radial-gradient(115% 85% at 0% 0%, var(--page-hero-wash, rgba(61, 80, 245, 0.32)), transparent 62%);
 	}
 
 	// The product's mark, as the deployments band draws it: the TB glyph knocked out white on a
@@ -623,14 +659,20 @@
 			padding: $spacing-3 $spacing-4;
 			color: var(--color-text);
 
+			// `--page-accent-ink`, not `--page-accent`: this is TEXT on a light ground, and an
+			// accent picked to carry white on a fill is not necessarily readable as ink. The
+			// purple happens to be both; the PE green is not — 3.82:1 against the pinned row.
 			&:not(:first-child) {
-				color: $color-brand;
+				color: var(--page-accent-ink, #{$color-brand});
 			}
 		}
 
-		// The same two marks the cards carry, on the columns they label.
+		// The same two marks the cards carry, on the columns they label. BLOCK-level flex, not
+		// inline: the cell is already `vertical-align: middle`, but an inline box is placed on the
+		// text baseline inside it, which left the pair 6px high in a 58px row. A block child is
+		// what the cell's own centring acts on, so the row centres for real.
 		&__col {
-			display: inline-flex;
+			display: flex;
 			align-items: center;
 			gap: $spacing-2;
 		}
@@ -700,7 +742,7 @@
 			// Over the body's pinned column (1) and over the group headings, both of which scroll
 			// under this row.
 			z-index: 3;
-			background-color: #eef0ff;
+			background-color: var(--page-sticky-band, #eef0ff);
 			box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 		}
 
@@ -792,7 +834,9 @@
 		position: relative;
 		overflow: hidden;
 		isolation: isolate;
-		background-color: #121425;
+		// The hero's ground, deliberately the same property: these are the page's two dark
+		// moments, and a page that moves one has never meant to keep the other.
+		background-color: var(--page-hero-ground, #121425);
 		color: #fff;
 		padding: $spacing-20 0;
 
@@ -854,7 +898,7 @@
 
 			&:hover,
 			&:focus-visible {
-				color: $color-brand-dark;
+				color: var(--page-accent-light, #{$color-brand-dark});
 			}
 
 			&:focus-visible {
@@ -921,8 +965,9 @@
 			flex-direction: column;
 			gap: 2px;
 			margin: 0;
-			// The repo's own dark-mode brand. #3d50f5 on this ground is 2.1:1 and unreadable.
-			color: $color-brand-dark;
+			// The repo's own dark-mode brand. #3d50f5 on this ground is 2.1:1 and unreadable — so
+			// a page that recolours the ground has to recolour this with it, hence the property.
+			color: var(--page-accent-light, #{$color-brand-dark});
 		}
 
 		&__price-note {
@@ -957,7 +1002,7 @@
 				height: 20px;
 				// Optical centring on a 24px line, rather than the 2px a 22px line wanted.
 				margin-top: 2px;
-				color: $color-brand-dark;
+				color: var(--page-accent-light, #{$color-brand-dark});
 			}
 		}
 
@@ -994,7 +1039,7 @@
 		}
 
 		&__cta--primary {
-			background-color: $color-brand;
+			background-color: var(--page-accent, #{$color-brand});
 			color: #fff;
 
 			&:hover {
@@ -1469,10 +1514,18 @@
 	// The dark moment stays with `#choose`, which is the one that needs the weight. This keeps the
 	// field — the same wave, in its light dress, since the page forces the light theme — over the
 	// tint the other light bands use.
+	// The animated field, in both the places this page draws it. `PricingBackground` declares
+	// `--pricing-wave-color` on its own root, so a page cannot reach it from `:root` — it has to
+	// be set on the element, and above the component's own class weight.
+	body #choose .pricing-bg,
+	body .page-closing .pricing-bg {
+		--pricing-wave-color: var(--page-wave, #3369ff);
+	}
+
 	.page-closing {
 		position: relative;
 		overflow: hidden;
-		background-color: #f5f6ff;
+		background-color: var(--page-band, #f5f6ff);
 		color: var(--color-text);
 		// A stacking context, so the field's `z-index: -1` lands above this background rather than
 		// dropping behind it — the same reason `ClosingCta` and `#products` both carry it.
@@ -1529,13 +1582,13 @@
 			}
 
 			&:focus-visible {
-				outline: 2px solid $color-brand;
+				outline: 2px solid var(--page-accent, #{$color-brand});
 				outline-offset: 3px;
 			}
 		}
 
 		&__primary {
-			background-color: $color-brand;
+			background-color: var(--page-accent, #{$color-brand});
 			color: #fff;
 
 			&:hover {
@@ -1545,12 +1598,16 @@
 
 		// The outline the matrix's own secondary takes, rather than the white-on-dark one it had —
 		// same treatment as every other secondary now sitting on a light band.
+		// Neutral on purpose, and on every page that uses this bookend. The pair closes the page on
+		// one decision: the primary is the decision, and a secondary tinted with the same accent
+		// competes with it. Ink and a hairline say "the other way" without arguing for it. The focus
+		// ring above stays the accent — that is an indicator, not an invitation.
 		&__secondary {
-			border: 1px solid rgba(61, 80, 245, 0.35);
-			color: $color-brand;
+			border: 1px solid rgba(15, 23, 42, 0.22);
+			color: var(--color-text);
 
 			&:hover {
-				background-color: rgba(61, 80, 245, 0.08);
+				background-color: rgba(15, 23, 42, 0.05);
 			}
 		}
 

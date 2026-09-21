@@ -106,42 +106,63 @@ export const onPremBenefits: OnPremBenefit[] = [
  * The Cloud page forks on deployment — Public or Private — because that is the only open question
  * once you have chosen managed hosting. Here deployment is already answered: you run it. So the
  * fork is the one develop's own page names in its "Simple and predictable pricing models" section,
- * and the one `/pricing/` makes its primary control: rent the licence monthly, or own it outright.
+ * and the one `/pricing/` makes its primary control: pay monthly, or buy once.
  *
  * It is a difference in KIND rather than in invoice, which is what these two cards need. Stop
  * paying the subscription and "your license will become inactive, and your ThingsBoard instance
  * will be stopped"; the perpetual licence cannot end that way because it cannot be cancelled at
  * all. On software installed on the reader's own hardware that is the most consequential fact here.
  *
- * Every figure is from `src/data/pricing/tb-self-managed.ts`: Maker $10 through Business $499 at
- * 1,000 devices, and `Starting from $4,999` for the perpetual licence. Each card deep-links the
- * ladder rather than restating it.
+ * The perpetual figure is `tb-self-managed.ts`'s own `Starting from $4,999`. The monthly card no
+ * longer takes its entry price from there, and this is the one place the page KNOWINGLY leads that
+ * file: under the current model the ladder's bottom two rungs — Maker $10 and Prototype $39 —
+ * dissolve into free licences, so the monthly route starts at no charge and the paid tiers begin
+ * at Pilot. The caps the card states are `FreeLicenseType`'s own (commercial to 100 devices on one
+ * server, non-commercial to 1,000), which is also what BUSL 1.1's Additional Use Grant says for
+ * the commercial case.
+ *
+ * ⚠ `tb-self-managed.ts` and the FAQ below it still describe the old ladder, and both are shared
+ * with `/pricing/` — so this page currently states a free tier that its own FAQ denies. Resolving
+ * that is a pricing-data change, not a page change.
  *
  * NOT "Run it yourself vs Managed Services", which was the strongest rival: that service's own
  * published SLA covers Public and Private Cloud only, and its migration path moves the reader off
  * their own infrastructure — so it cannot be a card on a page whose premise is that they stay on it.
  */
 export const onPremChoice = {
-	title: 'Rent the licence, or own it',
-	lead: 'Both run on infrastructure you control and both are priced on device count. What differs is what you hold at the end.',
+	title: 'Pay monthly, or once',
+	lead: 'Both run on infrastructure you control. The monthly route starts free and charges once you outgrow it; the perpetual one is bought once and does not expire.',
 	/** The comparison table's two column headings, so the table and the band cannot drift. */
 	columns: [
-		{ name: 'ThingsBoard', icon: 'tabler:server-cog' },
-		{ name: 'Custom IoT stack', icon: 'tabler:tools' },
+		/**
+		 * The product column is marked with the ThingsBoard logo rather than a glyph — it is the
+		 * one column that names a real thing, and the logo says so faster than any icon can. The
+		 * other column keeps a glyph on purpose: the asymmetry IS the comparison.
+		 */
+		{ name: 'ThingsBoard', icon: 'tabler:server-cog', logo: true },
+		{ name: 'Custom IoT stack', icon: 'tabler:tools', logo: false },
 	],
 	options: [
 		{
 			icon: 'tabler:refresh',
 			name: 'Monthly subscription',
-			price: 'From $10',
-			priceNote: 'Per month, 10 devices',
-			summary: 'Self-serve, month to month, cancel whenever.',
+			price: 'Free',
+			priceNote: 'Up to 100 devices on one server',
+			summary: 'Subscribe for free, no credit card needed. Pay only once you outgrow it.',
+			/**
+			 * Two, and both are reasons to choose this card. What came out: where the licence key
+			 * is issued (plumbing — nobody picks a licence on that), and what cancelling does to a
+			 * running instance. The second is a real fact and it is still on the page, in the FAQ
+			 * under "Can I cancel my subscription anytime?", which is where a consequence belongs.
+			 */
 			points: [
-				'Five plans, from 10 devices up to 1,000',
-				'A licence key from the License Server, installed by you',
-				'Cancel any time — the licence goes inactive and the instance stops',
+				'Free for commercial use to 100 devices on one server, and to 1,000 for non-commercial use',
+				'Cancel any time, no notice',
 			],
-			cta: { text: 'Get a licence', href: 'https://license.thingsboard.io/signup', variant: 'primary' as const },
+			cta: { text: 'Install for free', href: '/docs/pe/installation/', variant: 'primary' as const },
+			// ⚠ STALE, knowingly: this lands on the old ladder — Maker $10 through Business $499 —
+			// which the card above no longer describes. Left pointing there until `/pricing/`
+			// carries the current model; see the note on `onPremFaq` for the same problem.
 			plansHref: PRICING_SUBSCRIPTION,
 		},
 		{
@@ -150,10 +171,18 @@ export const onPremChoice = {
 			price: 'From $4,999',
 			priceNote: 'One time, priced on device count',
 			summary: 'Bought once, and it does not expire.',
+			/**
+			 * "Non-refundable and cannot be cancelled" came out: on a card whose job is to argue
+			 * for buying once, a warning is the wrong register for a property the buyer is
+			 * actually paying to get. The FAQ states it plainly — "The perpetual license is
+			 * non-refundable. Once purchased, it cannot be canceled" — so nothing is hidden.
+			 *
+			 * The scale qualifier STAYS on Offline Mode. Without it the add-on reads as either
+			 * included or flatly priced, and it is neither.
+			 */
 			points: [
-				'One-time payment, with no monthly fee after it',
-				'Offline Mode is an add-on to this licence, priced on deployment scale',
-				'Non-refundable and cannot be cancelled',
+				'One payment, with no monthly fee after it',
+				'Offline Mode available as an add-on, priced on deployment scale',
 			],
 			cta: {
 				text: 'Talk to sales',
@@ -474,6 +503,14 @@ export const onPremCompare: CompareGroup[] = [
  *     no free self-managed tier at all. Shipping develop's copy would have promised one.
  *   - develop adds a "Non-commercial" plan that appears on no pricing page.
  *
+ * ⚠ REVERSED, 2026-09-21: develop was describing the CURRENT model and this repo's pricing data is
+ * what is stale. Free and Non-commercial are real licences — `FreeLicenseType` caps them at 100
+ * devices on one server and 1,000 respectively — and the paid ladder now starts at Pilot. The
+ * chooser above says so; these re-exported answers still say "5 predefined plans", name Maker and
+ * Prototype in eight places, and price the beginner plan at $10. They contradict the card on the
+ * same page. Left in place deliberately: the fix belongs in the shared pricing data, which
+ * `/pricing/` renders too.
+ *
  * So the transcription is gone and this re-exports the repo's, minus the Edge and Trendz
  * categories — 32 of its 89 answers are add-on marketing for two other products, and this page
  * sells neither. The six product categories ship.
@@ -484,12 +521,20 @@ export const onPremFaq: FaqCategory[] = tbSelfManagedFaq.filter(
 
 /** The page's calls to action. `primary` is the pricing page, as develop's "Get it now" is. */
 export const onPremCtas = {
+	/**
+	 * The hero's action, mirroring the Cloud page's pair: the thing you actually do, then the way
+	 * to ask a person. Pricing is deliberately NOT in the hero here — on a page whose premise is
+	 * running it yourself, the first move is the install, and the licence question belongs lower,
+	 * once the reader knows what they would be installing.
+	 */
+	install: { text: 'Install for free', href: '/docs/pe/installation/' },
 	primary: { text: 'See plans and pricing', href: PRICING_SUBSCRIPTION },
 	secondary: { text: 'Talk to an expert', href: CONTACT_SALES },
 	/** The exit to the managed alternative, as the Cloud page has one to On-premises. */
 	cloud: {
-		lead: 'Would rather we ran it?',
+		lead: 'Want to look around first? Nothing to install on',
 		text: 'ThingsBoard Cloud',
+		tail: ' — and you can bring it in-house later.',
 		href: '/products/paas/',
 		icon: 'tabler:cloud',
 	},
