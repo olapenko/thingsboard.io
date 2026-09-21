@@ -42,7 +42,9 @@ export interface PaasBenefit {
  */
 export const paasBenefits: PaasBenefit[] = [
 	{
-		icon: 'tabler:box-multiple',
+		// A set of parts making a whole — the claim is completeness, which `box-multiple` only said
+		// as "more than one box".
+		icon: 'tabler:components',
 		color: '#3d50f5',
 		title: 'Everything you need to build IoT solutions',
 		description:
@@ -56,13 +58,17 @@ export const paasBenefits: PaasBenefit[] = [
 			"We handle platform maintenance, feature configuration, and infrastructure costs so you don't have to.",
 	},
 	{
-		icon: 'tabler:shield-check',
+		// Uptime, not security. A shield here read as the latter, and `shield-lock` already carries
+		// Compliance in the table — two shields, two meanings.
+		icon: 'tabler:heartbeat',
 		color: '#047857',
 		title: 'High availability',
 		description: 'ThingsBoard Cloud uses microservices architecture and is deployed in multiple availability zones.',
 	},
 	{
-		icon: 'tabler:database',
+		// Stacked copies, which is what replication and nightly backups are. `database` named the
+		// subject and left the claim — durability — unillustrated.
+		icon: 'tabler:versions',
 		color: '#006bc7',
 		title: 'Data durability',
 		description: "Platform uses data replication and backup procedures to make sure you don't lose the data.",
@@ -71,7 +77,9 @@ export const paasBenefits: PaasBenefit[] = [
 		// Develop's fifth card, back as a claim rather than as the question it used to ask. The
 		// question itself is the `#choose` band's job now, so the sentence loses "Choose … or …" and
 		// says what the product offers instead. The words are develop's.
-		icon: 'tabler:cloud',
+		// The Private Cloud mark. This tile is about the choice between the two, and echoing one of
+		// them points at it — while leaving the plain cloud to mean Public Cloud and nothing else.
+		icon: 'tabler:cloud-lock',
 		color: '#7c3aed',
 		title: 'Public or private cloud',
 		description:
