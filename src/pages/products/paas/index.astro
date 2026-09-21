@@ -116,7 +116,6 @@ const FAQ_VISIBLE = 6;
 					subtitle="For everyone who would like to use ThingsBoard but doesn't want to host their own instance of the platform."
 					titleSize="title"
 					subtitleMeasure="copy"
-					badge={{ icon: 'tabler:bulb', color: '#3d50f5' }}
 				/>
 				<div class="benefit-grid">
 					{
@@ -141,13 +140,17 @@ const FAQ_VISIBLE = 6;
 					subtitle="Every capability below is included in ThingsBoard Public Cloud and ThingsBoard Private Cloud alike."
 					titleSize="title"
 					subtitleMeasure="copy"
-					badge={{ icon: 'tabler:box-model', color: '#047857' }}
 				/>
 				<div class="shared-groups">
 					{
 						paasShared.map((group) => (
 							<div class="shared-group">
-								<h3 class="shared-group__title">{group.title}</h3>
+								<h3 class="shared-group__title">
+									<span class="group-mark" aria-hidden="true">
+										<Icon name={group.icon} />
+									</span>
+									{group.title}
+								</h3>
 								<dl class="shared-group__list">
 									{group.rows.map((row) => (
 										<div class="shared-row">
@@ -170,7 +173,6 @@ const FAQ_VISIBLE = 6;
 					subtitle="Where the two differ — infrastructure and scale, reliability and operations, compliance, and what each one costs."
 					titleSize="title"
 					subtitleMeasure="copy"
-					badge={{ icon: 'tabler:arrows-left-right', color: '#006bc7' }}
 				/>
 
 				{/* `scope` on every header cell: the row labels are headers too, which is what lets a screen
@@ -198,7 +200,12 @@ const FAQ_VISIBLE = 6;
 										<tr class="matrix__group">
 											{/* A group heading spans the table, so it is a header for everything under it. */}
 											<th scope="colgroup" colspan="3">
-												<span>{group.title}</span>
+												<span>
+													<span class="group-mark" aria-hidden="true">
+														<Icon name={group.icon} />
+													</span>
+													{group.title}
+												</span>
 											</th>
 										</tr>
 										{group.rows.map((row) => (
@@ -276,7 +283,6 @@ const FAQ_VISIBLE = 6;
 				<SectionHeader
 					title="ThingsBoard Cloud FAQ"
 					titleSize="title"
-					badge={{ icon: 'tabler:help-circle', color: '#c2410c' }}
 				/>
 				{/* Develop's arrangement: a sidebar of topics beside one panel, and each panel showing its
 				    first `FAQ_VISIBLE` answers behind a "Load more". The tabs are real `role="tab"`
@@ -846,6 +852,32 @@ const FAQ_VISIBLE = 6;
 		position: relative;
 	}
 
+	// THE GROUP MARK, on the subheadings inside the feature list and the comparison table — the level
+	// the reader is actually navigating by. It was on the four section titles first, which put a
+	// squircle over headings that already had a whole band to themselves.
+	//
+	// 26px, not the 40 `SectionHeader` gives its own badge: this sits on a 16px line of text, and at
+	// 40 the mark rather than the words would be the heading.
+	//
+	// The hue is the SECTION's, set once on each of the two below rather than per group. Nine marks
+	// in nine colours would code something the page never decodes; one colour per section says which
+	// half of the comparison you are reading, which is the only distinction here that means anything.
+	.group-mark {
+		display: inline-grid;
+		place-items: center;
+		flex: none;
+		width: 26px;
+		height: 26px;
+		border-radius: 32%;
+		background-color: var(--group-mark-color, #{$color-brand});
+		color: #fff;
+
+		:global([data-icon]) {
+			width: 16px;
+			height: 16px;
+		}
+	}
+
 	// ---------------------------------------------------------------------------------------------
 	// Benefits
 	// ---------------------------------------------------------------------------------------------
@@ -925,6 +957,8 @@ const FAQ_VISIBLE = 6;
 		// exact colour to hide the values scrolling under them — a literal here and another one there
 		// is the pair that silently breaks the moment either is retuned.
 		--matrix-band: #fff;
+		// The section's own hue, carried by every group mark in the table.
+		--group-mark-color: #006bc7;
 		padding-top: $spacing-20;
 		padding-bottom: $spacing-20;
 		background-color: var(--matrix-band);
@@ -1092,16 +1126,22 @@ const FAQ_VISIBLE = 6;
 			// The one place that keeps real air: this is the seam between two groups of rows, and it
 			// is the only thing separating them now that the rows themselves are tight.
 			padding: $spacing-6 $spacing-4 $spacing-2;
-			color: $color-brand;
+			color: var(--color-text);
 		}
 
 		// The group heading spans all three columns, so pinning the CELL would pin the full table
 		// width and move nothing. Its text is pinned instead and stays in view above the label column
 		// while the values scroll past. `left` matches the cells' own padding, so the heading keeps
 		// its left edge aligned with them.
+		// `inline-flex`, NOT `flex`: a block-level box here would fill the cell, which spans all three
+		// columns, and an element as wide as its container cannot move — the pinning would do
+		// nothing. Shrink-to-fit is what lets it hold the left edge while the values scroll past.
 		&__group span {
 			position: sticky;
 			left: $spacing-4;
+			display: inline-flex;
+			align-items: center;
+			gap: $spacing-3;
 		}
 
 		// An em dash is a value here, not an absence of one — the cell says "not included", which the
@@ -1192,19 +1232,25 @@ const FAQ_VISIBLE = 6;
 		// The entry number and nothing else. The ladder is `/pricing/`'s, which "See plans" opens on
 		// the right product.
 		&__price {
-			@include type-action;
+			// One step under the name: the name identifies the option and the price qualifies it, so
+			// the eye should land on "Public Cloud" and then on "From $0", not the other way round.
+			// The name is `subsection-title`, which steps 32 -> 24 below `md`, so this steps with it
+			// — left at a flat 24 the two would tie on a phone and the order would stop reading.
+			@include type-card;
+
+			@include media-down(md) {
+				font-size: $font-size-xl;
+			}
 			display: flex;
 			flex-direction: column;
 			gap: 2px;
 			margin: 0;
-			font-weight: $font-weight-bold;
 			// The repo's own dark-mode brand. #3d50f5 on this ground is 2.1:1 and unreadable.
 			color: $color-brand-dark;
 		}
 
 		&__price-note {
-			@include type-small;
-			font-weight: $font-weight-normal;
+			@include type-body;
 			color: rgba(255, 255, 255, 0.6);
 		}
 
@@ -1215,7 +1261,7 @@ const FAQ_VISIBLE = 6;
 		}
 
 		&__points {
-			@include type-small;
+			@include type-body;
 			display: flex;
 			flex-direction: column;
 			gap: $spacing-2;
@@ -1231,8 +1277,9 @@ const FAQ_VISIBLE = 6;
 
 			svg {
 				flex: none;
-				width: 18px;
-				height: 18px;
+				width: 20px;
+				height: 20px;
+				// Optical centring on a 24px line, rather than the 2px a 22px line wanted.
 				margin-top: 2px;
 				color: $color-brand-dark;
 			}
@@ -1325,13 +1372,19 @@ const FAQ_VISIBLE = 6;
 	}
 
 	.shared-group {
+		// The section's own hue, carried by every mark under it.
+		--group-mark-color: #047857;
+
 		// Sentence case at the body-strong step, matching the matrix's group headings — the two
 		// sections are one table split in half, so their group headings are one treatment.
 		&__title {
 			@include type-body;
+			display: flex;
+			align-items: center;
+			gap: $spacing-3;
 			font-weight: $font-weight-medium;
 			margin: 0 0 $spacing-4;
-			color: $color-brand;
+			color: var(--color-text);
 		}
 
 		&__list {

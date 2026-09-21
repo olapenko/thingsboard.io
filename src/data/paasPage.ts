@@ -110,6 +110,8 @@ export interface CompareRow {
 
 export interface CompareGroup {
 	title: string;
+	/** Tabler name for the group's mark. The hue is the section's, set in the stylesheet. */
+	icon: string;
 	rows: CompareRow[];
 }
 
@@ -123,6 +125,7 @@ export const paasCompareLead: CompareRow = {
 export const paasCompare: CompareGroup[] = [
 	{
 		title: 'Infrastructure & scale',
+		icon: 'tabler:server',
 		rows: [
 			{
 				label: 'Infrastructure model',
@@ -143,6 +146,7 @@ export const paasCompare: CompareGroup[] = [
 	},
 	{
 		title: 'Reliability & operations',
+		icon: 'tabler:shield-check',
 		rows: [
 			{ label: 'Uptime SLA', values: ['99.9%', '99.9% – 99.99%'] },
 			{ label: 'Application-level HA', values: ['Managed by ThingsBoard Team', 'Included from the Scale plan'] },
@@ -163,6 +167,7 @@ export const paasCompare: CompareGroup[] = [
 	},
 	{
 		title: 'Compliance',
+		icon: 'tabler:certificate',
 		rows: [
 			{
 				label: 'Certifications',
@@ -179,6 +184,7 @@ export const paasCompare: CompareGroup[] = [
 	},
 	{
 		title: 'Support & commercials',
+		icon: 'tabler:headset',
 		rows: [
 			{
 				label: 'Starting price',
@@ -207,6 +213,7 @@ export const paasCompare: CompareGroup[] = [
 	},
 	{
 		title: 'Add-ons',
+		icon: 'tabler:puzzle',
 		rows: [
 			{ label: 'ThingsBoard Edge', values: ['From $9 / month', 'From $249 / month'] },
 			{ label: 'Trendz Analytics', values: ['From $29 / month', 'From $449 / month'] },
@@ -222,6 +229,8 @@ export interface SharedRow {
 
 export interface SharedGroup {
 	title: string;
+	/** Tabler name for the group's mark. The hue is the section's, set in the stylesheet. */
+	icon: string;
 	rows: SharedRow[];
 }
 
@@ -238,6 +247,7 @@ export interface SharedGroup {
 export const paasShared: SharedGroup[] = [
 	{
 		title: 'Connect and control devices',
+		icon: 'tabler:plug-connected',
 		rows: [
 			{
 				label: 'Device connectivity',
@@ -261,6 +271,7 @@ export const paasShared: SharedGroup[] = [
 	},
 	{
 		title: 'Model and process data',
+		icon: 'tabler:topology-star-3',
 		rows: [
 			{
 				label: 'Asset model & digital twin',
@@ -280,6 +291,7 @@ export const paasShared: SharedGroup[] = [
 	},
 	{
 		title: 'Build the application',
+		icon: 'tabler:layout-dashboard',
 		rows: [
 			{
 				label: 'Dashboards & SCADA',
@@ -296,6 +308,7 @@ export const paasShared: SharedGroup[] = [
 	},
 	{
 		title: 'Work faster',
+		icon: 'tabler:bolt',
 		rows: [
 			{
 				label: 'AI assistants & CLI',
