@@ -1,0 +1,1018 @@
+---
+import {
+	NORMALIZE_CASES,
+	NORMALIZE_NODE,
+	NORMALIZE_STAGES,
+	NORMALIZE_WINDOW,
+	canonical,
+	payloadTokens,
+	readingText,
+	seedSeries,
+	sparkDomain,
+} from '@data/normalize-visual';
+import { sparkPaths } from '@util/sparkline';
+// `@root` because there is no `@assets` alias. `?raw` so the SVG is inlined and draws in the
+// badge's colour rather than being an opaque <img>.
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+
+/**
+ * Candidate for `NormalizeFlow`: the platform as its own mark, and each reading as a line.
+ *
+ * Two changes from the incumbent, both asked for, and both trades rather than free wins:
+ *
+ * 1. The worded `NORMALIZE` pill becomes the product's mark on a squircle, exactly as
+ *    `ConnectFlow`'s node does — so the two visuals end at the same object and the family reads as
+ *    one hand. The word stays under it by default, because unlike the connect section this one is
+ *    headed "Turn IoT data into action" and nothing else on the row says what the middle step is.
+ * 2. The repeated `temperature` key in each model row becomes that device's recent history, and
+ *    the key is said ONCE at the top of the card.
+ *
+ * The second is worth being honest about. The repetition WAS the argument — four identical rows
+ * saying one key, one unit, one shape — and four different lines are, on their face, four things
+ * that disagree again. What holds it together is that the card is still one card, the unit is
+ * still on every row, and the key is still there, now as the card's own heading rather than as a
+ * word typed four times. The lines differ because the devices differ; the shape of the row does
+ * not. It also shows something the incumbent could not: that what comes out is not a translated
+ * string but a series you can plot.
+ *
+ * Everything else — the design unit, the ragged mono chips on the dark chrome, the cubic
+ * connectors with horizontal control points, the hairline rows — is the incumbent's, unchanged,
+ * so the two stages in the sandbox differ only in what was asked about.
+ */
+
+interface Props {
+	/**
+	 * Whether the node's name is shown under the mark. Off by default, as `ConnectFlow`'s is.
+	 *
+	 * Off means visually hidden rather than gone. The badge is `aria-hidden` and the mark
+	 * decorative, so this string is the only accessible name the thing every curve points at has;
+	 * deleting it outright would leave four arrows aimed at something unnamed.
+	 */
+	nodeLabel?: boolean;
+	/**
+	 * Whether anything moves along the connectors.
+	 *
+	 * `still` is the default and is what the component was: the numbers step and the lines slide,
+	 * the connectors do not. The comment at the top of `NormalizeFlow` is worth keeping in mind —
+	 * the flow visual carries the page's motion and this one is a diagram — so `pulse` is an
+	 * exploration, not a decision.
+	 *
+	 * `pulse` sends one pip per device along its curve into the node, and out again to its row a
+	 * transit later, so a single payload can be followed through the platform to the row it lands
+	 * in. Four packets on one beat, not eight decorative loops.
+	 */
+	motion?: 'still' | 'pulse';
+}
+
+const { nodeLabel = false, motion = 'still' } = Astro.props;
+
+// The composition. Narrower than the family's 630 because the gutters are: 70 units each against
+// the incumbent's 83, which pulls the three columns together and takes the whole drawing to 574.
+//
+// The chip and model columns are untouched at 144 and 186 — they are measured to the longest
+// payload and the widest row, and squeezing them is what would flatten the contrast the picture
+// rests on. The middle column is the badge's own width, since a square mark does not need the 134
+// units a word did.
+//
+// Narrowing is only worth anything because the unit below is derived from THIS number rather than
+// from 630. Hold the unit at 630 and the drawing would simply sit in its box with slack at the
+// sides, type the same size it always was; derived, the same container buys a 9.8% bigger unit and
+// every label with it.
+const BADGE = 104;
+const COL = { in: 144, gut: 70, node: BADGE, out: 186 };
+const NATIVE = COL.in + COL.gut + COL.node + COL.gut + COL.out;
+
+// Chip pitch and row pitch are chosen so both columns come out the same height (224), which is
+// what lets the node sit on the centre line of both without either side being padded to match.
+const CHIP = { h: 44, gap: 16 };
+const ROW_H = 56;
+const BODY_H = NORMALIZE_CASES.length * CHIP.h + (NORMALIZE_CASES.length - 1) * CHIP.gap;
+const MID = BODY_H / 2;
+
+const chipCy = NORMALIZE_CASES.map((_, i) => CHIP.h / 2 + i * (CHIP.h + CHIP.gap));
+const rowCy = NORMALIZE_CASES.map((_, i) => ROW_H / 2 + i * ROW_H);
+
+// A straight run at each end, then the cubic between them.
+//
+// Horizontal control points already make the tangent horizontal AT the endpoint, but a tangent is
+// a limit and a chevron has length. Measured on the 70-unit gutter, the outer curves were still
+// climbing 8.9 degrees across the last 6 units — exactly the span the chevron occupies — and only
+// 3 units of the approach were within 5 degrees of flat. The arrowheads read as skewed because the
+// line under them genuinely was. Widening the gutter would fix it by giving the curve more room,
+// but the gutters are narrow on purpose now.
+//
+// So the flat part is drawn rather than approached: the last LEAD units are a straight line, the
+// chevron sits inside it, and the join is horizontal by construction at any width. The cubic gets
+// the middle and is steeper for it, which is the trade — and it is the middle, where nothing has
+// to line up with anything.
+const LEAD = 12;
+const span = COL.gut - LEAD * 2;
+const bend = LEAD + span / 2;
+const converge = chipCy.map(
+	(cy) =>
+		`M 0,${cy} L ${LEAD},${cy} C ${bend},${cy} ${COL.gut - bend},${MID} ${COL.gut - LEAD},${MID} L ${COL.gut},${MID}`
+);
+const diverge = rowCy.map(
+	(cy) =>
+		`M 0,${MID} L ${LEAD},${MID} C ${bend},${MID} ${COL.gut - bend},${cy} ${COL.gut - LEAD},${cy} L ${COL.gut},${cy}`
+);
+
+// An open chevron, apex on the gutter's far edge so it touches the card the curve runs into.
+const head = (y: number) => `M ${COL.gut - 6},${y - 4} L ${COL.gut},${y} L ${COL.gut - 6},${y + 4}`;
+
+// The sparkline's own coordinate space, stretched to the row by `preserveAspectRatio="none"`.
+const VIEW = { w: 100, h: 24, pad: 3 };
+
+// How often a device reports. Declared here and handed to BOTH the stylesheet and the client
+// script, because the pip is only honest if it arrives when the number changes: two 2600s, one in
+// a keyframe and one in a module constant, would drift apart the first time either was tuned.
+const STEP_MS = 2600;
+// How long a pip takes to cross one gutter.
+//
+// Speed is set by the dash pattern rather than by a duration: the animation always runs one beat,
+// and the pip is only ON the path for the fraction of the pattern the path occupies. A 419-unit
+// repeat over a 100-unit path means it crosses in 100/419 of the beat and the connector is empty
+// for the rest — so making the signal faster also makes the gaps between signals longer, which is
+// most of what reads as snap. Halving the travel from the beat's half to under a quarter cost
+// nothing else in the composition.
+const TRAVEL_TARGET_MS = 620;
+const DASH = 8;
+// The repeat, in the same normalised units the path is measured in.
+const PATTERN = Math.round((100 * STEP_MS) / TRAVEL_TARGET_MS);
+// What that rounding actually bought, and the number the delays below are wound from — the pip has
+// to LAND on the beat, so the delays are derived from the real travel and not from the target.
+const TRAVEL_MS = (STEP_MS * 100) / PATTERN;
+// Four devices reporting independently, not one machine ticking. Small enough that the four still
+// read as one beat rather than as four unrelated animations.
+const STAGGER_MS = 130;
+// How long after a pip reaches a row that row answers it.
+//
+// The order is the whole point of the pulse: something arrives, and THEN the model changes. Long
+// enough to read as consequence rather than coincidence, short enough that it is not a separate
+// event — under about 100ms the two look simultaneous, and over about 300ms the row looks like it
+// changed on its own.
+const REACT_MS = 150;
+
+/**
+ * One seeded history per device, plus the reading about to arrive.
+ *
+ * The extra point is drawn past the right edge and clipped, so the client's first slide continues
+ * the curve instead of bending it — the same move the app shell makes. It travels to the client as
+ * JSON rather than being re-seeded there: a second generator would be a second thing to keep in
+ * step with this one, and the line would visibly jump the first time they disagreed.
+ */
+const plots = NORMALIZE_CASES.map((c, i) => {
+	const series = seedSeries(c, i, NORMALIZE_WINDOW + 1);
+	// The newest point fully inside the box is what the card reads — so the number, the payload
+	// beside it and the end of the line are one value, not three.
+	const shown = series[NORMALIZE_WINDOW - 1];
+	return {
+		series,
+		domain: sparkDomain(c),
+		shown,
+		// Plotted canonical, so the register's staircase is visible rather than smoothed: it reports
+		// whole degrees, and the line should say so.
+		paths: sparkPaths(
+			series.map((v) => canonical(c, v)),
+			sparkDomain(c),
+			VIEW,
+			NORMALIZE_WINDOW
+		),
+	};
+});
+---
+
+<div class="norm-fit">
+	<div
+		class="norm"
+		data-norm
+		data-motion={motion}
+		data-step={STEP_MS}
+		data-stagger={STAGGER_MS}
+		data-react={REACT_MS}
+		data-view={`${VIEW.w},${VIEW.h},${VIEW.pad}`}
+		data-window={NORMALIZE_WINDOW}
+		style={[
+			// A ceiling and no floor, and the native width baked in here rather than divided out of a
+			// custom property at paint time — `ConnectFlow`'s reasoning exactly. The rest of the
+			// family floors the unit at 0.45px, which at 574 units native is reached by a 258px
+			// container and would make the composition WIDER than what holds it. Sideways scroll is a
+			// worse failure than small type, and with no floor the width is exactly 100cqw at every
+			// size below the cap.
+			`--norm-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
+			`--norm-native: ${NATIVE}`,
+			`--norm-col-in: ${COL.in}`,
+			`--norm-col-gut: ${COL.gut}`,
+			`--norm-col-node: ${COL.node}`,
+			`--norm-badge: ${BADGE}`,
+			`--norm-col-out: ${COL.out}`,
+			`--norm-body-h: ${BODY_H}`,
+			`--norm-row-h: ${ROW_H}`,
+			`--norm-chip-h: ${CHIP.h}`,
+			`--norm-chip-gap: ${CHIP.gap}`,
+			`--norm-beat: ${STEP_MS}ms`,
+			`--norm-travel: ${TRAVEL_MS}ms`,
+			`--norm-stagger: ${STAGGER_MS}ms`,
+			`--norm-dash: ${DASH} ${PATTERN - DASH}`,
+			`--norm-pattern: ${PATTERN}`,
+		].join('; ')}
+	>
+		{
+			/* Nested, so one parse is cheaper to read than four attributes to reassemble. Rounded to 3dp
+		    on the way out: the client feeds these through `sparkPaths`, which quantises to two
+		    decimals in a 100x24 box, and through `readingText`, which is `toFixed(1)` — so the extra
+		    digits are bytes of nothing. The server's own first paint uses the unrounded `paths`
+		    below, so the rendered HTML is unchanged. */
+		}
+		<script
+			is:inline
+			type="application/json"
+			data-norm-plots
+			set:html={JSON.stringify(plots.map((p) => ({ series: p.series.map((v) => +v.toFixed(3)), domain: p.domain })))}
+		/>
+
+		<p class="norm__label norm__label--in">{NORMALIZE_STAGES.in}</p>
+		<p class="norm__label norm__label--out">{NORMALIZE_STAGES.out}</p>
+
+		{
+			/* --- what arrives ---------------------------------------------------------------------
+		    Mono, because these are payloads rather than prose. The wording differs; the outline does
+		    not, which puts the difference where it belongs. */
+		}
+		<ul class="norm__payloads" role="list">
+			{
+				NORMALIZE_CASES.map((c, i) => (
+					<li title={c.note}>
+						{payloadTokens(c, plots[i].shown).map((t) => (
+							<span class={`norm__t norm__t--${t.role}`} data-norm-tok={t.role === 'num' ? String(i) : undefined}>
+								{t.t}
+							</span>
+						))}
+					</li>
+				))
+			}
+		</ul>
+
+		{
+			/* Under the cards on either side, so each join is a card edge over a line and cannot show
+		    a seam at any scale — the same order the twin's connectors use. */
+		}
+		<svg class="norm__gut norm__gut--in" viewBox={`0 0 ${COL.gut} ${BODY_H}`} aria-hidden="true">
+			{converge.map((d) => <path class="norm__curve" d={d} />)}
+			{
+				/* Same `d` as the rail beneath it, so the pip cannot travel anywhere the connector does
+			    not go. `pathLength` normalises every curve to 100 whatever its real length, which is
+			    what lets one dash pattern serve four curves of four different lengths — and what
+			    keeps the pip the same size at every width, since the pattern is then in the same
+			    normalised space the path is. */
+			}
+			{
+				motion === 'pulse' &&
+					converge.map((d, i) => <path class="norm__pip" d={d} pathLength="100" style={`--i: ${i}`} />)
+			}
+			<path class="norm__head" d={head(MID)}></path>
+		</svg>
+
+		{
+			/* The product, as its own mark rather than a word. The label is out of flow: as a flex
+		    sibling it added its own height to the node, which pushed the badge above the row's
+		    middle and left the arrows pointing at a spot below its centre. Out of flow, the node IS
+		    the badge, and centring the node centres it on the line the curves converge on. */
+		}
+		<div class="norm__node">
+			<span class="norm__badge" aria-hidden="true" set:html={mark} />
+			<span class:list={['norm__node-label', !nodeLabel && 'is-hidden']}>{NORMALIZE_NODE.label}</span>
+		</div>
+
+		<svg class="norm__gut norm__gut--out" viewBox={`0 0 ${COL.gut} ${BODY_H}`} aria-hidden="true">
+			{diverge.map((d) => <path class="norm__curve" d={d} />)}
+			{
+				/* A transit behind its own device's incoming pip, so what leaves the node for row `i` is
+			    what arrived from chip `i`. The two halves are one packet rather than two loops. */
+			}
+			{
+				motion === 'pulse' &&
+					diverge.map((d, i) => <path class="norm__pip norm__pip--out" d={d} pathLength="100" style={`--i: ${i}`} />)
+			}
+			{rowCy.map((cy) => <path class="norm__head" d={head(cy)} />)}
+		</svg>
+
+		{
+			/* --- what it becomes ------------------------------------------------------------------
+		    One card, four rows of the same shape: a line and a number in °C. The key is not written
+		    anywhere — the stage label over the card says what the card is, and the argument is
+		    carried by the rows being identical in shape and by every one of them ending in °C. */
+		}
+		<div class="norm__model">
+			<ul class="norm__rows" role="list">
+				{
+					NORMALIZE_CASES.map((c, i) => (
+						<li class="norm__row">
+							<svg
+								class="norm__spark"
+								viewBox={`0 0 ${VIEW.w} ${VIEW.h}`}
+								preserveAspectRatio="none"
+								aria-hidden="true"
+							>
+								<g data-norm-plot={String(i)}>
+									<path class="norm__spark-area" d={plots[i].paths.area} />
+									<path class="norm__spark-line" d={plots[i].paths.line} />
+								</g>
+							</svg>
+							<span class="norm__val" data-norm-read={String(i)}>
+								{readingText(c, plots[i].shown)}
+							</span>
+						</li>
+					))
+				}
+			</ul>
+		</div>
+	</div>
+</div>
+
+<script>
+	import {
+		NORMALIZE_CASES,
+		NORMALIZE_WINDOW,
+		canonical,
+		nextCelsius,
+		payloadTokens,
+		readingText,
+	} from '@data/normalize-visual';
+	import { segmentWidth, sparkPaths, type Domain, type SparkView } from '@util/sparkline';
+
+	/**
+	 * Drifts each device's reading and rewrites all three views of it from that one number: the
+	 * payload on the left, the line, and the number at the end of the line.
+	 *
+	 * The conversion and the walk are IMPORTED, the same ones the server rendered with — not
+	 * reimplemented here. That is the whole reason the translation can be trusted: there is one
+	 * definition of what 24.5 °C looks like in Fahrenheit, and both the first paint and every tick
+	 * afterwards go through it.
+	 *
+	 * Only the numeric token and the value move as text. Keys, quotes and units are fixed by the
+	 * format, so they are left alone rather than rebuilt every frame.
+	 */
+	// How often a device reports, read off the root: the frontmatter declares it once and the
+	// connector keyframes are wound from the same number, so a pip cannot arrive on a beat the
+	// readings are not keeping.
+	const STEP_FALLBACK = 2600;
+	const TWEEN_MS = 600; // how long the number takes to get there, and the line to slide
+
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	type Plot = {
+		num: HTMLElement | null;
+		read: HTMLElement | null;
+		row: HTMLElement | null;
+		/**
+		 * How long after a step this row moves.
+		 *
+		 * Zero when nothing is travelling: with no pip to wait for, four rows changing at once is
+		 * the honest picture and is what the still version has always done. Under `pulse` it is the
+		 * moment this device's own pip lands, plus the beat it takes the row to answer.
+		 */
+		offset: number;
+		/** When the current tween began, or null between tweens. */
+		startAt: number | null;
+		/** The last strings actually painted, so a frame formatting to the same text touches no DOM. */
+		lastNum: string | null;
+		lastRead: string | null;
+		g: SVGGElement | null;
+		line: SVGPathElement | null;
+		area: SVGPathElement | null;
+		domain: Domain;
+		/** The settled window, oldest first. */
+		hist: number[];
+		/** Drawn past the right edge, and what the next step slides in. */
+		pending: number;
+	};
+
+	type Live = {
+		root: HTMLElement;
+		/** Only `pulse` has anything for a row to answer, so only `pulse` marks one as answering. */
+		pulse: boolean;
+		step: number;
+		/**
+		 * The instant the connector animations began, read off a pip.
+		 *
+		 * Both clocks are nominally the beat, but they are two clocks: the keyframes start when the
+		 * element first renders and this loop starts when the module runs. Reading the animation's
+		 * own start time and stepping in exact multiples from it is what stops a pip arriving a
+		 * little further from its row's answer every minute.
+		 */
+		origin: number;
+		/**
+		 * The pip's own animation, kept rather than re-queried.
+		 *
+		 * The beat is read off its `currentTime`, which FREEZES when the animation is paused while
+		 * `startTime` keeps sliding. That is what lets the pips be gated on the viewport: both clocks
+		 * stop together, so a pip still lands on the row that answers it after a round trip off
+		 * screen. Null for `still`, which has no pip and nothing to keep in step.
+		 */
+		clock: Animation | null;
+		view: SparkView;
+		window: number;
+		plots: Plot[];
+		started: number;
+		lastStep: number;
+	};
+
+	function draw(p: Plot, i: number, live: Live) {
+		if (!p.line || !p.area) return;
+		const c = NORMALIZE_CASES[i];
+		const d = sparkPaths(
+			[...p.hist, p.pending].map((v) => canonical(c, v)),
+			p.domain,
+			live.view,
+			live.window
+		);
+		p.line.setAttribute('d', d.line);
+		p.area.setAttribute('d', d.area);
+	}
+
+	// Cached fields rather than reading `textContent` back, so the unchanged case touches no DOM at
+	// all. Both start null, so the first paint writes once even where it matches the server's markup.
+	//
+	// `payloadTokens`/`readingText` stay as they are: the array they allocate per frame is the price
+	// of having ONE definition of the conversion, which is the whole reason the translation can be
+	// trusted. See the note above.
+	function paint(p: Plot, i: number, celsius: number) {
+		const c = NORMALIZE_CASES[i];
+		const num = payloadTokens(c, celsius).find((t) => t.role === 'num');
+		if (num && p.num && num.t !== p.lastNum) {
+			p.num.textContent = num.t;
+			p.lastNum = num.t;
+		}
+		const r = readingText(c, celsius);
+		if (p.read && r !== p.lastRead) {
+			p.read.textContent = r;
+			p.lastRead = r;
+		}
+	}
+
+	function setup(now: number): Live[] {
+		return Array.from(document.querySelectorAll<HTMLElement>('[data-norm]')).map((root) => {
+			const [w, h, pad] = (root.dataset.view ?? '100,24,3').split(',').map(Number);
+			const win = Number(root.dataset.window ?? NORMALIZE_WINDOW);
+			const pulse = root.dataset.motion === 'pulse';
+			const stagger = Number(root.dataset.stagger) || 0;
+			const react = Number(root.dataset.react) || 0;
+			// A pip's own animation, asked when it started. `startTime` is on the document timeline,
+			// which shares its origin with `performance.now()`.
+			const pip = root.querySelector<SVGPathElement>('.norm__pip');
+			const clock = pip?.getAnimations?.()[0];
+			const origin = pulse && clock?.startTime != null ? Number(clock.startTime) : now;
+			// Seeded server-side and read back rather than regenerated: one generator, one history.
+			const seeded: { series: number[]; domain: Domain }[] = JSON.parse(
+				root.querySelector('[data-norm-plots]')?.textContent ?? '[]'
+			);
+			return {
+				root,
+				pulse,
+				origin,
+				clock: pulse ? (clock ?? null) : null,
+				step: Number(root.dataset.step) || STEP_FALLBACK,
+				view: { w, h, pad },
+				window: win,
+				started: 0,
+				lastStep: origin,
+				plots: NORMALIZE_CASES.map((_, i) => {
+					const g = root.querySelector<SVGGElement>(`[data-norm-plot="${i}"]`);
+					const s = seeded[i];
+					return {
+						num: root.querySelector<HTMLElement>(`[data-norm-tok="${i}"]`),
+						read: root.querySelector<HTMLElement>(`[data-norm-read="${i}"]`),
+						row: root.querySelectorAll<HTMLElement>('.norm__row')[i] ?? null,
+						// The out-pip is delayed by a transit and crosses in another, so it reaches row
+						// `i` one whole beat after its cycle began — which is this many milliseconds
+						// past a step boundary.
+						offset: pulse ? i * stagger + react : 0,
+						startAt: null,
+						lastNum: null,
+						lastRead: null,
+						g,
+						line: g?.querySelector<SVGPathElement>('.norm__spark-line') ?? null,
+						area: g?.querySelector<SVGPathElement>('.norm__spark-area') ?? null,
+						domain: s?.domain ?? ([0, 1] as Domain),
+						hist: s ? s.series.slice(0, win) : [],
+						pending: s ? s.series[win] : 0,
+					};
+				}),
+			};
+		});
+	}
+
+	const t0 = performance.now();
+	const all = reduce ? [] : setup(t0);
+
+	if (all.length) {
+		const visible = new Set<HTMLElement>();
+		let running = false;
+
+		const frame = (now: number) => {
+			all.forEach((l) => {
+				if (!visible.has(l.root)) return;
+
+				if (now - l.lastStep >= l.step) {
+					// Stepped from the connectors' OWN clock, so the two cannot drift. A root that has
+					// been off screen for a while is snapped forward to the current beat rather than
+					// replaying every one it missed.
+					//
+					// Read off `currentTime` rather than counted from `startTime`. While the animation
+					// runs the two are equivalent — `now - (currentTime % step)` is exactly the
+					// `origin + step * floor((now - origin) / step)` this used to compute. They stop
+					// being equivalent the moment the pip is PAUSED off screen: `currentTime` freezes
+					// with it while `startTime` slides on, so counting from `startTime` would put the
+					// row's answer further from its pip every time the row was scrolled past. The
+					// fallback is the old arithmetic, for `still`, which has no pip to read.
+					const ct = l.clock?.currentTime;
+					l.lastStep =
+						ct != null ? now - (Number(ct) % l.step) : l.origin + Math.floor((now - l.origin) / l.step) * l.step;
+					l.plots.forEach((p) => (p.startAt = l.lastStep + p.offset));
+					l.started = now;
+				}
+				if (!l.started) return;
+
+				// Below both early returns on purpose: above them it was recomputed every frame for
+				// every root, including the ones with nothing to tween.
+				const seg = segmentWidth(l.window, l.view);
+
+				l.plots.forEach((p, i) => {
+					// Its pip has not landed yet. The row holds what it had — which is the point: the
+					// model changes because something arrived, not because the clock moved.
+					if (p.startAt === null || now < p.startAt) return;
+
+					const t = Math.min(1, (now - p.startAt) / TWEEN_MS);
+					// easeOutCubic: quick to move, settles rather than stopping dead.
+					const e = 1 - Math.pow(1 - t, 3);
+					const from = p.hist[p.hist.length - 1] ?? p.pending;
+					paint(p, i, from + (p.pending - from) * e);
+
+					if (t < 1) {
+						p.g?.setAttribute('transform', `translate(${(-seg * e).toFixed(3)} 0)`);
+						if (l.pulse) p.row?.classList.add('is-live');
+						return;
+					}
+					// Advance and redraw at rest. The point that was one segment past the right edge is
+					// now the last one inside it, which is exactly where the translation had put it, so
+					// dropping the transform cannot show a jump.
+					p.hist.shift();
+					p.hist.push(p.pending);
+					p.pending = nextCelsius(NORMALIZE_CASES[i], p.pending);
+					p.g?.setAttribute('transform', 'translate(0 0)');
+					draw(p, i, l);
+					if (l.pulse) p.row?.classList.remove('is-live');
+					p.startAt = null;
+				});
+
+				if (l.plots.every((p) => p.startAt === null)) l.started = 0;
+			});
+
+			// Nothing on screen means nothing to do, and re-arming anyway wakes the main thread every
+			// frame for the life of the page. Restarting is free: the beat is snapped forward from
+			// `origin` above rather than replayed, so any gap lands on the current beat.
+			if (visible.size) requestAnimationFrame(frame);
+			else running = false;
+		};
+
+		// Declared after `frame` so becoming visible can restart a parked loop without reaching
+		// forward to a binding that does not exist yet.
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					const root = e.target as HTMLElement;
+					if (e.isIntersecting) visible.add(root);
+					else visible.delete(root);
+					// The pips stop with the loop. Safe only because the beat above is read off the
+					// pip's own `currentTime`, which freezes with it.
+					root.style.setProperty('--norm-play', e.isIntersecting ? 'running' : 'paused');
+				});
+
+				if (visible.size && !running) {
+					running = true;
+					requestAnimationFrame(frame);
+				}
+			},
+			{ rootMargin: '80px' }
+		);
+		all.forEach((l) => io.observe(l.root));
+
+		running = true;
+		requestAnimationFrame(frame);
+	}
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Every size below is a multiple of one design unit, so the whole composition scales as a piece
+	// instead of reflowing. See SolutionFlow for why the unit comes from the container.
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.norm-fit {
+		container-type: inline-size;
+	}
+
+	.norm {
+		// Set in the frontmatter, where the native width is known. `--flow-u` stays the name the
+		// family uses so a nested component could still read it.
+		--flow-u: var(--norm-u);
+		--u: var(--flow-u);
+		--norm-rail-color: var(--color-text-secondary, #5b616e);
+		--norm-rail-w: max(1px, #{u(2)});
+		// Whiteish, but measurably NOT the page.
+		//
+		// A signal at or near white reads as a GAP travelling down the connector — the line looking
+		// broken rather than lit — because at two pixels there is no rail left either side of it to
+		// say otherwise. Measured: at 10% brand the signal came out rgb(236, 238, 254), which is
+		// 1.15:1 against the page, and that is exactly what it looked like. At 28% it is
+		// rgb(201, 206, 252) — 1.45:1 against the page and 3.4:1 against the rail, so it is plainly
+		// lighter than the line it runs on and plainly not a hole in it.
+		//
+		// This is the knob if the signal wants to be hotter or cooler; nothing else depends on it.
+		--norm-signal-color: color-mix(in srgb, var(--color-primary, #3d50f5) 28%, #fff);
+
+		// A syntax ramp of this visual's own, rather than borrowed tokens, and tuned for the dark
+		// chip the payloads sit on. See `NormalizeFlow` for why the palette's own hues are all
+		// unavailable here.
+		--norm-syn-key: #d2a8ff;
+		--norm-syn-num: #ffb86b;
+		--norm-syn-unit: #7ee787;
+		--norm-syn-punct: #9aa4b2;
+		display: grid;
+		// Payloads | curve | platform | curve | model. Straight from the numbers the curve endpoints
+		// were computed from — hard-coding them here too would let the layout and the geometry
+		// drift, and the symptom would be connectors that miss the cards at some widths only.
+		grid-template-columns:
+			u(var(--norm-col-in))
+			u(var(--norm-col-gut))
+			u(var(--norm-col-node))
+			u(var(--norm-col-gut))
+			u(var(--norm-col-out));
+		grid-template-rows: auto u(var(--norm-body-h));
+		grid-template-areas:
+			'label-in .      .    .       label-out'
+			'payloads gut-in node gut-out model';
+		align-items: center;
+		max-width: u(var(--norm-native));
+		margin: 0 auto;
+	}
+
+	// The stage labels, as the flow's and the twin's: a size up from a caption, grey, centred over
+	// their columns.
+	.norm__label {
+		min-height: u(24);
+		margin: 0 0 u(8);
+		font-size: u(15);
+		line-height: u(24);
+		text-align: center;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.norm__label--in {
+		grid-area: label-in;
+	}
+
+	.norm__label--out {
+		grid-area: label-out;
+	}
+
+	// --- what arrives ---------------------------------------------------------
+
+	.norm__payloads {
+		grid-area: payloads;
+		display: flex;
+		flex-direction: column;
+		gap: u(var(--norm-chip-gap));
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		// Over the curves, so their ends tuck under the chips.
+		position: relative;
+		z-index: 1;
+
+		li {
+			display: flex;
+			align-items: center;
+			width: 100%;
+			height: u(var(--norm-chip-h));
+			padding: 0 u(14);
+			border-radius: u(var(--flow-radius, 8));
+			border: 1px solid transparent;
+			font-family: $font-family-mono;
+			font-size: u(18);
+			font-weight: $font-weight-bold;
+			color: #fff;
+			// Dark is the world sending the data, light is the platform receiving it — so the picture
+			// reads world -> platform -> model without a label.
+			background: var(--flow-chrome, #1b1e27);
+			box-shadow: var(
+				--flow-shadow,
+				0 1px 2px rgba(16, 24, 40, 0.08),
+				0 #{u(14)} #{u(32)} #{u(-10)} rgba(16, 24, 40, 0.28)
+			);
+		}
+	}
+
+	.norm__t--key {
+		color: var(--norm-syn-key);
+	}
+
+	.norm__t--num {
+		color: var(--norm-syn-num);
+	}
+
+	.norm__t--unit {
+		color: var(--norm-syn-unit);
+	}
+
+	.norm__t--punct {
+		color: var(--norm-syn-punct);
+	}
+
+	// --- the platform ---------------------------------------------------------
+
+	// Its height is the badge's height and nothing else, so centring it in the row centres the badge
+	// on the line the curves converge on. Above the connectors so their ends tuck under it.
+	.norm__node {
+		grid-area: node;
+		position: relative;
+		z-index: 1;
+		display: flex;
+		justify-content: center;
+		height: u(var(--norm-badge));
+	}
+
+	// A squircle, because a percentage radius is the closest a plain border-radius gets to the
+	// superellipse an app icon uses — a true one needs an SVG path or `corner-shape`, too new to
+	// rely on. Same 32% and the same mark-to-tile proportion as `ConnectFlow`'s, so the two nodes
+	// are one object at two sizes rather than two objects.
+	.norm__badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: u(var(--norm-badge));
+		height: u(var(--norm-badge));
+		padding: u(16);
+		border-radius: 32%;
+		// The mark is inlined rather than an <img> so it can take this colour; it draws in
+		// currentColor.
+		color: var(--color-white, #fff);
+		background: var(--color-primary, #3d50f5);
+		// A shade deeper than the cards' on purpose: a small object in a saturated colour, and a
+		// shadow reads weaker under a strong fill than under white. A tight contact shadow in
+		// absolute pixels so it stays crisp at phone scale, and a wide ambient one in design units
+		// so it grows with the composition.
+		box-shadow: var(
+			--flow-shadow-badge,
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
+		);
+	}
+
+	// Out of flow, so it cannot push the badge off the axis the arrows aim at.
+	.norm__node-label {
+		position: absolute;
+		top: calc(100% + #{u(10)});
+		left: 50%;
+		transform: translateX(-50%);
+		font-size: u(15);
+		line-height: u(20);
+		// Not semibold: there is no Ubuntu 600 and the browser synthesises it. Under a mark that is
+		// already the loudest object in the picture, medium is enough.
+		font-weight: $font-weight-medium;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+		color: var(--color-text);
+	}
+
+	// Hidden to the eye, still read aloud: the badge is `aria-hidden` and the mark decorative, so
+	// removing this outright would leave every curve pointing at something unnamed.
+	.norm__node-label.is-hidden {
+		@include visually-hidden;
+	}
+
+	// --- connectors -----------------------------------------------------------
+
+	// Both gutters use the same viewBox, and their rendered size is unit-derived on both axes, so
+	// the aspect ratio matches and the curves scale without skewing.
+	.norm__gut {
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+
+	.norm__gut--in {
+		grid-area: gut-in;
+	}
+
+	.norm__gut--out {
+		grid-area: gut-out;
+	}
+
+	.norm__curve,
+	.norm__head {
+		fill: none;
+		stroke: var(--norm-rail-color);
+		stroke-width: var(--norm-rail-w);
+		// The box is scaled by the design unit, so the stroke would scale with it otherwise.
+		vector-effect: non-scaling-stroke;
+	}
+
+	.norm__curve {
+		stroke-linecap: round;
+	}
+
+	.norm__head {
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	// One payload, travelling. Deliberately NOT `non-scaling-stroke`, unlike the rail it runs on:
+	// the rail wants a hairline that never thins, while the pip is an object in the drawing and
+	// should grow and shrink with it like everything else does.
+	//
+	// The repeat is several times the normalised path, so at most one pip is ever on a curve: it
+	// crosses quickly and the connector is empty until the next one. A pattern SHORTER than the
+	// path would put a string of pips on every connector, which reads as a conveyor rather than as
+	// a reading arriving.
+	//
+	// Linear, and deliberately. Easing would be the obvious way to add snap, but the timing
+	// function applies across the whole beat while the pip is visible for only part of it — an
+	// ease would make the travel cover its distance in something other than `--norm-travel`, and
+	// the arrival would no longer line up with the row that answers it. Snap comes from the short
+	// travel and the long gap instead, both of which are exact.
+	.norm__pip {
+		fill: none;
+		stroke: var(--norm-signal-color);
+		// The rail's own weight, not a heavier one. A thicker pip made the signal a bulge travelling
+		// down the connector; at the same weight it is the connector itself lighting up, and colour
+		// is the only thing that changes. Two units matches `--norm-rail-w` at every width the
+		// composition is used at — the rail's `max(1px, …)` only exceeds two units below a 290px
+		// container, where the pip is under a pixel anyway.
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-dasharray: var(--norm-dash);
+		animation: norm-pip var(--norm-beat) linear infinite;
+		// Paused while the row is off screen. See the loop: the beat is read off this animation's own
+		// `currentTime`, so freezing it freezes the row's timing with it rather than desyncing them.
+		animation-play-state: var(--norm-play, running);
+		// Wound BACKWARDS from the moment it has to arrive rather than forwards from zero. The pip
+		// into the node has two gutters left to cross, so it starts two travels before the beat;
+		// change the speed and both delays follow, and the packet still lands on the beat.
+		animation-delay: calc(var(--i) * var(--norm-stagger) + var(--norm-beat) - 2 * var(--norm-travel));
+	}
+
+	// Its own device's pip, leaving the node exactly as the incoming one reaches it — so the packet
+	// that arrived is the packet that leaves, rather than the two sides pulsing at each other.
+	.norm__pip--out {
+		animation-delay: calc(var(--i) * var(--norm-stagger) + var(--norm-beat) - var(--norm-travel));
+	}
+
+	// One full pattern of travel per beat. Start and end are the same picture, so the loop has no
+	// seam; the dash is only on the path for the slice of it that moves the pip end to end.
+	@keyframes norm-pip {
+		from {
+			stroke-dashoffset: var(--norm-pattern);
+		}
+
+		to {
+			stroke-dashoffset: 0;
+		}
+	}
+
+	// The connectors are the one thing here that moves for its own sake — the numbers and the lines
+	// are showing data — so this is the one thing that goes when motion is unwelcome. Not a width
+	// query: a visual does not know the viewport, but it may know what the reader has asked for.
+	@media (prefers-reduced-motion: reduce) {
+		.norm__pip {
+			display: none;
+		}
+	}
+
+	// --- what it becomes ------------------------------------------------------
+
+	.norm__model {
+		grid-area: model;
+		position: relative;
+		z-index: 1;
+		display: flex;
+		overflow: hidden;
+		flex-direction: column;
+		margin: 0;
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-surface, #fff);
+	}
+
+	.norm__rows {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// Line left, number right, hairlines between — the twin's state rows with the key's place given
+	// to the history. Back to the incumbent's 56-unit pitch now that nothing sits above them, which
+	// is also what lets the line be drawn taller.
+	.norm__row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: u(12);
+		height: u(var(--norm-row-h));
+		padding: 0 u(16);
+
+		& + & {
+			border-top: 1px solid var(--sl-color-hairline-light, #ebebeb);
+		}
+	}
+
+	// Takes whatever the number leaves. `min-width: 0` is the flex equivalent of `minmax(0, 1fr)`,
+	// without which the row's min-content width would push the number out of the card.
+	.norm__spark {
+		flex: 1;
+		min-width: 0;
+		height: u(28);
+		// Clipped left and right only: the incoming point is drawn past the right edge and slides
+		// in, while the stroke may still round off above and below the box.
+		overflow: visible;
+		clip-path: inset(u(-4) 0);
+	}
+
+	.norm__spark-area {
+		fill: var(--color-primary, #3d50f5);
+		opacity: 0.1;
+	}
+
+	.norm__spark-line {
+		fill: none;
+		stroke: var(--color-primary, #3d50f5);
+		// In screen pixels, because of `non-scaling-stroke` below — so it scales with the design
+		// unit rather than with the stretched box, and never thins past a pixel.
+		stroke-width: max(1px, #{u(2)});
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		// preserveAspectRatio="none" stretches the box, which would stretch the stroke with it.
+		vector-effect: non-scaling-stroke;
+	}
+
+	// Connectors in the brand, carrying a near-white signal, rather than grey ones carrying a blue
+	// one. It puts the flow in the same colour as the thing it flows into — the badge — so the
+	// picture reads as one system rather than as neutral plumbing with a coloured box in it.
+	//
+	// Scoped to `pulse` on purpose: the still stage beside it is the committed candidate and is what
+	// this is being judged against, so it keeps its grey rails. Lifting this one declaration out of
+	// the block makes it the composition's default, if that is the answer.
+	.norm[data-motion='pulse'] {
+		--norm-rail-color: var(--color-primary, #3d50f5);
+	}
+
+	// What a row does when its signal lands.
+	//
+	// Only under `pulse`: with nothing travelling there is nothing to answer, and the still version
+	// stays exactly what was committed. The lift is fast and the return is slow, which is what makes
+	// it read as a reaction rather than a blink — the same asymmetry a needle has.
+	.norm[data-motion='pulse'] {
+		.norm__val {
+			transition: color 560ms ease-out;
+		}
+
+		.norm__spark-area {
+			transition: opacity 560ms ease-out;
+		}
+
+		.norm__row.is-live {
+			.norm__val {
+				color: var(--color-primary, #3d50f5);
+				transition-duration: 120ms;
+			}
+
+			.norm__spark-area {
+				opacity: 0.2;
+				transition-duration: 120ms;
+			}
+		}
+	}
+
+	.norm__val {
+		font-size: u(16);
+		// Not semibold, per the family's note: the browser synthesises Ubuntu 600 and it shows at
+		// this size. Medium against the grey key above it is enough to make the number the subject.
+		font-weight: $font-weight-medium;
+		line-height: u(22);
+		white-space: nowrap;
+		// Four values stepping at once, so they must agree to the pixel.
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text);
+	}
+</style>

@@ -1,0 +1,784 @@
+---
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+
+/**
+ * Connect as a hub: the platform in the middle, protocols either side, each on the end of a line
+ * that runs off and fades out.
+ *
+ * A CANDIDATE, sandbox only. A structural draft from a sketch, and it argues something the cloud
+ * cannot: the cloud says "whatever you have is in here" and is deliberately unordered, while this
+ * says "everything arrives at one place" and draws the arrival.
+ *
+ * --- the fade, which is the whole idea ------------------------------------------------------
+ *
+ * The sketch had a device icon on the outer end of every line — a solar panel, a robot arm, a
+ * charger. Those are gone, and the line dissolves into the page instead. Two reasons. Eight device
+ * glyphs is eight more things to read in a picture whose subject is the protocols, and each one
+ * makes a claim about which device speaks which protocol that is a simplification at best: Modbus
+ * is not solar panels. A line that fades says "and whatever else you have" without naming anything,
+ * which is both truer and quieter.
+ *
+ * The fade runs in the chip's own accent, so the colour leaves the composition the way it arrived.
+ *
+ * --- geometry -------------------------------------------------------------------------------
+ *
+ * Computed here in design units rather than measured in the browser after layout. The
+ * difference is that this structure is fixed: four chips a side at a known pitch, so every endpoint
+ * is known before the browser sees it. Nothing here depends on layout having happened.
+ *
+ * Curves are cubics with horizontal control points, as everywhere else in the family, so each one
+ * leaves its chip flat and arrives at the badge flat. They fan onto the badge's face rather than
+ * converging on its centre — four lines meeting at a point reads as a star, not as arrivals.
+ */
+
+interface Props {
+	/** Draws the caption under the badge. Off, as on the other Connect cuts. */
+	nodeLabel?: boolean;
+	/**
+	 * Which cut.
+	 *
+	 *   four         four a side, larger chips, colour as texture in four hues.
+	 *   five         the same again with a fifth arm a side — same chip size, column and pitch, so
+	 *                the two differ only in how much the picture carries.
+	 *   six-advised  the twelve the CEO advised, as drawn, with the same four-hue rotation. The set
+	 *                is the point of this one, so it is kept exactly.
+	 *   six          the same twelve arms, but names chosen four per route so colour can CODE the
+	 *                route rather than decorate. Three names differ from the advised set.
+	 *   six-stagger  the advised twelve again, in two ranks: four on an inner rank and two tucked
+	 *                into the gaps further out, their lines running through between. Shorter, and
+	 *                considerably wider — see the note on NATIVE.
+	 *
+	 * A prop rather than three components because only the name list, the chip metrics and the
+	 * spread of the fan differ; everything else derives from the arm count.
+	 */
+	arms?: 'four' | 'five' | 'six' | 'six-advised' | 'six-stagger';
+}
+
+const { nodeLabel = false, arms = 'four' }: Props = Astro.props;
+/** Both six-arm cuts share every number; only their names and colour rule differ. */
+const isSix = arms === 'six' || arms === 'six-advised' || arms === 'six-stagger';
+const isStagger = arms === 'six-stagger';
+
+/**
+ * Four a side, from the sketch. Accents follow the three routes the other cuts use — straight in,
+ * through a gateway, through an integration — so a chip means the same thing in every version.
+ */
+// TWO DIFFERENT RULES, one per cut, and that is deliberate.
+//
+// Four arms: colour is texture. Four hues in rotation, two of each, tied to nothing — which is what
+// the reference sketch does and what suits a picture whose subject is the fan.
+//
+// Six arms: colour is the ROUTE, the same three the other Connect cuts use. Coding only works if
+// every route is equally represented, so the twelve names are chosen four per route rather than
+// taken as drawn: the sketch's set was five direct, six gateway and one integration, which makes
+// lime a single chip among six purples and reads as an accident.
+//
+// What the coding still lacks is anything naming the routes — the cloud's legend was removed and
+// the hub never had captions. Colour here groups the chips into three families the picture does not
+// name. That is a live question, not an oversight: see the note in ConnectCloud.
+const BLUE = '#0e7490'; // direct connection
+const LAVENDER = '#7b3fe4'; // IoT gateway
+const BEIGE = '#b45309'; // rotation only, four-arm cut
+const GREEN = '#65a30d'; // integrations
+
+/**
+ * The pip is the wire's own accent mixed to 28% over white, and the chip's pill is the same accent
+ * at 16%. Both were `color-mix()` in the stylesheet, which resolved four build-time constants at
+ * runtime across twenty elements — the inputs are the four literals above, reached through
+ * `c.accent`, so the eight results are knowable here.
+ *
+ * Identical colours, no runtime colour function, and no engine on which the declaration drops out
+ * and takes the pip or the pill with it. The pill is the real exposure there: `background` does not
+ * inherit, so the ten chips would simply lose their tint.
+ */
+const rgb = (c: string) => {
+	const n = parseInt(c.slice(1), 16);
+	return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+/** `color-mix(in srgb, accent 28%, #fff)`, computed. */
+const lit = (c: string) =>
+	`rgb(${rgb(c)
+		.map((v) => Math.round(v * 0.28 + 255 * 0.72))
+		.join(', ')})`;
+/** `color-mix(in srgb, accent 16%, transparent)` — premultiplied, so the accent at .16 alpha. */
+const tint = (c: string) => `rgba(${rgb(c).join(', ')}, 0.16)`;
+
+// Eight of the twenty-one, three direct / three gateway / two integration, which is roughly the
+// proportion the full set has. Dealt so NEITHER column is one colour: the first pass put Modbus,
+// OPC UA and BACnet together and the right-hand side read as a purple list with one odd chip.
+//
+// Seven characters is the ceiling — the column is 100 units and a 20u mono chip costs 10 a
+// character plus 24 of padding — which is why the integrations here are LoRaWAN and Sigfox rather
+// than "MQTT brokers" or "Cloud platforms".
+const FOUR = {
+	// Two of each hue across the eight.
+	left: [
+		{ name: 'MQTT', accent: BLUE },
+		{ name: 'Modbus', accent: BEIGE },
+		{ name: 'LoRaWAN', accent: GREEN },
+		{ name: 'OCPP', accent: LAVENDER },
+	],
+	right: [
+		{ name: 'OPC UA', accent: LAVENDER },
+		{ name: 'CoAP', accent: BLUE },
+		{ name: 'Sigfox', accent: BEIGE },
+		{ name: 'BLE', accent: GREEN },
+	],
+};
+
+/**
+ * Twelve, four per route, so the coding is even: MQTT / HTTP / CoAP / LwM2M arrive directly, Modbus
+ * / OPC UA / BACnet / S7 through a gateway, LoRaWAN / Sigfox / Kafka / RabbitMQ through an
+ * integration.
+ *
+ * Changed from the sketch's twelve, which dropped CAN, BLE and OCPP for Sigfox, Kafka and RabbitMQ.
+ * The sketch's set had one integration protocol in it; a coding that gives one route a single chip
+ * and another six is not a coding a reader can pick up.
+ *
+ * Dealt so the routes alternate down each column and across each row, which is what stops either
+ * side reading as a block of one colour.
+ */
+const SIX = {
+	left: [
+		{ name: 'MQTT', accent: BLUE },
+		{ name: 'Modbus', accent: LAVENDER },
+		{ name: 'LoRaWAN', accent: GREEN },
+		{ name: 'HTTP', accent: BLUE },
+		{ name: 'OPC UA', accent: LAVENDER },
+		{ name: 'Sigfox', accent: GREEN },
+	],
+	right: [
+		{ name: 'BACnet', accent: LAVENDER },
+		{ name: 'Kafka', accent: GREEN },
+		{ name: 'CoAP', accent: BLUE },
+		{ name: 'S7', accent: LAVENDER },
+		{ name: 'RabbitMQ', accent: GREEN },
+		{ name: 'LwM2M', accent: BLUE },
+	],
+};
+
+/**
+ * The twelve as advised, kept exactly as drawn — CAN, BLE and OCPP included, which the route-coded
+ * cut swaps out.
+ *
+ * Colour here is the four-hue rotation, not the route, and that is forced rather than chosen: this
+ * set holds five direct protocols, six gateway ones and a single integration, so coding it by route
+ * would put one lime chip among six purples. With the names fixed, texture is the only honest rule.
+ * Three of each hue, none repeating down a column or across a row.
+ */
+const SIX_ADVISED = {
+	left: [
+		{ name: 'MQTT', accent: BLUE },
+		{ name: 'Modbus', accent: BEIGE },
+		{ name: 'LoRaWAN', accent: GREEN },
+		{ name: 'OPC UA', accent: LAVENDER },
+		{ name: 'CoAP', accent: BLUE },
+		{ name: 'BACnet', accent: BEIGE },
+	],
+	right: [
+		{ name: 'S7', accent: GREEN },
+		{ name: 'HTTP', accent: LAVENDER },
+		{ name: 'CAN', accent: BLUE },
+		{ name: 'LwM2M', accent: BEIGE },
+		{ name: 'BLE', accent: GREEN },
+		{ name: 'OCPP', accent: LAVENDER },
+	],
+};
+
+/**
+ * The advised twelve again, in two ranks.
+ *
+ * `rank: 1` sits one column further out and takes its y from the GAP between the inner chips either
+ * side of it, which is what makes the arrangement short: the outer chips overlap their neighbours
+ * vertically and clear them horizontally. Their lines then run through the gap to the badge.
+ *
+ * WHICH NAMES GO OUTER: the longest. LoRaWAN and OPC UA on the left, LwM2M and HTTP on the right,
+ * so the chips nearest the badge are the short ones and the silhouette tapers inward. Ordering the
+ * other way put a seven-character chip next to the badge and a two-character one out at the edge,
+ * which read as scattered rather than arranged.
+ *
+ * Colour still has to hold: three of each hue, none repeating down a column, and — because the two
+ * ranks interleave — none repeating across a row either. That last constraint is what fixes which
+ * of the two equally-long names goes outer.
+ */
+const SIX_STAGGER = {
+	left: [
+		{ name: 'MQTT', accent: BLUE, rank: 0 },
+		{ name: 'LoRaWAN', accent: GREEN, rank: 1 },
+		{ name: 'Modbus', accent: BEIGE, rank: 0 },
+		{ name: 'CoAP', accent: BLUE, rank: 0 },
+		{ name: 'OPC UA', accent: LAVENDER, rank: 1 },
+		{ name: 'BACnet', accent: BEIGE, rank: 0 },
+	],
+	right: [
+		{ name: 'S7', accent: GREEN, rank: 0 },
+		{ name: 'HTTP', accent: LAVENDER, rank: 1 },
+		{ name: 'CAN', accent: BLUE, rank: 0 },
+		{ name: 'BLE', accent: GREEN, rank: 0 },
+		{ name: 'LwM2M', accent: BEIGE, rank: 1 },
+		{ name: 'OCPP', accent: LAVENDER, rank: 0 },
+	],
+};
+
+/**
+ * Ten: the four-arm set plus HTTP and BACnet, both of which a reader arrives knowing and neither of
+ * which pushes the column — seven characters is the ceiling at 20u in a 100-unit column.
+ *
+ * Ten chips will not divide four hues evenly, so this is 3/3/2/2 rather than the flat rotation the
+ * eight gets. What still holds is the part that shows: no hue repeats down a column or across a
+ * row, which is what stops either side reading as a block.
+ *
+ * S7 sits where BLE did, and keeps its lavender. Colour here is texture rather than route, so the
+ * hue only had to leave the two constraints above intact — which holding it fixed does by
+ * construction. It also happens to be right on route grounds: wherever this family DOES code by
+ * route, S7 and BLE are both in the gateway group (ConnectCloudOpen's lavender row carries Modbus,
+ * OPC UA, S7, BACnet, KNX, CAN, BLE, TCP/UDP), so the two are interchangeable at the same hue and
+ * nothing downstream shifts.
+ *
+ * One thing the swap costs, worth knowing before it ships. The gateway's own connector docs list
+ * fifteen — bacnet, ble, can, ftp, knx, modbus, mqtt, ocpp, odbc, opc-ua, request, rest, snmp,
+ * socket, xmpp — and S7 is not among them, while BLE is. So this trades a name the docs can back
+ * for one they cannot; S7 reaches ThingsBoard through a custom or socket connector rather than a
+ * named one. S7 is also a product rather than a standard, which is the concern already recorded
+ * against Sigfox, Kafka and RabbitMQ in ConnectCloudOpen. "PLC protocols" is the stand-in noted
+ * there if that concern wins.
+ */
+const FIVE = {
+	left: [
+		{ name: 'MQTT', accent: BLUE },
+		{ name: 'Modbus', accent: BEIGE },
+		{ name: 'LoRaWAN', accent: GREEN },
+		{ name: 'HTTP', accent: LAVENDER },
+		{ name: 'OCPP', accent: BLUE },
+	],
+	right: [
+		{ name: 'OPC UA', accent: LAVENDER },
+		{ name: 'CoAP', accent: BLUE },
+		{ name: 'Sigfox', accent: BEIGE },
+		{ name: 'BACnet', accent: GREEN },
+		{ name: 'S7', accent: LAVENDER },
+	],
+};
+
+const SET = isStagger
+	? SIX_STAGGER
+	: arms === 'six'
+		? SIX
+		: arms === 'six-advised'
+			? SIX_ADVISED
+			: arms === 'five'
+				? FIVE
+				: FOUR;
+const LEFT = SET.left;
+const RIGHT = SET.right;
+
+// --- the box ---------------------------------------------------------------------------------
+//
+// Tighter than the sketch, which had roughly a chip's height of air between rows. The pitch here is
+// 1.7 chips, which is enough for the curves to separate and no more.
+const STUB = 36; // the fading run outside each chip
+const GUT = isStagger ? 56 : 74; // chip to badge
+const BADGE = 104;
+
+// Six arms get smaller chips and a closer pitch. Four names a side can afford 20u type; twelve of
+// them at that size makes a wall, and the picture's subject is the fan rather than any one word.
+//
+// PITCH is the constraint that matters, and it is not free: it must stay above CHIP_H or the chips
+// overlap. 42 against a 32-unit chip leaves 10 units of air, which is the tightest that still reads
+// as separate rows. The assertion below is there because getting this wrong looks like a rendering
+// bug rather than a number being too small.
+const CHIP_H = isSix ? 32 : 40;
+const CHIP_FONT = isSix ? 17 : 20;
+// Four rows rather than six in the staggered cut: the outer two live in the gaps, so they need no
+// row of their own. That is where its height comes from.
+// 48 for the staggered cut: a 32-unit chip with 16 units between rows, and the outer chips' flat
+// runs pass through the middle of that gap with 8 units clear either side.
+const PITCH = isStagger ? 48 : isSix ? 42 : 56;
+const INNER_ROWS = isStagger ? 4 : LEFT.length;
+// The column only has to hold the longest name: 7 characters at 8.5 a character plus 20 of padding
+// for the small chip, at 10 and 24 for the large one.
+// 92 for six, not 84: `RabbitMQ` is eight characters and needs 88 units at the small chip's 8.5 a
+// character plus 20 of padding. Four-arm names top out at seven.
+const COL = isStagger ? 84 : isSix ? 92 : 100;
+// The lane between the two ranks: an inner chip's fade plus clear air. Only the staggered cut has
+// one, and it is what the arrangement costs — a second chip column on each side.
+// 8, not 44: the outer rank tucks right up against the inner one. It can, because the two never
+// share a y — an outer chip lives in the GAP between two inner ones — so the only thing the lane
+// has to clear is the chips' own rounding.
+const LANE = isStagger ? 8 : 0;
+const RANKS = isStagger ? 2 : 1;
+// The inner rank's edge, and with it the width. A second rank costs a whole chip column plus its
+// lane on BOTH sides — 256 units here — which is the arrangement's real price and shows up as R:
+// this cut is much wider than the single-rank six, so its type lands smaller on a phone. Measured
+// numbers are in the sandbox caption.
+const CHIP_IN = STUB + COL + (RANKS - 1) * (LANE + COL);
+const NATIVE = 2 * (CHIP_IN + GUT) + BADGE;
+
+if (PITCH <= CHIP_H) {
+	throw new Error(`ConnectHub: pitch ${PITCH} is not greater than chip height ${CHIP_H} — the chips would overlap.`);
+}
+const HEIGHT = INNER_ROWS * PITCH;
+
+const MID_X = NATIVE / 2;
+const MID_Y = HEIGHT / 2;
+
+// x landmarks, left to right
+const CHIP_L = CHIP_IN; // inner edge of the left chips, inner rank
+const BADGE_L = MID_X - BADGE / 2;
+const BADGE_R = MID_X + BADGE / 2;
+const CHIP_R = NATIVE - CHIP_IN; // inner edge of the right chips, inner rank
+
+/** An arm. `rank` is 0 — the inner column — unless a cut says otherwise. */
+interface Arm {
+	name: string;
+	accent: string;
+	rank?: number;
+}
+
+/** A chip's own inner edge: one column further out for every rank it is off the inner one. */
+const edgeL = (rank: number) => CHIP_L - rank * (LANE + COL);
+const edgeR = (rank: number) => CHIP_R + rank * (LANE + COL);
+
+/**
+ * Where a chip sits vertically.
+ *
+ * Inner chips take the row they are in. An outer chip takes the MIDPOINT of the gap above it, which
+ * is what lets it overlap its neighbours vertically while clearing them horizontally — and what
+ * makes its line pass cleanly between them.
+ */
+const rankOf = (c: Arm) => c.rank ?? 0;
+const rowOf = (list: Arm[], i: number) => list.slice(0, i + 1).filter((c) => rankOf(c) === 0).length - 1;
+const cyOf = (list: Arm[], i: number) => {
+	const row = rowOf(list, i);
+	return PITCH / 2 + row * PITCH + (rankOf(list[i]) === 0 ? 0 : PITCH / 2);
+};
+
+// Where the lines land on the badge's face: spread over the middle of it rather than meeting at a
+// point. Wider with six arms, because the same 60 units shared by six arrivals puts them 12 apart
+// and the fan closes into a bundle; 76 keeps them 15 apart and still clear of the badge's corners.
+// Wider with more arms, so the arrivals stay about 15 units apart however many there are. The
+// badge's straight edge is only 37 units, so most of these land on its corners — which is fine now
+// that the curves aim at the rounded silhouette rather than the bounding box.
+const FAN = isSix ? 76 : arms === 'five' ? 68 : 60;
+const ay = (i: number, n: number) => MID_Y - FAN / 2 + (FAN / (n - 1)) * i;
+
+/**
+ * How far the badge's painted edge sits inside its bounding box at a given y.
+ *
+ * The badge is a squircle — `border-radius: 32%` of 104 units, so a 33.3-unit corner. A line aimed
+ * at BADGE_L lands on the bounding box, which for any arrival inside a corner is short of the shape
+ * by up to the full radius. Measured before the fix: the outermost arm each side stopped 6.2 units
+ * clear of the badge and read as not reaching it, while the middle four touched exactly. That is
+ * why it looked like only SOME arms failed.
+ *
+ * Standard rounded-rect inset: zero along the straight part of the edge, rising to the radius at
+ * the very corner.
+ */
+const RADIUS = BADGE * 0.32;
+const inset = (y: number) => {
+	const dy = Math.min(y - (MID_Y - BADGE / 2), MID_Y + BADGE / 2 - y);
+	if (dy >= RADIUS) return 0;
+	return RADIUS - Math.sqrt(Math.max(0, RADIUS * RADIUS - (RADIUS - dy) ** 2));
+};
+
+const EASE = 0.55;
+
+/**
+ * An outer arm runs FLAT until it is clear of the inner rank, and only then turns for the badge.
+ *
+ * Curving from the outer chip directly would cross the inner column diagonally — measured, the
+ * outer arm passed straight through the inner chip below it, because it descends from its own y to
+ * its place on the fan while still inside the inner chips' x range. The flat run keeps it in the
+ * gap it was placed in, which is the whole reason the gap exists, and it is what the sketch draws.
+ *
+ * `turn` is where the bend starts: the inner rank's edge for an outer arm, the chip itself for an
+ * inner one.
+ */
+const curveLeft = (i: number) => {
+	const y0 = cyOf(LEFT, i);
+	const y1 = ay(i, LEFT.length);
+	const x0 = edgeL(rankOf(LEFT[i]));
+	const turn = rankOf(LEFT[i]) === 0 ? x0 : CHIP_L;
+	const x1 = BADGE_L + inset(y1);
+	const k = (x1 - turn) * EASE;
+	const run = turn > x0 ? `L ${turn},${y0} ` : '';
+	return `M ${x0},${y0} ${run}C ${turn + k},${y0} ${x1 - k},${y1} ${x1},${y1}`;
+};
+const curveRight = (i: number) => {
+	const y0 = cyOf(RIGHT, i);
+	const y1 = ay(i, RIGHT.length);
+	const x0 = edgeR(rankOf(RIGHT[i]));
+	const turn = rankOf(RIGHT[i]) === 0 ? x0 : CHIP_R;
+	const x1 = BADGE_R - inset(y1);
+	const k = (turn - x1) * EASE;
+	const run = turn < x0 ? `L ${turn},${y0} ` : '';
+	return `M ${x0},${y0} ${run}C ${turn - k},${y0} ${x1 + k},${y1} ${x1},${y1}`;
+};
+
+/* --- the signal ------------------------------------------------------------------------------
+ *
+ * The same pip NormalizeSeries runs, on the same terms: a second copy of each wire carrying a dash
+ * the length of a packet, with `pathLength="100"` so one dash pattern serves arms of a dozen
+ * different lengths and the pip stays the same size at every width. Speed is the PATTERN, not a
+ * duration — the animation always runs one cycle and the pip is only on the wire for the fraction
+ * of the pattern the wire occupies, so a faster signal also means longer gaps between signals.
+ * That ratio is most of what reads as snap.
+ *
+ * What differs from Normalize is the ORDER. There, four devices report on a beat and the pips are
+ * evenly staggered because they are one event seen four times. Here ten protocols arrive from ten
+ * places that have never heard of each other, and an even stagger would draw exactly what this
+ * picture must not claim: a sweep, top to bottom, as though something were polling them in turn.
+ *
+ * So the phases are scattered — but by the golden ratio rather than by a random number. Random
+ * would clump: with ten draws on one cycle you reliably get two arms firing together and a visible
+ * dead stretch, and being genuinely random is no defence when the eye reads the clump as meaning
+ * something. `frac(i · φ⁻¹)` is the standard low-discrepancy alternative, and it is the useful
+ * property here: every new arm lands in the largest remaining gap, so no two signals ever coincide
+ * and no stretch of the cycle is ever empty, while the ORDER around the fan has no pattern a reader
+ * can pick up. Seemingly random is the goal; actually random is the thing that fails at it.
+ */
+const CYCLE_MS = 4800;
+// How long one pip takes to cross its wire, as a target — see PATTERN for what it is rounded to.
+const TRAVEL_TARGET_MS = 620;
+const DASH = 8;
+const PATTERN = Math.round((100 * CYCLE_MS) / TRAVEL_TARGET_MS);
+/** Where arm `i` sits in the cycle. Negative delay, so every phase is already live on frame one. */
+const phase = (i: number) => +(((i * 0.618033988749895) % 1) * CYCLE_MS).toFixed(1);
+
+const vars = [
+	`--hub-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
+	`--hub-cycle: ${CYCLE_MS}ms`,
+	`--hub-dash: ${DASH} ${PATTERN - DASH}`,
+	`--hub-pattern: ${PATTERN}`,
+	`--hub-native: ${NATIVE}`,
+	`--hub-h: ${HEIGHT}`,
+	`--hub-badge: ${BADGE}`,
+	`--hub-chip-h: ${CHIP_H}`,
+	`--hub-chip-font: ${CHIP_FONT}`,
+	`--hub-stub: ${STUB}`,
+	`--hub-mid-y: ${MID_Y}`,
+].join('; ');
+---
+
+<div class="hub-fit">
+	<div class="hub" style={vars} data-node-label={nodeLabel ? 'on' : 'off'}>
+		<svg
+			class="hub__wires"
+			viewBox={`0 0 ${NATIVE} ${HEIGHT}`}
+			preserveAspectRatio="none"
+			aria-hidden="true"
+			focusable="false"
+		>
+			{
+				/* Each curve in its chip's own accent, at full strength. They were a grey hairline, which
+			    made the composition two unrelated systems — coloured chips, grey plumbing. One colour
+			    per route, carried the whole way in, is the same coding the chips use. */
+			}
+			{LEFT.map((c, i) => <path class="hub__wire" d={curveLeft(i)} stroke={c.accent} />)}
+			{RIGHT.map((c, i) => <path class="hub__wire" d={curveRight(i)} stroke={c.accent} />)}
+
+			{
+				/* Same `d` as the wire beneath it, so the signal cannot travel anywhere the wire does
+			    not go. The index runs straight through both sides rather than restarting on the
+			    right: two sequences of the same length would phase-mirror each other, and a picture
+			    whose left and right fire in step is a picture with a pattern in it. */
+			}
+			{
+				LEFT.map((c, i) => (
+					<path
+						class="hub__pip"
+						d={curveLeft(i)}
+						pathLength="100"
+						style={`--pip-accent: ${lit(c.accent)}; --pip-phase: ${phase(i)}ms`}
+					/>
+				))
+			}
+			{
+				RIGHT.map((c, i) => (
+					<path
+						class="hub__pip"
+						d={curveRight(i)}
+						pathLength="100"
+						style={`--pip-accent: ${lit(c.accent)}; --pip-phase: ${phase(LEFT.length + i)}ms`}
+					/>
+				))
+			}
+		</svg>
+
+		{
+			LEFT.map((c, i) => (
+				<span
+					class="hub__chip hub__chip--l"
+					style={`--hub-accent: ${c.accent}; --hub-tint: ${tint(c.accent)}; --hub-y: ${cyOf(LEFT, i)}; --hub-edge: ${edgeL(rankOf(c))}`}
+				>
+					{c.name}
+				</span>
+			))
+		}
+		{
+			RIGHT.map((c, i) => (
+				<span
+					class="hub__chip hub__chip--r"
+					style={`--hub-accent: ${c.accent}; --hub-tint: ${tint(c.accent)}; --hub-y: ${cyOf(RIGHT, i)}; --hub-edge: ${edgeR(rankOf(c))}`}
+				>
+					{c.name}
+				</span>
+			))
+		}
+
+		<span class="hub__badge" aria-hidden="true" set:html={mark} />
+		<span class="hub__label">ThingsBoard</span>
+	</div>
+</div>
+
+<script>
+	/**
+	 * Stops the wires animating while the visual is off screen.
+	 *
+	 * `animation-play-state` rather than removing the animation, because pausing PRESERVES PHASE:
+	 * the ten arms are staggered by a negative delay each, and restarting them would collapse that
+	 * stagger into ten wires pulsing together the first time the row is scrolled to.
+	 *
+	 * Safe here because nothing reads these animations' clock. Where something does -- NormalizeSeries
+	 * times its rows off its own pip -- the clock has to be read from the animation's `currentTime`,
+	 * which freezes with it, rather than counted from `startTime`, which slides on while it is
+	 * paused. That file now does; see the note on its beat.
+	 */
+	const hubs = document.querySelectorAll('.hub');
+
+	if (hubs.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					(e.target as HTMLElement).style.setProperty('--hub-play', e.isIntersecting ? 'running' : 'paused');
+				});
+			},
+			// The same margin the other visuals observe with, so a wire is already moving by the time
+			// the row is actually looked at rather than starting as it arrives.
+			{ rootMargin: '80px' }
+		);
+
+		hubs.forEach((h) => io.observe(h));
+	}
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.hub-fit {
+		container-type: inline-size;
+	}
+
+	.hub {
+		--u: var(--hub-u);
+		// ONE NUMBER FOR THE WHOLE LINE: the curve in, the pip riding it, and the fade out the other
+		// side of the chip. They are one line with a chip sitting in the middle of it, so they move
+		// together or the line visibly steps where it meets the chip. It was written out in three
+		// places, which made the stroke a three-edit change with two chances to miss one.
+		--hub-wire-w: max(1px, #{u(2)});
+		// The drawing's own boundary. Nothing reaches it today — the wire paths span x 136-388 of 524
+		// and y 28-252 of 280, the chips 42-482, and the badge's shadow stops at y 210 — so this
+		// clips nothing that is drawn. It is here for two things that are not visible from the
+		// picture: it bounds the paint invalidation of the ten animating paths, and it keeps a chip's
+		// fade inside the drawing when the mono face falls back. `COL` is sized to Ubuntu Mono's
+		// 0.5em advance; every fallback in the stack is about 0.6em, which puts the widest left-hand
+		// tail some 8 units past this edge during the `font-display: swap` window.
+		contain: paint;
+		position: relative;
+		width: u(var(--hub-native));
+		max-width: 100%;
+		height: u(var(--hub-h));
+		margin-inline: auto;
+	}
+
+	.hub__wires {
+		position: absolute;
+		inset: 0;
+		// Not optional IN THE SANDBOX, and free on the homepage. `PlaygroundLayout` — and only that
+		// layout — resets `img, svg` to `max-width: 100%`, which would resolve against the parent and
+		// scale the drawing out of register with the chips placed over it. There is no such rule on
+		// the homepage; this file's own note used to call it a global reset, and it is not one.
+		width: 100%;
+		max-width: none;
+		height: 100%;
+	}
+
+	// Stroke colour comes from the markup, per chip; everything else the wire and its pip share.
+	//
+	// `vector-effect` is load-bearing rather than decoration. Inside the viewBox a `2 * var(--u)` px
+	// stroke is read as user units and scaled again by the CTM, which would paint it under a pixel on
+	// a phone. The `max(1px, …)` floor is NOT what protects that: it only bites below a 262px
+	// container, and the narrowest real one is about 312.
+	.hub__wire,
+	.hub__pip {
+		fill: none;
+		stroke-width: var(--hub-wire-w);
+		stroke-linecap: round;
+		vector-effect: non-scaling-stroke;
+	}
+
+	// The signal, travelling chip to badge — the direction the wire's own `d` runs, which is the
+	// direction this picture argues: everything arrives at one place.
+	//
+	// Near white, not white. Pure white on a coloured wire reads as a GAP travelling down it — the
+	// line looking broken rather than lit — so the pip is the wire's OWN accent mixed to 28%, which
+	// lands close enough to white to read as light while keeping the route's colour. That also means
+	// ten arms need no palette of their own: each signal is already the colour of the thing it is
+	// travelling along.
+	//
+	// The rail's own weight, not a heavier one. A thicker pip reads as a bulge moving down the wire;
+	// at the same weight it is the wire itself lighting up, and colour is all that changes.
+	.hub__pip {
+		stroke: var(--pip-accent);
+		stroke-dasharray: var(--hub-dash);
+		// Negative, so the cycle is already under way on the first frame. A positive delay would hold
+		// nine of the ten arms dark for up to a full cycle after the visual scrolls into view, which
+		// is the one moment it is actually being looked at.
+		animation: hub-pip var(--hub-cycle) linear infinite;
+		animation-delay: calc(-1 * var(--pip-phase, 0ms));
+		// Paused while the row is off screen. Measured on the homepage: thirty animations across the
+		// five visuals, all of them below the fold at first paint, cost about 5% of main-thread
+		// throughput even though nothing they touch is painted. Frame INTERVAL shows nothing --
+		// vsync headroom hides it -- so this was measured as throughput against a 1.2% noise floor.
+		//
+		// The default is `running`, not `paused`: with no script the wires animate exactly as they
+		// did before, rather than freezing for good.
+		animation-play-state: var(--hub-play, running);
+	}
+
+	// One full pattern per cycle. Start and end are the same picture, so the loop has no seam; the
+	// dash is only on the wire for the slice of the pattern that carries it end to end.
+	@keyframes hub-pip {
+		from {
+			stroke-dashoffset: var(--hub-pattern);
+		}
+
+		to {
+			stroke-dashoffset: 0;
+		}
+	}
+
+	// The wires are the one thing here that moves for its own sake, so this is what goes when motion
+	// is unwelcome. The picture is complete without it — the signal is emphasis, not information.
+	@media (prefers-reduced-motion: reduce) {
+		.hub__pip {
+			display: none;
+		}
+	}
+
+	// The run out, dissolving into the page: this is what replaced the sketch's device icons.
+	//
+	// A pseudo-element on the chip rather than a line in the SVG, and that is not a preference. The
+	// chips sit against the gutter and are ragged on the outside, so their outer edges are at four
+	// different x — an SVG line at a fixed x started in mid-air beside the short ones. Anchored to
+	// the chip, it starts where the chip ends by construction.
+	// EVERY CHIP CARRIES A FADE, both ranks — so there is no attribute to test. An inner chip's fade
+	// does run back past the outer rank's column, and that is fine rather than a collision: the two
+	// ranks never share a y, so an inner fade always sits in a lane the outer chips have left empty.
+	// Restricting it to the outer rank was tried and made the inner four look like a different kind
+	// of thing from the outer two.
+	.hub__chip::after {
+		content: '';
+		position: absolute;
+		top: 50%;
+		width: u(var(--hub-stub));
+		height: var(--hub-wire-w);
+		transform: translateY(-50%);
+	}
+
+	// Flush against the chip, no margin: the run out and the curve in are the same line passing
+	// through, and a gap on one side only made the chip look detached from its own tail.
+	.hub__chip--l::after {
+		right: 100%;
+		background: linear-gradient(to left, var(--hub-accent), transparent);
+	}
+
+	.hub__chip--r::after {
+		left: 100%;
+		background: linear-gradient(to right, var(--hub-accent), transparent);
+	}
+
+	// Size comes from the arm count: 20u with four a side, where the chips are the only text in the
+	// picture and can afford it; 17u with six, matching the cloud, because twelve at 20 is a wall.
+	.hub__chip {
+		position: absolute;
+		top: calc(var(--hub-y) * var(--u));
+		display: flex;
+		align-items: center;
+		height: u(var(--hub-chip-h));
+		padding: 0 u(12);
+		transform: translateY(-50%);
+		border-radius: u(10);
+		background: var(--hub-tint);
+		font-family: $font-family-mono;
+		font-size: u(var(--hub-chip-font));
+		font-weight: $font-weight-bold;
+		line-height: 1;
+		white-space: nowrap;
+		color: var(--color-text, #17181c);
+	}
+
+	// Against the gutter on the inside, ragged on the outside: the curves all start on one vertical,
+	// which is what makes them read as a fan rather than as eight unrelated arcs.
+	// Each chip aligns to its own rank's inner edge — the same number its curve leaves from, so the
+	// two cannot drift apart.
+	.hub__chip--l {
+		right: calc((var(--hub-native) - var(--hub-edge)) * var(--u));
+	}
+
+	.hub__chip--r {
+		left: calc(var(--hub-edge) * var(--u));
+	}
+
+	// The other Connect cuts' badge, verbatim: the mark is a white glyph and needs the squircle under
+	// it. Rendered without one it is a black shape on the page, which is what the first pass did.
+	.hub__badge {
+		position: absolute;
+		top: calc(var(--hub-mid-y) * var(--u));
+		left: 50%;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: u(var(--hub-badge));
+		height: u(var(--hub-badge));
+		padding: u(16);
+		transform: translate(-50%, -50%);
+		// The page's shared squircle.
+		border-radius: 32%;
+		background: var(--color-primary, #3d50f5);
+		color: var(--color-white, #fff);
+		box-shadow: var(
+			--flow-shadow-badge,
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
+		);
+
+		:global(svg) {
+			display: block;
+			width: 100%;
+			max-width: none;
+			height: 100%;
+		}
+	}
+
+	.hub__label {
+		position: absolute;
+		top: calc((var(--hub-mid-y) + var(--hub-badge) / 2 + 10) * var(--u));
+		left: 50%;
+		transform: translateX(-50%);
+		font-size: u(16);
+		line-height: u(20);
+		font-weight: $font-weight-medium;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.hub[data-node-label='off'] .hub__label {
+		@include visually-hidden;
+	}
+</style>

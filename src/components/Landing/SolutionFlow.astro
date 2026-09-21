@@ -1,0 +1,431 @@
+---
+import { Icon } from 'astro-icon/components';
+import SolutionAppShell from './SolutionAppShell.astro';
+import { SOLUTION_CASES, SOLUTION_RAIL, type SolutionCase } from '@data/solution-flow';
+
+/**
+ * The arc the headline claims — device to end-user — as three columns running left to right.
+ *
+ * Two stages of capability chips feed an app shell. The shell is the point: "ship complete IoT
+ * applications, not just data pipelines" is a claim about where the work ends, and a chart on a
+ * card is what a pipeline produces. A branded top bar, a rail and a real control are what make
+ * it something a person opens.
+ *
+ * Chips stack full width rather than flowing inline. In a column this narrow inline chips wrap
+ * unevenly — one stage ended up 3 + 1 with a stranded chip — and a stacked pill per capability
+ * is both steadier and what the original design did.
+ *
+ * The accent is the customer's, so it is declared on the shell alone and can never tint the two
+ * stages feeding it: the app is theirs, the platform underneath is not. It drives the top bar,
+ * the sparkline and the control, which makes a brand swap one variable and one string with no
+ * geometry change — nothing reflows.
+ *
+ * The alarm count is deliberately NOT branded. An alarm colour is semantic — it means severity,
+ * not identity — so it stays fixed while everything else recolours. Swapping it with the brand
+ * would say a customer can rebrand what "urgent" looks like.
+ *
+ * The composition never reflows. It is authored at 560px — a ZOOM, not a limit: the layout's own
+ * minimum is about 532u, and below that it overflows rather than rearranging. Every size inside is
+ * a multiple of one design unit derived from the width the component is GIVEN (a container query
+ * unit, not a viewport one: dropped into the narrow half of a two-column section it gets about
+ * 440px on a 1440px viewport, where a viewport query would never fire). So a 367px phone column
+ * gets the same picture at 65% — its smallest painted string, the app's address, at 7.9px — and a
+ * wide row gets it a little larger, capped so it does not balloon. See the style block.
+ */
+
+interface Row {
+	label: string;
+	icon: string;
+	/** Also a screen in the finished app, so it earns a place on the rail. */
+	app?: boolean;
+}
+
+interface Stage {
+	title: string;
+	rows: Row[];
+}
+
+interface Props {
+	stages?: [Stage, Stage];
+	appTitle?: string;
+	/**
+	 * The app's use cases. One renders a static panel; several make it rotate, which is what shows
+	 * the app is the customer's rather than ours.
+	 */
+	cases?: SolutionCase[];
+	/** Step the readings inside the panel, as a live dashboard would. */
+	animate?: boolean;
+	/**
+	 * Where the three cards sit in the row.
+	 *
+	 * `center` hangs them on one middle axis, which is what the page ships: the shell is taller than
+	 * the two lists and centring is what stops the row reading as a staircase. `top` stacks them to
+	 * one top edge instead, so the three cards start together and end wherever their content does.
+	 */
+	align?: 'center' | 'top';
+}
+
+const {
+	stages = [
+		{
+			title: 'Connect devices',
+			rows: [
+				{ label: 'Sensors', icon: 'tabler:access-point' },
+				// A hub, not a router: a gateway's job in this row is that many devices arrive and one
+				// uplink leaves, and a star topology draws exactly that. The router glyph drew a box
+				// with aerials — a product, where the other three rows name a kind of thing.
+				{ label: 'Gateways', icon: 'tabler:topology-star' },
+				{ label: 'Machines', icon: 'tabler:engine' },
+				{ label: 'Meters', icon: 'tabler:gauge' },
+			],
+		},
+		{
+			title: 'Build solution',
+			rows: [
+				{ label: 'Digital twins', icon: 'tabler:box-model' },
+				{ label: 'Rule chains', icon: 'tabler:hierarchy-2' },
+				{ label: 'Alarms', icon: 'tabler:bell-ringing', app: true },
+				{ label: 'Dashboards', icon: 'tabler:layout-dashboard', app: true },
+			],
+		},
+	],
+	appTitle = 'Share with your users',
+	cases = SOLUTION_CASES,
+	animate = true,
+	align = 'center',
+} = Astro.props;
+
+// The app's navigation, shared with the comparison page so the two cannot disagree. Rule chains
+// and the digital twin are deliberately absent: they are how the solution behaves and how it is
+// modelled, not screens a user opens.
+const rail = SOLUTION_RAIL;
+
+// How many rows the taller stage carries. Top-aligned, the connectors have no centred row to hang
+// on and must be placed against the card itself, so the CSS needs the card's height — and a card's
+// height is its row count. Passed as a number rather than measured, because this renders on the
+// server and a measurement would arrive a frame after the picture.
+const rowCount = Math.max(...stages.map((st) => st.rows.length));
+---
+
+<div class="flow-fit">
+	<div class="flow" data-flow data-align={align} style={`--flow-rows: ${rowCount};`}>
+		{
+			stages.map((stage) => (
+				<>
+					<div class="flow__stage">
+						<p class="flow__label">{stage.title}</p>
+						<ul class="flow__list" role="list">
+							{stage.rows.map((row) => (
+								<li>
+									<Icon name={row.icon} width="20" height="20" aria-hidden="true" />
+									<span>{row.label}</span>
+								</li>
+							))}
+						</ul>
+					</div>
+
+					{/* Line plus head, both in CSS: the line stretches the full width of its track so it
+				    meets the card edge on either side, and a border triangle keeps the head
+				    undistorted at any track size. */}
+					<div class="flow__arrow" aria-hidden="true">
+						<span class="flow__arrow-line" />
+						<span class="flow__arrow-head" />
+					</div>
+				</>
+			))
+		}
+
+		<div class="flow__stage flow__app-stage">
+			<p class="flow__label">{appTitle}</p>
+
+			{
+				/* Wrapped so this stage can centre the shell on the middle axis. The shell's own styles are
+			    scoped to its component and cannot be reached from here, which is the point: its placement
+			    inside the flow is the flow's business, its appearance is its own. */
+			}
+			<div class="flow__app-slot">
+				<SolutionAppShell rail={rail} cases={cases} animate={animate} />
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	/**
+	 * The pulse. The shell inside announces a brand swap `detail.in` milliseconds ahead; this lights
+	 * the flow's elements in reading order so the signal arrives at the app as the app changes.
+	 *
+	 * The shell owns the clock. This only listens, so the two components share one event name and
+	 * nothing else; with the shell static or motion reduced, nothing is announced and nothing runs.
+	 */
+	const HOLD_MS = 260; // how long each element stays lit before easing off
+
+	document.querySelectorAll<HTMLElement>('[data-flow]').forEach((flow) => {
+		const lists = Array.from(flow.querySelectorAll<HTMLElement>('.flow__list'));
+		const arrows = Array.from(flow.querySelectorAll<HTMLElement>('.flow__arrow'));
+		// Devices, connector, solution, connector — the order the diagram reads in.
+		const order = [lists[0], arrows[0], lists[1], arrows[1]].filter(Boolean);
+		if (order.length < 4) return;
+
+		flow.addEventListener('solution-swap-soon', (e) => {
+			const lead = (e as CustomEvent<{ in: number }>).detail?.in ?? 1000;
+			// Evenly spaced so the last element eases off just as the shell's fade begins.
+			const step = lead / order.length;
+			order.forEach((el, i) => {
+				setTimeout(() => el.classList.add('is-lit'), i * step);
+				setTimeout(() => el.classList.remove('is-lit'), i * step + HOLD_MS);
+			});
+		});
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// One design pixel. The composition is authored at 560px wide — a zoom, not a limit; the
+	// layout's own minimum is about 532u — and every size inside is a multiple of this unit, so the
+	// whole picture scales as one instead of reflowing. Nothing here rearranges at any width.
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	// Queried by the grid below. The constraint here is how much room this component is GIVEN,
+	// not how wide the window is — dropped into the narrow half of a two-column section it gets
+	// about 440px on a 1440px viewport, where a viewport media query would never fire.
+	.flow-fit {
+		container-type: inline-size;
+	}
+
+	.flow {
+		// 1px at 560 wide. Grows with the container up to 1.15x, so a wide row upscales the visual
+		// a little rather than stretching it; the floor stops it collapsing into nothing if some
+		// layout hands it a sliver. The shell reads `--flow-u` for its own unit.
+		//
+		// This divisor is the visual's ZOOM, not its width. Below the cap `max-width` resolves to the
+		// container whatever it says, so authoring at 560 rather than 630 maps the same room onto
+		// fewer design pixels and draws everything inside 12.5% larger. It narrows the picture only
+		// where the unit is capped, and there it does: 644px flat out, down from 724.
+		--flow-u: clamp(0.45px, calc(100cqw / 560), 1.15px);
+		--u: var(--flow-u);
+		display: grid;
+		// The app column is the widest: it is the destination, and it carries the most. Arrow tracks
+		// are fixed so both connectors are one length.
+		//
+		// The app is down from 1.6fr and the tracks from 24: a shorter connector pulls the three
+		// stages into one group rather than three things spaced across a row, and the shell had more
+		// width than its contents needed — the readings sat in a panel that kept growing past them.
+		// Both give their width back to the two stage cards, which carry nowrap labels.
+		grid-template-columns: 1fr u(18) 1fr u(18) 1.45fr;
+		align-items: stretch;
+		// Once the unit hits its cap the grid must stop filling the container, or the fr columns
+		// would stretch the cards while the type stayed put. Below the cap this is the container's
+		// full width.
+		max-width: calc(560 * var(--flow-u));
+		margin: 0 auto;
+
+		// The stage labels sit above the cards, so a connector centred on its whole column lands
+		// well above the card bodies — measured 85px high before this. Both halves of the band are
+		// declared here and consumed by the label and the connector, so they cannot drift apart.
+		--flow-label-h: #{u(24)}; // 14 on a 24 line
+		--flow-label-gap: #{u(8)};
+
+		// One stage card's height, from the rows it actually has: each row is 28 of line on 8 above
+		// and below, the hairlines between them are literal pixels rather than design ones, and the
+		// card's own border adds two more. Only the top-aligned variant reads it, but it is declared
+		// here beside the band it sits under so the two cannot drift apart.
+		--flow-node-h: calc(var(--flow-rows, 4) * #{u(44)} + (var(--flow-rows, 4) - 1) * 1px + 2px);
+	}
+
+	// Stretched to the row so the card inside can centre in the leftover space. Two things are
+	// wanted at once here: the three stage labels on one line at the top, and the three card
+	// bodies on one middle axis. Centring the whole stage would have satisfied the second and
+	// broken the first, so the label stays put and the card takes `margin: auto 0` below.
+	.flow__stage {
+		display: flex;
+		flex-direction: column;
+	}
+
+	// Outside the card below it, so this label and the app's label — which cannot sit inside a
+	// window — share one left edge.
+	// A size up from a caption but at regular weight: these three name the argument without
+	// shouting it. Sized so the longest — the app's — still clears its column at native width; the
+	// line height stays 24 so the label band, and with it the connectors, does not move.
+	.flow__label {
+		min-height: var(--flow-label-h);
+		margin: 0 0 var(--flow-label-gap);
+		font-size: u(15);
+		line-height: u(24);
+		text-align: center;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// The card is drawn on the list itself rather than a wrapper, which keeps the label outside it
+	// without an extra element.
+	//
+	// No padding on the card and no fill behind each item: the hairlines run the full width, so the
+	// two stages read as lists inside the product rather than as tags describing it. `overflow:
+	// hidden` is what keeps the first and last rows from squaring off the card's rounded corners.
+	.flow__list {
+		display: flex;
+		overflow: hidden;
+		flex-direction: column;
+		// `auto` top and bottom: centres this card on the middle axis shared with the app panel,
+		// rather than stacking it to the top of the row.
+		margin: auto 0;
+		padding: 0;
+		border: 1px solid var(--color-border, #ebebeb);
+		// Overridable so a token set can round or square the whole visual at once; the shell
+		// reads the same variable. A NUMBER in design pixels, not a length: a custom property is
+		// resolved where it is declared, and a token set declared outside the visual cannot see
+		// the design unit — so the unit is applied here.
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--color-bg-surface, #fff);
+		list-style: none;
+
+		li {
+			display: flex;
+			align-items: center;
+			gap: u(12);
+			// Tight vertically, roomier across: without a pill behind it the label needs clearance
+			// from the card edge, but it does not need the height a pill was giving it.
+			padding: u(8) u(16);
+			font-size: u(16);
+			font-weight: $font-weight-medium;
+			line-height: u(28);
+			// Never a second line: at small sizes text does not shrink perfectly linearly, and a
+			// wrapped label would break the composition this whole file exists to hold. The grid
+			// negotiates a wider column instead.
+			white-space: nowrap;
+			color: var(--color-text);
+		}
+
+		li + li {
+			border-top: 1px solid var(--sl-color-hairline-light);
+		}
+
+		// Tabler glyphs stroke in currentColor, so the row's colour is the icon's colour.
+		[data-icon] {
+			flex: none;
+			width: u(20);
+			height: u(20);
+			color: var(--color-text-secondary, #5b616e);
+		}
+	}
+
+	// --- connectors ---------------------------------------------------------
+
+	// These carry the sequence on their own, so they meet the cards rather than floating in the
+	// gap. Centred on the card body, not the whole column, so the stage labels do not drag them up.
+	.flow__arrow {
+		display: flex;
+		align-items: center;
+		// Skips the label band so the line centres on the card bodies, not on the columns.
+		padding-top: calc(var(--flow-label-h) + var(--flow-label-gap));
+		// The same grey as the stage labels: the connectors state the order, they do not argue it.
+		// In the page's ink they pulled the eye off the cards.
+		--flow-rail-color: var(--color-text-secondary, #5b616e);
+		// Heavier alongside the bigger head below: a 16-unit chevron drawn in a 2-unit stroke read as
+		// an outline of an arrow rather than an arrow.
+		--flow-rail-w: max(1px, #{u(3)});
+	}
+
+	// A border, not a filled box, and that is not a preference. The head's arms below are borders,
+	// and Blink floors a border-width to whole DEVICE pixels where a background-filled box keeps its
+	// fraction — so one `--flow-rail-w` painted at two different sizes as soon as the unit went
+	// sub-pixel. Measured at the 367-unit phone column, DPR 2: the rail 1.961px against the
+	// chevron's 1.500px, 1.31x the weight of the head it runs into, and they meet at the apex where
+	// it shows. At the desktop cap both resolve to 3px, which is why this was never visible.
+	//
+	// Same declaration now, so the two halves cannot disagree at any width. It also survives forced
+	// colours, where a `background-color` is forced to Canvas and the rail would vanish while its
+	// head stayed.
+	.flow__arrow-line {
+		flex: 1;
+		height: 0;
+		border-top: var(--flow-rail-w) solid var(--flow-rail-color);
+	}
+
+	// An open chevron rather than a filled head: two borders of a small square, turned so its
+	// corner points along the line. Turned 45deg, the corner sits half the box's diagonal to the
+	// right of the box's centre — 8 + 16 * 0.7071 — so the box is pulled back by exactly that much
+	// and the line runs under the arms to end at the apex. The offset is the box times 1.2071; it is
+	// written out rather than calculated so a changed box size cannot silently keep an old pull.
+	//
+	// The apex lands about 3 units past its track and onto the card it points at, which is the same
+	// overlap the 10-unit head had and is what makes the connector meet the card rather than stop
+	// short of it. It grows with the head, so a much bigger chevron would start to sit ON the card.
+	.flow__arrow-head {
+		flex: none;
+		width: u(16);
+		height: u(16);
+		margin-left: u(-19.31);
+		border-top: var(--flow-rail-w) solid var(--flow-rail-color);
+		border-right: var(--flow-rail-w) solid var(--flow-rail-color);
+		transform: rotate(45deg);
+	}
+
+	// --- the pulse ----------------------------------------------------------
+
+	// A signal runs the diagram left to right and arrives as the brand changes: device icons,
+	// first connector, solution icons, second connector, app. Each element lights in the
+	// PLATFORM's primary — never the customer's accent, which stays inside the shell — snaps on
+	// and eases off, so it reads as a pulse passing through rather than a state that was set.
+	.flow__list [data-icon],
+	.flow__arrow-line,
+	.flow__arrow-head {
+		transition:
+			color 420ms ease,
+			background-color 420ms ease,
+			border-color 420ms ease;
+	}
+
+	.flow__list.is-lit [data-icon] {
+		color: var(--color-primary, #3d50f5);
+		transition-duration: 90ms;
+	}
+
+	.flow__arrow.is-lit {
+		--flow-rail-color: var(--color-primary, #3d50f5);
+
+		.flow__arrow-line,
+		.flow__arrow-head {
+			transition-duration: 90ms;
+		}
+	}
+
+	// --- stacked to the top edge --------------------------------------------
+
+	// The variant: three cards on one TOP edge rather than one middle axis. The app shell is the
+	// tallest of the three, so centred it hangs the two lists in the middle of the row and the
+	// picture reads as a shelf; topped, the three start together and the shell simply runs on below.
+	//
+	// The connectors cannot ride along. Centred, they take the whole row minus the label band and
+	// land on the shared axis for free; here there is no shared axis, so each one is cut to the
+	// height of a card and centred inside THAT. `align-self: start` stops the grid stretching it
+	// back to the row, and the height is border-box, so the band is inside the number and the
+	// content box left over is exactly one card.
+	.flow[data-align='top'] {
+		.flow__list,
+		.flow__app-slot {
+			margin: 0 0 auto;
+		}
+
+		.flow__arrow {
+			align-self: start;
+			height: calc(var(--flow-label-h) + var(--flow-label-gap) + var(--flow-node-h));
+		}
+	}
+
+	// --- the app ------------------------------------------------------------
+
+	// The shell draws itself; this only says where it sits. Everything that was here — the branded
+	// bar, the rail, the reading, the sparkline, the alarm banner — moved to SolutionAppShell so the
+	// panel in this flow and the ones compared beneath it cannot drift apart.
+	.flow__app-slot {
+		// Matches the stage lists, so all three bodies share one centre line.
+		margin: auto 0;
+	}
+</style>

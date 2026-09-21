@@ -1,0 +1,198 @@
+---
+import { Icon } from 'astro-icon/components';
+import type { UnitSpec } from '@data/digital-twin-visual';
+
+/**
+ * A physical unit: the dark card in the digital twin visual — an asset's name, its status light,
+ * and the devices attached to it.
+ *
+ * Its own component so it can stand alone as well as inside the twin composition: the gallery of
+ * candidate units renders it without a twin beside it. It owns its whole appearance — the dark
+ * surface, the shadow, the head band, the LED — and knows nothing about where it sits; a caller
+ * places it with a class of its own.
+ *
+ * Sizes are in the flow's design unit. Inside a composition that sets `--flow-u` it scales with
+ * it; anywhere else the unit is 1px and the card is native size.
+ */
+
+interface Props {
+	unit: UnitSpec;
+	class?: string;
+}
+
+const { unit, class: className } = Astro.props;
+---
+
+<div class:list={['unit', className]}>
+	<header class="unit__head">
+		<Icon name={unit.icon} aria-hidden="true" />
+		<span class="unit__name">{unit.name}</span>
+		{/* The unit's status light: the one place the physical thing shows it is talking. */}
+		<i class="unit__led" aria-hidden="true"></i>
+	</header>
+	<ul class="unit__list">
+		{
+			unit.devices.map((d) => (
+				<li>
+					<Icon name={d.icon} aria-hidden="true" />
+					<span>{d.label}</span>
+				</li>
+			))
+		}
+	</ul>
+</div>
+
+<script>
+	/**
+	 * Stops the status LEDs blinking while they are off screen.
+	 *
+	 * The LED itself is observed rather than its card: `unit` is a generic enough class name that a
+	 * document-wide query for it could pick up something unrelated, while `unit__led` cannot.
+	 */
+	const leds = document.querySelectorAll('.unit__led');
+
+	if (leds.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					(e.target as HTMLElement).style.setProperty('--unit-play', e.isIntersecting ? 'running' : 'paused');
+				});
+			},
+			{ rootMargin: '80px' }
+		);
+
+		leds.forEach((l) => io.observe(l));
+	}
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	// The one dark surface in the family, and the one that casts a shadow: a real thing resting on
+	// the page, where the twin beside it is drawn on it. The dark is the shell's browser-bar dark,
+	// so the family has one idea of "not the platform's white"; the shadow is the shell's two-layer
+	// recipe, a little deeper for a dark object. Both overridable by the tokens the shell uses.
+	.unit {
+		--u: var(--flow-u, 1px);
+		display: flex;
+		overflow: hidden;
+		flex-direction: column;
+		border: 1px solid transparent;
+		border-radius: u(var(--flow-radius, 8));
+		background: var(--flow-chrome, #1b1e27);
+		color: #fff;
+		box-shadow: var(
+			--flow-shadow,
+			0 1px 2px rgba(16, 24, 40, 0.08),
+			0 #{u(14)} #{u(32)} #{u(-10)} rgba(16, 24, 40, 0.28)
+		);
+	}
+
+	// The heading is a different kind of thing from the rows beneath it, and says so three ways:
+	// a band of its own, a size up, and semibold against the rows' medium. Icons pure white: on
+	// this ground a dimmed glyph reads as disabled, not quiet.
+	.unit__head {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: u(10);
+		padding: u(12) u(16);
+		background: rgba(255, 255, 255, 0.07);
+
+		[data-icon] {
+			flex: none;
+			width: u(20);
+			height: u(20);
+			color: #fff;
+		}
+	}
+
+	.unit__name {
+		font-size: u(16);
+		font-weight: $font-weight-semibold;
+		line-height: u(22);
+		white-space: nowrap;
+	}
+
+	// A status LED tucked into the head's top-right corner, as on a real housing. The bright
+	// success green — a device status colour, not a brand one — with a faint halo. It blinks in
+	// bursts, the way a modem's link light does when data is moving: two quick blinks, a hold, one
+	// more. Stepped rather than eased, because an LED is on or off.
+	.unit__led {
+		position: absolute;
+		top: u(8);
+		right: u(8);
+		width: u(7);
+		height: u(7);
+		border-radius: 50%;
+		--unit-led: #{$color-success-alt};
+		background: var(--unit-led);
+		box-shadow: 0 0 u(6) 0 color-mix(in srgb, var(--unit-led) 45%, transparent);
+		animation: unit-blink 2.6s steps(1, end) infinite;
+		// Paused while the visual is off screen -- see the script below. Default `running`, so with
+		// no script these behave exactly as they did before rather than freezing for good.
+		animation-play-state: var(--unit-play, running);
+
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
+		}
+	}
+
+	@keyframes unit-blink {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		7% {
+			opacity: 0.12;
+		}
+		14% {
+			opacity: 1;
+		}
+		21% {
+			opacity: 0.12;
+		}
+		28% {
+			opacity: 1;
+		}
+		68% {
+			opacity: 0.12;
+		}
+		76% {
+			opacity: 1;
+		}
+	}
+
+	// Device rows: the flow's hairline list, on the dark card.
+	.unit__list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			display: flex;
+			align-items: center;
+			gap: u(12);
+			padding: u(8) u(16);
+			font-size: u(15);
+			font-weight: $font-weight-medium;
+			line-height: u(26);
+			white-space: nowrap;
+		}
+
+		li + li {
+			border-top: 1px solid rgba(255, 255, 255, 0.1);
+		}
+
+		[data-icon] {
+			flex: none;
+			width: u(20);
+			height: u(20);
+			color: #fff;
+		}
+	}
+</style>

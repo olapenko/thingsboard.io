@@ -1,0 +1,326 @@
+// The homepage's five key-visual rows.
+//
+// Extracted from `pages/index.astro` so the SANDBOX can render the same row. It used to reproduce
+// it — a hand-built strip at a 1160 measure with a 72px gap — and a reproduction drifts: by the time
+// anyone measured, the sandbox was handing the visuals a 673px column where the homepage hands them
+// 525. Every judgement made in that sandbox was made at the wrong width.
+//
+// There is no reproduction now. `_Variant.astro` renders the real `FeatureBlockSection` inside a
+// real `.new-rows`, and this file is what both of them read, so the two cannot disagree.
+//
+// Global by nature: these are overrides ON a shared component, matched by ITS class names.
+
+@use '../styles/variables' as *;
+
+// --- the row ----------------------------------------------------------------------------
+
+// The tighter measure these visuals were drawn against. FeatureBlockSection is built for a
+// screenshot — a 1400 measure, 100px of side padding, a 60px gutter — which hands them a 540px
+// column when they were authored for 673.
+//
+// Typography is NOT overridden here. An earlier pass set 36px bold, which is the sandbox's own
+// approximation rather than anything this site uses; the component's 32px semibold is the real
+// homepage scale and the rows should be read in it.
+// The measure the Products band below already uses — `.main-div` at 1000 with 20px of side
+// padding, so 960 of content. The rows were running 160px wider than everything under them,
+// which is the kind of difference you feel as the page wandering rather than see.
+.new-rows .main-div {
+	max-width: 1000px;
+	// 80, not 72 plus a 420 floor. The floor was holding rows at 564px when the tallest visual
+	// needs about 400 — so most of every row was air. Padding alone now sets the rhythm and the
+	// content sets the height.
+	padding: 80px 20px;
+}
+
+.new-rows .block {
+	gap: 56px;
+	// The floor is what makes the five rows one height, so it is set to the tallest natural row
+	// rather than to a comfortable minimum. Measured at the capped measure (`.main-div` tops out at
+	// 1000px, so every viewport from 1000 up lays these out identically):
+	//
+	//   row          block   copy   media
+	//   connect        317    317     281
+	//   solution       300    298     227
+	//   twin           348    317     348   <- the tallest, and the only media that beats its copy
+	//   normalize      317    317     234
+	//   scale          314    263     314
+	//
+	// Two things make this workable. The copy column is a MEASURE — `flex: 0 1 42ch` — so its
+	// height barely moves with the viewport (317 on three of five rows at both 1630 and 900), and
+	// the media only out-grows it on twin. So the spread is 48px and one row is responsible for
+	// most of it; lifting the floor over that row costs the shortest row 48px of air, split evenly
+	// by `align-items: center`.
+	//
+	// Not a cap on the media instead: these visuals derive every dimension from the width they are
+	// handed, so constraining their height either distorts them or shrinks the whole drawing.
+	//
+	// The one way this comes apart is a heading or paragraph long enough to push a copy column past
+	// 350 — that row would grow and the rest would not follow. Re-measure if the copy changes.
+	min-height: 350px;
+}
+
+// The copy column capped in characters rather than as a fraction: a measure is a reading
+// constraint, and the media takes what is left.
+// ONE measure for all five rows, which is the point of the number rather than the number itself.
+// The rows alternate — two of them carry `media-first` — so when three rows ran 38ch and two ran
+// 42ch, that 36px step landed on BOTH edges going down the page. The eye reads that as the column
+// wandering. 40ch holds one line down the whole section.
+//
+// The media does not pay for it. Everything the copy gives up here it gets back below, out of the
+// row's own margins rather than out of the text.
+.new-rows .feature-des {
+	flex: 0 1 40ch;
+	max-width: 40ch;
+}
+
+// --- typography ---------------------------------------------------------------------------
+
+// A step down the existing scale rather than an arbitrary number: $font-size-3xl, which the
+// component already drops to at phone width. At 32px these headings ran to three lines in a 46ch
+// column and the row had to grow to hold them.
+//
+// `type-subsection` is that size with the ladder's leading: 1.2, as everything 24 and up now takes,
+// in place of the 1.25 this had on its own.
+.new-rows .feature-des .phrase-heading {
+	@include type-subsection;
+	text-wrap: balance;
+}
+
+.new-rows .feature-des .heading-wrap {
+	margin-bottom: 14px;
+}
+
+// The ink the intro section under the hero is set in, not the component's #6b6b72.
+//
+// That grey is FeatureBlockSection's own and predates all of this, but it is a product-page
+// colour: those rows sit beside screenshots and are meant to recede. These rows sit beside
+// diagrams that are themselves quiet, and the same grey reads as washed out — particularly
+// against the intro paragraph three hundred pixels above it, which is ink.
+//
+// Scoped to `.new-rows`, so the PE and Edge pages that share this component keep their grey.
+// 16, not 17. Seventeen was the only one of its kind on the page — no token, no other user — and
+// the ladder's base is 16. `type-body` because that is what running copy takes at every measure now
+// — what makes this a row's copy rather than a section's lede is the 42ch column it sits in.
+.new-rows .feature-des p {
+	@include type-body;
+	color: var(--color-text, #17181c);
+}
+
+.new-rows .feature-des .links {
+	margin-top: 20px;
+}
+
+// A smaller tile carrying a bigger glyph: 40px around 24px, so the mark fills 60% of the square
+// instead of 42%. The padding was doing the work the icon should do — at 20px in a 48px tile the
+// two read as a square with something in it rather than as one mark. The rounding stays the
+// page's 32%, a percentage, so it holds at the smaller size without retuning.
+.new-rows .feature-badge {
+	width: 40px;
+	height: 40px;
+	margin-bottom: 18px;
+}
+
+// Matched through `.feature-des` as well: the component nests its glyph rule inside the badge,
+// so the shorter selector tied on specificity and lost on order — the tile shrank and the icon
+// in it did not.
+.new-rows .feature-des .feature-badge [data-icon] {
+	width: 24px;
+	height: 24px;
+}
+
+// Capped, and centred in whatever is left over. These are drawn at 480-630 design units with an
+// upscale ceiling, so an unbounded column just makes them bigger than they were designed —
+// which is what made the scale chart tower over its own row.
+.new-rows .preview {
+	display: flex;
+	flex: 1 1 0;
+	justify-content: center;
+	min-width: 0;
+}
+
+.new-rows .preview > * {
+	width: 100%;
+	max-width: 560px;
+}
+
+// --- the media breaks the row, the copy holds it ---------------------------------------------
+//
+// IN PROGRESS. The measure and the bleed are settled enough to look at, not to sign off: the 60px
+// is read off the ceiling table below but has not been judged on a real screen at every width, and
+// ScaleDuo gains nothing from it (see the note on its cap). Connect is already excluded. Expect
+// this number to move.
+//
+// THIS REVERSES AN EARLIER DECISION, so the earlier reasoning is worth keeping rather than
+// deleting. The row used to run 160px wider than everything under it, which reads as the page
+// wandering; the fix was to pin it to the 960 the Products band uses and move the SPLIT inside
+// that edge instead — three rows at 38ch so their visuals got 561px, two left at 42ch.
+//
+// That bought the pixels out of the copy, and it cost a straight edge to do it. The rows
+// alternate, so two measures meant the column stepped 36px on both sides going down the section.
+// The copy column now holds one measure everywhere and the visuals take their extra width from
+// the margins instead, where there is nothing to take it from.
+//
+// WHY WIDTH IS WORTH ANYTHING HERE. A visual derives its design unit from the width it is handed,
+// so width IS type size in this section. Measured at the old 525px column: SolutionFlow 11.2px of
+// smallest PAINTED type, TwinCorridor 13.2, NormalizeSeries 13.7, ScaleDuo 14.0, ConnectHub 20.0.
+//
+// PAINTED is the load-bearing word, and an earlier version of this comment had it wrong:
+// ConnectHub was recorded at 16px, which is its `.hub__label` — a `visually-hidden` element that
+// `nodeLabel` defaults off and `clip-path: inset(50%)` reduces to one pixel. It has never been
+// drawn on this page. Any future comparison from these numbers must skip `visually-hidden`
+// subtrees or it will read type that is not on the screen. NormalizeSeries contains one too.
+//
+// Every visual's unit is `clamp(…, 100cqw / NATIVE, 1.15px)`, so extra width buys legible type
+// right up to the point the cap binds and then buys nothing at all. Measured ceilings, and what
+// the 40ch split alone would have given them:
+//
+//     SolutionFlow     caps at 644     TwinCorridor    caps at 642
+//     NormalizeSeries  caps at 660     ConnectHub      caps at 603
+//     ScaleDuo         caps at 577     split alone      543
+//
+// 60px each side is read off that table rather than chosen for looks: it lands ConnectHub exactly
+// on its cap, leaves the three tightest still climbing (603 against ceilings of 642-660), and
+// overshoots only ScaleDuo, whose drawing simply stops growing and centres in the slack.
+//
+// UNIFORM, not per-visual. Bleeding each one to its own ceiling was the obvious idea and it is
+// wrong: the ceilings span 83px, so the outer edge would jitter down the page on alternating
+// sides — trading the inner edge this section just straightened for a worse outer one. One
+// distance holds both.
+//
+// On the tightest visual this is the difference between 11.6px and 12.9px of smallest painted
+// type. That is the whole reason for it; the extra pixels are not decoration.
+// 1120, the same gate `.plat-fit` uses for the same 60px, and for the same arithmetic rather than
+// by copying: the row is 1000 wide centred, so the room beside it is (viewport - 1000) / 2 plus the
+// 20px of side padding. At 1100 that is 62px against a 60px bleed — measured, the drawing cleared
+// the window by three pixels on one side and two on the other, which is not a margin. 1120 leaves
+// 20px, and below it the bleed is simply off.
+@media screen and (min-width: 1120px) {
+	// CONNECT IS EXCLUDED. Breaking the grid is a cost paid for legibility, and its row has the
+	// least to gain: its smallest painted type is 20px where the others sit at 12-15, so it is the
+	// one visual already comfortably readable at the plain split. It keeps the 40ch measure like
+	// every row and simply does not bleed.
+	//
+	// `:has()` rather than `:nth-child`, as elsewhere in this file: the row is identified by the
+	// visual inside it, so reordering the rows cannot move the exception onto the wrong one.
+	.new-rows .block:not(:has(.hub-fit)) {
+		.preview > * {
+			--row-bleed: 60px;
+
+			width: calc(100% + var(--row-bleed));
+			max-width: none;
+			// Outward, never into the gap: the copy's measure is the thing being protected.
+			margin-right: calc(-1 * var(--row-bleed));
+		}
+
+		// The two reversed rows bleed the other way. Keyed to the class that reverses them rather
+		// than to `:nth-child`, so reordering cannot leave a visual bleeding into its own copy.
+		.preview.media-first > * {
+			margin-right: 0;
+			margin-left: calc(-1 * var(--row-bleed));
+		}
+	}
+}
+
+// --- the phone ------------------------------------------------------------------------------
+
+// Everything above is sized for a row read side by side. Stacked, the same numbers are mostly
+// scroll: 80px of padding top and bottom plus a 56px gap is 216px of nothing per row, which on a
+// 812px screen is a quarter of the section before a word of it has been read. Five rows came to
+// 3885px — very nearly five screenfuls.
+@media screen and (max-width: 768px) {
+	.new-rows .main-div {
+		padding: 36px 20px;
+	}
+
+	.new-rows .block {
+		gap: 20px;
+		// Sized to keep a side-by-side row from collapsing beside a taller one. Stacked there is
+		// no beside, and the floor only holds short rows open.
+		min-height: 0;
+	}
+
+	// The one that was really costing the height. `flex: 0 1 42ch` is a MEASURE — a reading width
+	// — and it is only that while the row is a row. Once it stacks, flex-basis is the main axis
+	// again, so 42ch resolved to 379px of HEIGHT and the copy sat in a box 76px taller than its
+	// own text, on every row. A measure has no meaning in a single-column layout; the screen is
+	// the measure.
+	.new-rows .feature-des {
+		flex: 0 1 auto;
+		max-width: none;
+	}
+
+	// Out past the page's own gutter, to 4px of the screen edge.
+	//
+	// 16px, because the gutter is 20 — the number to change if that ever moves. These diagrams
+	// scale rather than reflow, so 32 more pixels of width is 32 more pixels of everything:
+	// 335 -> 367 takes the smallest label from 5.8px to 6.4px. Worth having and not a fix. The
+	// thing that actually decides legibility here is the ratio of a composition's native width to
+	// its smallest type, and no amount of margin touches that.
+	//
+	// `align-self: stretch` comes from the component, so the negative margins widen the box
+	// rather than just sliding it left.
+	.new-rows .preview {
+		margin-inline: -16px;
+	}
+
+	// The 560 cap is a desktop ceiling — it exists so a visual is not upscaled past its design
+	// size in a wide column. At 367 nothing is near it, and leaving it in would only re-centre
+	// the visual inside the width just given to it.
+	.new-rows .preview > * {
+		max-width: none;
+	}
+
+	// The copy's own rhythm, closed up to match.
+	.new-rows .feature-badge {
+		margin-bottom: 12px;
+	}
+
+	.new-rows .feature-des .heading-wrap {
+		margin-bottom: 10px;
+	}
+
+	.new-rows .feature-des .links {
+		margin-top: 16px;
+	}
+}
+// --- the wash ---------------------------------------------------------------------------
+
+// Full bleed and square. A rounded card at the measure read as a component sitting on the page;
+// a band reads as the page itself changing colour, which is what alternating rows are for.
+//
+// The `:root` prefix is not decoration. `sections-flat` carries
+// `:root section:not(.customers-logo--dark):not(.closing-cta) { background: none }`, which scores
+// (0,3,1) — one higher than this selector managed without it, so the wash was being painted and
+// then flattened with no error anywhere.
+:root .new-rows .feature-block-section:nth-child(odd) {
+	background: #f5f6ff;
+}
+
+// --- links ------------------------------------------------------------------------------
+
+// A link that behaves like one: underlined on hover, a visible focus ring for the keyboard, and
+// a pressed state. The arrow is gone — the colour already says it is a link, and the chevron was
+// a second signal for the same thing.
+.new-rows .read-more-link .arrow-container {
+	display: none;
+}
+
+.new-rows .read-more-link {
+	text-decoration: none;
+	text-underline-offset: 0.2em;
+	transition: color 0.15s ease;
+
+	&:hover {
+		text-decoration: underline;
+	}
+
+	&:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 3px;
+		border-radius: 2px;
+	}
+
+	&:active {
+		opacity: 0.75;
+	}
+}
