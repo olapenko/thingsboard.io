@@ -219,47 +219,54 @@ const FAQ_VISIBLE = 6;
 					</table>
 				</div>
 
-				{/* The choice, directly under the table that informs it. Each card is a plain <div>, not
-				    a link: it carries two actions, and an anchor cannot contain another one. */}
-				<div class="choice">
-					<h3 class="choice__title">{paasChoice.title}</h3>
-					<p class="choice__lead">{paasChoice.lead}</p>
+			</div>
+		</section>
 
-					<div class="choice-grid">
-						{
-							paasChoice.options.map((option) => (
-								<div class="choice-card">
-									<h4 class="choice-card__name">{option.name}</h4>
-									<p class="choice-card__price">
-										{option.price}
-										<span class="choice-card__price-note">{option.priceNote}</span>
-									</p>
-									<p class="choice-card__summary">{option.summary}</p>
-									<ul class="choice-card__points">
-										{option.points.map((point) => (
-											<li>
-												<Icon name="tabler:check" aria-hidden="true" />
-												{point}
-											</li>
-										))}
-									</ul>
-									<div class="choice-card__actions">
-										<a class="choice-card__cta" href={option.cta.href}>
-											{option.cta.text}
-											{/* Each card's actions read "Try Cloud for free" and "See plans" — fine beside
-											    their own heading, ambiguous in a list of every link on the page. */}
-											<span class="sr-only">— ThingsBoard {option.name}</span>
-										</a>
-										<a class="choice-card__plans" href={option.plansHref}>
-											See plans
-											<span class="sr-only">for ThingsBoard {option.name}</span>
-											<Icon name="tabler:chevron-right" aria-hidden="true" />
-										</a>
-									</div>
+
+		{/* The choice, directly under the table that informs it — and outside that section's measure,
+		    so its ground runs the full width the way the bookend's does. */}
+		<section id="choose">
+			<PricingBackground contained />
+			{/* The choice, directly under the table that informs it. Each card is a plain <div>, not
+			    a link: it carries two actions, and an anchor cannot contain another one. */}
+			<div class="choice__inner">
+				<h3 class="choice__title">{paasChoice.title}</h3>
+				<p class="choice__lead">{paasChoice.lead}</p>
+
+				<div class="choice-grid">
+					{
+						paasChoice.options.map((option) => (
+							<div class="choice-card">
+								<h4 class="choice-card__name">{option.name}</h4>
+								<p class="choice-card__price">
+									{option.price}
+									<span class="choice-card__price-note">{option.priceNote}</span>
+								</p>
+								<p class="choice-card__summary">{option.summary}</p>
+								<ul class="choice-card__points">
+									{option.points.map((point) => (
+										<li>
+											<Icon name="tabler:check" aria-hidden="true" />
+											{point}
+										</li>
+									))}
+								</ul>
+								<div class="choice-card__actions">
+									<a class="choice-card__cta" href={option.cta.href}>
+										{option.cta.text}
+										{/* Each card's actions read "Try Cloud for free" and "See plans" — fine beside
+										    their own heading, ambiguous in a list of every link on the page. */}
+										<span class="sr-only">— ThingsBoard {option.name}</span>
+									</a>
+									<a class="choice-card__plans" href={option.plansHref}>
+										See plans
+										<span class="sr-only">for ThingsBoard {option.name}</span>
+										<Icon name="tabler:chevron-right" aria-hidden="true" />
+									</a>
 								</div>
-							))
-						}
-					</div>
+							</div>
+						))
+					}
 				</div>
 			</div>
 		</section>
@@ -826,9 +833,17 @@ const FAQ_VISIBLE = 6;
 		}
 	}
 
+	// NO `overflow: hidden` HERE, and that is load-bearing.
+	//
+	// It was carried over from the old page, where it clipped the seven absolutely-positioned
+	// background blobs. Those went with the rest of that layer. What it still did was make this
+	// element a scroll container — `hidden` is programmatically scrollable, so it counts — and
+	// `position: sticky` resolves against the nearest scrollport. Every sticky thing inside it,
+	// including the comparison table's header row, was pinning to a wrapper that never scrolls.
+	//
+	// If something inside ever does overflow sideways, clip it on that thing, not here.
 	#overflow {
 		position: relative;
-		overflow: hidden;
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -927,17 +942,30 @@ const FAQ_VISIBLE = 6;
 	// The table keeps its own width below the measure and scrolls rather than wrapping prices onto
 	// four lines. `tabindex` is not set on it: `overflow` alone makes it keyboard-scrollable in every
 	// engine that ships this table, and a focusable div with no label is worse than neither.
-	//
-	// This is also why the HEADER ROW does not pin to the top of the page. A horizontal scroll
-	// container is a scroll container on both axes — CSS forces `overflow-y: visible` to compute to
-	// `auto` once the other axis is not `visible` — so `position: sticky; top:` inside it resolves
-	// against this box instead of the viewport, and pins to a box that never scrolls vertically.
-	// Pinning the row would mean making the page itself the scroller, which costs the horizontal
-	// scroll the prices need. The first COLUMN pins, which is the axis that actually moves here.
 	.matrix-scroll {
 		max-width: 960px;
 		margin-inline: auto;
 		overflow-x: auto;
+
+		// AND THIS IS WHAT LETS THE HEADER PIN TO THE PAGE.
+		//
+		// `position: sticky` resolves against the nearest scrollport, and a horizontal scroll
+		// container is a scrollport on BOTH axes — CSS forces `overflow-y: visible` to compute to
+		// `auto` once the other axis is not `visible`. Inside this box, `top:` therefore pins to a
+		// box that never scrolls vertically, which is no pinning at all.
+		//
+		// But the box only has to scroll while it is narrower than the table. `.main-div` is capped
+		// at 1000 with 20px of padding, so the column is `min(viewport - 40, 960)`, and it drops
+		// under the table's 820 at a 860px viewport. Above that the table fits, the box has nothing
+		// to scroll, and dropping `overflow` hands the header back to the page's own scrollport.
+		// 880 rather than 860, so the switch happens with room to spare rather than exactly as the
+		// last pixel fits.
+		//
+		// Below 880 the header does not pin — the pinned first COLUMN is what carries a reader
+		// there, and that is the axis that actually moves on a phone.
+		@media (min-width: 880px) {
+			overflow: visible;
+		}
 	}
 
 	.matrix {
@@ -962,8 +990,6 @@ const FAQ_VISIBLE = 6;
 			@include type-body;
 			font-weight: $font-weight-medium;
 			padding: $spacing-3 $spacing-4;
-			border-bottom: 2px solid rgba(61, 80, 245, 0.2);
-			background-color: var(--matrix-band, #fff);
 			color: var(--color-text);
 
 			&:not(:first-child) {
@@ -1008,10 +1034,40 @@ const FAQ_VISIBLE = 6;
 			box-shadow: 1px 0 0 rgba(15, 23, 42, 0.08);
 		}
 
-		// The corner outranks both: it is in the pinned column AND the header row, and without this
-		// the first body row's label paints over it.
+		// ------------------------------------------------------------------------------------------
+		// THE HEADER PILL, pinned under the fixed bar.
+		//
+		// A row of three cells drawn as one rounded bar: the outer two take the round ends, the
+		// middle inherits the fill, and `border-spacing: 0` leaves no seam between them. It needs a
+		// ground of its own — the section is white and the rows pass underneath it.
+		//
+		// Restated here rather than up in `thead th` because the pinned-column rule above selects
+		// `thead th:first-child` at (0,0,3) and would otherwise repaint the corner with the body's
+		// ground. Same specificity, later in the sheet.
+		// ------------------------------------------------------------------------------------------
+		thead th,
 		thead th:first-child {
-			z-index: 2;
+			position: sticky;
+			top: calc(var(--home-header-h, 64px) + #{$spacing-2});
+			// Over the body's pinned column (1) and over the group headings, both of which scroll
+			// under this row.
+			z-index: 3;
+			background-color: #eef0ff;
+			box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+		}
+
+		thead th:first-child {
+			// The corner is in the pinned column as well as the pinned row, so it outranks the rest
+			// of its own row — without this the first body label paints over it while scrolling
+			// sideways.
+			z-index: 4;
+			border-top-left-radius: $radius-full;
+			border-bottom-left-radius: $radius-full;
+		}
+
+		thead th:last-child {
+			border-top-right-radius: $radius-full;
+			border-bottom-right-radius: $radius-full;
 		}
 
 		td {
@@ -1063,27 +1119,44 @@ const FAQ_VISIBLE = 6;
 	// seen anything to decide on. The cards are the top section's, moved down and given the entry
 	// price and their own call to action.
 	// ---------------------------------------------------------------------------------------------
-	.choice {
-		margin-top: $spacing-16;
+	// The decision band. `ClosingCta`'s ground and its wave field, so the two places the page asks
+	// for something look like each other — and `isolation` for the same reason that component needs
+	// it: it makes a stacking context, so the field's `z-index: -1` lands above this background
+	// instead of dropping behind it.
+	#choose {
+		position: relative;
+		overflow: hidden;
+		isolation: isolate;
+		background-color: #121425;
+		color: #fff;
+		padding: $spacing-20 0;
 
 		@include media-down(md) {
-			margin-top: $spacing-10;
+			padding: $spacing-12 0;
+		}
+	}
+
+	.choice {
+		&__inner {
+			@include container;
+			position: relative;
+			max-width: 1000px;
 		}
 
 		&__title {
-			@include subsection-title;
+			@include type-section;
 			margin: 0 0 $spacing-3;
 			text-align: center;
-			color: var(--color-text);
+			color: #fff;
 		}
 
 		&__lead {
 			@include type-body;
 			max-width: 65ch;
-			margin: 0 auto $spacing-8;
+			margin: 0 auto $spacing-10;
 			text-align: center;
 			text-wrap: pretty;
-			color: var(--color-text-secondary);
+			color: rgba(255, 255, 255, 0.72);
 		}
 	}
 
@@ -1104,14 +1177,16 @@ const FAQ_VISIBLE = 6;
 		flex-direction: column;
 		gap: $spacing-3;
 		padding: $spacing-8;
-		border: 1px solid rgba(61, 80, 245, 0.16);
+		// A panel ON the ground rather than a card cut out of it: a white card here would hide the
+		// wave field it is sitting on, which is the reason the band has one.
+		border: 1px solid rgba(255, 255, 255, 0.16);
 		border-radius: 16px;
-		background-color: #fff;
+		background-color: rgba(255, 255, 255, 0.06);
 
 		&__name {
 			@include subsection-title;
 			margin: 0;
-			color: var(--color-text);
+			color: #fff;
 		}
 
 		// The entry number and nothing else. The ladder is `/pricing/`'s, which "See plans" opens on
@@ -1123,19 +1198,20 @@ const FAQ_VISIBLE = 6;
 			gap: 2px;
 			margin: 0;
 			font-weight: $font-weight-bold;
-			color: $color-brand;
+			// The repo's own dark-mode brand. #3d50f5 on this ground is 2.1:1 and unreadable.
+			color: $color-brand-dark;
 		}
 
 		&__price-note {
 			@include type-small;
 			font-weight: $font-weight-normal;
-			color: var(--color-text-secondary);
+			color: rgba(255, 255, 255, 0.6);
 		}
 
 		&__summary {
 			@include type-body;
 			margin: 0;
-			color: var(--color-text-secondary);
+			color: rgba(255, 255, 255, 0.72);
 		}
 
 		&__points {
@@ -1158,7 +1234,7 @@ const FAQ_VISIBLE = 6;
 				width: 18px;
 				height: 18px;
 				margin-top: 2px;
-				color: $color-brand;
+				color: $color-brand-dark;
 			}
 		}
 
@@ -1191,7 +1267,7 @@ const FAQ_VISIBLE = 6;
 			}
 
 			&:focus-visible {
-				outline: 2px solid $color-brand;
+				outline: 2px solid #fff;
 				outline-offset: 3px;
 			}
 		}
@@ -1201,7 +1277,12 @@ const FAQ_VISIBLE = 6;
 			display: inline-flex;
 			align-items: center;
 			gap: 2px;
-			color: $color-brand;
+			color: #fff;
+
+			&:focus-visible {
+				outline: 2px solid #fff;
+				outline-offset: 3px;
+			}
 
 			svg {
 				width: 18px;
@@ -1341,7 +1422,8 @@ const FAQ_VISIBLE = 6;
 	}
 
 	.faq-tab {
-		@include type-small-strong;
+		@include type-body;
+		font-weight: $font-weight-medium;
 		padding: $spacing-3 $spacing-4;
 		border: 0;
 		border-radius: 8px;
@@ -1430,7 +1512,10 @@ const FAQ_VISIBLE = 6;
 		border-bottom: 1px solid rgba(15, 23, 42, 0.1);
 
 		summary {
-			@include type-small-strong;
+			// The tables' step. The FAQ is the page's other long read, and at 14 beside a 16px table
+			// it looked like small print rather than a second section.
+			@include type-body;
+			font-weight: $font-weight-medium;
 			display: flex;
 			align-items: flex-start;
 			justify-content: space-between;
@@ -1476,7 +1561,7 @@ const FAQ_VISIBLE = 6;
 		}
 
 		&__answer {
-			@include type-small;
+			@include type-body;
 			padding: 0 0 $spacing-4;
 			color: var(--color-text-secondary);
 

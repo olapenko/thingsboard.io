@@ -84,7 +84,10 @@ export const paasChoice = {
 			priceNote: 'Free tier up to 5 devices',
 			summary: 'The fastest, shared-infrastructure start.',
 			points: ['Shared multi-tenant environment', 'Under 5 minutes, self-serve', '30 days free, no card required'],
-			cta: { text: 'Try Cloud for free', href: 'https://thingsboard.cloud/signup' },
+			// "Start for free" rather than the hero's "Try Cloud for free": the card is headed Public
+			// Cloud and priced From $0 directly above the button, so repeating either word in the
+			// label spends the line saying what the card has already said twice.
+			cta: { text: 'Start for free', href: 'https://thingsboard.cloud/signup' },
 			plansHref: '/pricing/?product=thingsboard-cloud',
 		},
 		{
