@@ -668,9 +668,9 @@ export const paasFaq: FaqCategory[] = [
 
 /** The two calls to action the develop page repeats in its hero, matrix footer and closing band. */
 export const paasCtas = {
-	primary: { text: 'Try for free', href: '/installations/' },
+	primary: { text: 'Try Cloud for free', href: '/installations/' },
 	secondary: {
-		text: 'I have a question',
+		text: 'Talk to an expert',
 		href: '/contact-us/?subject=ThingsBoard%20Products&message=I%20have%20a%20question%20about%20ThingsBoard%20Cloud',
 	},
 	privateCloud: {

@@ -49,6 +49,14 @@ import {
  */
 
 const HERO_BACKGROUND = '/hero/pe-cover.webp';
+
+// The deployment this page is about. The same mark the candidate's deployments band pins to
+// ThingsBoard Cloud in `homeProducts`, so the product is marked the same way in both places.
+const HERO_TITLE_ICON = 'tabler:cloud-filled';
+
+// Answers shown per topic before "Load more", as develop shows six. The count is per panel, so
+// the four topics at or under it render no button at all.
+const FAQ_VISIBLE = 6;
 ---
 
 <BaseLayout
@@ -62,6 +70,7 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 		product={Products.PAAS}
 		backgroundImage={HERO_BACKGROUND}
 		title="ThingsBoard Cloud"
+		titleIcon={HERO_TITLE_ICON}
 		subtitle="Fully managed, scalable and fault-tolerant platform for your IoT applications"
 		buttons={[
 			{
@@ -80,15 +89,7 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 			webm: 'https://video.thingsboard.io/pe-cover.webm',
 			mp4: 'https://video.thingsboard.io/pe-cover.mp4',
 		}}
-	>
-		<p class="header-animation hero-note">
-			Evaluating for a large deployment?
-			<a href={paasCtas.privateCloud.href}>
-				Talk to us about Private Cloud
-				<Icon name="tabler:chevron-right" size="14" aria-hidden="true" />
-			</a>
-		</p>
-	</Hero>
+	/>
 
 	<CustomersLogo productTag="paas" onDark />
 
@@ -186,7 +187,7 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 										<tr class="matrix__group">
 											{/* A group heading spans the table, so it is a header for everything under it. */}
 											<th scope="colgroup" colspan="3">
-												{group.title}
+												<span>{group.title}</span>
 											</th>
 										</tr>
 										{group.rows.map((row) => (
@@ -204,7 +205,7 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 								))
 							}
 							<tr class="matrix__group">
-								<th scope="colgroup" colspan="3">The same platform on both</th>
+								<th scope="colgroup" colspan="3"><span>Platform features</span></th>
 							</tr>
 							<tr>
 								<th scope="row">{paasWhiteLabeling.label}</th>
@@ -232,7 +233,7 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 		<section id="shared">
 			<div class="main-div">
 				<SectionHeader
-					title="The same platform on both"
+					title="Platform features"
 					subtitle="Every capability below is included in ThingsBoard Public Cloud and ThingsBoard Private Cloud alike."
 					titleSize="section"
 					subtitleMeasure="copy"
@@ -260,23 +261,58 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 		<section id="faq">
 			<div class="main-div">
 				<SectionHeader title="ThingsBoard Cloud FAQ" titleSize="section" />
-				<div class="faq-groups">
-					{
-						paasFaq.map((category) => (
-							<div class="faq-group">
-								<h3 class="faq-group__title">{category.title}</h3>
-								{category.items.map((item) => (
-									<details class="faq-item">
-										<summary>
-											<span>{item.q}</span>
-											<Icon name="tabler:chevron-down" class="faq-item__chevron" aria-hidden="true" />
-										</summary>
-										<div class="faq-item__answer" set:html={item.a} />
-									</details>
-								))}
-							</div>
-						))
-					}
+				{/* Develop's arrangement: a sidebar of topics beside one panel, and each panel showing its
+				    first `FAQ_VISIBLE` answers behind a "Load more". The tabs are real `role="tab"`
+				    buttons with roving tabindex, so the set is operable from the keyboard — arrows to
+				    move, Home/End to the ends — which develop's own sidebar is not. */}
+				<div class="faq-layout">
+					<div class="faq-tabs" role="tablist" aria-orientation="vertical" aria-label="FAQ topics">
+						{
+							paasFaq.map((category, i) => (
+								<button
+									type="button"
+									role="tab"
+									id={`faq-tab-${i}`}
+									class:list={['faq-tab', i === 0 && 'is-active']}
+									aria-controls={`faq-panel-${i}`}
+									aria-selected={i === 0 ? 'true' : 'false'}
+									tabindex={i === 0 ? 0 : -1}
+								>
+									{category.title}
+								</button>
+							))
+						}
+					</div>
+
+					<div class="faq-panels">
+						{
+							paasFaq.map((category, i) => (
+								<div
+									role="tabpanel"
+									id={`faq-panel-${i}`}
+									class="faq-panel"
+									aria-labelledby={`faq-tab-${i}`}
+									hidden={i !== 0}
+								>
+									{category.items.map((item, j) => (
+										<details class:list={['faq-item', j >= FAQ_VISIBLE && 'faq-item--extra']}>
+											<summary>
+												<span>{item.q}</span>
+												<Icon name="tabler:chevron-down" class="faq-item__chevron" aria-hidden="true" />
+											</summary>
+											<div class="faq-item__answer" set:html={item.a} />
+										</details>
+									))}
+									{category.items.length > FAQ_VISIBLE && (
+										<button type="button" class="faq-more" aria-expanded="false">
+											<span class="faq-more__label">Load more FAQ</span>
+											<Icon name="tabler:chevron-down" class="faq-more__chevron" aria-hidden="true" />
+										</button>
+									)}
+								</div>
+							))
+						}
+					</div>
 				</div>
 			</div>
 		</section>
@@ -306,6 +342,86 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 		</div>
 	</section>
 </BaseLayout>
+
+
+<script>
+	// The FAQ tab set and its per-panel "Load more".
+	//
+	// Progressive enhancement is deliberate: the markup ships with panel 0 visible and the other six
+	// `hidden`, so with no JavaScript a reader still gets the General answers rather than a bare list
+	// of seven dead buttons. That is also why the script sets no ARIA that the markup has not already
+	// declared — it only keeps those attributes true as the state changes.
+	function initPaasFaq() {
+		const layout = document.querySelector<HTMLElement>('.faq-layout');
+		if (!layout) return;
+
+		const tabs = Array.from(layout.querySelectorAll<HTMLButtonElement>('.faq-tab'));
+		const panels = Array.from(layout.querySelectorAll<HTMLElement>('.faq-panel'));
+		if (tabs.length === 0 || tabs.length !== panels.length) return;
+
+		function select(index: number, { focus = false } = {}) {
+			tabs.forEach((tab, i) => {
+				const active = i === index;
+				tab.classList.toggle('is-active', active);
+				tab.setAttribute('aria-selected', String(active));
+				// Roving tabindex: one stop for the whole set, so Tab leaves the tablist rather than
+				// walking all seven topics before reaching the answers.
+				tab.tabIndex = active ? 0 : -1;
+				panels[i].hidden = !active;
+			});
+			if (focus) tabs[index].focus();
+		}
+
+		tabs.forEach((tab, i) => {
+			tab.addEventListener('click', () => select(i));
+
+			tab.addEventListener('keydown', (event) => {
+				// Both orientations: the sidebar is a column on desktop and a row on phones, and the
+				// arrows a reader reaches for follow what they see.
+				const moves: Record<string, number> = {
+					ArrowDown: 1,
+					ArrowRight: 1,
+					ArrowUp: -1,
+					ArrowLeft: -1,
+				};
+
+				if (event.key === 'Home') {
+					event.preventDefault();
+					select(0, { focus: true });
+					return;
+				}
+
+				if (event.key === 'End') {
+					event.preventDefault();
+					select(tabs.length - 1, { focus: true });
+					return;
+				}
+
+				const step = moves[event.key];
+				if (!step) return;
+				event.preventDefault();
+				select((i + step + tabs.length) % tabs.length, { focus: true });
+			});
+		});
+
+		panels.forEach((panel) => {
+			const more = panel.querySelector<HTMLButtonElement>('.faq-more');
+			if (!more) return;
+			const label = more.querySelector<HTMLElement>('.faq-more__label');
+
+			more.addEventListener('click', () => {
+				const expanded = panel.classList.toggle('is-expanded');
+				more.setAttribute('aria-expanded', String(expanded));
+				if (label) label.textContent = expanded ? 'Show fewer FAQ' : 'Load more FAQ';
+			});
+		});
+	}
+
+	initPaasFaq();
+	// The site runs client-side navigation, which swaps the body without reloading. Without this the
+	// tabs are inert on every page reached by a link rather than by a fresh load.
+	document.addEventListener('astro:page-load', initPaasFaq);
+</script>
 
 <style is:global lang="scss">
 	@use '../../../styles/landing';
@@ -353,66 +469,303 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 		background-color: rgba(0, 0, 0, 0.8);
 	}
 
-	#hero .button.brand {
-		background-color: $color-brand;
-		color: #fff;
-		font-weight: $font-weight-bold;
+	// ---------------------------------------------------------------------------------------------
+	// THE MARKETING BAR, ALIGNED WITH THE HOMEPAGE.
+	//
+	// This page is on the home nav — see `HOME_NAV_ROUTES` in `components/starlight/Header.astro`,
+	// which is what gives it the larger logo, the GitHub button, the Sign in region and "Try for
+	// free" in place of "Try it now", and drops the promo banner.
+	//
+	// The rules below are COPIED VERBATIM from `pages/index.astro`, which is still their source of
+	// truth. Two pages now carry the same block, so they can drift: the moment a third joins, this
+	// belongs in a partial both `@use`. It was not extracted now because the homepage's copy is
+	// interleaved with its hero and bookend rules — `.n-button--filled` is declared in the same
+	// rule as `#hero .button.brand` — and splitting that up reorders a signed-off page's cascade
+	// for no gain on this branch.
+	// ---------------------------------------------------------------------------------------------
 
-		&:hover {
-			background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+	// `.logo--lg` in the header component resolves to `header .logo.logo--lg`,
+	// which ties with a plain `header.header .logo` — so match its class count
+	// and win on order rather than relying on it.
+	header.header .logo.logo--lg {
+		height: 50px;
+		width: 175px;
+
+		@media screen and (min-width: 1025px) {
+			width: 215px;
 		}
 
-		&:active {
-			background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3));
+		@media screen and (min-width: 1281px) and (max-width: 1599px) {
+			width: 160px;
+		}
+
+		// Phones: 175px put the wordmark shoulder to shoulder with the Menu
+		// button on a 375px screen. Height follows so the mark keeps its ratio
+		// inside the box — width drives `contain` at every one of these sizes.
+		@media screen and (max-width: 767px) {
+			width: 168px;
+			height: 48px;
+		}
+
+		@media screen and (max-width: 480px) {
+			width: 152px;
+			height: 44px;
 		}
 	}
 
-	.hero-note {
-		@include type-small;
-		margin: 24px 0 0;
-		color: rgba(255, 255, 255, 0.6);
+	// Primary: one purple across the page — the header CTA, the hero, and the
+	// n-button primaries in the sections below. White on #3d50f5 is 5.73:1, which
+	// clears AA for body-sized text.
+	.n-button--filled,
+	#hero .button.brand,
+	.paas-closing__primary {
+		position: relative;
+		overflow: hidden;
+		isolation: isolate;
+		font-weight: $font-weight-bold;
+		background-color: $color-brand;
+		color: #fff;
+	}
 
-		// Restated locally for the same reason the homepage restates it: this paragraph is slotted
-		// into Hero, so it never receives that component's scope hash and none of its
-		// `.header-animation` rules match.
-		&.header-animation {
-			opacity: 0;
-			transform: translate3d(0, 45px, 0);
-			animation-name: slideup-in;
-			animation-duration: 600ms;
-			animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-			animation-fill-mode: forwards;
-			animation-delay: 1200ms;
+	// The bookend's secondary is NOT in the rule above: two filled purples would close the page on
+	// one choice made twice. It carries the hero's outline instead (declared with the rest of
+	// `.paas-closing` below), so here it needs only the shimmer's scaffolding and not the fill.
+	.paas-closing__secondary {
+		position: relative;
+		overflow: hidden;
+		isolation: isolate;
+		font-weight: $font-weight-bold;
+	}
+
+	// Shimmer: a single skewed highlight crossing on hover. Transform-only, so it
+	// composites rather than repainting, and it runs once per hover instead of
+	// looping.
+	.n-button--filled::after,
+	#hero .button.brand::after,
+	#hero .learn-tb::after,
+	.paas-closing__primary::after,
+	.paas-closing__secondary::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		width: 45%;
+		z-index: -1;
+		pointer-events: none;
+		background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+		transform: translateX(-160%) skewX(-18deg);
+	}
+
+	.n-button--filled:hover::after,
+	.n-button--filled:focus-visible::after,
+	#hero .button.brand:hover::after,
+	#hero .button.brand:focus-visible::after,
+	#hero .learn-tb:hover::after,
+	#hero .learn-tb:focus-visible::after,
+	.paas-closing__primary:hover::after,
+	.paas-closing__primary:focus-visible::after,
+	.paas-closing__secondary:hover::after,
+	.paas-closing__secondary:focus-visible::after {
+		animation: btn-shimmer 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	// The bookend gets the hero's focus ring too. It had none — only a colour
+	// change on :focus-visible, which is not a focus indicator on a dark ground.
+	.paas-closing__primary:focus-visible,
+	.paas-closing__secondary:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: 3px;
+	}
+
+	@keyframes btn-shimmer {
+		from {
+			transform: translateX(-160%) skewX(-18deg);
 		}
-
-		@media (prefers-reduced-motion: reduce) {
-			&.header-animation {
-				animation: none;
-				opacity: 1;
-				transform: none;
-			}
+		to {
+			transform: translateX(320%) skewX(-18deg);
 		}
+	}
 
-		a {
-			display: flex;
-			width: fit-content;
-			align-items: center;
-			gap: 2px;
-			margin-top: 6px;
-			color: rgba(255, 255, 255, 0.85);
-			text-decoration: underline;
-			text-underline-offset: 3px;
+	// Secondary, dark-on-light: a tint on hover rather than a fill, so it never
+	// reads as a primary mid-interaction.
+	.n-button--filled:hover,
+	#hero .button.brand:hover {
+		background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+	}
 
-			&:hover,
-			&:focus-visible {
-				color: #fff;
-			}
+	.n-button--filled:active,
+	#hero .button.brand:active {
+		background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3));
+	}
+
+	// Primary trimmed to balance the shorter menu, floored at 40px so it stays a
+	// comfortable target alongside the Sign in secondary.
+	header.header .head-buttons .n-button.try {
+		width: auto;
+		height: 40px;
+		min-height: 40px;
+		padding: 0 18px;
+		font-size: 14px;
+	}
+
+	// Tighter than the 0.875rem default — four controls sit in this cluster. Set
+	// as the token so the bar and the open drawer cannot drift apart: the shared
+	// drawer rule used to restate the default, which widened every gap by 6px and
+	// made the cluster spread as it opened.
+	header.header .head-buttons {
+		--tb-cluster-gap: 8px;
+	}
+
+	// The widget was floating off the pair. Two things were doing it, and the
+	// larger one was not the margin.
+	//
+	// GitHubButton reserves a fixed 100px wrap (132 above 1600, where the "Star"
+	// label shows) so the star count arriving later cannot shift the nav. But the
+	// button itself is only 36px until that count loads — the count cell is
+	// `width: 0` and expands to 61px on `.is-loaded` — so the reservation renders
+	// as up to 64px of empty space, and it all sits on the RIGHT, between the star
+	// and Sign in. Measured 82px from the button's edge to Sign in against the 8px
+	// that separates Sign in from Try for free.
+	//
+	// Right-aligning the button inside its own wrap keeps the reservation exactly
+	// as it was — nothing shifts when the count lands, it just grows leftward into
+	// space that was already empty — and puts the star on the cluster's 8px gap in
+	// both states. The 10px margin on top of that gap goes with it.
+	// `text-align` rather than a flex context, because `display` on this wrap is
+	// the component's visibility switch — `none` by default, `block` at its own
+	// breakpoints and at the tablet one below. Setting it here would show the
+	// widget at every width.
+	header.header .head-buttons .gh-wrap {
+		text-align: right;
+		margin-right: 0;
+	}
+
+	// GitHubButton hides itself below 1120px, which suited a bar that dropped
+	// every control into the drawer at 1280. Now that the tablet bar keeps the
+	// account controls, the stars fit alongside them with room to spare, and on
+	// this page the count is part of the pitch. Scoped here rather than lowering
+	// the component's own breakpoint, which every other page shares.
+	@media screen and (min-width: 768px) and (max-width: 1119px) {
+		header.header .head-buttons .gh-wrap {
+			display: block;
 		}
+	}
+
+	// Only `.n-button.price` gets an explicit white on the transparent header, so
+	// the Sign in secondary inherited dark text and vanished over the hero.
+	header.header .region-signin summary {
+		font-size: 15px;
+	}
+
+	// White only while the bar is actually transparent over the hero. Both guards
+	// are load-bearing, and each one covers a surface this white would otherwise
+	// be invisible against:
+	//   :not(.opened-burger)        — the drawer is a light surface
+	//   :not([data-header-scrolled]) — the scrolled bar flips to solid white
+	//
+	// The three states are now mutually exclusive by condition rather than by
+	// source order, which is what went wrong before: the two guards each add
+	// specificity, and with only the first of them this selector outweighed the
+	// [data-header-scrolled] rule below that had been winning on order alone.
+	// Ordering is no longer what keeps them apart, so adding a fourth state
+	// can't silently break the other three.
+	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-variant='transparent'])
+		.region-signin
+		summary {
+		color: #fff;
+	}
+
+	header.header[data-header-scrolled] .region-signin summary {
+		color: var(--color-text);
+	}
+
+	// Region marks: set in type, sized alike, so they read as a pair.
+	//
+	// The one place below the 14px floor that stays there on purpose. "US" and "EU" in a 24px square
+	// are a mark rather than a line of text — there is no reading to do, and at 14 the two letters
+	// stop fitting the square. `line-height` is stated rather than inherited: the badge appears in
+	// two places with different surrounding leadings, and without this it took 15 in the header and
+	// 20 inside a card, which is the same mark set two ways.
+	.region-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		margin-right: 8px;
+		border-radius: 4px;
+		font-size: 10px;
+		font-weight: 700;
+		line-height: 1;
+		letter-spacing: 0.02em;
+		color: #fff;
+		flex: 0 0 auto;
+	}
+
+	.region-badge--us {
+		background-color: $color-brand;
+	}
+
+	.region-badge--eu {
+		background-color: #0f161d;
+	}
+
+	.region-signin__menu a {
+		display: flex;
+		align-items: center;
+	}
+
+	.n-button--outlined:hover {
+		background-color: rgba(61, 80, 245, 0.08);
+	}
+
+	.n-button--outlined:active {
+		background-color: rgba(61, 80, 245, 0.14);
+	}
+
+	// GitHub button in its dark dress, to sit on the hero's black header. Same
+	// palette the component already ships behind [data-theme='dark'] — the
+	// homepage forces the light theme, so it never reaches it.
+	//
+	// Gated on the same two states as the Sign in white above, so the widget
+	// flips with the bar instead of staying dark on it: the scrolled header and
+	// the open drawer are both light surfaces, and a near-black pill with a
+	// black count sat on them as a hole. Nothing needs restating for the light
+	// case — dropping out of these selectors hands the widget back to the
+	// component's own default dress, which is the light one.
+	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-button {
+		background: #21262d;
+		border-color: #30363d;
+		color: #e6edf3;
+		box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+	}
+
+	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-button:hover {
+		border-color: #58a6ff;
+		color: #e6edf3;
+	}
+
+	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-sep {
+		background-color: #30363d;
+	}
+
+	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-count {
+		background-color: #161b22;
+		color: #e6edf3;
 	}
 
 	#overflow {
 		position: relative;
 		overflow: hidden;
+	}
+
+	// The page's lede, tinted the primary. `IntroSection` sets `color: var(--color-text)` on its own
+	// title, and Astro scopes that rule as `.intro-section__title:where(.astro-HASH)` — `:where()`
+	// carries no specificity, so the component's rule is only (0,1,0). `#intro` here is (1,1,0), so
+	// this wins outright rather than on which stylesheet the bundler happens to emit last.
+	#intro .intro-section__title {
+		color: $color-brand;
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -625,6 +978,13 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 	// The table keeps its own width below the measure and scrolls rather than wrapping prices onto
 	// four lines. `tabindex` is not set on it: `overflow` alone makes it keyboard-scrollable in every
 	// engine that ships this table, and a focusable div with no label is worse than neither.
+	//
+	// This is also why the HEADER ROW does not pin to the top of the page. A horizontal scroll
+	// container is a scroll container on both axes — CSS forces `overflow-y: visible` to compute to
+	// `auto` once the other axis is not `visible` — so `position: sticky; top:` inside it resolves
+	// against this box instead of the viewport, and pins to a box that never scrolls vertically.
+	// Pinning the row would mean making the page itself the scroller, which costs the horizontal
+	// scroll the prices need. The first COLUMN pins, which is the axis that actually moves here.
 	.matrix-scroll {
 		max-width: 960px;
 		margin-inline: auto;
@@ -634,7 +994,12 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 	.matrix {
 		width: 100%;
 		min-width: 720px;
-		border-collapse: collapse;
+		// `separate`, not `collapse`. A collapsed table's borders belong to the table rather than to
+		// the cells, so a cell lifted out by `position: sticky` leaves its borders behind and the
+		// pinned column loses its rules in Chrome and Safari. The borders sit on the cells instead,
+		// and `border-spacing: 0` keeps the grid as tight as `collapse` drew it.
+		border-collapse: separate;
+		border-spacing: 0;
 		text-align: left;
 
 		caption {
@@ -643,8 +1008,6 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 
 		thead th {
 			@include type-small-strong;
-			position: sticky;
-			top: 0;
 			padding: $spacing-4;
 			border-bottom: 2px solid rgba(61, 80, 245, 0.2);
 			background-color: #fff;
@@ -663,6 +1026,27 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 			vertical-align: top;
 		}
 
+		// THE PINNED COLUMN. The row label is what a value is meaningless without, so it is the one
+		// that stays: scrolled across to Private Cloud, "From $1,499 / month" still has "Starting
+		// price" beside it. Each pinned cell needs its own opaque ground — this section is white — or
+		// the values scrolling underneath read straight through it.
+		thead th:first-child,
+		tbody th[scope='row'] {
+			position: sticky;
+			left: 0;
+			z-index: 1;
+			background-color: #fff;
+			// The edge that says the column is pinned rather than merely first. A shadow, not a
+			// border, so it sits outside the cell box and cannot shift the column's width.
+			box-shadow: 1px 0 0 rgba(15, 23, 42, 0.08);
+		}
+
+		// The corner outranks both: it is in the pinned column AND the header row, and without this
+		// the first body row's label paints over it.
+		thead th:first-child {
+			z-index: 2;
+		}
+
 		td {
 			@include type-small;
 			padding: $spacing-4;
@@ -670,14 +1054,28 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 			vertical-align: top;
 		}
 
-		tbody tr:not(.matrix__group) {
+		// On the cells rather than the row — see `border-collapse` above.
+		tbody tr:not(.matrix__group) > * {
 			border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 		}
 
+		// A heading for the rows under it, not a kicker over the table. It was `type-eyebrow` —
+		// uppercase and tracked — which reads as a label for the whole section each time it appears,
+		// and appears six times. Sentence case at the body-strong step says "these rows go together"
+		// without competing with the section's own H2.
 		&__group th {
-			@include type-eyebrow;
+			@include type-small-strong;
 			padding: $spacing-8 $spacing-4 $spacing-2;
 			color: $color-brand;
+		}
+
+		// The group heading spans all three columns, so pinning the CELL would pin the full table
+		// width and move nothing. Its text is pinned instead and stays in view above the label column
+		// while the values scroll past. `left` matches the cells' own padding, so the heading keeps
+		// its left edge aligned with them.
+		&__group span {
+			position: sticky;
+			left: $spacing-4;
 		}
 
 		// An em dash is a value here, not an absence of one — the cell says "not included", which the
@@ -764,8 +1162,10 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 	}
 
 	.shared-group {
+		// Sentence case at the body-strong step, matching the matrix's group headings — the two
+		// sections are one table split in half, so their group headings are one treatment.
 		&__title {
-			@include type-eyebrow;
+			@include type-small-strong;
 			margin: 0 0 $spacing-4;
 			color: $color-brand;
 		}
@@ -818,18 +1218,128 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 		}
 	}
 
-	.faq-groups {
-		display: flex;
-		flex-direction: column;
+	.faq-layout {
+		display: grid;
+		// The sidebar is a fixed 232 rather than a fraction: the topics are seven fixed strings, and a
+		// proportional column re-wraps "Trials, Cancellations & Refunds" at every width.
+		grid-template-columns: 232px minmax(0, 1fr);
 		gap: $spacing-12;
-		max-width: 800px;
+		max-width: 960px;
 		margin-inline: auto;
+
+		@include media-down(md) {
+			// The topics go over the panel on phones and scroll sideways: a vertical list of seven is
+			// the one thing here that would cost more height than the answers under it.
+			grid-template-columns: minmax(0, 1fr);
+			gap: $spacing-6;
+		}
 	}
 
-	.faq-group__title {
-		@include type-eyebrow;
-		margin: 0 0 $spacing-4;
+	.faq-tabs {
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-1;
+		// Stays beside a panel that runs to seventeen answers. Clears the fixed bar, which is why it
+		// reads the same token the header's own height comes from.
+		position: sticky;
+		top: calc(var(--home-header-h, 64px) + #{$spacing-6});
+		align-self: start;
+
+		@include media-down(md) {
+			position: static;
+			flex-direction: row;
+			gap: $spacing-2;
+			overflow-x: auto;
+			// Room for the focus ring, which the overflow box would otherwise clip.
+			padding: 2px;
+			margin-inline: -2px;
+		}
+	}
+
+	.faq-tab {
+		@include type-small-strong;
+		padding: $spacing-3 $spacing-4;
+		border: 0;
+		border-radius: 8px;
+		background: none;
+		color: var(--color-text-secondary);
+		text-align: left;
+		cursor: pointer;
+
+		@include media-down(md) {
+			flex: none;
+			white-space: nowrap;
+		}
+
+		&:hover {
+			background-color: rgba(61, 80, 245, 0.06);
+			color: var(--color-text);
+		}
+
+		&:focus-visible {
+			outline: 2px solid $color-brand;
+			outline-offset: 2px;
+		}
+
+		&.is-active {
+			background-color: rgba(61, 80, 245, 0.1);
+			color: $color-brand;
+		}
+	}
+
+	// `hidden` is a presentation hint that any author `display` beats. These panels carry none, but
+	// stating it keeps a later layout change from silently showing all seven topics at once.
+	.faq-panel[hidden] {
+		display: none;
+	}
+
+	// Held back until "Load more", by `display` rather than by the attribute: the script toggles
+	// these in bulk, and a class on the panel leaves the open/closed state of each one alone.
+	.faq-item--extra {
+		display: none;
+	}
+
+	.faq-panel.is-expanded .faq-item--extra {
+		display: block;
+	}
+
+	.faq-more {
+		@include type-small-strong;
+		display: inline-flex;
+		align-items: center;
+		gap: $spacing-2;
+		margin-top: $spacing-4;
+		padding: $spacing-2 0;
+		border: 0;
+		background: none;
 		color: $color-brand;
+		cursor: pointer;
+
+		&:hover .faq-more__label {
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+
+		&:focus-visible {
+			outline: 2px solid $color-brand;
+			outline-offset: 2px;
+		}
+
+		&__chevron {
+			width: 18px;
+			height: 18px;
+			transition: transform 0.15s ease;
+		}
+
+		&[aria-expanded='true'] &__chevron {
+			transform: rotate(180deg);
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			&__chevron {
+				transition: none;
+			}
+		}
 	}
 
 	.faq-item {
