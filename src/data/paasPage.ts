@@ -99,6 +99,10 @@ export const paasChoice = {
 	options: [
 		{
 			name: 'Public Cloud',
+			// The pair is `cloud-share` / `cloud-lock`: one base glyph, differing by exactly the thing
+			// the two products differ by. Cards only — at the pill's ~18px the modifier that carries
+			// the whole meaning is the first thing to go muddy.
+			icon: 'tabler:cloud-share',
 			price: 'From $0',
 			priceNote: 'Free tier up to 5 devices',
 			summary: 'The fastest, shared-infrastructure start.',
@@ -111,6 +115,7 @@ export const paasChoice = {
 		},
 		{
 			name: 'Private Cloud',
+			icon: 'tabler:cloud-lock',
 			price: 'From $1,499',
 			priceNote: 'Per month, 5,000 devices',
 			summary: 'A dedicated, isolated cluster with a stronger SLA.',
