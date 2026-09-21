@@ -61,13 +61,16 @@
 
 // The copy column capped in characters rather than as a fraction: a measure is a reading
 // constraint, and the media takes what is left.
-// 42ch, not 46. At the narrower measure the old split left the media 473px — below the 480 the
-// tightest visual wants — so the copy gives up four characters and the gap sixteen pixels, and
-// the visuals get the difference. A measure of 42 characters is still inside the comfortable
-// range for reading; a visual 473px wide is not inside anything.
+// ONE measure for all five rows, which is the point of the number rather than the number itself.
+// The rows alternate — two of them carry `media-first` — so when three rows ran 38ch and two ran
+// 42ch, that 36px step landed on BOTH edges going down the page. The eye reads that as the column
+// wandering. 40ch holds one line down the whole section.
+//
+// The media does not pay for it. Everything the copy gives up here it gets back below, out of the
+// row's own margins rather than out of the text.
 .new-rows .feature-des {
-	flex: 0 1 42ch;
-	max-width: 42ch;
+	flex: 0 1 40ch;
+	max-width: 40ch;
 }
 
 // --- typography ---------------------------------------------------------------------------
@@ -140,47 +143,80 @@
 	max-width: 560px;
 }
 
-// --- the three tightest visuals get a little more of the row ---------------------------------
+// --- the media breaks the row, the copy holds it ---------------------------------------------
 //
-// Not a wider ROW. The 1000 measure is deliberate — the rows used to run 160px wider than
-// everything under them, which reads as the page wandering — so the row keeps its edge and the
-// split moves inside it instead.
+// IN PROGRESS. The measure and the bleed are settled enough to look at, not to sign off: the 60px
+// is read off the ceiling table below but has not been judged on a real screen at every width, and
+// ScaleDuo gains nothing from it (see the note on its cap). Connect is already excluded. Expect
+// this number to move.
 //
-// WHICH THREE, AND WHY THOSE. A visual derives its design unit from the width it is handed, so
-// width IS type size here, and these are the three whose smallest PAINTED type is smallest.
-// Measured at the 525px column: SolutionFlow 11.2px, TwinCorridor 13.2px, NormalizeSeries 13.7px,
-// against ScaleDuo's 14.0 and ConnectHub's 20.0 — the two not in this list and not needing it.
+// THIS REVERSES AN EARLIER DECISION, so the earlier reasoning is worth keeping rather than
+// deleting. The row used to run 160px wider than everything under it, which reads as the page
+// wandering; the fix was to pin it to the 960 the Products band uses and move the SPLIT inside
+// that edge instead — three rows at 38ch so their visuals got 561px, two left at 42ch.
 //
-// PAINTED is the load-bearing word, and this comment had it wrong first time round: ConnectHub was
-// recorded here as 16px, which is its `.hub__label` — a `visually-hidden` element that `nodeLabel`
-// defaults off and `clip-path: inset(50%)` reduces to one pixel. It has never been drawn on this
-// page. Its smallest visible type is the protocol chip at 20px, which makes ConnectHub the most
-// legible of the five rather than a middling one. The choice of rows is unchanged — it was already
-// the three lowest either way — but any future comparison from this table must skip
-// `visually-hidden` subtrees or it will read a number that is not on the screen. NormalizeSeries
-// contains one too; the other three do not.
+// That bought the pixels out of the copy, and it cost a straight edge to do it. The rows
+// alternate, so two measures meant the column stepped 36px on both sides going down the section.
+// The copy column now holds one measure everywhere and the visuals take their extra width from
+// the margins instead, where there is nothing to take it from.
 //
-// 38ch, not 42. The copy column is a reading measure and it has already come down once, 46 -> 42,
-// for this same reason; four more characters is the most it can give without pinching. That hands
-// the media 525 -> 561px and takes the three floors to about 12.0, 14.1 and 14.6px.
+// WHY WIDTH IS WORTH ANYTHING HERE. A visual derives its design unit from the width it is handed,
+// so width IS type size in this section. Measured at the old 525px column: SolutionFlow 11.2px of
+// smallest PAINTED type, TwinCorridor 13.2, NormalizeSeries 13.7, ScaleDuo 14.0, ConnectHub 20.0.
 //
-// `:has()` rather than `:nth-child`: the row is identified by the visual inside it, so reordering
-// the rows cannot silently move this onto the wrong one.
+// PAINTED is the load-bearing word, and an earlier version of this comment had it wrong:
+// ConnectHub was recorded at 16px, which is its `.hub__label` — a `visually-hidden` element that
+// `nodeLabel` defaults off and `clip-path: inset(50%)` reduces to one pixel. It has never been
+// drawn on this page. Any future comparison from these numbers must skip `visually-hidden`
+// subtrees or it will read type that is not on the screen. NormalizeSeries contains one too.
 //
-// Above 1000px only. Below it the row is already narrower than its cap and the flex split is doing
-// real work; pinching the measure there would cost reading to buy a visual nothing.
-@media screen and (min-width: 1000px) {
-	.new-rows .block:has(.flow-fit),
-	.new-rows .block:has(.tc-fit),
-	.new-rows .block:has(.norm-fit) {
-		.feature-des {
-			flex-basis: 38ch;
-			max-width: 38ch;
+// Every visual's unit is `clamp(…, 100cqw / NATIVE, 1.15px)`, so extra width buys legible type
+// right up to the point the cap binds and then buys nothing at all. Measured ceilings, and what
+// the 40ch split alone would have given them:
+//
+//     SolutionFlow     caps at 644     TwinCorridor    caps at 642
+//     NormalizeSeries  caps at 660     ConnectHub      caps at 603
+//     ScaleDuo         caps at 577     split alone      543
+//
+// 60px each side is read off that table rather than chosen for looks: it lands ConnectHub exactly
+// on its cap, leaves the three tightest still climbing (603 against ceilings of 642-660), and
+// overshoots only ScaleDuo, whose drawing simply stops growing and centres in the slack.
+//
+// UNIFORM, not per-visual. Bleeding each one to its own ceiling was the obvious idea and it is
+// wrong: the ceilings span 83px, so the outer edge would jitter down the page on alternating
+// sides — trading the inner edge this section just straightened for a worse outer one. One
+// distance holds both.
+//
+// On the tightest visual this is the difference between 11.6px and 12.9px of smallest painted
+// type. That is the whole reason for it; the extra pixels are not decoration.
+// 1120, the same gate `.plat-fit` uses for the same 60px, and for the same arithmetic rather than
+// by copying: the row is 1000 wide centred, so the room beside it is (viewport - 1000) / 2 plus the
+// 20px of side padding. At 1100 that is 62px against a 60px bleed — measured, the drawing cleared
+// the window by three pixels on one side and two on the other, which is not a margin. 1120 leaves
+// 20px, and below it the bleed is simply off.
+@media screen and (min-width: 1120px) {
+	// CONNECT IS EXCLUDED. Breaking the grid is a cost paid for legibility, and its row has the
+	// least to gain: its smallest painted type is 20px where the others sit at 12-15, so it is the
+	// one visual already comfortably readable at the plain split. It keeps the 40ch measure like
+	// every row and simply does not bleed.
+	//
+	// `:has()` rather than `:nth-child`, as elsewhere in this file: the row is identified by the
+	// visual inside it, so reordering the rows cannot move the exception onto the wrong one.
+	.new-rows .block:not(:has(.hub-fit)) {
+		.preview > * {
+			--row-bleed: 60px;
+
+			width: calc(100% + var(--row-bleed));
+			max-width: none;
+			// Outward, never into the gap: the copy's measure is the thing being protected.
+			margin-right: calc(-1 * var(--row-bleed));
 		}
 
-		// Raised so the cap is not what decides the width — the split is.
-		.preview > * {
-			max-width: 580px;
+		// The two reversed rows bleed the other way. Keyed to the class that reverses them rather
+		// than to `:nth-child`, so reordering cannot leave a visual bleeding into its own copy.
+		.preview.media-first > * {
+			margin-right: 0;
+			margin-left: calc(-1 * var(--row-bleed));
 		}
 	}
 }
