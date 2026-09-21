@@ -275,8 +275,9 @@ export interface SharedGroup {
 export const paasShared: SharedGroup[] = [
 	{
 		title: 'Connect and control devices',
-		icon: 'tabler:devices',
-		color: '#3d50f5',
+		// `CONNECT_COPY.badge` on the homepage, glyph and hue both.
+		icon: 'tabler:plug-connected',
+		color: '#007c7b',
 		rows: [
 			{
 				label: 'Device connectivity',
@@ -321,7 +322,8 @@ export const paasShared: SharedGroup[] = [
 	},
 	{
 		title: 'Build the application',
-		icon: 'tabler:chart-donut',
+		// The homepage's "Build real-time IoT dashboards" badge, which was already this hue.
+		icon: 'tabler:chart-dots',
 		color: '#006bc7',
 		rows: [
 			{
