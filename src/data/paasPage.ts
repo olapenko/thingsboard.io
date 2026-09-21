@@ -170,6 +170,11 @@ export const paasCompare: CompareGroup[] = [
 			{ label: 'Trial', values: ['30 days free, no card required', 'Not available — evaluate on Public Cloud first'] },
 			{ label: 'Payment', values: ['Stripe · monthly', 'Card or wire · monthly, or annual with 10% off'] },
 			{ label: 'Commitment', values: ['Cancel anytime', 'No lock-in · 30 days’ notice · no setup or cancellation fee'] },
+			// Develop files this under "Build the application", in the half where every other row is
+			// identical on both — it is the one row there whose columns differ. Both its values are
+			// plan tiers, so it sits with the other plan-gated rows rather than alone under a heading
+			// repeating the name of the section above the table.
+			{ label: 'White-labeling', values: ['From the Pilot plan', 'Included on every plan'] },
 		],
 	},
 	{
@@ -193,13 +198,14 @@ export interface SharedGroup {
 }
 
 /**
- * Develop's "The same platform on both" half of the matrix. Every row there spans both columns and
- * repeats "Included in ThingsBoard Public Cloud and ThingsBoard Private Cloud" before the detail —
- * a screen-reader affordance for a table whose cell is merged. This page states it once in the
- * section's own lede and keeps only the detail, which is the part that differs row to row.
+ * Develop's "The same platform on both" half of the matrix, which this page leads with as its own
+ * "Platform features" section. Every row there spans both columns and repeats "Included in
+ * ThingsBoard Public Cloud and ThingsBoard Private Cloud" before the detail — a screen-reader
+ * affordance for a table whose cell is merged. This page states it once in the section's own lede
+ * and keeps only the detail, which is the part that differs row to row.
  *
  * `White-labeling` is deliberately absent: it is the one row in this half whose two columns differ,
- * so it stays in `paasCompare` → Support & commercials would misplace it. It is listed below.
+ * so it belongs in `paasCompare` and sits there under Support & commercials.
  */
 export const paasShared: SharedGroup[] = [
 	{
@@ -272,12 +278,6 @@ export const paasShared: SharedGroup[] = [
 		],
 	},
 ];
-
-/** The one "same platform" row whose columns differ — see the note on `paasShared`. */
-export const paasWhiteLabeling: CompareRow = {
-	label: 'White-labeling',
-	values: ['From the Pilot plan', 'Included on every plan'],
-};
 
 export interface FaqItem {
 	q: string;
