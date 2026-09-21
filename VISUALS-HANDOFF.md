@@ -8,14 +8,33 @@ Taken from `launch-visuals-refine` at `afe28ddaf`.
 
 ## What you need besides these files
 
-Nothing, if your build descends from this repo's `main`. Checked against it:
+Almost nothing, if your build descends from this repo's `main`. Checked against it file by file:
 
 - `astro-icon` ^1.1.5 with `@iconify-json/tabler` and `@iconify-json/simple-icons` — all present,
-  and `icon()` is already in `astro.config.ts`.
+  and `icon()` is already in `astro.config.ts`. **Nothing to install.**
 - The path aliases these files import through — `@root`, `@components`, `@data`, `@util` — are all
-  in `tsconfig.json`.
+  in `tsconfig.json`. **Nothing to configure.**
+- Every SCSS variable they reach for — `$color-brand`, the font sizes and weights,
+  `$font-family-mono`, `media-down` — `_variables.scss` already had.
 
-If your build is NOT from this `main`, those are the two things to check first.
+**The one exception, and the only file here that is not a pure addition:** `_variables.scss` gains
+four mixins it was missing — `visually-hidden`, `type-section`, `type-subsection`, `type-body`.
+They are appended in a marked block at the end of the file, so the diff is 49 added lines and
+nothing moved or removed; it should merge without a fight even if you have edited that file.
+
+Only `visually-hidden` is used by a component (three of them). The three `type-*` mixins are used
+solely by the two reference stylesheets below, so if you are not taking those, you can drop all
+three.
+
+If your build already defines any of the four, **delete the duplicate from the appended block
+rather than renaming it** — two members of the same name arriving through `@use … as *` is a Sass
+error, not a shadow.
+
+If your build is NOT from this `main`, those are the things to check first.
+
+Two names that look like they belong in `_variables.scss` and do not: `$stage-wash` is declared
+inside `PlatformClear`, and the `hatch` mixin inside `TwinCorridor`. Both travel with their
+component.
 
 ## The files
 
