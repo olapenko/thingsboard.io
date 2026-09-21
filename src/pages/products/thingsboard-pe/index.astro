@@ -1,455 +1,377 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro';
-import Hero from '../../../components/Landing/Hero.astro';
-import CustomersLogo from '../../../components/Landing/CustomersLogo.astro';
-import FeatureBlockSection from '../../../components/Landing/FeatureBlockSection.astro';
-import RBACDiagramSection from '../../../components/Landing/RBACDiagramSection.astro';
-import DualFeatureSection from '../../../components/Landing/DualFeatureSection.astro';
-import ComparisonTable from '../../../components/Landing/ComparisonTable.astro';
-import FeatureCard from '../../../components/Landing/FeatureCard.astro';
+import { Icon } from 'astro-icon/components';
 import { Products } from '@models/site.models';
+
+import Hero from '@components/Landing/Hero.astro';
+import EcosystemMark from '@components/Landing/EcosystemMark.astro';
+import SectionHeader from '@components/Landing/SectionHeader.astro';
+import PricingBackground from '@components/Pricing/PricingBackground.astro';
+import { heroLcpPreload } from '@util/lcp-preload';
+import { buildFaqPageSchema } from '@util/faq-schema';
+
+import { onPremBenefits, onPremChoice, onPremCompare, onPremCtas, onPremFaq } from '~/data/onPremPage';
+
+/**
+ * ThingsBoard On-premises.
+ *
+ * WIP. The Cloud page's pattern, with develop's on-premises content curated onto it — the copy,
+ * prices, plan limits and link targets come from `develop.tbqa.cloud/products/thingsboard-pe/` and
+ * live in `src/data/onPremPage.ts`. Everything visual is shared: `styles/_product-page.scss` and
+ * `util/faq-tabs.ts` are the same files the Cloud page uses, so the two cannot drift.
+ *
+ * WHAT THIS PAGE DOES DIFFERENTLY FROM THE CLOUD ONE, and why:
+ *
+ *   - NO "Platform features" section. That list is identical on both pages — it is the platform,
+ *     not the deployment — so stating it twice says nothing about the choice a reader is here to
+ *     make. It is the one section deliberately dropped.
+ *   - The comparison is a different KIND of comparison. Cloud's table puts two ways to buy one
+ *     product side by side; this one puts the platform against assembling your own stack, so the
+ *     right-hand column is not a product and the headings say so.
+ *   - The decision band is subscription against perpetual licence, which is the actual commercial
+ *     choice a self-hosting reader faces. Cloud's is Public against Private.
+ *   - The mark is the green `homeProducts` gives On-premises, not the Cloud indigo.
+ *
+ * WHAT DEVELOP HAD THAT IS NOT CARRIED OVER YET — all noted rather than silently dropped:
+ *   - The seven feature blocks (white-labeling, RBAC, integrations, entity groups, scheduler,
+ *     reporting, CSV/XLS export) with their docs links. Several of these are in the comparison
+ *     table already; the rest want a home on a later pass.
+ *   - The "Deploy anywhere" and "Managed Services" panels.
+ */
+
+// Develop's own hero image for this product. NOTE: the Cloud page currently uses this same asset,
+// which it inherited from develop — on-premises has the better claim to it, and the Cloud page
+// wants `images/hero/tb-cover.webp` on a later pass.
+const HERO_BACKGROUND = '/hero/pe-cover.webp';
+
+// The same asset the Cloud page knocks out on its squircle. `homeProducts` fills the On-premises
+// badge with #1f8b4d, so the two products are marked the same way and coloured differently.
+const TB_MARK = '/src/assets/images/landings/thingsboard-mark.svg';
+
+// `Hero` shows the "Top supplier retail 2024" badge for CE, PE and both PaaS products unless a page
+// opts out. `null` is that opt-out — an omitted prop takes the default instead.
+const HERO_ACHIEVEMENT = null;
+
+/** Answers shown per topic before "More questions", as on the Cloud page. */
+const FAQ_VISIBLE = 6;
+
+/**
+ * FAQPage structured data, BUILT BUT NOT EMITTED — and that is deliberate.
+ *
+ * The Cloud page publishes its schema, and the same argument applies here: most topics sit behind
+ * `hidden` panels, so an extractor that skips hidden content sees a fraction of what the page says.
+ * What stops it is that this FAQ contradicts itself, in the repo's own live data:
+ *
+ *   - REFUNDS. Billing says there are no refunds for unused time but "the funds for the remaining
+ *     period will be saved on your account balance"; Trials says "No, all sales are final". A
+ *     credit balance and all-sales-final are not the same policy.
+ *   - ANNUAL PAYMENT. Two answers offer "pay annually with card or wire transfer"; a third says
+ *     "we currently offer only a monthly subscription".
+ *
+ * Publishing those as schema.org lets a search engine surface either side as the authoritative
+ * answer, under our own markup. `/pricing/` renders the same data and emits schema for the Cloud
+ * context ONLY (`FAQ_JSONLD_CONTEXT`), so nothing publishes these today and withholding costs us
+ * nothing we currently have. Flip `jsonLd={faqPageSchema}` back on once the copy is reconciled.
+ */
+const faqPageSchema = buildFaqPageSchema(onPremFaq);
 ---
 
 <BaseLayout
 	headerVariant="transparent"
 	forceLightTheme
-	title="ThingsBoard Professional Edition"
-	description="Advanced ThingsBoard IoT Platform distribution with white-labeling, advanced RBAC, platform integrations, entity groups, scheduler, reporting, and more."
+	title="ThingsBoard On-premises"
+	description="ThingsBoard On-premises — the full IoT platform, deployed and run on infrastructure you control, under a subscription or a perpetual licence."
+	preloadLcpImage={heroLcpPreload(HERO_BACKGROUND)}
 >
-	<div class="page-body">
-		<Hero
-			product={Products.PE}
-			title="ThingsBoard Professional Edition"
-			subtitle="Get it now and unlock advanced features for your IoT solution"
-			buttons={[{ text: 'Get it now', href: '/pricing/', variant: 'outline' }]}
-			anchorLink="#intro"
-			backgroundImage="/hero/pe-cover.webp"
-			videoBackground={{
-				webm: 'https://video.thingsboard.io/pe-cover.webm',
-				mp4: 'https://video.thingsboard.io/pe-cover.mp4',
-			}}
-		/>
+	<Hero
+		product={Products.PE}
+		backgroundImage={HERO_BACKGROUND}
+		title="ThingsBoard On-premises"
+		subtitle="The whole IoT platform, deployed where your policies and operations require it — your data centre, your cloud account, or fully offline."
+		achievement={HERO_ACHIEVEMENT}
+		buttons={[
+			{
+				text: onPremCtas.primary.text,
+				icon: 'tabler:server',
+				href: onPremCtas.primary.href,
+				variant: 'brand',
+				ariaLabel: 'See ThingsBoard On-premises plans and pricing',
+			},
+			{ text: onPremCtas.secondary.text, icon: 'tabler:message-circle', href: onPremCtas.secondary.href, variant: 'outline' },
+		]}
+		layout="split"
+		showArrow={false}
+		anchorLink="#benefits"
+		videoBackground={{
+			webm: 'https://video.thingsboard.io/pe-cover.webm',
+			mp4: 'https://video.thingsboard.io/pe-cover.mp4',
+		}}
+	>
+		{/* `kicker` is Hero's own slot, directly above the headline — the mark is an inlined SVG
+		    rather than a Tabler name, so it cannot ride on a prop the way a glyph would. */}
+		<span slot="kicker" class="hero-mark" aria-hidden="true">
+			<EcosystemMark src={TB_MARK} class="hero-mark__glyph" filled />
+		</span>
+	</Hero>
 
-		<section id="overflow">
-			<CustomersLogo productTag="pe" />
-
-			<section id="intro">
-				<div class="intro-div">
-					<h2>Advanced ThingsBoard IoT Platform distribution</h2>
-					<span>with value added features</span>
+	<section id="overflow">
+		<section id="benefits">
+			<div class="main-div">
+				<SectionHeader
+					title="Why run it yourself"
+					subtitle="For teams whose data, network or compliance position means the platform has to live on their own infrastructure."
+					titleSize="title"
+					subtitleMeasure="copy"
+				/>
+				<div class="benefit-grid">
+					{
+						onPremBenefits.map((benefit) => (
+							<div class="benefit-card">
+								<Icon
+									name={benefit.icon}
+									class="benefit-card__icon"
+									style={`color: ${benefit.color}`}
+									aria-hidden="true"
+								/>
+								<h3 class="benefit-card__title">{benefit.title}</h3>
+								<p class="benefit-card__text">{benefit.description}</p>
+							</div>
+						))
+					}
 				</div>
-			</section>
-
-			<!-- White-labeling (light-grey skewed bg via real DOM background div) -->
-			<FeatureBlockSection
-				id="labeling"
-				heading="White-labeling"
-				description="Rebrand ThingsBoard platform web interface with your company or product logo and color scheme in 2 minutes. No coding or service restart required. Allow your customers and their sub-customers to white-label their interface as well."
-				links={[{ href: '/docs/pe/user-guide/white-labeling/', text: 'Read more about white labeling' }]}
-				imageSrc="/src/assets/images/landings/pe/white-labeling.webp"
-				imageAlt="White-labeling interface example"
-				imageWidth={978}
-				imageHeight={883}
-				imageWidths={[540, 978]}
-				imageSizes="(min-width: 1500px) 570px, (min-width: 769px) 540px, calc(100vw - 2.5rem)"
-				bgId="background-white-labeling"
-				bgDivs={['main1', 'small1', 'small2', 'small3']}
-				variant="pe"
-				imageEqual={true}
-			/>
-
-			<!-- Advanced RBAC (plain white bg) -->
-			<RBACDiagramSection />
-
-			<!-- Platform Integrations (dark #262C28 bg) -->
-			<FeatureBlockSection
-				id="integration"
-				heading="Platform Integrations"
-				description="Stream data from devices connected to existing IoT Platforms to enable real-time interactive dashboards and efficient data processing. Connect NB IoT, LoRaWAN and SigFox devices with specific payload formats using highly customizable data converters. Design and plugin your own converter as a JavaScript functions in real-time."
-				links={[{ href: '/docs/pe/user-guide/integrations/', text: 'Read more about platform integrations' }]}
-				imageSrc="/src/assets/images/landings/pe/integrations.svg"
-				imageAlt="Platform integrations diagram"
-				imageWidth={626}
-				imageHeight={605}
-				dark={true}
-				bgId="background-platform-integrations"
-				bgDivs={['main2', 'small4', 'small5']}
-				listIconSrc="/src/assets/images/landings/pe/integrations-list.svg"
-				listIconAlt="Integrations list"
-				listIconWidth={282}
-				listIconHeight={225}
-				imageEqual={true}
-			/>
-
-			<!-- Entity Groups (plain white bg) -->
-			<FeatureBlockSection
-				id="entity-groups"
-				heading="Entity Groups"
-				description="Group your entities (device, assets, etc.) to simplify administration tasks. Customize set of columns for each group and trigger actions on entities directly from administration interface."
-				links={[{ href: '/docs/pe/user-guide/groups/', text: 'Read more about entity groups' }]}
-				imageSrc="/src/assets/images/landings/pe/entity-groups.svg"
-				imageAlt="Entity groups administration interface"
-				imageWidth={626}
-				imageHeight={390}
-				imageFirst={true}
-				variant="pe"
-				imageEqual={true}
-			/>
-
-			<!-- Scheduler + Reporting (skewed light-grey bg) -->
-			<DualFeatureSection
-				id="scheduler-section"
-				left={{
-					heading: 'Scheduler',
-					description:
-						'Schedule various types of events including report generation, commands to devices and configuration updates with flexible schedule configuration.',
-					readMoreHref: '/docs/pe/user-guide/scheduler/',
-					readMoreText: 'Read more about scheduler',
-				}}
-				right={{
-					heading: 'Reporting',
-					description:
-						'Generate great looking reports using dashboards visualization capabilities. Generate reports by schedule or export by demand.',
-					readMoreHref: '/docs/pe/user-guide/reporting/report-templates/',
-					readMoreText: 'Read more about reporting',
-				}}
-				imageSrc="/src/assets/images/landings/pe/scheduler.svg"
-				imageAlt="Scheduler interface"
-				imageWidth={532}
-				imageHeight={565}
-				bgId="background-scheduler"
-				bgDivs={['main3', 'small6', 'small7', 'small8']}
-				variant="pe"
-			/>
-
-			<!-- CSV/XLS Export (dark bottom strip via background-data-export) -->
-			<FeatureBlockSection
-				id="export"
-				heading="CSV/XLS data export"
-				description="Export any dashboard widget data to CSV or XLS format. Allow your customers to download valuable insights from their device's data and review them in offline mode."
-				links={[{ href: '/docs/pe/user-guide/csv-xls-data-export/', text: 'Read more about CSV/XLS data export' }]}
-				imageSrc="/src/assets/images/landings/pe/data-export.svg"
-				imageAlt="Data export interface"
-				imageWidth={626}
-				imageHeight={530}
-				imageFirst={true}
-				variant="pe"
-				listIconSrc="/src/assets/images/landings/pe/export-list.svg"
-				listIconAlt="Export formats list"
-				listIconWidth={215}
-				listIconHeight={160}
-				listIconLeft={-240}
-				listIconTop={100}
-				bgId="background-data-export"
-				bgDivs={['bottom', 'small9']}
-				imageEqual={true}
-			/>
-
-			<!-- Feature Comparison Table (skewed bg built-in) -->
-			<ComparisonTable />
-
-			<!-- Bottom feature cards -->
-			<section id="features">
-				<div class="features-inner">
-					<FeatureCard
-						variant="pe"
-						icon="/src/assets/images/landings/pe/cloud-premises.svg"
-						title="Flexible deployment options"
-						description="Deploy ThingsBoard platform in the cloud or on-premises. Use commodity hardware to scale out horizontally by adding new nodes to your cluster. Single ThingsBoard server can support 10 000+ devices and 100M messages per hour, while simple cluster can support millions of devices and billions of messages."
-						href="/installations/?product=thingsboard-pe"
-					/>
-					<div class="features-divider"></div>
-					<FeatureCard
-						variant="pe"
-						icon="/src/assets/images/landings/pe/pricing-models.svg"
-						alt="Pricing models overview for ThingsBoard Professional Edition"
-						title="Simple and predictable pricing models"
-						description={'A clear and predictable pricing model prevents unexpected billing surprises in production. You can choose a pay-as-you-go subscription and pay monthly for ThingsBoard PE usage, or purchase a <a href="/pricing/?section=thingsboard-pe-options&product=thingsboard-pe&solution=pe-perpetual">perpetual license</a> if it better suits your business model.'}
-						href="/pricing/?section=thingsboard-pe-options&product=thingsboard-pe"
-					/>
-				</div>
-			</section>
-
-			<!-- CTA -->
-			<section id="bottom">
-				<div class="bottom-inner">
-					<a id="Products_PE_GetItNow" href="/pricing/" class="try-pe gtm_button">Get it now</a>
-				</div>
-			</section>
+			</div>
 		</section>
-	</div>
+
+		<section id="matrix">
+			<div class="main-div">
+				<SectionHeader
+					title="ThingsBoard vs a custom IoT stack"
+					subtitle="What the platform brings built in, against what the same solution costs to assemble from separate services."
+					titleSize="title"
+					subtitleMeasure="copy"
+				/>
+
+				{/* `scope` on every header cell: the row labels are headers too, which is what lets a screen
+				    reader announce "Monitoring, ThingsBoard, Prometheus and Grafana…" instead of the value
+				    alone. The right-hand column is NOT a product — the caption says so outright, since a
+				    two-column table invites the reader to assume it is. */}
+				<div class="matrix-scroll">
+					<table class="matrix">
+						<caption class="sr-only">
+							ThingsBoard compared with an IoT stack assembled from separate services
+						</caption>
+						<thead>
+							<tr>
+								<th scope="col">Capability</th>
+								{
+									onPremChoice.columns.map((column) => (
+										<th scope="col">
+											<span class="matrix__col">
+												<Icon name={column.icon} class="matrix__col-mark" aria-hidden="true" />
+												{column.name}
+											</span>
+										</th>
+									))
+								}
+							</tr>
+						</thead>
+						<tbody>
+							{
+								onPremCompare.map((group) => (
+									<>
+										<tr class="matrix__group">
+											{/* A group heading spans the table, so it is a header for everything under it. */}
+											<th scope="colgroup" colspan="3">
+												<span>
+													<span class="group-mark" style={`--group-mark-color: ${group.color}`} aria-hidden="true">
+														<Icon name={group.icon} />
+													</span>
+													{group.title}
+												</span>
+											</th>
+										</tr>
+										{group.rows.map((row) => (
+											<tr>
+												<th scope="row">{row.label}</th>
+												{row.values.map((value, i) => (
+													<td>
+														{/* The column's name, in the cell. Hidden above 880 where the header row
+														    does the job; below it the table reflows to blocks and this is what
+														    keeps every value attached to its column. */}
+														<span class="matrix__cell-label">{onPremChoice.columns[i].name}</span>
+														<span>{value}</span>
+													</td>
+												))}
+											</tr>
+										))}
+									</>
+								))
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+
+		{/* The choice, under the table that informs it — and outside that section's measure, so its
+		    ground runs the full width the way the bookend's does. On this page the two options are
+		    the two ways to licence a self-hosted deployment, not two products. */}
+		<section id="choose">
+			<PricingBackground contained />
+			<div class="choice__inner">
+				<h3 class="choice__title">{onPremChoice.title}</h3>
+				<p class="choice__lead">{onPremChoice.lead}</p>
+
+				<div class="choice-grid">
+					{
+						onPremChoice.options.map((option) => (
+							<div class="choice-card">
+								<h4 class="choice-card__name">
+									<Icon name={option.icon} class="choice-card__mark" aria-hidden="true" />
+									{option.name}
+								</h4>
+								<p class="choice-card__price">
+									{option.price}
+									<span class="choice-card__price-note">{option.priceNote}</span>
+								</p>
+								<p class="choice-card__summary">{option.summary}</p>
+								<ul class="choice-card__points">
+									{option.points.map((point) => (
+										<li>
+											<Icon name="tabler:check" aria-hidden="true" />
+											{point}
+										</li>
+									))}
+								</ul>
+								<div class="choice-card__actions">
+									<a
+										class:list={['choice-card__cta', `choice-card__cta--${option.cta.variant}`]}
+										href={option.cta.href}
+									>
+										{option.cta.text}
+										<span class="sr-only">— {option.name}</span>
+									</a>
+									<a class="choice-card__plans" href={option.plansHref}>
+										See plans
+										<span class="sr-only">for the {option.name}</span>
+										<Icon name="tabler:chevron-right" aria-hidden="true" />
+									</a>
+								</div>
+							</div>
+						))
+					}
+				</div>
+
+				{/* The mirror of the Cloud page's on-premises line: the exit to the managed alternative. */}
+				<p class="choice-note">
+					<Icon name={onPremCtas.cloud.icon} class="choice-note__mark" aria-hidden="true" />
+					{onPremCtas.cloud.lead}
+					<a href={onPremCtas.cloud.href}>{onPremCtas.cloud.text}</a>
+				</p>
+			</div>
+		</section>
+
+		<section id="faq">
+			<div class="main-div">
+				<SectionHeader title="ThingsBoard On-premises FAQ" titleSize="title" />
+				<div class="faq-layout">
+					<div class="faq-tabs" role="tablist" aria-orientation="vertical" aria-label="FAQ topics">
+						{
+							onPremFaq.map((category, i) => (
+								<button
+									type="button"
+									role="tab"
+									id={`faq-tab-${i}`}
+									class:list={['faq-tab', i === 0 && 'is-active']}
+									aria-controls={`faq-panel-${i}`}
+									aria-selected={i === 0 ? 'true' : 'false'}
+									tabindex={i === 0 ? 0 : -1}
+								>
+									{category.label}
+								</button>
+							))
+						}
+					</div>
+
+					<div class="faq-panels">
+						{
+							onPremFaq.map((category, i) => (
+								<div
+									role="tabpanel"
+									id={`faq-panel-${i}`}
+									class="faq-panel"
+									aria-labelledby={`faq-tab-${i}`}
+									hidden={i !== 0}
+								>
+									{category.items.map((item, j) => (
+										<details class:list={['faq-item', j >= FAQ_VISIBLE && 'faq-item--extra']}>
+											<summary>
+												<span>{item.question}</span>
+												<Icon name="tabler:chevron-down" class="faq-item__chevron" aria-hidden="true" />
+											</summary>
+											<div class="faq-item__answer" set:html={item.answer} />
+										</details>
+									))}
+									{category.items.length > FAQ_VISIBLE && (
+										<button type="button" class="faq-more" aria-expanded="false">
+											<span class="faq-more__label">More questions</span>
+											<Icon name="tabler:chevron-down" class="faq-more__chevron" aria-hidden="true" />
+										</button>
+									)}
+								</div>
+							))
+						}
+					</div>
+				</div>
+			</div>
+		</section>
+	</section>
+
+	<section class="page-closing">
+		<PricingBackground contained />
+		<div class="page-closing__inner">
+			<h2 class="page-closing__title">Ready to deploy ThingsBoard?</h2>
+			<p class="page-closing__lead">
+				Start on the Free plan and run it on your own hardware, or talk to our team about a perpetual licence and
+				offline operation.
+			</p>
+			<div class="page-closing__actions">
+				<a class="page-closing__primary" href={onPremCtas.primary.href}>
+					<Icon name="tabler:server" aria-hidden="true" />
+					{onPremCtas.primary.text}
+				</a>
+				<a class="page-closing__secondary" href={onPremCtas.secondary.href}>
+					<Icon name="tabler:message-circle" aria-hidden="true" />
+					{onPremCtas.secondary.text}
+				</a>
+			</div>
+			<p class="page-closing__note">
+				<a href={onPremCtas.legal.href}>{onPremCtas.legal.text}</a>
+			</p>
+		</div>
+	</section>
 </BaseLayout>
 
+<script>
+	// The FAQ tab set, shared with the Cloud page — see `util/faq-tabs.ts`.
+	import { mountFaqTabs } from '~/util/faq-tabs';
+
+	mountFaqTabs();
+</script>
+
 <style is:global lang="scss">
-	@use '../../../styles/landing';
 	@use '../../../styles/variables' as *;
+	// Every visual rule on this page is the Cloud page's, shared rather than copied.
+	@use '../../../styles/product-page';
 
-	.page-body {
-		width: 100%;
+	// This page's own. The green `homeProducts` fills the On-premises badge with, and a tinted
+	// ground for the comparison — the Cloud page's table sits on white because the section above it
+	// is tinted, and this page has no such section, so the alternation lands the other way round.
+	#hero.split .hero-mark {
+		--page-mark-color: #1f8b4d;
 	}
 
-	#overflow {
-		overflow: hidden;
-	}
-
-	#intro {
-		text-align: center;
-		padding: 5rem 1.875rem 0;
-		margin-bottom: 10rem;
-
-		@media screen and (max-width: 768px) {
-			padding: 3rem 1.25rem 0;
-		}
-	}
-
-	.intro-div {
-		max-width: 1200px;
-		margin: 0 auto;
-
-		h2 {
-			font-size: $font-size-5xl;
-			font-weight: $font-weight-semibold;
-			line-height: 1.3;
-			color: $color-text-primary;
-			margin: 0 0 1rem;
-
-			@media screen and (max-width: 768px) {
-				font-size: $font-size-4xl;
-			}
-		}
-
-		span {
-			font-size: $font-size-4xl;
-			font-weight: $font-weight-normal;
-			line-height: 2.5rem;
-			color: $color-text-secondary;
-			margin: 0;
-		}
-	}
-
-	// Shadow for feature block images
-	.feature-block-section .block img {
-		border-radius: $radius-md;
-		box-shadow:
-			0 50px 50px -20px rgba(0, 0, 0, 0.15),
-			0 0 30px 0 rgba(0, 0, 0, 0.1);
-	}
-
-	#features {
-		padding: 6.25rem 1.875rem 5rem;
-
-		@media screen and (min-width: 1500px) {
-			padding-left: 6.25rem;
-			padding-right: 6.25rem;
-		}
-
-		@media screen and (max-width: 768px) {
-			padding: 3rem 1.25rem;
-		}
-	}
-
-	.features-inner {
-		max-width: 1200px;
-		margin: 0 auto;
-		display: flex;
-		flex-direction: column;
-		gap: 3rem;
-
-		@media screen and (min-width: 768px) {
-			flex-direction: row;
-			align-items: flex-start;
-			gap: 0;
-
-			.feature-item {
-				flex: 0 0 calc(50% - 1px - 3rem);
-				min-width: 0;
-			}
-		}
-
-		@media screen and (min-width: 1500px) {
-			max-width: 1400px;
-		}
-	}
-
-	.features-divider {
-		display: none;
-
-		@media screen and (min-width: 768px) {
-			display: block;
-			width: 2px;
-			align-self: stretch;
-			background-color: #dadbda;
-			margin: 0 3rem;
-			flex-shrink: 0;
-		}
-	}
-
-	#bottom {
-		margin: 0 calc(-50vw + 50%);
-		padding: 5.125rem 0 7.75rem;
-		text-align: center;
-		background-color: $color-bg-white;
-	}
-
-	.bottom-inner {
-		display: flex;
-		justify-content: center;
-	}
-
-	.try-pe {
-		display: inline-block;
-		background-color: $color-pe-link;
-		color: $color-white;
-		font-size: 1.5rem;
-		font-weight: $font-weight-normal;
-		text-align: center;
-		text-decoration: none;
-		border-radius: 4px;
-		padding: 0.9375rem 8rem;
-		box-shadow: 0 28px 16px -20px rgba(13, 39, 67, 0.25);
-		transition: background-color 0.6s;
-
-		&:hover {
-			background-color: $color-pe-dark;
-			text-decoration: none;
-			color: $color-white;
-		}
-
-		&:active {
-			background-color: $color-pe-link;
-			transition-duration: 0s;
-		}
-
-		@media screen and (max-width: 768px) {
-			padding: 0.9375rem 3rem;
-			font-size: $font-size-xl;
-		}
-	}
-
-	:root section {
-		background: none;
-	}
-
-	// Overflow container
-	#overflow {
-		overflow: hidden;
-	}
-
-	[id^='background-'] {
-		z-index: -1;
-		position: absolute;
-		top: 524px;
-		left: 50%;
-	}
-
-	[id^='background-'] div {
-		position: absolute;
-		transform: skewY(-6deg);
-		width: 436px;
-		height: 90px;
-	}
-
-	[id^='background-'] .main1 {
-		top: -558px;
-		width: 2560px;
-		height: 525px;
-		left: -1280px;
-		background-color: #f4f4f4;
-	}
-
-	[id^='background-'] .small1 {
-		top: -542px;
-		right: 524px;
-		background-color: #27ae60;
-	}
-
-	[id^='background-'] .small2 {
-		top: -532px;
-		right: 270px;
-		border: 2px solid #234732;
-	}
-
-	[id^='background-'] .small3 {
-		top: -686px;
-		left: 524px;
-		background-color: #1f8b4d;
-	}
-
-	[id^='background-'] .main2 {
-		top: -510px;
-		width: 2560px;
-		height: 525px;
-		left: -1280px;
-		background-color: #262c28;
-	}
-
-	[id^='background-'] .small4 {
-		top: -660px;
-		left: 836px;
-		background-color: #27ae60;
-	}
-
-	[id^='background-'] .small5 {
-		top: 66px;
-		right: 528px;
-		border: 4px solid #27ae60;
-	}
-
-	[id^='background-'] .main3 {
-		top: -503px;
-		width: 2560px;
-		height: 525px;
-		left: -1280px;
-		background-color: #f4f4f4;
-	}
-
-	[id^='background-'] .small6 {
-		top: -467px;
-		right: 804px;
-		background-color: #1f8b4d;
-	}
-
-	[id^='background-'] .small7 {
-		top: -644px;
-		left: 566px;
-		background-color: #27ae60;
-	}
-
-	[id^='background-'] .small8 {
-		top: -114px;
-		left: 804px;
-		border: 2px solid #234732;
-	}
-
-	[id^='background-'] .bottom {
-		top: -70px;
-		width: 2560px;
-		height: 130px;
-		left: -1280px;
-		background-color: #262c28;
-	}
-
-	[id^='background-'] .small9 {
-		top: -10px;
-		left: 565px;
-		background-color: #1f8b4d;
-	}
-
-	// The #export section has a dark (#262c28) bottom strip behind the read-more link.
-	// $color-pe-link (#166c37) is designed for light backgrounds (5.89:1 on white)
-	// but fails on #262c28 (~2:1). Override with $color-pe (#17bb52, 5.59:1 on #262c28).
-	#export .read-more-link--pe,
-	#export .read-more-link--pe .arrow {
-		color: $color-pe;
-	}
-
-	@media screen and (min-width: 1025px) {
-		[id^='background-'] .main2 {
-			height: 525px;
-		}
-
-		[id^='background-'] .bottom {
-			top: -17px;
-		}
+	#matrix {
+		--matrix-band: #f5f6ff;
 	}
 </style>

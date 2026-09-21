@@ -12,6 +12,9 @@
  * the comparison against assembling your own stack, and the licensing.
  */
 
+import type { FaqCategory } from '@data/pricing/types';
+import { tbSelfManagedFaq } from '@data/pricing/faq/tb-self-managed';
+
 /** Link targets used from more than one place below. Declared up here because `onPremChoice` reads
  *  one of them and a `const` cannot be referenced before its own line has run. */
 const CONTACT = '/contact-us/';
@@ -28,6 +31,139 @@ export interface OnPremBenefit {
 	title: string;
 	description: string;
 }
+
+/**
+ * The six tiles.
+ *
+ * Every claim is traceable, and the sources are named per tile. Where develop's page and this
+ * repo disagree, the repo wins — it is the live data and develop is a stale build.
+ *
+ * WHAT IS DELIBERATELY NOT HERE. Nothing generic to ThingsBoard: a reader on this page has already
+ * decided to run the platform themselves, and "600+ widgets" tells them nothing they could not read
+ * on the Cloud page. Each tile below is about SELF-HOSTING specifically — custody, placement,
+ * sizing, metering, clustering, observability.
+ *
+ * Hues come from this page's own comparison groups rather than the Cloud page's palette. The Cloud
+ * file justifies its six on the grounds that every value already appears on that page; none of them
+ * appears on this one.
+ */
+export const onPremBenefits: OnPremBenefit[] = [
+	{
+		// FAQ, Security & Compliance: "Your data is stored on your own infrastructure, whether
+		// on-premise or in the cloud" and "you have full control over data storage location".
+		icon: 'tabler:shield-lock',
+		color: '#1f8b4d',
+		title: 'Your infrastructure, your custody',
+		description: 'The data sits on hardware you control — your own data centre or your own cloud account — and you decide where.',
+	},
+	{
+		// `homeProducts.ts`: "Deploy in your own data centre, in your private cloud (AWS, Azure,
+		// GCP), or on Kubernetes." Plus FAQ, Usage: "cloud-agnostic and can be migrated as needed".
+		// It says "migratable", NOT "no lock-in": moving servers means deactivating on the License
+		// Server first, and that caveat belongs in the FAQ where it is stated in full.
+		icon: 'tabler:server',
+		color: '#007c7b',
+		title: 'Your data centre, or any cloud',
+		description: 'Run it on your own hardware, in AWS, Azure or GCP, or on Kubernetes — the deployment is cloud-agnostic and migratable.',
+	},
+	{
+		// `scale-visual.ts`, benchmark scenarios B and E. NOT develop's "from 5 devices to 5+
+		// million" — that file carries an explicit note rejecting the figure as unsupported.
+		icon: 'tabler:gauge',
+		color: '#006bc7',
+		title: 'Benchmarked sizing, from one server',
+		description: 'Published benchmarks size the machine: 100K devices on 4 vCPU and 8 GB, a million on 36 vCPU and 72 GB.',
+	},
+	{
+		// FAQ, Usage: "Does ThingsBoard charge for API calls or storage? No, but you may be charged
+		// by your cloud provider for resource usage." Plus Billing: no extra beyond the licence fee.
+		icon: 'tabler:coin',
+		color: '#c2410c',
+		title: 'No metering on the licence',
+		description: 'The licence is priced on device count alone. Nothing is billed for API calls, data points or storage — your provider bills the infrastructure.',
+	},
+	{
+		// `tb-self-managed.ts`: Startup includes 2 production instances, Business 3, and extra
+		// instances are purchasable. The FAQ explains what they buy: HA, horizontal scale, redundancy.
+		icon: 'tabler:topology-star-3',
+		color: '#3d50f5',
+		title: 'Cluster mode for high availability',
+		description: 'Run several instances for redundancy and horizontal scale — Startup includes two, Business three, and more can be added.',
+	},
+	{
+		// The comparison table's own Foundation row. The capability is platform-wide; the benefit
+		// only lands on a reader who operates the deployment, which is everyone on this page.
+		icon: 'tabler:activity',
+		color: '#7c3aed',
+		title: 'Monitoring ships with it',
+		description: 'A Prometheus and Grafana stack comes with the platform, so whoever operates the deployment has observability from the first install.',
+	},
+];
+
+/**
+ * The decision band.
+ *
+ * The Cloud page forks on deployment — Public or Private — because that is the only open question
+ * once you have chosen managed hosting. Here deployment is already answered: you run it. So the
+ * fork is the one develop's own page names in its "Simple and predictable pricing models" section,
+ * and the one `/pricing/` makes its primary control: rent the licence monthly, or own it outright.
+ *
+ * It is a difference in KIND rather than in invoice, which is what these two cards need. Stop
+ * paying the subscription and "your license will become inactive, and your ThingsBoard instance
+ * will be stopped"; the perpetual licence cannot end that way because it cannot be cancelled at
+ * all. On software installed on the reader's own hardware that is the most consequential fact here.
+ *
+ * Every figure is from `src/data/pricing/tb-self-managed.ts`: Maker $10 through Business $499 at
+ * 1,000 devices, and `Starting from $4,999` for the perpetual licence. Each card deep-links the
+ * ladder rather than restating it.
+ *
+ * NOT "Run it yourself vs Managed Services", which was the strongest rival: that service's own
+ * published SLA covers Public and Private Cloud only, and its migration path moves the reader off
+ * their own infrastructure — so it cannot be a card on a page whose premise is that they stay on it.
+ */
+export const onPremChoice = {
+	title: 'Rent the licence, or own it',
+	lead: 'Both run on infrastructure you control and both are priced on device count. What differs is what you hold at the end.',
+	/** The comparison table's two column headings, so the table and the band cannot drift. */
+	columns: [
+		{ name: 'ThingsBoard', icon: 'tabler:server-cog' },
+		{ name: 'Custom IoT stack', icon: 'tabler:tools' },
+	],
+	options: [
+		{
+			icon: 'tabler:refresh',
+			name: 'Monthly subscription',
+			price: 'From $10',
+			priceNote: 'Per month, 10 devices',
+			summary: 'Self-serve, month to month, cancel whenever.',
+			points: [
+				'Five plans, from 10 devices up to 1,000',
+				'A licence key from the License Server, installed by you',
+				'Cancel any time — the licence goes inactive and the instance stops',
+			],
+			cta: { text: 'Get a licence', href: 'https://license.thingsboard.io/signup', variant: 'primary' as const },
+			plansHref: PRICING_SUBSCRIPTION,
+		},
+		{
+			icon: 'tabler:infinity',
+			name: 'Perpetual licence',
+			price: 'From $4,999',
+			priceNote: 'One time, priced on device count',
+			summary: 'Bought once, and it does not expire.',
+			points: [
+				'One-time payment, with no monthly fee after it',
+				'Offline Mode is an add-on to this licence, priced on deployment scale',
+				'Non-refundable and cannot be cancelled',
+			],
+			cta: {
+				text: 'Talk to sales',
+				href: '/contact-us/?subject=ThingsBoard%20Products&message=I%20am%20interested%20in%20Self-managed%20perpetual%20license',
+				variant: 'secondary' as const,
+			},
+			plansHref: PRICING_PERPETUAL,
+		},
+	],
+};
 
 export interface CompareRow {
 	label: string;
@@ -326,267 +462,25 @@ export const onPremCompare: CompareGroup[] = [
 	},
 ];
 
-export interface FaqItem {
-	q: string;
-	/** Answer markup — ours, from this file, rendered with `set:html`. */
-	a: string;
-}
-
-export interface FaqCategory {
-	title: string;
-	items: FaqItem[];
-}
-
 /**
- * Develop's FAQ, all six categories and all 57 answers.
+ * THE FAQ COMES FROM THE REPO, NOT FROM DEVELOP.
  *
- * `target="_blank"` is dropped from links that stay on the site, as it was on the Cloud page.
+ * This was 57 answers transcribed by hand from develop's page before anyone checked whether the
+ * repo already had them. It does: `src/data/pricing/faq/tb-self-managed.ts` is live data that
+ * `/pricing/` already renders, and develop's copy is STALE against it in ways that matter —
+ *
+ *   - develop names the plans Free / Pilot / Startup / Business and says "4 predefined plans";
+ *     the repo has Maker $10, Prototype $39, Pilot $99, Startup $299, Business $499, and there is
+ *     no free self-managed tier at all. Shipping develop's copy would have promised one.
+ *   - develop adds a "Non-commercial" plan that appears on no pricing page.
+ *
+ * So the transcription is gone and this re-exports the repo's, minus the Edge and Trendz
+ * categories — 32 of its 89 answers are add-on marketing for two other products, and this page
+ * sells neither. The six product categories ship.
  */
-export const onPremFaq: FaqCategory[] = [
-	{
-		title: 'General',
-		items: [
-			{
-				q: 'What is an on-premises subscription?',
-				a: '<p>An on-premises subscription allows you to host and manage ThingsBoard on infrastructure you control — your own data centre or your own cloud account. You are responsible for the installation, configuration, and ongoing management of the system, while ThingsBoard provides the software and necessary documentation to support the process.</p>',
-			},
-			{
-				q: 'How can I buy an on-premises subscription?',
-				a: `<p>To purchase an on-premises subscription, you can acquire a license through your <a href="${LICENSE_SERVER}" target="_blank" rel="noopener noreferrer">License Server</a> account. Each license comes with a unique activation key, which allows you to deploy and run the system by following our detailed installation guides.</p>`,
-			},
-			{
-				q: 'How to purchase a Perpetual license?',
-				a: `<p>If you would like to explore the Perpetual option, please <a href="${CONTACT}">contact our sales team</a></p>`,
-			},
-			{
-				q: 'What does it mean to get the license?',
-				a: `<p>Licensing is applicable to self-hosted platform versions only. Each license comes with a unique license key (activation code) that is automatically generated in your <a href="${LICENSE_SERVER}" target="_blank" rel="noopener noreferrer">License Server</a> account. Using this license key, you can deploy and run the system by following our detailed installation guides.</p>`,
-			},
-			{
-				q: 'What on-premises subscription plans does ThingsBoard offer?',
-				a: `<p>ThingsBoard offers flexible monthly subscription plans, with tiers based on the number of devices and assets. We support 4 predefined plans to cater to different needs. The Free plan includes support for up to 100 devices. For more details, visit the ThingsBoard <a href="/pricing/?product=thingsboard-pe">pricing page</a>.</p>`,
-			},
-			{
-				q: 'How do the on-premises subscription plans differ?',
-				a: '<p>Plans differ based on the number of devices, support level, and white-labeling availability.</p>',
-			},
-			{
-				q: 'Is there a contract or commitment for the subscription?',
-				a: '<p>No, all subscriptions are month-to-month, and you can cancel anytime.</p>',
-			},
-			{
-				q: 'Do I need to host ThingsBoard myself with a subscription license?',
-				a: '<p>Yes, you are responsible for deploying and managing ThingsBoard on your own infrastructure.</p>',
-			},
-			{
-				q: 'Can I upgrade or downgrade my subscription at any time?',
-				a: '<p>Yes, you can change plans anytime, and billing will be prorated accordingly.</p>',
-			},
-			{
-				q: "What happens if I exceed the device or asset limits in my plan?",
-				a: "<p>If you exceed your plan's limits, you will need to upgrade to a higher-tier plan. With the Business plan, you can also purchase additional devices on a monthly basis at a rate of $0.10 per extra device.</p>",
-			},
-			{
-				q: 'Can I migrate from a ThingsBoard Cloud subscription to an on-premises license?',
-				a: `<p>Please, <a href="${CONTACT}">contact us</a> in case migration assistance is needed.</p>`,
-			},
-			{
-				q: 'Are all ThingsBoard features included in every plan?',
-				a: '<p>White labeling is offered starting from the Pilot plan and above.</p>',
-			},
-			{
-				q: 'Can I use my license across multiple locations or instances?',
-				a: '<p>A platform instance can be installed on a single server, which may be a virtual machine, a running Docker container, or a single OS process. If you need to run the platform across multiple locations or as part of a clustered deployment, you can purchase additional instances for any plan as required.</p><p>By default, each license includes a predefined number of platform instances. The Free and Pilot plans include one instance, the Startup plan includes two instances, and the Business plan includes three instances.</p>',
-			},
-			{
-				q: 'Is it possible to jump from subscription to perpetual?',
-				a: '<p>Customer may cancel the subscription and purchase a perpetual license. The remaining costs from the terminated subscription plan (if any) will be deducted from the total cost for the perpetual license. The perpetual license is non-refundable. Once purchased, it cannot be canceled.</p>',
-			},
-			{
-				q: 'Can I migrate from one server or Virtual machine to another using the same license?',
-				a: '<p>Yes! You can migrate your license by activating or deactivating it on the License Server. To move to a new server, deactivate the current instance, install the software on the new server, and reuse your existing license key. Be sure to back up your data if you want to maintain the same environment. Note: The license system prevents running ThingsBoard on multiple servers at the same time unless you purchase additional instances.</p>',
-			},
-			{
-				q: 'What is included in the White-Labeled Mobile App add-on?',
-				a: "<p>The White-Labeled Mobile App add-on provides you with a branded version of the ThingsBoard Mobile application. This includes your company's name, logo, colors, and other branding elements. The cost is $99 per month, plus a one-time setup fee of $1,000 to cover branding and configuration.</p>",
-			},
-		],
-	},
-	{
-		title: 'Billing & Payments',
-		items: [
-			{
-				q: 'How does billing work for on-premises subscriptions?',
-				a: `<p>Billing is handled via Stripe and is charged monthly based on your selected plan. You can also pay annually with card or wire transfer. Please <a href="${CONTACT}">contact us</a> to receive a custom invoice.</p>`,
-			},
-			{
-				q: 'What payment methods do you accept?',
-				a: `<p>We accept credit and debit cards through Stripe. You can also pay annually with card or wire transfer. Please <a href="${CONTACT}">contact us</a> to receive a custom invoice.</p>`,
-			},
-			{
-				q: 'I cannot pay by card, may we use wire instead?',
-				a: `<p>Sure. In this case, you must reach out to our sales team via <a href="${CONTACT}">contact us</a>. If you have ongoing communication with the account manager or success manager on our end, please refer your request to that person.</p>`,
-			},
-			{
-				q: 'Do you offer an annual payment option?',
-				a: `<p>We currently offer only a monthly subscription with automatic payments via Stripe. For annual payments, please <a href="${CONTACT}">contact</a> our team to arrange a wire transfer invoice.</p>`,
-			},
-			{
-				q: 'What happens if my payment fails?',
-				a: '<p>If a payment fails, Stripe will retry the charge several times. If unsuccessful, your license will be suspended.</p>',
-			},
-			{ q: 'Can I cancel my subscription anytime?', a: '<p>Yes, you can cancel your subscription anytime.</p>' },
-			{
-				q: 'Are refunds available if I cancel my subscription?',
-				a: '<p>No, we do not offer refunds for unused time. However, the funds for the remaining period will be saved on your account balance for future use.</p>',
-			},
-			{
-				q: 'Is there proration when upgrading or downgrading my plan?',
-				a: '<p>Yes, Stripe automatically prorates the charges when you change plans.</p>',
-			},
-			{
-				q: 'Do you offer discounts for multiple licenses?',
-				a: `<p>Contact our <a href="${CONTACT}">sales team</a> for bulk pricing options.</p>`,
-			},
-			{
-				q: "What happens if I don't renew my subscription?",
-				a: '<p>Your license will become inactive, and your ThingsBoard instance will be suspended.</p>',
-			},
-			{
-				q: 'Can I transfer my subscription to another entity?',
-				a: '<p>No, subscriptions are non-transferable. However, you can add users to your License Server account, allowing others to help manage the license subscription.</p>',
-			},
-			{
-				q: 'Is there an additional payment for the software use besides the license fee?',
-				a: '<p>No, we do not charge extra unless you want an additional service that we offer: professional support, Custom development and consulting, Training, or Managed service.</p>',
-			},
-		],
-	},
-	{
-		title: 'Usage, Deployments & Limits',
-		items: [
-			{
-				q: 'What are the device and asset limits for each plan?',
-				a: '<p>Free: up to 100 devices<br>Pilot: 100 devices<br>Startup: 500 devices<br>Business: 1000 devices, with the option to purchase additional devices at $0.10 per device per month<br>Non-commercial: up to 1000 devices for non-commercial usage</p>',
-			},
-			{
-				q: 'What does the number of production instances mean?',
-				a: '<p>A <b>Production Instance</b> refers to a single node of the ThingsBoard platform within your deployment. While one instance is enough to run your solution, multiple instances allow you to operate in <b>Cluster Mode</b>.</p><p>By running multiple instances, you achieve:</p><ul><li><b>High Availability (HA):</b> Your system remains operational even if a node goes down.</li><li><b>Horizontal Scalability:</b> Distribute the processing load across multiple servers to handle more devices and data.</li><li><b>Reliability:</b> Built-in redundancy for mission-critical IoT applications.</li></ul>',
-			},
-			{
-				q: "What happens if I exceed my plan's device or asset limit?",
-				a: '<p>You will need to upgrade to a higher-tier plan. With the Business plan, you also have the option to purchase additional devices at $0.10 per device per month.</p>',
-			},
-			{
-				q: 'Can I use my license on multiple servers?',
-				a: '<p>A platform instance can be installed on a single server, which may be a virtual machine, a running Docker container, or a single OS process. If you need to run the platform across multiple locations or as part of a clustered deployment, you can purchase additional instances for any plan as required.</p><p>By default, each license includes a predefined number of platform instances. The Free and Pilot plans include one instance, the Startup plan includes two instances, and the Business plan includes three instances.</p>',
-			},
-			{
-				q: 'Does ThingsBoard charge for API calls or storage?',
-				a: '<p>No, but you may be charged by your cloud provider for resource usage.</p>',
-			},
-			{
-				q: 'Do I need an internet connection to use the on-premises license?',
-				a: `<p>Yes, an internet connection is required for periodic license verification. The system checks the license once per hour, and if the connection is not restored within 24 hours, the platform may shut down. This process ensures proper license management while allowing temporary connectivity issues. For more details, please refer to the license check <a href="/docs/license-server/what-is-license-server/">description</a>. Offline mode is also possible as an add-on to the Perpetual license. <a href="${CONTACT}">Contact our sales team</a> to know more.</p>`,
-			},
-			{
-				q: 'Can I run offline?',
-				a: `<p>By default, the platform requires active Internet access or at least access to license portal from your host machine. If Offline access is a must, please <a href="${CONTACT}">contact us</a> to discuss options.</p>`,
-			},
-			{
-				q: 'Can I move my deployment between cloud providers?',
-				a: '<p>Yes, on-premises ThingsBoard is cloud-agnostic and can be migrated as needed.</p>',
-			},
-			{
-				q: 'Does ThingsBoard support high-availability (HA) setups?',
-				a: '<p>Yes, High Availability (HA) is supported and can be achieved through ThingsBoard services and database replication. Please note that each ThingsBoard replica will require a separate license.</p>',
-			},
-			{ q: 'Can I back up my ThingsBoard instance?', a: '<p>Yes, backups depend on your database and storage setup.</p>' },
-			{
-				q: 'How is telemetry data stored in on-premises ThingsBoard?',
-				a: '<p>ThingsBoard supports PostgreSQL or PostgreSQL + Cassandra (Hybrid mode) for telemetry storage. For more details on database options, you can check the <a href="/docs/pe/reference/architecture/database/">database approach reference</a>.</p>',
-			},
-			{ q: 'Does ThingsBoard support multi-tenancy?', a: '<p>Yes, multi-tenancy is supported out of the box.</p>' },
-			{
-				q: 'How to charge my customers?',
-				a: '<p>So far, the ThingsBoard platform does not provide a billing module to charge end customers. At the same time, the platform exposes the <a href="https://thingsboard.cloud/swagger-ui/#/usage-info-controller" target="_blank" rel="noopener noreferrer">Usage API</a> that can be used by the external payment software to generate invoices.</p>',
-			},
-		],
-	},
-	{
-		title: 'Security & Compliance',
-		items: [
-			{
-				q: 'Is my ThingsBoard instance secure?',
-				a: '<p>ThingsBoard has ISO 27001 and ISO 9001 certifications. Also, security depends on your infrastructure setup, but ThingsBoard provides built-in authentication, role-based access control, and encryption.</p>',
-			},
-			{
-				q: 'Where is my ThingsBoard data stored?',
-				a: '<p>Your data is stored on your own infrastructure, whether on-premise or in the cloud.</p>',
-			},
-			{ q: 'Can I store ThingsBoard data in my preferred region?', a: '<p>Yes, you have full control over data storage location.</p>' },
-			{
-				q: 'Can I export my data at any time?',
-				a: '<p>Yes, you can export your data using the ThingsBoard dashboard, APIs, or by creating a full database backup.</p>',
-			},
-			{
-				q: 'Do you provide pentest results?',
-				a: "<p>No, we do not do it for many reasons. Firstly, as a platform vendor, we cannot disclose detected vulnerabilities of certain versions of the platform as the disclosure affects the safety of our existing customers who use that particular version. Secondly, the self-declared pentest is less trustworthy as it is in the vendor's interest to come up with clean results and you never know whether to believe them or not. Lastly, the penetration test makes more sense to be conducted over a ready-to-use end client software/application to define weak spots (if any). It is the Licensee's responsibility to order independent testing. Having said that, the ThingsBoard platform gives one a tool to develop solutions. You may consider the platform a building that a banker rents to establish an office, vault, etc. Now you can see that testing a building itself does not make much sense. But things change when it hosts a bank (or whatever tenant).</p>",
-			},
-			{
-				q: 'Where can I find the logged vulnerability fixes matrix: version + list of fixes?',
-				a: '<p>Please stay tuned with our <a href="/docs/pe/releases/releases-table/">Release notes</a>. Critical vulnerabilities or security issues are mentioned in separate line items. Less threatful vulnerabilities appear as a single record ("Vulnerability fixes") stating that, at the release date, the version is free of known HIGH and some MEDIUM CVEs.</p>',
-			},
-		],
-	},
-	{
-		title: 'Trials, Cancellations & Refunds',
-		items: [
-			{
-				q: 'Can I try an on-premises license before subscribing?',
-				a: '<p>Yes, the Free plan is the best way to explore the platform. It also includes trial license for Edge and Trendz products, so you can fully test the ThingsBoard ecosystem.</p>',
-			},
-			{
-				q: 'What happens if I cancel my subscription?',
-				a: '<p>Your license will become inactive, and your ThingsBoard instance will be stopped.</p>',
-			},
-			{
-				q: 'Can I switch from a subscription license to a perpetual license?',
-				a: '<p>Customer may cancel the subscription and purchase a perpetual license. The remain costs from terminated subscription plan (if remain) will be deducted from Total cost for the perpetual license. The perpetual license is non-refundable. Once purchased, it cannot be canceled.</p>',
-			},
-			{ q: 'Are refunds available for on-premises subscriptions?', a: '<p>No, all sales are final.</p>' },
-		],
-	},
-	{
-		title: 'Support & Assistance',
-		items: [
-			{
-				q: 'What support is included in my subscription?',
-				a: '<ul><li><b>Free:</b> Community support.</li><li><b>Pilot:</b> Help desk via Support Portal.</li><li><b>Startup:</b> Priority help desk with 36-hour response time during regular working shifts via Support Portal. <em>Please note: support on the Startup plan becomes available from the second month of usage.</em></li><li><b>Business:</b> Priority help desk with a 12-hour response time during regular working shifts via Support Portal.</li></ul>',
-			},
-			{
-				q: 'Do you offer 24/7 support?',
-				a: `<p>Yes, we can provide 24/7 support as part of our managed services with an additional signed SLA. Please <a href="${CONTACT}">contact us</a> for more details.</p>`,
-			},
-			{
-				q: 'How can I get help with installation and setup?',
-				a: `<p>If your subscription plan includes response time support and you have access to the Support Portal, the ThingsBoard support team can assist with system deployment as part of the subscription. However, this applies only if you follow recommended installation methods and architecture. Custom installation scripts or non-recommended deployment scenarios are not covered under included support. If your subscription plan does not include support, then we recommend using our documentation, tutorials, and optional professional services. To discuss options, please <a href="${CONTACT}">contact us</a>.</p>`,
-			},
-			{
-				q: 'How do I contact support?',
-				a: '<p>Users of Startup and higher subscriptions, as well as perpetual license holders, are automatically added to the ThingsBoard <a href="https://thingsboard-portal.atlassian.net/servicedesk/customer/portal/1" target="_blank" rel="noopener noreferrer">Support Portal</a> after purchasing a license.</p>',
-			},
-			{
-				q: 'What issues are included in subscription support?',
-				a: '<p>Access to the ThingsBoard Support Portal is available for users with Startup and higher subscriptions, as well as perpetual license holders. Without the need for a separate support agreement, all support inquiries are seamlessly managed through a unified queue, ensuring efficient handling of your requests. Our support team is dedicated to providing an initial response within 24 hours to address your needs promptly.</p><p>The support service includes assistance with installation and migration for default deployments, as well as resolving any questions related to the platform&apos;s out-of-the-box functionalities, as detailed in our documentation. For specialized services such as consulting, code reviews, health assessments, or development projects, we offer tailored solutions to meet your specific requirements. Should your request involve additional expertise, our support engineers will guide you to the best resources to ensure your success.</p>',
-			},
-			{
-				q: 'Can you provide an IoT development service tailored to my specific needs?',
-				a: '<p>Yes, we offer custom <a href="/services/development-services/">IoT development services</a> designed to match your exact requirements. Whether you need a full-featured IoT platform, scalable architecture, or specific integrations, our IoT development team can help you accelerate time-to-market and reduce internal workload while ensuring long-term maintainability.</p>',
-			},
-		],
-	},
-];
+export const onPremFaq: FaqCategory[] = tbSelfManagedFaq.filter(
+	(category) => !['edge', 'trendz'].includes(category.id)
+);
 
 /** The page's calls to action. `primary` is the pricing page, as develop's "Get it now" is. */
 export const onPremCtas = {
