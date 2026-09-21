@@ -57,6 +57,23 @@ export const paasBenefits: PaasBenefit[] = [
 		title: 'Data durability',
 		description: "Platform uses data replication and backup procedures to make sure you don't lose the data.",
 	},
+	{
+		// Develop's fifth card, back as a claim rather than as the question it used to ask. The
+		// question itself is the `#choose` band's job now, so the sentence loses "Choose … or …" and
+		// says what the product offers instead. The words are develop's.
+		icon: 'tabler:cloud',
+		title: 'Public or private cloud',
+		description:
+			'Start on shared infrastructure, or run a dedicated, isolated cluster with a stronger SLA and higher throughput.',
+	},
+	{
+		// The one sentence on this page that is not develop's, and it is assembled from the matrix's
+		// own "Region choice" row rather than written fresh: US or EU on Public Cloud; EU, North
+		// America or APAC, on AWS, Azure or GCP by request, on Private.
+		icon: 'tabler:world',
+		title: 'Data residency you choose',
+		description: 'Run in the US or EU on Public Cloud — or pick EU, North America or APAC on Private Cloud.',
+	},
 ];
 
 /**
@@ -73,8 +90,12 @@ export const paasBenefits: PaasBenefit[] = [
  * the matrix already states under "Starting price".
  */
 export const paasChoice = {
-	title: 'Choose your deployment',
-	lead: 'Public Cloud for the fastest, shared-infrastructure start — or Private Cloud for a dedicated, isolated cluster with a stronger SLA and higher throughput.',
+	// "Start free, or talk to us" rather than "Choose your deployment", because the two paths differ
+	// in KIND and not just in spec: one is a button and the other is a conversation, and the heading
+	// that says so is the one that maps to the two things directly under it. The lede's job is then
+	// to explain why — self-serve against provisioned-for-you — instead of restating the table.
+	title: 'Start free, or talk to us',
+	lead: 'Public Cloud is self-serve and running in five minutes. Private Cloud is a dedicated cluster our team provisions for you, with a stronger SLA and higher throughput.',
 	options: [
 		{
 			name: 'Public Cloud',
