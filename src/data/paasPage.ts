@@ -99,10 +99,10 @@ export const paasChoice = {
 	options: [
 		{
 			name: 'Public Cloud',
-			// The pair is `cloud-share` / `cloud-lock`: one base glyph, differing by exactly the thing
-			// the two products differ by. Cards only — at the pill's ~18px the modifier that carries
-			// the whole meaning is the first thing to go muddy.
-			icon: 'tabler:cloud-share',
+			// The pair is `cloud` / `cloud-lock`: one base glyph, and the lock is the only difference —
+			// which is the only difference that matters here. Public carries no modifier at all, so
+			// the lock reads as something Private ADDS rather than as two competing symbols.
+			icon: 'tabler:cloud',
 			price: 'From $0',
 			priceNote: 'Free tier up to 5 devices',
 			summary: 'The fastest, shared-infrastructure start.',
@@ -743,6 +743,26 @@ export const paasFaq: FaqCategory[] = [
 		],
 	},
 ];
+
+/**
+ * The exit to the third deployment.
+ *
+ * This page says "on-premises" a dozen times — the Why section defines Cloud as the option for
+ * people who do not want to host their own instance, and five FAQ answers compare the two — and
+ * until now linked to it zero times. A reader who decides the other way had nowhere to go.
+ *
+ * A line, not a card: the band's job is to drive its two calls to action, and a third option in the
+ * grid would flatten the choice it has just set up. The mark is the homepage's own for this product
+ * — `square-rotated-filled` at #1f8b4d, the fill its On-premises card's badge takes — and the href
+ * is that card's own action.
+ */
+export const paasOnPremises = {
+	lead: 'Prefer to run it yourself?',
+	text: 'ThingsBoard On-premises',
+	href: '/products/thingsboard-pe/',
+	icon: 'tabler:square-rotated-filled',
+	color: '#1f8b4d',
+};
 
 /**
  * The two calls to action the develop page repeats in its hero and closing band.
