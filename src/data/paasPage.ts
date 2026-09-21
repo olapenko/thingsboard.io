@@ -752,16 +752,16 @@ export const paasFaq: FaqCategory[] = [
  * until now linked to it zero times. A reader who decides the other way had nowhere to go.
  *
  * A line, not a card: the band's job is to drive its two calls to action, and a third option in the
- * grid would flatten the choice it has just set up. The mark is the homepage's own for this product
- * — `square-rotated-filled` at #1f8b4d, the fill its On-premises card's badge takes — and the href
- * is that card's own action.
+ * grid would flatten the choice it has just set up. The href is the homepage's own action for this
+ * product; the mark says what the deployment IS — a server you run — which the two cards above it
+ * answer with clouds. No colour of its own: white puts it on the line's own ink rather than making
+ * a third accent out of a one-line aside.
  */
 export const paasOnPremises = {
 	lead: 'Prefer to run it yourself?',
 	text: 'ThingsBoard On-premises',
 	href: '/products/thingsboard-pe/',
-	icon: 'tabler:square-rotated-filled',
-	color: '#1f8b4d',
+	icon: 'tabler:server',
 };
 
 /**
