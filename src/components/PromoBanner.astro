@@ -26,8 +26,24 @@ const SLIDES = [
 	},
 ];
 
+interface Props {
+	/**
+	 * Quiet variant: white bar, one purple AI mark, the message at a regular
+	 * weight and a chevron — and a single announcement, so there is nothing to
+	 * switch between and no ‹ › controls. Used by the facelift routes, where the
+	 * banner sits directly above a black split hero and the carousel's purple bar
+	 * read as a second header. Everywhere else keeps the announcement carousel.
+	 */
+	plain?: boolean;
+}
+
+const { plain = false } = Astro.props;
+
 const current = Astro.url.pathname.replace(/\/+$/, '');
-const slides = SLIDES.filter((s) => s.target !== current);
+const allSlides = SLIDES.filter((s) => s.target !== current);
+// `plain` shows the first announcement only — the rotation is the thing being
+// dropped, not just its controls.
+const slides = plain ? allSlides.slice(0, 1) : allSlides;
 const showBanner = slides.length > 0;
 const hasSwitcher = slides.length > 1;
 ---
@@ -36,7 +52,7 @@ const hasSwitcher = slides.length > 1;
 	showBanner && (
 		<div
 			id="promo-banner"
-			class:list={[{ 'has-switcher': hasSwitcher }]}
+			class:list={[{ 'has-switcher': hasSwitcher, 'is-plain': plain }]}
 			role="region"
 			aria-label="Site announcements"
 		>
@@ -54,7 +70,7 @@ const hasSwitcher = slides.length > 1;
 						tabindex={i === 0 ? undefined : -1}
 					>
 						<span class="promo-badge">
-							<span class="promo-pill">
+							<span class="promo-pill">{/* plain: no pill chrome, no word — see styles */}
 								<svg
 									class="promo-star"
 									width="9"
@@ -69,10 +85,13 @@ const hasSwitcher = slides.length > 1;
 										fill="currentColor"
 									/>
 								</svg>
-								{s.badge}
+								{!plain && s.badge}
 							</span>
 						</span>
-						<span class="promo-msg" set:html={s.html} />
+						{/* `label` is the same sentence without the <strong> lead-ins: plain sets
+						    the message at one regular weight. */}
+						{plain ? <span class="promo-msg">{s.label}</span> : <span class="promo-msg" set:html={s.html} />}
+						{plain && <Icon name="tabler:chevron-right" class="promo-chevron" aria-hidden="true" />}
 						<svg
 							class="promo-arrow"
 							viewBox="0 0 18 7"
@@ -226,6 +245,61 @@ const hasSwitcher = slides.length > 1;
 		--promo-fg: #fff; // message text
 		--promo-pill-bg: #fff;
 		--promo-pill-fg: #305680; // pill text + star
+
+		// QUIET VARIANT — white bar, one purple mark, one weight, a chevron.
+		//
+		// Everything here is a re-point of the four tokens above plus the removal of
+		// the pill's chrome, so the carousel version is untouched: the bar keeps its
+		// height, its hide-on-scroll transform and its offset contract, and only its
+		// colours and its two ornaments change.
+		&.is-plain {
+			--promo-bg: #fff;
+			--promo-fg: var(--color-text, #17181c);
+			// The mark is the one piece of colour in the bar, so it takes the primary
+			// rather than the pill's old slate.
+			--promo-pill-fg: var(--color-primary, #3d50f5);
+
+			border-bottom: 1px solid var(--sl-color-hairline-light, #edeef3);
+
+			// No pill: the mark stands on the white directly. Its size and the gap to
+			// the message are all that is left of the badge.
+			.promo-pill {
+				background: none;
+				padding: 0;
+				border-radius: 0;
+				font-size: 0; // no badge word in this variant — kill its line box
+			}
+
+			.promo-star {
+				width: 15px;
+				height: 20px;
+			}
+
+			// One weight. The carousel's markup bolds the product name; this variant
+			// renders the plain sentence instead, and this catches any <strong> that
+			// reaches it another way.
+			.promo-msg,
+			.promo-msg strong {
+				font-weight: $font-weight-normal;
+			}
+
+			// The long arrow belongs to the purple bar; a chevron is the quieter
+			// "there is a page behind this".
+			.promo-arrow {
+				display: none;
+			}
+
+			.promo-chevron {
+				width: 16px;
+				height: 16px;
+				flex: 0 0 auto;
+				color: var(--color-primary, #3d50f5);
+			}
+
+			.promo-slide {
+				gap: 10px;
+			}
+		}
 
 		position: fixed;
 		top: 0;
