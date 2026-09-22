@@ -157,9 +157,17 @@ export const onPremChoice = {
 			 * running instance. The second is a real fact and it is still on the page, in the FAQ
 			 * under "Can I cancel my subscription anytime?", which is where a consequence belongs.
 			 */
+			/**
+			 * The third bullet is the pair's reversibility axis — see the perpetual card. Source:
+			 * the FAQ's own `self-managed-upgrade`, "you can change plans anytime, and billing
+			 * will be prorated accordingly", and `proration`, "Stripe automatically prorates the
+			 * charges when you change plans". It names no tier and no price, deliberately: the
+			 * ladder in `data/pricing/` is stale and out of this handoff's scope.
+			 */
 			points: [
 				'Free for commercial use to 100 devices on one server, and to 1,000 for non-commercial use',
 				'Cancel any time, no notice',
+				'Change tier any time, prorated automatically',
 			],
 			cta: { text: 'Install for free', href: '/docs/pe/installation/', variant: 'primary' as const },
 			// ⚠ STALE, knowingly: this lands on the old ladder — Maker $10 through Business $499 —
@@ -182,9 +190,17 @@ export const onPremChoice = {
 			 * The scale qualifier STAYS on Offline Mode. Without it the add-on reads as either
 			 * included or flatly priced, and it is neither.
 			 */
+			/**
+			 * The other half of the reversibility pair, and the only place on the site that says
+			 * so: `subscription-to-perpetual` — "The remaining costs from the terminated
+			 * subscription plan (if any) will be deducted from the total cost for the perpetual
+			 * license." It answers the objection this card actually meets, which is that months
+			 * already spent on a subscription are money thrown away if you switch.
+			 */
 			points: [
 				'One payment, with no monthly fee after it',
 				'Offline Mode available as an add-on, priced on deployment scale',
+				'Subscription already paid is deducted from the price',
 			],
 			cta: {
 				text: 'Talk to sales',
