@@ -58,10 +58,12 @@ export const homeProducts: ProductChoice[] = [
 		//
 		// The card keeps one action so the pair stays symmetrical — this one starts you, and
 		// On-premises' Install does the same on its side.
-		// No glyph. The label is a full sentence carrying a time estimate, and a mark in front of it
-		// competes with the words rather than labelling them — On-premises' "Install" is one verb
-		// and takes one.
-		stores: [{ label: 'Sign in and start in 5 min', href: 'https://thingsboard.cloud/signup' }],
+		// "Sign up", not "Sign in": the href is `/signup`, and the reader this card is written for
+		// has no account yet. A returning user signs in from the header.
+		//
+		// No glyph. The label is a phrase carrying a time estimate, and a mark in front of it
+		// competes with the words rather than labelling them.
+		stores: [{ label: 'Sign up and start in 5 min', href: 'https://thingsboard.cloud/signup' }],
 		accent: '#6e7481',
 	},
 	{
@@ -90,9 +92,12 @@ export const homeProducts: ProductChoice[] = [
 		action: 'Explore On-premises',
 		// Cloud's row starts you somewhere; this one had only the read-more link, so
 		// the two halves of the same decision were not offered on the same terms.
+		// "Install for free" rather than "Install", matching the On-premises hero's own primary
+		// button word for word — the card promises the action and the page delivers the same one,
+		// and "for free" is the half that answers the reader's actual hesitation about self-hosting.
 		// `tabler:download` is the hero's own Install glyph, so the page's two install
 		// affordances are the same button in two sizes.
-		stores: [{ label: 'Install', href: '/installations/', icon: 'tabler:download' }],
+		stores: [{ label: 'Install for free', href: '/installations/', icon: 'tabler:download' }],
 		// NO VENDOR MARKS. The row read AWS · Azure · Google Cloud · Kubernetes, and checked against
 		// develop that is not this product's story — it is the other one's:
 		//
