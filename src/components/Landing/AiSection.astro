@@ -297,13 +297,15 @@ const { animate = true } = Astro.props;
 		align-items: flex-end;
 		justify-content: center;
 		min-width: 0;
-		// 300, down from 360. The extra 60 was the empty top of the chat's log — the window fills from
-		// the bottom, so for most of the demo loop the space above the newest message is blank. Taking
-		// it off the panel rather than off the window keeps the chat's own proportions intact.
+		// 350. The crop box has to hold the chat's rendered height less the amount being cut, and the
+		// chat now renders 396 rather than 347 — so at 300 the cut grew to 110, which took 46 native
+		// pixels off the log and left less than the greeting needs. 350 puts the cut back to 60, where
+		// the log keeps 20px of slack over the intro. This is the cost of matching the two windows'
+		// type: the bands go from 380 to 430.
 		//
-		// NO BACKGROUND of its own any more: this box is now only the crop, and the colour behind it
-		// belongs to the band.
-		height: 300px;
+		// NO BACKGROUND of its own: this box is only the crop, and the colour behind it belongs to the
+		// band.
+		height: 350px;
 		overflow: hidden;
 	}
 
@@ -314,20 +316,36 @@ const { animate = true } = Astro.props;
 	//
 	// The crop then follows from the scaled height, measured off the bottom edge the scale grows from:
 	//
-	//   289 x 1.2 = 347 (window) − (300 panel − 14 offset) = 61 cut from the top
+	//   289 x 1.37 = 396 (window) − (350 panel − 14 offset) = 60 cut from the top
 	//
-	// and 61 is comfortably more than the 41 the `New chat` bar occupies once scaled, so the bar goes
+	// and 60 is comfortably more than the 47 the `New chat` bar occupies once scaled, so the bar goes
 	// with the cut. What survives is the live end — the composer, the chip and the latest replies.
 	.ai__media :global(.assistant) {
-		--ui-scale: 1.2;
+		// 500 ÷ 365 — the common window width over the chat's native width. Both windows are 500 wide
+		// here, which is what finally matches them: same width, and the chat's body type lands at
+		// 16.4px against the terminal's 18px mono, which is parity once the mono's bigger x-height is
+		// accounted for.
+		--ui-scale: 1.37;
 
-		margin-bottom: 14px;
+		// POSITIONED, like the terminal beside it, and for a reason that only shows on a phone: a
+		// transform does not shrink the LAYOUT box. The window is 365 wide whatever the scale renders
+		// it at, so in the flow it pushed its cell to 365, the cell pushed `.main-div` to 405, and the
+		// band went 30px wider than a 375px viewport — clipped by `#overflow`, so it hid as a slight
+		// horizontal shift rather than as a scrollbar.
+		//
+		// Out of the flow it contributes no width, and `left/right: 0` with `margin: 0 auto` centres it
+		// against the cell instead. Both windows are now placed the same way, which is the point.
+		position: absolute;
+		right: 0;
+		bottom: 14px;
+		left: 0;
+		margin: 0 auto;
 	}
 
 	// The terminal is the mirror image: pinned to the top, 56px down, and taller than the room left
 	// below that, so the frame is genuinely cut at the bottom.
 	//
-	//   300 (panel) − 20 (offset) + 24 (bleed) = 304
+	//   350 (panel) − 20 (offset) + 24 (bleed) = 354
 	//
 	// `CliTerminal` is a plain block whose log carries its own cap, so all three parts have to be
 	// told to fill: the window, the scroll box, and the log inside it.
@@ -347,19 +365,21 @@ const { animate = true } = Astro.props;
 		left: 0;
 		margin: 0 auto;
 		width: 100%;
-		// The terminal FILLS its media cell, where the chat is inset in its own. They are different
-		// objects and want different widths: the chat is a narrow app panel, the terminal is a console
-		// whose longest line is fixed by the command it runs. At 480 that line — `tb calculated-field
-		// save --name mean-cargo-temp`, 47 characters — came to 453px against 448px of content, and
-		// since `white-space: pre` cannot break inside it the whole span dropped to a second line. One
-		// wrapped row is 23px, which is what pushed the log into scrolling. 543 gives it 511px.
-		max-width: 543px;
+		// 500, THE SAME WIDTH AS THE CHAT. It used to fill its 543px cell while the chat sat inset, and
+		// that 13% difference was the loudest thing separating them.
+		//
+		// It can give up the width because it was not using it: the longest line — `tb calculated-field
+		// save --name mean-cargo-temp`, 47 characters — is 453px, so 543 left 58px of empty console.
+		// At 500 it has 468px of content and 15px spare, which is the floor: `white-space: pre` cannot
+		// break that line, so any narrower and the whole span drops to a second row, and one wrapped
+		// row is the 23px that puts the log into a scroll.
+		max-width: 500px;
 	}
 
 	.ai__cli :global(.cli) {
 		display: flex;
 		flex-direction: column;
-		height: 304px;
+		height: 354px;
 		// Matched to the chat's rendered corner rather than to its authored one: the chat is scaled
 		// 1.2, so its 8px becomes 9.6 on the page. Overridden here rather than in `CliTerminal`, whose
 		// own 6px is right for the cards it sits in elsewhere.
@@ -379,17 +399,17 @@ const { animate = true } = Astro.props;
 	// scrolls hides the command that opened it. Both bounds were measured in the browser rather than
 	// estimated:
 	//
-	//   down   16 top + 9 rows x 22.5 + 8 bottom = 227 against 238px of visible log   → 11px spare
+	//   down   16 top + 9 rows x 22.5 + 8 bottom = 227 against 288px of visible log   → 61px spare
 	//   across the longest line is `tb calculated-field save --name mean-cargo-temp` at 47 characters;
 	//          this mono font advances 0.5em per character, so with the 1.65em gutter that is 25.15em
-	//          = 453px against 511px of content width                                 → 58px spare
+	//          = 453px against 468px of content width                                 → 15px spare
 	//
 	// 218 IS THE NUMBER THAT MATTERS and it is not the log's own height. The window is 284 tall and
 	// hangs 24px past the media box that crops it, so `body.clientHeight` reports 242 while only 218
 	// is ever seen. Sizing against 242 fit the log on paper and dropped its last line into the cut —
 	// `scrollHeight <= clientHeight` is not the test here; the media's bottom edge is.
 	//
-	//   visible log = 300 (media) − 20 (the window's top offset) − 42 (title bar) = 238
+	//   visible log = 350 (media) − 20 (the window's top offset) − 42 (title bar) = 288
 	//
 	// Height is the binding bound; the width has room to spare. Re-measure both if a command gets
 	// longer, a step is added, or the crop offsets change.
@@ -531,64 +551,62 @@ const { animate = true } = Astro.props;
 			align-self: stretch;
 		}
 
-		// AND NO DOCK stacked. Docking is a side-by-side idea: once the row becomes a column the media
-		// is always first, so the CLI's window sits at the TOP of its band with the copy under it and
-		// can never reach the bottom edge it is supposed to be docked to. Both bands go back to
-		// symmetric padding rather than leaving one of them with copy flush against a band edge.
-		.ai__band--dock-top,
-		.ai__band--dock-bottom {
-			padding-top: $spacing-12;
-			padding-bottom: $spacing-12;
-		}
-
-		// And the copy's balancing offset goes with the dock that needed it: stacked, the padding is
-		// symmetric again and the copy is simply the next thing under the window.
-		.ai__band--dock-top .ai__copy,
-		.ai__band--dock-bottom .ai__copy {
-			top: 0;
-		}
-
-		// NO CROP stacked. The crop box is a fixed 300px, and unscaled — the chat is drawn at 260 and
-		// only blown past 300 by `--ui-scale`, which a phone does not apply — the window no longer
-		// reaches the edges it is supposed to be cut by, so it floated with a 26px gap above it and
-		// the dock came apart. Letting the box hug its window restores the dock: window top IS band
-		// top, window bottom IS band bottom, and nothing is cut. A phone has no room to spare on a
-		// deliberately cropped-off frame anyway.
-		.ai__media {
-			height: auto;
-		}
-
-		// Nothing is cropped when the rows stack, so there is no cut for the fade to soften — the mask
-		// was just chewing the top off a window that ends cleanly, taking the `New chat` bar with it.
-		// Matched through the band because the rule that sets it is, and a media query adds no
-		// specificity — the short selector lost, which is how it survived to a phone unnoticed.
-		.ai__band--dock-top .ai__media {
-			-webkit-mask-image: none;
-			mask-image: none;
-		}
-
-		.ai__media :global(.assistant) {
-			margin-bottom: 0;
-		}
-
-		// Back into the flow: stacked, `.ai__media` is `height: auto`, and an absolutely positioned only
-		// child would leave it with nothing in flow to get a height from — the band would collapse.
-		.ai__cli {
-			position: static;
-			margin: 0;
-		}
-
-		// The chat is drawn at its own size and fits the column, rather than being blown up past it.
-		// Scaling belongs to the side-by-side layout, where the window has 543px of cell to grow into;
-		// a phone column is narrower than the window's own 400, so a 1.2 scale renders 480 into 375 and
-		// the media's `overflow: hidden` eats 40px off each side — the composer's ends and the right of
-		// every line. `--ui-scale: 1` rather than `transform: none`, so the hairlines that divide by it
-		// stay correct.
+		// ── THE SAME COMPOSITION, SCALED DOWN ─────────────────────
+		// Everything the side-by-side layout does — the crop, the flush edge, the fade — stays on here.
+		// What changes is ONE number, the scale, and the box heights that follow from it. This block used
+		// to switch all of it off, which is why a phone read as a different picture rather than a smaller
+		// one: whole windows at their own size, floating in flow, with their shadows clipped by a crop
+		// box that had nothing left to crop.
+		//
+		// The chat is drawn AT the cell's width rather than drawn wider and scaled down to it. Scaling
+		// to 0.92 was the first attempt and it is worse on both counts: it renders the body at 11px
+		// where drawing at native renders 12, and a 365px layout box centred in a 335px cell is
+		// over-constrained — `width` with `left: 0` and `right: 0` — so the browser drops `right` and
+		// the window sits 30px off centre.
+		//
+		// Nothing about the COMPOSITION depends on the scale: the crop, the flush edge and the fade all
+		// come from the box, and they are all still here. The 40-character prompts were sized for the
+		// composer this leaves, so they still fit on one line.
 		.ai__media :global(.assistant) {
 			--ui-scale: 1;
 
 			width: 100%;
-			max-width: 400px;
+			max-width: 365px;
+		}
+
+		// 250: the chat renders 289 here, so the box cuts 53 of it — comfortably more than the 34 the
+		// `New chat` bar takes, so the bar goes with the cut exactly as it does side by side, and the
+		// log keeps 11px of slack over the greeting.
+		.ai__media {
+			height: 250px;
+		}
+
+		// A shallower cut gets a shorter fade; there is less window above it to dissolve.
+		.ai__band--dock-top .ai__media {
+			-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 32px);
+			mask-image: linear-gradient(to bottom, transparent 0, #000 32px);
+		}
+
+		// The terminal keeps its proportions — offset and bleed take the same ratio as the box:
+		//
+		//   250 (panel) − 14 (offset) + 16 (bleed) = 252
+		//
+		// Its type steps down separately below 560, so the longest line still fits on one row.
+		.ai__cli {
+			top: 14px;
+		}
+
+		.ai__cli :global(.cli) {
+			height: 252px;
+		}
+
+		// The BAND's padding goes symmetric and the copy stops compensating for it. Docking the media to
+		// a band edge is a side-by-side idea: stacked, the media is always first in the column with the
+		// copy under it, so there is no edge for the second window to reach.
+		.ai__band--dock-top,
+		.ai__band--dock-bottom {
+			padding-top: $spacing-12;
+			padding-bottom: $spacing-12;
 		}
 	}
 

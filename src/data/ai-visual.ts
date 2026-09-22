@@ -76,15 +76,16 @@ export const AI_COLUMNS: { assistant: AiColumn; cli: AiColumn } = {
  * The follow-up also carries a threshold, a unit, a window and a severity, because those are the
  * one class of detail the docs say the Assistant cannot infer.
  *
- * ⚠ KEEP EACH PROMPT UNDER ~50 CHARACTERS. The composer is a single line 310px wide and this face
- * runs about 6px a character, so 50 is where the text starts scrolling. It no longer BREAKS — see
- * `white-space: nowrap` on `.assistant__typed` — but a prompt long enough to scroll is a prompt
- * whose opening words the reader never sees being typed.
+ * ⚠ KEEP EACH PROMPT AT OR UNDER 40 CHARACTERS. The composer holds about 45 at the window's native
+ * width, and both of these sat within a character or two of that — close enough that any edit would
+ * have pushed them over. They no longer BREAK when they do (see `white-space: nowrap` on
+ * `.assistant__typed`), but a prompt long enough to scroll is a prompt whose opening words the
+ * reader never sees being typed. 40 leaves room to edit them without re-measuring.
  */
 export const AI_ASSISTANT_DEMO = {
 	exchanges: [
 		{
-			prompt: 'Add a dew point calculated field to thermostat',
+			prompt: 'Dew point calculated field on thermostat',
 			/** `<b>` marks the entities the Assistant created; rendered with `set:html`, and ours. */
 			reply:
 				'Created calculated field <b>Dew Point</b> on device profile <b>thermostat</b>. Output key: <b>dewPoint</b>.',
@@ -98,7 +99,7 @@ export const AI_ASSISTANT_DEMO = {
 			 * which makes the sloppiness worth keeping: the pair shows the Assistant taking informal input
 			 * and returning a correctly formed rule, which is a claim the section is making anyway.
 			 */
-			prompt: 'Now warn me if it stays above 18C for 10 min',
+			prompt: 'Warn me if it stays above 18C for 10 min',
 			reply:
 				'Created alarm rule <b>High Dew Point</b> on <b>dewPoint</b> — warning above <b>18 °C</b> for 10 minutes.',
 		},
