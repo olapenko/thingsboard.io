@@ -1,0 +1,613 @@
+---
+import { Icon } from 'astro-icon/components';
+import SectionHeader from './SectionHeader.astro';
+import AiAssistant from './AiAssistant.astro';
+import CliTerminal from './CliTerminal.astro';
+import { AI_COPY, AI_COLUMNS, AI_CLI_SESSION, AI_CLI_LABEL, AI_CTA } from '@data/ai-visual';
+
+/**
+ * "Build IoT solutions faster than ever with AI inside ThingsBoard" — two routes into the platform,
+ * a prompt and a terminal, each shown as a working window.
+ *
+ * Ported from `tb-landing-prototype` (`src/sections/06-ai.html`). This is the section's SHELL; the
+ * two windows are `AiAssistant` and `CliTerminal`, and the copy is `@data/ai-visual`.
+ *
+ * ── THE LAYOUT: ALTERNATING ROWS ──────────────────────────────────────────────────────────────
+ * Not the prototype's two-up columns. Each route is a full-width row — window on one side, copy on
+ * the other — and the two rows swap sides, which is the pattern the five key visuals above already
+ * run in.
+ *
+ * The geometry is `_home-rows.scss`'s, so these read as a continuation of that sequence rather than
+ * as a different thing at a different size: a 56px gutter, a 350px floor, and the copy capped at a
+ * 40ch MEASURE with the media taking what is left. Those numbers were measured for those rows; they
+ * are matched here rather than re-derived.
+ *
+ * IT IS NOT `FeatureBlockSection`, which is the component those rows use, and the reason is its API
+ * rather than its look: it has no eyebrow, and these rows' eyebrows carry the section's whole
+ * argument — the same platform, reached two ways. It also requires a `links` array these rows have
+ * nothing to put in. Borrowing its geometry without borrowing the component is the smaller lie.
+ *
+ * The first row leads with the media, because the last of the five rows above (`ScaleDuo`) leads
+ * with its copy — so the alternation carries on down the page instead of restarting.
+ *
+ * ── THE WINDOWS ───────────────────────────────────────────────────────────────────────────────
+ * The treatment is the prototype's preview panel at **Wells: Crop · AI: In app · AI band: Light**,
+ * read off the prototype built and running in that config rather than from its source (its
+ * stylesheet is 73 files deep and attribute selectors outrank the plain rules written after them,
+ * so what a rule says and what the page computes are two different questions).
+ *
+ * - **Crop.** The panel is shorter than the window it holds, so the window is cut by it and reads
+ *   as a full-size screen rather than a toy. The chat is anchored to the BOTTOM and cut at the top,
+ *   keeping the composer and newest replies in frame; the terminal is anchored to the TOP and cut
+ *   at the bottom, so you watch the script being typed under the title bar. The prototype gets
+ *   there by blowing the windows up 1.35x; nothing is scaled here, so nothing is resampled.
+ * - **In app.** The chat keeps its slice of the product — the green app bar and the card cropped by
+ *   the left edge. "Bare" would drop the plate.
+ * - **Light.** The section takes the page ground, which is white.
+ *
+ * NOT ported: the prototype's dot field behind each window (asked for twice, removed twice), and
+ * the 1px rules that framed the two-up band — those existed to split a side-by-side comparison, and
+ * there is no longer one to split.
+ */
+
+interface Props {
+	/** Play both windows. Off renders them as stills — used by the sandbox. */
+	animate?: boolean;
+}
+
+const { animate = true } = Astro.props;
+---
+
+<section id="ai" class="ai">
+	<div class="main-div">
+		<SectionHeader
+			title={AI_COPY.title}
+			subtitle={AI_COPY.body}
+			titleSize="section"
+			subtitleMeasure="copy"
+			badge={AI_COPY.badge}
+		/>
+	</div>
+
+	{
+		/* One band per route. Each is full-bleed so the gradient is a BAND across the page rather than
+		   a patch under a window, and the content inside returns to `.main-div`'s measure. The wrapper
+		   is what holds the two to one height — see `.ai__bands`. */
+	}
+	<div class="ai__bands">
+	<div class="ai__band ai__band--dock-top" style={`--accent: ${AI_COLUMNS.assistant.accent}`}>
+		<div class="main-div">
+			<div class="ai__row">
+				<div class="ai__media">
+					<AiAssistant animate={animate} />
+				</div>
+
+				<div class="ai__copy">
+					<p class="ai__eyebrow">{AI_COLUMNS.assistant.eyebrow}</p>
+					<h3 class="ai__row-title">{AI_COLUMNS.assistant.title}</h3>
+					<p class="ai__row-text">{AI_COLUMNS.assistant.body}</p>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="ai__band ai__band--dock-bottom" style={`--accent: ${AI_COLUMNS.cli.accent}`}>
+		<div class="main-div">
+			<div class="ai__row ai__row--flip">
+				<div class="ai__media">
+					{
+						/* `CliTerminal` reads `--accent` for its prompt and caret, so the row's hue reaches
+						   inside the terminal without this section knowing anything about its internals. */
+					}
+					<div class="ai__cli">
+						<CliTerminal session={AI_CLI_SESSION} path="cold-chain" ariaLabel={AI_CLI_LABEL} />
+					</div>
+				</div>
+
+				<div class="ai__copy">
+					<p class="ai__eyebrow">{AI_COLUMNS.cli.eyebrow}</p>
+					<h3 class="ai__row-title">{AI_COLUMNS.cli.title}</h3>
+					<p class="ai__row-text">{AI_COLUMNS.cli.body}</p>
+				</div>
+			</div>
+		</div>
+	</div>
+	</div>
+
+	<div class="main-div">
+		{
+			/* ⚠ See the note on `AI_CTA`: this overlaps the page's own `ClosingCta`. Ported because the
+			   prototype's section carries it, flagged because only one of the two should survive. */
+		}
+		<div class="ai-cta">
+			<p class="ai-cta__title">{AI_CTA.title}</p>
+			<p class="ai-cta__body">{AI_CTA.body}</p>
+
+			<a class="ai-cta__btn" href={AI_CTA.link.href}>
+				{AI_CTA.link.text}
+				<Icon name="tabler:chevron-right" aria-hidden="true" />
+			</a>
+		</div>
+	</div>
+</section>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.ai {
+		// No background: the homepage strips them —
+		// `:root section:not(.customers-logo--dark):not(.closing-cta) { background: none }` in
+		// `index.astro` — so a fill here would be dead CSS. White was the brief, and white is the ground.
+		padding: $spacing-16 0;
+	}
+
+	// ── The bands ─────────────────────────────────────────────────────
+	// One full-bleed gradient band per route, stacked flush, rather than a small wash under each
+	// window.
+	//
+	// The gradient is the ORIGINAL underlay's — white at the top, the hue at 20% at the bottom, run
+	// over the band's whole height instead of a 300px panel. An intermediate version faded out again
+	// at the base so the two bands would meet on white; this does not, which is the intended look.
+	// The consequence to know about: each band ENDS on full hue, so there is a colour change at the
+	// junction where band one's base meets band two's clear top, and another where band two's base
+	// meets the CTA. That edge is the design, not a bug — do not "fix" it by re-adding the fade-out.
+	//
+	// THE TWO BANDS ARE HELD TO ONE HEIGHT, at every width. Side by side they already matched — both
+	// are a 300px media row plus one 48px margin — but stacked they drift, and not consistently: at
+	// 900px the CLI band ran 15px TALLER (its window is 304 against the chat's 289), and at 375px it
+	// ran 33px SHORTER (its copy is two lines less). `grid-auto-rows: 1fr` resolves every row to the
+	// tallest, which is the only thing that holds when both the media and the copy differ.
+	.ai__bands {
+		display: grid;
+		grid-auto-rows: 1fr;
+	}
+
+	// A column, so the spare height a shorter band is given lands at the end it is NOT docked to.
+	// Without this the grid would stretch the box and leave the CLI's window floating above its own
+	// bottom edge, which is the one thing the dock exists to prevent.
+	// `section .main-div` ships a ~5px vertical margin from `landing.scss`, which is invisible in a
+	// normal section and not here: it sat between the window and the band edge it is docked to, so the
+	// CLI's terminal floated 5px above its own bottom line. Zeroed, so the dock is exactly the dock.
+	.ai__band .main-div {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	// 80px, and only on the side the window is NOT docked to — see the dock rules below, which take
+	// the other side to zero. A band is therefore its 300px row plus one 80px margin.
+	.ai__band {
+		display: flex;
+		flex-direction: column;
+		padding: $spacing-20 0;
+		background-image: linear-gradient(
+			180deg,
+			transparent 0%,
+			color-mix(in srgb, var(--accent) 20%, transparent) 100%
+		);
+
+	}
+
+	.ai__bands {
+		margin-top: $spacing-12;
+	}
+
+	// ── Docking ───────────────────────────────────────────────────────
+	// Each window is cut on one side, so it is docked to the band edge it is cut ON: the cut and the
+	// band's boundary become the same line, and the window reads as running past the band rather than
+	// floating inside it with wash above or below the cut.
+	//
+	//   creator  cut at the TOP     → docked to the band's top edge
+	//   CLI      cut at the BOTTOM  → docked to the band's bottom edge
+	//
+	// `align-self` as well as the zeroed padding, so the dock holds even if a copy column ever grows
+	// taller than the 300px media and starts driving the row's height.
+	// ── Centring the copy ─────────────────────────────────────────────
+	// The copy is centred in its ROW, but a docked band's padding is all on one side, so centred-in-
+	// the-row sits half that padding off centre-in-the-BAND — high in the chat, low in the CLI, by
+	// 40px each once the padding is 80.
+	//
+	// The fix is a RELATIVE offset of half the padding, towards the padded side. Relative offsets do
+	// not affect layout, which is the whole reason for choosing one:
+	//
+	//   dock-top     row 0..R,     copy centre R/2       + P/2  =  (R + P) / 2  = band centre
+	//   dock-bottom  row P..P+R,   copy centre P + R/2   − P/2  =  (P + R) / 2  = band centre
+	//
+	// A margin was tried first and is subtly worse. `align-items: center` centres an item's MARGIN
+	// box, so it lands the copy in the same place — but it also grows the row past the media on the
+	// longer column, which made one band 10px taller, which made `grid-auto-rows` stretch the other,
+	// which put the copy 5px off centre again. An offset leaves both rows at the media's own height,
+	// so the bands match with nothing to stretch.
+	.ai__band--dock-top {
+		justify-content: flex-start;
+		padding-top: 0;
+
+		.ai__media {
+			align-self: flex-start;
+
+			// THE SHADOW FADES HERE, on the crop box, not on the window.
+			//
+			// A mask on the window itself cannot do it: `mask-clip` defaults to `border-box`, so the
+			// outer shadow falls outside the mask's painting area and is DELETED rather than faded. The
+			// usual answer is a wrapper padded by the shadow's reach — but this element already is that
+			// wrapper. `.ai__media` is the box that crops the window, it holds the window and every
+			// pixel of shadow that survives the crop, and it has no background of its own (the band
+			// carries the gradient), so masking it touches nothing else.
+			//
+			// One declaration therefore fades the three things that meet at the cut — the window's
+			// fill, its side shadows, and its content — and they fade together, which is what makes it
+			// read as the window dissolving rather than as three effects happening at once.
+			//
+			// 48px, against a shadow that reaches about 7px sideways: long enough that the side shadow
+			// thins out rather than stopping, short enough not to reach the greeting.
+			-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 48px);
+			mask-image: linear-gradient(to bottom, transparent 0, #000 48px);
+		}
+
+		.ai__copy {
+			position: relative;
+			top: $spacing-10;
+		}
+	}
+
+	.ai__band--dock-bottom {
+		justify-content: flex-end;
+		padding-bottom: 0;
+
+		.ai__media {
+			align-self: flex-end;
+		}
+
+		.ai__copy {
+			position: relative;
+			top: -$spacing-10;
+		}
+	}
+
+	// `_home-rows.scss`'s gutter, so these sit in the same rhythm as the five visuals above.
+	//
+	// NO 350px FLOOR, though that file sets one. Its job there is to hold five rows of differing
+	// natural height to one height; here both rows are the same 300px media, so the floor was never
+	// equalising anything — it was 50px of air inside every band. The content sets the height.
+	.ai__row {
+		display: flex;
+		align-items: center;
+		gap: 56px;
+	}
+
+	// The second row swaps sides. `row-reverse` rather than `order`, so the DOM keeps media before
+	// copy in both rows and the reading order never depends on which way the row faces.
+	.ai__row--flip {
+		flex-direction: row-reverse;
+	}
+
+	// The copy is a MEASURE, not a fraction — the media takes what is left, exactly as the rows above.
+	.ai__copy {
+		display: flex;
+		flex: 0 1 40ch;
+		flex-direction: column;
+		max-width: 40ch;
+	}
+
+	// The crop: shorter than the window it holds, so the window is cut rather than shrunk. The wash
+	// rises to the base — clear where the window is, gathering under it.
+	.ai__media {
+		position: relative;
+		display: flex;
+		flex: 1 1 auto;
+		align-items: flex-end;
+		justify-content: center;
+		min-width: 0;
+		// 300, down from 360. The extra 60 was the empty top of the chat's log — the window fills from
+		// the bottom, so for most of the demo loop the space above the newest message is blank. Taking
+		// it off the panel rather than off the window keeps the chat's own proportions intact.
+		//
+		// NO BACKGROUND of its own any more: this box is now only the crop, and the colour behind it
+		// belongs to the band.
+		height: 300px;
+		overflow: hidden;
+	}
+
+	// The chat is AUTHORED at 400x289 and blown up here — see the note on `.assistant`. The section
+	// owns the factor because the section owns the column it has to fill: 400 x 1.2 = 480, the width
+	// the window occupies either way. Authoring wider and scaling less is how the magnification came
+	// down from 1.3333 without the window changing size on the page.
+	//
+	// The crop then follows from the scaled height, measured off the bottom edge the scale grows from:
+	//
+	//   289 x 1.2 = 347 (window) − (300 panel − 14 offset) = 61 cut from the top
+	//
+	// and 61 is comfortably more than the 41 the `New chat` bar occupies once scaled, so the bar goes
+	// with the cut. What survives is the live end — the composer, the chip and the latest replies.
+	.ai__media :global(.assistant) {
+		--ui-scale: 1.2;
+
+		margin-bottom: 14px;
+	}
+
+	// The terminal is the mirror image: pinned to the top, 56px down, and taller than the room left
+	// below that, so the frame is genuinely cut at the bottom.
+	//
+	//   300 (panel) − 20 (offset) + 24 (bleed) = 304
+	//
+	// `CliTerminal` is a plain block whose log carries its own cap, so all three parts have to be
+	// told to fill: the window, the scroll box, and the log inside it.
+	// POSITIONED, NOT ALIGNED. The window is deliberately taller than the box that crops it, and a
+	// flex item whose margin box overflows its line does not place predictably: with
+	// `align-self: flex-start; margin-top: 40px` this measured at 40px from the top in one reading and
+	// 16px in the next, so the visible log was sometimes 218px and sometimes 242px. That is what let
+	// an 18px log fit when it was checked and crop its last line when it was looked at.
+	//
+	// Absolute placement makes the crop arithmetic true by construction: top 20, height 304, so the
+	// window always overhangs the 300px box by 24 and the log is always
+	// 300 − 20 (offset) − 42 (title bar) = 238px tall.
+	.ai__cli {
+		position: absolute;
+		top: 20px;
+		right: 0;
+		left: 0;
+		margin: 0 auto;
+		width: 100%;
+		// The terminal FILLS its media cell, where the chat is inset in its own. They are different
+		// objects and want different widths: the chat is a narrow app panel, the terminal is a console
+		// whose longest line is fixed by the command it runs. At 480 that line — `tb calculated-field
+		// save --name mean-cargo-temp`, 47 characters — came to 453px against 448px of content, and
+		// since `white-space: pre` cannot break inside it the whole span dropped to a second line. One
+		// wrapped row is 23px, which is what pushed the log into scrolling. 543 gives it 511px.
+		max-width: 543px;
+	}
+
+	.ai__cli :global(.cli) {
+		display: flex;
+		flex-direction: column;
+		height: 304px;
+		// Matched to the chat's rendered corner rather than to its authored one: the chat is scaled
+		// 1.2, so its 8px becomes 9.6 on the page. Overridden here rather than in `CliTerminal`, whose
+		// own 6px is right for the cards it sits in elsewhere.
+		border-radius: 10px;
+	}
+
+	.ai__cli :global(.cli__scroll) {
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	// 18/1.3, against the component's 12.5/1.9. That ratio is built for a still being read at rest; a
+	// session being typed wants the lines closer together, so the log reads as one block of output
+	// rather than a list, and much larger so the command is legible across the row.
+	//
+	// THE SIZE IS DERIVED, NOT CHOSEN, because the session has to fit with NO SCROLL — a log that
+	// scrolls hides the command that opened it. Both bounds were measured in the browser rather than
+	// estimated:
+	//
+	//   down   16 top + 9 rows x 22.5 + 8 bottom = 227 against 238px of visible log   → 11px spare
+	//   across the longest line is `tb calculated-field save --name mean-cargo-temp` at 47 characters;
+	//          this mono font advances 0.5em per character, so with the 1.65em gutter that is 25.15em
+	//          = 453px against 511px of content width                                 → 58px spare
+	//
+	// 218 IS THE NUMBER THAT MATTERS and it is not the log's own height. The window is 284 tall and
+	// hangs 24px past the media box that crops it, so `body.clientHeight` reports 242 while only 218
+	// is ever seen. Sizing against 242 fit the log on paper and dropped its last line into the cut —
+	// `scrollHeight <= clientHeight` is not the test here; the media's bottom edge is.
+	//
+	//   visible log = 300 (media) − 20 (the window's top offset) − 42 (title bar) = 238
+	//
+	// Height is the binding bound; the width has room to spare. Re-measure both if a command gets
+	// longer, a step is added, or the crop offsets change.
+	.ai__cli :global(.cli__body) {
+		max-height: 100%;
+		height: 100%;
+		padding-bottom: 8px;
+		line-height: 1.25;
+
+		// NOT a container query. `min(18px, calc((100cqw - 32px) / 25.15))` off a
+		// `container-type: inline-size` on the wrapper is the obvious way to tie the type to the
+		// terminal's own width, and it does not work here: inline-size containment on a flex item
+		// collapsed the width it was meant to measure, and all nine rows wrapped to three lines each.
+		// A breakpoint below.
+		font-size: 18px;
+	}
+
+	// The title bar was left at the component's 11px and read as a caption under an 18px log.
+	.ai__cli :global(.cli__path) {
+		font-size: 14px;
+	}
+
+	// ── Typography, matched to the feature rows ───────────────────────
+	// Every value below is `_home-rows.scss`'s, so these rows and the five key visuals above are set
+	// in one voice rather than two that nearly agree:
+	//
+	//   heading   `type-subsection` + `text-wrap: balance`   (.new-rows .feature-des .phrase-heading)
+	//   gap       14px under the heading                     (.new-rows .feature-des .heading-wrap)
+	//   body      `type-body` in INK, not the muted grey     (.new-rows .feature-des p)
+	//
+	// The body was the real mismatch: 14px at `--color-text-secondary` against those rows' 16px at
+	// full ink. That file's own note explains the ink — the component's #6b6b72 is a product-page
+	// grey meant to recede beside a screenshot, and it reads washed out beside a quiet diagram.
+	//
+	// The eyebrow has no counterpart there; those rows carry a squircle badge instead. It is kept
+	// because it is the section's argument — the same platform, reached two ways — and set on the
+	// shared ladder so it is at least not a fourth voice.
+	.ai__eyebrow {
+		@include type-eyebrow;
+
+		margin: 0 0 $spacing-3;
+		color: var(--accent);
+	}
+
+	.ai__row-title {
+		@include type-subsection;
+
+		margin: 0 0 14px;
+		color: var(--color-text);
+		text-wrap: balance;
+	}
+
+	.ai__row-text {
+		@include type-body;
+
+		margin: 0;
+		color: var(--color-text, #17181c);
+	}
+
+	// ── The section's closing CTA ─────────────────────────────────────
+	.ai-cta {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		margin-top: $spacing-16;
+		text-align: center;
+	}
+
+	.ai-cta__title {
+		@include type-card;
+
+		margin: 0;
+		color: var(--color-text);
+		text-wrap: balance;
+	}
+
+	.ai-cta__body {
+		@include type-small;
+
+		max-width: 52ch;
+		margin: $spacing-2 0 0;
+		color: var(--color-text-secondary);
+	}
+
+	// The page's primary, same as the hero's and the bookend's — one button style down the page.
+	.ai-cta__btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		height: 44px;
+		margin-top: $spacing-6;
+		padding: 0 16px;
+		border: 1px solid $color-brand;
+		border-radius: $radius-md;
+		background-color: $color-brand;
+		font-size: $font-size-base;
+		font-weight: $font-weight-bold;
+		color: $color-white;
+		text-decoration: none;
+		transition: background-image 0.15s ease;
+
+		&:hover,
+		&:focus-visible {
+			background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+		}
+
+		:global(svg) {
+			flex: 0 0 auto;
+			width: 18px;
+			height: 18px;
+		}
+	}
+
+	// Stacked: the media on top in BOTH rows, so a phone reads picture-then-words twice rather than
+	// inheriting the desktop alternation as an inconsistency.
+	@include media-down(lg) {
+		.ai__row,
+		.ai__row--flip {
+			flex-direction: column;
+			align-items: stretch;
+			gap: $spacing-8;
+			min-height: 0;
+		}
+
+		.ai__copy {
+			flex: 1 1 auto;
+			max-width: 100%;
+		}
+
+		// The dock's `align-self` has to go once the row turns into a column: `align-self` works on
+		// the CROSS axis, so the same declaration that pins the media to the row's top or bottom side
+		// by side pushes it to the left or right edge stacked — which measured as the CLI band's
+		// media 15px in and 15px narrow. Docking is a horizontal-row idea; stacked, both windows just
+		// fill the column.
+		// Matched through the band, not just `.ai__media`: the dock rules score (0,2,0) and a media
+		// query adds nothing, so the shorter selector lost on specificity and the media stayed pinned.
+		.ai__band--dock-top .ai__media,
+		.ai__band--dock-bottom .ai__media {
+			align-self: stretch;
+		}
+
+		// AND NO DOCK stacked. Docking is a side-by-side idea: once the row becomes a column the media
+		// is always first, so the CLI's window sits at the TOP of its band with the copy under it and
+		// can never reach the bottom edge it is supposed to be docked to. Both bands go back to
+		// symmetric padding rather than leaving one of them with copy flush against a band edge.
+		.ai__band--dock-top,
+		.ai__band--dock-bottom {
+			padding-top: $spacing-12;
+			padding-bottom: $spacing-12;
+		}
+
+		// And the copy's balancing offset goes with the dock that needed it: stacked, the padding is
+		// symmetric again and the copy is simply the next thing under the window.
+		.ai__band--dock-top .ai__copy,
+		.ai__band--dock-bottom .ai__copy {
+			top: 0;
+		}
+
+		// NO CROP stacked. The crop box is a fixed 300px, and unscaled — the chat is drawn at 260 and
+		// only blown past 300 by `--ui-scale`, which a phone does not apply — the window no longer
+		// reaches the edges it is supposed to be cut by, so it floated with a 26px gap above it and
+		// the dock came apart. Letting the box hug its window restores the dock: window top IS band
+		// top, window bottom IS band bottom, and nothing is cut. A phone has no room to spare on a
+		// deliberately cropped-off frame anyway.
+		.ai__media {
+			height: auto;
+			// Nothing is cropped when the rows stack, so there is no cut for the fade to soften — and a
+			// mask here would just chew the top off a window that ends cleanly.
+			-webkit-mask-image: none;
+			mask-image: none;
+		}
+
+		.ai__media :global(.assistant) {
+			margin-bottom: 0;
+		}
+
+		// Back into the flow: stacked, `.ai__media` is `height: auto`, and an absolutely positioned only
+		// child would leave it with nothing in flow to get a height from — the band would collapse.
+		.ai__cli {
+			position: static;
+			margin: 0;
+		}
+	}
+
+	// The terminal's type steps down before its longest line can wrap. 25.15em is that line — 47
+	// characters at this mono font's 0.5em advance, plus the 1.65em gutter — so it needs 25.15 x the
+	// font size of content width. Above ~560px the stacked column still offers 520px and 18px fits;
+	// below it, 11.5px keeps the line whole down to a 375px phone (289px against 303px of content).
+	// The step matters more than it looks: a wrapped row costs a whole line of height, and that is
+	// the budget that puts the log into a scroll.
+	@media (max-width: 560px) {
+		.ai__cli :global(.cli__body) {
+			font-size: 11.5px;
+			line-height: 1.5;
+		}
+
+		.ai__cli :global(.cli__path) {
+			font-size: 11px;
+		}
+	}
+
+	@include media-down(md) {
+		.ai {
+			padding: 60px 0;
+		}
+
+		// The bands carry the rhythm now, so they lose height rather than the rows gaining margin.
+		.ai__band {
+			padding: $spacing-12 0;
+		}
+
+		.ai-cta {
+			margin-top: $spacing-12;
+		}
+
+		.ai-cta__btn {
+			width: 100%;
+			justify-content: center;
+		}
+	}
+</style>

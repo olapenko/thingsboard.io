@@ -15,10 +15,41 @@ interface Line {
 	ok?: boolean;
 }
 
+/** One coloured run inside a typed command. */
+interface Seg {
+	t: 'cmd' | 'flag' | 'arg';
+	v: string;
+}
+
+/** One command and what it prints — the unit the typed player works through. */
+interface Step {
+	cmd: Seg[];
+	/** Pause between the command finishing and its first output, in ms. */
+	wait?: number;
+	out?: {
+		text: string;
+		tone?: 'ok' | 'dim';
+		/** Leads the line with a success tick instead of a dot. */
+		tick?: boolean;
+		/** Holds a braille spinner on this line for this many ms before moving on. */
+		spin?: number;
+	}[];
+}
+
 interface Props {
 	lines?: Line[];
+	/**
+	 * A session to TYPE OUT, character by character, on a loop — spinner and all.
+	 *
+	 * The component's two modes. `lines` is a still that fades its finished rows in once; `session`
+	 * is a live console. They are exclusive: passing `session` ignores `lines`, because the player
+	 * owns the log and clears it at the top of every cycle.
+	 */
+	session?: Step[];
 	/** Shown in the title bar. */
 	path?: string;
+	/** What the session shows, for the `role="img"` label. */
+	ariaLabel?: string;
 }
 
 const DEFAULT_LINES: Line[] = [
@@ -35,7 +66,12 @@ const DEFAULT_LINES: Line[] = [
 	{ out: 'Pushed to eu.thingsboard.cloud', ok: true },
 ];
 
-const { lines = DEFAULT_LINES, path = 'smart-building' } = Astro.props;
+const {
+	lines = DEFAULT_LINES,
+	session,
+	path = 'smart-building',
+	ariaLabel = 'ThingsBoard CLI session: installing the CLI, creating a project, saving a device, and pushing a solution to ThingsBoard Cloud.',
+} = Astro.props;
 
 // Resolved here rather than in the template for two reasons: `class:list` inside
 // a nested expression is parsed as JS, where `class` is reserved; and the rows
@@ -51,9 +87,10 @@ const rows: Row[] = lines.map((line) => {
 ---
 
 <div
-	class="cli"
+	class:list={['cli', session && 'cli--session']}
 	role="img"
-	aria-label="ThingsBoard CLI session: installing the CLI, creating a project, saving a device, and pushing a solution to ThingsBoard Cloud."
+	aria-label={ariaLabel}
+	data-cli-session={session ? JSON.stringify(session) : undefined}
 >
 	<div class="cli__bar" aria-hidden="true">
 		<span class="cli__dot cli__dot--close"></span>
@@ -63,19 +100,55 @@ const rows: Row[] = lines.map((line) => {
 	</div>
 
 	<div class="cli__scroll">
+		{
+			/* In session mode the log is server-rendered in its FINISHED state and the player clears it
+			   the moment it starts typing. That makes the finished session the poster: it is what a
+			   reader sees before the terminal is scrolled to, what survives if the script never runs,
+			   and what reduced motion keeps. Rendering nothing instead left an empty black frame in all
+			   three cases. No flash, because the clear happens when the player starts — and the player
+			   does not start until the terminal is on screen. */
+		}
 		<div class="cli__body" aria-hidden="true">
 			{
-				rows.map((row, i) => (
-					<span class:list={['cli__row', `cli__row--${row.kind}`, row.ok && 'cli__row--ok']} style={`--i: ${i}`}>
-						{row.kind === 'cmd' && <span class="cli__prompt">$</span>}
-						{row.kind === 'out' && <span class="cli__mark">{row.ok ? '✓' : '·'}</span>}
-						<span class="cli__text">{row.text}</span>
-					</span>
+				/* The `.cli__text` spans are written on ONE line, with no break between the tag and its
+				   children, and that is load-bearing: session mode sets `white-space: pre` so the
+				   segments keep their own trailing spaces, and `pre` keeps the template's newlines too.
+				   Indented prettily, every poster row rendered three lines tall. */
+				session?.map((st) => (
+					<Fragment>
+						<span class="cli__row">
+							<span class="cli__prompt">$</span>
+							{/* prettier-ignore */}
+							<span class="cli__text">{st.cmd.map((sg) => (<span class={`cli__${sg.t}`}>{sg.v}</span>))}</span>
+						</span>
+						{(st.out ?? []).map((o) => (
+							<span class="cli__row">
+								<span class={o.tick ? 'cli__tick' : 'cli__mark'}>{o.tick ? '✓' : '·'}</span>
+								{/* prettier-ignore */}
+								<span class="cli__text"><span class={o.tone === 'ok' ? 'cli__ok' : 'cli__dim'}>{o.text}</span></span>
+							</span>
+						))}
+					</Fragment>
 				))
 			}
-			<span class="cli__row cli__row--caret" style={`--i: ${rows.length}`}>
-				<span class="cli__prompt">$</span><span class="cli__caret"></span>
-			</span>
+			{
+				!session &&
+					rows.map((row, i) => (
+						<span class:list={['cli__row', `cli__row--${row.kind}`, row.ok && 'cli__row--ok']} style={`--i: ${i}`}>
+							{row.kind === 'cmd' && <span class="cli__prompt">$</span>}
+							{row.kind === 'out' && <span class="cli__mark">{row.ok ? '✓' : '·'}</span>}
+							<span class="cli__text">{row.text}</span>
+						</span>
+					))
+			}
+			{
+				!session && (
+					<span class="cli__row cli__row--caret" style={`--i: ${rows.length}`}>
+						<span class="cli__prompt">$</span>
+						<span class="cli__caret" />
+					</span>
+				)
+			}
 		</div>
 
 		{
@@ -206,6 +279,109 @@ const rows: Row[] = lines.map((line) => {
 		margin-top: 0;
 	}
 
+	// ── Session mode ──────────────────────────────────────────
+	// EVERY rule in this block is `:global`, and that is not a style choice — it is the only thing
+	// that works. The player builds its rows with `createElement`, so they never carry the `astro-*`
+	// scope class, and a scoped selector simply does not match them. Written scoped, the
+	// server-rendered poster was styled correctly and the moment the session started typing the log
+	// lost its gutter, its colours and its `nowrap`: glyphs collapsed to 7px, lines wrapped, and the
+	// output stopped lining up under the command. `.cli--session` itself is server-rendered, so it
+	// keeps the scope and confines all of this to a terminal that asked for it.
+	.cli--session {
+		:global(.cli__row) {
+			display: block;
+		}
+
+		// Every leading glyph — prompt, tick, dot, spinner — gets one gutter, so the command and
+		// everything it prints line up down a single column. The still mode indents its output
+		// instead, which is right there and wrong here: in a live log a tick that does not sit under
+		// its own `$` reads as belonging to the line above.
+		:global(.cli__prompt),
+		:global(.cli__mark),
+		:global(.cli__tick),
+		:global(.cli__spin) {
+			display: inline-block;
+			width: 1.1em;
+			margin: 0 0.55em 0 0;
+			text-align: center;
+		}
+
+		// `pre`, because the segments carry their own trailing spaces — `tb push ` then `cold-chain `
+		// — and a collapsed space would run two coloured runs together.
+		:global(.cli__text) {
+			white-space: pre;
+		}
+
+		:global(.cli__prompt) {
+			color: var(--accent, #4dabf7);
+		}
+
+		:global(.cli__mark) {
+			color: rgba(230, 232, 239, 0.35);
+		}
+
+		:global(.cli__tick) {
+			color: #63d19e;
+		}
+
+		:global(.cli__spin) {
+			color: var(--accent, #4dabf7);
+		}
+
+		// The command's own syntax colouring, matched to the still mode's ink so the two modes are
+		// recognisably one terminal.
+		:global(.cli__cmd) {
+			color: #f2f4f8;
+		}
+
+		:global(.cli__flag) {
+			color: #8b96a2;
+		}
+
+		:global(.cli__arg) {
+			color: #d2a8ff;
+		}
+
+		:global(.cli__ok) {
+			color: #63d19e;
+		}
+
+		:global(.cli__dim) {
+			color: rgba(230, 232, 239, 0.55);
+		}
+
+		// The caret that trails the command being typed. Scoped, it only reached the still mode's
+		// server-rendered one and never the player's.
+		//
+		// NO BLINK, unlike the still mode's. A terminal cursor is solid while characters are arriving
+		// and blinks only when the shell is idle waiting for input — and this caret exists ONLY while
+		// the command is being typed; the player removes it the moment the line is finished. So a blink
+		// here was never the idle state it imitates, just a flicker under moving text.
+		:global(.cli__caret) {
+			display: inline-block;
+			// A BLOCK CURSOR IS ONE CHARACTER CELL, and both numbers are the font's, measured rather
+			// than eyeballed: this mono face advances 0.5em per character, and its em box is 1em —
+			// 15px of ascent over 3px of descent at 18px. The old 0.5 x 0.85em with a 0.1em nudge was
+			// neither: too short to fill the cell and sitting off the baseline, so it read as a stray
+			// mark beside the text instead of a cursor standing in the next cell.
+			width: 0.5em;
+			height: 1em;
+			// Dropped by the descender so the block spans descender to ascender. An inline-block's
+			// bottom sits ON the baseline by default, which is where the missing 3px went.
+			vertical-align: -0.167em;
+			// The foreground, as a terminal draws its cursor — not the prompt's accent. The `$` is
+			// coloured because it is chrome; the cursor is the text caret and takes the text's ink.
+			background: #f2f4f8;
+			animation: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cli--session :global(.cli__caret) {
+			animation: none;
+		}
+	}
+
 	// ── Playback ──────────────────────────────────────────────
 	// Rows are held back until the card is on screen, then land one after another
 	// so the session reads as it would have been typed.
@@ -302,9 +478,192 @@ const rows: Row[] = lines.map((line) => {
 </style>
 
 <script>
-	// Two jobs: play the session once the card is on screen, and drive the overlay
-	// scrollbar. Both are per-instance, so several terminals can share a page.
+	// Three jobs now: drive the overlay scrollbar, fade a still session in once the card is on
+	// screen, and — in session mode — TYPE a session out on a loop. All per-instance, so several
+	// terminals can share a page.
 	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	type Seg = { t: 'cmd' | 'flag' | 'arg'; v: string };
+	type Out = { text: string; tone?: 'ok' | 'dim'; tick?: boolean; spin?: number };
+	type Step = { cmd: Seg[]; wait?: number; out?: Out[] };
+
+	/** The braille spinner the CLI itself uses while a push is in flight. */
+	const SPINNER = '\u280b\u2819\u2839\u2838\u283c\u2834\u2826\u2827\u2807\u280f';
+
+	/**
+	 * Types a session into the log and loops it: each command appears character by character with a
+	 * caret at the end, the CLI pauses, its output lands a line at a time, and a push holds a
+	 * spinner until it completes.
+	 *
+	 * Held to the viewport and to tab visibility, and only at CYCLE boundaries — a session that
+	 * stopped halfway would leave a half-typed command on screen, which reads as broken rather than
+	 * as paused.
+	 */
+	function playSession(
+		cli: HTMLElement,
+		body: HTMLElement,
+		steps: Step[],
+		sync: () => void,
+		reduceMotion: boolean
+	) {
+		const tone = (o: Out) => (o.tone === 'ok' ? 'cli__ok' : 'cli__dim');
+
+		/** Opens a row and returns its text host. `mark` is the glyph in the gutter. */
+		const line = (mark: string, markCls: string) => {
+			const row = document.createElement('span');
+			row.className = 'cli__row';
+			const g = document.createElement('span');
+			g.className = markCls;
+			g.textContent = mark;
+			const t = document.createElement('span');
+			t.className = 'cli__text';
+			row.append(g, t);
+			body.appendChild(row);
+			body.scrollTop = body.scrollHeight;
+			return { text: t, mark: g };
+		};
+
+		const fill = (host: HTMLElement, o: Out) => {
+			const span = document.createElement('span');
+			span.className = tone(o);
+			span.textContent = o.text;
+			host.appendChild(span);
+		};
+
+		// Reduced motion keeps the server-rendered session exactly as it is — it is already the
+		// finished log, so there is nothing to build and nothing to clear.
+		if (reduceMotion) {
+			sync();
+			return;
+		}
+
+		// Intervals and timeouts share this list, so clearing it has to do both — the spinner is an
+		// interval and would otherwise outlive the cycle that started it and keep writing into a row
+		// that has been removed.
+		let timers: number[] = [];
+		let run = 0;
+		let onScreen = false;
+		let waiting = false;
+
+		const at = (ms: number, fn: () => void) => {
+			const id = run;
+			timers.push(
+				window.setTimeout(() => {
+					if (id === run) fn();
+				}, ms)
+			);
+		};
+
+		const typeInto = (host: HTMLElement, segs: Seg[], done: () => void) => {
+			const caret = document.createElement('span');
+			caret.className = 'cli__caret';
+			const spans = segs.map((seg) => {
+				const el = document.createElement('span');
+				el.className = `cli__${seg.t}`;
+				host.appendChild(el);
+				return el;
+			});
+			host.appendChild(caret);
+
+			let si = 0;
+			let ci = 0;
+			const tick = () => {
+				if (document.hidden) {
+					at(300, tick);
+					return;
+				}
+				const seg = segs[si];
+				spans[si].textContent += seg.v.charAt(ci++);
+				body.scrollTop = body.scrollHeight;
+				sync();
+				if (ci >= seg.v.length) {
+					si++;
+					ci = 0;
+				}
+				if (si >= segs.length) {
+					at(260, () => {
+						caret.remove();
+						done();
+					});
+					return;
+				}
+				at(34 + Math.random() * 46, tick);
+			};
+			tick();
+		};
+
+		const emit = (outs: Out[], i: number, done: () => void) => {
+			if (i >= outs.length) {
+				done();
+				return;
+			}
+			const o = outs[i];
+
+			if (o.spin) {
+				const { text, mark } = line('', 'cli__spin');
+				fill(text, o);
+				let f = 0;
+				const spin = window.setInterval(() => {
+					mark.textContent = SPINNER.charAt(f++ % SPINNER.length);
+				}, 80);
+				timers.push(spin);
+				at(o.spin, () => {
+					window.clearInterval(spin);
+					mark.textContent = '\u00b7';
+					emit(outs, i + 1, done);
+				});
+				return;
+			}
+
+			fill(line(o.tick ? '\u2713' : '\u00b7', o.tick ? 'cli__tick' : 'cli__mark').text, o);
+			sync();
+			at(180, () => emit(outs, i + 1, done));
+		};
+
+		const step = (n: number) => {
+			if (n >= steps.length) {
+				at(3600, cycle);
+				return;
+			}
+			const st = steps[n];
+			const { text } = line('$', 'cli__prompt');
+			typeInto(text, st.cmd, () => {
+				at(st.wait ?? 500, () => emit(st.out ?? [], 0, () => at(420, () => step(n + 1))));
+			});
+		};
+
+		function cycle() {
+			if (!onScreen || document.hidden) {
+				if (waiting) return;
+				waiting = true;
+				window.setTimeout(() => {
+					waiting = false;
+					cycle();
+				}, 600);
+				return;
+			}
+
+			run++;
+			timers.forEach((t) => {
+				window.clearTimeout(t);
+				window.clearInterval(t);
+			});
+			timers = [];
+			body.innerHTML = '';
+			step(0);
+		}
+
+		new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					onScreen = e.isIntersecting;
+				});
+			},
+			{ threshold: 0.2 }
+		).observe(cli);
+
+		cycle();
+	}
 
 	document.querySelectorAll<HTMLElement>('.cli').forEach((cli) => {
 		const body = cli.querySelector<HTMLElement>('.cli__body');
@@ -344,6 +703,13 @@ const rows: Row[] = lines.map((line) => {
 
 		if ('ResizeObserver' in window) new ResizeObserver(sync).observe(body);
 		sync();
+
+		// ── Session mode: type the log out, on a loop ──────────────
+		const raw = cli.dataset.cliSession;
+		if (raw) {
+			playSession(cli, body, JSON.parse(raw) as Step[], sync, reduce);
+			return;
+		}
 
 		if (reduce) return;
 
