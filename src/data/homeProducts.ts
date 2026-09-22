@@ -15,7 +15,7 @@ export interface ProductChoice {
 	 * there first with App Store / Google Play; here it is the regional sign-ups and
 	 * the installer.
 	 */
-	stores?: { label: string; href: string; icon?: string }[];
+	stores?: { label: string; href: string; region?: 'us' | 'eu'; icon?: string }[];
 	/** Monochrome marks under the copy, naming where the product can run. */
 	targets?: { label: string; icon: string }[];
 	href: string;
@@ -40,11 +40,12 @@ export const homeProducts: ProductChoice[] = [
 		// Cloud is two regions with separate hosts, so there is no single sign-up
 		// URL — the reader picks where their data lives.
 		stores: [
-			// Named exactly as the header's sign-in menu names them, so the two places a
-			// reader picks a region read as the same decision. Neither carries a mark:
-			// the words are the whole of it — see the note in _product-page.scss.
-			{ label: 'North America', href: 'https://thingsboard.cloud/signup' },
-			{ label: 'Europe', href: 'https://eu.thingsboard.cloud/signup' },
+			// Named exactly as the header's sign-in menu names them, and carrying the same
+			// cloud mark in the same hue, so the two places a reader picks a region read
+			// as one decision. `region` selects the hue only — see HeaderContent.astro,
+			// which owns the mark.
+			{ label: 'North America', href: 'https://thingsboard.cloud/signup', region: 'us' },
+			{ label: 'Europe', href: 'https://eu.thingsboard.cloud/signup', region: 'eu' },
 		],
 		accent: '#6e7481',
 	},
