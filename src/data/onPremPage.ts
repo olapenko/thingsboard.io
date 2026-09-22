@@ -150,7 +150,11 @@ export const onPremChoice = {
 			name: 'Monthly subscription',
 			price: 'Free',
 			priceNote: 'Up to 100 devices on one server',
-			summary: 'Subscribe for free, no credit card needed. Pay only once you outgrow it.',
+			/** One sentence, as the perpetual card's is. The second — "Pay only once you outgrow
+			 *  it" — said again what the band's own lead says a line above it, and cost the card
+			 *  a second line the other card did not have, so the two summaries sat at different
+			 *  heights and pushed their bullet lists out of step. */
+			summary: 'Subscribe for free, no credit card needed.',
 			/**
 			 * Two, and both are reasons to choose this card. What came out: where the licence key
 			 * is issued (plumbing — nobody picks a licence on that), and what cancelling does to a
