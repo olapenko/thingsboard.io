@@ -19,7 +19,6 @@ import { tbSelfManagedFaq } from '@data/pricing/faq/tb-self-managed';
  *  one of them and a `const` cannot be referenced before its own line has run. */
 const CONTACT = '/contact-us/';
 const CONTACT_SALES = '/contact-us/?subject=ThingsBoard%20Products&message=I%20have%20a%20question%20about%20ThingsBoard%20On-premises';
-const LICENSE_SERVER = 'https://license.thingsboard.io/';
 const PRICING_SUBSCRIPTION = '/pricing/?section=thingsboard-pe-options&product=thingsboard-pe';
 const PRICING_PERPETUAL = '/pricing/?section=thingsboard-pe-options&product=thingsboard-pe&solution=pe-perpetual';
 
