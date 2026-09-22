@@ -57,14 +57,27 @@ export const onPremBenefits: OnPremBenefit[] = [
 		description: 'The data sits on hardware you control — your own data centre or your own cloud account — and you decide where.',
 	},
 	{
-		// `homeProducts.ts`: "Deploy in your own data centre, in your private cloud (AWS, Azure,
-		// GCP), or on Kubernetes." Plus FAQ, Usage: "cloud-agnostic and can be migrated as needed".
-		// It says "migratable", NOT "no lock-in": moving servers means deactivating on the License
-		// Server first, and that caveat belongs in the FAQ where it is stated in full.
+		// REWRITTEN against develop, and the old line is why this tile needs a note. It read "on
+		// your own hardware, in AWS, Azure or GCP, or on Kubernetes", and its own source note
+		// cited `homeProducts.ts` for it — a home-page card, not develop. Checked at the source,
+		// develop's On-premises page says "Kubernetes" zero times, and its AWS/Azure/GCP mentions
+		// are integration nodes and Azure AD SSO, neither of which is a deployment target. The
+		// vendor-and-Kubernetes framing is Private Cloud's on develop. So the tile was quoting the
+		// wrong product, by way of an assumption that had been made one page upstream.
+		//
+		// What replaces it is develop's own vocabulary: `multiple-servers` — "a virtual machine, a
+		// running Docker container, or a single OS process" — and `cloud-migration`, "on-premises
+		// ThingsBoard is cloud-agnostic and can be migrated as needed".
+		//
+		// The title moves off placement because tile 1 above already owns that ground ("your own
+		// data centre or your own cloud account"); this one is about form factor and portability,
+		// which is the half tile 1 cannot say. Still "migrate", NOT "no lock-in": moving servers
+		// means deactivating on the License Server first, and that caveat belongs in the FAQ where
+		// it is stated in full.
 		icon: 'tabler:server',
 		color: '#007c7b',
-		title: 'Your data centre, or any cloud',
-		description: 'Run it on your own hardware, in AWS, Azure or GCP, or on Kubernetes — the deployment is cloud-agnostic and migratable.',
+		title: 'Not tied to one vendor',
+		description: 'Run it as a virtual machine, a Docker container or a single OS process, in whichever data centre or cloud account you choose — and migrate it when that changes.',
 	},
 	{
 		// `scale-visual.ts`, benchmark scenarios B and E. NOT develop's "from 5 devices to 5+

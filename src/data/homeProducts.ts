@@ -39,8 +39,11 @@ export const homeProducts: ProductChoice[] = [
 		//
 		// The residency sentence came out to make room. It was saying what the two region buttons
 		// under it were already saying, and those are gone now as well.
+		// The "in 5 minutes" promise moved to the button, where it is attached to the thing that
+		// actually takes five minutes. Said in both places it read as a slogan; said on the
+		// control it reads as an estimate.
 		description:
-			'Sign up and start in 5 minutes — we run the servers, scaling, backups and upgrades on a 99.9% SLA. Start free on shared infrastructure, or move to Private Cloud, a dedicated cluster we provision and operate for you.',
+			'We run the servers, scaling, backups and upgrades on a 99.9% SLA. Start free on shared infrastructure, or move to Private Cloud, a dedicated cluster we provision and operate for you.',
 		icon: '/src/assets/images/landings/thingsboard-mark.svg',
 		cornerIcon: 'tabler:cloud-filled',
 		badgeFill: '#3d50f5',
@@ -55,7 +58,10 @@ export const homeProducts: ProductChoice[] = [
 		//
 		// The card keeps one action so the pair stays symmetrical — this one starts you, and
 		// On-premises' Install does the same on its side.
-		stores: [{ label: 'Start for free', href: 'https://thingsboard.cloud/signup', icon: 'tabler:rocket' }],
+		// No glyph. The label is a full sentence carrying a time estimate, and a mark in front of it
+		// competes with the words rather than labelling them — On-premises' "Install" is one verb
+		// and takes one.
+		stores: [{ label: 'Sign in and start in 5 min', href: 'https://thingsboard.cloud/signup' }],
 		accent: '#6e7481',
 	},
 	{
@@ -87,16 +93,24 @@ export const homeProducts: ProductChoice[] = [
 		// `tabler:download` is the hero's own Install glyph, so the page's two install
 		// affordances are the same button in two sizes.
 		stores: [{ label: 'Install', href: '/installations/', icon: 'tabler:download' }],
-		// The four targets the description names, in its order, as monochrome marks.
-		// `simple-icons` is single-path and takes `currentColor`, which is what makes a
-		// row of four vendor logos possible without four vendor colours — see
-		// `ScaleDuo` for the same set used the same way.
-		targets: [
-			{ label: 'AWS', icon: 'simple-icons:amazonwebservices' },
-			{ label: 'Azure', icon: 'simple-icons:microsoftazure' },
-			{ label: 'Google Cloud', icon: 'simple-icons:googlecloud' },
-			{ label: 'Kubernetes', icon: 'simple-icons:kubernetes' },
-		],
+		// NO VENDOR MARKS. The row read AWS · Azure · Google Cloud · Kubernetes, and checked against
+		// develop that is not this product's story — it is the other one's:
+		//
+		//   - Develop's On-premises page says "Kubernetes" ZERO times. Its AWS, Azure and GCP
+		//     mentions are all something else: "REST, Kafka, RabbitMQ, AWS, Azure and GCP nodes to
+		//     push data into ERP, CRM or billing systems" is the rule engine's integration nodes,
+		//     and "OAuth2 SSO (Google, Azure AD, Okta…)" is identity. Not one names a place to
+		//     deploy. That page's deployment words are data centre, virtual machine and Docker.
+		//   - Kubernetes appears 7 times on develop, every one of them PRIVATE CLOUD: "Dedicated,
+		//     isolated Kubernetes cluster", "All plans are powered by Kubernetes… AWS is our
+		//     first-choice IaaS, but Azure or GCP regions are also supported on request".
+		//   - Even `/docs/pe/installation/` never says "Kubernetes". Its two Recommended options
+		//     are Docker; the K8s-flavoured entries are Minikube and OpenShift; and its cloud list
+		//     includes DigitalOcean, which the row left out.
+		//
+		// So the marks were Private Cloud's infrastructure narrative pinned to the card that means
+		// the opposite, and they narrowed the claim besides: this card's argument is that YOU pick
+		// where it runs, which four logos contradict by implying the four are the list.
 		accent: '#6e7481',
 	},
 ];
