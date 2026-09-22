@@ -135,12 +135,14 @@ export const onPremChoice = {
 	/** The comparison table's two column headings, so the table and the band cannot drift. */
 	columns: [
 		/**
-		 * The product column is marked with the ThingsBoard logo rather than a glyph — it is the
-		 * one column that names a real thing, and the logo says so faster than any icon can. The
-		 * other column keeps a glyph on purpose: the asymmetry IS the comparison.
+		 * Both columns are marked with a glyph, and the pair is the comparison: one server you
+		 * configure against a bench of tools you assemble. The product column carried the
+		 * ThingsBoard logo until it was pinned — in the sticky header the logo rides along the
+		 * whole scroll of the table, where a brand mark reads as site chrome rather than as this
+		 * table's left-hand column. `server-cog` was already the column's declared icon.
 		 */
-		{ name: 'ThingsBoard', icon: 'tabler:server-cog', logo: true },
-		{ name: 'Custom IoT stack', icon: 'tabler:tools', logo: false },
+		{ name: 'ThingsBoard', icon: 'tabler:server-cog' },
+		{ name: 'Custom IoT stack', icon: 'tabler:tools' },
 	],
 	options: [
 		{
