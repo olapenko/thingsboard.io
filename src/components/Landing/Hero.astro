@@ -652,8 +652,9 @@ const titles = Array.isArray(title) ? title : [title];
 				}
 			}
 
-			// Stacked, the badge rides the panel's bottom-right corner. At the base
-			// rule's top/right it landed on the headline itself.
+			// The badge rides the panel's bottom-right corner at every width. It used
+			// to move to the top of the panel once the columns appeared, which put it
+			// over the busiest part of the footage and, stacked, over the headline.
 			.achievement {
 				top: auto;
 				bottom: 16px;
@@ -664,41 +665,66 @@ const titles = Array.isArray(title) ? title : [title];
 				}
 			}
 
-			@include media-up(lg) {
-				// Side by side. Height comes from the video's 16:9, not a viewport
-				// percentage: a vh-driven box cannot match the footage's ratio, which
-				// is what forced the old centre-crop down to ~29% of the frame.
-				grid-template-columns: 1fr 2fr;
+			// SIDE BY SIDE FROM `md`, not `lg`. Between 750 and 1024 the hero used to
+			// break into a stacked column — the copy, then a full-width panel under it
+			// — which is a phone composition on a tablet: the fold lands mid-headline
+			// and the footage is pushed off the first screen entirely. Two columns hold
+			// from the first width that can carry them.
+			@include media-up(md) {
+				// Even columns here; the panel only takes the larger share once there is
+				// enough width that the copy still has a comfortable measure beside it.
+				// At 750 a `1fr 2fr` split leaves the text column at ~250px, which sets
+				// the headline four lines deep.
+				grid-template-columns: 1fr 1fr;
 
 				.video-cover {
 					grid-column: 2;
 					grid-row: 1;
 					// `stretch` still sizes the row from the 16:9 hypothetical height, so
 					// the frame stays uncropped whenever the text column fits inside it.
-					// When the column is taller — narrow desktops, where the buttons wrap —
-					// the panel grows with the row and cover trims a little, instead of
-					// leaving a black gap beside the copy.
+					// When the column is taller — the tablet widths this now covers, and
+					// narrow desktops where the buttons wrap — the panel grows with the row
+					// and `cover` trims the sides instead of leaving a black gap beside the
+					// copy. That side trim is the point at tablet sizes: the panel is
+					// narrower than 16:9 there, so the frame is cropped left and right
+					// rather than letterboxed.
 					align-self: stretch;
 					// Clears the menu so nothing plays behind it.
 					margin-top: var(--home-header-h, #{$header-height});
 					// Beyond this the panel widens past 16:9 and cover crops again —
 					// the trade we accept rather than a 900px-tall hero on ultrawides.
 					max-height: 720px;
+
+					// Stated rather than left to the initial value: the centring is the
+					// whole reason the side crop is acceptable — it takes the frame's
+					// edges evenly and leaves the dashboard in the middle of it.
+					:global(video) {
+						object-position: center;
+					}
 				}
 
 				#hero-content {
 					grid-column: 1;
 					grid-row: 1;
-					padding: var(--home-header-h, #{$header-height}) clamp(24px, calc(0.5rem + 2vw), 56px) 0;
+					// The 36px bottom is the stacked layout's, kept rather than zeroed. It
+					// used to be 0 because at `lg` the 16:9 panel is always the taller of
+					// the two, so the row never took its height from this column. At tablet
+					// widths the panel is short and the copy IS the tallest thing in the
+					// row, and with no bottom padding "Talk to an expert" sat flush on the
+					// hero's bottom edge with 6px of it under `overflow: hidden`. Above
+					// `lg` this changes nothing — the panel still sets the row.
+					padding: var(--home-header-h, #{$header-height}) clamp(24px, calc(0.5rem + 2vw), 56px) 36px;
 				}
 
-				.achievement {
-					top: calc(#{$header-height} + 16px);
-					bottom: auto;
+				.achievement .achieve {
+					width: 72px;
+				}
 
-					.achieve {
-						width: 72px;
-					}
+				@include media-up(lg) {
+					// Height comes from the video's 16:9, not a viewport percentage: a
+					// vh-driven box cannot match the footage's ratio, which is what forced
+					// the old centre-crop down to ~29% of the frame.
+					grid-template-columns: 1fr 2fr;
 				}
 			}
 		}
