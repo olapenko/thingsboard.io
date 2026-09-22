@@ -52,8 +52,15 @@ export const homeProducts: ProductChoice[] = [
 	{
 		name: 'ThingsBoard On-premises',
 		label: 'Deployed on your infrastructure',
+		// "your own cloud account", NOT "your private cloud". ThingsBoard sells a product called
+		// Private Cloud — a dedicated cluster OUR team provisions and operates — and it is the
+		// opposite of this card: it is managed hosting, and it lives on the Cloud page beside
+		// Public Cloud, which is where develop puts it too. Using the phrase generically here
+		// told a reader who had seen that page that On-premises covers the Private Cloud product.
+		// Develop's own On-premises page never says it: "your own data centre or your own cloud
+		// account" is its wording, and this now matches.
 		description:
-			'Deploy in your own data centre, in your private cloud (AWS, Azure, GCP), or on Kubernetes. Full control of infrastructure, data location and compliance.',
+			'Deploy in your own data centre, in your own cloud account (AWS, Azure, GCP), or on Kubernetes. Full control of infrastructure, data location and compliance.',
 		icon: '/src/assets/images/landings/thingsboard-mark.svg',
 		cornerIcon: 'tabler:square-rotated-filled',
 		badgeFill: '#1f8b4d',
