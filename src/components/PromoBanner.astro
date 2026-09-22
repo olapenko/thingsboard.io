@@ -43,7 +43,18 @@ const current = Astro.url.pathname.replace(/\/+$/, '');
 const allSlides = SLIDES.filter((s) => s.target !== current);
 // `plain` shows the first announcement only — the rotation is the thing being
 // dropped, not just its controls.
-const slides = plain ? allSlides.slice(0, 1) : allSlides;
+/**
+ * Plain variant: the product name leads in primary bold and the rest of the
+ * sentence stays regular. Split on the first colon rather than carrying a second
+ * copy of the name in the data — the labels are written "<product>: <claim>", and
+ * a label without a colon simply has no lead and renders whole.
+ */
+const splitLead = (label: string) => {
+	const i = label.indexOf(':');
+	return i === -1 ? { lead: '', rest: label } : { lead: label.slice(0, i), rest: label.slice(i) };
+};
+
+const slides = (plain ? allSlides.slice(0, 1) : allSlides).map((s) => ({ ...s, ...splitLead(s.label) }));
 const showBanner = slides.length > 0;
 const hasSwitcher = slides.length > 1;
 ---
@@ -88,9 +99,15 @@ const hasSwitcher = slides.length > 1;
 								{!plain && s.badge}
 							</span>
 						</span>
-						{/* `label` is the same sentence without the <strong> lead-ins: plain sets
-						    the message at one regular weight. */}
-						{plain ? <span class="promo-msg">{s.label}</span> : <span class="promo-msg" set:html={s.html} />}
+						{/* Plain splits the sentence itself: the product name leads bold and
+						    primary, the rest stays regular. The two expressions are kept on one
+						    line because a newline between them renders as a space, which put a
+						    gap in front of the colon. The carousel keeps its own <strong> markup. */}
+						{plain ? (
+							<span class="promo-msg"><strong class="promo-lead">{s.lead}</strong>{s.rest}</span>
+						) : (
+							<span class="promo-msg" set:html={s.html} />
+						)}
 						{plain && <Icon name="tabler:chevron-right" class="promo-chevron" aria-hidden="true" />}
 						<svg
 							class="promo-arrow"
@@ -275,12 +292,19 @@ const hasSwitcher = slides.length > 1;
 				height: 20px;
 			}
 
-			// One weight. The carousel's markup bolds the product name; this variant
-			// renders the plain sentence instead, and this catches any <strong> that
-			// reaches it another way.
+			// The sentence is regular; the product name is not. `:not(.promo-lead)` is
+			// what keeps this reset — which exists to catch a <strong> arriving from the
+			// carousel's own markup — from flattening the lead we just set.
 			.promo-msg,
-			.promo-msg strong {
+			.promo-msg strong:not(.promo-lead) {
 				font-weight: $font-weight-normal;
+			}
+
+			// The product name carries the same primary as the mark and the chevron, so
+			// the bar reads as one accent rather than three greys and a colour.
+			.promo-lead {
+				font-weight: $font-weight-bold;
+				color: var(--color-primary, #3d50f5);
 			}
 
 			// The long arrow belongs to the purple bar; a chevron is the quieter
@@ -290,8 +314,8 @@ const hasSwitcher = slides.length > 1;
 			}
 
 			.promo-chevron {
-				width: 16px;
-				height: 16px;
+				width: 22px;
+				height: 22px;
 				flex: 0 0 auto;
 				color: var(--color-primary, #3d50f5);
 			}
