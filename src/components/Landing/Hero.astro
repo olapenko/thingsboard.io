@@ -451,11 +451,38 @@ const titles = Array.isArray(title) ? title : [title];
 			grid-template-columns: 1fr;
 			background-color: #000;
 
+			// KEEPING THE NEXT SECTION ABOVE THE FOLD.
+			//
+			// Nothing in this hero used to reference the viewport's HEIGHT: the row was
+			// sized by the copy and by the panel's 16:9, so on a short window the hero
+			// simply ran past the bottom and the section under it was unreachable
+			// without scrolling. Measured before this, at 812x375 the hero stood 512
+			// tall and the next section began exactly at the fold — nothing of it
+			// visible.
+			//
+			// The budget is the viewport minus the chrome above the hero minus the strip
+			// we want to leave showing. `svh`, not `vh`: on mobile `vh` is the tallest
+			// the viewport ever gets, which is the one value that guarantees the promise
+			// is broken while the browser's own bars are on screen.
+			//
+			// `--promo-h` is in it because the AI banner sits above the header and is
+			// part of what pushes this down. If that banner goes, the budget widens on
+			// its own — nothing here needs changing.
+			--hero-chrome: calc(var(--home-header-h, #{$header-height}) + var(--promo-h, 0px));
+			--hero-reveal: 56px;
+			--hero-budget: calc(100svh - var(--hero-chrome) - var(--hero-reveal));
+
 			// A panel in normal flow, not a backdrop behind the section.
 			.video-cover {
 				grid-row: 2;
 				width: 100%;
 				aspect-ratio: 16 / 9;
+				// Stacked, the panel is the one part of the hero that can afford to give:
+				// the copy above it cannot be cut, so the panel takes the budget instead
+				// and `cover` crops to it. This cannot rescue a viewport too short for the
+				// copy alone — nothing can, short of clipping it — but it does stop the
+				// panel from being the reason the next section is out of reach.
+				max-height: var(--hero-budget);
 				position: relative;
 				inset: auto;
 				// Base rule parks this at -2 to sit behind a transparent section; the
@@ -691,9 +718,13 @@ const titles = Array.isArray(title) ? title : [title];
 					align-self: stretch;
 					// Clears the menu so nothing plays behind it.
 					margin-top: var(--home-header-h, #{$header-height});
-					// Beyond this the panel widens past 16:9 and cover crops again —
-					// the trade we accept rather than a 900px-tall hero on ultrawides.
-					max-height: 720px;
+					// Two ceilings, whichever bites first. 720 is the composition's: beyond
+					// it the panel widens past 16:9 and cover crops again, which we accept
+					// rather than a 900px-tall hero on ultrawides. The budget is the
+					// viewport's, and on a wide-but-short window it is the binding one — at
+					// 1920x800 the 16:9 panel alone wants 720px and would put the next
+					// section 24px below the fold before the banner is even counted.
+					max-height: min(720px, var(--hero-budget));
 
 					// Stated rather than left to the initial value: the centring is the
 					// whole reason the side crop is acceptable — it takes the frame's
@@ -725,6 +756,45 @@ const titles = Array.isArray(title) ? title : [title];
 					// vh-driven box cannot match the footage's ratio, which is what forced
 					// the old centre-crop down to ~29% of the frame.
 					grid-template-columns: 1fr 2fr;
+				}
+			}
+
+			// The panel answers to that budget (below and in the md block). The COPY
+			// cannot: it is the floor, and cutting it to fit would trade a visible
+			// section for an unreadable headline. What it can do on a short viewport is
+			// stop spending height on air. Measured at 812x375, the copy stood 512 tall
+			// out of a 375 viewport — 100 of it padding and 76 of it margins between
+			// four blocks — so this reclaims the spacing without touching a type size.
+			//
+			// 620px is where a laptop viewport stops having room to spare, not a device:
+			// a 1024x600 netbook, a short browser window and a phone on its side all
+			// land here for the same reason.
+			// Short OR narrow. Short is the obvious one; narrow matters because the copy
+			// grows when the measure shrinks — at 375px the headline and the subtitle
+			// wrap far enough that the column runs 540px, and with the panel under it the
+			// next section was left with a 9px sliver. Same spending, same fix.
+			@media (max-height: 620px), (max-width: #{$breakpoint-sm}) {
+				// Nested inside #hero-content, not beside it: the margins these override
+				// are set on `#hero-content h1` and friends, and a rule on the bare
+				// element loses to that no matter which media query it sits in.
+				#hero-content {
+					// The header's height and nothing on top of it. Stacked this drops the
+					// +28 breathing room; at `md` and up it is already exactly this, so the
+					// line costs those widths nothing.
+					padding-top: var(--home-header-h, #{$header-height});
+					padding-bottom: 20px;
+
+					h1 {
+						margin-bottom: 12px;
+					}
+
+					.tb-sub-title {
+						margin-bottom: 20px;
+					}
+
+					.hero-note {
+						margin-top: 14px;
+					}
 				}
 			}
 		}

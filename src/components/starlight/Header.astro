@@ -37,9 +37,32 @@ const isHome = HOME_NAV_ROUTES.has(pathname);
 ---
 
 {
+	/* ---------------------------------------------------------------------------
+	 * TEMPORARY — REMOVE BEFORE PRODUCTION (see also _InternalNav.astro)
+	 *
+	 * The facelift routes used to skip the promo banner outright: it pushed the
+	 * whole bar down and the split hero was designed without it. The banner now
+	 * carries the AI announcements, so the hero has to be judged WITH it rather
+	 * than beside it — its 40px is part of the fold budget the hero measures
+	 * against (`--promo-h`, read by #hero.split's max-height).
+	 *
+	 * `data-temp-no-banner` on <html> takes it back out at runtime so the two can
+	 * be compared without a rebuild; the internal strip writes it. Deleting this
+	 * block, the inline script below and the toggle in _InternalNav returns the
+	 * banner to whatever the production decision turns out to be.
+	 * --------------------------------------------------------------------------- */
+	isHome && (
+		<script
+			is:inline
+			set:html="try{if(sessionStorage.getItem('tb-temp-no-banner')==='1')document.documentElement.dataset.tempNoBanner='1'}catch(e){}"
+		/>
+	)
+}
+{
 	/* Skipping the markup isn't enough: the component's `--promo-h: 40px` still
 	   ships with the page CSS, leaving a 40px band and pushing the fixed header
 	   down. Reset it the same way PromoBanner does when it has no slides. */
-	isHome ? <style is:inline set:html=":root{--promo-h:0px;--promo-anim:none}" /> : <PromoBanner />
+	<PromoBanner />
 }
+<style is:inline set:html={`:root[data-temp-no-banner]{--promo-h:0px;--promo-anim:none}:root[data-temp-no-banner] #promo-banner{display:none}`} />
 <HeaderContent gitHubPlatform={gitHubPlatform} headerConfig={headerConfig} homeNav={isHome} />
