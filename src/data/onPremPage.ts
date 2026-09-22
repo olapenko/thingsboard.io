@@ -210,7 +210,7 @@ export interface CompareGroup {
 }
 
 /**
- * "ThingsBoard vs Custom IoT stack", all 39 rows.
+ * "ThingsBoard vs Custom IoT stack", all 35 rows.
  *
  * Note this is a DIFFERENT comparison from the Cloud page's. There the two columns are two ways to
  * buy the same product; here they are "use this platform" against "assemble one yourself", so the
@@ -510,6 +510,22 @@ export const onPremCompare: CompareGroup[] = [
  * Prototype in eight places, and price the beginner plan at $10. They contradict the card on the
  * same page. Left in place deliberately: the fix belongs in the shared pricing data, which
  * `/pricing/` renders too.
+ *
+ * AUDITED against develop, 2026-09-22. All 57 answers were diffed by id: same ids, same order,
+ * same six categories. 45 matched byte for byte; 12 did not, and they split cleanly in two —
+ *
+ *   - FIXED HERE (they do not depend on the plan ladder): the product rename `self-managed` →
+ *     `on-premises` across ten questions and three answers, the ISO 27001 / ISO 9001 sentence
+ *     develop carries in the security answer, "ThingsBoard Professional Edition" → "ThingsBoard"
+ *     in the migration answer, and the database-reference link, which pointed at the CE docs
+ *     (`/docs/reference/...`) where develop points at the PE ones (`/docs/pe/reference/...`).
+ *   - STILL STALE, and deliberately so — all seven encode the old ladder: `subscription-plans`,
+ *     `device-asset-limits`, `features`, `license-multi-location`, `multiple-servers`,
+ *     `try-license`, `support-included`. Develop's `/pricing/` sells Free $0 / Pilot $99 /
+ *     Startup $299 / Business $499 (100 / 100 / 500 / 1,000 devices); this repo's
+ *     `data/pricing/tb-self-managed.ts` still sells Maker $10 / Prototype $39 / Pilot / Startup /
+ *     Business. Rewriting the seven answers alone would leave `/pricing/` contradicting its OWN
+ *     plan cards, so the answers move when the cards do — one pricing-model change, not a copy fix.
  *
  * So the transcription is gone and this re-exports the repo's, minus the Edge and Trendz
  * categories — 32 of its 89 answers are add-on marketing for two other products, and this page
