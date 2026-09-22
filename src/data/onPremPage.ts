@@ -77,7 +77,10 @@ export const onPremBenefits: OnPremBenefit[] = [
 		icon: 'tabler:server',
 		color: '#007c7b',
 		title: 'Not tied to one vendor',
-		description: 'Run it as a virtual machine, a Docker container or a single OS process, in whichever data centre or cloud account you choose — and migrate it when that changes.',
+		// "in whichever data centre or cloud account you choose" came out on the next pass: that is
+		// word for word tile 1's ground, one tile above, and this tile is not about WHERE. Form
+		// factor and portability are the half tile 1 cannot say, and they are all this needs to say.
+		description: 'Run it as a virtual machine, a Docker container or a single OS process — and migrate it between hosts when your infrastructure changes.',
 	},
 	{
 		// `scale-visual.ts`, benchmark scenarios B and E. NOT develop's "from 5 devices to 5+
