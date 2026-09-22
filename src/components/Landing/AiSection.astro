@@ -337,7 +337,14 @@ const { animate = true } = Astro.props;
 		// against the cell instead. Both windows are now placed the same way, which is the point.
 		position: absolute;
 		right: 0;
-		bottom: 14px;
+		// 24, AND THE NUMBER IS THE SHADOW'S. The window's own shadow is authored `0 4px 12px` and gets
+		// multiplied by the scale like everything else, so it reaches 5.5 + 16.4 ≈ 22px below the frame
+		// here — against the 14 this used to leave, which ended it on the crop's straight edge. 24 clears
+		// it. The 10px comes off the top of the window instead, where the crop is already 60 deep and the
+		// log's mask holds transparent for 20 of its own: the cut moves from 9.7 to 17.1 into the log and
+		// stays inside that hold, so the seam is still invisible. Below 560 the scale is 1, the shadow is
+		// a third the size, and this comes back down — see the note there.
+		bottom: 24px;
 		left: 0;
 		margin: 0 auto;
 	}
@@ -380,6 +387,15 @@ const { animate = true } = Astro.props;
 		display: flex;
 		flex-direction: column;
 		height: 354px;
+		// CUT TO FIT THE CROP. The component's own `0 12px 32px` is right for a terminal standing in a
+		// card, and wrong inside a box that clips it: a 32px blur paints 32px past the frame and the crop
+		// leaves 21, so the outer third of the shadow ended on a straight vertical line down both sides,
+		// and the 20px above the window was exactly the reach of the top edge. 18px of blur fits both
+		// with room to spare; the alpha comes up a little so it does not read as weaker for being
+		// tighter. The BOTTOM is cut either way — that cut is the composition.
+		box-shadow:
+			0 1px 0 rgba(255, 255, 255, 0.06) inset,
+			0 8px 18px rgba(0, 0, 0, 0.3);
 		// Matched to the chat's rendered corner rather than to its authored one: the chat is scaled
 		// 1.2, so its 8px becomes 9.6 on the page. Overridden here rather than in `CliTerminal`, whose
 		// own 6px is right for the cards it sits in elsewhere.
@@ -417,7 +433,11 @@ const { animate = true } = Astro.props;
 		max-height: 100%;
 		height: 100%;
 		padding-bottom: 8px;
-		line-height: 1.25;
+		// 1.4, up from 1.25. Tight leading is right for a log you are meant to read as one block, but at
+		// 18px it had closed up enough that the output lines read as attached to the command above them.
+		// The budget pays for it easily: 9 rows at 25.2 plus the padding is 235 against the 288 the crop
+		// leaves, so this still lands 53px clear of the cut.
+		line-height: 1.4;
 
 		// NOT a container query. `min(18px, calc((100cqw - 32px) / 25.15))` off a
 		// `container-type: inline-size` on the wrapper is the obvious way to tie the type to the
@@ -597,14 +617,21 @@ const { animate = true } = Astro.props;
 	// Everything the full-size layout does — the crop, the flush edge, the fade — stays on here. What
 	// changes is ONE number, the scale, and the box heights that follow from it.
 	//
-	// 560 IS A WIDTH ABOUT THE TERMINAL, not about phones, which is why this is a bare media query
-	// rather than one of the shared breakpoints. The terminal's longest line — `tb calculated-field
-	// save --name mean-cargo-temp`, 47 characters — is 25.15em, so an 18px log needs 453px of content
-	// and 485px of window. The cell offers 520 at 560px of viewport and stops clearing that shortly
-	// below, so this is the last width where the 500px composition still fits. The step matters more
-	// than it looks: `white-space: pre` cannot break that line, so it does not shrink — it drops to a
-	// second row, and one wrapped row is the 23px that puts the log into a scroll.
-	@media (max-width: 560px) {
+	// 600 IS A WIDTH ABOUT THE WINDOWS, not about phones, which is why this is a bare media query
+	// rather than one of the shared breakpoints. Two things have to fit in the cell before the 500px
+	// composition can be used, and the wider of the two sets the number:
+	//
+	//   the log     `tb calculated-field save --name mean-cargo-temp` is 25.15em, so an 18px log needs
+	//               453px of content and 485px of window   →  cell 485, viewport 525
+	//   the shadows the crop box clips whatever the window does not leave it, and the terminal's
+	//               reaches 18px past the frame            →  cell 536, viewport 576
+	//
+	// This was 560, which cleared the first and not the second: from 561 to about 576 the cell had
+	// only 10px beside a 500px window and both shadows ended flat down their sides. 600 clears both
+	// with 30px of room. The log step matters more than it looks either way: `white-space: pre` cannot
+	// break that line, so it does not shrink — it drops to a second row, and one wrapped row is the
+	// 23px that puts the log into a scroll.
+	@media (max-width: 599px) {
 		// The chat is drawn AT the cell's width rather than drawn wider and scaled down to it. Scaling
 		// to 0.92 was the first attempt and it is worse on both counts: it renders the body at 11px
 		// where drawing at native renders 12, and a 365px layout box centred in a 335px cell is
@@ -617,15 +644,29 @@ const { animate = true } = Astro.props;
 		.ai__media :global(.assistant) {
 			--ui-scale: 1;
 
-			width: 100%;
+			width: calc(100% - 40px);
 			max-width: 365px;
+			// 16, not the 24 the full-size layout needs: at scale 1 the shadow is a third the size and
+			// reaches 16 below the frame, and every pixel spent here is spent twice — it comes off the top
+			// of the window, where the log's mask only holds transparent for 20 and the whole 289px window
+			// is being cropped by a 250px box. 16 is exactly the reach, and leaves the cut at 21 into the
+			// log: one pixel past the hold, which is 3% of the ramp and invisible.
+			bottom: 16px;
 		}
 
-		// 250: the chat renders 289 here, so the box cuts 53 of it — comfortably more than the 34 the
+		// 250: the chat renders 289 here, so the box cuts 55 of it — comfortably more than the 34 the
 		// `New chat` bar takes, so the bar goes with the cut exactly as it does at full size, and the
-		// log keeps 11px of slack over the greeting.
+		// log keeps its slack over the greeting.
+		//
+		// AND IT BLEEDS INTO THE GUTTER, which is the only place the shadows can go down here. The
+		// windows are drawn at the cell's own width on a phone, so the crop box was exactly as wide as
+		// what it held and both shadows ended flat against its sides — the terminal's especially, at
+		// 0.28 alpha. Pulling the box 20px wider each way costs nothing (it has no background, and the
+		// page gutter is exactly 20) and the windows keep the cell's width by taking 40 off their own,
+		// which is what `calc(100% - 40px)` is doing above and on `.ai__cli` below.
 		.ai__media {
 			height: 250px;
+			margin-inline: -20px;
 		}
 
 		// A shallower cut gets a shorter fade; there is less window above it to dissolve.
@@ -644,6 +685,7 @@ const { animate = true } = Astro.props;
 		// from about 405px of viewport up. 365 still holds the longest line at 11.5px with 44px spare.
 		.ai__cli {
 			top: 14px;
+			width: calc(100% - 40px);
 			max-width: 365px;
 		}
 
