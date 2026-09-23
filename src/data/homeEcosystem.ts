@@ -26,8 +26,15 @@ export interface EcosystemItem {
 	videoMp4?: string;
 	/** Store buttons, shown beneath the primary action on the wide card. */
 	stores?: { label: string; href: string }[];
-	/** Mirrors the wide card: visual on the left, copy on the right. */
-	flipped?: boolean;
+	/**
+	 * Per-tier adjustments, named for the grid's states, not devices: `cols3`
+	 * is the 3-column grid, `cols2` the 2-column, `stack` the single column.
+	 * Defaults everywhere: a double's visual sits to the RIGHT of the copy,
+	 * and is shown. `flip` mirrors the columns, `single` demotes the card to
+	 * one copy-only track at that tier, `no-visual` drops the artwork from the
+	 * stacked card.
+	 */
+	at?: { cols3?: 'flip'; cols2?: 'flip' | 'single'; stack?: 'no-visual' };
 	/** Wide card with a single destination: whole-card hit area, like the singles. */
 	wholeCard?: boolean;
 	/** Category tiles — the visual and the navigation in one. */
@@ -50,6 +57,10 @@ export const homeEcosystem: EcosystemItem[] = [
 		// One destination, like the other two doubles, so the same whole-card
 		// target and hover.
 		wholeCard: true,
+		// All three visuals sit out the stacked column for now — the compositions
+		// were drawn for a column beside the copy, not under it. The flag is
+		// per-card, so any of them can come back with one line.
+		at: { stack: 'no-visual' },
 	},
 	{
 		name: 'Edge',
@@ -93,6 +104,10 @@ export const homeEcosystem: EcosystemItem[] = [
 		// product page anyway, for want of real store URLs), so the whole card
 		// is the target. The previous form lives on the library page.
 		wholeCard: true,
+		// Flipped in the 2-column grid alone: three full-width doubles stack
+		// there, and the middle one mirroring breaks the template read. The
+		// phone-on-a-phone video goes below md.
+		at: { cols2: 'flip', stack: 'no-visual' },
 		// Reused from the mobile page's "Rich set of mobile actions" block —
 		// 564 KB webm / 940 KB mp4, so it is lazy-loaded rather than shipped
 		// with the page.
@@ -115,6 +130,9 @@ export const homeEcosystem: EcosystemItem[] = [
 		// Unflipped: copy left, tiles right, same reading order as the app card
 		// above it. The tiles ride above the whole-card link on their z-index.
 		wholeCard: true,
+		// Demoted to a single in the 2-column grid so TBMQ is not an orphan on a
+		// half-empty last row; the tiles go below md with the other visuals.
+		at: { cols2: 'single', stack: 'no-visual' },
 		// Colours are the categories' own `tileColor` from src/models/iot-hub.ts —
 		// the visual and the links are the same thing here, which is why this card
 		// needs no separate button row.

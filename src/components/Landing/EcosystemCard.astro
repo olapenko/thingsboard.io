@@ -88,7 +88,16 @@ interface Props {
 	/** Monochrome marks naming where the product can run. Decorative — the labels are
 	 *  carried as `title`/`aria-label` on each mark, and the copy above names them too. */
 	targets?: { label: string; icon: string }[];
-	flipped?: boolean;
+	/**
+	 * Per-tier adjustments, named for the grid's own states rather than for
+	 * devices: `cols3` is the 3-column grid (lg up), `cols2` the 2-column grid
+	 * (md to lg), `stack` the single column below md. The defaults at every
+	 * tier: a double shows its visual to the RIGHT of the copy, and shows it.
+	 * `flip` mirrors the two columns (visual left); `single` renders the card
+	 * one track wide and copy-only at that tier; `no-visual` keeps the stacked
+	 * card and drops the artwork. A single card takes none of these.
+	 */
+	at?: { cols3?: 'flip'; cols2?: 'flip' | 'single'; stack?: 'no-visual' };
 	tiles?: { slug: string; label: string; href: string; color: string; icon: string }[];
 	class?: string;
 }
@@ -113,7 +122,7 @@ const {
 	stores,
 	primary,
 	targets,
-	flipped = false,
+	at = {},
 	tiles,
 	class: className = '',
 } = Astro.props;
@@ -152,7 +161,10 @@ if (nameHighlight) {
 		'ecosystem-card',
 		wide && 'ecosystem-card--wide',
 		wholeCard && 'ecosystem-card--whole',
-		flipped && 'ecosystem-card--flipped',
+		at.cols3 === 'flip' && 'ecosystem-card--cols3-flip',
+		at.cols2 === 'flip' && 'ecosystem-card--cols2-flip',
+		at.cols2 === 'single' && 'ecosystem-card--cols2-single',
+		at.stack === 'no-visual' && 'ecosystem-card--stack-novisual',
 		badgeFill && 'ecosystem-card--product',
 		trial && !badgeFill && 'ecosystem-card--filled',
 		className,
@@ -932,28 +944,56 @@ if (nameHighlight) {
 
 	}
 
-	// Flipped mirror of the app card: visual first, copy second. `order` keeps the
-	// DOM in reading order — copy before the tile links — while swapping columns.
-	.ecosystem-card--flipped {
-		// Matched to the wide card's split above — see the note there. Flipping the
-		// columns only means anything while there are two of them.
+	// The flip: visual left, copy right. The DOM keeps reading order — copy
+	// before the visual — while `order` swaps the columns; the default is the
+	// mirror, visual right. ONE definition, applied per grid tier below, so
+	// "flip" means the same thing wherever the card has two columns.
+	@mixin card-flip {
+		// Glow follows the badge to the copy column.
+		--card-glow-x: 75%;
+
+		.ecosystem-card__body {
+			order: 2;
+		}
+
+		.ecosystem-card__tiles,
+		.ecosystem-card__visual,
+		.ecosystem-card__mockup {
+			order: 1;
+		}
+
+		// Badge follows the copy to the right-hand column.
+		.ecosystem-card__badge {
+			left: 75%;
+		}
+	}
+
+	.ecosystem-card--cols3-flip {
+		@include media-up(lg) {
+			@include card-flip;
+		}
+	}
+
+	.ecosystem-card--cols2-flip {
 		@include media-up(md) {
-			// Glow follows the badge to the copy column.
-			--card-glow-x: 75%;
-
-			.ecosystem-card__body {
-				order: 2;
+			@include media-down(lg) {
+				@include card-flip;
 			}
+		}
+	}
 
-			// DISABLED — nothing renders with these class names right now; the markup is
-			// commented out in the frontmatter, which is also where the reason and the
-			// repair are written down. Kept rather than deleted so a fix is one block to
-			// restore rather than a reconstruction.
-			//
-			// THE BUG IS THIS NESTING. Only the `:has()` hover rules below belong inside
-			// `media-up(lg)`. The two rules that HIDE the artwork are in here with them,
-			// so under 1024px the images had no `position` and no `opacity: 0` and laid
-			// themselves out as content.
+	// DISABLED — nothing renders with these class names right now; the markup is
+	// commented out in the frontmatter, which is also where the reason and the
+	// repair are written down. Kept rather than deleted so a fix is one block to
+	// restore rather than a reconstruction. Retargeted from the retired
+	// `--flipped` class to `--cols3-flip` when `flipped` became `at`.
+	//
+	// THE BUG WAS THE ORIGINAL NESTING. Only the `:has()` hover rules belong
+	// inside a media block; the two rules that HIDE the artwork were in there
+	// with them, so under 1024px the images had no `position` and no `opacity: 0`
+	// and laid themselves out as content.
+	.ecosystem-card--cols3-flip {
+		@include media-up(md) {
 			.ecosystem-card__clusters {
 				position: absolute;
 				inset: 0;
@@ -974,9 +1014,8 @@ if (nameHighlight) {
 			}
 
 			@each $cat in devices, solution-templates, widgets, calculated-fields, alarm-rules, rule-chains {
-				.ecosystem-card--flipped:has(.ecosystem-card__tile[data-cat='#{$cat}']:hover)
-					.ecosystem-card__cluster[data-cat='#{$cat}'],
-				.ecosystem-card--flipped:has(.ecosystem-card__tile[data-cat='#{$cat}']:focus-visible)
+				&:has(.ecosystem-card__tile[data-cat='#{$cat}']:hover) .ecosystem-card__cluster[data-cat='#{$cat}'],
+				&:has(.ecosystem-card__tile[data-cat='#{$cat}']:focus-visible)
 					.ecosystem-card__cluster[data-cat='#{$cat}'] {
 					opacity: 0.22;
 				}
@@ -987,14 +1026,45 @@ if (nameHighlight) {
 					transition: none;
 				}
 			}
+		}
+	}
 
-			.ecosystem-card__tiles {
-				order: 1;
+	// Demoted to a single for the 2-column grid: one track, copy only. The wide
+	// format's furniture goes with it — the internal split, the glow, the badge
+	// offset — so the card reads exactly like the singles it now sits beside.
+	.ecosystem-card--cols2-single {
+		@include media-up(md) {
+			@include media-down(lg) {
+				--card-glow-x: 50%;
+
+				display: flex;
+				flex-direction: column;
+				background-image: none;
+
+				.ecosystem-card__badge {
+					left: 50%;
+				}
+
+				.ecosystem-card__tiles,
+				.ecosystem-card__visual,
+				.ecosystem-card__mockup,
+				.ecosystem-card__slot {
+					display: none;
+				}
 			}
+		}
+	}
 
-			// Badge follows the copy to the right-hand column.
-			.ecosystem-card__badge {
-				left: 75%;
+	// The stacked card without its artwork. The visuals were composed for a
+	// column beside the copy, not under it, and the stacked page got long; a
+	// data flag rather than a blanket rule, so any card can change its mind.
+	.ecosystem-card--stack-novisual {
+		@include media-down(md) {
+			.ecosystem-card__tiles,
+			.ecosystem-card__visual,
+			.ecosystem-card__mockup,
+			.ecosystem-card__slot {
+				display: none;
 			}
 		}
 	}
