@@ -84,15 +84,11 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 				<div class="region-signin__menu" role="menu">
 					<span class="region-signin__label">Choose your region</span>
 					<a href="https://thingsboard.cloud" role="menuitem" target="_blank" rel="noopener noreferrer">
-						<span class="region-badge region-badge--us" aria-hidden="true">
-							US
-						</span>
-						United States
+						<Icon name="tabler:cloud-filled" class={`region-cloud region-cloud--us`} aria-hidden="true" />
+						North America
 					</a>
 					<a href="https://eu.thingsboard.cloud" role="menuitem" target="_blank" rel="noopener noreferrer">
-						<span class="region-badge region-badge--eu" aria-hidden="true">
-							EU
-						</span>
+						<Icon name="tabler:cloud-filled" class={`region-cloud region-cloud--eu`} aria-hidden="true" />
 						Europe
 					</a>
 				</div>
@@ -240,6 +236,39 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 <style lang="scss" is:global>
 	@use '../../styles/variables' as *;
 
+	// The region mark, at the top level of this `is:global` block on purpose: it is
+	// used by the header's own sign-in menu AND by the homepage's Cloud card, which
+	// are the two places a reader chooses a region and which `homeProducts.ts`
+	// requires to read as one decision. Nested under the header it reached only the
+	// menu, and the card's marks silently fell back to the card's accent at 1em.
+	//
+	// A cloud rather than a flag or a country code: those answer "whose country is
+	// this?" and no mark settles that — one flag excludes Canada, two excludes
+	// Mexico. This names the thing actually being picked, which is which cloud the
+	// account and its data live in. `tabler:cloud-filled` is the mark the site
+	// already gives ThingsBoard Cloud (homeProducts' cornerIcon, the closing CTA).
+	//
+	// Hue is decoration, not information — both marks are aria-hidden and the region
+	// name carries the meaning. EU has no palette token: the only blue-green the site
+	// owns is `$color-professional`, which names an EDITION, and pointing it at a
+	// region would collide wherever the two appear together. A local value keeps the
+	// region hues from borrowing meaning they do not have.
+	$region-eu: #0e8aa8;
+
+	.region-cloud {
+		width: 20px;
+		height: 20px;
+		flex: 0 0 auto;
+
+		&--us {
+			color: $color-brand;
+		}
+
+		&--eu {
+			color: $region-eu;
+		}
+	}
+
 	// Bordered Pricing button — used on marketing and scrolled-transparent headers,
 	// where the rest-state white Pricing text would vanish on the solid surface.
 	@mixin marketing-price {
@@ -356,10 +385,21 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 				border: 1px solid var(--sl-color-hairline-light);
 				box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
 
+				// The region name is the whole of the choice now that no mark sits beside
+				// it, so it is set above the menu's own 14px rather than level with it —
+				// and above the 15px "Sign in" that opens the menu, because the decision
+				// is here rather than on the trigger. The extra row padding is what keeps
+				// two 16px lines from reading as a cramped block once the 24px badge and
+				// its 8px gap are gone.
 				a {
-					padding: 8px 10px;
+					display: flex;
+					align-items: center;
+					gap: 10px;
+					padding: 10px;
 					border-radius: 4px;
-					font-size: 14px;
+					font-size: 16px;
+					font-weight: $font-weight-medium;
+					line-height: 1.3;
 					color: var(--sl-color-text, #24292f);
 					text-decoration: none;
 
@@ -371,8 +411,8 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			}
 
 			&__label {
-				padding: 4px 10px 6px;
-				font-size: 12px;
+				padding: 4px 10px 8px;
+				font-size: 14px;
 				opacity: 0.6;
 			}
 		}
@@ -387,6 +427,20 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			// rather than the header's default 20px.
 			&[data-home-nav] {
 				padding-right: calc(var(--tb-bar-inset) - 20px);
+
+				// <Navigation> carries ~125 KiB of submenu markup inside the nav. Those
+				// panels are positioned out of flow, but they still inflate the nav's
+				// max-content contribution, so flexbox sizes the header line as though it
+				// overflowed and shrinks every item that will shrink — even at 1500px,
+				// where measurement shows 300px of genuine slack. The CTA was losing 2px
+				// and the star widget 31px to a squeeze that was never real.
+				//
+				// Holding this cluster at its content width ends that: inside it, the star
+				// widget is the one item that still yields (GitHubButton.astro), so the
+				// menu and the CTA keep their size and the count gives way instead.
+				// Gated on [data-home-nav] like the rest of the facelift, so the other
+				// ~630 pages keep the sizing they have today.
+				flex-shrink: 0;
 			}
 			display: flex;
 			flex-direction: row;
@@ -792,6 +846,27 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 					order: 0;
 					height: auto;
 					padding: 10px 0 2px;
+					// Packed to the right, where this cluster sits at every other width —
+					// in the bar above 560 it is pinned to the right inset, and dropping
+					// into its own row is a change of place, not of alignment.
+					justify-content: flex-end;
+					// On the BAR's inset rather than the drawer's 20px: these two are the
+					// bar's cluster pushed down a line, so they answer to the edge the bar
+					// uses — which is also the edge Close keeps below. The nav list beneath
+					// is the drawer's own content and stays on its 20px.
+					padding-right: calc(var(--tb-bar-inset) - 20px);
+				}
+
+				// Close does NOT come down with them. It is the same control as Menu, in
+				// the same place: taking the burger out of flow leaves it where it was
+				// before the drawer opened, so the button the reader just pressed does not
+				// move out from under their finger. `top` centres it in the bar rather
+				// than pinning it to the drawer's top edge — the header is the containing
+				// block and, once open, it is the full-height drawer, not the 64px bar.
+				.burger {
+					position: absolute;
+					top: calc((var(--home-header-h, #{$header-height}) - 40px) / 2);
+					right: var(--tb-bar-inset);
 				}
 
 				.head-menu {
@@ -927,10 +1002,15 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 				color: var(--color-text);
 			}
 
+			// `var(--color-primary)`, not the SCSS `$color-primary`. The two are not the
+			// same colour: the token is #3d50f5, the brand indigo the CTA and the region
+			// menu use, while the Sass variable is a legacy #2a7dec that predates the
+			// facelift. The drawer was the last place the old blue still showed.
+			//
 			// Highlight the expanded section (`.open-sub`, toggled in listburg).
 			li:has(.open-sub) > a,
 			li:has(.open-sub) > span.main-menu-link {
-				color: $color-primary;
+				color: var(--color-primary);
 			}
 
 			// Hover highlight for pointer devices only — touch `:hover` sticks
@@ -938,7 +1018,7 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
 			@media (hover: hover) {
 				li:hover > a,
 				li:hover > span.main-menu-link {
-					color: $color-primary;
+					color: var(--color-primary);
 				}
 			}
 		}

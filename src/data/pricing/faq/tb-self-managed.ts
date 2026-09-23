@@ -7,13 +7,13 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 		items: [
 			{
 				id: 'pe-pay-as-you-go-self-managed-definition',
-				question: 'What is a self-managed subscription?',
-				answer: '<p>A self-managed subscription allows you to host and manage ThingsBoard on your own infrastructure, either on-premises or in the cloud. You are responsible for the installation, configuration, and ongoing management of the system, while ThingsBoard provides the software and necessary documentation to support the process.</p>',
+				question: 'What is an on-premises subscription?',
+				answer: '<p>An on-premises subscription allows you to host and manage ThingsBoard on infrastructure you control — your own data centre or your own cloud account. You are responsible for the installation, configuration, and ongoing management of the system, while ThingsBoard provides the software and necessary documentation to support the process.</p>',
 			},
 			{
 				id: 'pe-pay-as-you-go-self-managed-purchase',
-				question: 'How can I buy a self-managed subscription?',
-				answer: '<p>To purchase a self-managed subscription, you can acquire a license through your <a target="_blank" href="https://license.thingsboard.io/" rel="noopener noreferrer">License Server</a> account. Each license comes with a unique activation key, which allows you to deploy and run the system by following our detailed installation guides.</p>',
+				question: 'How can I buy an on-premises subscription?',
+				answer: '<p>To purchase an on-premises subscription, you can acquire a license through your <a target="_blank" href="https://license.thingsboard.io/" rel="noopener noreferrer">License Server</a> account. Each license comes with a unique activation key, which allows you to deploy and run the system by following our detailed installation guides.</p>',
 			},
 			{
 				id: 'pe-pay-as-you-go-self-managed-purchase-perpetual-license',
@@ -27,12 +27,12 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 			},
 			{
 				id: 'pe-pay-as-you-go-self-managed-subscription-plans',
-				question: 'What self-managed subscription plans does ThingsBoard offer?',
+				question: 'What on-premises subscription plans does ThingsBoard offer?',
 				answer: '<p>ThingsBoard offers flexible monthly subscription plans, with tiers based on the number of devices and assets. We support 5 predefined plans to cater to different needs. The beginner plan includes support for up to 10 devices. For more details, visit the ThingsBoard <a target="_blank" href="/pricing/?product=thingsboard-pe" rel="noopener noreferrer">pricing page</a>.</p>',
 			},
 			{
 				id: 'pe-pay-as-you-go-self-managed-differences',
-				question: 'How do the self-managed subscription plans differ?',
+				question: 'How do the on-premises subscription plans differ?',
 				answer: '<p>Plans differ based on the number of devices, support level, and white-labeling availability.</p>',
 			},
 			{
@@ -57,7 +57,7 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 			},
 			{
 				id: 'pe-pay-as-you-go-cloud-to-self-managed',
-				question: 'Can I migrate from a ThingsBoard Cloud subscription to a self-managed license?',
+				question: 'Can I migrate from a ThingsBoard Cloud subscription to an on-premises license?',
 				answer: '<p>Please, <a target="_blank" href="/contact-us/" rel="noopener noreferrer">contact us</a> in case migration assistance is needed.</p>',
 			},
 			{
@@ -78,7 +78,7 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 			{
 				id: 'pe-pay-as-you-go-license-migration',
 				question: 'Can I migrate from one server or Virtual machine to another using the same license?',
-				answer: '<p>Yes! You can migrate your license by activating or deactivating it on the License Server. To move to a new server, deactivate the current instance, install the software on the new server, and reuse your existing license key. Be sure to back up your data if you want to maintain the same environment. Note: The license system prevents running ThingsBoard Professional Edition on multiple servers at the same time unless you purchase additional instances.</p>',
+				answer: '<p>Yes! You can migrate your license by activating or deactivating it on the License Server. To move to a new server, deactivate the current instance, install the software on the new server, and reuse your existing license key. Be sure to back up your data if you want to maintain the same environment. Note: The license system prevents running ThingsBoard on multiple servers at the same time unless you purchase additional instances.</p>',
 			},
 			{
 				id: 'pe-pay-as-you-go-what-is-included-in-the-white-labeled-mobile-app-add-on',
@@ -93,7 +93,7 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 		items: [
 			{
 				id: 'pe-pay-as-you-go-billing-process',
-				question: 'How does billing work for self-managed subscriptions?',
+				question: 'How does billing work for on-premises subscriptions?',
 				answer: '<p>Billing is handled via Stripe and is charged monthly based on your selected plan. You can also pay annually with card or wire transfer. Please <a target="_blank" href="/contact-us/" rel="noopener noreferrer">contact us</a> to receive a custom invoice.</p>',
 			},
 			{
@@ -184,7 +184,7 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 			},
 			{
 				id: 'pe-pay-as-you-go-internet-requirement',
-				question: 'Do I need an internet connection to use the self-managed license?',
+				question: 'Do I need an internet connection to use the on-premises license?',
 				answer: '<p>Yes, an internet connection is required for periodic license verification. The system checks the license once per hour, and if the connection is not restored within 24 hours, the platform may shut down. This process ensures proper license management while allowing temporary connectivity issues. For more details, please refer to the license check <a target="_blank" href="/docs/license-server/what-is-license-server/" rel="noopener noreferrer">description</a>. Offline mode is also possible as an add-on to the Perpetual license. <a target="_blank" href="/contact-us/" rel="noopener noreferrer">Contact our sales team</a> to know more.</p>',
 			},
 			{
@@ -195,7 +195,7 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 			{
 				id: 'pe-pay-as-you-go-cloud-migration',
 				question: 'Can I move my deployment between cloud providers?',
-				answer: '<p>Yes, self-managed ThingsBoard is cloud-agnostic and can be migrated as needed.</p>',
+				answer: '<p>Yes, on-premises ThingsBoard is cloud-agnostic and can be migrated as needed.</p>',
 			},
 			{
 				id: 'pe-pay-as-you-go-high-availability',
@@ -209,8 +209,8 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 			},
 			{
 				id: 'pe-pay-as-you-go-telemetry-storage',
-				question: 'How is telemetry data stored in self-managed ThingsBoard?',
-				answer: '<p>ThingsBoard supports PostgreSQL or PostgreSQL + Cassandra (Hybrid mode) for telemetry storage. For more details on database options, you can check the <a target="_blank" href="/docs/reference/architecture/database/" rel="noopener noreferrer">database approach reference</a>.</p>',
+				question: 'How is telemetry data stored in on-premises ThingsBoard?',
+				answer: '<p>ThingsBoard supports PostgreSQL or PostgreSQL + Cassandra (Hybrid mode) for telemetry storage. For more details on database options, you can check the <a target="_blank" href="/docs/pe/reference/architecture/database/" rel="noopener noreferrer">database approach reference</a>.</p>',
 			},
 			{
 				id: 'pe-pay-as-you-go-multi-tenancy',
@@ -231,7 +231,7 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 			{
 				id: 'pe-pay-as-you-go-security',
 				question: 'Is my ThingsBoard instance secure?',
-				answer: '<p>Security depends on your infrastructure setup, but ThingsBoard provides built-in authentication, role-based access control, and encryption.</p>',
+				answer: '<p>ThingsBoard has ISO 27001 and ISO 9001 certifications. Also, security depends on your infrastructure setup, but ThingsBoard provides built-in authentication, role-based access control, and encryption.</p>',
 			},
 			{
 				id: 'pe-pay-as-you-go-data-storage',
@@ -266,7 +266,7 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 		items: [
 			{
 				id: 'pe-pay-as-you-go-try-license',
-				question: 'Can I try a self-managed license before subscribing?',
+				question: 'Can I try an on-premises license before subscribing?',
 				answer: '<p>Yes, the Maker plan ($10/month) is a low-cost way to explore the platform. It also includes trial license for Edge and Trendz products, so you can fully test the ThingsBoard ecosystem.</p>',
 			},
 			{
@@ -283,7 +283,7 @@ export const tbSelfManagedFaq: FaqCategory[] = [
 			},
 			{
 				id: 'pe-pay-as-you-go-refunds',
-				question: 'Are refunds available for self-managed subscriptions?',
+				question: 'Are refunds available for on-premises subscriptions?',
 				answer: '<p>No, all sales are final.</p>',
 			},
 		],

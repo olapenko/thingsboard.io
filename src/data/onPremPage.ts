@@ -19,7 +19,6 @@ import { tbSelfManagedFaq } from '@data/pricing/faq/tb-self-managed';
  *  one of them and a `const` cannot be referenced before its own line has run. */
 const CONTACT = '/contact-us/';
 const CONTACT_SALES = '/contact-us/?subject=ThingsBoard%20Products&message=I%20have%20a%20question%20about%20ThingsBoard%20On-premises';
-const LICENSE_SERVER = 'https://license.thingsboard.io/';
 const PRICING_SUBSCRIPTION = '/pricing/?section=thingsboard-pe-options&product=thingsboard-pe';
 const PRICING_PERPETUAL = '/pricing/?section=thingsboard-pe-options&product=thingsboard-pe&solution=pe-perpetual';
 
@@ -57,14 +56,30 @@ export const onPremBenefits: OnPremBenefit[] = [
 		description: 'The data sits on hardware you control — your own data centre or your own cloud account — and you decide where.',
 	},
 	{
-		// `homeProducts.ts`: "Deploy in your own data centre, in your private cloud (AWS, Azure,
-		// GCP), or on Kubernetes." Plus FAQ, Usage: "cloud-agnostic and can be migrated as needed".
-		// It says "migratable", NOT "no lock-in": moving servers means deactivating on the License
-		// Server first, and that caveat belongs in the FAQ where it is stated in full.
+		// REWRITTEN against develop, and the old line is why this tile needs a note. It read "on
+		// your own hardware, in AWS, Azure or GCP, or on Kubernetes", and its own source note
+		// cited `homeProducts.ts` for it — a home-page card, not develop. Checked at the source,
+		// develop's On-premises page says "Kubernetes" zero times, and its AWS/Azure/GCP mentions
+		// are integration nodes and Azure AD SSO, neither of which is a deployment target. The
+		// vendor-and-Kubernetes framing is Private Cloud's on develop. So the tile was quoting the
+		// wrong product, by way of an assumption that had been made one page upstream.
+		//
+		// What replaces it is develop's own vocabulary: `multiple-servers` — "a virtual machine, a
+		// running Docker container, or a single OS process" — and `cloud-migration`, "on-premises
+		// ThingsBoard is cloud-agnostic and can be migrated as needed".
+		//
+		// The title moves off placement because tile 1 above already owns that ground ("your own
+		// data centre or your own cloud account"); this one is about form factor and portability,
+		// which is the half tile 1 cannot say. Still "migrate", NOT "no lock-in": moving servers
+		// means deactivating on the License Server first, and that caveat belongs in the FAQ where
+		// it is stated in full.
 		icon: 'tabler:server',
 		color: '#007c7b',
-		title: 'Your data centre, or any cloud',
-		description: 'Run it on your own hardware, in AWS, Azure or GCP, or on Kubernetes — the deployment is cloud-agnostic and migratable.',
+		title: 'Not tied to one vendor',
+		// "in whichever data centre or cloud account you choose" came out on the next pass: that is
+		// word for word tile 1's ground, one tile above, and this tile is not about WHERE. Form
+		// factor and portability are the half tile 1 cannot say, and they are all this needs to say.
+		description: 'Run it as a virtual machine, a Docker container or a single OS process — and migrate it between hosts when your infrastructure changes.',
 	},
 	{
 		// `scale-visual.ts`, benchmark scenarios B and E. NOT develop's "from 5 devices to 5+
@@ -135,12 +150,14 @@ export const onPremChoice = {
 	/** The comparison table's two column headings, so the table and the band cannot drift. */
 	columns: [
 		/**
-		 * The product column is marked with the ThingsBoard logo rather than a glyph — it is the
-		 * one column that names a real thing, and the logo says so faster than any icon can. The
-		 * other column keeps a glyph on purpose: the asymmetry IS the comparison.
+		 * Both columns are marked with a glyph, and the pair is the comparison: one server you
+		 * configure against a bench of tools you assemble. The product column carried the
+		 * ThingsBoard logo until it was pinned — in the sticky header the logo rides along the
+		 * whole scroll of the table, where a brand mark reads as site chrome rather than as this
+		 * table's left-hand column. `server-cog` was already the column's declared icon.
 		 */
-		{ name: 'ThingsBoard', icon: 'tabler:server-cog', logo: true },
-		{ name: 'Custom IoT stack', icon: 'tabler:tools', logo: false },
+		{ name: 'ThingsBoard', icon: 'tabler:server-cog' },
+		{ name: 'Custom IoT stack', icon: 'tabler:tools' },
 	],
 	options: [
 		{
@@ -148,16 +165,28 @@ export const onPremChoice = {
 			name: 'Monthly subscription',
 			price: 'Free',
 			priceNote: 'Up to 100 devices on one server',
-			summary: 'Subscribe for free, no credit card needed. Pay only once you outgrow it.',
+			/** One sentence, as the perpetual card's is. The second — "Pay only once you outgrow
+			 *  it" — said again what the band's own lead says a line above it, and cost the card
+			 *  a second line the other card did not have, so the two summaries sat at different
+			 *  heights and pushed their bullet lists out of step. */
+			summary: 'Subscribe for free, no credit card needed.',
 			/**
 			 * Two, and both are reasons to choose this card. What came out: where the licence key
 			 * is issued (plumbing — nobody picks a licence on that), and what cancelling does to a
 			 * running instance. The second is a real fact and it is still on the page, in the FAQ
 			 * under "Can I cancel my subscription anytime?", which is where a consequence belongs.
 			 */
+			/**
+			 * The third bullet is the pair's reversibility axis — see the perpetual card. Source:
+			 * the FAQ's own `self-managed-upgrade`, "you can change plans anytime, and billing
+			 * will be prorated accordingly", and `proration`, "Stripe automatically prorates the
+			 * charges when you change plans". It names no tier and no price, deliberately: the
+			 * ladder in `data/pricing/` is stale and out of this handoff's scope.
+			 */
 			points: [
 				'Free for commercial use to 100 devices on one server, and to 1,000 for non-commercial use',
 				'Cancel any time, no notice',
+				'Change tier any time, prorated automatically',
 			],
 			cta: { text: 'Install for free', href: '/docs/pe/installation/', variant: 'primary' as const },
 			// ⚠ STALE, knowingly: this lands on the old ladder — Maker $10 through Business $499 —
@@ -180,9 +209,17 @@ export const onPremChoice = {
 			 * The scale qualifier STAYS on Offline Mode. Without it the add-on reads as either
 			 * included or flatly priced, and it is neither.
 			 */
+			/**
+			 * The other half of the reversibility pair, and the only place on the site that says
+			 * so: `subscription-to-perpetual` — "The remaining costs from the terminated
+			 * subscription plan (if any) will be deducted from the total cost for the perpetual
+			 * license." It answers the objection this card actually meets, which is that months
+			 * already spent on a subscription are money thrown away if you switch.
+			 */
 			points: [
 				'One payment, with no monthly fee after it',
 				'Offline Mode available as an add-on, priced on deployment scale',
+				'Subscription already paid is deducted from the price',
 			],
 			cta: {
 				text: 'Talk to sales',
@@ -210,7 +247,7 @@ export interface CompareGroup {
 }
 
 /**
- * "ThingsBoard vs Custom IoT stack", all 39 rows.
+ * "ThingsBoard vs Custom IoT stack", all 35 rows.
  *
  * Note this is a DIFFERENT comparison from the Cloud page's. There the two columns are two ways to
  * buy the same product; here they are "use this platform" against "assemble one yourself", so the
@@ -510,6 +547,22 @@ export const onPremCompare: CompareGroup[] = [
  * Prototype in eight places, and price the beginner plan at $10. They contradict the card on the
  * same page. Left in place deliberately: the fix belongs in the shared pricing data, which
  * `/pricing/` renders too.
+ *
+ * AUDITED against develop, 2026-09-22. All 57 answers were diffed by id: same ids, same order,
+ * same six categories. 45 matched byte for byte; 12 did not, and they split cleanly in two —
+ *
+ *   - FIXED HERE (they do not depend on the plan ladder): the product rename `self-managed` →
+ *     `on-premises` across ten questions and three answers, the ISO 27001 / ISO 9001 sentence
+ *     develop carries in the security answer, "ThingsBoard Professional Edition" → "ThingsBoard"
+ *     in the migration answer, and the database-reference link, which pointed at the CE docs
+ *     (`/docs/reference/...`) where develop points at the PE ones (`/docs/pe/reference/...`).
+ *   - STILL STALE, and deliberately so — all seven encode the old ladder: `subscription-plans`,
+ *     `device-asset-limits`, `features`, `license-multi-location`, `multiple-servers`,
+ *     `try-license`, `support-included`. Develop's `/pricing/` sells Free $0 / Pilot $99 /
+ *     Startup $299 / Business $499 (100 / 100 / 500 / 1,000 devices); this repo's
+ *     `data/pricing/tb-self-managed.ts` still sells Maker $10 / Prototype $39 / Pilot / Startup /
+ *     Business. Rewriting the seven answers alone would leave `/pricing/` contradicting its OWN
+ *     plan cards, so the answers move when the cards do — one pricing-model change, not a copy fix.
  *
  * So the transcription is gone and this re-exports the repo's, minus the Edge and Trendz
  * categories — 32 of its 89 answers are add-on marketing for two other products, and this page

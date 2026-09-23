@@ -451,11 +451,49 @@ const titles = Array.isArray(title) ? title : [title];
 			grid-template-columns: 1fr;
 			background-color: #000;
 
+			// KEEPING THE NEXT SECTION ABOVE THE FOLD.
+			//
+			// Nothing in this hero used to reference the viewport's HEIGHT: the row was
+			// sized by the copy and by the panel's 16:9, so on a short window the hero
+			// simply ran past the bottom and the section under it was unreachable
+			// without scrolling. Measured before this, at 812x375 the hero stood 512
+			// tall and the next section began exactly at the fold — nothing of it
+			// visible.
+			//
+			// The budget is the viewport minus the chrome above the hero minus the strip
+			// we want to leave showing. `svh`, not `vh`: on mobile `vh` is the tallest
+			// the viewport ever gets, which is the one value that guarantees the promise
+			// is broken while the browser's own bars are on screen.
+			//
+			// `--promo-h` is in it because the AI banner sits above the header and is
+			// part of what pushes this down. If that banner goes, the budget widens on
+			// its own — nothing here needs changing.
+			// The room between the fixed bar and the first thing in the hero. It is a
+			// token because three rules set this padding — stacked, side-by-side, and the
+			// short/narrow trim — and every one of them had to clear the header, so every
+			// one of them was a chance to clear it by exactly zero. That is what happened:
+			// `padding-top: var(--home-header-h)` puts the content box's top edge on the
+			// header's bottom edge, and the mark on the product pages sat against the menu
+			// with nothing between them. Measured settled — mid-animation the hero is
+			// still 45px low from its own entrance transform, which reads as a gap that is
+			// not there.
+			--hero-top-gap: 28px;
+
+			--hero-chrome: calc(var(--home-header-h, #{$header-height}) + var(--promo-h, 0px));
+			--hero-reveal: 56px;
+			--hero-budget: calc(100svh - var(--hero-chrome) - var(--hero-reveal));
+
 			// A panel in normal flow, not a backdrop behind the section.
 			.video-cover {
 				grid-row: 2;
 				width: 100%;
 				aspect-ratio: 16 / 9;
+				// Stacked, the panel is the one part of the hero that can afford to give:
+				// the copy above it cannot be cut, so the panel takes the budget instead
+				// and `cover` crops to it. This cannot rescue a viewport too short for the
+				// copy alone — nothing can, short of clipping it — but it does stop the
+				// panel from being the reason the next section is out of reach.
+				max-height: var(--hero-budget);
 				position: relative;
 				inset: auto;
 				// Base rule parks this at -2 to sit behind a transparent section; the
@@ -512,7 +550,8 @@ const titles = Array.isArray(title) ? title : [title];
 				justify-content: center;
 				background-color: #000;
 				// Clears the fixed bar, then breathes above the panel beneath it.
-				padding: calc(var(--home-header-h, #{$header-height}) + 28px) clamp(20px, calc(0.5rem + 2vw), 56px) 36px;
+				padding: calc(var(--home-header-h, #{$header-height}) + var(--hero-top-gap))
+					clamp(20px, calc(0.5rem + 2vw), 56px) 36px;
 
 				// Type sits on solid black here, so the shadows the centred layout
 				// needs over video only muddy it.
@@ -652,8 +691,9 @@ const titles = Array.isArray(title) ? title : [title];
 				}
 			}
 
-			// Stacked, the badge rides the panel's bottom-right corner. At the base
-			// rule's top/right it landed on the headline itself.
+			// The badge rides the panel's bottom-right corner at every width. It used
+			// to move to the top of the panel once the columns appeared, which put it
+			// over the busiest part of the footage and, stacked, over the headline.
 			.achievement {
 				top: auto;
 				bottom: 16px;
@@ -664,40 +704,108 @@ const titles = Array.isArray(title) ? title : [title];
 				}
 			}
 
-			@include media-up(lg) {
-				// Side by side. Height comes from the video's 16:9, not a viewport
-				// percentage: a vh-driven box cannot match the footage's ratio, which
-				// is what forced the old centre-crop down to ~29% of the frame.
-				grid-template-columns: 1fr 2fr;
+			// SIDE BY SIDE FROM `md`, not `lg`. Between 750 and 1024 the hero used to
+			// break into a stacked column — the copy, then a full-width panel under it
+			// — which is a phone composition on a tablet: the fold lands mid-headline
+			// and the footage is pushed off the first screen entirely. Two columns hold
+			// from the first width that can carry them.
+			@include media-up(md) {
+				// Even columns here; the panel only takes the larger share once there is
+				// enough width that the copy still has a comfortable measure beside it.
+				// At 750 a `1fr 2fr` split leaves the text column at ~250px, which sets
+				// the headline four lines deep.
+				grid-template-columns: 1fr 1fr;
 
 				.video-cover {
 					grid-column: 2;
 					grid-row: 1;
 					// `stretch` still sizes the row from the 16:9 hypothetical height, so
 					// the frame stays uncropped whenever the text column fits inside it.
-					// When the column is taller — narrow desktops, where the buttons wrap —
-					// the panel grows with the row and cover trims a little, instead of
-					// leaving a black gap beside the copy.
+					// When the column is taller — the tablet widths this now covers, and
+					// narrow desktops where the buttons wrap — the panel grows with the row
+					// and `cover` trims the sides instead of leaving a black gap beside the
+					// copy. That side trim is the point at tablet sizes: the panel is
+					// narrower than 16:9 there, so the frame is cropped left and right
+					// rather than letterboxed.
 					align-self: stretch;
 					// Clears the menu so nothing plays behind it.
 					margin-top: var(--home-header-h, #{$header-height});
-					// Beyond this the panel widens past 16:9 and cover crops again —
-					// the trade we accept rather than a 900px-tall hero on ultrawides.
-					max-height: 720px;
+					// Two ceilings, whichever bites first. 720 is the composition's: beyond
+					// it the panel widens past 16:9 and cover crops again, which we accept
+					// rather than a 900px-tall hero on ultrawides. The budget is the
+					// viewport's, and on a wide-but-short window it is the binding one — at
+					// 1920x800 the 16:9 panel alone wants 720px and would put the next
+					// section 24px below the fold before the banner is even counted.
+					max-height: min(720px, var(--hero-budget));
+
+					// Stated rather than left to the initial value: the centring is the
+					// whole reason the side crop is acceptable — it takes the frame's
+					// edges evenly and leaves the dashboard in the middle of it.
+					:global(video) {
+						object-position: center;
+					}
 				}
 
 				#hero-content {
 					grid-column: 1;
 					grid-row: 1;
-					padding: var(--home-header-h, #{$header-height}) clamp(24px, calc(0.5rem + 2vw), 56px) 0;
+					// The 36px bottom is the stacked layout's, kept rather than zeroed. It
+					// used to be 0 because at `lg` the 16:9 panel is always the taller of
+					// the two, so the row never took its height from this column. At tablet
+					// widths the panel is short and the copy IS the tallest thing in the
+					// row, and with no bottom padding "Talk to an expert" sat flush on the
+					// hero's bottom edge with 6px of it under `overflow: hidden`. Above
+					// `lg` this changes nothing — the panel still sets the row.
+					padding: calc(var(--home-header-h, #{$header-height}) + var(--hero-top-gap))
+						clamp(24px, calc(0.5rem + 2vw), 56px) 36px;
 				}
 
-				.achievement {
-					top: calc(#{$header-height} + 16px);
-					bottom: auto;
+				.achievement .achieve {
+					width: 72px;
+				}
 
-					.achieve {
-						width: 72px;
+				@include media-up(lg) {
+					// Height comes from the video's 16:9, not a viewport percentage: a
+					// vh-driven box cannot match the footage's ratio, which is what forced
+					// the old centre-crop down to ~29% of the frame.
+					grid-template-columns: 1fr 2fr;
+				}
+			}
+
+			// The panel answers to that budget (below and in the md block). The COPY
+			// cannot: it is the floor, and cutting it to fit would trade a visible
+			// section for an unreadable headline. What it can do on a short viewport is
+			// stop spending height on air. Measured at 812x375, the copy stood 512 tall
+			// out of a 375 viewport — 100 of it padding and 76 of it margins between
+			// four blocks — so this reclaims the spacing without touching a type size.
+			//
+			// 620px is where a laptop viewport stops having room to spare, not a device:
+			// a 1024x600 netbook, a short browser window and a phone on its side all
+			// land here for the same reason.
+			// Short OR narrow. Short is the obvious one; narrow matters because the copy
+			// grows when the measure shrinks — at 375px the headline and the subtitle
+			// wrap far enough that the column runs 540px, and with the panel under it the
+			// next section was left with a 9px sliver. Same spending, same fix.
+			@media (max-height: 620px), (max-width: #{$breakpoint-sm}) {
+				// Nested inside #hero-content, not beside it: the margins these override
+				// are set on `#hero-content h1` and friends, and a rule on the bare
+				// element loses to that no matter which media query it sits in.
+				#hero-content {
+					// Half the gap, not none of it. Reclaiming height here is worth 12px;
+					// closing it entirely is what put the mark against the menu.
+					--hero-top-gap: 16px;
+					padding-bottom: 20px;
+
+					h1 {
+						margin-bottom: 12px;
+					}
+
+					.tb-sub-title {
+						margin-bottom: 20px;
+					}
+
+					.hero-note {
+						margin-top: 14px;
 					}
 				}
 			}

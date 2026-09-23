@@ -1,6 +1,7 @@
 ---
 import { mainNavItems, allSubmenus, type NavItem, type SubMenu, type SubMenuItem } from '@data/navigation';
 import SubMenuLink from '@components/Landing/SubMenuLink.astro';
+import { Icon } from 'astro-icon/components';
 
 interface Props {
 	/**
@@ -30,18 +31,15 @@ const navItems: NavItem[] = homeNav
 		]
 	: mainNavItems;
 
-// The rule sits before the regrouped items; +1 covers the appended Pricing.
-const groupStartIndex = homeNav ? navItems.length - (trailing.length + 1) : -1;
 ---
 
 <nav class="head-menu">
 	<ul>
 		{
-			navItems.map((item, index) => (
+			navItems.map((item) => (
 				<li
 					class:list={[
 						`nav-${item.submenuId?.replace('nav-', '') || item.label.toLowerCase().replace(' ', '-')}`,
-						index === groupStartIndex && 'nav-group-start',
 					]}
 					data-submenu-id={item.submenuId}
 				>
@@ -52,9 +50,17 @@ const groupStartIndex = homeNav ? navItems.length - (trailing.length + 1) : -1;
 							href={item.href}
 						>
 							{item.label}
+							{/* Keyed off `submenuId`, not off which element we rendered: "Use Cases"
+							    is an <a> that ALSO expands, and "Docs" is a <span> that expands, so
+							    the tag says nothing about it. Decorative — the drawer's expanded
+							    state is already conveyed by the submenu appearing. */}
+							{item.submenuId && <Icon name="tabler:chevron-down" class="main-menu-chevron" aria-hidden="true" />}
 						</a>
 					) : (
-						<span class="main-menu-link">{item.label}</span>
+						<span class="main-menu-link">
+							{item.label}
+							{item.submenuId && <Icon name="tabler:chevron-down" class="main-menu-chevron" aria-hidden="true" />}
+						</span>
 					)}
 				</li>
 			))
@@ -423,29 +429,6 @@ const groupStartIndex = homeNav ? navItems.length - (trailing.length + 1) : -1;
 		display: flex;
 		justify-content: center;
 
-		@media screen and (min-width: 1281px) {
-			li.nav-group-start {
-				position: relative;
-				margin-left: 18px;
-
-				// `currentColor` was wrong here: the li inherits a dark slate, so the
-				// rule vanished against the hero's black header. This is the token the
-				// header's own .divider uses. Half the margin centres it between the
-				// two labels rather than leaving it flush against the previous one.
-				&::before {
-					content: '';
-					position: absolute;
-					left: -9px;
-					top: 50%;
-					margin-top: -2px; // li padding is 10/14, so a flat 50% sits below the text
-					transform: translateY(-50%);
-					width: 1px;
-					height: 20px;
-					background-color: var(--sl-color-hairline-light);
-				}
-			}
-		}
-
 		.sub-menu-container {
 			position: absolute;
 			// Follows the bar rather than the 80px constant, so the shorter
@@ -557,6 +540,11 @@ const groupStartIndex = homeNav ? navItems.length - (trailing.length + 1) : -1;
 									color: var(--color-primary);
 									font-size: 14px;
 									line-height: normal;
+									// Uppercase at 14px sets tight: capitals are all one height, so the
+									// word loses the ascender/descender shapes the eye reads a lowercase
+									// label by, and the letters run together. Opening them up is what
+									// makes a caps label read as a label rather than as shouting.
+									letter-spacing: 0.08em;
 								}
 							}
 						}
@@ -832,7 +820,11 @@ const groupStartIndex = homeNav ? navItems.length - (trailing.length + 1) : -1;
 					overflow-y: auto;
 					flex: 1;
 					min-height: 0;
-					padding: 16px 20px 0;
+					// No horizontal padding: the drawer column already insets this nav to
+					// 20px, the same edge the logo and the buttons sit on, so the 20px that
+					// used to be here was a second inset stacked on the first and put every
+					// row at 40 while the bar above stayed at 20.
+					padding: 16px 0 0;
 
 					// Hide the inner-drawer scrollbar — the drawer is already
 					// the only scrollable region on the page when the burger
@@ -914,19 +906,103 @@ const groupStartIndex = homeNav ? navItems.length - (trailing.length + 1) : -1;
 									width: 100%;
 									flex-wrap: wrap;
 
+									// THE SECTIONS SIT SIDE BY SIDE; each one's items stay in a single file
+									// beneath its own heading. Only these two submenus: Products has two
+									// sections and Use Cases two, while Services and Company have one, and a
+									// lone section in a two-column grid is a narrow column with a hole beside it.
+									&.products,
+									&.cases {
+										.sub-groups {
+											display: grid;
+											// TWO COLUMNS ONLY IF THE SECTIONS FIT IN THEM. `auto-fit` with a 200px
+											// floor lets the drawer decide: a phone panel is ~319px, so 200+12+200
+											// does not fit and the sections stay stacked one per row; a tablet drawer
+											// has the room and they sit side by side. Forcing two at every width was
+											// what made the labels overflow their own column and run under the section
+											// beside them — 150px is not a column, it is a clipped one.
+											//
+											// `auto-fit`, not `auto-fill`, so two sections make two equal columns
+											// rather than two narrow ones and an empty track beside them.
+											grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+											column-gap: 12px;
+											row-gap: 28px;
+											// The sections are different lengths — Use Cases pairs 13 items with 3
+											// — so each starts at the top of its own column rather than being
+											// stretched to its neighbour's height.
+											align-items: start;
+										}
+
+										// A grid item will not go below its content's min-width unless told to, and
+										// these links carry a width from the desktop panel.
+										.group {
+											min-width: 0;
+										}
+
+
+										// The item descriptions carry `white-space: nowrap` for the desktop panel,
+										// where a column is wide enough to hold them on one line. In a drawer
+										// column that nowrap does not clip — the text overflows its own column and
+										// runs under the section beside it. `min-width: 0` is what lets the flex
+										// item take the column's width instead of its content's.
+										.sub-text {
+											min-width: 0;
+
+											p {
+												white-space: normal;
+											}
+										}
+
+										// The desktop panel's 32px mark costs 44px of the column once its gap is
+										// counted. At 24 the mark still reads and the text gains that back as
+										// measure, which is what keeps a two-column section to one line a label.
+										a > svg,
+										a > img {
+											width: 24px;
+											height: 24px;
+											flex: 0 0 24px;
+										}
+
+										a {
+											gap: 10px;
+											// The links carry a width from the desktop panel; without this they
+											// push past the column the grid gave them.
+											width: auto;
+											max-width: 100%;
+										}
+									}
+
 									.sub-groups {
-										gap: 60px;
+										// 60px was a column gap, from when these groups sat side by side.
+										// Stacked they are one above another, and 60px of air read as the
+										// menu having ended. 28px keeps them separate groups.
+										gap: 28px;
 										flex-flow: row wrap;
 										align-items: flex-start;
-										padding-left: 25px;
+										// One step in from the parent label, not 25px of arbitrary offset:
+										// the child rows should read as belonging to the row above them.
+										padding-left: 16px;
 
 										.group {
 											flex-direction: column;
 											gap: 15px;
 											padding: 0;
+											// The desktop rule sets `margin: 5px 5px 0` to hold the columns
+											// apart where they sit side by side. Stacked, that 5px only
+											// knocked the block off the 16px indent — the heading landed at
+											// 41 against a panel edge of 36 — so it goes with the padding.
+											margin: 0;
+											// And the block takes the panel's full width. Sized by content it
+											// stopped at 291 inside a container running to 355, which left the
+											// section floating in its own panel with a ragged right edge that
+											// lined up with nothing.
+											width: 100%;
 
+											// This used to carry `width: unset`, which left the first section alone
+											// shrinking to its content while the rest filled the panel. The width
+											// is set on `.group` above now; what still belongs here is undoing the
+											// desktop `align-items: stretch`, since the first section is the one
+											// desktop gives a filled background and a matched height.
 											&:first-child {
-												width: unset;
 												align-self: unset;
 											}
 
@@ -1048,6 +1124,92 @@ const groupStartIndex = homeNav ? navItems.length - (trailing.length + 1) : -1;
 						}
 					}
 				}
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE OPEN DRAWER
+	//
+	// Below 1281px the row becomes a stacked list, and a stacked list gives no hint which of its
+	// items open a submenu and which navigate away. Seven of the ten expand, and two of them are
+	// easy to guess wrong from the markup alone: "Use Cases" is a link that ALSO expands, and
+	// "Docs" looks like a plain link but expands. The chevron is the only thing that separates the
+	// two kinds, so it is driven by `submenuId` rather than by the tag we rendered.
+	//
+	// Confined to the drawer. The desktop row already answers the question a different way — the
+	// sliding `.indicator` under the hovered item — and a chevron on each of seven items there
+	// would be noise in a bar whose width is already the scarce resource.
+	// ---------------------------------------------------------------------------------------------
+	.main-menu-chevron {
+		display: none;
+	}
+
+	@media screen and (max-width: 1280px) {
+		header.header.opened-burger .head-menu > ul > li {
+			// ONE inset for the drawer, and it is the bar's: the nav's own 20px padding,
+			// with nothing added on the row. The row was inheriting the desktop `10px 12px
+			// 14px`, where the 12px separated items in a horizontal run and the uneven
+			// 10/14 left room under the label for the hover indicator. Stacked, neither
+			// does anything except misalign: the label landed at 52px while the logo and
+			// the buttons above it sat at 20, the hairline floated in at 40, and the label
+			// rode above the centre of its own row. Symmetric padding fixes the second,
+			// dropping the horizontal fixes the first, and the row still clears 44px.
+			padding: 14px 0;
+
+			// A hairline per row, on the SAME token the header's own chrome uses, so the
+			// drawer is ruled by the site's lightest line rather than a new one. It sits on
+			// the `li` rather than on the label, so an expanded item keeps its submenu on
+			// its own side of the line instead of being underlined by it.
+			border-bottom: 1px solid var(--sl-color-hairline-light);
+
+			// Nothing follows the last row, so a line under it would read as the start of a
+			// section that is not there.
+			&:last-child {
+				border-bottom: none;
+			}
+
+			> .main-menu-link {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				// 500, the step Ubuntu actually ships between 400 and 700 — a stacked list
+				// carries more weight than the row did without becoming headings.
+				font-weight: $font-weight-medium;
+				transition: color 0.15s ease;
+
+				// Same token the drawer's own hover rule uses (HeaderContent.astro), so
+				// whichever of the two wins the cascade, the colour is the same. This one
+				// carries :focus-visible, which that rule deliberately leaves out — it is
+				// gated on (hover: hover) to keep sticky touch highlights away.
+				&:focus-visible {
+					color: var(--color-primary);
+				}
+			}
+
+			.main-menu-chevron {
+				display: block;
+				width: 20px;
+				height: 20px;
+				flex: 0 0 auto;
+				// Below the label's weight at rest: it marks the kind of item, it is not the
+				// thing being read. It comes up to full strength with the label on hover.
+				opacity: 0.5;
+				transition:
+					transform 0.2s ease,
+					opacity 0.15s ease;
+			}
+
+			> .main-menu-link:hover .main-menu-chevron,
+			> .main-menu-link:focus-visible .main-menu-chevron {
+				opacity: 1;
+			}
+
+			// Points at the panel it opened, once that panel is open.
+			&:has(.sub-menu.open-sub) > .main-menu-link .main-menu-chevron {
+				transform: rotate(180deg);
+				opacity: 1;
 			}
 		}
 	}

@@ -304,51 +304,30 @@
 	// [data-header-scrolled] rule below that had been winning on order alone.
 	// Ordering is no longer what keeps them apart, so adding a fourth state
 	// can't silently break the other three.
+	// The star widget joins each of these: it takes its ink, border and hover from
+	// `currentColor`, so naming the colour here is the whole of its theming — the
+	// border and the Octicon follow without a rule of their own. Added as separate
+	// selectors rather than a `:is()` so each keeps the specificity the note above
+	// depends on.
 	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-variant='transparent'])
 		.region-signin
-		summary {
+		summary,
+	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-variant='transparent'])
+		.gh-button {
 		color: #fff;
 	}
 
-	header.header[data-header-scrolled] .region-signin summary {
+	header.header[data-header-scrolled] .region-signin summary,
+	header.header[data-header-scrolled] .gh-button {
 		color: var(--color-text);
 	}
 
-	// Region marks: set in type, sized alike, so they read as a pair.
-	//
-	// The one place below the 14px floor that stays there on purpose. "US" and "EU" in a 24px square
-	// are a mark rather than a line of text — there is no reading to do, and at 14 the two letters
-	// stop fitting the square. `line-height` is stated rather than inherited: the badge appears in
-	// two places with different surrounding leadings, and without this it took 15 in the header and
-	// 20 inside a card, which is the same mark set two ways.
-	.region-badge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		margin-right: 8px;
-		border-radius: 4px;
-		font-size: 10px;
-		font-weight: 700;
-		line-height: 1;
-		letter-spacing: 0.02em;
-		color: #fff;
-		flex: 0 0 auto;
-	}
-
-	.region-badge--us {
-		background-color: $color-brand;
-	}
-
-	.region-badge--eu {
-		background-color: #0f161d;
-	}
-
-	.region-signin__menu a {
-		display: flex;
-		align-items: center;
-	}
+	// No mark beside either region. A flag answers "whose country is this?" when the
+	// menu is asking where the data should live, and no set of flags settles it —
+	// one excludes Canada, two excludes Mexico, three is unreadable at this size. A
+	// neutral glyph avoided the claim but said nothing either: the same globe twice,
+	// told apart only by hue. The region names are short and unambiguous on their
+	// own, so they carry it, set larger than the rest of the menu.
 
 	.n-button--outlined:hover {
 		background-color: rgba(61, 80, 245, 0.08);
@@ -358,36 +337,13 @@
 		background-color: rgba(61, 80, 245, 0.14);
 	}
 
-	// GitHub button in its dark dress, to sit on the hero's black header. Same
-	// palette the component already ships behind [data-theme='dark'] — the
-	// homepage forces the light theme, so it never reaches it.
-	//
-	// Gated on the same two states as the Sign in white above, so the widget
-	// flips with the bar instead of staying dark on it: the scrolled header and
-	// the open drawer are both light surfaces, and a near-black pill with a
-	// black count sat on them as a hole. Nothing needs restating for the light
-	// case — dropping out of these selectors hands the widget back to the
-	// component's own default dress, which is the light one.
-	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-button {
-		background: #21262d;
-		border-color: #30363d;
-		color: #e6edf3;
-		box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
-	}
-
-	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-button:hover {
-		border-color: #58a6ff;
-		color: #e6edf3;
-	}
-
-	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-sep {
-		background-color: #30363d;
-	}
-
-	header.header:not([data-header-scrolled]):not(.opened-burger) .gh-count {
-		background-color: #161b22;
-		color: #e6edf3;
-	}
+	// The star widget needs nothing here any more. It used to be dressed in
+	// GitHub's own palette (#21262d / #30363d / #e6edf3), which is a near-black
+	// pill: invisible over the dark hero and a hole on the light scrolled bar, so
+	// this block repainted it per state. It now takes its border, ink and hover
+	// from `currentColor` — the same contract `.region-signin summary` keeps — so
+	// it follows the bar through transparent, scrolled and drawer on its own, and
+	// there is no second palette to keep in sync. See GitHubButton.astro.
 
 	// ---------------------------------------------------------------------------------------------
 	// THE HERO
@@ -422,13 +378,36 @@
 	}
 
 	// The product's mark, as the deployments band draws it: the TB glyph knocked out white on a
-	// squircle filled with the primary. 72px and 32% radius are that badge's own numbers.
+	// squircle filled with the primary. 32% radius is that badge's own number.
+	//
+	// 72, the same as the deployments band draws it. It was briefly 96 on the reasoning that this
+	// one opens the page alone and should carry the weight the wordmark used to — at that size it
+	// competed with the 42px headline it sits above instead of introducing it. The mark is the
+	// page's signature, not its first statement. The glyph is 82% of the squircle either way, so
+	// the size moves without the artwork changing its relationship to it.
 	.hero-mark {
 		display: grid;
 		place-items: center;
 		width: 72px;
 		height: 72px;
 		margin-bottom: $spacing-5;
+
+		// NO `margin-top` HERE. This rule briefly carried one, to hold the badge off the menu on
+		// the two pages this partial serves. `Hero.astro` now solves the same thing properly and
+		// for everyone: `--hero-top-gap` (28px, 16 under the trim) is added to `--home-header-h`
+		// in every one of the three padding rules, so no layout can clear the header by zero.
+		// Both together measured 115px at 1440 where the token alone intends 44, which is what a
+		// page-local patch on top of a fixed root gets you. The token owns the clearance; this
+		// rule owns the badge.
+		//
+		// Size still steps down on the viewports that trim, for the reason the trim exists: short
+		// or narrow is where height is scarce, and the badge is the cheapest thing to give back —
+		// it is the one element here carrying no words. Keep this condition in step with
+		// `Hero.astro`'s.
+		@media (max-height: 620px), (max-width: #{$breakpoint-sm}) {
+			width: 56px;
+			height: 56px;
+		}
 		border-radius: 32%;
 		// The product's own colour — see the file header.
 		background-color: var(--page-mark-color, #{$color-brand});

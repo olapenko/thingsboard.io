@@ -29,16 +29,15 @@ const link = `https://github.com/${repo}`;
 		aria-label={`Star ${repo} on GitHub`}
 		data-repo={repo}
 	>
-		<div class="gh-main">
-			<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-				<path
-					d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-				></path>
-			</svg>
-			<span>Star</span>
-		</div>
-		<div class="gh-sep"></div>
-		<div class="gh-count">&nbsp;</div>
+		{/* Octicon `mark-github` (GitHub Octicons, MIT). Fills with currentColor so the
+		    mark follows the bar through transparent / scrolled / dark exactly as the
+		    border does — no second colour to keep in sync. */}
+		<svg class="gh-mark" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+			<path
+				d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+			></path>
+		</svg>
+		<span class="gh-count">&nbsp;</span>
 	</a>
 </div>
 
@@ -70,6 +69,9 @@ const link = `https://github.com/${repo}`;
 
 			const show = (text: string) => {
 				counterEl.textContent = text;
+				// The count can be dropped visually by the container query below, so the
+				// number goes on the label too — the icon-only button still announces it.
+				btn.setAttribute('aria-label', `Star ${repo} on GitHub — ${text} stars`);
 				btn.classList.add('is-loaded');
 			};
 
@@ -99,13 +101,48 @@ const link = `https://github.com/${repo}`;
 	}
 </script>
 
-<style>
-	/* Fixed wrap width absorbs the button's collapsed→expanded transition so the
-	   nav doesn't shift. No overflow:hidden — would clip the hover translateY. */
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Component-local sizing. Kept here rather than in _variables.scss: nothing else
+	// in the site has an opinion about how wide a star counter is.
+	//
+	//   full   — icon (16) + gap (8) + padding (24) + the count. At the bar's regular
+	//            15/400, "18,432" measures 46px, so the cell needs 94 and reserves 96.
+	//            A SIXTH digit measures 55 and needs 104: the button clips rather than
+	//            grows, so this has to go to 104 before the repo passes 100k stars —
+	//            and the widths in the media query below re-measured with it.
+	//   icon   — the square cell, matching the 40px height of the row's other controls
+	//   cutoff — between the two, so the count drops the moment the cell is nearer
+	//            the square than the full pill, whatever drove it there
+	$gh-wrap-full: 96px;
+	$gh-wrap-icon: 40px;
+	$gh-count-cutoff: 84px;
+
+	// The nav and the CTA outrank the star count: this widget is the one item in the
+	// bar that gives up space. It gives it up by being SIZED down at the band where
+	// the bar is tight, not by flex-shrinking:
+	//
+	//   `flex: none` + `width`     — the cell is exactly as wide as we say, so the
+	//                                CTA beside it can never be squeezed to pay for
+	//                                it. (.head-buttons[data-home-nav] holds the
+	//                                whole cluster at content width for the same
+	//                                reason — see HeaderContent.astro.)
+	//   the @container query below — whenever the cell is nearer the square than
+	//                                the full pill, the count is DROPPED rather
+	//                                than clipped, whatever set that width.
+	//
+	// `container-type` is why the width has to be explicit: size containment zeroes
+	// this box's intrinsic contribution to the cluster's content width, so a
+	// content-derived `flex-basis` measured 65px instead of 96px and the count
+	// vanished at widths that had 300px of slack. The query is worth that: it makes
+	// "an icon when space doesn't allow" true at any width a page hands us, not
+	// only at the breakpoints named here.
 	.gh-wrap {
 		display: none;
-		flex-shrink: 0;
-		width: 132px;
+		container-type: inline-size;
+		flex: none;
+		width: $gh-wrap-full;
 	}
 
 	@media screen and (min-width: 1120px) {
@@ -114,122 +151,91 @@ const link = `https://github.com/${repo}`;
 		}
 	}
 
-	/* Laptop widths: drop "Star" label; 100px wrap = ~95px loaded button + 5px right-edge breathing. */
-	@media screen and (max-width: 1599px) {
+	// Where the count gives way. The header is logo 177 + nav 663 + cluster 321 with
+	// the count shown, inside the header's 2x20 padding, so the gap left on each
+	// side of the centred nav is
+	//
+	//     gap = (viewport - 1201) / 2
+	//
+	// 1300 is where that lands at ~50px, which is as close as the cluster can come
+	// before it reads as crowding the nav. Raising this number buys the nav room it
+	// does not need and costs the count at widths that had space for it. Re-measure
+	// the three widths above if the nav gains or loses an item — dropping the group
+	// separator alone moved the nav 18px and this number with it. Below the band it
+	// is the icon alone, down to 1281 where the nav leaves for the drawer and the
+	// question stops arising.
+	@media screen and (min-width: 1281px) and (max-width: 1299px) {
 		.gh-wrap {
-			width: 100px;
-		}
-
-		.gh-main span {
-			display: none;
+			width: $gh-wrap-icon;
 		}
 	}
 
 	.gh-button {
 		display: inline-flex;
-		align-items: stretch;
-		height: 28px;
-		background: #ffffff;
-		border: 1px solid #d0d7de;
-		border-radius: 6px;
-		color: #24292f;
-		text-decoration: none;
-		font-size: 12px;
-		font-weight: 600;
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-		line-height: 1;
-		box-shadow: 0 1px 0 rgba(31, 35, 40, 0.04);
-		transition:
-			border-color 0.2s cubic-bezier(0.3, 0, 0.5, 1),
-			box-shadow 0.2s cubic-bezier(0.3, 0, 0.5, 1),
-			transform 0.2s cubic-bezier(0.3, 0, 0.5, 1);
-		overflow: hidden;
-
-		:global([data-theme='dark']) & {
-			background: #21262d;
-			border-color: #30363d;
-			color: #e6edf3;
-			box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
-		}
-	}
-
-	.gh-button:hover {
-		border-color: #0969da;
-		color: #24292f;
-		transform: translateY(-1px);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-
-		:global([data-theme='dark']) & {
-			border-color: #58a6ff;
-			color: #e6edf3;
-		}
-	}
-
-	.gh-main {
-		display: flex;
 		align-items: center;
-		gap: 5px;
-		padding: 0 10px;
+		justify-content: center;
+		gap: 8px;
+		width: 100%;
+		height: 40px;
+		padding: 0 12px;
+		box-sizing: border-box;
+		border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+		border-radius: $radius-sm;
+		// Inherit the bar's ink and type rather than naming a colour: the header goes
+		// white over the hero, dark once scrolled, and light again in the drawer, and
+		// `currentColor` follows all three. This is the same contract `.region-signin
+		// summary` keeps, which is why the two now read as one set of controls.
+		color: inherit;
+		font-family: $font-family-base;
+		// The bar's regular type: 15/400, the same as "Sign in" beside it and the nav
+		// links. Not the CTA's 14/700 — that weight is what marks "Try for free" as the
+		// one thing to press, and a star count borrowing it competes for that.
+		font-size: 15px;
+		font-weight: $font-weight-normal;
+		line-height: 1;
+		text-decoration: none;
+		white-space: nowrap;
+		overflow: hidden;
+		transition:
+			background-color $transition-fast,
+			border-color $transition-fast;
 	}
 
-	.gh-main svg {
-		fill: none;
-		stroke: currentColor;
-		stroke-width: 2;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-		flex-shrink: 0;
+	.gh-button:hover,
+	.gh-button:focus-visible {
+		background-color: color-mix(in srgb, currentColor 12%, transparent);
+		border-color: color-mix(in srgb, currentColor 55%, transparent);
+		color: inherit;
 	}
 
-	/* Safari quirk: `visibility: hidden` on empty flex items doesn't honor `flex-basis` — use opacity. */
-	.gh-sep {
-		display: block;
-		opacity: 0;
-		flex: 0 0 0;
-		min-width: 0;
-		background-color: #d0d7de;
-		transition: flex-basis 0.2s ease, opacity 0.2s ease;
-
-		:global([data-theme='dark']) & {
-			background-color: #30363d;
-		}
+	.gh-mark {
+		flex: 0 0 16px;
+		fill: currentColor;
 	}
 
 	.gh-count {
-		display: flex;
+		// Hidden until the fetch lands so the placeholder `&nbsp;` never paints as a
+		// blank gap; the width is reserved all along, so nothing shifts when it does.
 		opacity: 0;
-		align-items: center;
-		padding: 0;
-		background-color: #f6f8fa;
 		font-variant-numeric: tabular-nums;
-		justify-content: center;
-		box-sizing: border-box;
-		width: 0;
-		flex: 0 0 0;
-		min-width: 0;
-		overflow: hidden;
-		transition: flex-basis 0.2s ease, width 0.2s ease, padding 0.2s ease,
-			opacity 0.2s ease;
-
-		:global([data-theme='dark']) & {
-			background-color: #161b22;
-		}
+		transition: opacity $transition-fast;
 	}
 
-	.gh-button.is-loaded {
-		.gh-sep {
-			opacity: 1;
-			flex: 0 0 1px;
+	.gh-button.is-loaded .gh-count {
+		opacity: 1;
+	}
+
+	// Below this the cell is the icon alone. `display: none` rather than a width
+	// transition: at this size there is nothing to animate, and leaving the node in
+	// flow would keep the flex gap.
+	@container (max-width: #{$gh-count-cutoff}) {
+		.gh-count {
+			display: none;
 		}
 
-		.gh-count {
-			opacity: 1;
-			/* Lock cell to 60px. `min-width:0` is essential — it overrides the flex-item
-			   `min-width: auto` (= min-content) that would grow the cell in Safari when
-			   real text replaces the &nbsp; placeholder. */
-			width: 60px;
-			flex: 0 0 60px;
-			padding: 0 10px;
+		.gh-button {
+			padding: 0;
+			gap: 0;
 		}
 	}
 </style>

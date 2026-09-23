@@ -26,8 +26,35 @@ const SLIDES = [
 	},
 ];
 
+interface Props {
+	/**
+	 * Quiet variant: white bar, one purple AI mark, the message at a regular
+	 * weight and a chevron — and a single announcement, so there is nothing to
+	 * switch between and no ‹ › controls. Used by the facelift routes, where the
+	 * banner sits directly above a black split hero and the carousel's purple bar
+	 * read as a second header. Everywhere else keeps the announcement carousel.
+	 */
+	plain?: boolean;
+}
+
+const { plain = false } = Astro.props;
+
 const current = Astro.url.pathname.replace(/\/+$/, '');
-const slides = SLIDES.filter((s) => s.target !== current);
+const allSlides = SLIDES.filter((s) => s.target !== current);
+// `plain` shows the first announcement only — the rotation is the thing being
+// dropped, not just its controls.
+/**
+ * Plain variant: the product name leads in primary bold and the rest of the
+ * sentence stays regular. Split on the first colon rather than carrying a second
+ * copy of the name in the data — the labels are written "<product>: <claim>", and
+ * a label without a colon simply has no lead and renders whole.
+ */
+const splitLead = (label: string) => {
+	const i = label.indexOf(':');
+	return i === -1 ? { lead: '', rest: label } : { lead: label.slice(0, i), rest: label.slice(i) };
+};
+
+const slides = (plain ? allSlides.slice(0, 1) : allSlides).map((s) => ({ ...s, ...splitLead(s.label) }));
 const showBanner = slides.length > 0;
 const hasSwitcher = slides.length > 1;
 ---
@@ -36,7 +63,7 @@ const hasSwitcher = slides.length > 1;
 	showBanner && (
 		<div
 			id="promo-banner"
-			class:list={[{ 'has-switcher': hasSwitcher }]}
+			class:list={[{ 'has-switcher': hasSwitcher, 'is-plain': plain }]}
 			role="region"
 			aria-label="Site announcements"
 		>
@@ -54,7 +81,7 @@ const hasSwitcher = slides.length > 1;
 						tabindex={i === 0 ? undefined : -1}
 					>
 						<span class="promo-badge">
-							<span class="promo-pill">
+							<span class="promo-pill">{/* plain: no pill chrome, no word — see styles */}
 								<svg
 									class="promo-star"
 									width="9"
@@ -69,10 +96,19 @@ const hasSwitcher = slides.length > 1;
 										fill="currentColor"
 									/>
 								</svg>
-								{s.badge}
+								{!plain && s.badge}
 							</span>
 						</span>
-						<span class="promo-msg" set:html={s.html} />
+						{/* Plain splits the sentence itself: the product name leads bold and
+						    primary, the rest stays regular. The two expressions are kept on one
+						    line because a newline between them renders as a space, which put a
+						    gap in front of the colon. The carousel keeps its own <strong> markup. */}
+						{plain ? (
+							<span class="promo-msg"><strong class="promo-lead">{s.lead}</strong>{s.rest}</span>
+						) : (
+							<span class="promo-msg" set:html={s.html} />
+						)}
+						{plain && <Icon name="tabler:chevron-right" class="promo-chevron" aria-hidden="true" />}
 						<svg
 							class="promo-arrow"
 							viewBox="0 0 18 7"
@@ -226,6 +262,90 @@ const hasSwitcher = slides.length > 1;
 		--promo-fg: #fff; // message text
 		--promo-pill-bg: #fff;
 		--promo-pill-fg: #305680; // pill text + star
+
+		// QUIET VARIANT — white bar, one purple mark, one weight, a chevron.
+		//
+		// Everything here is a re-point of the four tokens above plus the removal of
+		// the pill's chrome, so the carousel version is untouched: the bar keeps its
+		// height, its hide-on-scroll transform and its offset contract, and only its
+		// colours and its two ornaments change.
+		&.is-plain {
+			// White, with the primary washed in from the left and gone by the time the message
+			// starts. Scrolled, the header under this bar is also rgb(255,255,255) — measured —
+			// so a flat white banner met a flat white bar with only a hairline between them.
+			//
+			// A gradient rather than a tint because white has to stay the colour of the bar: it is
+			// pure white for the top 40% and only reaches 10% of the primary on the last line of
+			// pixels, so the announcement is read on white and the hue is a shadow under it rather
+			// than a fill. `--promo-bg` stays white underneath, which is what a browser without
+			// `color-mix` falls back to.
+			//
+			// Down the bar, not across it, and darkening toward the BOTTOM. Across, the wash sat
+			// at one end of a full-width bar while the message is centred, so the tint and the
+			// thing it was meant to lift were nowhere near each other. Bottom-weighted, the
+			// strongest part of it lands exactly on the edge the bar shares with the header —
+			// which is the edge that was disappearing into it.
+			--promo-bg: #fff;
+
+			background-image: linear-gradient(
+				180deg,
+				#fff 40%,
+				color-mix(in srgb, var(--color-primary, #3d50f5) 3%, #fff) 72%,
+				color-mix(in srgb, var(--color-primary, #3d50f5) 10%, #fff) 100%
+			);
+			--promo-fg: var(--color-text, #17181c);
+			// The mark is the one piece of colour in the bar, so it takes the primary
+			// rather than the pill's old slate.
+			--promo-pill-fg: var(--color-primary, #3d50f5);
+
+			border-bottom: 1px solid var(--sl-color-hairline-light, #edeef3);
+
+			// No pill: the mark stands on the white directly. Its size and the gap to
+			// the message are all that is left of the badge.
+			.promo-pill {
+				background: none;
+				padding: 0;
+				border-radius: 0;
+				font-size: 0; // no badge word in this variant — kill its line box
+			}
+
+			.promo-star {
+				width: 15px;
+				height: 20px;
+			}
+
+			// The sentence is regular; the product name is not. `:not(.promo-lead)` is
+			// what keeps this reset — which exists to catch a <strong> arriving from the
+			// carousel's own markup — from flattening the lead we just set.
+			.promo-msg,
+			.promo-msg strong:not(.promo-lead) {
+				font-weight: $font-weight-normal;
+			}
+
+			// The product name carries the same primary as the mark and the chevron, so
+			// the bar reads as one accent rather than three greys and a colour.
+			.promo-lead {
+				font-weight: $font-weight-bold;
+				color: var(--color-primary, #3d50f5);
+			}
+
+			// The long arrow belongs to the purple bar; a chevron is the quieter
+			// "there is a page behind this".
+			.promo-arrow {
+				display: none;
+			}
+
+			.promo-chevron {
+				width: 22px;
+				height: 22px;
+				flex: 0 0 auto;
+				color: var(--color-primary, #3d50f5);
+			}
+
+			.promo-slide {
+				gap: 10px;
+			}
+		}
 
 		position: fixed;
 		top: 0;

@@ -50,10 +50,52 @@ const here = Astro.url.pathname.replace(/\/?$/, '/');
 				</li>
 			))
 		}
+		{/* TEMPORARY — REMOVE BEFORE PRODUCTION, with the block it drives in
+		    starlight/Header.astro. The AI promo banner now shows on the facelift
+		    routes and its 40px is part of the hero's fold budget; this is how you
+		    see the hero with it and without it without a rebuild. */}
+		<li class="inav__temp">
+			<button type="button" data-temp-banner-toggle title="TEMP: show or hide the AI promo banner">
+				AI banner
+			</button>
+		</li>
 	</ul>
 </nav>
 
 <script>
+	// TEMPORARY — REMOVE BEFORE PRODUCTION (with the markup above and the block in
+	// starlight/Header.astro). Writes the same sessionStorage key that Header's
+	// inline script reads before paint, so the banner's presence survives a
+	// navigation between the internal pages and the real ones.
+	const BANNER_KEY = 'tb-temp-no-banner';
+	const bannerBtn = document.querySelector<HTMLButtonElement>('[data-temp-banner-toggle]');
+
+	if (bannerBtn) {
+		const paintBanner = (hidden: boolean) => {
+			document.documentElement.toggleAttribute('data-temp-no-banner', hidden);
+			bannerBtn.dataset.off = String(hidden);
+			bannerBtn.setAttribute('aria-pressed', String(!hidden));
+		};
+
+		let hidden = false;
+		try {
+			hidden = sessionStorage.getItem(BANNER_KEY) === '1';
+		} catch {
+			/* private mode — the banner just stays on */
+		}
+		paintBanner(hidden);
+
+		bannerBtn.addEventListener('click', () => {
+			hidden = !hidden;
+			paintBanner(hidden);
+			try {
+				sessionStorage.setItem(BANNER_KEY, hidden ? '1' : '0');
+			} catch {
+				/* nothing to persist to; the toggle still works for this page */
+			}
+		});
+	}
+
 	const KEY = 'internal-nav:open';
 	const nav = document.querySelector<HTMLElement>('[data-internal-nav]');
 	const toggle = nav?.querySelector<HTMLButtonElement>('[data-inav-toggle]');
@@ -137,6 +179,26 @@ const here = Astro.url.pathname.replace(/\/?$/, '/');
 		height: 7px;
 		border-radius: 50%;
 		background: var(--color-primary, #3d50f5);
+	}
+
+	/* TEMPORARY — REMOVE BEFORE PRODUCTION. Deliberately unlike the page pills
+	   beside it: this one changes the page rather than navigating, and it should
+	   not be mistaken for part of the set. */
+	.inav__temp button {
+		border: 1px dashed currentColor;
+		border-radius: 999px;
+		background: none;
+		padding: 2px 10px;
+		font: inherit;
+		font-size: 11px;
+		color: inherit;
+		cursor: pointer;
+		opacity: 0.75;
+	}
+
+	.inav__temp button[data-off='true'] {
+		opacity: 0.4;
+		text-decoration: line-through;
 	}
 
 	.inav__list {

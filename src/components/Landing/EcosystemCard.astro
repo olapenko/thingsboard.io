@@ -67,8 +67,9 @@ interface Props {
 	videoWebm?: string;
 	videoMp4?: string;
 	/**
-	 * `region` renders the header sign-in menu's own US/EU mark before the label;
-	 * `icon` renders a Tabler glyph there instead. A store has one or the other.
+	 * `icon` renders a Tabler glyph before the label; `region` renders the sign-in
+	 * menu's own cloud mark there instead, in that region's hue. A store has one or
+	 * the other, or neither.
 	 */
 	stores?: { label: string; href: string; region?: 'us' | 'eu'; icon?: string }[];
 	/** Monochrome marks naming where the product can run. Decorative — the labels are
@@ -165,10 +166,10 @@ if (nameHighlight) {
 			{
 				nameParts.map((part) =>
 					part.tint ? (
-						<>
+						<span class="ecosystem-card__name-accent">
 							{cornerIcon && <Icon name={cornerIcon} class="ecosystem-card__title-icon" aria-hidden="true" />}
-							<span class="ecosystem-card__name-accent">{part.text}</span>
-						</>
+							{part.text}
+						</span>
 					) : (
 						part.text
 					)
@@ -192,9 +193,11 @@ if (nameHighlight) {
 						{stores?.map((store) => (
 							<a class="ecosystem-card__store" href={store.href} {...externalLinkAttrs(store.href)}>
 								{store.region && (
-									<span class:list={['region-badge', `region-badge--${store.region}`]} aria-hidden="true">
-										{store.region.toUpperCase()}
-									</span>
+									<Icon
+										name="tabler:cloud-filled"
+										class={`region-cloud region-cloud--${store.region}`}
+										aria-hidden="true"
+									/>
 								)}
 								{store.icon && <Icon name={store.icon} class="ecosystem-card__store-icon" aria-hidden="true" />}
 								{store.label}
@@ -482,8 +485,22 @@ if (nameHighlight) {
 	// The word that tells the two deployments apart, tinted to its own badge. No
 	// fallback needed: on cards without --badge-fill this is invalid at
 	// computed-value time, which inherits the title's colour.
+	//
+	// The glyph labels the deployment name, so it lives inside this span rather than
+	// beside it, and the two cannot be parted: `inline-flex` makes the span one flex
+	// line, so no card width puts a break between the mark and the word — and a flex
+	// container drops the whitespace-only nodes the template leaves around its
+	// children, so the gap is the icon's stated margin and not that plus a rendered
+	// space. `nowrap` is the other half, for the hyphen inside "On-premises", which
+	// otherwise breaks and strands the glyph with "On-" above "premises".
+	//
+	// Only the two product cards pass a `nameHighlight`, so this span exists nowhere
+	// else and the display change reaches nothing but the pair.
 	.ecosystem-card__name-accent {
+		display: inline-flex;
+		align-items: center;
 		color: var(--badge-fill);
+		white-space: nowrap;
 	}
 
 	.ecosystem-card__title {

@@ -32,11 +32,32 @@ import { onPremBenefits, onPremChoice, onPremCompare, onPremCtas, onPremFaq } fr
  *     choice a self-hosting reader faces. Cloud's is Public against Private.
  *   - The mark is the green `homeProducts` gives On-premises, not the Cloud indigo.
  *
- * WHAT DEVELOP HAD THAT IS NOT CARRIED OVER YET — all noted rather than silently dropped:
+ * WHAT DEVELOP HAD THAT IS NOT CARRIED OVER YET — all noted rather than silently dropped.
+ * Re-checked against develop section by section, 2026-09-22; the first two were missing from
+ * this list, not just from the page:
+ *   - `#tb-customers`, the customer logo strip, with its three case-study links (T-Mobile CZ,
+ *     Schwarz, Tektelic). The only social proof develop puts on this page.
+ *   - `#platform`, "Everything you need to build, deploy, and scale IoT solutions" — the
+ *     four-stage Connect / Context / Automate / Operate journey and its diagram. NOT the same
+ *     section as the feature blocks below, which is why it was missed the first time.
  *   - The seven feature blocks (white-labeling, RBAC, integrations, entity groups, scheduler,
  *     reporting, CSV/XLS export) with their docs links. Several of these are in the comparison
  *     table already; the rest want a home on a later pass.
- *   - The "Deploy anywhere" and "Managed Services" panels.
+ *   - `#deploy-anywhere`, "Deploy anywhere, scale without surprises". Its headline claim, "From
+ *     5 devices to 5+ million", is the one `scale-visual.ts` rejects as unsupported — so the
+ *     panel can be carried over but that sentence cannot, and the benefit tile already states
+ *     the benchmarked version.
+ *   - The "Managed Services" panel, which on develop links to
+ *     `/pricing/?product=thingsboard-private-cloud`.
+ *   - The prose under "Simple and predictable pricing models". The chooser replaced the section;
+ *     the paragraph explaining WHY the two models exist has no home yet.
+ *
+ * DELIBERATE DIVERGENCES from develop, so a later reader does not "fix" them back:
+ *   - The hero badge. Develop shows "Top supplier retail 2024"; `HERO_ACHIEVEMENT = null` opts
+ *     out, because this page's hero already carries the product mark.
+ *   - The hero actions. Develop opens on "Get it now" → `/pricing/`; this page opens on
+ *     "Install for free" → the install guide, and leaves pricing to the chooser.
+ *   - Title and subtitle. Develop's H1 is "ThingsBoard On-premises IoT Platform".
  */
 
 // Develop's own hero image for this product. NOTE: the Cloud page currently uses this same asset,
@@ -47,8 +68,6 @@ const HERO_BACKGROUND = '/hero/pe-cover.webp';
 // The same asset the Cloud page knocks out on its squircle. `homeProducts` fills the On-premises
 // badge with #1f8b4d, so the two products are marked the same way and coloured differently.
 const TB_MARK = '/src/assets/images/landings/thingsboard-mark.svg';
-/** The accent, as a literal: `EcosystemMark` rewrites the SVG on the server, where SCSS cannot reach. */
-const MARK_INK = '#1f8b4d';
 /**
  * The product name for RENDERED headings, carrying a non-breaking hyphen (U+2011) so it never
  * splits across two lines — the hero's H1 was breaking after "On-" at tablet widths. Written as an
@@ -62,6 +81,31 @@ const NAME = 'ThingsBoard On\u2011premises';
 // `Hero` shows the "Top supplier retail 2024" badge for CE, PE and both PaaS products unless a page
 // opts out. `null` is that opt-out — an omitted prop takes the default instead.
 const HERO_ACHIEVEMENT = null;
+
+/**
+ * The hero's lede, built to mirror the Cloud page's clause for clause, because the two pages ARE
+ * the same fork: "An IoT platform for device management, data processing and visualization —
+ * fully managed by OUR team…" against "…deployed and run by YOUR team". That is the decision
+ * `homeProducts.ts` names — "two deployments, one decision: who runs it" — and saying it in the
+ * same words on both pages is what makes the two heroes read as two answers, not two products.
+ *
+ * WHAT CAME OUT. "Deployed where your policies and operations require it" is develop's own H2,
+ * and it is the vaguest sentence on that page: it promises placement without naming one.
+ * Develop's compressed version of the same page is better, and the second clause is taken from
+ * it — the meta description, "full control of infrastructure, data location and compliance".
+ * "Infrastructure" is the one word dropped, because the clause before already says your team
+ * deploys and runs it, which is what controlling the infrastructure IS. Without it this lede is
+ * the Cloud page's length and sets the same four lines at 1440.
+ *
+ * "Your data centre, your cloud account, or fully offline" came out because the two tiles
+ * immediately below said it twice already. The hero was the third. Offline keeps its places —
+ * the home card and the chooser, where the add-on it needs can be stated alongside it.
+ *
+ * A const rather than a literal in the tag: a `{/* … *\/}` comment among JSX attributes is not
+ * valid there. The dev server rendered it anyway; `astro check` reported 8 errors for it.
+ */
+const HERO_SUBTITLE =
+	'An IoT platform for device management, data processing and visualization — deployed and run by your team, with full control of data location and compliance.';
 
 /** Answers shown per topic before "More questions", as on the Cloud page. */
 const FAQ_VISIBLE = 6;
@@ -98,7 +142,7 @@ const faqPageSchema = buildFaqPageSchema(onPremFaq);
 		product={Products.PE}
 		backgroundImage={HERO_BACKGROUND}
 		title={NAME}
-		subtitle="The whole IoT platform, deployed where your policies and operations require it — your data centre, your cloud account, or fully offline."
+		subtitle={HERO_SUBTITLE}
 		achievement={HERO_ACHIEVEMENT}
 		buttons={[
 			{
@@ -178,19 +222,7 @@ const faqPageSchema = buildFaqPageSchema(onPremFaq);
 									onPremChoice.columns.map((column) => (
 										<th scope="col">
 											<span class="matrix__col">
-												{column.logo ? (
-													/* `filled` is what recolours the mark: it maps the glyph's single tone to
-													   `ink`. Without it the mark stays its own near-black and the column
-													   heading beside it is the only green thing in the cell. */
-													<EcosystemMark
-														src={TB_MARK}
-														class="matrix__col-mark matrix__col-mark--logo"
-														filled
-														ink={MARK_INK}
-													/>
-												) : (
-													<Icon name={column.icon} class="matrix__col-mark" aria-hidden="true" />
-												)}
+												<Icon name={column.icon} class="matrix__col-mark" aria-hidden="true" />
 												{column.name}
 											</span>
 										</th>
@@ -416,13 +448,6 @@ const faqPageSchema = buildFaqPageSchema(onPremFaq);
 	// rather than a third tint.
 	#matrix {
 		--matrix-band: #fff;
-	}
-
-	// The mark is drawn inside a 44 box with its own inset, so at the glyphs' 24 it reads smaller
-	// than they do. 28 matches them optically rather than numerically.
-	.matrix__col-mark--logo {
-		width: 28px;
-		height: 28px;
 	}
 
 	// The badge takes the same green rather than a second literal of it.

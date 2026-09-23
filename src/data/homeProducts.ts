@@ -14,9 +14,6 @@ export interface ProductChoice {
 	 * The card's button row. Named `stores` because the ecosystem's mobile card got
 	 * there first with App Store / Google Play; here it is the regional sign-ups and
 	 * the installer.
-	 *
-	 * `region` draws the same 24px US/EU mark the header's "Sign in" menu uses, so
-	 * the two places a reader picks a region look like the same decision.
 	 */
 	stores?: { label: string; href: string; region?: 'us' | 'eu'; icon?: string }[];
 	/** Monochrome marks under the copy, naming where the product can run. */
@@ -31,51 +28,99 @@ export interface ProductChoice {
 export const homeProducts: ProductChoice[] = [
 	{
 		name: 'ThingsBoard Cloud',
-		label: 'Fully managed SaaS',
+		// "shared or dedicated" rather than "SaaS": with no Private Cloud card of its own, this
+		// card is the whole managed family, and the label is where a reader learns there are two
+		// of them. The fork itself stays on the Cloud page, which is built around exactly that
+		// comparison — see `paasChoice`.
+		label: 'Fully managed, shared or dedicated',
+		// 99.9, not 99.95. The old figure was in no other file and on no page of develop: develop's
+		// own comparison row reads "Uptime SLA — 99.9% / 99.9%–99.99%", and `paasPage.ts` carries
+		// the same pair. 99.95 described neither product.
+		//
+		// The residency sentence came out to make room. It was saying what the two region buttons
+		// under it were already saying, and those are gone now as well.
+		// The "in 5 minutes" promise moved to the button, where it is attached to the thing that
+		// actually takes five minutes. Said in both places it read as a slogan; said on the
+		// control it reads as an estimate.
 		description:
-			'Sign up and start in 5 minutes — we handle servers, scaling, backups and upgrades, on a 99.95% SLA. Free tier to start, then flexible subscription tiers as you grow. Available globally, with EU and US data residency.',
+			'We run the servers, scaling, backups and upgrades on a 99.9% SLA. Start free on shared infrastructure, or move to Private Cloud, a dedicated cluster we provision and operate for you.',
 		icon: '/src/assets/images/landings/thingsboard-mark.svg',
 		cornerIcon: 'tabler:cloud-filled',
 		badgeFill: '#3d50f5',
 		nameHighlight: 'Cloud',
 		href: '/products/paas/',
 		action: 'Explore Cloud',
-		// Cloud is two regions with separate hosts, so there is no single sign-up
-		// URL — the reader picks where their data lives.
-		stores: [
-			// The header's sign-in menu names the regions exactly this way, and the mark
-			// beside each is the same one. "Start in US" next to a US badge said it twice.
-			{ label: 'United States', href: 'https://thingsboard.cloud/signup', region: 'us' },
-			{ label: 'Europe', href: 'https://eu.thingsboard.cloud/signup', region: 'eu' },
-		],
+		// One action, not two regions. Which host your data lives on is a real decision, but it is
+		// not the decision this section is for — the section asks who runs the platform, and a
+		// card that answers with two buttons makes the reader choose a continent before they have
+		// chosen a product. The regions are not lost: the header's sign-in menu lists both, and
+		// the Cloud page carries them too.
+		//
+		// The card keeps one action so the pair stays symmetrical — this one starts you, and
+		// On-premises' Install does the same on its side.
+		// "Sign up", not "Sign in": the href is `/signup`, and the reader this card is written for
+		// has no account yet. A returning user signs in from the header.
+		//
+		// No glyph. The label is a phrase carrying a time estimate, and a mark in front of it
+		// competes with the words rather than labelling them.
+		stores: [{ label: 'Sign up and start in 5 min', href: 'https://thingsboard.cloud/signup' }],
 		accent: '#6e7481',
 	},
 	{
 		name: 'ThingsBoard On-premises',
 		label: 'Deployed on your infrastructure',
+		// The list is gone, and that is the point: "in AWS, Azure, GCP, or on Kubernetes" named
+		// the same four things the `targets` marks name directly underneath, so the card said its
+		// targets twice and its reason not at all. The marks are better at the list than a
+		// sentence is; the sentence is better at what the list cannot say.
+		//
+		// So it now says the two things nothing else on this page says. WHO RUNS IT is the
+		// decision the section is built on, and it is the only line where this card can answer
+		// it. OFFLINE is the capability no managed option has at any price — develop's own
+		// On-premises hero leads on it, "Your own cloud, on-premises, or fully offline".
+		//
+		// It also no longer says "your private cloud". ThingsBoard sells a product by that name —
+		// a dedicated cluster OUR team runs — and it is the opposite of this card. Develop's
+		// On-premises page never uses the phrase either.
 		description:
-			'Deploy in your own data centre, in your private cloud (AWS, Azure, GCP), or on Kubernetes. Full control of infrastructure, data location and compliance.',
+			'You run the deployment, so data location and compliance stay in your hands — and it can run fully offline.',
 		icon: '/src/assets/images/landings/thingsboard-mark.svg',
-		cornerIcon: 'tabler:square-rotated-filled',
+		// A server, not the rotated square that was here. The rhombus named nothing —
+		// it was a shape holding the badge colour next to the word, while Cloud's
+		// glyph opposite it says exactly what Cloud is. This one does the same job on
+		// this side: racks you own. Tabler ships no filled server, so it is the
+		// outline against Cloud's solid — the one asymmetry left in the pair.
+		cornerIcon: 'tabler:server',
 		badgeFill: '#1f8b4d',
 		nameHighlight: 'On-premises',
 		href: '/products/thingsboard-pe/',
 		action: 'Explore On-premises',
 		// Cloud's row starts you somewhere; this one had only the read-more link, so
 		// the two halves of the same decision were not offered on the same terms.
+		// "Install for free" rather than "Install", matching the On-premises hero's own primary
+		// button word for word — the card promises the action and the page delivers the same one,
+		// and "for free" is the half that answers the reader's actual hesitation about self-hosting.
 		// `tabler:download` is the hero's own Install glyph, so the page's two install
 		// affordances are the same button in two sizes.
-		stores: [{ label: 'Install', href: '/installations/', icon: 'tabler:download' }],
-		// The four targets the description names, in its order, as monochrome marks.
-		// `simple-icons` is single-path and takes `currentColor`, which is what makes a
-		// row of four vendor logos possible without four vendor colours — see
-		// `ScaleDuo` for the same set used the same way.
-		targets: [
-			{ label: 'AWS', icon: 'simple-icons:amazonwebservices' },
-			{ label: 'Azure', icon: 'simple-icons:microsoftazure' },
-			{ label: 'Google Cloud', icon: 'simple-icons:googlecloud' },
-			{ label: 'Kubernetes', icon: 'simple-icons:kubernetes' },
-		],
+		stores: [{ label: 'Install for free', href: '/installations/', icon: 'tabler:download' }],
+		// NO VENDOR MARKS. The row read AWS · Azure · Google Cloud · Kubernetes, and checked against
+		// develop that is not this product's story — it is the other one's:
+		//
+		//   - Develop's On-premises page says "Kubernetes" ZERO times. Its AWS, Azure and GCP
+		//     mentions are all something else: "REST, Kafka, RabbitMQ, AWS, Azure and GCP nodes to
+		//     push data into ERP, CRM or billing systems" is the rule engine's integration nodes,
+		//     and "OAuth2 SSO (Google, Azure AD, Okta…)" is identity. Not one names a place to
+		//     deploy. That page's deployment words are data centre, virtual machine and Docker.
+		//   - Kubernetes appears 7 times on develop, every one of them PRIVATE CLOUD: "Dedicated,
+		//     isolated Kubernetes cluster", "All plans are powered by Kubernetes… AWS is our
+		//     first-choice IaaS, but Azure or GCP regions are also supported on request".
+		//   - Even `/docs/pe/installation/` never says "Kubernetes". Its two Recommended options
+		//     are Docker; the K8s-flavoured entries are Minikube and OpenShift; and its cloud list
+		//     includes DigitalOcean, which the row left out.
+		//
+		// So the marks were Private Cloud's infrastructure narrative pinned to the card that means
+		// the opposite, and they narrowed the claim besides: this card's argument is that YOU pick
+		// where it runs, which four logos contradict by implying the four are the list.
 		accent: '#6e7481',
 	},
 ];
