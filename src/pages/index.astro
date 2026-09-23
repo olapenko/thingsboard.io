@@ -303,12 +303,12 @@ const HERO_BACKGROUND = '/images/hero/tb-cover.webp';
 		<!-- Bottom Features Section -->
 		<section id="bottom-features">
 			<div class="main-div">
-				<SectionHeader
-					title="ThingsBoard Features"
-					subtitle="What you get out of the box, before writing a line of code."
-					titleSize="section"
-					subtitleMeasure="copy"
-				/>
+				{
+					/* Heading and cards both come from `develop`'s own closing feature section, so the two
+					   pages make the same argument in the same words. No subtitle: develop carries none,
+					   and the ten cards under it are the answer to the question the title asks. */
+				}
+				<SectionHeader title="Why choose ThingsBoard" titleSize="section" />
 				<div id="cards">
 					{homeFeatures.map((feature) => <FeatureTile {...feature} />)}
 				</div>
@@ -1124,18 +1124,57 @@ const HERO_BACKGROUND = '/images/hero/tb-cover.webp';
 	#bottom-features {
 		padding-top: $spacing-16;
 		padding-bottom: $spacing-20;
-		// Same primary-derived light as the other two bands.
-		background-color: #f5f6ff;
+		// A STEP DOWN FROM THE BAND ABOVE IT, not a new colour. This was #f5f6ff — the same value
+		// `.home-band` carries — so the ecosystem section and this one shared a ground and read as one
+		// long block with a heading in the middle of it. Same recipe, twice the ink:
+		// color-mix(in srgb, #3d50f5 10%, #fff) against the band's 5%. Still the page's one light
+		// tint, still derived from the primary, just far enough off the band to be its own section.
+		//
+		// It buys the tiles something too. They are white with a hairline, and white on #f5f6ff is a
+		// luminance ratio of 1.076 — the reason `FeatureTile` needs that edge at all. On this ground
+		// the card reads as a card before the border does any work.
+		background-color: #eceefe;
 	}
 
 	#cards {
 		padding-top: 0;
-		// Tight auto-fill: four across at the 960 measure, more if it ever grows.
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+		// THREE ACROSS, NOT FOUR. Four put the descriptions on a 24-character measure once this
+		// section took develop's copy — two and three sentences a card rather than the one line the
+		// auto-fill this replaced was tuned for, which ran the longest of them to ten lines. Three
+		// gives ~34, on the same three-two-one ladder the ecosystem grid above it uses, so the page's
+		// two card grids break at the same widths instead of one reflowing on its own schedule.
+		//
+		// FLEX RATHER THAN GRID, for the last row. Ten cards over three columns leaves one on its own,
+		// and a grid pins it to the first track — an orphan hard against the left edge under two full
+		// rows. Flex centres a short row for free, and it is the only part of this that grid cannot do
+		// without naming the leftover by `nth-child`, which would be wrong again the moment a card is
+		// added or dropped.
+		//
+		// The basis is the track width written out: the container less the gaps between n cards,
+		// divided by n. `flex-shrink: 1` is deliberate — at an exact basis a sub-pixel rounding could
+		// otherwise tip the third card onto its own row.
+		--cards-per-row: 3;
+
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
 		gap: $spacing-3;
 		width: 100%;
 		max-width: 960px;
 		margin-inline: auto;
+
+		> * {
+			flex: 0 1 calc((100% - (var(--cards-per-row) - 1) * #{$spacing-3}) / var(--cards-per-row));
+			// Without this a long word sets the card's floor and the row overflows instead of wrapping.
+			min-width: 0;
+		}
+
+		@include media-down(lg) {
+			--cards-per-row: 2;
+		}
+
+		@include media-down(md) {
+			--cards-per-row: 1;
+		}
 	}
 </style>
