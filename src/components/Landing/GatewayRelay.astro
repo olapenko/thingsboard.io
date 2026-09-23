@@ -1,0 +1,364 @@
+---
+import { Icon } from 'astro-icon/components';
+import { GATEWAY_HUB } from '@data/gateway-visual';
+
+/** `GATEWAY_HUB.label` describes the arrival at ThingsBoard; this cut ends at the uplink. */
+const LABEL =
+	'Field devices speaking Modbus, OPC UA, BACnet, SNMP, KNX and twenty more industrial protocols arrive at the ThingsBoard IoT Gateway and continue onward over MQTT.';
+
+/**
+ * The simplified cut of `GatewayHub`, for the ecosystem card: the same fan of protocol chips into
+ * the gateway node, MINUS the destination. `GatewayHub` ends on the ThingsBoard tile; here the
+ * uplink is the point, so MQTT takes the gateway's own purple — the uplink is the gateway's
+ * product — and its line runs on past the chip until the card's edge cuts it. A hard clip, no
+ * fade: a fade says "trails off", the cut says "continues".
+ *
+ * What removing the destination changed around it:
+ *
+ * - OPC UA gives up ConnectHub's lavender: it IS the gateway-and-uplink purple, so on a chip it
+ *   read as a second uplink. It takes a rose instead, KNX takes the page primary, and with those
+ *   two dealt in, all five protocols are unique. Modbus, BACnet and SNMP keep ConnectHub's hue.
+ * - The hub tile trades the affiliate glyph for a star topology — the hub-and-spokes the fan
+ *   already draws — over a gradient of its own purple, now that it is the only tile in the picture
+ *   and has to carry it alone.
+ * - The fit container bleeds over the card's right padding, because "cut by the card's edge"
+ *   means the drawing's right edge and the card's must be the same line. The bleed is the
+ *   ecosystem card's own `$spacing-5`; any other slot would need its own padding here instead.
+ *
+ * STATIC, unlike `GatewayHub`: at card size a design unit is under a pixel, so the travelling
+ * pips read as shimmer rather than signal. Direction is carried by reading order and by the cut.
+ *
+ * A CANDIDATE beside `GatewayHub`, same rule as everywhere in this directory: either dies alone.
+ * The hue constants are restated rather than imported, for the same reason.
+ */
+
+// --- colour ---------------------------------------------------------------------------------------
+const BLUE = '#0e7490';
+/** OPC UA's hue here — NOT ConnectHub's lavender, which read as a second primary; see the docblock. */
+const ROSE = '#be185d';
+const BEIGE = '#b45309';
+const GREEN = '#65a30d';
+/** The remainder chip: a count, not a protocol, so it carries no hue of its own. */
+const GREY = '#5b616e';
+/** The Gateway's own badge colour, from `_key-visuals.ts` — the hub node. */
+const GATEWAY = '#7b3fe4';
+/** `$color-brand`, restated: one more hue for the left-hand deck, so all five protocols are unique. */
+const PRIMARY = '#3d50f5';
+/** The uplink is the gateway's product, so it runs in the gateway's own purple. */
+const UPLINK_HUE = GATEWAY;
+
+const rgb = (c: string) => {
+	const n = parseInt(c.slice(1), 16);
+	return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+/** The accent at 16% alpha — ConnectHub's chip tint. */
+const tint = (c: string, a = 0.16) => `rgba(${rgb(c).join(', ')}, ${a})`;
+
+// Five protocols, five hues — nothing repeats. Modbus, BACnet and SNMP keep ConnectHub's hue;
+// OPC UA and KNX take the two the section frees up (see the docblock).
+const HUES = [BEIGE, ROSE, GREEN, BLUE, PRIMARY];
+const ARMS = [
+	...GATEWAY_HUB.protocols.map((name, i) => ({ name, accent: HUES[i % HUES.length], more: false })),
+	{ name: GATEWAY_HUB.more, accent: GREY, more: true },
+];
+
+// --- geometry, in design units ---------------------------------------------------------------------
+//
+// The floor is the chips' 18u — bumped from GatewayHub's 16 once the platform tile's 96u went and
+// left the names carrying the right half's weight. R = 354 / 18 = 19.7: a 350px card column sets
+// every chip at ~17.8px. The pitch tightens to 36 for the same reason: less picture, less air.
+// The named chips' fades all END on one vertical — the drawing's left edge — so each stub is as
+// long as its chip is short. STUB is the widest chip's share, and so the column's total inset.
+const STUB = 28;
+const CHIP_H = 30;
+const CHIP_FONT = 18;
+const CHIP_PAD = 10;
+/** A chip's width at Ubuntu Mono's 0.5em advance — 8u a character at 16u type — plus its padding. */
+const chipW = (name: string) => name.length * (CHIP_FONT / 2) + 2 * CHIP_PAD;
+// The longest name is "+20 more", and the column is exactly its chip, so its fade starts at 0.
+const COL = chipW(GATEWAY_HUB.more);
+const PITCH = 36;
+if (PITCH <= CHIP_H) throw new Error(`GatewayRelay: pitch ${PITCH} would overlap ${CHIP_H}u chips.`);
+
+const HEIGHT = ARMS.length * PITCH;
+const MID_Y = HEIGHT / 2;
+
+const CHIP_IN = STUB + COL; // the chips' inner edge: every curve leaves from this one vertical
+const GUT = 50; // chip to gateway
+const GW = 64; // the hub node — a relay, smaller than the destination
+const GW_L = CHIP_IN + GUT;
+const GW_R = GW_L + GW;
+const GW_CX = GW_L + GW / 2;
+// The run out of the gateway: a lead into the MQTT chip, the chip, then a tail the card's edge
+// cuts. The tail is what reads as a line LEAVING rather than a fringe on the chip — and it is
+// dead width: every unit spent here shrinks the unit everything else is drawn in. 20 is the least
+// that still reads as going somewhere; it buys the composition ~9% of size over the 48 it was.
+const UP_CHIP = chipW(GATEWAY_HUB.uplink);
+const UP_LEAD = 16;
+const UP_TAIL = 20;
+const NATIVE = GW_R + UP_LEAD + UP_CHIP + UP_TAIL;
+const RUN_CX = GW_R + UP_LEAD + UP_CHIP / 2;
+
+const cy = (i: number) => PITCH / 2 + i * PITCH;
+
+// Where the six land on the gateway's face: spread rather than converging on a point, which reads
+// as a star. 56 over six arrivals is 11u apart — under ConnectHub's 15, because the node is under
+// two thirds of its badge — and 4u inside the node's top and bottom edges, so the outer two land on
+// its corners. `inset` is what makes those reach the painted curve rather than the bounding box.
+const FAN = 56;
+const ay = (i: number) => MID_Y - FAN / 2 + (FAN / (ARMS.length - 1)) * i;
+
+/** ConnectHub's squircle inset: how far the tile's painted edge sits inside its box at a given y. */
+const RADIUS = GW * 0.32;
+const inset = (y: number) => {
+	const dy = Math.min(y - (MID_Y - GW / 2), MID_Y + GW / 2 - y);
+	if (dy >= RADIUS) return 0;
+	return RADIUS - Math.sqrt(Math.max(0, RADIUS * RADIUS - (RADIUS - dy) ** 2));
+};
+
+const EASE = 0.55;
+const arm = (i: number) => {
+	const y0 = cy(i);
+	const y1 = ay(i);
+	const x0 = CHIP_IN;
+	const x1 = GW_L + inset(y1);
+	const k = (x1 - x0) * EASE;
+	return `M ${x0},${y0} C ${x0 + k},${y0} ${x1 - k},${y1} ${x1},${y1}`;
+};
+// Straight out of the gateway's face and off the picture: the path overshoots NATIVE and the
+// element's `contain: paint` cuts it dead at the box — which is the card's edge, because the fit
+// bleeds to it. No fade: a fade says "trails off", the cut says "continues". One path, not two:
+// the chip's footprint is cut out of it by a mask — see `upMask`.
+const UPLINK = `M ${GW_R},${MID_Y} H ${NATIVE + 4}`;
+
+const vars = [
+	`--gwr-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
+	`--gwr-native: ${NATIVE}`,
+	`--gwr-h: ${HEIGHT}`,
+	`--gwr-mid-y: ${MID_Y}`,
+	`--gwr-edge: ${CHIP_IN}`,
+	`--gwr-chip-h: ${CHIP_H}`,
+	`--gwr-chip-font: ${CHIP_FONT}`,
+	`--gwr-chip-pad: ${CHIP_PAD}`,
+	`--gwr-gw: ${GW}`,
+	`--gwr-gw-cx: ${GW_CX}`,
+	`--gwr-run-cx: ${RUN_CX}`,
+	`--gwr-up-chip: ${UP_CHIP}`,
+	`--gwr-gateway: ${GATEWAY}`,
+].join('; ');
+
+// Unique per instance: the Cards page renders this more than once, and a duplicated id points every
+// copy's mask at the first one's.
+const upMask = `gwr-up-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<div class="gwr-fit">
+	<div class="gwr" style={vars} role="img" aria-label={LABEL}>
+		<svg
+			class="gwr__wires"
+			viewBox={`0 0 ${NATIVE} ${HEIGHT}`}
+			preserveAspectRatio="none"
+			aria-hidden="true"
+			focusable="false"
+		>
+			<defs>
+				{
+					/* The MQTT chip's footprint, cut out of the uplink. User units, so the hole is exactly
+				    the chip — whose width is fixed in the same units rather than left to the font. */
+				}
+				<mask id={upMask} maskUnits="userSpaceOnUse" x="0" y="0" width={NATIVE} height={HEIGHT}>
+					<rect x="0" y="0" width={NATIVE} height={HEIGHT} fill="#fff" />
+					<rect x={RUN_CX - UP_CHIP / 2} y={MID_Y - CHIP_H / 2} width={UP_CHIP} height={CHIP_H} fill="#000" />
+				</mask>
+			</defs>
+
+			{ARMS.map((a, i) => <path class:list={['gwr__wire', a.more && 'is-more']} d={arm(i)} stroke={a.accent} />)}
+			<path class="gwr__wire" d={UPLINK} stroke={UPLINK_HUE} mask={`url(#${upMask})`} />
+
+		</svg>
+
+		{
+			ARMS.map((a, i) => (
+				<span
+					class:list={['gwr__chip', a.more && 'gwr__chip--more']}
+					style={`--gwr-accent: ${a.accent}; --gwr-tint: ${tint(a.accent, a.more ? 0.1 : 0.16)}; --gwr-y: ${cy(i)}; --gwr-stub-w: ${CHIP_IN - chipW(a.name)}`}
+				>
+					{a.name}
+				</span>
+			))
+		}
+
+		<span
+			class="gwr__chip gwr__chip--uplink"
+			style={`--gwr-accent: ${UPLINK_HUE}; --gwr-tint: ${tint(UPLINK_HUE)}`}
+			aria-hidden="true"
+		>
+			{GATEWAY_HUB.uplink}
+		</span>
+
+		<span class="gwr__tile gwr__tile--gateway" aria-hidden="true">
+			<Icon name="tabler:topology-star-3" />
+		</span>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	// `width: 100%` because `container-type` zeroes the element's max-content contribution, and this
+	// sits in a grid cell on the ecosystem card — see the same note on `.plat-fit`.
+	.gwr-fit {
+		container-type: inline-size;
+		// Over the ecosystem card's right padding: the uplink's cut has to land on the card's
+		// edge, not the padding's. See the docblock; the constant is the card's own.
+		width: calc(100% + #{$spacing-5});
+		margin-right: -#{$spacing-5};
+	}
+
+	.gwr {
+		--u: var(--gwr-u);
+		--gwr-wire-w: max(1px, #{u(2)});
+
+		contain: paint;
+		position: relative;
+		width: u(var(--gwr-native));
+		max-width: 100%;
+		height: u(var(--gwr-h));
+		// Right-anchored, not centred: the box's right edge is where the uplink is cut, so it has
+		// to sit ON the card's edge even when the column is wider than the drawing.
+		margin-inline: auto 0;
+	}
+
+	// `max-width: none` against PlaygroundLayout's `svg { max-width: 100% }` reset — ConnectHub's note.
+	.gwr__wires {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		max-width: none;
+		height: 100%;
+		overflow: visible;
+	}
+
+	.gwr__wire {
+		fill: none;
+		stroke-width: var(--gwr-wire-w);
+		stroke-linecap: round;
+		vector-effect: non-scaling-stroke;
+	}
+
+	// The remainder's line is there — twenty more protocols do arrive — but it is not one of the named
+	// five, so it steps back rather than competing with them.
+	.gwr__wire.is-more {
+		opacity: 0.45;
+	}
+
+	// --- chips: ConnectHub's, at 18u ------------------------------------------------------------
+
+	.gwr__chip {
+		position: absolute;
+		top: calc(var(--gwr-y) * var(--u));
+		right: calc((var(--gwr-native) - var(--gwr-edge)) * var(--u));
+		display: flex;
+		align-items: center;
+		height: u(var(--gwr-chip-h));
+		padding: 0 u(var(--gwr-chip-pad));
+		transform: translateY(-50%);
+		border-radius: u(9);
+		background: var(--gwr-tint);
+		font-family: $font-family-mono;
+		font-size: u(var(--gwr-chip-font));
+		font-weight: $font-weight-bold;
+		line-height: 1;
+		white-space: nowrap;
+		color: var(--color-text, #17181c);
+
+		// The run out, flush against the chip, in its own accent. Per-chip length: every fade ends
+		// on the drawing's left edge, one vertical, rather than ragging with the chip widths.
+		&::after {
+			content: '';
+			position: absolute;
+			top: 50%;
+			right: 100%;
+			width: u(var(--gwr-stub-w));
+			height: var(--gwr-wire-w);
+			transform: translateY(-50%);
+			background: linear-gradient(to left, var(--gwr-accent), transparent);
+		}
+	}
+
+	.gwr__chip--more {
+		font-weight: $font-weight-normal;
+		color: var(--color-text-secondary, #5b616e);
+
+		// No fade at all: the remainder is not a protocol, and a tail on the widest chip is also
+		// what would decide the left edge. Untethered on the left, wired on the right.
+		&::after {
+			display: none;
+		}
+	}
+
+	// The uplink's chip: the same chip, centred on the line between the tiles rather than hung off the
+	// fan's column. Its WIDTH is fixed in units rather than left to the text, because the mask that
+	// cuts the line under it is drawn to that width — a fallback face during `font-display: swap` is
+	// 0.6em a character, and a chip that grew with it would sit over a line showing through its tint.
+	.gwr__chip--uplink {
+		right: auto;
+		left: calc(var(--gwr-run-cx) * var(--u));
+		top: calc(var(--gwr-mid-y) * var(--u));
+		justify-content: center;
+		width: u(var(--gwr-up-chip));
+		padding: 0;
+		transform: translate(-50%, -50%);
+
+		&::after {
+			display: none;
+		}
+	}
+
+	// --- the tile: the page's shared squircle and badge shadow ---------------------------------------
+
+	.gwr__tile {
+		position: absolute;
+		top: calc(var(--gwr-mid-y) * var(--u));
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transform: translate(-50%, -50%);
+		border-radius: 32%;
+		color: var(--color-white, #fff);
+		box-shadow: var(
+			--flow-shadow-badge,
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
+		);
+
+		:global(svg) {
+			display: block;
+			max-width: none;
+		}
+	}
+
+	.gwr__tile--gateway {
+		left: calc(var(--gwr-gw-cx) * var(--u));
+		width: u(var(--gwr-gw));
+		height: u(var(--gwr-gw));
+		// Inverted: the filled purple was too heavy once it stood alone. The tile goes light and
+		// the glyph takes the purple — the way the platform tile carried its mark — keeping the
+		// page's 155deg run as a trace of the hue instead of a fill of it.
+		background: linear-gradient(155deg, #fff 30%, color-mix(in srgb, var(--gwr-gateway) 16%, #fff) 100%);
+		color: var(--gwr-gateway);
+
+		// ~56% of the tile, as `.feature-badge` sets its glyph. Outline rather than filled —
+		// tabler has no filled star topology — and the stroke scales with the svg, so it holds.
+		:global(svg) {
+			width: u(36);
+			height: u(36);
+		}
+	}
+
+</style>
