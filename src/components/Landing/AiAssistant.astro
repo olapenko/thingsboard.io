@@ -415,23 +415,34 @@ const { animate = true } = Astro.props;
 		gap: 10px;
 		min-height: 44px;
 		margin: 0 14px 14px;
-		padding: 6px 8px 6px 12px; // the round send button carries the height
-		// THIS BORDER HOLDS THE LAYOUT AND PAINTS NOTHING, and the reason is a rounding rule that was
-		// quietly eating a third of the edge.
+		// The edge's width, in the PAGE's pixels: everything authored here is multiplied by
+		// `--ui-scale`, so a flat `2px` would land at 2.74 on desktop, and dividing by the scale is how a
+		// hairline gets specified in the pixels the eye actually reads it in.
+		--composer-edge: calc(2px / var(--ui-scale));
+		// The space the old transparent border reserved, which was the edge's width ROUNDED DOWN to a
+		// whole pixel — a border is laid out quantised: 1px on desktop (from 1.46), 2px on a phone. Taken
+		// over as padding at that same whole-pixel value, so the field keeps its exact size and its
+		// contents do not move; the full 1.46 made it 1.24px taller and shifted the text 0.6px. (A border
+		// snaps to DEVICE pixels, this to CSS pixels, so on a 2x or 3x screen the two can differ by a
+		// fraction of a pixel. Nothing else depends on it.)
+		--composer-reserve: round(down, var(--composer-edge), 1px);
+
+		// The round send button carries the height.
+		padding-block: calc(6px + var(--composer-reserve));
+		padding-inline: calc(12px + var(--composer-reserve)) calc(8px + var(--composer-reserve));
+		// NO BORDER, and not even a transparent one — which is what this used to have.
 		//
-		// The intent is right and unchanged: everything authored in this component is multiplied by
-		// `--ui-scale`, so a flat `2px` landed at 2.4 and read fatter than the 2 it was asked for, and
-		// dividing by the scale is how a hairline gets specified in the pixels the eye actually reads it
-		// in. What that missed is that a BORDER's width is quantised to the device-pixel grid before it
-		// is painted — `calc(2px / 1.37)` is 1.45985, which floors to 1 — so the edge this rule
-		// documented as 2px had been drawing at 1.37 on the page. That is the thinness.
-		//
-		// A box-shadow's spread is painted rather than laid out and keeps the 1.45985 verbatim, which is
-		// exactly 2px once the window is scaled. So the border stays, at the same width and transparent,
-		// and the shadow does the drawing: `box-sizing` is `border-box`, so the border is what reserves
-		// the space, and moving the paint off it does not shift the field's inside by a pixel.
-		border: calc(2px / var(--ui-scale)) solid transparent;
-		box-shadow: inset 0 0 0 calc(2px / var(--ui-scale)) rgba(0, 0, 0, 0.12);
+		// The edge is an inset box-shadow, not a border: a border's width is quantised to the
+		// device-pixel grid before it is painted (`calc(2px / 1.37)` is 1.46, which floors to 1), while
+		// a shadow's spread keeps the 1.46 verbatim. That part was right. What was wrong was keeping a
+		// TRANSPARENT border of the same width to reserve the space. An inset shadow is painted inside
+		// the PADDING box, so it stopped at the border's inner edge, and the transparent border showed
+		// the field's own white background between that ring and the focus halo outside the box. On the
+		// page that read as a white ring, 2px on a phone and ~1.5px on desktop, between the dark focus
+		// edge and the light wash. The padding above reserves the same space without leaving a gap:
+		// with no border, the padding box IS the border box, so the edge sits on the outer line and the
+		// halo starts exactly where it ends.
+		box-shadow: inset 0 0 0 var(--composer-edge) rgba(0, 0, 0, 0.12);
 		// 8, down from 12. At 12 against a 44px field the ends were most of the way to a pill, which
 		// read as a chat bubble rather than as an input.
 		border-radius: 8px;
@@ -445,8 +456,7 @@ const { animate = true } = Astro.props;
 	// of a shadow: a shadow is outside layout entirely, so this one can change width with nothing
 	// moving. Colour alone was all focus had, and at 2px it was not enough to read as a state change.
 	//
-	// No `border-color` any more — the border is transparent and reserving space, so colouring it
-	// would paint a quantised pixel of green outside this ring rather than as part of it.
+	// No `border-color`: there is no border, and there must not be one — see the note above.
 	.assistant__input.is-focused {
 		box-shadow:
 			// The edge itself.

@@ -167,8 +167,10 @@ const rows: Row[] = lines.map((line) => {
 		align-items: center;
 		gap: calc(6px * var(--cli-chrome));
 		padding: calc(10px * var(--cli-chrome)) calc(12px * var(--cli-chrome));
-		border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-		background: #1b1e27;
+		// No rule under the bar — a hairline on top of a tone step was one line too many in a window this
+		// small. The step carries the separation alone, so it is a notch wider to make up for it:
+		// #232733 over the log's #14161d, up from #1b1e27.
+		background: #232733;
 	}
 
 	.cli__dot {
@@ -536,7 +538,12 @@ const rows: Row[] = lines.map((line) => {
 		let timers: number[] = [];
 		let run = 0;
 		let onScreen = false;
-		let waiting = false;
+		// The parked cycle's poll, 0 when none is pending. Kept so a reveal can cancel it — left
+		// running, it would fire up to 600ms into the fresh session and restart it a second time.
+		let parked = 0;
+		// Whether the observer last saw the terminal with no box at all — `display: none`, as the AI
+		// section's switch leaves the route that is not showing.
+		let undisplayed = false;
 
 		const at = (ms: number, fn: () => void) => {
 			const id = run;
@@ -626,16 +633,22 @@ const rows: Row[] = lines.map((line) => {
 		};
 
 		function cycle() {
+			// Taken out of the document — the sandbox's phone frames keep one section and drop the
+			// rest — so there is nothing left to play into, and no reason to keep polling.
+			if (!cli.isConnected) return;
 			if (!onScreen || document.hidden) {
-				if (waiting) return;
-				waiting = true;
-				window.setTimeout(() => {
-					waiting = false;
+				if (parked) return;
+				parked = window.setTimeout(() => {
+					parked = 0;
 					cycle();
 				}, 600);
 				return;
 			}
 
+			begin();
+		}
+
+		function begin() {
 			run++;
 			timers.forEach((t) => {
 				window.clearTimeout(t);
@@ -650,6 +663,20 @@ const rows: Row[] = lines.map((line) => {
 			(entries) => {
 				entries.forEach((e) => {
 					onScreen = e.isIntersecting;
+
+					// REVEALED — it had no box, and now it is on screen: type the session from the top at
+					// once. Left to the loop, a terminal un-hidden by the AI section's switch showed the
+					// finished session it was hidden with until the next 600ms poll, then wiped it and
+					// started — a visible hiccup exactly where the switch's answer lands. The observer
+					// reports within a frame, inside the hand-off's 40ms entrance delay. A terminal that
+					// is only scrolled in was never box-less, so it keeps the ordinary path: the homepage
+					// never hides one, and plays exactly as before.
+					if (onScreen && undisplayed) {
+						window.clearTimeout(parked);
+						parked = 0;
+						begin();
+					}
+					undisplayed = !onScreen && e.boundingClientRect.height === 0;
 				});
 			},
 			{ threshold: 0.2 }
