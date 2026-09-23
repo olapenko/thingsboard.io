@@ -23,7 +23,26 @@ import { SCALE_COPY } from './scale-visual';
  */
 
 export const AI_COPY = {
-	title: 'Build IoT solutions faster than ever with AI inside ThingsBoard',
+	/**
+	 * The non-breaking space between "than" and "ever" is load-bearing.
+	 *
+	 * This title is the longest on the page and is capped to two lines (`titleMeasure="headline"`).
+	 * Left to itself the balancer splits it at the most EVEN point, which is between those two words:
+	 *
+	 *   Build IoT solutions faster than      462
+	 *   ever with AI inside ThingsBoard      482
+	 *
+	 * Numerically perfect and wrong to read — "than ever" is one phrase and the line ends in the middle
+	 * of it. Gluing the pair takes that break off the table and the balancer falls to the next best,
+	 * which is also where the sentence divides: the claim on one line, the means on the other.
+	 *
+	 *   Build IoT solutions faster than ever   538
+	 *   with AI inside ThingsBoard             407
+	 *
+	 * Less even, better English, and 538/407 is an ordinary headline shape. Keep the glue if the copy
+	 * is edited; drop it only if "than ever" stops being a phrase.
+	 */
+	title: 'Build IoT solutions faster than\u00a0ever with AI inside ThingsBoard',
 	body: 'From describing a project in plain English to complete dashboards, alarm rules, and data transformations with AI assistance — ThingsBoard cuts your development time from weeks to hours.',
 	/**
 	 * `sparkles-filled` at the brand indigo. The hue is the prototype's own `--ai-accent` (#3d50f5),
