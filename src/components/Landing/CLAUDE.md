@@ -10,8 +10,10 @@ Two pages render them, both internal and both `noindex`:
 | Page | What it is |
 | --- | --- |
 | `/` | The homepage. Where the visuals actually run, and the only place one is seen in context. |
-| `/internal/launch-visuals/` | The sandbox index. One card per visual. |
-| `/internal/launch-visuals/<id>/` | One visual, its exhibits at known widths. |
+| `/internal/sections/` | The hub. One tile per visual, grouped by where it stands on the page. |
+| `/internal/sections/<id>/` | One visual, its exhibits at known widths. |
+| `/internal/library/cards/` | Every ecosystem card, one-wide beside two-wide. |
+| `/internal/library/type/` | The type scale, declared and as used. |
 
 **One route per visual**, each its own file:
 
@@ -19,11 +21,11 @@ Two pages render them, both internal and both `noindex`:
 _key-visuals.ts              the copy and the tab labels; addressed by kv('twin'), never by index
 _VisualPage.astro            the shell every visual's page shares: the strip of links between
                              them, the retire control, and the stage chrome (is:global)
-launch-visuals/index.astro   the index
-launch-visuals/twin.astro    one visual's stages — <VisualPage visual="twin"> … </VisualPage>
+sections/index.astro         the index
+sections/twin.astro          one visual's stages — <VisualPage visual="twin"> … </VisualPage>
 ```
 
-Add a visual: an entry in `_key-visuals.ts` and a page in `launch-visuals/`. It appears on the
+Add a visual: an entry in `_key-visuals.ts` and a page in `sections/`. It appears on the
 index and in every other page's strip with no further edit. Remove one: delete those two things.
 
 This replaced a single 1346-line page holding all nine as tab panels. Opening it compiled and
@@ -157,7 +159,7 @@ can be redrawn without retyping the words and a marketing page can import the sa
   | | Ubuntu | Ubuntu Mono |
   | --- | --- | --- |
   | `/` (BaseLayout → Starlight) | 300, 400, 400-italic, 500, 700 | 400, 700 |
-  | `/internal/launch-visuals/` (`PlaygroundLayout`) | 300, 400, 500, 700 | **400 only** |
+  | `/internal/sections/` (`PlaygroundLayout`) | 300, 400, 500, 700 | **400 only** |
 
   So bold monospace — a chip, an axis label — is a real face on the home preview and a synthesised
   one in the sandbox. Check `document.fonts` on the page you are actually looking at.
@@ -186,7 +188,7 @@ NOT match `pkill -f "astro dev"` — the command line is `node …/astro.js`, so
 kills nothing and leaves the orphans holding their ports.
 
 Measured costs, so the loop can be judged rather than guessed: dev server boot ~31s; first
-compile of `/internal/launch-visuals/` 2.5s and of `/` 7.6s; afterwards
+compile of `/internal/sections/` 2.5s and of `/` 7.6s; afterwards
 21ms and 59ms. Once it is up, it is fast — so keep it up.
 
 Path aliases: `@root`, `@components`, `@layouts`, `@styles`, `@data`, `@util`, `@models`,

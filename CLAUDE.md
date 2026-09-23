@@ -175,7 +175,7 @@ gotchas (stale scoped-style HMR, the global `svg` reset, the missing 600 weight)
 hour to find.
 
 Two internal `noindex` pages render them: `/internal/home-preview/` (the proposed homepage) and
-`/internal/launch-visuals/` (the sandbox, one tab per visual). Never change a shipped visual to try
+`/internal/sections/` (the sandbox, one tab per visual). Never change a shipped visual to try
 an idea — add a candidate beside it.
 
 ### Use-Case Pages
