@@ -98,6 +98,19 @@ interface Props {
 	 * card and drops the artwork. A single card takes none of these.
 	 */
 	at?: { cols3?: 'flip'; cols2?: 'flip' | 'single'; stack?: 'no-visual' };
+	/**
+	 * A muted line under the filled button — the bare step this side asks of you
+	 * ("Sign up and build."). Only meaningful with `primary`. Promoted from the
+	 * sandbox 2026-09-24, with the glyph-on-button and the bold name.
+	 */
+	primaryNote?: string;
+	/**
+	 * CANDIDATE, sandboxed on the products pair: the card as the Cloud and
+	 * On-premises pages draw their own choice cards — a glass panel ON the dark
+	 * ground rather than a white card cut out of it. Only judged on the dark
+	 * band; absent, the card is exactly what ships.
+	 */
+	dark?: boolean;
 	tiles?: { slug: string; label: string; href: string; color: string; icon: string }[];
 	class?: string;
 }
@@ -123,6 +136,8 @@ const {
 	primary,
 	targets,
 	at = {},
+	primaryNote,
+	dark = false,
 	tiles,
 	class: className = '',
 } = Astro.props;
@@ -160,6 +175,7 @@ if (nameHighlight) {
 	class:list={[
 		'ecosystem-card',
 		wide && 'ecosystem-card--wide',
+		dark && 'ecosystem-card--dark',
 		wholeCard && 'ecosystem-card--whole',
 		at.cols3 === 'flip' && 'ecosystem-card--cols3-flip',
 		at.cols2 === 'flip' && 'ecosystem-card--cols2-flip',
@@ -195,7 +211,6 @@ if (nameHighlight) {
 				nameParts.map((part) =>
 					part.tint ? (
 						<span class="ecosystem-card__name-group">
-							{cornerIcon && <Icon name={cornerIcon} class="ecosystem-card__title-icon" aria-hidden="true" />}
 							<span class="ecosystem-card__name-accent">{part.text}</span>
 						</span>
 					) : (
@@ -225,9 +240,11 @@ if (nameHighlight) {
 			primary ? (
 				<div class="ecosystem-card__actions ecosystem-card__actions--pair">
 					<a class="ecosystem-card__cta" href={primary.href} {...externalLinkAttrs(primary.href)}>
+						{cornerIcon && <Icon name={cornerIcon} class="ecosystem-card__cta-icon" aria-hidden="true" />}
 						{primary.label}
 						<span class="sr-only">— {name}</span>
 					</a>
+					{primaryNote && <p class="ecosystem-card__cta-note">{primaryNote}</p>}
 					<a href={href} class="ecosystem-card__more" {...externalLinkAttrs(href)}>
 						{action}
 						<span class="sr-only">— {name}</span>
@@ -449,6 +466,25 @@ if (nameHighlight) {
 	// Filled squircle: the mark is knocked out white so one asset serves both
 	// cards, with the corner icon carrying the difference.
 	.ecosystem-card--product {
+		// Roomier than the ecosystem cards, on desktop alone: these two are the
+		// page's conversion point, and the full-bleed button wants air around it,
+		// not a frame it touches. 32px against the others' 20, top included beyond
+		// the badge's headroom. Phones keep the tighter measure — air is what a
+		// 375 viewport does not have.
+		@include media-up(md) {
+			padding: calc($badge / 2 + #{$spacing-8}) $spacing-8 $spacing-8;
+		}
+
+		// The two-wide ecosystem cards' glow, same recipe: the badge's own hue
+		// falling from where the badge sits (centre, on these). Ties the pair to
+		// the ecosystem set one section down.
+		background-image: radial-gradient(
+			95% 105% at 50% 0%,
+			color-mix(in srgb, var(--badge-fill) 17%, transparent),
+			color-mix(in srgb, var(--badge-fill) 7%, transparent) 42%,
+			transparent 84%
+		);
+
 		.ecosystem-card__badge {
 			background-color: var(--badge-fill);
 			// A static sheen off the top-left. The hover sweep that used to cross it
@@ -457,7 +493,7 @@ if (nameHighlight) {
 			background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
 			// Mark to the bottom-left, deployment icon to the top-right: the two
 			// sit on a diagonal so neither crowds the other in a 72px square.
-			// The glyph has moved to the title, so the mark has the square to itself.
+			// The glyph has moved to the button, so the mark has the square to itself.
 			// No padding override: it then centres and sizes exactly as every other
 			// card's icon does, which is the point.
 		}
@@ -472,47 +508,6 @@ if (nameHighlight) {
 		// Only the knockout differs from the base icon now.
 		.ecosystem-card__icon {
 			filter: brightness(0) invert(1);
-		}
-	}
-
-	// Separator between the product name and the deployment: deliberately closer
-	// to the word it qualifies, and in that deployment's own colour.
-	// ONE FRAME FOR BOTH, AND A DROP PER GLYPH.
-	//
-	// Size is the frame, not the ink. Tabler fits every glyph to the same 24-unit box and balances
-	// it there, so two icons at one box size read as one size — that is the set doing its job.
-	// Normalising by ink HEIGHT instead looked reasonable and was not: a cloud is a wide, short
-	// drawing, so stretching it to the server's height widened it to match, and it came out 32%
-	// larger by area (640px² against 484px²). Equal frames put them within 10%, the server marginally
-	// the larger, which is the relationship the set was drawn for.
-	//
-	// The vertical drop stays per glyph, because each one's ink ends at a different point inside that
-	// shared frame: server-2's bottom edge is at 21 of 24, the cloud's at 19. With no transform the
-	// frame's bottom sits on the text baseline — verified with a baseline-aligned probe — so pushing
-	// each down by the gap under its own ink rests both on the line with the letters.
-	//
-	// `margin-right` is negative on purpose. The template leaves one collapsed space between the
-	// glyph and the word, and that space plus the glyph's own padding inside its frame held the mark
-	// ~0.4em off the word it labels, which read as two things rather than one. The negative pulls
-	// that back to a lockup; it is per glyph because the cloud's frame carries half the right-hand
-	// padding the server's does.
-	.ecosystem-card__title-icon {
-		--box: 1.15em;
-		--ink-bottom: 0.875;
-		--pull: -0.2em;
-
-		display: inline-block;
-		vertical-align: baseline;
-		width: var(--box);
-		height: var(--box);
-		margin-left: 0.04em;
-		margin-right: var(--pull);
-		color: var(--badge-fill);
-		transform: translateY(calc(var(--box) * (1 - var(--ink-bottom))));
-
-		&[data-icon='tabler:cloud'] {
-			--ink-bottom: 0.7917;
-			--pull: -0.16em;
 		}
 	}
 
@@ -541,14 +536,12 @@ if (nameHighlight) {
 	// The word that tells the two deployments apart, tinted to its own badge. No
 	// fallback needed: on cards without --badge-fill this is invalid at
 	// computed-value time, which inherits the title's colour.
-	// Medium, against the title's bold. At one weight the product name and the deployment name read
-	// as one shout and only colour separated them; a step down makes "ThingsBoard" the anchor and the
-	// deployment the qualifier, which is the order the card argues in. It also matches the glyph:
-	// tabler draws at a 2-unit stroke, which sits far closer to 500 than to 700, so the mark stops
-	// looking thin beside its own word.
+	// BOLD, since the glyph left for the button (promoted 2026-09-24). The medium it wore before
+	// had two reasons — keeping "ThingsBoard" the anchor, and matching the glyph's 2-unit stroke
+	// beside it — and the second left with the glyph; colour still marks the qualifier.
 	.ecosystem-card__name-accent {
 		color: var(--badge-fill);
-		font-weight: $font-weight-medium;
+		font-weight: $font-weight-bold;
 	}
 
 	// The glyph and the word it labels are one object, and `nowrap` on the group is what makes them
@@ -665,10 +658,43 @@ if (nameHighlight) {
 	// `badgeFill` here — the same two colours), then a link in plain ink so the
 	// colour stays on the one thing to do.
 	.ecosystem-card__actions--pair {
-		flex-direction: row;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: $spacing-4;
+		// Full-bleed CTA: the filled button runs the card's whole measure, the
+		// quiet link centred beneath it. The row version packed both onto one
+		// centred line, and the button read as one option among two rather than
+		// as the thing to do.
+		flex-direction: column;
+		align-items: stretch;
+		gap: $spacing-3;
+
+		.ecosystem-card__cta {
+			justify-content: center;
+		}
+
+		.ecosystem-card__more {
+			align-self: center;
+		}
+	}
+
+	// The microcopy: tight under the button it qualifies — closer to it than the
+	// quiet link below, so the three read as button-with-footnote, then the link.
+	.ecosystem-card__cta-note {
+		// The description's own style, muted — the card speaks `type-*`, and a
+		// footnote in a foreign scale read as an import rather than a caption.
+		@include type-small;
+		align-self: center;
+		margin: calc(-1 * #{$spacing-1}) 0 0;
+		color: var(--color-text-secondary, #5b616e);
+		// The note sits on the card's glow wash; multiplied, the grey takes the
+		// wash's hue instead of floating flat on top of it.
+		mix-blend-mode: multiply;
+	}
+
+	// The deployment's glyph rides the button: the button is where the
+	// deployment's own colour lives, so the mark that names it sits there.
+	.ecosystem-card__cta-icon {
+		width: 20px;
+		height: 20px;
+		margin-right: $spacing-2;
 	}
 
 	.ecosystem-card__cta {
@@ -1068,6 +1094,50 @@ if (nameHighlight) {
 					display: none;
 				}
 			}
+		}
+	}
+
+	// CANDIDATE: the glass panel the Cloud and On-premises pages use for their
+	// choice cards, on the same recipe — 6% white fill, 16% white hairline, 16px
+	// radius, a panel ON the ground (their note: a white card would hide the
+	// field it sits on). Text steps to the panels' own inks; the accents lighten
+	// toward white because the product-page note measured #3d50f5 at 2.1:1 here.
+	.ecosystem-card--dark {
+		// Hairline removed to test whether the 6% fill carries the edge alone.
+		border-radius: 16px;
+		background-color: rgba(255, 255, 255, 0.06);
+		background-image: none;
+		box-shadow: none;
+		color: #fff;
+
+		.ecosystem-card__title {
+			color: #fff;
+		}
+
+		.ecosystem-card__description {
+			color: rgba(255, 255, 255, 0.72);
+		}
+
+		.ecosystem-card__label {
+			color: rgba(255, 255, 255, 0.6);
+		}
+
+		.ecosystem-card__name-accent {
+			color: color-mix(in srgb, var(--badge-fill) 45%, #fff);
+		}
+
+		.ecosystem-card__cta-note {
+			color: rgba(255, 255, 255, 0.6);
+			// Multiply reads as black on a dark ground.
+			mix-blend-mode: normal;
+		}
+
+		.ecosystem-card__more {
+			color: #fff;
+		}
+
+		.ecosystem-card__targets {
+			color: rgba(255, 255, 255, 0.6);
 		}
 	}
 

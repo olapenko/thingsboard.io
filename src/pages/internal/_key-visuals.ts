@@ -115,6 +115,17 @@ export const KEY_VISUALS: KeyVisual[] = [
 		badge: SCALE_COPY.badge,
 	},
 	{
+		// A SECTION of cards rather than a drawing: the deployment pair on the dark band. Its copy
+		// is restated from `index.astro`'s own SectionHeader call, where it lives inline — keep the
+		// two in step by hand until the section grows a data file.
+		id: 'products',
+		home: 'products',
+		label: 'Products',
+		title: 'Products',
+		body: 'The same platform and the same features either way — what changes is who runs it. We host, scale and upgrade it for you, or you deploy it inside your own network.',
+		badge: { icon: 'tabler:cloud', color: '#3d50f5' },
+	},
+	{
 		id: 'gateway',
 		label: 'IoT Gateway',
 		// The Gateway's own words, from its `homeEcosystem` entry — description, action label and

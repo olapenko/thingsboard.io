@@ -4,7 +4,7 @@ export interface ProductChoice {
 	description: string;
 	/** Plain ThingsBoard mark — the qualifier moves to the corner badge. */
 	icon: string;
-	/** Small line icon pinned to the squircle's top-right corner. */
+	/** The deployment's line glyph, riding the filled button (in the title before 2026-09-24). */
 	cornerIcon: string;
 	/** Squircle fill; the mark is knocked out white on top of it. */
 	badgeFill: string;
@@ -16,6 +16,11 @@ export interface ProductChoice {
 	 * choice cards, so the card is two actions rather than one click target.
 	 */
 	primary: { label: string; href: string };
+	/**
+	 * The bare step this side asks of you, under the filled button. The test the words passed:
+	 * nothing both sides could claim — "minutes", "free" and "no credit card" all failed it.
+	 */
+	primaryNote: string;
 	/** Monochrome marks under the copy, naming where the product can run. */
 	targets?: { label: string; icon: string }[];
 	href: string;
@@ -65,6 +70,7 @@ export const homeProducts: ProductChoice[] = [
 		// promises the same thing in both places. The href is `/signup`: the reader this card is
 		// written for has no account yet, and a returning user signs in from the header.
 		primary: { label: 'Start for free', href: 'https://thingsboard.cloud/signup' },
+		primaryNote: 'Sign up and build.',
 		accent: '#6e7481',
 	},
 	{
@@ -115,6 +121,10 @@ export const homeProducts: ProductChoice[] = [
 		// the button that page puts under its own choice. No download glyph: that page's choice
 		// card has none, and Cloud's button beside it carries none either.
 		primary: { label: 'Install for free', href: '/installations/' },
+		// "One command" is true of Docker alone (the guide's own `docker compose up -d`);
+		// Kubernetes is real but multi-step — CE ships Minikube/OpenShift/EKS/AKS/GKE
+		// guides — so it rides as readiness, not as a command claim.
+		primaryNote: 'One Docker command. Kubernetes-ready.',
 		// NO VENDOR MARKS. The row read AWS · Azure · Google Cloud · Kubernetes, and checked against
 		// develop that is not this product's story — it is the other one's:
 		//
