@@ -85,14 +85,16 @@ export const homeEcosystem: EcosystemItem[] = [
 		addOn: true,
 	},
 	{
-		name: 'ThingsBoard Mobile App',
+		name: 'Mobile App',
 		label: 'iOS & Android',
 		description:
 			'Dashboards, alarms and device control in your pocket. Push notifications when something needs attention, and white-label builds you can ship under your own brand.',
 		icon: '/src/assets/images/landings/ce/tb-pe-mobile-icon.svg',
-		// Inverted against the platform badges above it (white tile, black mark): the app is the
-		// thing on your phone, so its badge is the app icon — the same two colours, swapped.
-		filled: { icon: '/src/assets/images/landings/thingsboard-mark.svg', ink: '#ffffff', bg: '#17181c' },
+		// The app icon as a light tile: the mark in the app's own green on white,
+		// the same treatment the page gives its other light tiles. The near-black
+		// icon it replaced read as a hole in the white card.
+		// The mark a step darker than the card's accent green, so it carries on white.
+		filled: { icon: '/src/assets/images/landings/thingsboard-mark.svg', ink: '#166534', bg: '#ffffff' },
 		href: '/products/mobile-pe/',
 		// Exploratory, not acquisitive — the store buttons below are the download,
 		// so the primary sends you to the product page instead of duplicating them.
@@ -104,10 +106,12 @@ export const homeEcosystem: EcosystemItem[] = [
 		// product page anyway, for want of real store URLs), so the whole card
 		// is the target. The previous form lives on the library page.
 		wholeCard: true,
-		// Flipped in the 2-column grid alone: three full-width doubles stack
-		// there, and the middle one mirroring breaks the template read. The
+		// Flipped wherever it has two columns. On the 3-column grid the phone
+		// lands mid-row — Trendz's copy, the phone, this card's copy — the centre
+		// of the composition. On the 2-column grid, where three full-width
+		// doubles stack, the middle one mirroring breaks the template read. The
 		// phone-on-a-phone video goes below md.
-		at: { cols2: 'flip', stack: 'no-visual' },
+		at: { cols3: 'flip', cols2: 'flip', stack: 'no-visual' },
 		// Reused from the mobile page's "Rich set of mobile actions" block —
 		// 564 KB webm / 940 KB mp4, so it is lazy-loaded rather than shipped
 		// with the page.
