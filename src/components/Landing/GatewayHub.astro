@@ -1,0 +1,484 @@
+---
+import { Icon } from 'astro-icon/components';
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+import { GATEWAY_HUB } from '@data/gateway-visual';
+
+/**
+ * The IoT Gateway in the homepage's own vocabulary: ConnectHub's fan into a gateway node, and one
+ * more chip on the line from there to ThingsBoard.
+ *
+ * A CANDIDATE beside `GatewayDiagram`, not a replacement for it. That one is a circuit board — fat
+ * butt-capped traces, a dot grid, ribbon heads on `marker-end`, 21px protocol names — and it is
+ * the only thing on the page drawn that way. The five key visuals and the platform section share
+ * one language instead, and this redraws the Gateway in it:
+ *
+ * - FROM `ConnectHub`: protocols as mono chips on a tint of their own accent, each on the end of a
+ *   2u line that fans onto a squircle's face with horizontal control points, and runs out the other
+ *   side of the chip into a fade. The same four hues in the same texture rule — colour is not a
+ *   route here, because every arm IS the gateway route. Names that ConnectHub also draws keep the
+ *   hue they have there (Modbus beige, OPC UA lavender, BACnet green, MQTT blue), so a reader who has just
+ *   scrolled past the Connect row sees the same chips arrive somewhere new.
+ * - THE UPLINK IS A TRANSPORT LIKE THE OTHERS. `MQTT` is a chip of the same size, face and tint as
+ *   the six on the left, in the hue ConnectHub gives it (blue), sitting ON the line between the two
+ *   tiles — the line runs into one side of it and out of the other, which is how every chip in
+ *   ConnectHub sits on its own line. It was a PlatformClear-style run label in capitals first; that
+ *   made the one protocol the gateway produces look like a different kind of thing from the ones it
+ *   takes in, when the picture's point is that it is one more of them.
+ * - NO ARROWHEADS, which is ConnectHub's decision and the one the arrow audit in this directory's
+ *   CLAUDE.md says is worth keeping. Direction is carried by reading order and by the signal: pips
+ *   run chip → gateway and gateway → platform, never the other way.
+ * - NO CAPTIONS under the tiles. ConnectHub's badge has none on the homepage either; the card's own
+ *   title names the gateway, and ThingsBoard is named by its mark.
+ *
+ * THE TWO TILES ARE NOT THE SAME SIZE, and the platform is the larger. The gateway is a relay in the
+ * middle of the line — every protocol passes through it — so it is a small node in the Gateway's
+ * purple with a hub glyph. ThingsBoard is where everything ends up, drawn as the app itself: a
+ * white tile with the black mark, the way the product sits on a home screen, and big enough to
+ * read as the destination rather than as a second waypoint.
+ *
+ * Deliberately NOT carried over from `GatewayDiagram`: the six outcome boxes on the right
+ * (Dashboards, SCADA…). They are the platform's story, not the gateway's, and the card's copy does
+ * not mention them; the width they took is what lets the protocols sit at a readable size in a
+ * 350px card column.
+ *
+ * The hue constants are restated rather than imported from ConnectHub, for the reason that
+ * directory gives for `DeployFork`: a rejected direction has to be able to die without taking the
+ * other one with it.
+ */
+
+// --- colour ---------------------------------------------------------------------------------------
+const BLUE = '#0e7490';
+const LAVENDER = '#7b3fe4';
+const BEIGE = '#b45309';
+const GREEN = '#65a30d';
+/** The remainder chip: a count, not a protocol, so it carries no hue of its own. */
+const GREY = '#5b616e';
+/** The Gateway's own badge colour, from `_key-visuals.ts` — the hub node. */
+const GATEWAY = '#7b3fe4';
+/** MQTT's hue in ConnectHub, where it is the first chip on the left. */
+const UPLINK_HUE = BLUE;
+
+const rgb = (c: string) => {
+	const n = parseInt(c.slice(1), 16);
+	return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+/** The accent at 28% over white — ConnectHub's pip colour, computed rather than `color-mix`ed. */
+const lit = (c: string) =>
+	`rgb(${rgb(c)
+		.map((v) => Math.round(v * 0.28 + 255 * 0.72))
+		.join(', ')})`;
+/** The accent at 16% alpha — ConnectHub's chip tint. */
+const tint = (c: string, a = 0.16) => `rgba(${rgb(c).join(', ')}, ${a})`;
+
+// Dealt so no hue repeats on adjacent rows; the three ConnectHub also draws keep their hue there.
+const HUES = [BEIGE, LAVENDER, GREEN, BLUE, BEIGE];
+const ARMS = [
+	...GATEWAY_HUB.protocols.map((name, i) => ({ name, accent: HUES[i % HUES.length], more: false })),
+	{ name: GATEWAY_HUB.more, accent: GREY, more: true },
+];
+
+// --- geometry, in design units ---------------------------------------------------------------------
+//
+// The floor is the chips' 16u — the captions and the run label that were 14u are gone — so
+// R = 422 / 16 = 26.4: a 350px card column sets every chip at 13.3px, and a 287px phone card at 10.9.
+// 16u rather than ConnectHub's 20 because six chips share a column that four share there.
+const STUB = 28; // the fade outside each chip
+const CHIP_H = 30;
+const CHIP_FONT = 16;
+const CHIP_PAD = 10;
+/** A chip's width at Ubuntu Mono's 0.5em advance — 8u a character at 16u type — plus its padding. */
+const chipW = (name: string) => name.length * (CHIP_FONT / 2) + 2 * CHIP_PAD;
+// The longest name is "+20 more", and the column is exactly its chip, so its fade starts at 0.
+const COL = chipW(GATEWAY_HUB.more);
+const PITCH = 40;
+if (PITCH <= CHIP_H) throw new Error(`GatewayHub: pitch ${PITCH} would overlap ${CHIP_H}u chips.`);
+
+const HEIGHT = ARMS.length * PITCH;
+const MID_Y = HEIGHT / 2;
+
+const CHIP_IN = STUB + COL; // the chips' inner edge: every curve leaves from this one vertical
+const GUT = 50; // chip to gateway
+const GW = 64; // the hub node — a relay, smaller than the destination
+const GW_L = CHIP_IN + GUT;
+const GW_R = GW_L + GW;
+const GW_CX = GW_L + GW / 2;
+// The run between the tiles is the MQTT chip plus a short length of line either side: enough to
+// read as a line passing through a chip, and no more.
+const UP_CHIP = chipW(GATEWAY_HUB.uplink);
+const UP_LEAD = 16;
+const TB_L = GW_R + UP_LEAD + UP_CHIP + UP_LEAD;
+const TB = 96; // the platform — the destination, and the largest thing in the picture
+const TB_R = TB_L + TB;
+const TB_CX = TB_L + TB / 2;
+const EDGE = 12; // room for the platform tile's shadow inside `contain: paint`
+const NATIVE = TB_R + EDGE;
+const RUN_CX = (GW_R + TB_L) / 2;
+
+const cy = (i: number) => PITCH / 2 + i * PITCH;
+
+// Where the six land on the gateway's face: spread rather than converging on a point, which reads
+// as a star. 56 over six arrivals is 11u apart — under ConnectHub's 15, because the node is under
+// two thirds of its badge — and 4u inside the node's top and bottom edges, so the outer two land on
+// its corners. `inset` is what makes those reach the painted curve rather than the bounding box.
+const FAN = 56;
+const ay = (i: number) => MID_Y - FAN / 2 + (FAN / (ARMS.length - 1)) * i;
+
+/** ConnectHub's squircle inset: how far the tile's painted edge sits inside its box at a given y. */
+const RADIUS = GW * 0.32;
+const inset = (y: number) => {
+	const dy = Math.min(y - (MID_Y - GW / 2), MID_Y + GW / 2 - y);
+	if (dy >= RADIUS) return 0;
+	return RADIUS - Math.sqrt(Math.max(0, RADIUS * RADIUS - (RADIUS - dy) ** 2));
+};
+
+const EASE = 0.55;
+const arm = (i: number) => {
+	const y0 = cy(i);
+	const y1 = ay(i);
+	const x0 = CHIP_IN;
+	const x1 = GW_L + inset(y1);
+	const k = (x1 - x0) * EASE;
+	return `M ${x0},${y0} C ${x0 + k},${y0} ${x1 - k},${y1} ${x1},${y1}`;
+};
+// Straight, because both ends sit on the straight part of their tiles' faces at the midline. One
+// path, not two: the chip's footprint is cut out of it by a mask, so the line and its signal pass
+// under the chip without showing through its tint — see `upMask`.
+const UPLINK = `M ${GW_R},${MID_Y} H ${TB_L}`;
+
+// --- the signal: ConnectHub's pip, and its golden-ratio phases ----------------------------------------
+//
+// Six arrivals from places that have never heard of each other, so their phases are scattered by
+// frac(i · φ⁻¹) rather than staggered, which would draw a poll. The uplink fires three times as
+// often on a steady beat: it is one line carrying all six.
+const CYCLE_MS = 4800;
+const TRAVEL_MS = 620;
+const DASH = 8;
+const PATTERN = Math.round((100 * CYCLE_MS) / TRAVEL_MS);
+const UP_CYCLE_MS = CYCLE_MS / 3;
+const UP_TRAVEL_MS = 520;
+const UP_PATTERN = Math.round((100 * UP_CYCLE_MS) / UP_TRAVEL_MS);
+const phase = (i: number) => +(((i * 0.618033988749895) % 1) * CYCLE_MS).toFixed(1);
+
+const vars = [
+	`--gwh-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
+	`--gwh-native: ${NATIVE}`,
+	`--gwh-h: ${HEIGHT}`,
+	`--gwh-mid-y: ${MID_Y}`,
+	`--gwh-stub: ${STUB}`,
+	`--gwh-edge: ${CHIP_IN}`,
+	`--gwh-chip-h: ${CHIP_H}`,
+	`--gwh-chip-font: ${CHIP_FONT}`,
+	`--gwh-chip-pad: ${CHIP_PAD}`,
+	`--gwh-gw: ${GW}`,
+	`--gwh-gw-cx: ${GW_CX}`,
+	`--gwh-tb: ${TB}`,
+	`--gwh-tb-cx: ${TB_CX}`,
+	`--gwh-run-cx: ${RUN_CX}`,
+	`--gwh-up-chip: ${UP_CHIP}`,
+	`--gwh-gateway: ${GATEWAY}`,
+	`--gwh-cycle: ${CYCLE_MS}ms`,
+	`--gwh-dash: ${DASH} ${PATTERN - DASH}`,
+	`--gwh-pattern: ${PATTERN}`,
+	`--gwh-up-cycle: ${UP_CYCLE_MS}ms`,
+	`--gwh-up-dash: ${DASH} ${UP_PATTERN - DASH}`,
+	`--gwh-up-pattern: ${UP_PATTERN}`,
+].join('; ');
+
+// Unique per instance: the Cards page renders this more than once, and a duplicated id points every
+// copy's mask at the first one's.
+const upMask = `gwh-up-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<div class="gwh-fit">
+	<div class="gwh" style={vars} role="img" aria-label={GATEWAY_HUB.label}>
+		<svg
+			class="gwh__wires"
+			viewBox={`0 0 ${NATIVE} ${HEIGHT}`}
+			preserveAspectRatio="none"
+			aria-hidden="true"
+			focusable="false"
+		>
+			<defs>
+				{
+					/* The MQTT chip's footprint, cut out of the uplink. User units, so the hole is exactly
+				    the chip — whose width is fixed in the same units rather than left to the font. */
+				}
+				<mask id={upMask} maskUnits="userSpaceOnUse" x="0" y="0" width={NATIVE} height={HEIGHT}>
+					<rect x="0" y="0" width={NATIVE} height={HEIGHT} fill="#fff" />
+					<rect x={RUN_CX - UP_CHIP / 2} y={MID_Y - CHIP_H / 2} width={UP_CHIP} height={CHIP_H} fill="#000" />
+				</mask>
+			</defs>
+
+			{ARMS.map((a, i) => <path class:list={['gwh__wire', a.more && 'is-more']} d={arm(i)} stroke={a.accent} />)}
+			<path class="gwh__wire" d={UPLINK} stroke={UPLINK_HUE} mask={`url(#${upMask})`} />
+
+			{
+				ARMS.map((a, i) => (
+					<path
+						class="gwh__pip"
+						d={arm(i)}
+						pathLength="100"
+						style={`--pip-accent: ${lit(a.accent)}; --pip-phase: ${phase(i)}ms`}
+					/>
+				))
+			}
+			<path
+				class="gwh__pip gwh__pip--up"
+				d={UPLINK}
+				pathLength="100"
+				mask={`url(#${upMask})`}
+				style={`--pip-accent: ${lit(UPLINK_HUE)}`}
+			/>
+		</svg>
+
+		{
+			ARMS.map((a, i) => (
+				<span
+					class:list={['gwh__chip', a.more && 'gwh__chip--more']}
+					style={`--gwh-accent: ${a.accent}; --gwh-tint: ${tint(a.accent, a.more ? 0.1 : 0.16)}; --gwh-y: ${cy(i)}`}
+				>
+					{a.name}
+				</span>
+			))
+		}
+
+		<span
+			class="gwh__chip gwh__chip--uplink"
+			style={`--gwh-accent: ${UPLINK_HUE}; --gwh-tint: ${tint(UPLINK_HUE)}`}
+			aria-hidden="true"
+		>
+			{GATEWAY_HUB.uplink}
+		</span>
+
+		<span class="gwh__tile gwh__tile--gateway" aria-hidden="true">
+			<Icon name="tabler:affiliate-filled" />
+		</span>
+		<span class="gwh__tile gwh__tile--platform" aria-hidden="true" set:html={mark} />
+	</div>
+</div>
+
+<script>
+	// ConnectHub's pause: `animation-play-state`, never removing the animation, so the scattered
+	// phases survive the row scrolling out and back.
+	const hubs = document.querySelectorAll<HTMLElement>('.gwh');
+
+	if (hubs.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		const io = new IntersectionObserver(
+			(entries) =>
+				entries.forEach((e) =>
+					(e.target as HTMLElement).style.setProperty('--gwh-play', e.isIntersecting ? 'running' : 'paused')
+				),
+			{ rootMargin: '80px' }
+		);
+		hubs.forEach((h) => io.observe(h));
+	}
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	// `width: 100%` because `container-type` zeroes the element's max-content contribution, and this
+	// sits in a grid cell on the ecosystem card — see the same note on `.plat-fit`.
+	.gwh-fit {
+		container-type: inline-size;
+		width: 100%;
+	}
+
+	.gwh {
+		--u: var(--gwh-u);
+		--gwh-wire-w: max(1px, #{u(2)});
+
+		contain: paint;
+		position: relative;
+		width: u(var(--gwh-native));
+		max-width: 100%;
+		height: u(var(--gwh-h));
+		margin-inline: auto;
+	}
+
+	// `max-width: none` against PlaygroundLayout's `svg { max-width: 100% }` reset — ConnectHub's note.
+	.gwh__wires {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		max-width: none;
+		height: 100%;
+		overflow: visible;
+	}
+
+	.gwh__wire,
+	.gwh__pip {
+		fill: none;
+		stroke-width: var(--gwh-wire-w);
+		stroke-linecap: round;
+		vector-effect: non-scaling-stroke;
+	}
+
+	// The remainder's line is there — twenty more protocols do arrive — but it is not one of the named
+	// five, so it steps back rather than competing with them.
+	.gwh__wire.is-more {
+		opacity: 0.45;
+	}
+
+	.gwh__pip {
+		stroke: var(--pip-accent);
+		stroke-dasharray: var(--gwh-dash);
+		animation: gwh-pip var(--gwh-cycle) linear infinite;
+		animation-delay: calc(-1 * var(--pip-phase, 0ms));
+		animation-play-state: var(--gwh-play, running);
+	}
+
+	.gwh__pip--up {
+		stroke-dasharray: var(--gwh-up-dash);
+		animation-name: gwh-pip-up;
+		animation-duration: var(--gwh-up-cycle);
+	}
+
+	@keyframes gwh-pip {
+		from {
+			stroke-dashoffset: var(--gwh-pattern);
+		}
+
+		to {
+			stroke-dashoffset: 0;
+		}
+	}
+
+	@keyframes gwh-pip-up {
+		from {
+			stroke-dashoffset: var(--gwh-up-pattern);
+		}
+
+		to {
+			stroke-dashoffset: 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.gwh__pip {
+			display: none;
+		}
+	}
+
+	// --- chips: ConnectHub's, at 16u ------------------------------------------------------------
+
+	.gwh__chip {
+		position: absolute;
+		top: calc(var(--gwh-y) * var(--u));
+		right: calc((var(--gwh-native) - var(--gwh-edge)) * var(--u));
+		display: flex;
+		align-items: center;
+		height: u(var(--gwh-chip-h));
+		padding: 0 u(var(--gwh-chip-pad));
+		transform: translateY(-50%);
+		border-radius: u(9);
+		background: var(--gwh-tint);
+		font-family: $font-family-mono;
+		font-size: u(var(--gwh-chip-font));
+		font-weight: $font-weight-bold;
+		line-height: 1;
+		white-space: nowrap;
+		color: var(--color-text, #17181c);
+
+		// The run out, flush against the chip, in its own accent.
+		&::after {
+			content: '';
+			position: absolute;
+			top: 50%;
+			right: 100%;
+			width: u(var(--gwh-stub));
+			height: var(--gwh-wire-w);
+			transform: translateY(-50%);
+			background: linear-gradient(to left, var(--gwh-accent), transparent);
+		}
+	}
+
+	.gwh__chip--more {
+		font-weight: $font-weight-normal;
+		color: var(--color-text-secondary, #5b616e);
+
+		&::after {
+			opacity: 0.45;
+		}
+	}
+
+	// The uplink's chip: the same chip, centred on the line between the tiles rather than hung off the
+	// fan's column. Its WIDTH is fixed in units rather than left to the text, because the mask that
+	// cuts the line under it is drawn to that width — a fallback face during `font-display: swap` is
+	// 0.6em a character, and a chip that grew with it would sit over a line showing through its tint.
+	.gwh__chip--uplink {
+		right: auto;
+		left: calc(var(--gwh-run-cx) * var(--u));
+		top: calc(var(--gwh-mid-y) * var(--u));
+		justify-content: center;
+		width: u(var(--gwh-up-chip));
+		padding: 0;
+		transform: translate(-50%, -50%);
+
+		&::after {
+			display: none;
+		}
+	}
+
+	// --- the two tiles: the page's shared squircle and badge shadow ---------------------------------
+
+	.gwh__tile {
+		position: absolute;
+		top: calc(var(--gwh-mid-y) * var(--u));
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transform: translate(-50%, -50%);
+		border-radius: 32%;
+		color: var(--color-white, #fff);
+		box-shadow: var(
+			--flow-shadow-badge,
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(7)} #{u(16)} #{u(-5)} rgba(16, 24, 40, 0.22)
+		);
+
+		:global(svg) {
+			display: block;
+			max-width: none;
+		}
+	}
+
+	.gwh__tile--gateway {
+		left: calc(var(--gwh-gw-cx) * var(--u));
+		width: u(var(--gwh-gw));
+		height: u(var(--gwh-gw));
+		background: var(--gwh-gateway);
+
+		// ~56% of the tile, as `.feature-badge` sets its glyph. A FILLED glyph: an outline one keeps
+		// its 2px stroke as it grows and thins out on a tile, and this one is small already.
+		:global(svg) {
+			width: u(36);
+			height: u(36);
+		}
+	}
+
+	// The app icon: white tile, black mark. Padding scaled from ConnectHub's badge (16u on 104u).
+	// No ring: the tile is defined by its shadow alone, like the platform card in `PlatformClear`,
+	// which is lifted rather than outlined. A 1u ring was tried and read as a stroke on an app icon.
+	.gwh__tile--platform {
+		left: calc(var(--gwh-tb-cx) * var(--u));
+		width: u(var(--gwh-tb));
+		height: u(var(--gwh-tb));
+		padding: u(15);
+		background: var(--color-white, #fff);
+		color: var(--color-text, #17181c);
+		box-shadow:
+			0 1px 2px rgba(16, 24, 40, 0.06),
+			0 #{u(8)} #{u(18)} #{u(-6)} rgba(16, 24, 40, 0.2);
+
+		:global(svg) {
+			width: 100%;
+			height: 100%;
+		}
+	}
+</style>
