@@ -1,9 +1,14 @@
 ---
-import { Icon } from 'astro-icon/components';
 import SectionHeader from './SectionHeader.astro';
 import AiAssistant from './AiAssistant.astro';
 import CliTerminal from './CliTerminal.astro';
-import { AI_COPY, AI_COLUMNS, AI_CLI_SESSION, AI_CLI_LABEL, AI_CTA } from '@data/ai-visual';
+import {
+	AI_COPY,
+	AI_COLUMNS,
+	AI_CLI_SESSION,
+	AI_CLI_LABEL,
+	AI_BADGE_CYCLE,
+} from '@data/ai-visual';
 
 /**
  * "Build IoT solutions faster than ever with AI inside ThingsBoard" — two routes into the platform,
@@ -56,9 +61,18 @@ interface Props {
 }
 
 const { animate = true } = Astro.props;
+
+/**
+ * The mark's colour cycle, handed to CSS as numbered custom properties.
+ *
+ * Through the style attribute rather than written into the stylesheet, because the values belong to
+ * the other sections' data files and are imported from them — see `AI_BADGE_CYCLE`. A `@keyframes`
+ * block cannot import anything, so this is how the palette reaches it.
+ */
+const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).join('; ');
 ---
 
-<section id="ai" class="ai" data-animate={animate ? 'on' : null}>
+<section id="ai" class="ai" style={badgeHues} data-animate={animate ? 'on' : null}>
 	<div class="main-div">
 		<SectionHeader
 			title={AI_COPY.title}
@@ -114,21 +128,6 @@ const { animate = true } = Astro.props;
 	</div>
 	</div>
 
-	<div class="main-div">
-		{
-			/* ⚠ See the note on `AI_CTA`: this overlaps the page's own `ClosingCta`. Ported because the
-			   prototype's section carries it, flagged because only one of the two should survive. */
-		}
-		<div class="ai-cta">
-			<p class="ai-cta__title">{AI_CTA.title}</p>
-			<p class="ai-cta__body">{AI_CTA.body}</p>
-
-			<a class="ai-cta__btn" href={AI_CTA.link.href}>
-				{AI_CTA.link.text}
-				<Icon name="tabler:chevron-right" aria-hidden="true" />
-			</a>
-		</div>
-	</div>
 </section>
 
 <style lang="scss">
@@ -277,9 +276,30 @@ const { animate = true } = Astro.props;
 	// answer: the size only earns itself next to the animation below, and the animation is this
 	// section's own. A `badgeSize` prop would offer every other header a size that makes no sense
 	// without it.
+	// THE MARK CHANGES COLOUR, and that is the whole animation — the glyph itself holds still. It used
+	// to twinkle, which was motion for its own sake; a tile that cycles through the hues of every other
+	// section on this page is making a claim instead, and it is the claim the section is already making
+	// in words. The colours are the other sections' own badge colours, imported rather than retyped, so
+	// the cycle cannot drift out of step with the palette — see `AI_BADGE_CYCLE`.
+	//
+	// Six stops over 18s, three seconds a leg, `linear` so no colour gets a longer turn than another.
+	// The first and last are `var(--badge-color)`, the section's own indigo, so the mark rests on its
+	// own colour and the cycle reads as a departure that comes home rather than as a loop that happens
+	// to be passing through.
+	//
+	// ALWAYS APPLIED, PAUSED BY DEFAULT, rather than added and removed with the class. Toggling the
+	// animation restarts it, so a mark scrolled past and returned to would jump back to indigo; pausing
+	// leaves it where it was. Paused at 0% is the badge's own colour, which is also exactly what a
+	// browser that never runs it shows.
 	.ai :global(.section-header__badge) {
 		width: 56px;
 		height: 56px;
+		animation: ai-badge-hues 18s linear infinite;
+		animation-play-state: paused;
+	}
+
+	.ai :global(.section-header__badge.is-cycling) {
+		animation-play-state: running;
 	}
 
 	.ai :global(.section-header__badge [data-icon]) {
@@ -287,38 +307,32 @@ const { animate = true } = Astro.props;
 		height: 34px;
 	}
 
-	// A twinkle when the mark scrolls into view, once per entry. Same gate as the two windows below,
-	// which is the point of using one: nothing in this section moves while it is off screen.
-	//
-	// THE GLYPH MOVES, NOT THE TILE. A tile that scales drags the title under it around, and the
-	// header is the calmest thing on this page. Scaling the glyph inside a tile that holds still also
-	// reads as the mark catching light, which is what a sparkle should do.
-	.ai :global(.section-header__badge.is-lit [data-icon]) {
-		animation: ai-badge-twinkle 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
-	}
-
-	@keyframes ai-badge-twinkle {
-		0% {
-			opacity: 0;
-			transform: scale(0.6) rotate(-25deg);
-		}
-		45% {
-			opacity: 1;
-			transform: scale(1.14) rotate(8deg);
-		}
-		70% {
-			transform: scale(0.97) rotate(-3deg);
-		}
+	@keyframes ai-badge-hues {
+		0%,
 		100% {
-			opacity: 1;
-			transform: scale(1) rotate(0deg);
+			background-color: var(--badge-color);
+		}
+		16.67% {
+			background-color: var(--ai-hue-1);
+		}
+		33.33% {
+			background-color: var(--ai-hue-2);
+		}
+		50% {
+			background-color: var(--ai-hue-3);
+		}
+		66.67% {
+			background-color: var(--ai-hue-4);
+		}
+		83.33% {
+			background-color: var(--ai-hue-5);
 		}
 	}
 
 	// Belt and braces with the script, which does not attach the observer at all under reduced motion:
 	// this also covers the setting being turned on after the class has already landed.
 	@media (prefers-reduced-motion: reduce) {
-		.ai :global(.section-header__badge.is-lit [data-icon]) {
+		.ai :global(.section-header__badge) {
 			animation: none;
 		}
 	}
@@ -554,60 +568,6 @@ const { animate = true } = Astro.props;
 		color: var(--color-text, #17181c);
 	}
 
-	// ── The section's closing CTA ─────────────────────────────────────
-	.ai-cta {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		margin-top: $spacing-16;
-		text-align: center;
-	}
-
-	.ai-cta__title {
-		@include type-card;
-
-		margin: 0;
-		color: var(--color-text);
-		text-wrap: balance;
-	}
-
-	.ai-cta__body {
-		@include type-small;
-
-		max-width: 52ch;
-		margin: $spacing-2 0 0;
-		color: var(--color-text-secondary);
-	}
-
-	// The page's primary, same as the hero's and the bookend's — one button style down the page.
-	.ai-cta__btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		height: 44px;
-		margin-top: $spacing-6;
-		padding: 0 16px;
-		border: 1px solid $color-brand;
-		border-radius: $radius-md;
-		background-color: $color-brand;
-		font-size: $font-size-base;
-		font-weight: $font-weight-bold;
-		color: $color-white;
-		text-decoration: none;
-		transition: background-image 0.15s ease;
-
-		&:hover,
-		&:focus-visible {
-			background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
-		}
-
-		:global(svg) {
-			flex: 0 0 auto;
-			width: 18px;
-			height: 18px;
-		}
-	}
-
 	// Stacked: the media on top in BOTH rows, so a phone reads picture-then-words twice rather than
 	// inheriting the desktop alternation as an inconsistency.
 	@include media-down(lg) {
@@ -800,20 +760,11 @@ const { animate = true } = Astro.props;
 		.ai__band {
 			padding: $spacing-12 0;
 		}
-
-		.ai-cta {
-			margin-top: $spacing-12;
-		}
-
-		.ai-cta__btn {
-			width: 100%;
-			justify-content: center;
-		}
 	}
 </style>
 
 <script>
-	// The section mark twinkles when it scrolls into view.
+	// The section mark cycles colour while it is on screen.
 	//
 	// Its own observer rather than a shared one: the chat and the terminal each carry theirs, this is
 	// the same gate, and a section-wide observer would have to know what all three want. `#ai` is a
@@ -825,20 +776,14 @@ const { animate = true } = Astro.props;
 		new IntersectionObserver(
 			(entries) => {
 				for (const entry of entries) {
-					// OFF, THEN ON. Re-adding a class that is already there restarts nothing — the browser
-					// sees the same animation still applied and leaves it running. Removing it, forcing the
-					// style to flush by reading a layout property, then adding it back is what makes the
-					// next entry a new animation rather than a no-op.
-					badge.classList.remove('is-lit');
-
-					if (entry.isIntersecting) {
-						void (badge as HTMLElement).offsetWidth;
-						badge.classList.add('is-lit');
-					}
+					// The class only switches `animation-play-state`, so this is a pause and a resume rather
+					// than a stop and a start: the cycle picks up on the hue it was on rather than snapping
+					// back to indigo every time the mark is scrolled past and returned to.
+					badge.classList.toggle('is-cycling', entry.isIntersecting);
 				}
 			},
-			// Half of it, so the twinkle fires when the mark is properly on screen rather than as its
-			// first pixel clears the fold.
+			// Half of it, so the cycle runs while the mark is properly on screen rather than from the
+			// moment its first pixel clears the fold.
 			{ threshold: 0.5 }
 		).observe(badge);
 	}

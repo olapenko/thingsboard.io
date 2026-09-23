@@ -1,3 +1,9 @@
+import { CONNECT_COPY } from './connect-visual';
+import { DIGITAL_TWIN_COPY } from './digital-twin-visual';
+import { NORMALIZE_COPY } from './normalize-visual';
+import { PLATFORM_COPY } from './platform-visual';
+import { SCALE_COPY } from './scale-visual';
+
 /**
  * The AI section's copy, ported from the `tb-landing-prototype` repo (`src/sections/06-ai.html`).
  *
@@ -204,17 +210,28 @@ export const AI_CLI_LABEL =
 	'A ThingsBoard CLI session: creating a cold-chain solution, saving a calculated field, validating, and pushing it to production.';
 
 /**
- * The section's closing CTA.
+ * The hues the section's mark cycles through: every OTHER section's badge colour on this page.
  *
- * ⚠ KNOWINGLY OVERLAPS `ClosingCta`, which ends this page with "Ready to build your IoT solution
- * with ThingsBoard?" over the same two actions. The prototype's AI section carried its own CTA bar
- * and this is a content port, so it is here rather than silently dropped — but the two are four
- * sections apart saying nearly the same sentence, and only one of them should survive review. If
- * this one goes, delete `AI_CTA` and the `.ai-cta` block in `AiSection.astro`; nothing else reads
- * them.
+ * READ FROM THOSE SECTIONS RATHER THAN RETYPED, which is the whole point of the export. The claim
+ * the animation makes is "these are the colours this page is built out of" — a copied list would
+ * stop being true the first time one of them was retuned, and would do it silently, because nothing
+ * would look broken. Imported, the cycle follows the palette.
+ *
+ * ORDERED TO AVOID MUD, not by section order. CSS interpolates `background-color` through sRGB, so a
+ * leg between two distant hues passes through the desaturated middle of the cube — green to orange
+ * goes through olive, which is the one pairing on this page that reads as a rendering fault rather
+ * than as a colour. The orange is the outlier (hue 22° against a spread of 150–268°) and it has to
+ * sit next to something, so it sits between the two violets, where the midpoints are a plum and a
+ * mulberry — colours, not sludge. The rest runs down the wheel: violet, blue, teal, green, and back
+ * to the section's own indigo through a blue-teal.
+ *
+ * The first stop is NOT in this list: the cycle starts and ends at `AI_COPY.badge.color`, so the
+ * mark is its own colour at rest and the animation is a departure that returns.
  */
-export const AI_CTA = {
-	title: 'Ready to start building?',
-	body: 'Prefer the fastest path? Skip installation entirely — ThingsBoard Cloud in 5 minutes.',
-	link: { text: 'Installation guide', href: '/installations/' },
-};
+export const AI_BADGE_CYCLE = [
+	NORMALIZE_COPY.badge.color,
+	DIGITAL_TWIN_COPY.badge.color,
+	PLATFORM_COPY.badge.color,
+	CONNECT_COPY.badge.color,
+	SCALE_COPY.badge.color,
+];
