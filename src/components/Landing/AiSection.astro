@@ -21,6 +21,14 @@ import type { AiColumn } from '@data/ai-visual';
  * Ported from `tb-landing-prototype` (`src/sections/06-ai.html`). This is the section's SHELL; the
  * two windows are `AiAssistant` and `CliTerminal`, and the copy is `@data/ai-visual`.
  *
+ * ── ON THE HOMEPAGE: ONE ROUTE AT A TIME ──────────────────────────────────────────────────────
+ * The default, `layout="toggle"`, was judged against the alternatives at `/internal/launch-visuals/
+ * ai/` and promoted on 2026-09-23: a switch under the heading chooses the chat or the terminal,
+ * chat first, and only that route's row is on the page — which makes the section a band shorter and
+ * puts the chat ahead of the terminal rather than beside it. Switching is the hand-off in
+ * `AiHandoff`. The previous homepage, both routes stacked, is `layout="bands"`; everything below
+ * about rows, docking and the crop holds for both, because the toggle shows one of the same rows.
+ *
  * ── THE LAYOUT: ALTERNATING ROWS ──────────────────────────────────────────────────────────────
  * Not the prototype's two-up columns. Each route is a full-width row — window on one side, copy on
  * the other — and the two rows swap sides, which is the pattern the five key visuals above already
@@ -63,40 +71,29 @@ interface Props {
 	/** Play both windows. Off renders them as stills — used by the sandbox. */
 	animate?: boolean;
 	/**
-	 * `bands` is the homepage: both routes, one band each, stacked.
+	 * `toggle` — THE HOMEPAGE, and the default. ONE route on the page at a time, chosen by a switch
+	 * under the heading, chat first. Against `bands` it:
 	 *
-	 * `toggle` is a CANDIDATE, judged at `/internal/launch-visuals/ai/`: ONE route on the page at a
-	 * time, chosen by a switch under the heading, with the chat first. It exists to make the section
-	 * shorter and to put the chat ahead of the terminal rather than beside it. Against `bands` it:
-	 *
-	 * - drops the section lede — the switch is the argument now ("from a prompt" or "from your
-	 *   terminal"), so the paragraph restating it goes;
+	 * - drops the section lede — the switch is the argument now, so the paragraph restating it goes;
 	 * - turns the two kickers INTO the switch, so the rows lose their eyebrows;
 	 * - shows one band, whose hue changes with the route, so the section is one band shorter;
-	 * - keeps the alternation: chat on the left, terminal on the right, as in `bands` — so each
-	 *   route keeps its own side, and switching reads as going to the other one;
+	 * - keeps the alternation: chat on the left, terminal on the right, so each route keeps its own
+	 *   side and switching reads as going to the other one;
 	 * - pulls the window up under the switch once the rows stack, where nothing sits between them.
 	 *
+	 * Switching is ONE GESTURE on the thumb's own curve (`AiHandoff`): the view pans the way the thumb
+	 * slides — going right, to the terminal, the chat steps out left and the terminal arrives from the
+	 * right, overlapping so there is never an empty frame — the wash blends between the two hues, and
+	 * the terminal starts typing the moment it lands. Short travel and a fast-out curve, so it reads
+	 * as snappy rather than as a carousel.
+	 *
+	 * `bands` — the PREVIOUS homepage: both routes, one band each, stacked, with the lede and the
+	 * kickers. Kept as the sandbox's reference and the way back.
+	 *
 	 * Everything the bands are calibrated on — the dock, the crop, the log that fits without a scroll —
-	 * is shared rather than copied, so it cannot drift between the two. Delete this branch (or the
-	 * other one) when one of them is promoted.
+	 * is shared between the two rather than copied, so it cannot drift.
 	 */
-	layout?: 'bands' | 'toggle';
-	/**
-	 * How the `toggle` layout moves between routes. CANDIDATE, like the layout itself.
-	 *
-	 * `fade` — the incoming band fades up, and the outgoing one is simply gone.
-	 *
-	 * `handoff` — one gesture, on the thumb's own curve. The view pans the way the thumb slides:
-	 * going right, to the terminal, the chat steps out to the left and the terminal arrives from the
-	 * right, overlapping so there is never an empty frame. The wash blends between the two hues rather
-	 * than cutting, and the terminal starts typing the moment it lands. Short travel and a fast-out
-	 * curve, so it reads as snappy rather than as a carousel.
-	 *
-	 * To revert: drop the prop (or set `fade`). Everything it adds is behind `.ai--handoff`, and its
-	 * script is `AiHandoff`, which only renders with it.
-	 */
-	motion?: 'fade' | 'handoff';
+	layout?: 'toggle' | 'bands';
 	/**
 	 * Which copy the rows carry. `shipping` is `AI_COLUMNS`, on the homepage. `value` is the CANDIDATE
 	 * `AI_COLUMNS_VALUE`: value-first headlines, and a kicker that names the tool — which brings the
@@ -104,7 +101,7 @@ interface Props {
 	 */
 	copy?: 'shipping' | 'value';
 	/**
-	 * EXPERIMENTAL, and only with `motion="handoff"` (where the wash is one gradient on the wrapper).
+	 * EXPERIMENTAL, and only with the toggle layout (where the wash is one gradient on the wrapper).
 	 *
 	 * `route` — the wash takes the showing route's hue: green for the chat, violet for the terminal.
 	 * `cycle` — the wash follows the MARK instead: the same colour sequence as the badge, on the same
@@ -117,10 +114,9 @@ interface Props {
 	wash?: 'route' | 'cycle';
 }
 
-const { animate = true, layout = 'bands', motion = 'fade', copy = 'shipping', wash = 'route' } = Astro.props;
+const { animate = true, layout = 'toggle', copy = 'shipping', wash = 'route' } = Astro.props;
 const toggle = layout === 'toggle';
-const handoff = toggle && motion === 'handoff';
-const washCycle = handoff && wash === 'cycle';
+const washCycle = toggle && wash === 'cycle';
 const COLS = copy === 'value' ? AI_COLUMNS_VALUE : AI_COLUMNS;
 
 /**
@@ -133,9 +129,9 @@ const kicker = (col: AiColumn) => (toggle ? col.kicker : (col.kicker ?? col.eyeb
  * Panel ids for the switch, unique per instance: the sandbox renders this section more than once on a
  * page, and two panels answering to one id would each be shown by the other's switch. Built from the
  * props rather than drawn at random, so a build is the same every time — no two directions on the
- * sandbox page share all four.
+ * sandbox page share all three.
  */
-const uid = `${layout}-${motion}-${copy}-${wash}`;
+const uid = `${layout}-${copy}-${wash}`;
 const PANELS = { assistant: `ai-${uid}-prompt`, cli: `ai-${uid}-cli` };
 
 /** What a panel carries in toggle mode. Nothing at all in `bands`, so the homepage's markup is unchanged. */
@@ -160,7 +156,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 
 <section
 	id="ai"
-	class:list={['ai', toggle && 'ai--toggle', handoff && 'ai--handoff', washCycle && 'ai--wash-cycle']}
+	class:list={['ai', toggle && 'ai--toggle', washCycle && 'ai--wash-cycle']}
 	style={sectionStyle}
 	data-animate={animate ? 'on' : null}
 >
@@ -210,7 +206,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 	}
 	<div
 		class="ai__bands"
-		style={handoff ? `--ai-wash: color-mix(in oklab, ${COLS.assistant.accent}, ${COLS.assistant.accent})` : undefined}
+		style={toggle ? `--ai-wash: color-mix(in oklab, ${COLS.assistant.accent}, ${COLS.assistant.accent})` : undefined}
 	>
 	<div class="ai__band ai__band--dock-top" style={`--accent: ${COLS.assistant.accent}; --accent-text: ${COLS.assistant.accentText}`} {...panel(PANELS.assistant, true)}>
 		<div class="main-div">
@@ -249,7 +245,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 			</div>
 		</div>
 	</div>
-	</div>{handoff && <AiHandoff />}
+	</div>{toggle && <AiHandoff />}
 
 </section>
 
@@ -324,7 +320,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		margin-top: $spacing-12;
 	}
 
-	// ── Toggle layout (candidate) ─────────────────────────────────────
+	// ── Toggle layout (the homepage) ──────────────────────────────────
 	// See `layout` in the props. Everything here is additive: `bands` never matches any of it.
 
 	// Under the heading, in the header's own slot, so it is spaced as part of the header rather than
@@ -339,21 +335,6 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 	// without this the switch would flip `hidden` and both bands would stay on the page.
 	.ai__band[hidden] {
 		display: none;
-	}
-
-	// The incoming route fades up rather than cutting in. Short, because the switch is answering a
-	// click and the answer should not feel like it is loading. Not under the hand-off, which moves the
-	// bands itself, and not under reduced motion.
-	@media (prefers-reduced-motion: no-preference) {
-		.ai--toggle:not(.ai--handoff) .ai__band:not([hidden]) {
-			animation: ai-panel-in 260ms ease-out;
-		}
-	}
-
-	@keyframes ai-panel-in {
-		from {
-			opacity: 0;
-		}
 	}
 
 	// The window is the switch's answer, so it sits closer under it than a band sits under a lede.
@@ -386,9 +367,8 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		}
 	}
 
-	// ── Hand-off motion (candidate) ───────────────────────────────────
-	// See `motion` in the props; the moving parts are in `AiHandoff`. All of it is behind
-	// `.ai--handoff`, so reverting is dropping the prop.
+	// ── The hand-off between routes ───────────────────────────────────
+	// See `layout` in the props; the moving parts are in `AiHandoff`.
 
 	// Registered as a <color> so it can be TRANSITIONED — an unregistered custom property is a
 	// string and flips at the halfway point. Its values are written as `color-mix(in oklab, …)`
@@ -408,7 +388,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 	// gradient whose colour ANIMATES blends instead. The colour is a registered property, which is
 	// what lets a transition reach a value inside a gradient at all; the script sets it to the
 	// incoming band's `--accent`.
-	.ai--handoff .ai__bands {
+	.ai--toggle .ai__bands {
 		// Both bands in ONE cell, so during the hand-off the outgoing one is still in place while the
 		// incoming one arrives over it. Outside a hand-off only one is displayed, so this is invisible.
 		grid-template: 1fr / 1fr;
@@ -422,32 +402,32 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		overflow-x: clip;
 	}
 
-	.ai--handoff .ai__band {
+	.ai--toggle .ai__band {
 		grid-area: 1 / 1;
 		background-image: none;
 	}
 
 	// The band on its way out is still displayed, but it must not catch a click meant for the one
 	// arriving on top of it.
-	.ai--handoff .ai__band.is-leaving {
+	.ai--toggle .ai__band.is-leaving {
 		pointer-events: none;
 	}
 
 	// The one curve and duration everything shares: the thumb reads them through the switch's own
 	// custom properties, the wash through its transition, the bands through `AiHandoff` (which reads
 	// these back rather than hard-coding them, so there is one place to tune).
-	.ai--handoff {
+	.ai--toggle {
 		--ai-handoff-duration: 300ms;
 		--ai-handoff-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 	}
 
-	.ai--handoff :global(.seg) {
+	.ai--toggle :global(.seg) {
 		--seg-duration: var(--ai-handoff-duration);
 		--seg-ease: var(--ai-handoff-ease);
 	}
 
 	@media (prefers-reduced-motion: no-preference) {
-		.ai--handoff .ai__bands {
+		.ai--toggle .ai__bands {
 			transition: --ai-wash var(--ai-handoff-duration) var(--ai-handoff-ease);
 		}
 	}
