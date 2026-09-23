@@ -116,7 +116,7 @@ export const homeEcosystem: EcosystemItem[] = [
 			{ slug: 'devices', label: 'Device Library', href: '/iot-hub/devices/', color: '#ccd5ff', icon: 'tabler:cpu' },
 			{
 				slug: 'solution-templates',
-				label: 'Solution Templates',
+				label: 'Templates',
 				href: '/iot-hub/solution-templates/',
 				color: '#b8d9ff',
 				icon: 'tabler:template',
