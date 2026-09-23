@@ -85,7 +85,12 @@ export const homeProducts: ProductChoice[] = [
 		description:
 			'You run the deployment, so data location and compliance stay in your hands — and it can run fully offline.',
 		icon: '/src/assets/images/landings/thingsboard-mark.svg',
-		cornerIcon: 'tabler:square-rotated-filled',
+		// A server, not the rotated square that was here. The rhombus named nothing —
+		// it was a shape holding the badge colour next to the word, while Cloud's
+		// glyph opposite it says exactly what Cloud is. This one does the same job on
+		// this side: racks you own. Tabler ships no filled server, so it is the
+		// outline against Cloud's solid — the one asymmetry left in the pair.
+		cornerIcon: 'tabler:server',
 		badgeFill: '#1f8b4d',
 		nameHighlight: 'On-premises',
 		href: '/products/thingsboard-pe/',

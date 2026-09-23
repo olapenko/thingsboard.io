@@ -24,16 +24,21 @@ interface Props {
 }
 
 const { items, id = 'dashboards', interval = 12000 } = Astro.props;
+
+// Each shot's own aspect ratio, handed to the board so the card can take the
+// shape of whatever it is showing. See `--item-ratio` in the styles.
+const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height);
 ---
 
 <div class="dashshow" data-dashshow data-dashshow-interval={interval}>
-	<div class="dashshow__board">
+	<div class="dashshow__board" style={items.length ? `--item-ratio: ${ratioOf(items[0])}` : undefined}>
 		{
 			items.map((item, i) => (
 				<div
 					class="dashshow__frame"
 					id={`${id}-board-${i}`}
 					hidden={i !== 0}
+					data-ratio={ratioOf(item)}
 					style={item.overlaySrc ? `--cmp-ratio: ${item.width} / ${item.height}` : undefined}
 				>
 					{item.overlaySrc ? (
@@ -145,9 +150,19 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 	// which is what makes it read as deliberate rather than as a wider section.
 	.dashshow__board {
 		--board-w: min(1160px, calc(100vw - #{$spacing-10}));
+		// The height the eight 1920x866 shots produce at that width. Pinned, so
+		// nothing below the board can move when the tab changes.
+		--board-h: calc(var(--board-w) / (1920 / 866));
+		// ...and the width the CURRENT shot asks for at that height, never more
+		// than the full width. Set per item from `data-ratio`.
+		--fit-w: min(var(--board-w), calc(var(--board-h) * var(--item-ratio, (1920 / 866))));
 
-		width: var(--board-w);
-		margin-inline: calc((100% - var(--board-w)) / 2);
+		width: var(--fit-w);
+		height: var(--board-h);
+		margin-inline: calc((100% - var(--fit-w)) / 2);
+		// Vertical pans stay the browser's, horizontal ones come to the swipe
+		// handler — so dragging across the board never leaves the page stuck.
+		touch-action: pan-y;
 
 		position: relative;
 		overflow: hidden;
@@ -163,12 +178,19 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 	}
 
 	// Ten shots at three aspect ratios: the eight original cases are 1920x866, the
-	// two SCADA ones 2238x1207 and 1286x660. Sized by their own height the board
-	// grew and shrank by ~100px on every tab change, taking the copy under it with
-	// it. The frame is pinned to the ratio the eight share, and the odd two sit
-	// inside it — a little air down each side rather than a moving page.
+	// two SCADA ones 2238x1207 and 1286x660.
+	//
+	// Sizing the board by each shot's own height moved the copy under it by ~100px
+	// on every tab change. Pinning the board to the ratio the eight share instead
+	// left the squarer two sitting in 95px and 70px of blank card down each side —
+	// and since both SCADA canvases are a flat grey out to the pixel, that read as
+	// a grey slab on a white card with a hard seam, not as a board.
+	//
+	// So the height is what stays fixed and the WIDTH follows the shot: the card
+	// comes in to meet a squarer screenshot. Nothing is cropped, nothing below the
+	// board moves, and there are no margins to colour-match.
 	.dashshow__frame {
-		aspect-ratio: 1920 / 866;
+		height: 100%;
 	}
 
 	.dashshow__frame :global(img) {
@@ -204,6 +226,13 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 		bottom: $spacing-3;
 		display: flex;
 		gap: $spacing-2;
+
+		// Below md the board is swiped and the rail under it names every case, so
+		// the arrows are a third control over the smallest picture on the page —
+		// 96px of discs across a card that is 280px wide at its narrowest.
+		@include media-down(md) {
+			display: none;
+		}
 	}
 
 	// Solid black discs: the boards behind them are dark dashboards, and a pale
@@ -211,8 +240,8 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 	.dashshow__arrow {
 		display: grid;
 		place-items: center;
-		width: 36px;
-		height: 36px;
+		width: 44px;
+		height: 44px;
 		padding: 0;
 		border: 0;
 		border-radius: 50%;
@@ -227,8 +256,8 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 		}
 
 		svg {
-			width: 18px;
-			height: 18px;
+			width: 22px;
+			height: 22px;
 		}
 	}
 
@@ -238,9 +267,13 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 		gap: $spacing-8;
 		align-items: start;
 
+		// Stacked, this wrapper put 360px of names between the board and the copy
+		// that describes it — the picture, the name and the description of one case
+		// were spread over 1.3 screens and never visible together. `contents` drops
+		// the wrapper's box so its two children join `.dashshow`'s own grid, and the
+		// order becomes board, names, copy with the list as the hinge between them.
 		@include media-down(md) {
-			grid-template-columns: 1fr;
-			gap: $spacing-6;
+			display: contents;
 		}
 	}
 
@@ -255,10 +288,25 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 		grid-auto-flow: column;
 		column-gap: $spacing-4;
 
-		@include media-down(sm) {
-			grid-template-columns: 1fr;
-			grid-template-rows: none;
-			grid-auto-flow: row;
+		// Ten names stacked is 360px of wall on a phone. As a rail it is one row:
+		// the set is 1686px wide, so about three names show at a time and the rest
+		// are a swipe away — the same trade every category rail on a phone makes.
+		@include media-down(md) {
+			display: flex;
+			gap: $spacing-2;
+			overflow-x: auto;
+			overscroll-behavior-x: contain;
+			// Runs to the screen edge: a chip cut off by the page gutter reads as a
+			// layout fault, one cut off by the screen reads as "there is more".
+			margin-inline: -$spacing-5;
+			// Block padding keeps the focus ring off the scroll container's edge —
+			// `overflow-x: auto` clips the block axis too.
+			padding: $spacing-1 $spacing-5;
+			scrollbar-width: none;
+
+			&::-webkit-scrollbar {
+				display: none;
+			}
 		}
 	}
 
@@ -289,6 +337,28 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 			border-left-color: var(--color-primary, #{$color-brand});
 			color: var(--color-text);
 			font-weight: $font-weight-bold;
+		}
+
+		// On the rail the marker is a filled pill rather than a rule and a weight
+		// change: weight is held at medium for every chip, because a chip that
+		// widens when picked shifts every chip after it along the row.
+		@include media-down(md) {
+			flex: none;
+			padding: $spacing-2 $spacing-4;
+			border: 1px solid var(--sl-color-hairline-light);
+			border-radius: $radius-full;
+			font-weight: $font-weight-medium;
+
+			&:hover {
+				border-color: rgba(0, 0, 0, 0.3);
+			}
+
+			&[aria-selected='true'] {
+				background: var(--color-primary, #{$color-brand});
+				border-color: var(--color-primary, #{$color-brand});
+				color: #fff;
+				font-weight: $font-weight-medium;
+			}
 		}
 	}
 
@@ -361,9 +431,26 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 		const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
 		const panels = [...root.querySelectorAll<HTMLElement>('[role="tabpanel"]')];
 		const frames = [...root.querySelectorAll<HTMLElement>('.dashshow__frame')];
+		const board = root.querySelector<HTMLElement>('.dashshow__board');
+		const rail = root.querySelector<HTMLElement>('[role="tablist"]');
 		if (!tabs.length) return;
 
+		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 		let active = 0;
+
+		// Below md the list is a rail showing about three names at a time, so a
+		// selection the reader did not make with their thumb — an arrow, the ticker
+		// — can land off screen. Only the rail's own scroll is moved;
+		// `scrollIntoView` would take the page with it.
+		const railScrolls = () => !!rail && rail.scrollWidth > rail.clientWidth;
+
+		const keepInView = (el: HTMLElement) => {
+			if (!rail || !railScrolls()) return;
+			const r = rail.getBoundingClientRect();
+			const t = el.getBoundingClientRect();
+			rail.scrollBy({ left: t.left - r.left - (r.width - t.width) / 2, behavior: reduced ? 'auto' : 'smooth' });
+		};
 
 		const show = (next: number, focus = false) => {
 			active = (next + tabs.length) % tabs.length;
@@ -377,7 +464,17 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 			panels.forEach((panel, i) => (panel.hidden = i !== active));
 			frames.forEach((frame, i) => (frame.hidden = i !== active));
 
-			if (focus) tabs[active].focus();
+			// The card takes the shape of the shot it is showing.
+			const ratio = frames[active]?.dataset.ratio;
+			if (board && ratio) board.style.setProperty('--item-ratio', ratio);
+
+			// `focus()` scrolls the chip into view itself, by the shortest hop and
+			// instantly, which cancels the centring below part-way through. Where we
+			// own the scrolling we ask it not to; where we don't — the desktop grid —
+			// its own scroll is the only one, so it keeps it.
+			if (focus) tabs[active].focus({ preventScroll: railScrolls() });
+
+			keepInView(tabs[active]);
 		};
 
 		// ── Autoplay ──────────────────────────────────────────
@@ -392,7 +489,6 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 		// the very thing they just picked, which is the whole complaint about
 		// carousels.
 		const interval = Number(root.dataset.dashshowInterval) || 12000;
-		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 		let stopped = reduced;
 		let onScreen = false;
@@ -425,6 +521,42 @@ const { items, id = 'dashboards', interval = 12000 } = Astro.props;
 		});
 		root.querySelector('[data-dashshow-next]')?.addEventListener('click', () => {
 			show(active + 1);
+			stop();
+		});
+
+		// ── Swipe ─────────────────────────────────────────────
+		// What the arrows do on a phone, where they are hidden. Touch only: nobody
+		// drags a mouse across a screenshot to mean `next`, and a pointer drag is
+		// already the comparison's slider.
+		//
+		// The SCADA comparison is skipped outright rather than fought with — it
+		// captures the pointer on `pointerdown` and a horizontal drag there IS the
+		// gesture that moves its handle.
+		const SWIPE_MIN = 40;
+		const onComparison = (target: EventTarget | null) => target instanceof Element && !!target.closest('.uc-img-comparison');
+
+		let swipeFrom: { x: number; y: number } | null = null;
+
+		board?.addEventListener('pointerdown', (event) => {
+			swipeFrom = event.pointerType === 'touch' && !onComparison(event.target) ? { x: event.clientX, y: event.clientY } : null;
+		});
+
+		// A vertical pan is the browser's to scroll, and it cancels the pointer on
+		// the way — so a scroll that happens to start on the board cannot land here
+		// as a swipe.
+		board?.addEventListener('pointercancel', () => (swipeFrom = null));
+
+		board?.addEventListener('pointerup', (event) => {
+			if (!swipeFrom) return;
+			const dx = event.clientX - swipeFrom.x;
+			const dy = event.clientY - swipeFrom.y;
+			swipeFrom = null;
+
+			// Far enough to be meant, and more across than down: a tap and a
+			// diagonal both fall through.
+			if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy)) return;
+
+			show(active + (dx < 0 ? 1 : -1));
 			stop();
 		});
 
