@@ -174,9 +174,10 @@ it holds the unit pattern, the rule that predicts whether a visual survives a ph
 gotchas (stale scoped-style HMR, the global `svg` reset, the missing 600 weight) that each cost an
 hour to find.
 
-Two internal `noindex` pages render them: `/internal/home-preview/` (the proposed homepage) and
-`/internal/sections/` (the sandbox, one tab per visual). Never change a shipped visual to try
-an idea — add a candidate beside it.
+They are judged in context on the homepage itself, and one at a time under `/internal/` (all
+`noindex`): `/internal/sections/` is the hub, one tile per section, and `/internal/sections/<id>/`
+holds one visual's directions at known widths; `/internal/library/` holds the pieces used across
+the site (cards, type). Never change a shipped visual to try an idea — add a candidate beside it.
 
 ### Use-Case Pages
 

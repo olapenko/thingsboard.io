@@ -150,10 +150,10 @@ export const KEY_VISUALS: KeyVisual[] = [
 	},
 ];
 
-/** The entry for `id`. Throws at build time rather than rendering a row with no copy in it. */
 /** The visuals that are on the homepage, in page order. */
 export const ON_HOME = KEY_VISUALS.filter((v) => v.home);
 
+/** The entry for `id`. Throws at build time rather than rendering a row with no copy in it. */
 export function kv(id: string): KeyVisual {
 	const found = KEY_VISUALS.find((v) => v.id === id);
 	if (!found) throw new Error(`sections: no key visual with id "${id}"`);

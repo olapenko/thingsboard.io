@@ -37,9 +37,14 @@
 		if (!list || !bands) return;
 
 		// Read once, from the section's own custom properties, so the curve is tuned in one place.
+		// A custom property is an unparsed string, so the unit is read rather than assumed — `0.3s`
+		// taken as a bare number would be 0.3ms — and anything unreadable falls back to the 300ms the
+		// section declares, because `animate()` throws on a NaN duration and the band would never swap.
 		const css = getComputedStyle(section);
-		const duration = parseFloat(css.getPropertyValue('--ai-handoff-duration'));
-		const ease = css.getPropertyValue('--ai-handoff-ease').trim();
+		const raw = css.getPropertyValue('--ai-handoff-duration').trim();
+		const parsed = parseFloat(raw) * (/\ds$/.test(raw) ? 1000 : 1);
+		const duration = Number.isFinite(parsed) && parsed > 0 ? parsed : 300;
+		const ease = css.getPropertyValue('--ai-handoff-ease').trim() || 'ease-out';
 
 		const settle = (el: HTMLElement) => {
 			el.hidden = true;
