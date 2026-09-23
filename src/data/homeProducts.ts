@@ -45,7 +45,7 @@ export const homeProducts: ProductChoice[] = [
 		description:
 			'We run the servers, scaling, backups and upgrades on a 99.9% SLA. Start free on shared infrastructure, or move to Private Cloud, a dedicated cluster we provision and operate for you.',
 		icon: '/src/assets/images/landings/thingsboard-mark.svg',
-		cornerIcon: 'tabler:cloud-filled',
+		cornerIcon: 'tabler:cloud',
 		badgeFill: '#3d50f5',
 		nameHighlight: 'Cloud',
 		href: '/products/paas/',
@@ -87,9 +87,17 @@ export const homeProducts: ProductChoice[] = [
 		icon: '/src/assets/images/landings/thingsboard-mark.svg',
 		// A server, not the rotated square that was here. The rhombus named nothing —
 		// it was a shape holding the badge colour next to the word, while Cloud's
-		// glyph opposite it says exactly what Cloud is. This one does the same job on
-		// this side: racks you own. Tabler ships no filled server, so it is the
-		// outline against Cloud's solid — the one asymmetry left in the pair.
+		// glyph opposite it says exactly what Cloud is. This one does the same job
+		// on this side: racks you own.
+		//
+		// `server-2` RATHER THAN `server`, WHICH IS BROKEN. Tabler's `server` leaves
+		// its top rack an open subpath — it strokes (3,7) round to (3,9) and then
+		// `m`oves away with no `z`, so the left edge between those two points is
+		// never drawn and the rack renders with a slot cut out of its side. Only the
+		// top one: the lower rack ends `-3-3z` and closes. `server-2` closes both,
+		// and its two racks have the same bounding box, so the sizing and baseline
+		// numbers in `EcosystemCard` carry over untouched. The extra pair of vent
+		// lines is the whole visible difference.
 		cornerIcon: 'tabler:server',
 		badgeFill: '#1f8b4d',
 		nameHighlight: 'On-premises',

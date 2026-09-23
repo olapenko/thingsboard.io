@@ -1,4 +1,6 @@
 ---
+import type { CliStep } from '@models/cli-terminal';
+
 // A still of a real ThingsBoard CLI session. Every command here is one the CLI
 // actually takes — install via uv, `tb init`, entity saves, `tb push` — so the
 // mock can't drift into a syntax that doesn't exist. Output lines are
@@ -15,27 +17,6 @@ interface Line {
 	ok?: boolean;
 }
 
-/** One coloured run inside a typed command. */
-interface Seg {
-	t: 'cmd' | 'flag' | 'arg';
-	v: string;
-}
-
-/** One command and what it prints — the unit the typed player works through. */
-interface Step {
-	cmd: Seg[];
-	/** Pause between the command finishing and its first output, in ms. */
-	wait?: number;
-	out?: {
-		text: string;
-		tone?: 'ok' | 'dim';
-		/** Leads the line with a success tick instead of a dot. */
-		tick?: boolean;
-		/** Holds a braille spinner on this line for this many ms before moving on. */
-		spin?: number;
-	}[];
-}
-
 interface Props {
 	lines?: Line[];
 	/**
@@ -45,7 +26,7 @@ interface Props {
 	 * is a live console. They are exclusive: passing `session` ignores `lines`, because the player
 	 * owns the log and clears it at the top of every cycle.
 	 */
-	session?: Step[];
+	session?: CliStep[];
 	/** Shown in the title bar. */
 	path?: string;
 	/** What the session shows, for the `role="img"` label. */
@@ -485,14 +466,19 @@ const rows: Row[] = lines.map((line) => {
 </style>
 
 <script>
+	import type { CliSeg, CliOut, CliStep } from '@models/cli-terminal';
+
 	// Three jobs now: drive the overlay scrollbar, fade a still session in once the card is on
 	// screen, and — in session mode — TYPE a session out on a loop. All per-instance, so several
 	// terminals can share a page.
 	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	type Seg = { t: 'cmd' | 'flag' | 'arg'; v: string };
-	type Out = { text: string; tone?: 'ok' | 'dim'; tick?: boolean; spin?: number };
-	type Step = { cmd: Seg[]; wait?: number; out?: Out[] };
+	// The same definitions the frontmatter uses. A `<script>` is its own module and cannot read the
+	// component's frontmatter, so it imports them rather than restating them — which is what let the
+	// two drift apart before.
+	type Seg = CliSeg;
+	type Out = CliOut;
+	type Step = CliStep;
 
 	/** The braille spinner the CLI itself uses while a push is in flight. */
 	const SPINNER = '\u280b\u2819\u2839\u2838\u283c\u2834\u2826\u2827\u2807\u280f';

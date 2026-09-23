@@ -34,9 +34,14 @@ interface Props {
 	 */
 	subtitleMeasure?: 'wide' | 'copy';
 	/**
-	 * Measure for the TITLE. `full` is the header's own width, which is right for the short titles
-	 * most sections carry. `headline` caps it so a long one breaks into two lines instead of running
-	 * the width of the page — see the rule for why that is a measure and not a line count.
+	 * Measure for the TITLE. `full` is the header's own width; `headline` caps it so a long one
+	 * breaks into two lines instead of running the width of the page — see the rule for why that is
+	 * a measure and not a line count.
+	 *
+	 * Left unset it follows the alignment: `headline` when centred, `full` otherwise. A left-aligned
+	 * heading is read against its own edge and a long one simply runs to the container, which is
+	 * fine; a centred one has no edge, so an uncapped line puts the balancer to work across the
+	 * whole 960 and the break lands wherever the last word happens to fall.
 	 */
 	titleMeasure?: 'full' | 'headline';
 	/**
@@ -55,10 +60,14 @@ const {
 	theme = 'light',
 	titleSize = 'section',
 	subtitleMeasure = 'wide',
-	titleMeasure = 'full',
+	titleMeasure,
 	badge,
 	class: className = '',
 } = Astro.props;
+
+// Resolved rather than defaulted in the destructure, because the default depends on `align`.
+// An explicit prop still wins either way.
+const measure = titleMeasure ?? (align === 'center' ? 'headline' : 'full');
 ---
 
 <div
@@ -68,7 +77,7 @@ const {
 		`section-header--${theme}`,
 		`section-header--title-${titleSize}`,
 		`section-header--subtitle-${subtitleMeasure}`,
-		`section-header--title-measure-${titleMeasure}`,
+		`section-header--title-measure-${measure}`,
 		className,
 	]}
 >
@@ -166,18 +175,6 @@ const {
 			color: var(--sh-title-color);
 		}
 
-		// `type-section` takes the title to 24px on a phone, one step over the 16px body under it.
-		// Down a column of left-aligned headings that reads fine, because the alignment itself
-		// marks the start of a section. A centred heading has no such edge to work with, and at
-		// 1.5x the body it stopped reading as the thing the band is about. The next step on the
-		// scale, not a number typed here — and only on the centred variant, so the left-aligned
-		// headings keep the size they were set at.
-		&--center .section-header__title {
-			@include media-down(md) {
-				font-size: $font-size-3xl;
-			}
-		}
-
 		&__subtitle {
 			@include type-body;
 			max-width: 900px;
@@ -195,6 +192,26 @@ const {
 			@include type-title;
 		}
 
+		// THE CENTRED HEADING HAS TO OUTRANK THE ROWS IT OPENS, and on a phone it did not.
+		// `type-section` is 24px there, one step over the 16px body, which reads fine down a column
+		// of left-aligned headings because the alignment itself marks where a section starts. A
+		// centred heading has no such edge, so it was bumped a step to 28 — and 28 is exactly where
+		// `type-subsection` sits, the feature-row headings down the page, which take no mobile step
+		// at all. The band's opener arrived the same size as the headings inside it. 32 is the next
+		// step on the scale and the first one clear of them.
+		//
+		// STATED AFTER THE `--title-*` VARIANTS ON PURPOSE. All three selectors are (0,2,0), so this
+		// can only win on source order. Above them it was beaten for two of the three sizes: a
+		// centred `title` header took `type-title`'s own 30px and this rule silently did nothing.
+		//
+		// It sets one size for all three, which is no loss of ladder — `display` and `title` already
+		// collapse to the same 30px on a phone, so there was nothing left to tell apart up there.
+		&--center .section-header__title {
+			@include media-down(md) {
+				font-size: $font-size-4xl;
+			}
+		}
+
 		&--subtitle-copy .section-header__subtitle {
 			// 65ch, matching the intro statement and the feature rows: one lede measure per page. The
 			// component's own 900px runs to about 110 characters a line at this size.
@@ -204,17 +221,23 @@ const {
 		// A MEASURE, NOT A LINE COUNT, which is the only way to say this in CSS — there is no "wrap to
 		// two lines". Cap the width and let the balancer choose the break.
 		//
-		// 640 is the middle of a wide plateau rather than a tuned number. This page's longest title sets
-		// one line of 952 in a 960 container, filling it to within 8px, and anywhere from 560 to 700
-		// gives the same two-line break — so 640 has ~80px of slack each way before a font or a copy
-		// edit could flip it. Under ~540 it goes to three lines.
+		// 720 is the middle of a gap rather than a tuned number, and the gap is wide. Natural widths
+		// measured across all twelve call sites, on the three pages that have them: the longest title
+		// that fits one line is "ThingsBoard vs a custom IoT stack" at 654, and the only one that has
+		// to break is the AI section's at 952 — which gives the same two lines at every cap from 640
+		// to 760. Anything from ~660 to ~940 behaves identically, so 720 holds 66px of slack over the
+		// longest one-liner and 232px under the one that must wrap.
+		//
+		// It was 640, and that was 14px too tight: it broke the 654 title across two lines. That went
+		// unnoticed while this rule only reached the one call site that opted in — see the resolved
+		// default in the frontmatter, which is what brought the other eleven under it.
 		//
 		// `text-wrap: balance` is restated here rather than inherited. The homepage sets it on headings
 		// from somewhere outside this component, and a cap without a balancer is worse than no cap: the
 		// greedy break fills the first line and leaves a short tail, which is the shape this is meant to
 		// fix.
 		&--title-measure-headline .section-header__title {
-			max-width: 640px;
+			max-width: 720px;
 			text-wrap: balance;
 		}
 

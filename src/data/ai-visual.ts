@@ -1,3 +1,5 @@
+import type { CliStep } from '@models/cli-terminal';
+
 import { CONNECT_COPY } from './connect-visual';
 import { DIGITAL_TWIN_COPY } from './digital-twin-visual';
 import { NORMALIZE_COPY } from './normalize-visual';
@@ -181,7 +183,7 @@ export const AI_ASSISTANT_LABEL =
  * Every command is one the CLI actually takes, so the mock cannot drift into a syntax that does not
  * exist. Output lines are illustrative.
  */
-export const AI_CLI_SESSION = [
+export const AI_CLI_SESSION: CliStep[] = [
 	{
 		cmd: [
 			{ t: 'cmd', v: 'tb solution new ' },

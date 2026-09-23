@@ -166,9 +166,9 @@ if (nameHighlight) {
 			{
 				nameParts.map((part) =>
 					part.tint ? (
-						<span class="ecosystem-card__name-accent">
+						<span class="ecosystem-card__name-group">
 							{cornerIcon && <Icon name={cornerIcon} class="ecosystem-card__title-icon" aria-hidden="true" />}
-							{part.text}
+							<span class="ecosystem-card__name-accent">{part.text}</span>
 						</span>
 					) : (
 						part.text
@@ -449,14 +449,43 @@ if (nameHighlight) {
 
 	// Separator between the product name and the deployment: deliberately closer
 	// to the word it qualifies, and in that deployment's own colour.
+	// ONE FRAME FOR BOTH, AND A DROP PER GLYPH.
+	//
+	// Size is the frame, not the ink. Tabler fits every glyph to the same 24-unit box and balances
+	// it there, so two icons at one box size read as one size — that is the set doing its job.
+	// Normalising by ink HEIGHT instead looked reasonable and was not: a cloud is a wide, short
+	// drawing, so stretching it to the server's height widened it to match, and it came out 32%
+	// larger by area (640px² against 484px²). Equal frames put them within 10%, the server marginally
+	// the larger, which is the relationship the set was drawn for.
+	//
+	// The vertical drop stays per glyph, because each one's ink ends at a different point inside that
+	// shared frame: server-2's bottom edge is at 21 of 24, the cloud's at 19. With no transform the
+	// frame's bottom sits on the text baseline — verified with a baseline-aligned probe — so pushing
+	// each down by the gap under its own ink rests both on the line with the letters.
+	//
+	// `margin-right` is negative on purpose. The template leaves one collapsed space between the
+	// glyph and the word, and that space plus the glyph's own padding inside its frame held the mark
+	// ~0.4em off the word it labels, which read as two things rather than one. The negative pulls
+	// that back to a lockup; it is per glyph because the cloud's frame carries half the right-hand
+	// padding the server's does.
 	.ecosystem-card__title-icon {
+		--box: 1.15em;
+		--ink-bottom: 0.875;
+		--pull: -0.2em;
+
 		display: inline-block;
-		width: 0.82em;
-		height: 0.82em;
-		margin-left: 0.16em;
-		margin-right: 0.1em;
-		vertical-align: -0.08em;
+		vertical-align: baseline;
+		width: var(--box);
+		height: var(--box);
+		margin-left: 0.04em;
+		margin-right: var(--pull);
 		color: var(--badge-fill);
+		transform: translateY(calc(var(--box) * (1 - var(--ink-bottom))));
+
+		&[data-icon='tabler:cloud'] {
+			--ink-bottom: 0.7917;
+			--pull: -0.16em;
+		}
 	}
 
 	.ecosystem-card__corner {
@@ -481,25 +510,34 @@ if (nameHighlight) {
 		color: var(--accent);
 	}
 
-	// The word that tells the two deployments apart, tinted to its own badge.
 	// The word that tells the two deployments apart, tinted to its own badge. No
 	// fallback needed: on cards without --badge-fill this is invalid at
 	// computed-value time, which inherits the title's colour.
-	//
-	// The glyph labels the deployment name, so it lives inside this span rather than
-	// beside it, and the two cannot be parted: `inline-flex` makes the span one flex
-	// line, so no card width puts a break between the mark and the word — and a flex
-	// container drops the whitespace-only nodes the template leaves around its
-	// children, so the gap is the icon's stated margin and not that plus a rendered
-	// space. `nowrap` is the other half, for the hyphen inside "On-premises", which
-	// otherwise breaks and strands the glyph with "On-" above "premises".
-	//
-	// Only the two product cards pass a `nameHighlight`, so this span exists nowhere
-	// else and the display change reaches nothing but the pair.
+	// Medium, against the title's bold. At one weight the product name and the deployment name read
+	// as one shout and only colour separated them; a step down makes "ThingsBoard" the anchor and the
+	// deployment the qualifier, which is the order the card argues in. It also matches the glyph:
+	// tabler draws at a 2-unit stroke, which sits far closer to 500 than to 700, so the mark stops
+	// looking thin beside its own word.
 	.ecosystem-card__name-accent {
-		display: inline-flex;
-		align-items: center;
 		color: var(--badge-fill);
+		font-weight: $font-weight-medium;
+	}
+
+	// The glyph and the word it labels are one object, and `nowrap` on the group is what makes them
+	// one: no card width can put a line break between the mark and the name, and none can break
+	// "On-premises" at its own hyphen and strand the glyph above "premises".
+	//
+	// A PLAIN INLINE BOX, NOT A FLEX ONE. `inline-flex` was tried here to drop the whitespace nodes
+	// the template leaves between its children, and it cost more than it saved: a flex container
+	// takes its baseline from its first flex item, and it sizes itself to its tallest — so once the
+	// icon was the tallest thing in it, the WORD stopped sitting on the same baseline as
+	// "ThingsBoard" beside it. Measured before this went back: "Cloud" rode 8.2px high and
+	// "On-premises" 5.4px, the two disagreeing because the cloud's larger box inflated its container
+	// further. Inline, the word is ordinary text on the line's own baseline and cannot drift.
+	//
+	// The cost is the single collapsed space the template leaves before the word, which is the gap
+	// the pair had before any of this and reads as intended.
+	.ecosystem-card__name-group {
 		white-space: nowrap;
 	}
 
