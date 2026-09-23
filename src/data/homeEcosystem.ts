@@ -47,6 +47,9 @@ export const homeEcosystem: EcosystemItem[] = [
 		action: 'See supported protocols',
 		accent: '#7b3fe4',
 		wide: true,
+		// One destination, like the other two doubles, so the same whole-card
+		// target and hover.
+		wholeCard: true,
 	},
 	{
 		name: 'Edge',
