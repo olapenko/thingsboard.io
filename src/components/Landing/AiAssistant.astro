@@ -416,27 +416,44 @@ const { animate = true } = Astro.props;
 		min-height: 44px;
 		margin: 0 14px 14px;
 		padding: 6px 8px 6px 12px; // the round send button carries the height
-		// 2px AT REST, not on focus. A border that thickens when focus lands moves everything inside it
-		// by a pixel, and in a loop that replays every twelve seconds that jump is the thing you
-		// notice. Carrying the weight all the time leaves focus only the colour to change.
+		// THIS BORDER HOLDS THE LAYOUT AND PAINTS NOTHING, and the reason is a rounding rule that was
+		// quietly eating a third of the edge.
 		//
-		// DIVIDED BY THE SCALE, so 2px means 2px ON THE PAGE. Everything authored in this component is
-		// multiplied by `--ui-scale`, so a flat `2px` was landing at 2.4 — which is why it read fatter
-		// than the 2 it was asked for. Hairlines are one of the few things that should be specified in
-		// rendered pixels rather than the window's own, because the eye reads them against the page.
-		border: calc(2px / var(--ui-scale)) solid rgba(0, 0, 0, 0.12);
+		// The intent is right and unchanged: everything authored in this component is multiplied by
+		// `--ui-scale`, so a flat `2px` landed at 2.4 and read fatter than the 2 it was asked for, and
+		// dividing by the scale is how a hairline gets specified in the pixels the eye actually reads it
+		// in. What that missed is that a BORDER's width is quantised to the device-pixel grid before it
+		// is painted — `calc(2px / 1.37)` is 1.45985, which floors to 1 — so the edge this rule
+		// documented as 2px had been drawing at 1.37 on the page. That is the thinness.
+		//
+		// A box-shadow's spread is painted rather than laid out and keeps the 1.45985 verbatim, which is
+		// exactly 2px once the window is scaled. So the border stays, at the same width and transparent,
+		// and the shadow does the drawing: `box-sizing` is `border-box`, so the border is what reserves
+		// the space, and moving the paint off it does not shift the field's inside by a pixel.
+		border: calc(2px / var(--ui-scale)) solid transparent;
+		box-shadow: inset 0 0 0 calc(2px / var(--ui-scale)) rgba(0, 0, 0, 0.12);
 		// 8, down from 12. At 12 against a 44px field the ends were most of the way to a pill, which
 		// read as a chat bubble rather than as an input.
 		border-radius: 8px;
 		font-size: 13px;
 	}
 
+	// FOCUS CARRIES WEIGHT AS WELL AS COLOUR NOW — 2.5px against the resting 2 — and it is the change
+	// of paint above that allows it. The old note here said the weight had to stay constant because a
+	// border that thickens when focus lands moves everything inside it by a pixel, and in a loop that
+	// replays every twelve seconds that jump is the thing you notice. That is true of a border and not
+	// of a shadow: a shadow is outside layout entirely, so this one can change width with nothing
+	// moving. Colour alone was all focus had, and at 2px it was not enough to read as a state change.
+	//
+	// No `border-color` any more — the border is transparent and reserving space, so colouring it
+	// would paint a quantised pixel of green outside this ring rather than as part of it.
 	.assistant__input.is-focused {
-		border-color: var(--tb-green);
-		// A wide, faint ring rather than the old tight 2px one: at 2px it sat directly on the border
-		// and just read as a smudge thickening it. Spread out, it reads as focus. Also in rendered
-		// pixels, for the same reason as the border — and because the two are read as one edge.
-		box-shadow: 0 0 0 calc(4px / var(--ui-scale)) rgba(10, 86, 72, 0.07);
+		box-shadow:
+			// The edge itself.
+			inset 0 0 0 calc(2.5px / var(--ui-scale)) var(--tb-green),
+			// And around it, a wide faint ring rather than the old tight 2px one: at 2px it sat directly
+			// on the edge and just read as a smudge thickening it. Spread out, it reads as focus.
+			0 0 0 calc(4px / var(--ui-scale)) rgba(10, 86, 72, 0.07);
 	}
 
 	.assistant__typed {
