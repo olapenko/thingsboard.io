@@ -20,10 +20,10 @@
 //                       their focus rings. NOT `.n-button--filled`: that is the
 //                       site header's "Try for free" and the footer's
 //                       "Subscribe", chrome that stays brand purple everywhere.
-//   --page-hero-ground  the near-black the split hero sits on.
-//   --page-hero-wash    the corner wash over that ground. A colour WITH alpha —
-//                       it is dropped into a `radial-gradient` whose second stop
-//                       is transparent.
+//   --page-hero-ground  the near-black the hero sits on.
+//   --page-hero-wash    the flood over that ground, rising from its bottom
+//                       centre. A colour WITH alpha — it is dropped into a
+//                       `radial-gradient` whose second stop is transparent.
 //   --page-band         the bookend's light ground.
 //   --page-accent-light the accent's readable tone on the DARK bands — the
 //                       chooser's prices. The accent itself is 2.1:1 there.
@@ -87,11 +87,10 @@
 		transition-duration: 0.1s;
 	}
 
-	// The scrim under the transparent bar, as the homepage sets it: this hero is a split panel too,
-	// so the nav crosses both the black column and the footage and needs one continuous ground.
-	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-variant='transparent']) {
-		background-color: rgba(0, 0, 0, 0.8);
-	}
+	// NO SCRIM under the transparent bar. The homepage's is there because its bar crosses a black
+	// column and a panel of footage and needs one ground across both; this hero has no footage now,
+	// so the bar sits directly on the hero's own ground, and a scrim would only draw a darker band
+	// along the top of it.
 
 	// ---------------------------------------------------------------------------------------------
 	// THE MARKETING BAR, ALIGNED WITH THE HOMEPAGE.
@@ -353,15 +352,50 @@
 	// whichever sheet the bundler emits last. The element selector breaks it outright.
 	// ---------------------------------------------------------------------------------------------
 
-	// The section's height is the video panel's — 16:9 of two thirds of the measure — and on a tall
-	// window that left the hero about two fifths of the screen with the text column half empty under
-	// it. A floor, not a fixed height, so the panel still grows with the viewport up to its own
-	// 720px cap. Only from `lg`, where the two are side by side; below that they stack and the
-	// height is the sum of the two, which needs no floor.
-	@include media-up(lg) {
-		body #hero.split {
-			min-height: min(88vh, 680px);
+	// ONE CENTRED COLUMN, NO MEDIA. The hero was Hero's `split` — type on a dark column beside a
+	// panel of the develop cover footage — and it is now the type alone, centred, on the page's
+	// ground. It stays `layout="split"` on purpose: every rule in this file that tunes the hero (the
+	// ground, the button accent, the header treatment, the reveal) is keyed to `#hero.split`, and
+	// the split's own type and button geometry are what the page was signed off with. What changes
+	// is only the grid and the alignment, here, where just these two pages see it — the homepage's
+	// split hero is the same component and is untouched.
+	//
+	// Hero opens the split into two and then three columns at `md` and `lg`; `body` outranks those
+	// rules at every width, so the grid stays one track throughout.
+	body #hero.split {
+		grid-template-columns: 1fr;
+	}
+
+	// The media cell goes, not just its video: without footage it would still hold the cover image
+	// and take the second track. `display: none` also keeps the image from being fetched.
+	body #hero.split .video-cover {
+		display: none;
+	}
+
+	body #hero.split #hero-content {
+		grid-column: 1;
+		align-items: center;
+		text-align: center;
+
+		// The lede's 34ch was a column measure, set for a third of the page. Centred it would stack
+		// the subtitle five lines deep under a one-line headline; 52ch is the bookend's lede, so the
+		// page opens and closes on the same measure.
+		.tb-sub-title {
+			max-width: 52ch;
+			margin-inline: auto;
 		}
+
+		.hero-buttons {
+			justify-content: center;
+		}
+	}
+
+	// NO HEIGHT FLOOR. The `min(88vh, 680px)` that was here existed for the video panel: it stopped a
+	// tall window leaving the type column half empty beside the footage. With the type alone and
+	// centred, a floor only adds ground above and below it, so the hero is as tall as its content —
+	// plus a deeper foot than Hero's 36px, which is where the flood pools and needs room to read.
+	body #hero.split #hero-content {
+		padding-bottom: $spacing-16;
 	}
 
 	// The ground the bookend uses — near-black tinted with the primary — so the page opens and
@@ -371,25 +405,31 @@
 		background-color: var(--page-hero-ground, #121425);
 	}
 
-	// The hue itself: one soft wash from the top-left corner, behind the type. Kept wide and low in
-	// alpha so it reads as a tint on the ground rather than as a shape.
+	// The hue: a radial flood rising from the bottom centre, under the centred type, rather than the
+	// corner wash the split column had. An ellipse wider than the hero and anchored on its bottom
+	// edge, so the colour pools where the hero meets the page below and thins upward to the ground
+	// by the time it reaches the headline. On `#hero-content`, which is now the hero's full width.
 	body #hero.split #hero-content {
-		background-image: radial-gradient(115% 85% at 0% 0%, var(--page-hero-wash, rgba(61, 80, 245, 0.32)), transparent 62%);
+		background-image: radial-gradient(
+			120% 90% at 50% 100%,
+			var(--page-hero-wash, rgba(61, 80, 245, 0.32)),
+			transparent 70%
+		);
 	}
 
 	// The product's mark, as the deployments band draws it: the TB glyph knocked out white on a
 	// squircle filled with the primary. 32% radius is that badge's own number.
 	//
-	// 72, the same as the deployments band draws it. It was briefly 96 on the reasoning that this
-	// one opens the page alone and should carry the weight the wordmark used to — at that size it
-	// competed with the 42px headline it sits above instead of introducing it. The mark is the
-	// page's signature, not its first statement. The glyph is 82% of the squircle either way, so
-	// the size moves without the artwork changing its relationship to it.
+	// 88. It was 72, the deployments band's size, while the mark sat at the top of a left-aligned
+	// column beside footage; 96 was tried then and competed with the headline. Centred and alone on
+	// the ground it reads as the page's app icon, and 88 gives it that weight while staying under the
+	// 96 that crowded the title. The glyph is 82% of the squircle either way, so the size moves
+	// without the artwork changing its relationship to it.
 	.hero-mark {
 		display: grid;
 		place-items: center;
-		width: 72px;
-		height: 72px;
+		width: 88px;
+		height: 88px;
 		margin-bottom: $spacing-5;
 
 		// NO `margin-top` HERE. This rule briefly carried one, to hold the badge off the menu on
@@ -405,12 +445,15 @@
 		// it is the one element here carrying no words. Keep this condition in step with
 		// `Hero.astro`'s.
 		@media (max-height: 620px), (max-width: #{$breakpoint-sm}) {
-			width: 56px;
-			height: 56px;
+			width: 64px;
+			height: 64px;
 		}
 		border-radius: 32%;
-		// The product's own colour — see the file header.
+		// The product's own colour — see the file header — under the product cards' own static sheen
+		// (`.ecosystem-card--product .ecosystem-card__badge`), to the number: the same squircle and
+		// mark on the homepage and here, so they carry the same light.
 		background-color: var(--page-mark-color, #{$color-brand});
+		background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
 
 		// Slotted content never receives Hero's scope hash, so the reveal its siblings get from
 		// `.header-animation` does not reach here — restated, one step ahead of the headline.
@@ -430,6 +473,48 @@
 		&__glyph {
 			width: 82%;
 			height: auto;
+		}
+	}
+
+	// The line under the buttons: two facts that answer the hesitation before the primary, each with
+	// a check. The copy is each page's (`paasHeroCaption`, `onPremHeroCaption`). Muted like the
+	// homepage's `.hero-note`, the same small type, and the check in the page's light accent — the
+	// tone this file already uses for readable colour on the dark bands.
+	//
+	// Slotted, so Hero's `.header-animation` never reaches it: the reveal is restated, last in the
+	// stagger after the buttons' 900ms, as the homepage's note does it.
+	.hero-caption {
+		@include type-small;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: $spacing-2 $spacing-5;
+		margin: $spacing-6 0 0;
+		padding: 0;
+		list-style: none;
+		color: rgba(255, 255, 255, 0.72);
+
+		li {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+		}
+
+		svg {
+			flex: none;
+			width: 16px;
+			height: 16px;
+			color: var(--page-accent-light, #{$color-brand-dark});
+		}
+
+		opacity: 0;
+		transform: translate3d(0, 45px, 0);
+		animation: slideup-in 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 1200ms forwards;
+
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
+			opacity: 1;
+			transform: none;
 		}
 	}
 

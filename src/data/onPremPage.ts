@@ -572,6 +572,19 @@ export const onPremFaq: FaqCategory[] = tbSelfManagedFaq.filter(
 	(category) => !['edge', 'trendz'].includes(category.id)
 );
 
+/**
+ * The line under the hero's buttons. "No credit card" is the monthly card's own "Subscribe for free,
+ * no credit card needed". The second fact is deliberately a STEP COUNT, not a time: no install guide
+ * publishes a duration for a self-managed deployment, and one that depends on the reader's hardware
+ * and network is not ours to promise. The Docker guide (`/docs/pe/installation/docker/`) is four
+ * numbered steps, licence key to a running platform — a fact the reader can check.
+ *
+ * NOT "free up to 100 devices", though it is the stronger line: see `onPremChoice` — the FAQ and
+ * `/pricing/` still deny that free tier, and the hero is the last place to repeat a claim the page
+ * contradicts.
+ */
+export const onPremHeroCaption = ['No credit card', 'Docker install in 4 steps'];
+
 /** The page's calls to action. `primary` is the pricing page, as develop's "Get it now" is. */
 export const onPremCtas = {
 	/**

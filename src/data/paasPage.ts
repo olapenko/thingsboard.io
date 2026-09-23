@@ -801,6 +801,14 @@ export const paasOnPremises = {
  * homepage's own "Try for free" goes. The EU region signs up at `eu.thingsboard.cloud/signup`; the
  * FAQ gives both, and this follows the homepage in offering the one.
  */
+/**
+ * The line under the hero's buttons: the two things a reader weighs before pressing "Try Cloud for
+ * free". Both are this page's own claims, restated rather than new — the Public Cloud card's
+ * "No card required to start" and "Under 5 minutes, self-serve", the matrix's setup-time row and the
+ * FAQ's "no credit card required" — so the hero cannot promise what the page below does not.
+ */
+export const paasHeroCaption = ['No credit card', 'Running in under 5 minutes'];
+
 export const paasCtas = {
 	primary: { text: 'Try Cloud for free', href: 'https://thingsboard.cloud/signup' },
 	secondary: {
