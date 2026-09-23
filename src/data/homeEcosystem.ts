@@ -28,6 +28,8 @@ export interface EcosystemItem {
 	stores?: { label: string; href: string }[];
 	/** Mirrors the wide card: visual on the left, copy on the right. */
 	flipped?: boolean;
+	/** Wide card with a single destination: whole-card hit area, like the singles. */
+	wholeCard?: boolean;
 	/** Category tiles — the visual and the navigation in one. */
 	tiles?: { slug: string; label: string; href: string; color: string; icon: string }[];
 }
@@ -84,17 +86,15 @@ export const homeEcosystem: EcosystemItem[] = [
 		// Takes the app icon's own green rather than the brand purple.
 		accent: '#1f8b4d',
 		wide: true,
+		// One destination now the store buttons are gone (they pointed at the
+		// product page anyway, for want of real store URLs), so the whole card
+		// is the target. The previous form lives on the library page.
+		wholeCard: true,
 		// Reused from the mobile page's "Rich set of mobile actions" block —
 		// 564 KB webm / 940 KB mp4, so it is lazy-loaded rather than shipped
 		// with the page.
 		videoWebm: 'https://video.thingsboard.io/mobile/pe/mobile-actions.webm',
 		videoMp4: 'https://video.thingsboard.io/mobile/pe/mobile-actions.mp4',
-		// TODO: real store URLs. None exist anywhere in this repo — no links, no
-		// badge assets — so these point at the product page rather than guessing.
-		stores: [
-			{ label: 'App Store', href: '/products/mobile-pe/' },
-			{ label: 'Google Play', href: '/products/mobile-pe/' },
-		],
 	},
 	{
 		name: 'IoT Hub',
@@ -106,7 +106,9 @@ export const homeEcosystem: EcosystemItem[] = [
 		action: 'Browse the Hub',
 		accent: '#e8590c',
 		wide: true,
-		flipped: true,
+		// Unflipped: copy left, tiles right, same reading order as the app card
+		// above it. The tiles ride above the whole-card link on their z-index.
+		wholeCard: true,
 		// Colours are the categories' own `tileColor` from src/models/iot-hub.ts —
 		// the visual and the links are the same thing here, which is why this card
 		// needs no separate button row.

@@ -64,6 +64,13 @@ interface Props {
 	addOn?: boolean;
 	/** Spans two columns and carries the phone mockup. */
 	wide?: boolean;
+	/**
+	 * Opts a WIDE card into the whole-card hit area the singles get by default.
+	 * Only for a wide card whose extra destinations are gone (no stores, no
+	 * `primary`) — tiles are fine: they sit above the stretched link on their
+	 * own z-index and stay clickable.
+	 */
+	wholeCard?: boolean;
 	videoWebm?: string;
 	videoMp4?: string;
 	/**
@@ -100,6 +107,7 @@ const {
 	cornerIcon,
 	addOn = false,
 	wide = false,
+	wholeCard = false,
 	videoWebm,
 	videoMp4,
 	stores,
@@ -143,6 +151,7 @@ if (nameHighlight) {
 	class:list={[
 		'ecosystem-card',
 		wide && 'ecosystem-card--wide',
+		wholeCard && 'ecosystem-card--whole',
 		flipped && 'ecosystem-card--flipped',
 		badgeFill && 'ecosystem-card--product',
 		trial && !badgeFill && 'ecosystem-card--filled',
@@ -837,11 +846,13 @@ if (nameHighlight) {
 	// accessible name — stretching a pseudo-element beats wrapping everything in
 	// an <a>, which would read the entire description aloud as the link text.
 	//
-	// The wide card is excluded on purpose: it has three destinations, so a
-	// card-wide link would sit invisibly on top of two visible ones. The product
-	// cards are excluded for the same reason — each carries a button AND a link,
-	// the product pages' choice-card pattern, which is a plain panel too.
-	.ecosystem-card:not(.ecosystem-card--wide, .ecosystem-card--product) {
+	// The wide card is excluded BY DEFAULT: with store buttons or a `primary` a
+	// card-wide link would sit invisibly on top of visible ones. A wide card
+	// that is down to one destination opts back in with `wholeCard`; its tiles,
+	// if any, stay clickable above the stretched link on their own z-index. The
+	// product cards stay out — button AND link, the choice-card pattern.
+	.ecosystem-card:not(.ecosystem-card--wide, .ecosystem-card--product),
+	.ecosystem-card--whole {
 		cursor: pointer;
 		transition:
 			box-shadow 0.18s ease,
@@ -865,6 +876,27 @@ if (nameHighlight) {
 				text-underline-offset: 3px;
 			}
 		}
+	}
+
+	// The stretched link's `inset: 0` resolves against the nearest positioned
+	// ancestor, and on a wide card that was `__body` — relative only for a z-index
+	// the disabled clusters art wanted — which pinned the "card-wide" target to
+	// the copy column alone. The visual column carries no links of its own on a
+	// `wholeCard` card, so the body goes static here and the link reaches the card.
+	.ecosystem-card--whole .ecosystem-card__body {
+		position: static;
+	}
+
+	// The tiles' wrapper sits above the stretched link (z-index 1), so without this
+	// the gaps BETWEEN tiles were dead: hover lifted the card but a click hit the
+	// wrapper and went nowhere. Let the wrapper pass clicks through to the card
+	// link; the tiles themselves take theirs back.
+	.ecosystem-card--whole .ecosystem-card__tiles {
+		pointer-events: none;
+	}
+
+	.ecosystem-card--whole .ecosystem-card__tile {
+		pointer-events: auto;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
