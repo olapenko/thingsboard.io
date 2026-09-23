@@ -11,11 +11,11 @@ export interface ProductChoice {
 	/** Part of `name` tinted with `badgeFill` — the word that tells the two apart. */
 	nameHighlight?: string;
 	/**
-	 * The card's button row. Named `stores` because the ecosystem's mobile card got
-	 * there first with App Store / Google Play; here it is the regional sign-ups and
-	 * the installer.
+	 * The card's filled button, in `badgeFill`. `action` + `href` sit beside it as the
+	 * quiet link — the same button-then-link pair as the Cloud and On-premises pages'
+	 * choice cards, so the card is two actions rather than one click target.
 	 */
-	stores?: { label: string; href: string; region?: 'us' | 'eu'; icon?: string }[];
+	primary: { label: string; href: string };
 	/** Monochrome marks under the copy, naming where the product can run. */
 	targets?: { label: string; icon: string }[];
 	href: string;
@@ -39,9 +39,9 @@ export const homeProducts: ProductChoice[] = [
 		//
 		// The residency sentence came out to make room. It was saying what the two region buttons
 		// under it were already saying, and those are gone now as well.
-		// The "in 5 minutes" promise moved to the button, where it is attached to the thing that
-		// actually takes five minutes. Said in both places it read as a slogan; said on the
-		// control it reads as an estimate.
+		// No "in 5 minutes": it rode on the button for a while ("Sign up and start in 5 min"), and
+		// the button now takes the Cloud page's "Start for free" so the pair reads the same on both
+		// pages. The estimate still lives there, in the Public Cloud card's points.
 		description:
 			'We run the servers, scaling, backups and upgrades on a 99.9% SLA. Start free on shared infrastructure, or move to Private Cloud, a dedicated cluster we provision and operate for you.',
 		icon: '/src/assets/images/landings/thingsboard-mark.svg',
@@ -49,21 +49,22 @@ export const homeProducts: ProductChoice[] = [
 		badgeFill: '#3d50f5',
 		nameHighlight: 'Cloud',
 		href: '/products/paas/',
-		action: 'Explore Cloud',
+		// The link names the fork the Cloud page is built around, not the page itself. "Explore
+		// Cloud" asked the reader to go and read; this says what they will find there, and it is
+		// the one question this card raises and cannot answer — the description names Private
+		// Cloud, the label says "shared or dedicated". "Compare Public & Private" says the same in
+		// eight more characters, and would wrap beside the button on a phone.
+		action: 'Public vs Private',
 		// One action, not two regions. Which host your data lives on is a real decision, but it is
 		// not the decision this section is for — the section asks who runs the platform, and a
 		// card that answers with two buttons makes the reader choose a continent before they have
 		// chosen a product. The regions are not lost: the header's sign-in menu lists both, and
 		// the Cloud page carries them too.
 		//
-		// The card keeps one action so the pair stays symmetrical — this one starts you, and
-		// On-premises' Install does the same on its side.
-		// "Sign up", not "Sign in": the href is `/signup`, and the reader this card is written for
-		// has no account yet. A returning user signs in from the header.
-		//
-		// No glyph. The label is a phrase carrying a time estimate, and a mark in front of it
-		// competes with the words rather than labelling them.
-		stores: [{ label: 'Sign up and start in 5 min', href: 'https://thingsboard.cloud/signup' }],
+		// "Start for free", the Public Cloud card's own label on the Cloud page, so the button
+		// promises the same thing in both places. The href is `/signup`: the reader this card is
+		// written for has no account yet, and a returning user signs in from the header.
+		primary: { label: 'Start for free', href: 'https://thingsboard.cloud/signup' },
 		accent: '#6e7481',
 	},
 	{
@@ -102,15 +103,18 @@ export const homeProducts: ProductChoice[] = [
 		badgeFill: '#1f8b4d',
 		nameHighlight: 'On-premises',
 		href: '/products/thingsboard-pe/',
-		action: 'Explore On-premises',
-		// Cloud's row starts you somewhere; this one had only the read-more link, so
-		// the two halves of the same decision were not offered on the same terms.
-		// "Install for free" rather than "Install", matching the On-premises hero's own primary
-		// button word for word — the card promises the action and the page delivers the same one,
-		// and "for free" is the half that answers the reader's actual hesitation about self-hosting.
-		// `tabler:download` is the hero's own Install glyph, so the page's two install
-		// affordances are the same button in two sizes.
-		stores: [{ label: 'Install for free', href: '/installations/', icon: 'tabler:download' }],
+		// Cloud's link names its page's fork, and so does this one: the On-premises page is built
+		// around monthly subscription against perpetual licence, the same way the Cloud page is
+		// built around Public against Private. "Learn more" would have been the one generic label
+		// in a pair where the other says something.
+		action: 'Subscription vs licence',
+		// "Install for free" rather than "Install", matching the On-premises hero's and choice
+		// card's primary word for word — the card promises the action and the page delivers the
+		// same one, and "for free" is the half that answers the reader's actual hesitation about
+		// self-hosting. Green because `badgeFill` is the On-premises page's own accent, so it is
+		// the button that page puts under its own choice. No download glyph: that page's choice
+		// card has none, and Cloud's button beside it carries none either.
+		primary: { label: 'Install for free', href: '/installations/' },
 		// NO VENDOR MARKS. The row read AWS · Azure · Google Cloud · Kubernetes, and checked against
 		// develop that is not this product's story — it is the other one's:
 		//

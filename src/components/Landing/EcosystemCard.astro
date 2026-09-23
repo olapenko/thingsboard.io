@@ -72,6 +72,12 @@ interface Props {
 	 * the other, or neither.
 	 */
 	stores?: { label: string; href: string; region?: 'us' | 'eu'; icon?: string }[];
+	/**
+	 * A filled button in `badgeFill`, with `action`/`href` beside it as the quiet
+	 * link — the product pages' choice-card pair. Takes the place of `stores`, and
+	 * the card stops being one click target.
+	 */
+	primary?: { label: string; href: string };
 	/** Monochrome marks naming where the product can run. Decorative — the labels are
 	 *  carried as `title`/`aria-label` on each mark, and the copy above names them too. */
 	targets?: { label: string; icon: string }[];
@@ -97,6 +103,7 @@ const {
 	videoWebm,
 	videoMp4,
 	stores,
+	primary,
 	targets,
 	flipped = false,
 	tiles,
@@ -186,43 +193,57 @@ if (nameHighlight) {
 			   target is unaffected: it is `__link::after` at `inset: 0`, positioned
 			   against the card rather than against its place in this column. */
 		}
-		<div class="ecosystem-card__actions">
-			{
-				(stores || targets) && (
-					<div class="ecosystem-card__stores">
-						{stores?.map((store) => (
-							<a class="ecosystem-card__store" href={store.href} {...externalLinkAttrs(store.href)}>
-								{store.region && (
-									<Icon
-										name="tabler:cloud-filled"
-										class={`region-cloud region-cloud--${store.region}`}
-										aria-hidden="true"
-									/>
-								)}
-								{store.icon && <Icon name={store.icon} class="ecosystem-card__store-icon" aria-hidden="true" />}
-								{store.label}
-							</a>
-						))}
+		{
+			primary ? (
+				<div class="ecosystem-card__actions ecosystem-card__actions--pair">
+					<a class="ecosystem-card__cta" href={primary.href} {...externalLinkAttrs(primary.href)}>
+						{primary.label}
+						<span class="sr-only">— {name}</span>
+					</a>
+					<a href={href} class="ecosystem-card__more" {...externalLinkAttrs(href)}>
+						{action}
+						<span class="sr-only">— {name}</span>
+						<Icon name="tabler:chevron-right" aria-hidden="true" />
+					</a>
+				</div>
+			) : (
+				<div class="ecosystem-card__actions">
+					{(stores || targets) && (
+						<div class="ecosystem-card__stores">
+							{stores?.map((store) => (
+								<a class="ecosystem-card__store" href={store.href} {...externalLinkAttrs(store.href)}>
+									{store.region && (
+										<Icon
+											name="tabler:cloud-filled"
+											class={`region-cloud region-cloud--${store.region}`}
+											aria-hidden="true"
+										/>
+									)}
+									{store.icon && <Icon name={store.icon} class="ecosystem-card__store-icon" aria-hidden="true" />}
+									{store.label}
+								</a>
+							))}
 
-						{targets && (
-							<ul class="ecosystem-card__targets">
-								{targets.map((t) => (
-									<li>
-										<Icon name={t.icon} aria-hidden="true" />
-										<span class="sr-only">{t.label}</span>
-									</li>
-								))}
-							</ul>
-						)}
-					</div>
-				)
-			}
+							{targets && (
+								<ul class="ecosystem-card__targets">
+									{targets.map((t) => (
+										<li>
+											<Icon name={t.icon} aria-hidden="true" />
+											<span class="sr-only">{t.label}</span>
+										</li>
+									))}
+								</ul>
+							)}
+						</div>
+					)}
 
-			<a href={href} class="ecosystem-card__link" {...externalLinkAttrs(href)}>
-				{action}
-				<span class="sr-only">— {name}</span>
-			</a>
-		</div>
+					<a href={href} class="ecosystem-card__link" {...externalLinkAttrs(href)}>
+						{action}
+						<span class="sr-only">— {name}</span>
+					</a>
+				</div>
+			)
+		}
 	</div>
 
 	{
@@ -378,23 +399,10 @@ if (nameHighlight) {
 	.ecosystem-card--product {
 		.ecosystem-card__badge {
 			background-color: var(--badge-fill);
-			// Two layers on the fill: a highlight that sweeps across on hover, and a
-			// static sheen off the top-left. Driven as backgrounds rather than a
-			// pseudo-element because backgrounds are clipped by the squircle's own
-			// radius — so the badge still shows any artwork that outgrows it, which
-			// `overflow: hidden` would have hidden instead.
-			background-image:
-				linear-gradient(100deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0.42) 50%, rgba(255, 255, 255, 0) 62%),
-				linear-gradient(150deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
-			// Sweep layer is 2.5x wide and parked past the left edge; only its
-			// position animates.
-			background-size:
-				250% 100%,
-				100% 100%;
-			background-position:
-				100% 0,
-				0 0;
-			background-repeat: no-repeat;
+			// A static sheen off the top-left. The hover sweep that used to cross it
+			// went with the card-wide link: with two actions in the card, the card
+			// itself no longer reacts — the sweep now lives on the button.
+			background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
 			// Mark to the bottom-left, deployment icon to the top-right: the two
 			// sit on a diagonal so neither crowds the other in a 72px square.
 			// The glyph has moved to the title, so the mark has the square to itself.
@@ -412,38 +420,6 @@ if (nameHighlight) {
 		// Only the knockout differs from the base icon now.
 		.ecosystem-card__icon {
 			filter: brightness(0) invert(1);
-		}
-
-		// Stroke takes the card's own colour on hover, over a low-saturation wash.
-		// Shape follows the docs pattern (SplitCard, DocHero): oversized radial,
-		// anchored off-corner so the card catches its edge rather than sitting in
-		// the middle of a blob.
-		&:hover .ecosystem-card__badge,
-		&:focus-within .ecosystem-card__badge {
-			animation: badge-shimmer 0.75s cubic-bezier(0.4, 0, 0.2, 1);
-		}
-
-		&:hover,
-		&:focus-within {
-			background:
-				radial-gradient(color-mix(in srgb, var(--badge-fill) 13%, transparent), transparent 70%) no-repeat -10% -40% /
-					140% 260%,
-				var(--color-bg-surface);
-		}
-	}
-
-	// Sits inside the squircle rather than overhanging it: without the white disc
-	// behind it, an overhanging glyph would cross onto the card and disappear.
-	@keyframes badge-shimmer {
-		from {
-			background-position:
-				100% 0,
-				0 0;
-		}
-		to {
-			background-position:
-				0% 0,
-				0 0;
 		}
 	}
 
@@ -631,6 +607,89 @@ if (nameHighlight) {
 		}
 	}
 
+	// ── Product pair: button + link ─────────────────────────────────
+	// The Cloud and On-premises pages' `.choice-card__actions`, carried onto a white
+	// card: the same 44px button in the product's own hue (the page accent there,
+	// `badgeFill` here — the same two colours), then a link in plain ink so the
+	// colour stays on the one thing to do.
+	.ecosystem-card__actions--pair {
+		flex-direction: row;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: $spacing-4;
+	}
+
+	.ecosystem-card__cta {
+		@include type-button;
+		display: inline-flex;
+		align-items: center;
+		height: 44px;
+		padding: 0 $spacing-4;
+		border-radius: $radius-md;
+		background-color: var(--badge-fill);
+		color: #fff;
+		text-decoration: none;
+		// The shimmer's scaffolding: a clipping stacking context for the sweep.
+		position: relative;
+		overflow: hidden;
+		isolation: isolate;
+
+		&:hover {
+			background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--badge-fill);
+			outline-offset: 3px;
+		}
+
+		// The product pages' sweep: one skewed highlight, once per hover,
+		// transform-only so it composites.
+		&::after {
+			content: '';
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			left: 0;
+			width: 45%;
+			z-index: -1;
+			pointer-events: none;
+			background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+			transform: translateX(-160%) skewX(-18deg);
+		}
+
+		&:hover::after,
+		&:focus-visible::after {
+			animation: cta-shimmer 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+	}
+
+	@keyframes cta-shimmer {
+		to {
+			transform: translateX(320%) skewX(-18deg);
+		}
+	}
+
+	.ecosystem-card__more {
+		@include type-link;
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		color: var(--color-text);
+		text-decoration: none;
+
+		:global([data-icon]) {
+			width: 18px;
+			height: 18px;
+		}
+
+		&:hover,
+		&:focus-visible {
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+	}
+
 	// ── Double-wide variant: the section's key visual ──────────────
 	// Two columns at desktop; the phone is anchored to the bottom and clipped by
 	// the card, so it reads as continuing past the edge rather than being cut.
@@ -762,8 +821,10 @@ if (nameHighlight) {
 	// an <a>, which would read the entire description aloud as the link text.
 	//
 	// The wide card is excluded on purpose: it has three destinations, so a
-	// card-wide link would sit invisibly on top of two visible ones.
-	.ecosystem-card:not(.ecosystem-card--wide) {
+	// card-wide link would sit invisibly on top of two visible ones. The product
+	// cards are excluded for the same reason — each carries a button AND a link,
+	// the product pages' choice-card pattern, which is a plain panel too.
+	.ecosystem-card:not(.ecosystem-card--wide, .ecosystem-card--product) {
 		cursor: pointer;
 		transition:
 			box-shadow 0.18s ease,
@@ -790,12 +851,12 @@ if (nameHighlight) {
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.ecosystem-card--product:hover .ecosystem-card__badge,
-		.ecosystem-card--product:focus-within .ecosystem-card__badge {
+		.ecosystem-card__cta:hover::after,
+		.ecosystem-card__cta:focus-visible::after {
 			animation: none;
 		}
 
-		.ecosystem-card:not(.ecosystem-card--wide) {
+		.ecosystem-card:not(.ecosystem-card--wide, .ecosystem-card--product) {
 			transition: none;
 
 			&:hover,
