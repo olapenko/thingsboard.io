@@ -44,16 +44,7 @@ export const homeEcosystem: EcosystemItem[] = [
 		href: '/docs/iot-gateway/',
 		action: 'See supported protocols',
 		accent: '#7b3fe4',
-	},
-	{
-		name: 'TBMQ',
-		label: 'Dedicated MQTT broker',
-		description:
-			"Picks up where ThingsBoard's MQTT transport stops. The transport collects telemetry; TBMQ routes messages between devices, at millions of concurrent connections.",
-		icon: '/src/assets/images/landings/ce/tbmq-icon.svg',
-		href: TBMQ_SITE_URL,
-		action: 'Go to tbmq.io',
-		accent: '#1f9d55',
+		wide: true,
 	},
 	{
 		name: 'Edge',
@@ -153,13 +144,13 @@ export const homeEcosystem: EcosystemItem[] = [
 		],
 	},
 	{
-		name: 'AI Solution Creator',
-		label: 'Prompt to prototype',
+		name: 'TBMQ',
+		label: 'Dedicated MQTT broker',
 		description:
-			'Describe an IoT use case in plain language and get a working prototype in minutes — devices, dashboards and alert rules already wired together.',
-		icon: 'tabler:sparkles-filled',
-		href: '/docs/paas/user-guide/ai-solution-creator/',
-		action: 'See how it works',
-		accent: '#7048e8',
+			"Picks up where ThingsBoard's MQTT transport stops. The transport collects telemetry; TBMQ routes messages between devices, at millions of concurrent connections.",
+		icon: '/src/assets/images/landings/ce/tbmq-icon.svg',
+		href: TBMQ_SITE_URL,
+		action: 'Go to tbmq.io',
+		accent: '#1f9d55',
 	},
 ];
