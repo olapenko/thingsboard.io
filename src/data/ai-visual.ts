@@ -20,11 +20,15 @@ export const AI_COPY = {
 	title: 'Build IoT solutions faster than ever with AI inside ThingsBoard',
 	body: 'From describing a project in plain English to complete dashboards, alarm rules, and data transformations with AI assistance — ThingsBoard cuts your development time from weeks to hours.',
 	/**
-	 * `sparkles` at the brand indigo. The hue is the prototype's own `--ai-accent` (#3d50f5), which
-	 * is this repo's `$color-brand` to the digit — so the port needed no colour decision here. It
-	 * repeats the solution row's badge, which is correct: both are claims about building.
+	 * `sparkles-filled` at the brand indigo. The hue is the prototype's own `--ai-accent` (#3d50f5),
+	 * which is this repo's `$color-brand` to the digit — so the port needed no colour decision here.
+	 * It repeats the solution row's badge, which is correct: both are claims about building.
+	 *
+	 * FILLED rather than the outline. Tabler draws its outline glyphs at a 2px stroke on a 24px grid,
+	 * which is tuned for a 24px glyph — blown up to the 34 this section's tile carries, the stroke
+	 * stays 2 and the mark thins out as it grows. The filled cut has no stroke to fall behind.
 	 */
-	badge: { icon: 'tabler:sparkles', color: '#3d50f5' },
+	badge: { icon: 'tabler:sparkles-filled', color: '#3d50f5' },
 };
 
 export interface AiColumn {
@@ -33,15 +37,34 @@ export interface AiColumn {
 	title: string;
 	body: string;
 	/**
-	 * The column's hue: the panel wash, the kicker, and (for the CLI) the terminal's prompt.
+	 * The column's hue, for everything that is not TYPE: the band's wash and (for the CLI) the
+	 * terminal's prompt and caret.
 	 *
 	 * The prototype's own values, taken from it running in the approved config rather than remapped.
-	 * Both were checked as TYPE on white before being used that way: #0d7a5f is 5.31:1 and #7c5cf0 is
-	 * 4.52:1, so each clears 4.5:1 for the 14px kicker. That is the whole reason one value can do both
-	 * jobs here — an earlier pass carried a second, darker hue for text because it assumed these would
-	 * fail, and they do not.
 	 */
 	accent: string;
+	/**
+	 * The same hue, darkened, for the kicker — the one place the accent is set as 14px type.
+	 *
+	 * THIS EXISTS BECAUSE ONE VALUE COULD NOT DO BOTH JOBS, which an earlier pass here asserted it
+	 * could. That pass checked both accents as type ON WHITE — 5.29:1 and 4.52:1 — and concluded they
+	 * cleared 4.5:1. The kicker is never on white. It sits in a band washed with its own accent, so
+	 * the background it is read against is tinted with the very colour it is printed in, and the
+	 * measured ratios where the text actually lands were 4.94:1 and **4.18:1**. The purple failed.
+	 *
+	 * These values are derived rather than picked: each is its accent scaled toward black until it
+	 * clears 5:1 against the DEEPEST point of that band's wash (the accent at 20% over white), so the
+	 * kicker holds the standard wherever the copy sits — and the copy does move, riding higher or
+	 * lower in the band with the breakpoint. Where it sits today both land at about 6:1, which also
+	 * ends a second problem: at 4.94 and 4.18 the two kickers did not read as the same weight.
+	 *
+	 *   #0b6952  green   accent x 0.86   5.03:1 at the band's foot, 6.09:1 as set, 6.66:1 on white
+	 *   #6249be  purple  accent x 0.79   5.06:1 at the band's foot, 6.03:1 as set, 6.56:1 on white
+	 *
+	 * Re-derive both if the wash's 20% changes, if the kicker moves down the band, or if the type
+	 * drops below 14px.
+	 */
+	accentText: string;
 }
 
 export const AI_COLUMNS: { assistant: AiColumn; cli: AiColumn } = {
@@ -50,12 +73,14 @@ export const AI_COLUMNS: { assistant: AiColumn; cli: AiColumn } = {
 		title: 'AI assistants built into the platform',
 		body: 'A unified AI layer that helps you build every part of your IoT solution through natural language — from a full prototype (AI Solution Creator) to individual dashboards, rules, and calculated fields.',
 		accent: '#0d7a5f',
+		accentText: '#0b6952',
 	},
 	cli: {
 		eyebrow: 'From your terminal',
 		title: 'ThingsBoard CLI for AI coding agents',
 		body: 'Develop your IoT solution from your terminal. Integrate with AI coding agents to build, test, and deploy ThingsBoard as code.',
 		accent: '#7c5cf0',
+		accentText: '#6249be',
 	},
 };
 

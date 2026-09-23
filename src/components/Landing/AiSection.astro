@@ -58,7 +58,7 @@ interface Props {
 const { animate = true } = Astro.props;
 ---
 
-<section id="ai" class="ai">
+<section id="ai" class="ai" data-animate={animate ? 'on' : null}>
 	<div class="main-div">
 		<SectionHeader
 			title={AI_COPY.title}
@@ -75,7 +75,7 @@ const { animate = true } = Astro.props;
 		   is what holds the two to one height — see `.ai__bands`. */
 	}
 	<div class="ai__bands">
-	<div class="ai__band ai__band--dock-top" style={`--accent: ${AI_COLUMNS.assistant.accent}`}>
+	<div class="ai__band ai__band--dock-top" style={`--accent: ${AI_COLUMNS.assistant.accent}; --accent-text: ${AI_COLUMNS.assistant.accentText}`}>
 		<div class="main-div">
 			<div class="ai__row">
 				<div class="ai__media">
@@ -91,7 +91,7 @@ const { animate = true } = Astro.props;
 		</div>
 	</div>
 
-	<div class="ai__band ai__band--dock-bottom" style={`--accent: ${AI_COLUMNS.cli.accent}`}>
+	<div class="ai__band ai__band--dock-bottom" style={`--accent: ${AI_COLUMNS.cli.accent}; --accent-text: ${AI_COLUMNS.cli.accentText}`}>
 		<div class="main-div">
 			<div class="ai__row ai__row--flip">
 				<div class="ai__media">
@@ -260,6 +260,66 @@ const { animate = true } = Astro.props;
 		.ai__copy {
 			position: relative;
 			top: -$spacing-10;
+		}
+	}
+
+	// ── The section's mark ──────────────────────────────────
+	// LARGER THAN THE PAGE'S OTHER TILES, and knowingly. `SectionHeader` draws 40 with a 24 glyph to
+	// match the row marks beside it, and the reason is written there: a section mark a third larger
+	// than the row marks would be a second idea of what a tile is. That holds for a mark whose whole
+	// job is to label its section. This one has another — it is the only mark on the page that moves,
+	// and at 40 the movement had nothing to happen in. 56/34 keeps the tile's own proportion (0.6
+	// glyph to tile; the radius is a percentage, so it follows by itself) and puts it clearly in a
+	// different class from the row marks rather than nearly matching them, which is the reading that
+	// would look like a mistake.
+	//
+	// Overridden from here rather than added to `SectionHeader` as a prop, which is this repo's usual
+	// answer: the size only earns itself next to the animation below, and the animation is this
+	// section's own. A `badgeSize` prop would offer every other header a size that makes no sense
+	// without it.
+	.ai :global(.section-header__badge) {
+		width: 56px;
+		height: 56px;
+	}
+
+	.ai :global(.section-header__badge [data-icon]) {
+		width: 34px;
+		height: 34px;
+	}
+
+	// A twinkle when the mark scrolls into view, once per entry. Same gate as the two windows below,
+	// which is the point of using one: nothing in this section moves while it is off screen.
+	//
+	// THE GLYPH MOVES, NOT THE TILE. A tile that scales drags the title under it around, and the
+	// header is the calmest thing on this page. Scaling the glyph inside a tile that holds still also
+	// reads as the mark catching light, which is what a sparkle should do.
+	.ai :global(.section-header__badge.is-lit [data-icon]) {
+		animation: ai-badge-twinkle 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+
+	@keyframes ai-badge-twinkle {
+		0% {
+			opacity: 0;
+			transform: scale(0.6) rotate(-25deg);
+		}
+		45% {
+			opacity: 1;
+			transform: scale(1.14) rotate(8deg);
+		}
+		70% {
+			transform: scale(0.97) rotate(-3deg);
+		}
+		100% {
+			opacity: 1;
+			transform: scale(1) rotate(0deg);
+		}
+	}
+
+	// Belt and braces with the script, which does not attach the observer at all under reduced motion:
+	// this also covers the setting being turned on after the class has already landed.
+	@media (prefers-reduced-motion: reduce) {
+		.ai :global(.section-header__badge.is-lit [data-icon]) {
+			animation: none;
 		}
 	}
 
@@ -467,11 +527,16 @@ const { animate = true } = Astro.props;
 	// The eyebrow has no counterpart there; those rows carry a squircle badge instead. It is kept
 	// because it is the section's argument — the same platform, reached two ways — and set on the
 	// shared ladder so it is at least not a fourth voice.
+	// NOT `--accent`. The kicker is the one place this hue is set as type, and the band it is set on is
+	// washed with that same hue — so the accent is being read against a tint of itself, and both landed
+	// under what 14px needs (4.94:1 and 4.18:1, the purple failing outright). `--accent-text` is each
+	// accent darkened until it clears 5:1 against the deepest point of its own wash; the derivation and
+	// the numbers are in `@data/ai-visual`. The wash and the terminal's prompt keep `--accent`.
 	.ai__eyebrow {
 		@include type-eyebrow;
 
 		margin: 0 0 $spacing-3;
-		color: var(--accent);
+		color: var(--accent-text, var(--accent));
 	}
 
 	.ai__row-title {
@@ -746,3 +811,35 @@ const { animate = true } = Astro.props;
 		}
 	}
 </style>
+
+<script>
+	// The section mark twinkles when it scrolls into view.
+	//
+	// Its own observer rather than a shared one: the chat and the terminal each carry theirs, this is
+	// the same gate, and a section-wide observer would have to know what all three want. `#ai` is a
+	// singleton, so there is no instance to thread through.
+	const section = document.querySelector('#ai');
+	const badge = section?.querySelector('.section-header__badge');
+
+	if (badge && section?.dataset.animate === 'on' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					// OFF, THEN ON. Re-adding a class that is already there restarts nothing — the browser
+					// sees the same animation still applied and leaves it running. Removing it, forcing the
+					// style to flush by reading a layout property, then adding it back is what makes the
+					// next entry a new animation rather than a no-op.
+					badge.classList.remove('is-lit');
+
+					if (entry.isIntersecting) {
+						void (badge as HTMLElement).offsetWidth;
+						badge.classList.add('is-lit');
+					}
+				}
+			},
+			// Half of it, so the twinkle fires when the mark is properly on screen rather than as its
+			// first pixel clears the fold.
+			{ threshold: 0.5 }
+		).observe(badge);
+	}
+</script>
