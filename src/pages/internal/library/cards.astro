@@ -1,11 +1,12 @@
 ---
-import BaseLayout from '@layouts/BaseLayout.astro';
-import InternalNav from './_InternalNav.astro';
+import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
 import EcosystemCard from '@components/Landing/EcosystemCard.astro';
 import CliTerminal from '@components/Landing/CliTerminal.astro';
 import GatewayDiagram from '@components/Landing/GatewayDiagram.astro';
+import GatewayHub from '@components/Landing/GatewayHub.astro';
 import CardVideo from '@components/Landing/CardVideo.astro';
 import { homeEcosystem } from '@data/homeEcosystem';
+import { AI_CLI_SESSION, AI_CLI_LABEL } from '@data/ai-visual';
 
 // Internal reference page: every ecosystem card in both formats, so a new one
 // can be checked against the set before it reaches a marketing page. Not linked
@@ -59,25 +60,20 @@ const cards = all.map(({ source, props }) => ({
 }));
 ---
 
-<BaseLayout
-	title="Ecosystem card library"
-	description="Internal reference: every ecosystem card in one-wide and two-wide formats."
-	noIndex={true}
+{
+	/* PlaygroundLayout, like every other internal page, not BaseLayout: no site header, no footer,
+	   nothing between the cards and the page edge that is not under review. It also carries the
+	   internal toolbar. */
+}
+<PlaygroundLayout
+	title="Ecosystem cards"
+	description="Every card in the set, one row each: the one-wide shape beside the two-wide one, so a card can be judged against itself rather than against its neighbours. Two-wide cards without artwork show a placeholder slot — those get filled in one at a time."
 >
 	<div class="lib">
-		<header class="lib__head">
-			<p class="lib__kicker">Internal reference</p>
-			<h1>Ecosystem card library</h1>
-			<p class="lib__lede">
-				Every card in the set, one row each: the one-wide shape beside the two-wide one, so a card can be judged against
-				itself rather than against its neighbours. Two-wide cards without artwork show a placeholder slot — those get
-				filled in one at a time.
-			</p>
-			<p class="lib__meta">
-				{cards.length} cards · {cards.filter((c) => c.hasVisual).length} with artwork ·{' '}
-				{cards.filter((c) => !c.hasVisual).length} awaiting artwork
-			</p>
-		</header>
+		<p class="lib__meta">
+			{cards.length} cards · {cards.filter((c) => c.hasVisual).length} with artwork ·{' '}
+			{cards.filter((c) => !c.hasVisual).length} awaiting artwork
+		</p>
 
 		{
 			cards.map((card) => (
@@ -100,8 +96,13 @@ const cards = all.map(({ source, props }) => ({
 
 						<figure class="lib__item">
 							{card.visual === 'ThingsBoard CLI' ? (
-								<EcosystemCard {...(card.double as any)}>
-									<CliTerminal />
+								<EcosystemCard {...(card.double as any)} class="lib-cli-card">
+									{/* The AI section's terminal: the same typed session, docked to the card's
+									    foot and cut by it. The card's `--accent` reaches the prompt, arguments
+									    and caret, so the session takes the card's blue, not the section's violet. */}
+									<div class="lib__cli">
+										<CliTerminal session={AI_CLI_SESSION} path="cold-chain" ariaLabel={AI_CLI_LABEL} />
+									</div>
 								</EcosystemCard>
 							) : card.visual === 'IoT Gateway' ? (
 								<EcosystemCard {...(card.double as any)}>
@@ -120,40 +121,43 @@ const cards = all.map(({ source, props }) => ({
 							)}
 							<figcaption>Two-wide</figcaption>
 						</figure>
+
+						{/* A candidate visual under the one the card ships with, at the same size, so the
+						    two are judged side by side rather than from memory. */}
+						{card.visual === 'IoT Gateway' && (
+							<figure class="lib__item lib__item--candidate">
+								<EcosystemCard {...(card.double as any)}>
+									<GatewayHub />
+								</EcosystemCard>
+								<figcaption>
+									Two-wide · candidate: <span>GatewayHub</span> — the Connect and Platform visuals' vocabulary
+								</figcaption>
+							</figure>
+						)}
 					</div>
 				</section>
 			))
 		}
 	</div>
-	<InternalNav />
-</BaseLayout>
+</PlaygroundLayout>
 
 <style lang="scss">
-	@use '../../styles/variables' as *;
+	@use '../../../styles/variables' as *;
 
 	.lib {
-		max-width: 1200px;
+		// 1160, not the playground's 1200: the column this page had under BaseLayout (1200 less its own
+		// 20px gutters), which is what sets the cards at 380 / 760 — the widths they were judged at.
+		max-width: 1160px;
 		margin: 0 auto;
-		padding: $spacing-16 $spacing-5 $spacing-24;
+		// The line height the cards inherit on the site's own pages (24px at 16), which the playground
+		// body leaves at `normal`. Without it every card came out 5.5px shorter here than where it
+		// ships, and this page exists to show them at their real size.
+		line-height: 1.5;
 	}
 
-	.lib__head {
-		max-width: 60ch;
-		margin-bottom: $spacing-16;
-	}
-
-	.lib__kicker {
-		@include text-s;
-		margin: 0 0 $spacing-2;
-		font-weight: $font-weight-bold;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--color-text-secondary, #5b616e);
-	}
-
-	h1 {
-		@include page-title;
-		margin: 0 0 $spacing-4;
+	// The layout's page title, held to the same column so it keeps the cards' left edge.
+	:global(.pg__head) {
+		max-width: 1160px;
 	}
 
 	h2 {
@@ -161,16 +165,9 @@ const cards = all.map(({ source, props }) => ({
 		margin: 0;
 	}
 
-	.lib__lede {
-		@include text-m;
-		margin: 0;
-		color: var(--color-text-secondary, #5b616e);
-		text-wrap: pretty;
-	}
-
 	.lib__meta {
 		@include text-s;
-		margin: $spacing-4 0 0;
+		margin: 0 0 $spacing-10;
 		color: var(--color-text-secondary, #5b616e);
 	}
 
@@ -228,6 +225,14 @@ const cards = all.map(({ source, props }) => ({
 		flex-direction: column;
 	}
 
+	// Under the shipping two-wide card, in its column. Only while the pair is two columns: stacked,
+	// `grid-column: 2` would invent a second column rather than find one.
+	.lib__item--candidate {
+		@include media-up(lg) {
+			grid-column: 2;
+		}
+	}
+
 	figcaption {
 		@include text-s;
 		margin-top: $spacing-3;
@@ -244,6 +249,86 @@ const cards = all.map(({ source, props }) => ({
 		border-radius: 4px;
 		background: #fdf0e6;
 		color: #a04503;
+	}
+
+	// ── The CLI card's terminal ─────────────────────────────────────
+	// The AI section's CLI band, at card size. There the window runs off the band's bottom edge;
+	// here it runs off the card's. The visual column drops its centring and reaches through the
+	// card's bottom padding, so the crop and the card's edge are the same line — the same move
+	// `.ecosystem-card__mockup` makes for the phone.
+	.lib :global(.lib-cli-card .ecosystem-card__visual) {
+		position: relative;
+		align-self: stretch;
+		height: 250px;
+		margin-bottom: calc(-1 * #{$spacing-5});
+		overflow: hidden;
+
+		@include media-up(md) {
+			align-self: end;
+		}
+	}
+
+	// Absolute, top-anchored and taller than its box, so the box's foot is where the window is cut —
+	// the same arithmetic as `.ai__cli`, and for the same reason: a flex item that overflows does not
+	// place predictably.
+	.lib__cli {
+		position: absolute;
+		top: 20px;
+		right: 0;
+		left: 0;
+		max-width: 500px;
+		margin: 0 auto;
+	}
+
+	.lib__cli :global(.cli) {
+		--cli-chrome: 0.8;
+
+		display: flex;
+		flex-direction: column;
+		height: 260px;
+		border-radius: 10px;
+		// The AI band's shadow, pulled in: the card is a smaller surface than a full-bleed band, and
+		// a heavier drop read as the window lifting off it.
+		box-shadow:
+			0 1px 0 rgba(255, 255, 255, 0.06) inset,
+			0 6px 14px rgba(0, 0, 0, 0.22);
+	}
+
+	.lib__cli :global(.cli__scroll) {
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	// Sized so the whole session fits with no scroll. The longest command is 25.15em including its
+	// gutter (measured for the AI band), and the narrowest two-column cell leaves ~318px of log, so
+	// 12.5px is the ceiling; nine rows at 1.4 plus padding is ~182px against ~222px visible.
+	.lib__cli :global(.cli__body) {
+		height: 100%;
+		max-height: 100%;
+		padding-bottom: 8px;
+		font-size: 12.5px;
+		line-height: 1.4;
+	}
+
+	.lib__cli :global(.cli__path) {
+		font-size: 11px;
+	}
+
+	// Stacked, the card is the whole phone column, and a 47-character command needs the type down a
+	// step to stay on one line.
+	@include media-down(md) {
+		.lib :global(.lib-cli-card .ecosystem-card__visual) {
+			height: 220px;
+			margin-top: $spacing-4;
+		}
+
+		.lib__cli :global(.cli__body) {
+			font-size: 10.5px;
+		}
+
+		.lib__cli :global(.cli__path) {
+			font-size: 9.5px;
+		}
 	}
 
 	.lib__tag--done {

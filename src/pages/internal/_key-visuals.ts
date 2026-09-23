@@ -7,8 +7,8 @@
  * `KEY_VISUALS[6]`, which meant inserting a visual silently retitled four others. That is also what
  * makes the order below free to change — this array decides the strip and nothing else.
  *
- * THE ORDER IS THE PAGE'S ORDER. Platform first: it is meant to open the homepage as a centred
- * section above the rows, though it is not on the page yet. Then the five rows in the order
+ * THE ORDER IS THE PAGE'S ORDER. Platform first: it opens the homepage as a centred section
+ * above the rows. Then the five rows in the order
  * `index.astro` runs them — connect, solution, twin, normalize, scale — so walking the strip walks
  * the page. `ai` sits between twin and normalize because that is where `AiSection` runs: it is a
  * full-bleed section rather than a row, but it is on the page there, and the strip is the page's
@@ -38,11 +38,24 @@ export interface KeyVisual {
 	 * homepage and the sandbox take the same one from the same place; this only carries it across.
 	 */
 	badge?: { icon: string; color: string };
+	/**
+	 * The section's anchor on the homepage, when it has one — `/#<home>`. Having one IS being on the
+	 * page: the hub groups by it, numbers by it and links by it, and the strip draws its seam after
+	 * the last visual that has one. Put a visual on the homepage and give it an `id` there; set this,
+	 * and all three follow.
+	 */
+	home?: string;
+	/**
+	 * A component check rather than a section — it has no copy and is not headed for a row. The hub
+	 * lists these apart from the sections waiting for a place on the page.
+	 */
+	check?: boolean;
 }
 
 export const KEY_VISUALS: KeyVisual[] = [
 	{
 		id: 'platform',
+		home: 'intro',
 		label: 'Platform',
 		title: PLATFORM_COPY.title,
 		body: PLATFORM_COPY.body,
@@ -51,6 +64,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 	},
 	{
 		id: 'connect',
+		home: 'connect',
 		label: 'Connect devices',
 		title: CONNECT_COPY.title,
 		body: CONNECT_COPY.body,
@@ -59,6 +73,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 	},
 	{
 		id: 'solution',
+		home: 'solution',
 		label: 'Device to end-user',
 		title: SOLUTION_COPY.title,
 		body: SOLUTION_COPY.body,
@@ -67,6 +82,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 	},
 	{
 		id: 'twin',
+		home: 'twin',
 		label: 'Digital twin',
 		...DIGITAL_TWIN_COPY,
 	},
@@ -74,6 +90,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 		// A section, not a row: its copy has no link, and its badge is drawn by the section's own
 		// header rather than by a row's.
 		id: 'ai',
+		home: 'ai',
 		label: 'AI',
 		title: AI_COPY.title,
 		body: AI_COPY.body,
@@ -81,6 +98,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 	},
 	{
 		id: 'normalize',
+		home: 'normalize',
 		label: 'Normalize',
 		title: NORMALIZE_COPY.title,
 		body: NORMALIZE_COPY.body,
@@ -89,6 +107,7 @@ export const KEY_VISUALS: KeyVisual[] = [
 	},
 	{
 		id: 'scale',
+		home: 'scale',
 		label: 'Scale',
 		title: SCALE_COPY.title,
 		body: SCALE_COPY.body,
@@ -127,12 +146,16 @@ export const KEY_VISUALS: KeyVisual[] = [
 	{
 		id: 'cli',
 		label: 'CLI',
+		check: true,
 	},
 ];
 
 /** The entry for `id`. Throws at build time rather than rendering a row with no copy in it. */
+/** The visuals that are on the homepage, in page order. */
+export const ON_HOME = KEY_VISUALS.filter((v) => v.home);
+
 export function kv(id: string): KeyVisual {
 	const found = KEY_VISUALS.find((v) => v.id === id);
-	if (!found) throw new Error(`launch-visuals: no key visual with id "${id}"`);
+	if (!found) throw new Error(`sections: no key visual with id "${id}"`);
 	return found;
 }

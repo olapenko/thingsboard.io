@@ -124,7 +124,7 @@ export const AI_COLUMNS: { assistant: AiColumn; cli: AiColumn } = {
 
 /**
  * CANDIDATE COPY — value first, with a kicker naming the tool. Judged at
- * `/internal/launch-visuals/ai/`; the homepage still reads `AI_COLUMNS`.
+ * `/internal/sections/ai/`; the homepage still reads `AI_COLUMNS`.
  *
  * The shipping headlines describe what each thing IS ("AI assistants built into the platform",
  * "ThingsBoard CLI for AI coding agents"). These say what you GET, and the name moves up into the
