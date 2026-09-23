@@ -44,10 +44,24 @@ const isIn = (href: string) => here.startsWith(href);
 
 <div class="inav-root" data-internal-nav data-open="true">
 	<script is:inline>
-		try {
-			if (sessionStorage.getItem('internal-nav:open') === 'false')
-				document.currentScript.parentElement.dataset.open = 'false';
-		} catch (e) {}
+		(function (root) {
+			try {
+				if (sessionStorage.getItem('internal-nav:open') === 'false') root.dataset.open = 'false';
+			} catch (e) {}
+
+			// Held invisible, not collapsed, until Ubuntu 500 is in, so the island is never painted in
+			// the fallback and re-set a moment later — measured at 306px, then 275. `check` is true when
+			// the face is already loaded or not declared at all, so this only ever waits on a real load,
+			// and the timeout means a failed font costs the island nothing but its face.
+			if (document.fonts && !document.fonts.check('500 12.5px Ubuntu')) {
+				root.dataset.fontPending = '';
+				var ready = function () {
+					delete root.dataset.fontPending;
+				};
+				document.fonts.load('500 12.5px Ubuntu').then(ready, ready);
+				setTimeout(ready, 1500);
+			}
+		})(document.currentScript.parentElement);
 	</script>
 
 	<nav class="inav" aria-label="Internal review pages" id="internal-nav">
@@ -158,18 +172,21 @@ const isIn = (href: string) => here.startsWith(href);
 		--inav-dur: 0.22s;
 		--inav-h: 36px; // The island's height, and so the tab's: the two are one control in two states.
 
-		// A SYSTEM face, not the site's mono. Ubuntu Mono is a web font, so every page load drew the
-		// island in the fallback first and then re-set it when the font arrived — 278px wide, then
-		// 257, on every navigation. That was the jump. Chrome has no business waiting on a font.
-		font-family:
-			system-ui,
-			-apple-system,
-			'Segoe UI',
-			sans-serif;
+		// Ubuntu, the page's own face, so the chrome reads as part of the site it sits on rather than
+		// as the operating system's. It was a system face for a while, to dodge a width jump: a web
+		// font lands after first paint on a revalidated load, and the island re-set itself when it
+		// did. That jump is now handled where it happens — the inline script above holds the island
+		// invisible until Ubuntu 500 is in — so the chrome no longer has to give up the site's face.
+		font-family: $font-family-base;
 		font-size: 12.5px;
 		font-weight: 500;
 		line-height: 1;
 		letter-spacing: 0;
+	}
+
+	// See the inline script: the island waits out its web font rather than jumping when it lands.
+	.inav-root[data-font-pending] :is(.inav, .inav-tab) {
+		visibility: hidden;
 	}
 
 	/* The island and the tab share one surface. */
