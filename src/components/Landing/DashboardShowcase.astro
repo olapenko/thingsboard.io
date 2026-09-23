@@ -302,6 +302,9 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 			// Block padding keeps the focus ring off the scroll container's edge —
 			// `overflow-x: auto` clips the block axis too.
 			padding: $spacing-1 $spacing-5;
+			// A mouse drags the rail (see the script); without this the drag also
+			// selects the chip labels it passes over.
+			user-select: none;
 			scrollbar-width: none;
 
 			&::-webkit-scrollbar {
@@ -559,6 +562,61 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 			show(active + (dx < 0 ? 1 : -1));
 			stop();
 		});
+
+		// ── Rail scrolling ────────────────────────────────────
+		// Touch and trackpads scroll the rail natively. A MOUSE had no way to: the
+		// scrollbar is hidden, the wheel is vertical, and a drag did nothing — so on
+		// a narrow desktop window, or a phone preview driven by a mouse, the names
+		// past the third looked like they did not exist. Dragging the rail now
+		// scrolls it, and a drag is never also a click on the chip it started on.
+		//
+		// Any hand on the rail stops autoplay as well. Browsing the names is not a
+		// choice, so nothing else stopped it, and the next tick's `keepInView`
+		// pulled the rail back to the active chip from wherever the reader had
+		// scrolled to.
+		const DRAG_MIN = 5;
+		let drag: { x: number; left: number; moved: boolean } | null = null;
+
+		rail?.addEventListener('pointerdown', (event) => {
+			stop();
+			if (event.pointerType !== 'mouse' || event.button !== 0 || !railScrolls()) return;
+			drag = { x: event.clientX, left: rail.scrollLeft, moved: false };
+		});
+
+		rail?.addEventListener('wheel', stop, { passive: true });
+
+		rail?.addEventListener('pointermove', (event) => {
+			if (!drag) return;
+			const dx = event.clientX - drag.x;
+			if (!drag.moved && Math.abs(dx) < DRAG_MIN) return;
+
+			// Captured only once it is a drag: captured from `pointerdown`, the
+			// click that a plain press should produce would land on the rail
+			// instead of the chip.
+			if (!drag.moved) rail.setPointerCapture(event.pointerId);
+			drag.moved = true;
+			rail.scrollLeft = drag.left - dx;
+		});
+
+		// The click that follows a drag belongs to no chip. Swallowed in the capture
+		// phase so the tab's own handler never sees it — and taken down again on the
+		// next tick, because a drag that ends off the rail produces no click, and a
+		// listener left waiting would eat the reader's next real one.
+		const swallowClick = (event: Event) => {
+			event.preventDefault();
+			event.stopPropagation();
+		};
+
+		const endDrag = () => {
+			if (drag?.moved && rail) {
+				rail.addEventListener('click', swallowClick, { capture: true, once: true });
+				window.setTimeout(() => rail.removeEventListener('click', swallowClick, { capture: true }));
+			}
+			drag = null;
+		};
+
+		rail?.addEventListener('pointerup', endDrag);
+		rail?.addEventListener('pointercancel', () => (drag = null));
 
 		root.querySelector('[role="tablist"]')?.addEventListener('keydown', (event) => {
 			const key = (event as KeyboardEvent).key;
