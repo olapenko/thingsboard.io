@@ -107,7 +107,10 @@ export const homeEcosystem: EcosystemItem[] = [
 		icon: 'tabler:building-store',
 		href: '/iot-hub/',
 		action: 'Browse the Hub',
-		accent: '#e8590c',
+		// Ochre, not the retail orange: the tiles already carry the card's colour,
+		// and this keeps the section's one warm slot without the sale register.
+		// Same hue family as GatewayRelay's Modbus chip.
+		accent: '#b45309',
 		wide: true,
 		// Unflipped: copy left, tiles right, same reading order as the app card
 		// above it. The tiles ride above the whole-card link on their z-index.
