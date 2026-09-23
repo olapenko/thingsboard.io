@@ -109,11 +109,10 @@ export const homeProducts: ProductChoice[] = [
 		badgeFill: '#1f8b4d',
 		nameHighlight: 'On-premises',
 		href: '/products/thingsboard-pe/',
-		// Cloud's link names its page's fork, and so does this one: the On-premises page is built
-		// around monthly subscription against perpetual licence, the same way the Cloud page is
-		// built around Public against Private. "Learn more" would have been the one generic label
-		// in a pair where the other says something.
-		action: 'Subscription vs licence',
+		// Generic on purpose, unlike Cloud's "Public vs Private": the licence fork is one section of
+		// the On-premises page, not what the page is built around, and a link that named it promised
+		// a comparison the page mostly isn't. "Explore" oversells nothing.
+		action: 'Explore On-premises',
 		// "Install for free" rather than "Install", matching the On-premises hero's and choice
 		// card's primary word for word — the card promises the action and the page delivers the
 		// same one, and "for free" is the half that answers the reader's actual hesitation about
