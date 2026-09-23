@@ -1,0 +1,115 @@
+---
+/**
+ * The hand-off between the AI section's two routes — `AiSection motion="handoff"` — as a component of
+ * its own, rendered by `AiSection` only when that prop is set.
+ *
+ * It renders nothing: it is here for its script. Astro emits a component's script only on pages that
+ * render the component, so the homepage, which never does, carries none of this. It also makes the
+ * candidate one file to delete. Its CSS stays in `AiSection` behind `.ai--handoff`, because it styles
+ * that component's own scoped elements.
+ */
+---
+
+<script>
+	// The switch moves its thumb and then, because this cancels its change event, leaves the panels
+	// to us. What happens, all started in the same frame as the thumb:
+	//
+	//   wash      blends to the incoming hue                      (CSS, on `--ai-wash`)
+	//   outgoing  steps 24px toward the side it leaves by, fades    141ms, accelerating
+	//   incoming  arrives from 32px the other way, fades up         300ms, decelerating, 40ms in
+	//   terminal  types from the top the moment it shows           (`CliTerminal`'s own observer)
+	//
+	// The direction is the thumb's. Sliding right pans the view right, so the content moves LEFT: the
+	// chat exits left and the terminal comes in from the right — which is also the side each one lives
+	// on, so the two readings agree.
+	//
+	// The exit is shorter than the entrance and the two overlap, so the outgoing frame is gone before
+	// the incoming one has settled but there is never a moment with neither. Web Animations rather than
+	// CSS classes, because a switch pressed mid-hand-off has to CANCEL the one in flight and carry on
+	// from where things are.
+	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	type Change = { index: number; previous: number; panel: HTMLElement | null; previousPanel: HTMLElement | null };
+
+	document.querySelectorAll<HTMLElement>('section.ai--handoff').forEach((section) => {
+		const list = section.querySelector<HTMLElement>('[data-segmented]');
+		const bands = section.querySelector<HTMLElement>('.ai__bands');
+		if (!list || !bands) return;
+
+		// Read once, from the section's own custom properties, so the curve is tuned in one place.
+		const css = getComputedStyle(section);
+		const duration = parseFloat(css.getPropertyValue('--ai-handoff-duration'));
+		const ease = css.getPropertyValue('--ai-handoff-ease').trim();
+
+		const settle = (el: HTMLElement) => {
+			el.hidden = true;
+			el.classList.remove('is-leaving');
+		};
+
+		const now = (el: HTMLElement) => {
+			const cs = getComputedStyle(el);
+			return { opacity: cs.opacity, transform: cs.transform };
+		};
+
+		list.addEventListener('segmented:change', (e) => {
+			const { index, previous, panel, previousPanel } = (e as CustomEvent<Change>).detail;
+			if (!panel || !previousPanel) return; // not ours to manage; let the switch do it
+			e.preventDefault();
+
+			// The band still on its way out of an earlier hand-off, if one is in flight. The page says
+			// which: it is the one carrying the class, so nothing else has to keep track.
+			const leaving = bands.querySelector<HTMLElement>('.ai__band.is-leaving');
+
+			// Where both bands ARE, read before the cancel below snaps them back. Pressed back mid-way,
+			// the band being asked for is the one still leaving: it turns around from there rather than
+			// vanishing and replaying its whole entrance. The one leaving now may be half-arrived, and it
+			// leaves from there too. At rest this reads opacity 1 and no transform, the plain start.
+			const from = panel === leaving ? now(panel) : null;
+			const exitFrom = now(previousPanel);
+
+			// Stop whatever is in flight, and finish its exit at once.
+			bands.querySelectorAll<HTMLElement>('.ai__band').forEach((b) => b.getAnimations().forEach((a) => a.cancel()));
+			if (leaving) settle(leaving);
+
+			// The band's own inline `--accent`, not a computed read — no style recalc for a value the
+			// markup already states.
+			const accent = panel.style.getPropertyValue('--accent');
+			bands.style.setProperty('--ai-wash', `color-mix(in oklab, ${accent}, ${accent})`);
+			panel.hidden = false;
+
+			// Reduced motion: no travel, and the outgoing one goes at once — a short fade on the incoming
+			// is all that is left, which says "this changed" without moving anything.
+			if (reduced) {
+				settle(previousPanel);
+				panel.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: 'ease-out' });
+				return;
+			}
+
+			const dir = index > previous ? 1 : -1;
+			previousPanel.classList.add('is-leaving');
+
+			const out = previousPanel.animate([exitFrom, { opacity: 0, transform: `translateX(${-dir * 24}px)` }], {
+				duration: duration * 0.47,
+				easing: 'cubic-bezier(0.4, 0, 1, 1)',
+				fill: 'forwards',
+			});
+			panel.animate(
+				[from ?? { opacity: 0, transform: `translateX(${dir * 32}px)` }, { opacity: 1, transform: 'none' }],
+				// No delay on a turn-around: it is already on screen, and a pause would read as a stall.
+				{ duration, delay: from ? 0 : 40, easing: ease, fill: 'backwards' }
+			);
+
+			// A newer switch that cancels this one REJECTS `finished`, so the settle below runs only for a
+			// hand-off that really ended — no guard needed, the newer switch has settled this band itself.
+			// The promise rather than `onfinish`: the finish EVENT waits for a rendering step, which a
+			// background tab never takes, and would leave the old band standing until the tab came back.
+			out.finished.then(
+				() => {
+					settle(previousPanel);
+					out.cancel(); // drop the held end frame; the band is hidden now anyway
+				},
+				() => {}
+			);
+		});
+	});
+</script>

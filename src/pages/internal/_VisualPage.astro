@@ -26,12 +26,13 @@ const { visual } = Astro.props;
 const me = kv(visual);
 
 /**
- * Where the strip's divider goes: after the last visual that is a row on the homepage.
+ * Where the strip's divider goes: after the last visual that is on the homepage — a row, or (for
+ * `ai`) a section of its own.
  *
  * Counted from the array rather than typed, so putting a sixth row on the page moves the rule by
  * moving the entry — the order and the seam cannot disagree.
  */
-const ON_HOME = ['platform', 'connect', 'solution', 'twin', 'normalize', 'scale'];
+const ON_HOME = ['platform', 'connect', 'solution', 'twin', 'ai', 'normalize', 'scale'];
 const HOME_COUNT = KEY_VISUALS.filter((v) => ON_HOME.includes(v.id)).length;
 
 /**
@@ -43,9 +44,10 @@ const HOME_COUNT = KEY_VISUALS.filter((v) => ON_HOME.includes(v.id)).length;
  *
  * It is done in the BROWSER, not here. These routes are prerendered (static output, no adapter), so
  * `Astro.url.searchParams` is empty at build time and the server cannot see which frame was asked
- * for. The script below reads the query, lifts that section's row out, and drops everything else —
- * including the other phone iframes, before any of them load. The cost is that the server still
- * renders the whole page per frame; `loading="lazy"` is what keeps that off the critical path.
+ * for. The script below reads the query, lifts that section's row out, and drops everything else.
+ * The cost is that the server still renders the whole page per frame; `loading="lazy"` keeps that
+ * off the critical path. What stops a frame loading frames of its own is NOT this trim — the phone
+ * iframes ship `data-src`, and only the top-level page gives them a `src` (see `_Variant`).
  */
 ---
 
@@ -161,9 +163,9 @@ const HOME_COUNT = KEY_VISUALS.filter((v) => ON_HOME.includes(v.id)).length;
 	 * the picking — these routes are prerendered, so `Astro.url.searchParams` is empty at build time
 	 * — so the page renders in full and is cut down to one row here.
 	 *
-	 * Cutting it down rather than hiding the rest is deliberate: `replaceChildren` takes the other
-	 * eleven phone iframes out of the document before any of them are scrolled into view, so a frame
-	 * cannot load frames of its own. Hiding them with CSS would leave that door open.
+	 * Cutting it down rather than hiding the rest is deliberate: it takes the other sections' scripts
+	 * and players out with them. It is not what keeps a frame from loading frames of its own — it
+	 * used to be, and lost that race to lazy loading; the `data-src` in `_Variant` is.
 	 */
 	const FRAME = new URLSearchParams(location.search).get('frame');
 	const GROUND_KEY = 'launch-visuals:ground';
@@ -228,6 +230,14 @@ const HOME_COUNT = KEY_VISUALS.filter((v) => ON_HOME.includes(v.id)).length;
 			if (e.key === GROUND_KEY) document.documentElement.dataset.ground = readGround();
 		});
 	} else {
+		// The phone previews get their `src` here, from the top-level page only — see the note on
+		// `data-src` in `_Variant`. This branch never runs inside a frame, so a frame's own phone
+		// iframes stay empty and it cannot load the page again. `loading="lazy"` is on the element,
+		// so they still wait until they are near the viewport.
+		document.querySelectorAll<HTMLIFrameElement>('iframe[data-vx-phone][data-src]').forEach((f) => {
+			f.src = f.dataset.src!;
+		});
+
 		/**
 		 * The promote / retire control.
 		 *

@@ -92,6 +92,17 @@ export interface AiColumn {
 	 * drops below 14px.
 	 */
 	accentText: string;
+	/**
+	 * A kicker that NAMES THE TOOL, for the toggle layout, where `eyebrow` has become the switch's
+	 * label and the row would otherwise carry no name at all. Only the candidate copy sets it.
+	 */
+	kicker?: string;
+	/**
+	 * The switch's label for this route in the toggle layout, and its phone-width short form. Omitted,
+	 * the switch uses `eyebrow` ("From a prompt") and the stock short forms.
+	 */
+	switchLabel?: string;
+	switchShort?: string;
 }
 
 export const AI_COLUMNS: { assistant: AiColumn; cli: AiColumn } = {
@@ -108,6 +119,56 @@ export const AI_COLUMNS: { assistant: AiColumn; cli: AiColumn } = {
 		body: 'Develop your IoT solution from your terminal. Integrate with AI coding agents to build, test, and deploy ThingsBoard as code.',
 		accent: '#7c5cf0',
 		accentText: '#6249be',
+	},
+};
+
+/**
+ * CANDIDATE COPY — value first, with a kicker naming the tool. Judged at
+ * `/internal/launch-visuals/ai/`; the homepage still reads `AI_COLUMNS`.
+ *
+ * The shipping headlines describe what each thing IS ("AI assistants built into the platform",
+ * "ThingsBoard CLI for AI coding agents"). These say what you GET, and the name moves up into the
+ * kicker, where it still reads first.
+ *
+ * Every claim is taken from the docs rather than written for effect:
+ *
+ *   Assistant  `user-guide/ai-assistant` — knows the platform and SEES YOUR DATA ("say 'my pumps'
+ *              instead of listing device IDs"); configures Dashboards, Alarm Rules, Calculated
+ *              Fields and Notifications; "never modifies your tenant without your confirmation".
+ *   CLI        `user-guide/cli-solutions` — you describe the change to your AI coding agent and it
+ *              builds, evolves and fixes the solution; "the agent commits every change it makes,
+ *              so your whole IoT setup lives in git"; "the same project files deploy to dev,
+ *              staging, and production" with `tb push`.
+ *
+ * ⚠ NOT "AI agents of your choice". The CLI supports exactly two agents today — Claude Code and
+ * Antigravity (`tb init` writes `.claude/` or `.agents/` + `AGENTS.md`) — so the body names them
+ * and the headline says "your coding agent". Widen it when the docs do.
+ *
+ * Headlines are held near 40 characters, the copy column's measure, so each balances onto two
+ * lines like the rows above.
+ *
+ * The SWITCH names who does the work — "Ask the Assistant" / "Brief your agent" — rather than
+ * where the input goes ("From a prompt" / "From your terminal"). Action-led, and the second half
+ * is honest about the CLI's model: you brief an agent, it drives the CLI. It does repeat
+ * "Assistant" with the chat's kicker; that was weighed and accepted. On a phone neither label fits
+ * half the switch, so the short forms keep the pair parallel: "Assistant" / "Agent".
+ */
+export const AI_COLUMNS_VALUE: { assistant: AiColumn; cli: AiColumn } = {
+	assistant: {
+		...AI_COLUMNS.assistant,
+		kicker: 'AI Assistant',
+		switchLabel: 'Ask the Assistant',
+		switchShort: 'Assistant',
+		title: 'Skip the learning curve. Just describe it.',
+		body: 'It knows the platform and sees your data, so “my pumps” is all it needs. It sets up dashboards, alarm rules, calculated fields and notifications — and changes nothing until you approve.',
+	},
+	cli: {
+		...AI_COLUMNS.cli,
+		kicker: 'ThingsBoard CLI',
+		switchLabel: 'Brief your agent',
+		switchShort: 'Agent',
+		title: 'Turn your coding agent into an IoT engineer',
+		body: 'Describe a change to Claude Code or Antigravity and it builds, fixes and evolves your solution as code. Every change is committed to git, and a single push ships it to dev, staging or production.',
 	},
 };
 

@@ -2,13 +2,17 @@
 import SectionHeader from './SectionHeader.astro';
 import AiAssistant from './AiAssistant.astro';
 import CliTerminal from './CliTerminal.astro';
+import SegmentedToggle from './SegmentedToggle.astro';
+import AiHandoff from './AiHandoff.astro';
 import {
 	AI_COPY,
 	AI_COLUMNS,
+	AI_COLUMNS_VALUE,
 	AI_CLI_SESSION,
 	AI_CLI_LABEL,
 	AI_BADGE_CYCLE,
 } from '@data/ai-visual';
+import type { AiColumn } from '@data/ai-visual';
 
 /**
  * "Build IoT solutions faster than ever with AI inside ThingsBoard" — two routes into the platform,
@@ -58,9 +62,85 @@ import {
 interface Props {
 	/** Play both windows. Off renders them as stills — used by the sandbox. */
 	animate?: boolean;
+	/**
+	 * `bands` is the homepage: both routes, one band each, stacked.
+	 *
+	 * `toggle` is a CANDIDATE, judged at `/internal/launch-visuals/ai/`: ONE route on the page at a
+	 * time, chosen by a switch under the heading, with the chat first. It exists to make the section
+	 * shorter and to put the chat ahead of the terminal rather than beside it. Against `bands` it:
+	 *
+	 * - drops the section lede — the switch is the argument now ("from a prompt" or "from your
+	 *   terminal"), so the paragraph restating it goes;
+	 * - turns the two kickers INTO the switch, so the rows lose their eyebrows;
+	 * - shows one band, whose hue changes with the route, so the section is one band shorter;
+	 * - keeps the alternation: chat on the left, terminal on the right, as in `bands` — so each
+	 *   route keeps its own side, and switching reads as going to the other one;
+	 * - pulls the window up under the switch once the rows stack, where nothing sits between them.
+	 *
+	 * Everything the bands are calibrated on — the dock, the crop, the log that fits without a scroll —
+	 * is shared rather than copied, so it cannot drift between the two. Delete this branch (or the
+	 * other one) when one of them is promoted.
+	 */
+	layout?: 'bands' | 'toggle';
+	/**
+	 * How the `toggle` layout moves between routes. CANDIDATE, like the layout itself.
+	 *
+	 * `fade` — the incoming band fades up, and the outgoing one is simply gone.
+	 *
+	 * `handoff` — one gesture, on the thumb's own curve. The view pans the way the thumb slides:
+	 * going right, to the terminal, the chat steps out to the left and the terminal arrives from the
+	 * right, overlapping so there is never an empty frame. The wash blends between the two hues rather
+	 * than cutting, and the terminal starts typing the moment it lands. Short travel and a fast-out
+	 * curve, so it reads as snappy rather than as a carousel.
+	 *
+	 * To revert: drop the prop (or set `fade`). Everything it adds is behind `.ai--handoff`, and its
+	 * script is `AiHandoff`, which only renders with it.
+	 */
+	motion?: 'fade' | 'handoff';
+	/**
+	 * Which copy the rows carry. `shipping` is `AI_COLUMNS`, on the homepage. `value` is the CANDIDATE
+	 * `AI_COLUMNS_VALUE`: value-first headlines, and a kicker that names the tool — which brings the
+	 * kicker back in the toggle layout, where the route framing has moved into the switch.
+	 */
+	copy?: 'shipping' | 'value';
+	/**
+	 * EXPERIMENTAL, and only with `motion="handoff"` (where the wash is one gradient on the wrapper).
+	 *
+	 * `route` — the wash takes the showing route's hue: green for the chat, violet for the terminal.
+	 * `cycle` — the wash follows the MARK instead: the same colour sequence as the badge, on the same
+	 * 9s clock, paused and resumed with it, so the tile and the band change colour as one. The route no
+	 * longer colours the band — the switch's label and the terminal's prompt still carry it.
+	 *
+	 * Meant for the copy WITHOUT kickers: a kicker is set in its route's hue, derived to read against
+	 * that hue's wash, and a wash moving through five other colours would leave it on the wrong one.
+	 */
+	wash?: 'route' | 'cycle';
 }
 
-const { animate = true } = Astro.props;
+const { animate = true, layout = 'bands', motion = 'fade', copy = 'shipping', wash = 'route' } = Astro.props;
+const toggle = layout === 'toggle';
+const handoff = toggle && motion === 'handoff';
+const washCycle = handoff && wash === 'cycle';
+const COLS = copy === 'value' ? AI_COLUMNS_VALUE : AI_COLUMNS;
+
+/**
+ * The line over a row's title. In `bands` it is the route ("From a prompt"). In `toggle` the route
+ * IS the switch, so the row shows the tool's name if the copy has one, and nothing if it does not.
+ */
+const kicker = (col: AiColumn) => (toggle ? col.kicker : (col.kicker ?? col.eyebrow));
+
+/**
+ * Panel ids for the switch, unique per instance: the sandbox renders this section more than once on a
+ * page, and two panels answering to one id would each be shown by the other's switch. Built from the
+ * props rather than drawn at random, so a build is the same every time — no two directions on the
+ * sandbox page share all four.
+ */
+const uid = `${layout}-${motion}-${copy}-${wash}`;
+const PANELS = { assistant: `ai-${uid}-prompt`, cli: `ai-${uid}-cli` };
+
+/** What a panel carries in toggle mode. Nothing at all in `bands`, so the homepage's markup is unchanged. */
+const panel = (id: string, shown: boolean) =>
+	toggle ? { id, role: 'tabpanel' as const, 'aria-labelledby': `${id}-tab`, hidden: !shown } : {};
 
 /**
  * The mark's colour cycle, handed to CSS as numbered custom properties.
@@ -70,18 +150,57 @@ const { animate = true } = Astro.props;
  * block cannot import anything, so this is how the palette reaches it.
  */
 const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).join('; ');
+
+/**
+ * Stop 0 of the cycle — the mark's own colour, where it rests. The badge reads it as its own
+ * `--badge-color`; the wash has no badge to read it from, so `wash="cycle"` hands it over here.
+ */
+const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.color}` : badgeHues;
 ---
 
-<section id="ai" class="ai" style={badgeHues} data-animate={animate ? 'on' : null}>
+<section
+	id="ai"
+	class:list={['ai', toggle && 'ai--toggle', handoff && 'ai--handoff', washCycle && 'ai--wash-cycle']}
+	style={sectionStyle}
+	data-animate={animate ? 'on' : null}
+>
 	<div class="main-div">
 		<SectionHeader
 			title={AI_COPY.title}
-			subtitle={AI_COPY.body}
+			subtitle={toggle ? undefined : AI_COPY.body}
 			titleSize="section"
 			titleMeasure="headline"
 			subtitleMeasure="copy"
 			badge={AI_COPY.badge}
-		/>
+		>
+			{
+				/* The kickers, as the switch. Each segment takes its route's TEXT hue — the one derived to
+				   read as type — so the chosen label and the band below it are the same colour. */
+				toggle && (
+					<div class="ai__switch">
+						<SegmentedToggle
+							label="Two ways to build with AI"
+							options={[
+								{
+									label: COLS.assistant.switchLabel ?? COLS.assistant.eyebrow,
+									shortLabel: COLS.assistant.switchShort ?? 'Prompt',
+									icon: 'tabler:message-chatbot',
+									panel: PANELS.assistant,
+									color: COLS.assistant.accentText,
+								},
+								{
+									label: COLS.cli.switchLabel ?? COLS.cli.eyebrow,
+									shortLabel: COLS.cli.switchShort ?? 'Terminal',
+									icon: 'tabler:terminal-2',
+									panel: PANELS.cli,
+									color: COLS.cli.accentText,
+								},
+							]}
+						/>
+					</div>
+				)
+			}
+		</SectionHeader>
 	</div>
 
 	{
@@ -89,8 +208,11 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 		   a patch under a window, and the content inside returns to `.main-div`'s measure. The wrapper
 		   is what holds the two to one height — see `.ai__bands`. */
 	}
-	<div class="ai__bands">
-	<div class="ai__band ai__band--dock-top" style={`--accent: ${AI_COLUMNS.assistant.accent}; --accent-text: ${AI_COLUMNS.assistant.accentText}`}>
+	<div
+		class="ai__bands"
+		style={handoff ? `--ai-wash: color-mix(in oklab, ${COLS.assistant.accent}, ${COLS.assistant.accent})` : undefined}
+	>
+	<div class="ai__band ai__band--dock-top" style={`--accent: ${COLS.assistant.accent}; --accent-text: ${COLS.assistant.accentText}`} {...panel(PANELS.assistant, true)}>
 		<div class="main-div">
 			<div class="ai__row">
 				<div class="ai__media">
@@ -98,15 +220,15 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 				</div>
 
 				<div class="ai__copy">
-					<p class="ai__eyebrow">{AI_COLUMNS.assistant.eyebrow}</p>
-					<h3 class="ai__row-title">{AI_COLUMNS.assistant.title}</h3>
-					<p class="ai__row-text">{AI_COLUMNS.assistant.body}</p>
+					{kicker(COLS.assistant) && <p class="ai__eyebrow">{kicker(COLS.assistant)}</p>}
+					<h3 class="ai__row-title">{COLS.assistant.title}</h3>
+					<p class="ai__row-text">{COLS.assistant.body}</p>
 				</div>
 			</div>
 		</div>
 	</div>
 
-	<div class="ai__band ai__band--dock-bottom" style={`--accent: ${AI_COLUMNS.cli.accent}; --accent-text: ${AI_COLUMNS.cli.accentText}`}>
+	<div class="ai__band ai__band--dock-bottom" style={`--accent: ${COLS.cli.accent}; --accent-text: ${COLS.cli.accentText}`} {...panel(PANELS.cli, false)}>
 		<div class="main-div">
 			<div class="ai__row ai__row--flip">
 				<div class="ai__media">
@@ -120,19 +242,24 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 				</div>
 
 				<div class="ai__copy">
-					<p class="ai__eyebrow">{AI_COLUMNS.cli.eyebrow}</p>
-					<h3 class="ai__row-title">{AI_COLUMNS.cli.title}</h3>
-					<p class="ai__row-text">{AI_COLUMNS.cli.body}</p>
+					{kicker(COLS.cli) && <p class="ai__eyebrow">{kicker(COLS.cli)}</p>}
+					<h3 class="ai__row-title">{COLS.cli.title}</h3>
+					<p class="ai__row-text">{COLS.cli.body}</p>
 				</div>
 			</div>
 		</div>
 	</div>
-	</div>
+	</div>{handoff && <AiHandoff />}
 
 </section>
 
 <style lang="scss">
+	@use 'sass:math';
 	@use '../../styles/variables' as *;
+
+	// The band's padding on the side its window is NOT docked to. The copy's centring offset is half of
+	// it (see "Centring the copy"), and both are written from this one number so they cannot part.
+	$band-pad: $spacing-16;
 
 	.ai {
 		// No background: the homepage strips them —
@@ -158,7 +285,7 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 	// meets the CTA. That edge is the design, not a bug — do not "fix" it by re-adding the fade-out.
 	//
 	// THE TWO BANDS ARE HELD TO ONE HEIGHT, at every width. Side by side they already matched — both
-	// are a 300px media row plus one 48px margin — but stacked they drift, and not consistently: at
+	// are a 350px media row plus one 64px pad — but stacked they drift, and not consistently: at
 	// 900px the CLI band ran 15px TALLER (its window is 304 against the chat's 289), and at 375px it
 	// ran 33px SHORTER (its copy is two lines less). `grid-auto-rows: 1fr` resolves every row to the
 	// tallest, which is the only thing that holds when both the media and the copy differ.
@@ -178,22 +305,151 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 		margin-bottom: 0;
 	}
 
-	// 80px, and only on the side the window is NOT docked to — see the dock rules below, which take
-	// the other side to zero. A band is therefore its 300px row plus one 80px margin.
+	// 64px, and only on the side the window is NOT docked to — see the dock rules below, which take
+	// the other side to zero. A band is therefore its 350px row plus one 64px margin: 414.
+	//
+	// 64, down from 80, to shorten the band a notch — `$band-pad`, which the copy's offset halves.
 	.ai__band {
 		display: flex;
 		flex-direction: column;
-		padding: $spacing-20 0;
+		padding: $band-pad 0;
 		background-image: linear-gradient(
 			180deg,
 			transparent 0%,
 			color-mix(in srgb, var(--accent) 20%, transparent) 100%
 		);
-
 	}
 
 	.ai__bands {
 		margin-top: $spacing-12;
+	}
+
+	// ── Toggle layout (candidate) ─────────────────────────────────────
+	// See `layout` in the props. Everything here is additive: `bands` never matches any of it.
+
+	// Under the heading, in the header's own slot, so it is spaced as part of the header rather than
+	// as the first thing in the band.
+	.ai__switch {
+		display: flex;
+		justify-content: center;
+		margin-top: $spacing-8;
+	}
+
+	// `.ai__band` sets `display: flex`, which outranks the UA's `[hidden] { display: none }` — so
+	// without this the switch would flip `hidden` and both bands would stay on the page.
+	.ai__band[hidden] {
+		display: none;
+	}
+
+	// The incoming route fades up rather than cutting in. Short, because the switch is answering a
+	// click and the answer should not feel like it is loading. Not under the hand-off, which moves the
+	// bands itself, and not under reduced motion.
+	@media (prefers-reduced-motion: no-preference) {
+		.ai--toggle:not(.ai--handoff) .ai__band:not([hidden]) {
+			animation: ai-panel-in 260ms ease-out;
+		}
+	}
+
+	@keyframes ai-panel-in {
+		from {
+			opacity: 0;
+		}
+	}
+
+	// The window is the switch's answer, so it sits closer under it than a band sits under a lede.
+	//
+	// The header's own 48px bottom margin has to go for any of this to show. It collapses through
+	// `.main-div` into the bands' margin, and a collapsed margin is the LARGER of the two, so a smaller
+	// margin on the bands alone changes nothing — which is exactly what happened on phones first.
+	.ai--toggle :global(.section-header) {
+		margin-bottom: 0;
+	}
+
+	// Desktop: 32, down a notch from 48. The chat is docked to the band's top edge, so this IS the
+	// gap to its (faded) top; the terminal adds the band's 64 of padding on top.
+	.ai--toggle .ai__bands {
+		margin-top: $spacing-8;
+	}
+
+	// Stacked, the window came in 96px under the switch — the bands' 48 margin plus the band's own 48
+	// of padding, both there to separate two bands from a lede and from each other. With one band and
+	// the switch directly above it: 24 + 16. Only the TOP gives; the band's foot keeps its 48 to the
+	// next section. (0,2,0), so it outranks the stacked padding reset below, which is (0,1,0) and later
+	// in the file.
+	@include media-down(lg) {
+		.ai--toggle .ai__bands {
+			margin-top: $spacing-6;
+		}
+
+		.ai--toggle .ai__band {
+			padding-top: $spacing-4;
+		}
+	}
+
+	// ── Hand-off motion (candidate) ───────────────────────────────────
+	// See `motion` in the props; the moving parts are in `AiHandoff`. All of it is behind
+	// `.ai--handoff`, so reverting is dropping the prop.
+
+	// Registered as a <color> so it can be TRANSITIONED — an unregistered custom property is a
+	// string and flips at the halfway point. Its values are written as `color-mix(in oklab, …)`
+	// rather than bare hex: a hex colour is "legacy" and interpolates in sRGB, an Oklab one
+	// interpolates in Oklab, so the blend passes through the perceptual midpoint of the two hues.
+	//
+	// NOT inherited: only `.ai__bands` reads it, and an inherited property re-styles every descendant on
+	// every frame of the blend.
+	@property --ai-wash {
+		syntax: '<color>';
+		inherits: false;
+		initial-value: transparent;
+	}
+
+	// ONE WASH FOR BOTH ROUTES, on the wrapper, instead of one per band. Two bands each carrying a
+	// gradient can only cut from one to the other, or crossfade as two half-transparent layers. One
+	// gradient whose colour ANIMATES blends instead. The colour is a registered property, which is
+	// what lets a transition reach a value inside a gradient at all; the script sets it to the
+	// incoming band's `--accent`.
+	.ai--handoff .ai__bands {
+		// Both bands in ONE cell, so during the hand-off the outgoing one is still in place while the
+		// incoming one arrives over it. Outside a hand-off only one is displayed, so this is invisible.
+		grid-template: 1fr / 1fr;
+		background-image: linear-gradient(
+			180deg,
+			transparent 0%,
+			color-mix(in srgb, var(--ai-wash) 20%, transparent) 100%
+		);
+		// The windows travel 32px sideways, and a transform counts as scrollable overflow — a band
+		// sliding in from the right would briefly push the page wider than the window.
+		overflow-x: clip;
+	}
+
+	.ai--handoff .ai__band {
+		grid-area: 1 / 1;
+		background-image: none;
+	}
+
+	// The band on its way out is still displayed, but it must not catch a click meant for the one
+	// arriving on top of it.
+	.ai--handoff .ai__band.is-leaving {
+		pointer-events: none;
+	}
+
+	// The one curve and duration everything shares: the thumb reads them through the switch's own
+	// custom properties, the wash through its transition, the bands through `AiHandoff` (which reads
+	// these back rather than hard-coding them, so there is one place to tune).
+	.ai--handoff {
+		--ai-handoff-duration: 300ms;
+		--ai-handoff-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	.ai--handoff :global(.seg) {
+		--seg-duration: var(--ai-handoff-duration);
+		--seg-ease: var(--ai-handoff-ease);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.ai--handoff .ai__bands {
+			transition: --ai-wash var(--ai-handoff-duration) var(--ai-handoff-ease);
+		}
 	}
 
 	// ── Docking ───────────────────────────────────────────────────────
@@ -205,11 +461,11 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 	//   CLI      cut at the BOTTOM  → docked to the band's bottom edge
 	//
 	// `align-self` as well as the zeroed padding, so the dock holds even if a copy column ever grows
-	// taller than the 300px media and starts driving the row's height.
+	// taller than the 350px media and starts driving the row's height.
 	// ── Centring the copy ─────────────────────────────────────────────
 	// The copy is centred in its ROW, but a docked band's padding is all on one side, so centred-in-
 	// the-row sits half that padding off centre-in-the-BAND — high in the chat, low in the CLI, by
-	// 40px each once the padding is 80.
+	// 32px each at the 64px padding.
 	//
 	// The fix is a RELATIVE offset of half the padding, towards the padded side. Relative offsets do
 	// not affect layout, which is the whole reason for choosing one:
@@ -250,7 +506,7 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 
 		.ai__copy {
 			position: relative;
-			top: $spacing-10;
+			top: math.div($band-pad, 2);
 		}
 	}
 
@@ -264,7 +520,7 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 
 		.ai__copy {
 			position: relative;
-			top: -$spacing-10;
+			top: -(math.div($band-pad, 2));
 		}
 	}
 
@@ -298,7 +554,7 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 	// leaves it where it was. Paused at 0% is the badge's own colour, which is also exactly what a
 	// browser that never runs it shows.
 	.ai :global(.section-header__badge) {
-		animation: ai-badge-hues 9s linear infinite;
+		animation: ai-badge-hues var(--ai-cycle, 9s) linear infinite;
 		animation-play-state: paused;
 	}
 
@@ -328,10 +584,62 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 		}
 	}
 
+	// ── The wash follows the mark (experimental, `wash="cycle"`) ──────────────────────
+	// The SAME sequence as the tile, stop for stop — stop 0 is the mark's own colour, handed over as
+	// `--ai-hue-0` — driven into `--ai-wash`, the one gradient the hand-off layout paints. Same clock,
+	// same linear timing, same sRGB interpolation (the stops are hex, which interpolates in sRGB,
+	// exactly as the tile's `background-color` does), so the band passes through each colour at the
+	// moment the tile does.
+	//
+	// IN LOCKSTEP BY CONSTRUCTION: both animations are applied at first paint, both held paused, and
+	// the observer that resumes the tile flips `is-cycling` on the section in the same callback, so
+	// both clocks start, stop and start again in the same frame.
+	//
+	// An animation outranks the inline `--ai-wash` the hand-off sets on a switch, so the route no
+	// longer colours the band here; its transition simply has nothing to do.
+	// SLOWER HERE, 18s against the mark's usual 9 — 3s a colour. At 1.5s a leg a tile is a small thing
+	// changing briskly; a full-bleed band doing the same is the whole screen flickering through five
+	// colours. The tile slows with it (`--ai-cycle` feeds both), or the two would part.
+	.ai--wash-cycle {
+		--ai-cycle: 18s;
+	}
+
+	.ai--wash-cycle .ai__bands {
+		animation: ai-wash-hues var(--ai-cycle) linear infinite;
+		animation-play-state: paused;
+	}
+
+	.ai--wash-cycle.is-cycling .ai__bands {
+		animation-play-state: running;
+	}
+
+	@keyframes ai-wash-hues {
+		0%,
+		100% {
+			--ai-wash: var(--ai-hue-0);
+		}
+		16.67% {
+			--ai-wash: var(--ai-hue-1);
+		}
+		33.33% {
+			--ai-wash: var(--ai-hue-2);
+		}
+		50% {
+			--ai-wash: var(--ai-hue-3);
+		}
+		66.67% {
+			--ai-wash: var(--ai-hue-4);
+		}
+		83.33% {
+			--ai-wash: var(--ai-hue-5);
+		}
+	}
+
 	// Belt and braces with the script, which does not attach the observer at all under reduced motion:
 	// this also covers the setting being turned on after the class has already landed.
 	@media (prefers-reduced-motion: reduce) {
-		.ai :global(.section-header__badge) {
+		.ai :global(.section-header__badge),
+		.ai--wash-cycle .ai__bands {
 			animation: none;
 		}
 	}
@@ -339,7 +647,7 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 	// `_home-rows.scss`'s gutter, so these sit in the same rhythm as the five visuals above.
 	//
 	// NO 350px FLOOR, though that file sets one. Its job there is to hold five rows of differing
-	// natural height to one height; here both rows are the same 300px media, so the floor was never
+	// natural height to one height; here both rows are the same 350px media, so the floor was never
 	// equalising anything — it was 50px of air inside every band. The content sets the height.
 	.ai__row {
 		display: flex;
@@ -374,7 +682,7 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 		// chat now renders 396 rather than 347 — so at 300 the cut grew to 110, which took 46 native
 		// pixels off the log and left less than the greeting needs. 350 puts the cut back to 60, where
 		// the log keeps 20px of slack over the intro. This is the cost of matching the two windows'
-		// type: the bands go from 380 to 430.
+		// type: the bands go from 380 to 430 (414 since the pad came down to 64).
 		//
 		// NO BACKGROUND of its own: this box is only the crop, and the colour behind it belongs to the
 		// band.
@@ -435,9 +743,9 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 	// 16px in the next, so the visible log was sometimes 218px and sometimes 242px. That is what let
 	// an 18px log fit when it was checked and crop its last line when it was looked at.
 	//
-	// Absolute placement makes the crop arithmetic true by construction: top 20, height 304, so the
-	// window always overhangs the 300px box by 24 and the log is always
-	// 300 − 20 (offset) − 42 (title bar) = 238px tall.
+	// Absolute placement makes the crop arithmetic true by construction: top 20, height 354, so the
+	// window always overhangs the 350px box by 24 and the visible log is always
+	// 350 − 20 (offset) − 41 (title bar) = 289px tall.
 	.ai__cli {
 		position: absolute;
 		top: 20px;
@@ -498,7 +806,7 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 	// is ever seen. Sizing against 242 fit the log on paper and dropped its last line into the cut —
 	// `scrollHeight <= clientHeight` is not the test here; the media's bottom edge is.
 	//
-	//   visible log = 350 (media) − 20 (the window's top offset) − 42 (title bar) = 288
+	//   visible log = 350 (media) − 20 (the window’s top offset) − 41 (title bar) = 289
 	//
 	// Height is the binding bound; the width has room to spare. Re-measure both if a command gets
 	// longer, a step is added, or the crop offsets change.
@@ -699,9 +1007,17 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 			mask-image: linear-gradient(to bottom, transparent 0, #000 32px);
 		}
 
-		// The terminal keeps its proportions — offset and bleed take the same ratio as the box:
+		// The terminal's box is a notch shorter than the chat's: 234 against 250. At 250 the dark
+		// window was the heaviest thing on a phone screen and carried 37px of empty log under its last
+		// line; 234 leaves 21 at 375 (49 at 320), so the session still ends clear of the cut with no
+		// scroll. The chat keeps 250 — its crop is sized to take the `New chat` bar with it.
+		.ai__band--dock-bottom .ai__media {
+			height: 234px;
+		}
+
+		// The terminal keeps its offset and its bleed past the cut:
 		//
-		//   250 (panel) − 14 (offset) + 16 (bleed) = 252
+		//   234 (panel) − 14 (offset) + 16 (bleed) = 236
 		//
 		// AND IT COMES DOWN TO THE CHAT'S WIDTH, which is the whole reason the two match here. The chat
 		// cannot pass 365 without going back to a scale, so 365 is what one width can be; left at 500
@@ -726,7 +1042,7 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 		.ai__cli :global(.cli) {
 			--cli-chrome: 0.65;
 
-			height: 252px;
+			height: 236px;
 		}
 
 		// 9.5px holds the bar's own ratio to the log (14:18 at full size) rather than nearly matching
@@ -767,25 +1083,31 @@ const badgeHues = AI_BADGE_CYCLE.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).jo
 	// The section mark cycles colour while it is on screen.
 	//
 	// Its own observer rather than a shared one: the chat and the terminal each carry theirs, this is
-	// the same gate, and a section-wide observer would have to know what all three want. `#ai` is a
-	// singleton, so there is no instance to thread through.
-	// Typed, because `dataset` is on `HTMLElement` and a bare `querySelector` gives back `Element`.
-	const section = document.querySelector<HTMLElement>('#ai');
-	const badge = section?.querySelector('.section-header__badge');
+	// the same gate, and a section-wide observer would have to know what all three want.
+	//
+	// Every instance, not `#ai`: the homepage has one, but the sandbox's AI page stacks several
+	// directions, and a lookup by id reached only the first — every other mark sat still on indigo.
+	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const cycling = new IntersectionObserver(
+		(entries) => {
+			for (const entry of entries) {
+				// The class only switches `animation-play-state`, so this is a pause and a resume rather
+				// than a stop and a start: the cycle picks up on the hue it was on rather than snapping
+				// back to indigo every time the mark is scrolled past and returned to.
+				entry.target.classList.toggle('is-cycling', entry.isIntersecting);
+				// And on the section, in the same callback, for a wash that follows the mark
+				// (`wash="cycle"`) — the same frame, so the two clocks never part.
+				entry.target.closest('section.ai')?.classList.toggle('is-cycling', entry.isIntersecting);
+			}
+		},
+		// Half of it, so the cycle runs while the mark is properly on screen rather than from the
+		// moment its first pixel clears the fold.
+		{ threshold: 0.5 }
+	);
 
-	if (badge && section?.dataset.animate === 'on' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-		new IntersectionObserver(
-			(entries) => {
-				for (const entry of entries) {
-					// The class only switches `animation-play-state`, so this is a pause and a resume rather
-					// than a stop and a start: the cycle picks up on the hue it was on rather than snapping
-					// back to indigo every time the mark is scrolled past and returned to.
-					badge.classList.toggle('is-cycling', entry.isIntersecting);
-				}
-			},
-			// Half of it, so the cycle runs while the mark is properly on screen rather than from the
-			// moment its first pixel clears the fold.
-			{ threshold: 0.5 }
-		).observe(badge);
-	}
+	// Typed, because `dataset` is on `HTMLElement` and a bare `querySelectorAll` gives back `Element`.
+	document.querySelectorAll<HTMLElement>('section.ai').forEach((section) => {
+		const badge = section.querySelector('.section-header__badge');
+		if (badge && section.dataset.animate === 'on' && !reduced) cycling.observe(badge);
+	});
 </script>

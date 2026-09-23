@@ -10,7 +10,9 @@
  * THE ORDER IS THE PAGE'S ORDER. Platform first: it is meant to open the homepage as a centred
  * section above the rows, though it is not on the page yet. Then the five rows in the order
  * `index.astro` runs them — connect, solution, twin, normalize, scale — so walking the strip walks
- * the page. Everything after `scale` is not on the homepage at all, and sits at the end for that
+ * the page. `ai` sits between twin and normalize because that is where `AiSection` runs: it is a
+ * full-bleed section rather than a row, but it is on the page there, and the strip is the page's
+ * order. Everything after `scale` is not on the homepage at all, and sits at the end for that
  * reason rather than by age: gateway, deploy and whitelabel are drawn and waiting for a section,
  * and cli is a token-wiring check with no copy of its own.
  */
@@ -22,6 +24,7 @@ import { CONNECT_COPY } from '@data/connect-visual';
 import { SCALE_COPY } from '@data/scale-visual';
 import { DEPLOY_COPY } from '@data/deploy-visual';
 import { WHITELABEL_COPY } from '@data/whitelabel-visual';
+import { AI_COPY } from '@data/ai-visual';
 
 export interface KeyVisual {
 	id: string;
@@ -66,6 +69,15 @@ export const KEY_VISUALS: KeyVisual[] = [
 		id: 'twin',
 		label: 'Digital twin',
 		...DIGITAL_TWIN_COPY,
+	},
+	{
+		// A section, not a row: its copy has no link, and its badge is drawn by the section's own
+		// header rather than by a row's.
+		id: 'ai',
+		label: 'AI',
+		title: AI_COPY.title,
+		body: AI_COPY.body,
+		badge: AI_COPY.badge,
 	},
 	{
 		id: 'normalize',

@@ -1,0 +1,275 @@
+---
+import { Icon } from 'astro-icon/components';
+
+/**
+ * A segmented switch between panels: two or more equal segments on a pill track, with a white thumb
+ * that slides to the chosen one.
+ *
+ * It is the ARIA TABS pattern, not a radio group, because what it changes is which PANEL is on the
+ * page rather than a value in a form. So: `role="tablist"`, each segment a `role="tab"` that names its
+ * panel in `aria-controls`, a roving tabindex, and arrow keys, Home and End to move along it.
+ *
+ * It owns its panels' visibility — the `hidden` attribute, set by id through `aria-controls` — so a
+ * caller writes the panels and nothing else. The caller does have to give each panel
+ * `role="tabpanel"` and `aria-labelledby` naming its tab (`<panel>-tab`), and render every panel but
+ * the selected one with `hidden`, so the page is right before this script runs. A caller whose panel
+ * sets its own `display` must also restore `[hidden] { display: none }`, which that rule outranks.
+ *
+ * EQUAL SEGMENTS, sized by the widest label, which is what lets the thumb be one width and move by
+ * whole steps: it is `100% / count` wide and slides `index × 100%`, set through two custom properties
+ * rather than measured, so it cannot drift from the segment under it at any width or zoom.
+ *
+ * Each option can carry a colour, which the chosen segment's label and icon take. That keeps the
+ * switch in step with whatever the panel below does with the same hue. Set it dark enough to read
+ * as type on white: the thumb is white.
+ *
+ * Fires `segmented:change` on the tablist, with `{ index, previous, panel, previousPanel }` in
+ * `detail`, for a caller that has more to do on a switch than showing a panel. It is CANCELABLE:
+ * `preventDefault()` and the panels are left alone for the caller to swap — to animate the hand-off,
+ * say. The tabs and the thumb have already moved by then; only the panels wait.
+ *
+ * The thumb's slide reads `--seg-duration` and `--seg-ease`, so a caller animating its panels can put
+ * both on one curve and have the switch and the content move as one gesture.
+ */
+
+interface Option {
+	label: string;
+	/**
+	 * Shown instead of `label` on a phone. Two segments share the width there, so each gets half of
+	 * about 330px, and a label longer than that half cannot be set without breaking the equal
+	 * segments the thumb depends on. Omit it and `label` is used at every width.
+	 */
+	shortLabel?: string;
+	/** An astro-icon name, drawn before the label. */
+	icon?: string;
+	/** Id of the panel this segment shows. */
+	panel: string;
+	/** Label and icon colour while chosen. Defaults to the ink. */
+	color?: string;
+}
+
+interface Props {
+	/** The first is chosen at first paint — so the caller renders the first panel and hides the rest. */
+	options: Option[];
+	/** Names the switch for assistive tech: what is being chosen between. */
+	label: string;
+}
+
+const { options, label } = Astro.props;
+---
+
+<div
+	class="seg"
+	role="tablist"
+	aria-label={label}
+	data-segmented
+	style={`--seg-count: ${options.length}; --seg-index: 0`}
+>
+	<span class="seg__thumb" aria-hidden="true"></span>
+	{
+		options.map((o, i) => (
+			<button
+				type="button"
+				class="seg__opt"
+				role="tab"
+				id={`${o.panel}-tab`}
+				aria-controls={o.panel}
+				aria-selected={i === 0 ? 'true' : 'false'}
+				tabindex={i === 0 ? 0 : -1}
+				style={o.color ? `--seg-color: ${o.color}` : undefined}
+			>
+				{o.icon && <Icon name={o.icon} class="seg__icon" aria-hidden="true" />}
+				<span class:list={['seg__label', o.shortLabel && 'seg__label--long']}>{o.label}</span>
+				{o.shortLabel && <span class="seg__label seg__label--short">{o.shortLabel}</span>}
+			</button>
+		))
+	}
+</div>
+
+<script>
+	document.querySelectorAll<HTMLElement>('[data-segmented]').forEach((list) => {
+		const tabs = Array.from(list.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+
+		const panelOf = (tab: HTMLElement) => document.getElementById(tab.getAttribute('aria-controls') ?? '');
+
+		const select = (i: number, focus: boolean) => {
+			const previous = tabs.findIndex((t) => t.getAttribute('aria-selected') === 'true');
+			if (focus) tabs[i].focus();
+			// Already the chosen one: nothing to do. Guarded HERE rather than in the click handler, so
+			// Home on the first tab and End on the last are no-ops too — they used to "switch" to the
+			// panel already showing, which a hand-off caller animated out and left the section blank.
+			if (i === previous) return;
+			tabs.forEach((tab, j) => {
+				const on = j === i;
+				tab.setAttribute('aria-selected', String(on));
+				tab.tabIndex = on ? 0 : -1;
+			});
+			list.style.setProperty('--seg-index', String(i));
+
+			const proceed = list.dispatchEvent(
+				new CustomEvent('segmented:change', {
+					cancelable: true,
+					detail: {
+						index: i,
+						previous,
+						panel: panelOf(tabs[i]),
+						previousPanel: previous >= 0 ? panelOf(tabs[previous]) : null,
+					},
+				})
+			);
+			if (!proceed) return;
+			tabs.forEach((tab, j) => {
+				const panel = panelOf(tab);
+				if (panel) panel.hidden = j !== i;
+			});
+		};
+
+		tabs.forEach((tab, i) => {
+			tab.addEventListener('click', () => select(i, false));
+		});
+
+		// Automatic activation: arrowing onto a tab shows its panel. Right for two panels that are
+		// already rendered — there is nothing to load, so there is no reason to make a keyboard user
+		// press a second key.
+		list.addEventListener('keydown', (e) => {
+			const at = tabs.findIndex((t) => t === document.activeElement);
+			const n = tabs.length;
+			const next = { ArrowRight: at + 1, ArrowLeft: at - 1 + n, Home: 0, End: n - 1 }[e.key];
+			if (at < 0 || next === undefined) return;
+			e.preventDefault();
+			select(next % n, true);
+		});
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// The track. A grey pill with no stroke, so the fill alone makes it a slot the thumb sits IN
+	// rather than a second button beside the first.
+	.seg {
+		--seg-pad: 3px;
+
+		position: relative;
+		display: inline-grid;
+		grid-auto-columns: 1fr;
+		grid-auto-flow: column;
+		padding: var(--seg-pad);
+		border-radius: $radius-full;
+		background: #eef0f4;
+		isolation: isolate;
+	}
+
+	// The thumb. One segment wide, moved in whole segments — see the note up top.
+	.seg__thumb {
+		position: absolute;
+		z-index: -1;
+		top: var(--seg-pad);
+		bottom: var(--seg-pad);
+		left: var(--seg-pad);
+		width: calc((100% - 2 * var(--seg-pad)) / var(--seg-count));
+		border-radius: $radius-full;
+		background: #fff;
+		box-shadow:
+			0 1px 2px rgb(23 24 28 / 10%),
+			0 3px 10px rgb(23 24 28 / 8%);
+		transform: translateX(calc(var(--seg-index) * 100%));
+		transition: transform var(--seg-duration, 280ms) var(--seg-ease, cubic-bezier(0.3, 0.7, 0.2, 1));
+	}
+
+	.seg__opt {
+		@include type-body;
+
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		min-height: 40px;
+		margin: 0;
+		padding: 0 $spacing-4;
+		border: 0;
+		border-radius: $radius-full;
+		background: none;
+		font-weight: $font-weight-medium;
+		line-height: 1;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+		cursor: pointer;
+		transition: color 180ms ease;
+
+		&:hover {
+			color: var(--color-text, #{$color-text-primary});
+		}
+
+		&[aria-selected='true'] {
+			color: var(--seg-color, var(--color-text, #{$color-text-primary}));
+			cursor: default;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--color-primary, #{$color-brand});
+			outline-offset: 2px;
+		}
+	}
+
+	.seg__icon {
+		flex: none;
+		width: 22px;
+		height: 22px;
+	}
+
+	// The last resort, for a label with no `shortLabel` that still does not fit: it is cut with an
+	// ellipsis inside its own segment rather than widening it, which would slide it out from under the
+	// thumb.
+	//
+	// Its own line-height, because a clipping box at the button's `line-height: 1` cuts the
+	// descenders off "prompt" and "your".
+	.seg__label {
+		min-width: 0;
+		overflow: hidden;
+		line-height: 1.4;
+		text-overflow: ellipsis;
+	}
+
+	// `display: none` rather than a visually-hidden clip, so the one that is not showing is also out
+	// of the accessibility tree and the tab's name is never both labels read in a row.
+	.seg__label--short {
+		display: none;
+	}
+
+	// A phone holds two segments at full width, and the labels are what have to give: the segments
+	// pull in and a `shortLabel` takes over, rather than the switch running off the gutter.
+	//
+	// `minmax(0, 1fr)`, not `1fr`: a bare `1fr` has a min-content floor, so a label that would not
+	// fit its half GREW its segment — 173 against 154 at 375, with the thumb still half the track and
+	// no longer under the segment it marked.
+	@media (max-width: 480px) {
+		.seg {
+			display: grid;
+			grid-auto-columns: minmax(0, 1fr);
+			width: 100%;
+		}
+
+		.seg__label--long {
+			display: none;
+		}
+
+		.seg__label--short {
+			display: inline;
+		}
+
+		// The body size, not a step down: the short labels leave the room for it. 44px tall, back up
+		// from the desktop's 40, because this is the width where it is a thumb pressing it.
+		.seg__opt {
+			min-height: 44px;
+			padding: 0 $spacing-3;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.seg__thumb,
+		.seg__opt {
+			transition: none;
+		}
+	}
+</style>

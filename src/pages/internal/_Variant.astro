@@ -95,6 +95,20 @@ interface Props {
 		 */
 		titleLink?: { text: string; href: string } | null;
 	};
+	/**
+	 * The component IS a whole homepage section — its own header, its own full-bleed bands — so it
+	 * gets no row and no probe: the desktop view renders it edge to edge at this window's width, the
+	 * way `index.astro` places it. `AiSection` is the one this exists for.
+	 *
+	 * Not `deskWidth`: a probe is a box of a fixed width, and this section's layout answers VIEWPORT
+	 * queries (its rows stack at 900, its terminal type steps down at 560), which a box cannot fire.
+	 * The phone view frames it, so those queries meet a real 375 viewport there.
+	 *
+	 * The homepage's global context — `landing`, `sections-flat`, the stripped section fills — is not
+	 * loaded here, because every sandbox page imports this file and none of the others want it. The
+	 * page that uses `bleed` loads it itself; see `launch-visuals/ai.astro`.
+	 */
+	bleed?: boolean;
 }
 
 const {
@@ -108,6 +122,7 @@ const {
 	phone = 375,
 	deskWidth,
 	intro,
+	bleed = false,
 } = Astro.props;
 
 const onPhone = phoneProps ? { ...props, ...phoneProps } : props;
@@ -143,15 +158,21 @@ const key = `${visual.id}/${name}`;
 		<div class="vx__view vx__view--desk">
 			<p class="vx__vlabel">
 				{
-					intro
-						? 'Desktop · 960px in the centred section'
-						: deskWidth
-							? `Desktop · ${deskWidth}px section`
-							: 'Desktop · 525px in the row'
+					bleed
+						? 'Desktop · full-bleed section at this window’s width'
+						: intro
+							? 'Desktop · 960px in the centred section'
+							: deskWidth
+								? `Desktop · ${deskWidth}px section`
+								: 'Desktop · 525px in the row'
 				}
 			</p>
 			{
-				intro ? (
+				bleed ? (
+					<div class="vx__bleed" data-vx-row>
+						<C {...props} />
+					</div>
+				) : intro ? (
 					<div class="new-rows" data-vx-row>
 						<IntroSection title={intro.title} description={intro.description} titleLink={intro.titleLink ?? null}>
 							<C {...props} />
@@ -224,9 +245,17 @@ const key = `${visual.id}/${name}`;
 					</div>
 				) : (
 					<div class="vx__phonebox">
+						{/* `data-src`, NOT `src`. The frame is this same page, which holds more of these
+						    frames — and `loading="lazy"` does not hold them back: Chrome starts a lazy
+						    iframe 1250-2500px before it scrolls in, and a page of full-bleed sections put
+						    the next phone inside that margin, so each frame loaded frames of its own
+						    before the trim in `_VisualPage` could run. One load of the AI page turned into
+						    hundreds, and the tab ran out of connections — fonts first, which is how it
+						    showed. Only the top-level page copies this into `src`, so a frame never gets
+						    one: no recursion, by construction rather than by winning a race. */}
 						<iframe
 							class="vx__phone"
-							src={`?frame=${encodeURIComponent(key)}`}
+							data-src={`?frame=${encodeURIComponent(key)}`}
 							width={phone}
 							height="600"
 							loading="lazy"
@@ -248,6 +277,13 @@ const key = `${visual.id}/${name}`;
 <style lang="scss" is:global>
 	@use '../../styles/home-rows';
 	@use '../../styles/home-intro';
+
+	// `.vx__bleed` is `100vw`, which counts a classic scrollbar's width, so on a page holding one the
+	// section would overhang the window by that much and scroll sideways. `clip` rather than `hidden`
+	// because `hidden` makes the body a scroll container and the sticky strip stops sticking.
+	:root:has(.vx__bleed) body {
+		overflow-x: clip;
+	}
 </style>
 
 <style lang="scss">
@@ -377,5 +413,12 @@ const key = `${visual.id}/${name}`;
 	// with the card fills rather than as the absence of one.
 	.vx__frame--plain {
 		background: none;
+	}
+
+	// Out of the 1200 column and the playground's body padding, to the window's edges. Both are
+	// symmetric, so the column's centre is the window's and `50% - 50vw` lands on its left edge.
+	.vx__bleed {
+		width: 100vw;
+		margin-inline: calc(50% - 50vw);
 	}
 </style>
