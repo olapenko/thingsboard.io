@@ -155,6 +155,15 @@ export const KEY_VISUALS: KeyVisual[] = [
 		badge: WHITELABEL_COPY.badge,
 	},
 	{
+		// The product pages' choice cards — Cloud's Public/Private pair and On-premises' licence
+		// pair — on their own dark ground. A component check: the cards ship on those two pages,
+		// and this is where their treatments get judged before touching them there.
+		id: 'choice',
+		label: 'Choice cards',
+		check: true,
+		badge: { icon: 'tabler:layout-columns', color: '#5b616e' },
+	},
+	{
 		id: 'cli',
 		label: 'CLI',
 		check: true,

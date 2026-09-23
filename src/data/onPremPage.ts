@@ -188,7 +188,8 @@ export const onPremChoice = {
 				'Cancel any time, no notice',
 				'Change tier any time, prorated automatically',
 			],
-			cta: { text: 'Install for free', href: '/docs/pe/installation/', variant: 'primary' as const },
+			// The glyph is the HERO pair's own — the action's mark, not the option's.
+			cta: { text: 'Install for free', icon: 'tabler:server', href: '/docs/pe/installation/', variant: 'primary' as const },
 			// ⚠ STALE, knowingly: this lands on the old ladder — Maker $10 through Business $499 —
 			// which the card above no longer describes. Left pointing there until `/pricing/`
 			// carries the current model; see the note on `onPremFaq` for the same problem.
@@ -223,6 +224,7 @@ export const onPremChoice = {
 			],
 			cta: {
 				text: 'Talk to sales',
+				icon: 'tabler:message-circle',
 				href: '/contact-us/?subject=ThingsBoard%20Products&message=I%20am%20interested%20in%20Self-managed%20perpetual%20license',
 				variant: 'secondary' as const,
 			},

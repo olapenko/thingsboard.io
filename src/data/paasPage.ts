@@ -134,7 +134,13 @@ export const paasChoice = {
 			// "Start for free" rather than the hero's "Try Cloud for free": the card is headed Public
 			// Cloud and priced From $0 directly above the button, so repeating either word in the
 			// label spends the line saying what the card has already said twice.
-			cta: { text: 'Start for free', href: 'https://thingsboard.cloud/signup', variant: 'primary' as const },
+			// The glyph is the HERO pair's own — the action's mark, not the option's.
+			cta: {
+				text: 'Start for free',
+				icon: 'tabler:cloud-filled',
+				href: 'https://thingsboard.cloud/signup',
+				variant: 'primary' as const,
+			},
 			plansHref: '/pricing/?product=thingsboard-cloud',
 		},
 		{
@@ -147,7 +153,7 @@ export const paasChoice = {
 			// Outlined rather than filled: two solid purples side by side made the pair read as one
 			// choice offered twice. The shimmer is what keeps it from reading as the lesser option —
 			// it is a different KIND of action, not a weaker one.
-			cta: { text: 'Contact us', href: CONTACT_PRIVATE_CLOUD, variant: 'secondary' as const },
+			cta: { text: 'Contact us', icon: 'tabler:message-circle', href: CONTACT_PRIVATE_CLOUD, variant: 'secondary' as const },
 			plansHref: '/pricing/?product=thingsboard-private-cloud',
 		},
 	],
