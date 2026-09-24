@@ -1,0 +1,1506 @@
+---
+import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
+// The layout loads Ubuntu 300–700 and Mono 400. Specimens render outside the page's own document, where
+// its `@font-face` rules do not reach, so the two faces it uses beyond those are loaded here.
+import '@fontsource/ubuntu/400-italic.css';
+import '@fontsource/ubuntu-mono/700.css';
+
+/**
+ * The UI inventory: every button, link and reused piece of UI on the three new pages, harvested
+ * live and grouped by what it actually renders as.
+ *
+ * HARVESTED, NOT LISTED — the same reason as the type page. A hand-kept list of "our buttons" is
+ * already wrong by the time it is written: half the buttons on these pages are markup inside a page
+ * file (`.choice-card__cta`, `.page-closing__primary`, the hero's `.button.brand`), not a component
+ * anyone would think to list. So the three pages are loaded off-screen, every interactive element and
+ * every mark, label and card is measured, and elements that paint the same shape are folded into one
+ * variant. Change a component and reload.
+ *
+ * GROUPED BY SHAPE, SPLIT BY TONE. Two buttons that share height, padding, radius, type and icon are
+ * one decision in two colours, and the product accents (Cloud blue, On-premises green, a card's own
+ * hue) are supposed to vary. So colour does not split a variant — each colour gets its own specimen
+ * inside it. What does split a variant is a pixel of padding or a different radius, which is exactly
+ * the drift worth seeing.
+ *
+ * SPECIMENS ARE THE REAL ELEMENT UNDER THE REAL CSS. Each one is a clone of the element, placed in a
+ * shadow root that adopts its source page's complete stylesheet, under empty copies of its ancestors
+ * (tag, id, classes, attributes — no content, no layout). The page's own selectors — `#overflow#overflow
+ * .view-all-link a`, `.new-rows .read-more-link`, the Astro scope hashes — match exactly as they do on
+ * the page, so hover, focus rings, shimmers and underline offsets are live, not redrawn. The ancestors
+ * are flattened (no padding, position, size or background) so the element sits in its stage instead of
+ * wherever its section would have put it; the stage takes the background the element sits on.
+ *
+ * Every entry carries the `file:line` it was rendered from, read off Astro's dev-mode
+ * `data-astro-source-file` attributes, so the audit ends at the line to edit.
+ *
+ * Known limits, all from rendering outside the page: scripts do not run (tabs do not switch, lazy
+ * videos are started directly); a selector that depends on a sibling, a `:has()` or an `nth-child`
+ * may not match the flattened ancestors; media queries, `vw` units and container queries inside a
+ * specimen answer to this window, while measurement happened at 1440. Every specimen is checked
+ * against its original after layout, and any that came out different says so in its caption.
+ */
+
+const PAGES = [
+	{ key: 'home', label: 'Home', src: '/' },
+	{ key: 'cloud', label: 'Cloud', src: '/products/paas/' },
+	{ key: 'onprem', label: 'On-premises', src: '/products/thingsboard-pe/' },
+];
+
+const KINDS = [
+	{
+		key: 'button',
+		title: 'Buttons',
+		lede: 'Anything clickable with a fill or a border. The height, padding and radius columns are where these pages disagree most.',
+	},
+	{
+		key: 'link',
+		title: 'Links',
+		lede: 'Clickable text with no box. Section links, card links, inline links and card titles all land here; their type and chevron are the shape.',
+	},
+	{
+		key: 'icon',
+		title: 'Icon buttons',
+		lede: 'Clickable, no visible text: carousel arrows, social marks, close and menu buttons.',
+	},
+	{
+		key: 'tab',
+		title: 'Tabs, toggles and disclosures',
+		lede: 'Tab lists, segmented toggles and FAQ disclosures. Each state is shown separately, since selected and resting are often different shapes, not only different colours.',
+	},
+	{
+		key: 'mark',
+		title: 'Marks',
+		lede: 'Squircles and badges: section marks, row marks, card badges, hero marks.',
+	},
+	{
+		key: 'label',
+		title: 'Labels and eyebrows',
+		lede: 'Uppercase tracked text: kickers over titles, card labels, column heads.',
+	},
+	{
+		key: 'card',
+		title: 'Cards and tiles',
+		lede: 'Card components and tile links. The ecosystem cards are also on the Cards page, one-wide beside two-wide; here they sit beside the other cards these pages use.',
+	},
+	{
+		key: 'image',
+		title: 'Image links',
+		lede: 'Clickable images: the customer logo strip, award badges.',
+	},
+];
+---
+
+<PlaygroundLayout
+	title="UI inventory"
+	description="Every button, link and reused piece of UI on the three new pages — Home, Cloud and On-premises — harvested live and folded into variants by shape. Each specimen is the real element under its page's own CSS, so hover works, and each one names the file and line it came from."
+>
+	<div class="ui" data-ui data-page="all">
+		<p class="ui__status" data-status>Loading the pages…</p>
+
+		<div class="ui__bar" data-bar hidden>
+			<div class="ui__filter" role="group" aria-label="Show variants used on">
+				<button type="button" class="ui__chip is-on" data-filter="all">All pages</button>
+				{
+					PAGES.map((p) => (
+						<button type="button" class="ui__chip" data-filter={p.key}>
+							{p.label}
+						</button>
+					))
+				}
+			</div>
+			<nav class="ui__toc" aria-label="Kinds" data-toc></nav>
+		</div>
+
+		{
+			KINDS.map((k) => (
+				<section class="ui__kind" id={`kind-${k.key}`} data-kind={k.key} data-title={k.title} hidden>
+					<header class="ui__kind-head">
+						<h2>{k.title}</h2>
+						<p class="ui__kind-meta" data-meta />
+					</header>
+					<p class="ui__lede">{k.lede}</p>
+					<dl class="ui__spread" data-spread />
+					<div data-variants />
+				</section>
+			))
+		}
+
+		<section class="ui__kind ui__kind--chrome" id="kind-chrome" data-kind="chrome" data-title="Site chrome" hidden>
+			<header class="ui__kind-head">
+				<h2>Site chrome</h2>
+				<p class="ui__kind-meta" data-meta />
+			</header>
+			<p class="ui__lede">
+				The header, the announcement bar and the footer. They are on every page of the site, not only these three,
+				so they are kept out of the counts above and listed here on their own.
+			</p>
+			<div data-variants />
+		</section>
+
+		<p class="ui__foot">
+			Read at 1440 × 900 from{' '}
+			{
+				PAGES.map((p, i) => (
+					<>
+						<a href={p.src} target="_blank" rel="noreferrer">
+							{p.label}
+						</a>
+						{i < PAGES.length - 2 ? ', ' : i === PAGES.length - 2 ? ' and ' : ''}
+					</>
+				))
+			}
+			. Key visuals are left out: their type and chips are sized off their own design unit, not the UI.
+		</p>
+
+		{
+			/* Off-screen, never displayed, at a fixed 1440 x 900 so every measurement is taken at one
+			   width — 1440, not the type page's 1200, because the header only shows its full menu above
+			   1280, and below that this would be an inventory of the burger. Not in a closed <details>:
+			   that skips layout and every rect comes back zero, which the type page learned the hard way.
+			   Loaded one at a time by the script: three dev-mode pages at once can stall the tab. */
+		}
+		{
+			PAGES.map((p) => (
+				<iframe class="ui__probe" data-probe={p.key} data-label={p.label} data-src={p.src} title={`${p.label}, read for its UI`} />
+			))
+		}
+	</div>
+</PlaygroundLayout>
+
+<style lang="scss">
+	@use '../../../styles/variables' as *;
+
+	.ui {
+		max-width: 1160px;
+		margin: 0 auto;
+		line-height: 1.5;
+	}
+
+	:global(.pg__head) {
+		max-width: 1160px;
+	}
+
+	.ui__status {
+		@include text-s;
+		margin: 0 0 $spacing-8;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// Sticky, so the page filter and the jump list stay in reach through ~15 screens of variants.
+	.ui__bar {
+		position: sticky;
+		top: 0;
+		z-index: 5;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-3 $spacing-6;
+		margin: 0 (-$spacing-3) $spacing-10;
+		padding: $spacing-3;
+		border-bottom: 1px solid var(--sl-color-hairline-light);
+		background: rgba(255, 255, 255, 0.94);
+		backdrop-filter: blur(8px);
+	}
+
+	.ui__filter {
+		display: flex;
+		gap: 4px;
+		max-width: 100%;
+		overflow-x: auto;
+		scrollbar-width: none;
+		padding: 3px;
+		border-radius: 100px;
+		background: #eef0f4;
+	}
+
+	.ui__chip {
+		flex: none;
+		height: 30px;
+		white-space: nowrap;
+		padding: 0 12px;
+		border: 0;
+		border-radius: 100px;
+		background: none;
+		font: inherit;
+		font-size: 13px;
+		font-weight: $font-weight-medium;
+		color: var(--color-text-secondary, #5b616e);
+		cursor: pointer;
+
+		i {
+			margin-left: 4px;
+			font-style: normal;
+			opacity: 0.6;
+		}
+
+		&.is-on {
+			background: #fff;
+			color: var(--color-text);
+			box-shadow: 0 1px 2px rgba(23, 24, 28, 0.1);
+		}
+	}
+
+	.ui__toc {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 2px $spacing-4;
+		font-size: 13px;
+
+		:global(a) {
+			color: var(--color-text-secondary, #5b616e);
+			text-decoration: none;
+
+			&:hover {
+				color: var(--color-primary, #3d50f5);
+			}
+		}
+
+		:global(i) {
+			margin-left: 3px;
+			font-style: normal;
+			opacity: 0.6;
+		}
+	}
+
+	.ui__kind {
+		margin-bottom: $spacing-20;
+		scroll-margin-top: 72px;
+	}
+
+	.ui__kind-head {
+		display: flex;
+		align-items: baseline;
+		gap: $spacing-3;
+		padding-bottom: $spacing-2;
+		border-bottom: 1px solid var(--sl-color-hairline-light);
+
+		h2 {
+			@include card-title;
+			margin: 0;
+		}
+	}
+
+	.ui__kind-meta {
+		@include text-s;
+		margin: 0;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.ui__lede {
+		@include text-s;
+		max-width: 76ch;
+		margin: $spacing-3 0 $spacing-5;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.ui__foot {
+		@include text-s;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	// ── The spread: every value each property takes across the kind ────────────────────────────
+	.ui__spread {
+		display: grid;
+		gap: 6px;
+		margin: 0 0 $spacing-6;
+		padding: $spacing-4;
+		border-radius: 8px;
+		background: #f7f8fb;
+		font-size: 13px;
+
+		&:empty {
+			display: none;
+		}
+
+		:global(div) {
+			display: grid;
+			grid-template-columns: 96px minmax(0, 1fr);
+			gap: $spacing-3;
+			align-items: baseline;
+		}
+
+		:global(dt) {
+			font-weight: $font-weight-medium;
+			color: var(--color-text-secondary, #5b616e);
+		}
+
+		:global(dd) {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px 6px;
+			margin: 0;
+		}
+
+		:global(dd span) {
+			padding: 1px 7px;
+			border-radius: 4px;
+			background: #fff;
+			box-shadow: inset 0 0 0 1px var(--sl-color-hairline-light);
+			font-family: $font-family-mono;
+			font-size: 12px;
+			white-space: nowrap;
+		}
+
+		:global(dd i) {
+			margin-left: 4px;
+			font-style: normal;
+			color: var(--color-text-secondary, #5b616e);
+		}
+
+		// More than two values for one property: the rows worth settling first.
+		:global(.is-wide dt) {
+			color: #a04503;
+		}
+
+		:global(.is-wide dt::after) {
+			content: ' ●';
+			font-size: 9px;
+			vertical-align: 2px;
+		}
+	}
+
+	// ── A variant: specimens on the left, what it is on the right ──────────────────────────────
+	.ui__kind :global(.ui-var) {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 360px;
+		gap: $spacing-6;
+		align-items: start;
+		padding: $spacing-5 0;
+		border-top: 1px solid var(--sl-color-hairline-light);
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	// Cards are too wide to share the row with their notes.
+	.ui__kind :global(.ui-var--card) {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.ui[data-page='home'] :global(.ui-var:not([data-pages~='home'])),
+	.ui[data-page='cloud'] :global(.ui-var:not([data-pages~='cloud'])),
+	.ui[data-page='onprem'] :global(.ui-var:not([data-pages~='onprem'])) {
+		display: none;
+	}
+
+	.ui__kind :global(.ui-var__stages) {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-3;
+		align-items: flex-start;
+		min-width: 0;
+	}
+
+	.ui__kind :global(.ui-var__stage) {
+		max-width: 100%;
+		margin: 0;
+	}
+
+	.ui__kind :global(.ui-var__box) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 120px;
+		min-height: 76px;
+		max-width: 100%;
+		padding: $spacing-5 $spacing-6;
+		overflow: auto;
+		border-radius: 8px;
+		box-shadow: inset 0 0 0 1px var(--sl-color-hairline-light);
+	}
+
+	// Room above for the badge an ecosystem card hangs over its top edge.
+	.ui__kind :global(.ui-var--card .ui-var__box) {
+		justify-content: flex-start;
+		padding: 56px $spacing-6 $spacing-6;
+	}
+
+	.ui__kind :global(.ui-spec) {
+		position: relative;
+		max-width: 100%;
+	}
+
+	.ui__kind :global(.ui-var__stage figcaption) {
+		margin-top: 6px;
+		font-family: $font-family-mono;
+		font-size: 11.5px;
+		line-height: 1.4;
+		color: var(--color-text-secondary, #5b616e);
+
+		:global(i) {
+			font-style: normal;
+			color: var(--color-text);
+		}
+	}
+
+	.ui__kind :global(.ui-drift) {
+		color: #a04503;
+	}
+
+	.ui__kind :global(.ui-var__more) {
+		align-self: center;
+		font-size: 12px;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.ui__kind :global(.ui-var__meta) {
+		display: grid;
+		gap: 6px;
+		min-width: 0;
+		font-size: 13px;
+		line-height: 1.45;
+
+		:global(p) {
+			margin: 0;
+		}
+
+		:global(code) {
+			padding: 1px 5px;
+			border-radius: 4px;
+			background: #f2f3f7;
+			font-family: $font-family-mono;
+			font-size: 12px;
+			overflow-wrap: anywhere;
+		}
+	}
+
+	.ui__kind :global(.ui-var__head) {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 4px 8px;
+
+		:global(b) {
+			font-weight: $font-weight-bold;
+		}
+	}
+
+	.ui__kind :global(.ui-var__nums) {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+
+		:global(span) {
+			padding: 1px 6px;
+			border-radius: 4px;
+			box-shadow: inset 0 0 0 1px var(--sl-color-hairline-light);
+			font-family: $font-family-mono;
+			font-size: 11.5px;
+			white-space: nowrap;
+		}
+
+		:global(em) {
+			font-style: normal;
+			color: var(--color-text-secondary, #5b616e);
+		}
+	}
+
+	.ui__kind :global(.ui-var__where),
+	.ui__kind :global(.ui-var__eg) {
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.ui__kind :global(.ui-var__src) {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+
+	.ui__kind :global(.ui-var__hover) {
+		display: grid;
+		gap: 2px;
+		color: var(--color-text-secondary, #5b616e);
+
+		:global(b) {
+			font-weight: $font-weight-medium;
+			color: var(--color-text);
+		}
+	}
+
+	// The site chrome groups each kind under a small heading instead of a full section.
+	.ui__kind :global(.ui-sub) {
+		margin: $spacing-8 0 0;
+		font-size: 14px;
+		font-weight: $font-weight-bold;
+	}
+
+	.ui__probe {
+		position: absolute;
+		top: 0;
+		left: -20000px;
+		width: 1440px;
+		height: 900px;
+		border: 0;
+		pointer-events: none;
+	}
+</style>
+
+<script>
+	type Kind = 'button' | 'link' | 'icon' | 'tab' | 'mark' | 'label' | 'card' | 'image';
+
+	interface HoverPart {
+		test: string;
+		state: 'Hover' | 'Focus';
+		pseudo: string;
+		/** The state is on an ancestor — `.card:hover .card__link` — so it fires on the parent. */
+		via: boolean;
+		decl: string;
+	}
+
+	interface Ctx {
+		key: string;
+		label: string;
+		doc: Document;
+		sheet: CSSStyleSheet;
+		rootVars: string;
+		hover: HoverPart[];
+	}
+
+	interface Item {
+		ctx: Ctx;
+		el: HTMLElement;
+		kind: Kind;
+		chrome: boolean;
+		nums: [string, string][];
+		shape: string;
+		tone: string;
+		toneLabel: string;
+		text: string;
+		name: string;
+		src: string;
+	}
+
+	interface Variant {
+		key: string;
+		kind: Kind;
+		chrome: boolean;
+		nums: [string, string][];
+		items: Item[];
+		tones: Map<string, Item[]>;
+		pages: Map<string, number>;
+	}
+
+	const ui = document.querySelector<HTMLElement>('[data-ui]')!;
+	const status = ui.querySelector<HTMLElement>('[data-status]')!;
+	const probes = Array.from(ui.querySelectorAll<HTMLIFrameElement>('[data-probe]'));
+
+	const INTERACTIVE = 'a[href], button, summary, [role="tab"], [role="button"]';
+	// Not the page: the internal toolbar, the chat widget, the cookie banner.
+	const EXCLUDE = '[data-internal-nav], #yourgpt_root, #cookie-banner, .tb-snap-nav';
+	const CHROME = 'header.header, #promo-banner, footer';
+	const SVGNS = 'http://www.w3.org/2000/svg';
+
+	const KIND_NAMES: Record<Kind, string> = {
+		button: 'Buttons',
+		link: 'Links',
+		icon: 'Icon buttons',
+		tab: 'Tabs, toggles and disclosures',
+		mark: 'Marks',
+		label: 'Labels and eyebrows',
+		card: 'Cards and tiles',
+		image: 'Image links',
+	};
+
+	const esc = (s: string) => s.replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]!);
+	const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+	const cs = (el: Element) => el.ownerDocument.defaultView!.getComputedStyle(el);
+	const num = (v: string) => {
+		const x = parseFloat(v);
+		return Number.isFinite(x) ? Math.round(x * 10) / 10 : 0;
+	};
+
+	// ── Colour ────────────────────────────────────────────────────────────────────────────────
+	// Computed colours arrive as rgb()/rgba(), or as color(srgb …) wherever a color-mix() was involved.
+	const rgba = (c: string): number[] | null => {
+		let m = c.match(/^rgba?\(([^)]+)\)$/);
+		if (m) {
+			const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+			return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1];
+		}
+		m = c.match(/^color\(srgb ([^)]+)\)$/);
+		if (m) {
+			const [rgb, a] = m[1].split('/');
+			const p = rgb.trim().split(/\s+/).map((v) => Number(v) * 255);
+			return [p[0], p[1], p[2], a ? Number(a) : 1];
+		}
+		return null;
+	};
+	const alpha = (c: string) => (c === 'transparent' ? 0 : (rgba(c)?.[3] ?? 1));
+	const hex = (c: string) => {
+		const v = rgba(c);
+		if (!v) return c;
+		const h = v
+			.slice(0, 3)
+			.map((x) => Math.round(x).toString(16).padStart(2, '0'))
+			.join('');
+		return v[3] < 1 ? `#${h} ${Math.round(v[3] * 100)}%` : `#${h}`;
+	};
+	const gradient = (c: CSSStyleDeclaration) => c.backgroundImage !== 'none' && !c.backgroundImage.includes('url(');
+	const hasFill = (c: CSSStyleDeclaration) => alpha(c.backgroundColor) > 0.02 || gradient(c);
+	const fillOf = (c: CSSStyleDeclaration) =>
+		gradient(c) ? `gradient on ${hex(c.backgroundColor)}` : alpha(c.backgroundColor) > 0.02 ? hex(c.backgroundColor) : 'none';
+	const SIDES = ['top', 'right', 'bottom', 'left'];
+	const edges = (c: CSSStyleDeclaration) =>
+		SIDES.map((s) => (alpha(c.getPropertyValue(`border-${s}-color`)) > 0.02 ? num(c.getPropertyValue(`border-${s}-width`)) : 0));
+	const edgeOf = (c: CSSStyleDeclaration) => {
+		const e = edges(c);
+		const max = Math.max(...e);
+		if (!max) return 'none';
+		if (e.every((x) => x === max)) return `${max}`;
+		return SIDES.map((s, i) => (e[i] ? `${s} ${e[i]}` : ''))
+			.filter(Boolean)
+			.join(', ');
+	};
+
+	// ── Geometry ──────────────────────────────────────────────────────────────────────────────
+	const radiusOf = (c: CSSStyleDeclaration, h: number) => {
+		const v = [c.borderTopLeftRadius, c.borderTopRightRadius, c.borderBottomRightRadius, c.borderBottomLeftRadius].map(
+			(x) => (x.includes('%') ? x.split(' ')[0] : num(x) >= h / 2 && h > 0 ? 'pill' : `${num(x)}`)
+		);
+		return v.every((x) => x === v[0]) ? v[0] : v.join(' ');
+	};
+	const padOf = (c: CSSStyleDeclaration) => {
+		const l = num(c.paddingLeft);
+		const r = num(c.paddingRight);
+		return l === r ? `${l}` : `${l} / ${r}`;
+	};
+	const typeOf = (c: CSSStyleDeclaration) => `${num(c.fontSize)}/${c.fontWeight}`;
+
+	/**
+	 * Laid out and visible. `> 1`, not truthy: the visually-hidden pattern is a 1px clipped box, and
+	 * counting it put screen-reader text among the page's buttons. An ancestor at opacity 0 hides the
+	 * inactive banner slides.
+	 */
+	const shown = (el: Element) => {
+		const r = el.getBoundingClientRect();
+		if (r.width <= 1 || r.height <= 1) return false;
+		const c = cs(el);
+		if (c.visibility === 'hidden' || c.clip !== 'auto') return false;
+		for (let a: Element | null = el; a; a = a.parentElement) if (cs(a).opacity === '0') return false;
+		return true;
+	};
+
+	/** Inside a key visual — the type page's test: every visual declares its design unit `--<name>-u`. */
+	const inVisual = (el: Element) => Array.from(cs(el)).some((p) => /^--[a-z0-9]+-u$/.test(p));
+
+	const textNodes = (el: Element) => {
+		const out: Text[] = [];
+		const walk = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+		for (let t = walk.nextNode(); t; t = walk.nextNode()) {
+			const p = t.parentElement;
+			if (!t.textContent?.trim() || !p || p.closest('svg')) continue;
+			const r = p.getBoundingClientRect();
+			if (r.width > 1 && r.height > 1) out.push(t as Text);
+		}
+		return out;
+	};
+
+	const textBox = (nodes: Text[]) => {
+		if (!nodes.length) return null;
+		const range = nodes[0].ownerDocument.createRange();
+		let l = Infinity;
+		let t = Infinity;
+		let r = -Infinity;
+		let b = -Infinity;
+		for (const node of nodes) {
+			range.selectNodeContents(node);
+			const x = range.getBoundingClientRect();
+			if (!x.width) continue;
+			l = Math.min(l, x.left);
+			t = Math.min(t, x.top);
+			r = Math.max(r, x.right);
+			b = Math.max(b, x.bottom);
+		}
+		return Number.isFinite(l) ? { l, t, r, b } : null;
+	};
+
+	/**
+	 * Every visible icon, placed against the text, with the space between them: `lead 20 · 8`,
+	 * `trail 18 · 2`, `only 22`. The space is measured box to box rather than read from `gap` or a
+	 * margin, because two buttons that set the same 8px one each way look identical and are one variant.
+	 */
+	const iconsOf = (el: Element, box: ReturnType<typeof textBox>) =>
+		Array.from(el.querySelectorAll('svg, img'))
+			.filter((s) => !s.parentElement?.closest('svg'))
+			.map((s) => ({ s, r: s.getBoundingClientRect() }))
+			.filter(({ r }) => r.width > 1 && r.height > 1)
+			.map(({ r }) => {
+				if (!box) return `only ${Math.round(r.width)}`;
+				let pos = 'in';
+				let space = 0;
+				if (r.right <= box.l + 1) {
+					pos = 'lead';
+					space = box.l - r.right;
+				} else if (r.left >= box.r - 1) {
+					pos = 'trail';
+					space = r.left - box.r;
+				} else if (r.bottom <= box.t + 1) {
+					pos = 'top';
+					space = box.t - r.bottom;
+				}
+				if (pos === 'in') return `in ${Math.round(r.width)}`;
+				// Pushed to the far edge (a disclosure's chevron): the distance is the row's width, not a decision.
+				return `${pos} ${Math.round(r.width)} · ${space > 32 ? 'end' : Math.round(space)}`;
+			});
+
+	/** The class a person would search for: no Astro hash, no state or modifier, no tracking hooks. */
+	const bareClass = (el: Element) => {
+		const c = Array.from(el.classList).filter((x) => !/^(astro-|is-|gtm_|sc-|light-text$|header-animation$)/.test(x));
+		return c.find((x) => !x.includes('--')) ?? c[0] ?? '';
+	};
+	const nameOf = (el: Element) => {
+		const own = bareClass(el);
+		if (own) return `.${own}`;
+		// Unclassed — the footer's links, a link inside a paragraph: named by the nearest ancestor that
+		// has a class, which is the selector the styles are written against anyway.
+		for (let a = el.parentElement, i = 0; a && i < 4; a = a.parentElement, i++) {
+			const up = bareClass(a);
+			if (up) return `.${up} ${el.localName}`;
+		}
+		return el.localName;
+	};
+
+	/** `src/components/Landing/Hero.astro:178`, off Astro's dev-mode source attributes. */
+	const srcOf = (el: Element) => {
+		const f = el.getAttribute('data-astro-source-file');
+		if (!f) return '';
+		const line = (el.getAttribute('data-astro-source-loc') ?? '').split(':')[0];
+		const i = f.lastIndexOf('/src/');
+		const p = i >= 0 ? f.slice(i + 1) : f.replace(/.*node_modules\//, '');
+		return line ? `${p}:${line}` : p;
+	};
+
+	const cardClass = (el: Element) => Array.from(el.classList).find((x) => /^[a-z0-9]+(-[a-z0-9]+)*-(card|tile)$/.test(x));
+
+	// ── Classify and measure one element ──────────────────────────────────────────────────────
+	const measure = (ctx: Ctx, el: HTMLElement): Item | null => {
+		if (el.closest(EXCLUDE)) return null;
+		const interactive = el.matches(INTERACTIVE);
+		const card = !interactive && cardClass(el);
+		if (interactive && el.parentElement?.closest(INTERACTIVE)) return null;
+		if (!interactive && !card && !(typeof el.className === 'string' && el.className)) return null;
+		if (!shown(el)) return null;
+
+		const c = cs(el);
+		const rect = el.getBoundingClientRect();
+		const w = Math.round(rect.width);
+		const h = Math.round(rect.height);
+		let kind: Kind | null = null;
+		let nodes: Text[] = [];
+
+		if (interactive) {
+			if (inVisual(el)) return null;
+			nodes = textNodes(el);
+			const text = nodes.length > 0;
+			if (el.matches('[role="tab"]')) kind = 'tab';
+			else if (el.matches('summary')) kind = hasFill(c) || edgeOf(c) !== 'none' ? 'button' : 'tab';
+			else if (!text) {
+				if (el.querySelector('img') || c.backgroundImage.includes('url(')) kind = 'image';
+				else if (el.querySelector('svg')) kind = 'icon';
+			} else if (hasFill(c) || edgeOf(c) !== 'none') kind = h > 60 ? 'card' : 'button';
+			else kind = 'link';
+		} else if (card) {
+			if (inVisual(el)) return null;
+			kind = 'card';
+		} else {
+			if (el.closest(INTERACTIVE)) return null;
+			const square = Math.abs(rect.width - rect.height) <= 2 && w >= 24 && w <= 128;
+			const round = /%/.test(c.borderTopLeftRadius) ? num(c.borderTopLeftRadius) >= 15 : num(c.borderTopLeftRadius) >= w * 0.15;
+			if (square && round && hasFill(c) && el.querySelector('svg, img')) {
+				if (inVisual(el)) return null;
+				kind = 'mark';
+			} else if (c.textTransform === 'uppercase' && num(c.fontSize) <= 16) {
+				const own = Array.from(el.childNodes).some((x) => x.nodeType === 3 && x.textContent?.trim());
+				if (!own || inVisual(el)) return null;
+				nodes = textNodes(el);
+				kind = 'label';
+			}
+		}
+		if (!kind) return null;
+
+		const box = textBox(nodes);
+		const icons = kind === 'mark' || kind === 'card' ? [] : iconsOf(el, box);
+		const icon = icons.join(' + ') || 'none';
+		const deco = c.textDecorationLine.includes('underline') ? `underline ${num(c.textUnderlineOffset)}` : 'none';
+		const radius = radiusOf(c, h);
+		// The height a one-line label gives it. A tab or button whose label wraps is taller for its
+		// words, not its shape, and should not come out as a variant of its own.
+		const lh = num(c.lineHeight) || num(c.fontSize) * 1.2;
+		const lines = box ? Math.max(1, Math.round((box.b - box.t) / lh)) : 1;
+		const oneLine = `${Math.round(h - (lines - 1) * lh)}`;
+		let nums: [string, string][] = [];
+		let tone = '';
+		let toneLabel = '';
+
+		switch (kind) {
+			case 'button':
+				nums = [
+					['Height', oneLine],
+					['Padding', padOf(c)],
+					['Radius', radius],
+					['Type', typeOf(c)],
+					['Border', edgeOf(c)],
+					['Icon', icon],
+				];
+				tone = `${fillOf(c)}|${hex(c.color)}|${edgeOf(c) !== 'none' ? hex(c.borderTopColor) : ''}`;
+				toneLabel = `fill ${fillOf(c)} · text ${hex(c.color)}${edgeOf(c) !== 'none' ? ` · border ${hex(c.borderTopColor)}` : ''}`;
+				break;
+			case 'link':
+				nums = [
+					['Type', typeOf(c)],
+					['Underline', deco],
+					['Icon', icon],
+				];
+				tone = hex(c.color);
+				toneLabel = hex(c.color);
+				break;
+			case 'icon':
+				nums = [
+					['Size', `${w}×${h}`],
+					['Radius', radius],
+					['Icon', icon],
+					['Border', edgeOf(c)],
+				];
+				tone = `${fillOf(c)}|${hex(c.color)}`;
+				toneLabel = `fill ${fillOf(c)} · icon ${hex(c.color)}`;
+				break;
+			case 'tab': {
+				const state =
+					el.getAttribute('aria-selected') === 'true'
+						? 'selected'
+						: el.matches('summary') && (el.parentElement as HTMLDetailsElement | null)?.open
+							? 'open'
+							: 'resting';
+				nums = [
+					['Height', oneLine],
+					['Padding', padOf(c)],
+					['Radius', radius],
+					['Type', typeOf(c)],
+					['Border', edgeOf(c)],
+					['Icon', icon],
+				];
+				tone = `${state}|${fillOf(c)}|${hex(c.color)}`;
+				toneLabel = `${state} · fill ${fillOf(c)} · text ${hex(c.color)}`;
+				break;
+			}
+			case 'mark': {
+				const g = Array.from(el.querySelectorAll('svg, img')).find((x) => x.getBoundingClientRect().width > 1);
+				nums = [
+					['Size', `${w}`],
+					['Radius', radius],
+					['Glyph', g ? `${Math.round(g.getBoundingClientRect().width)}` : 'none'],
+					['Shadow', c.boxShadow === 'none' ? 'none' : 'yes'],
+				];
+				tone = `${fillOf(c)}|${hex(c.color)}`;
+				toneLabel = `fill ${fillOf(c)} · glyph ${hex(c.color)}`;
+				break;
+			}
+			case 'label': {
+				const ls = c.letterSpacing === 'normal' ? 0 : num(c.letterSpacing);
+				nums = [
+					['Type', typeOf(c)],
+					['Tracking', ls ? `${(ls / num(c.fontSize)).toFixed(2)}em` : '0'],
+					['Line', `${num(c.lineHeight) || c.lineHeight}`],
+				];
+				tone = hex(c.color);
+				toneLabel = hex(c.color);
+				break;
+			}
+			case 'card':
+				nums = [
+					['Component', nameOf(el)],
+					['Radius', radius],
+					['Padding', [c.paddingTop, c.paddingRight, c.paddingBottom, c.paddingLeft].map(num).join(' ')],
+					['Border', edgeOf(c)],
+					['Shadow', c.boxShadow === 'none' ? 'none' : 'yes'],
+				];
+				tone = fillOf(c);
+				toneLabel = `fill ${fillOf(c)}`;
+				break;
+			case 'image': {
+				const img = el.querySelector('img');
+				const ih = img ? Math.round(img.getBoundingClientRect().height) : h;
+				const f = img ? cs(img).filter : c.filter;
+				nums = [['Height', `${ih}`]];
+				tone = f;
+				toneLabel = f === 'none' ? 'no filter' : `filter ${f}`;
+				break;
+			}
+		}
+
+		const text = nodes.length
+			? nodes
+					.map((t) => t.textContent)
+					.join(' ')
+					.replace(/\s+/g, ' ')
+					.trim()
+			: (el.getAttribute('aria-label') ?? el.querySelector('img')?.getAttribute('alt') ?? '');
+
+		return {
+			ctx,
+			el,
+			kind,
+			chrome: !!el.closest(CHROME),
+			nums,
+			shape: `${kind}|${nums.map(([k, v]) => `${k}=${v}`).join(';')}`,
+			tone,
+			toneLabel,
+			text,
+			name: nameOf(el),
+			src: srcOf(el),
+		};
+	};
+
+	// ── Hover and focus rules ─────────────────────────────────────────────────────────────────
+	/** Split a selector list on its top-level commas only — `:not(.a, .b)` and `:where()` keep theirs. */
+	const splitList = (sel: string) => {
+		const out: string[] = [];
+		let depth = 0;
+		let from = 0;
+		for (let i = 0; i < sel.length; i++) {
+			const ch = sel[i];
+			if (ch === '(') depth++;
+			else if (ch === ')') depth--;
+			else if (ch === ',' && depth === 0) {
+				out.push(sel.slice(from, i).trim());
+				from = i + 1;
+			}
+		}
+		out.push(sel.slice(from).trim());
+		return out;
+	};
+
+	/**
+	 * Every `:hover` / `:focus-visible` rule on the page, with the state stripped off so it can be
+	 * tested against an element at rest: `.btn:hover` becomes `.btn`, `.card:hover .card__link`
+	 * becomes `.card .card__link` (and is marked as firing on the parent). Media blocks that do not
+	 * match at 1440 are skipped, as the browser would.
+	 */
+	const collectHover = (doc: Document) => {
+		const win = doc.defaultView!;
+		const out: HoverPart[] = [];
+		const walk = (rules: CSSRuleList) => {
+			for (const r of Array.from(rules) as any[]) {
+				if (r.media && r.conditionText !== undefined && !('selectorText' in r)) {
+					if (win.matchMedia(r.conditionText || r.media.mediaText).matches) walk(r.cssRules);
+					continue;
+				}
+				if (r.cssRules && !('selectorText' in r)) {
+					walk(r.cssRules);
+					continue;
+				}
+				if (!r.selectorText || !/:hover|:focus-visible/.test(r.selectorText)) continue;
+				const decl = (r.style?.cssText ?? '').trim();
+				if (!decl) continue;
+				for (const part of splitList(r.selectorText)) {
+					if (!/:hover|:focus-visible/.test(part)) continue;
+					const pseudo = part.match(/::?(after|before)\s*$/)?.[1] ?? '';
+					let test = part.replace(/::?(after|before)\s*$/, '');
+					const at = Math.max(test.lastIndexOf(':hover'), test.lastIndexOf(':focus-visible'));
+					const after = test
+						.slice(at)
+						.replace(/^:(hover|focus-visible)/, '')
+						.replace(/\([^()]*\)/g, '()');
+					test = test.replace(/:(hover|focus-visible|focus-within|focus|active)(?![\w-])/g, '').trim();
+					// Element-only selectors — the landing layer's `:where(a):hover` — would claim every link on
+					// the page and are overridden wherever it matters. A rule has to name a class, id or attribute.
+					if (!test || !/[.#[]/.test(test.replace(/:where\([^()]*\)/g, ''))) continue;
+					out.push({
+						test,
+						state: part.includes(':hover') ? 'Hover' : 'Focus',
+						pseudo,
+						via: /[\s>+~]/.test(after.trim()) || /^\s+\S/.test(after),
+						decl,
+					});
+				}
+			}
+		};
+		for (const s of Array.from(doc.styleSheets)) {
+			try {
+				walk(s.cssRules);
+			} catch {
+				/* cross-origin sheet (the chat widget) — not ours */
+			}
+		}
+		return out;
+	};
+
+	const hoverOf = (it: Item) => {
+		const groups = new Map<string, Set<string>>();
+		for (const h of it.ctx.hover) {
+			let hit = false;
+			try {
+				hit = it.el.matches(h.test);
+			} catch {
+				hit = false;
+			}
+			if (!hit) continue;
+			const label = `${h.state}${h.via ? ' (on parent)' : ''}${h.pseudo ? ` ::${h.pseudo}` : ''}`;
+			const set = groups.get(label) ?? new Set<string>();
+			h.decl
+				.split(';')
+				.map((d) => d.trim())
+				.filter((d) => d && !/^(transition|cursor|will-change)/.test(d))
+				.forEach((d) => set.add(d));
+			groups.set(label, set);
+		}
+		return [...groups]
+			.filter(([, s]) => s.size)
+			.map(([l, s]) => `<span><b>${esc(l)}</b> ${esc([...s].join('; '))}</span>`)
+			.join('');
+	};
+
+	// ── The source page's CSS, once per page ──────────────────────────────────────────────────
+	const sheetOf = (doc: Document) => {
+		const text = Array.from(doc.styleSheets)
+			.map((s) => {
+				try {
+					const body = Array.from(s.cssRules)
+						.filter((r) => r.constructor.name !== 'CSSImportRule')
+						.map((r) => r.cssText)
+						.join('\n');
+					const m = s.media?.mediaText;
+					return m && m !== 'all' ? `@media ${m}{${body}}` : body;
+				} catch {
+					return '';
+				}
+			})
+			.join('\n');
+		const sheet = new CSSStyleSheet();
+		try {
+			sheet.replaceSync(text);
+		} catch {
+			// One rule the constructor will not take should not cost the whole page its styles.
+			text.split(/\n(?=[@.#:\w[*])/).forEach((rule) => {
+				try {
+					sheet.insertRule(rule, sheet.cssRules.length);
+				} catch {
+					/* skipped */
+				}
+			});
+		}
+		return sheet;
+	};
+
+	/** Custom properties set on `:root` — `:root` matches nothing inside a shadow tree, so they are carried in. */
+	const rootVarsOf = (doc: Document) => {
+		const c = cs(doc.documentElement);
+		let out = '';
+		for (let i = 0; i < c.length; i++) {
+			const p = c[i];
+			if (p.startsWith('--')) out += `${p}:${c.getPropertyValue(p)};`;
+		}
+		return out;
+	};
+
+	/**
+	 * The ancestors are there for their selectors, not their layout. Flattened, the element lands in
+	 * its stage rather than wherever its section would have put it; everything that inherits — colour,
+	 * font, custom properties — still flows down from them, which is the point of keeping them.
+	 */
+	const RESET = new CSSStyleSheet();
+	RESET.replaceSync(`
+		:host { display: block; }
+		[data-ui-anc] {
+			display: block !important; position: static !important; inset: auto !important; float: none !important;
+			width: auto !important; min-width: 0 !important; max-width: none !important;
+			height: auto !important; min-height: 0 !important; max-height: none !important;
+			margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important;
+			transform: none !important; translate: none !important; overflow: visible !important;
+			background: none !important; box-shadow: none !important; opacity: 1 !important; visibility: visible !important;
+			animation: none !important; filter: none !important; backdrop-filter: none !important;
+			clip-path: none !important; mask: none !important; -webkit-mask: none !important; z-index: auto !important;
+		}
+		[data-ui-anc]::before, [data-ui-anc]::after { display: none !important; }
+		[data-ui-root] {
+			position: relative !important; inset: auto !important; margin: 0 !important; float: none !important;
+			transform: none !important; translate: none !important; opacity: 1 !important; visibility: visible !important;
+			animation: none !important; max-width: none !important; box-sizing: border-box !important;
+		}
+	`);
+
+	/** Icons are `<use href="#…">` into a sprite elsewhere on the page; the symbol is inlined so the clone draws. */
+	const fixClone = (clone: Element, src: Element, doc: Document) => {
+		clone.querySelectorAll('use').forEach((u) => {
+			const ref = u.getAttribute('href') ?? u.getAttribute('xlink:href') ?? '';
+			if (!ref.startsWith('#')) return;
+			const sym = doc.getElementById(ref.slice(1));
+			if (!sym) return;
+			const svg = u.closest('svg');
+			const vb = sym.getAttribute('viewBox');
+			if (svg && vb && !svg.getAttribute('viewBox')) svg.setAttribute('viewBox', vb);
+			const g = document.createElementNS(SVGNS, 'g');
+			g.innerHTML = sym.innerHTML;
+			u.replaceWith(g);
+		});
+		clone.querySelectorAll('img').forEach((img) => img.setAttribute('loading', 'eager'));
+		const videos = Array.from(src.querySelectorAll('video'));
+		clone.querySelectorAll('video').forEach((v, i) => {
+			const from = videos[i];
+			const url = from?.currentSrc || from?.querySelector('source')?.getAttribute('data-src') || '';
+			v.querySelectorAll('source').forEach((s) => s.remove());
+			if (!url) return;
+			v.muted = true;
+			v.loop = true;
+			v.autoplay = true;
+			v.setAttribute('playsinline', '');
+			v.src = url;
+		});
+	};
+
+	const specimens = new Map<HTMLElement, Item>();
+
+	/**
+	 * Does the specimen render as the element does on its page? Checked after layout, property by
+	 * property. A miss means a selector depended on something the flattened ancestors do not carry — a
+	 * sibling, a `:has()`, an `nth-child` — and the caption says which property, rather than letting a
+	 * wrong specimen pass for a right one. Text colour is the one corrected in place, because a wrong
+	 * colour on the wrong backdrop makes the specimen unreadable, not only inexact.
+	 */
+	const DRIFT: [string, (c: CSSStyleDeclaration, r: DOMRect) => string][] = [
+		['color', (c) => hex(c.color)],
+		['fill', (c) => fillOf(c)],
+		['type', (c) => typeOf(c)],
+		['padding', (c) => padOf(c)],
+		['radius', (c, r) => radiusOf(c, Math.round(r.height))],
+		['height', (c, r) => `${Math.round(r.height)}`],
+	];
+	const checkDrift = () => {
+		specimens.forEach((it, host) => {
+			const clone = host.shadowRoot?.querySelector<HTMLElement>('[data-ui-root]');
+			if (!clone) return;
+			const a = cs(it.el);
+			const ar = it.el.getBoundingClientRect();
+			let b = getComputedStyle(clone);
+			// An inline link that wraps on its page is taller there by its extra lines; that is not drift.
+			const skip = a.display === 'inline' ? ['height'] : [];
+			const br = clone.getBoundingClientRect();
+			const off = DRIFT.filter(([k, f]) => !skip.includes(k) && f(a, ar) !== f(b, br)).map(
+				([k, f]) => `${k} ${f(b, br)} here, ${f(a, ar)} on the page`
+			);
+			if (!off.length) return;
+			const recolour = off.some((o) => o.startsWith('color '));
+			if (recolour) clone.style.color = a.color;
+			const cap = host.closest('figure')?.querySelector('figcaption');
+			cap?.insertAdjacentHTML(
+				'beforeend',
+				`<br><span class="ui-drift">Renders differently here — ${esc(off.join('; '))}${recolour ? ' (colour corrected)' : ''}</span>`
+			);
+		});
+	};
+
+	const mount = (it: Item) => {
+		const host = document.createElement('div');
+		host.className = 'ui-spec';
+		specimens.set(host, it);
+		const shadow = host.attachShadow({ mode: 'open' });
+		shadow.adoptedStyleSheets = [it.ctx.sheet, RESET];
+		// A specimen is for looking at: links do not navigate, summaries do not toggle, forms do not post.
+		shadow.addEventListener('click', (e) => e.preventDefault(), true);
+		shadow.addEventListener('submit', (e) => e.preventDefault(), true);
+
+		const chain: Element[] = [];
+		for (let a = it.el.parentElement; a; a = a.parentElement) chain.unshift(a);
+		let parent: Node = shadow;
+		chain.forEach((a, i) => {
+			const shell = document.createElement(a.localName);
+			for (const at of Array.from(a.attributes)) {
+				if (at.name.startsWith('data-astro-source')) continue;
+				try {
+					shell.setAttribute(at.name, at.value);
+				} catch {
+					/* an attribute name the HTML parser allowed and setAttribute does not */
+				}
+			}
+			if (i === 0) shell.setAttribute('style', it.ctx.rootVars + (a.getAttribute('style') ?? ''));
+			// A size container keeps its width. Flattened to `auto` inside a shrink-to-fit stage it measures
+			// zero, and every `@container` rule under it fires — the GitHub button lost its padding that way.
+			if (cs(a).containerType !== 'normal') {
+				shell.style.setProperty('width', `${a.getBoundingClientRect().width}px`, 'important');
+			}
+			shell.setAttribute('data-ui-anc', '');
+			// A <details> on the way down is open (the element was visible, so it was open on the page) and
+			// gets a hidden summary: without one the browser draws its own "Details" disclosure.
+			if (shell.localName === 'details') {
+				shell.setAttribute('open', '');
+				if (chain[i + 1]?.localName !== 'summary' && it.el.localName !== 'summary') {
+					const sum = document.createElement('summary');
+					sum.setAttribute('style', 'display: none !important');
+					shell.appendChild(sum);
+				}
+			}
+			parent.appendChild(shell);
+			parent = shell;
+		});
+
+		const clone = it.el.cloneNode(true) as HTMLElement;
+		fixClone(clone, it.el, it.ctx.doc);
+		clone.setAttribute('data-ui-root', '');
+		// Its rendered width, so a card or a full-bleed button keeps the size it has on the page instead of
+		// shrinking to its content once its flex or grid parent is flattened. Inline links ignore it.
+		clone.style.setProperty('width', `${it.el.getBoundingClientRect().width}px`, 'important');
+		// And its computed display: a link that is a flex item on the page is blockified there, and would
+		// fall back to inline — ignoring its width and height — under a flattened parent.
+		clone.style.setProperty('display', cs(it.el).display, 'important');
+		parent.appendChild(clone);
+		return host;
+	};
+
+	/** What the element sits on: the first ancestor that paints a background. */
+	const backdropOf = (el: Element) => {
+		for (let a = el.parentElement; a; a = a.parentElement) {
+			const c = cs(a);
+			if (gradient(c) && alpha(c.backgroundColor) > 0.5) return `${c.backgroundImage}, ${c.backgroundColor}`;
+			if (alpha(c.backgroundColor) > 0.5) return c.backgroundColor;
+		}
+		return '#fff';
+	};
+
+	// ── Loading ───────────────────────────────────────────────────────────────────────────────
+	/**
+	 * A fresh iframe already holds `about:blank`, complete, so readiness is asked of the real URL with
+	 * the page root present (the type page's lesson). Then fonts, then time for the hero's staggered
+	 * reveal to finish: it holds everything at opacity 0 until ~1.8s in, and an element at opacity 0
+	 * is not counted.
+	 */
+	const load = (frame: HTMLIFrameElement) =>
+		new Promise<boolean>((resolve) => {
+			frame.src = frame.dataset.src!;
+			const started = performance.now();
+			const poll = window.setInterval(() => {
+				const d = frame.contentDocument;
+				const ok = !!d && d.readyState === 'complete' && d.location.href !== 'about:blank' && !!d.querySelector('.page');
+				if (ok || performance.now() - started > 30000) {
+					window.clearInterval(poll);
+					resolve(ok);
+				}
+			}, 200);
+		});
+
+	const harvest = (ctx: Ctx) => {
+		const items: Item[] = [];
+		ctx.doc.querySelectorAll<HTMLElement>('body *').forEach((el) => {
+			if (el instanceof ctx.doc.defaultView!.SVGElement || el.closest('svg, script, style, noscript, template')) return;
+			const it = measure(ctx, el);
+			if (it) items.push(it);
+		});
+		return items;
+	};
+
+	// ── Grouping and painting ─────────────────────────────────────────────────────────────────
+	const group = (items: Item[]) => {
+		const map = new Map<string, Variant>();
+		for (const it of items) {
+			const key = `${it.chrome ? 'chrome' : 'page'}|${it.shape}`;
+			const v =
+				map.get(key) ??
+				({ key, kind: it.kind, chrome: it.chrome, nums: it.nums, items: [], tones: new Map(), pages: new Map() } as Variant);
+			v.items.push(it);
+			const t = v.tones.get(it.tone) ?? [];
+			t.push(it);
+			v.tones.set(it.tone, t);
+			v.pages.set(it.ctx.key, (v.pages.get(it.ctx.key) ?? 0) + 1);
+			map.set(key, v);
+		}
+		// Commonest first, but a class's variants stay together — the selected tab beside the resting one,
+		// the two `.choice-card__cta` fills beside each other — so they are read as one component's set.
+		const vars = [...map.values()];
+		const lead = (v: Variant) => v.items[0].name;
+		const weight = new Map<string, number>();
+		vars.forEach((v) => weight.set(lead(v), (weight.get(lead(v)) ?? 0) + v.items.length));
+		return vars.sort(
+			(a, b) =>
+				weight.get(lead(b))! - weight.get(lead(a))! || lead(a).localeCompare(lead(b)) || b.items.length - a.items.length
+		);
+	};
+
+	const tally = <T,>(list: T[]) => {
+		const m = new Map<T, number>();
+		list.forEach((x) => m.set(x, (m.get(x) ?? 0) + 1));
+		return [...m].sort((a, b) => b[1] - a[1]);
+	};
+
+	const pageLabels = new Map(probes.map((p) => [p.dataset.probe!, p.dataset.label!]));
+
+	const paintVariant = (v: Variant) => {
+		const art = document.createElement('article');
+		art.className = `ui-var ui-var--${v.kind}`;
+		art.dataset.pages = [...v.pages.keys()].join(' ');
+
+		const stages = document.createElement('div');
+		stages.className = 'ui-var__stages';
+		const tones = [...v.tones.values()].sort((a, b) => b.length - a.length);
+		tones.slice(0, 8).forEach((list) => {
+			const it = list[0];
+			const fig = document.createElement('figure');
+			fig.className = 'ui-var__stage';
+			const box = document.createElement('div');
+			box.className = 'ui-var__box';
+			box.style.background = backdropOf(it.el);
+			try {
+				box.appendChild(mount(it));
+			} catch (e) {
+				box.textContent = `Could not render: ${(e as Error).message}`;
+			}
+			const cap = document.createElement('figcaption');
+			cap.innerHTML = `${esc(it.toneLabel)} <i>×${list.length}</i>`;
+			fig.append(box, cap);
+			stages.appendChild(fig);
+		});
+		if (tones.length > 8) {
+			const more = document.createElement('p');
+			more.className = 'ui-var__more';
+			more.textContent = `+${tones.length - 8} more tones`;
+			stages.appendChild(more);
+		}
+
+		const names = tally(v.items.map((i) => i.name));
+		const srcs = tally(v.items.map((i) => i.src).filter(Boolean));
+		const texts = [...new Set(v.items.map((i) => i.text).filter(Boolean))];
+		const hover = hoverOf(v.items[0]);
+
+		const meta = document.createElement('div');
+		meta.className = 'ui-var__meta';
+		meta.innerHTML = [
+			`<p class="ui-var__head">${names
+				.slice(0, 3)
+				.map(([n]) => `<code>${esc(n)}</code>`)
+				.join(' ')}${names.length > 3 ? ` +${names.length - 3}` : ''} <b>×${v.items.length}</b></p>`,
+			`<p class="ui-var__nums">${v.nums
+				.filter(([k, val]) => k !== 'Component' && !(val === 'none' && k !== 'Icon'))
+				.map(([k, val]) => `<span><em>${esc(k.toLowerCase())}</em> ${esc(val)}</span>`)
+				.join('')}</p>`,
+			`<p class="ui-var__where">${[...v.pages].map(([k, n]) => `${esc(pageLabels.get(k) ?? k)} ${n}`).join(' · ')}</p>`,
+			srcs.length
+				? `<p class="ui-var__src">${srcs
+						.slice(0, 3)
+						.map(([s, n]) => `<code>${esc(s)}${srcs.length > 1 ? ` ×${n}` : ''}</code>`)
+						.join('')}${srcs.length > 3 ? ` +${srcs.length - 3} more` : ''}</p>`
+				: '',
+			hover ? `<p class="ui-var__hover">${hover}</p>` : '<p class="ui-var__hover"><span>No hover or focus rule</span></p>',
+			texts.length
+				? `<p class="ui-var__eg">${texts
+						.slice(0, 5)
+						.map((t) => `“${esc(t.length > 48 ? `${t.slice(0, 47)}…` : t)}”`)
+						.join(', ')}${texts.length > 5 ? ` +${texts.length - 5}` : ''}</p>`
+				: '',
+		].join('');
+
+		art.append(stages, meta);
+		return art;
+	};
+
+	/** Every value each property takes across the kind, weighted by elements, not variants. */
+	const paintSpread = (dl: Element, vars: Variant[]) => {
+		const props = new Map<string, Map<string, number>>();
+		vars.forEach((v) =>
+			v.nums.forEach(([k, val]) => {
+				const m = props.get(k) ?? new Map<string, number>();
+				m.set(val, (m.get(val) ?? 0) + v.items.length);
+				props.set(k, m);
+			})
+		);
+		dl.innerHTML = [...props]
+			.map(([k, m]) => {
+				const vals = [...m].sort((a, b) => b[1] - a[1]);
+				return `<div class="${m.size > 2 ? 'is-wide' : ''}"><dt>${esc(k)}</dt><dd>${vals
+					.map(([val, n]) => `<span>${esc(val)}<i>×${n}</i></span>`)
+					.join('')}</dd></div>`;
+			})
+			.join('');
+	};
+
+	const metaOf = (vars: Variant[]) => {
+		const els = vars.reduce((s, v) => s + v.items.length, 0);
+		return `${vars.length} variant${vars.length === 1 ? '' : 's'} · ${els} element${els === 1 ? '' : 's'}`;
+	};
+
+	const paint = (items: Item[]) => {
+		const variants = group(items);
+		const toc: string[] = [];
+
+		ui.querySelectorAll<HTMLElement>('.ui__kind:not(.ui__kind--chrome)').forEach((sec) => {
+			const vars = variants.filter((v) => !v.chrome && v.kind === sec.dataset.kind);
+			if (!vars.length) return;
+			sec.hidden = false;
+			sec.querySelector('[data-meta]')!.textContent = metaOf(vars);
+			paintSpread(sec.querySelector('[data-spread]')!, vars);
+			const list = sec.querySelector('[data-variants]')!;
+			vars.forEach((v) => list.appendChild(paintVariant(v)));
+			toc.push(`<a href="#${sec.id}">${esc(sec.dataset.title!)}<i>${vars.length}</i></a>`);
+		});
+
+		const chrome = ui.querySelector<HTMLElement>('.ui__kind--chrome')!;
+		const cvars = variants.filter((v) => v.chrome);
+		if (cvars.length) {
+			chrome.hidden = false;
+			chrome.querySelector('[data-meta]')!.textContent = metaOf(cvars);
+			const list = chrome.querySelector('[data-variants]')!;
+			(Object.keys(KIND_NAMES) as Kind[]).forEach((k) => {
+				const vars = cvars.filter((v) => v.kind === k);
+				if (!vars.length) return;
+				const h = document.createElement('h3');
+				h.className = 'ui-sub';
+				h.textContent = KIND_NAMES[k];
+				list.appendChild(h);
+				vars.forEach((v) => list.appendChild(paintVariant(v)));
+			});
+			toc.push(`<a href="#kind-chrome">Site chrome<i>${cvars.length}</i></a>`);
+		}
+
+		ui.querySelector('[data-toc]')!.innerHTML = toc.join('');
+
+		// Page filter: how many content variants each page uses, on its chip.
+		const content = variants.filter((v) => !v.chrome);
+		ui.querySelectorAll<HTMLButtonElement>('[data-filter]').forEach((b) => {
+			const k = b.dataset.filter!;
+			const n = k === 'all' ? content.length : content.filter((v) => v.pages.has(k)).length;
+			b.insertAdjacentHTML('beforeend', `<i>${n}</i>`);
+			b.addEventListener('click', () => {
+				ui.dataset.page = k;
+				ui.querySelectorAll('[data-filter]').forEach((x) => x.classList.toggle('is-on', x === b));
+			});
+		});
+		ui.querySelector<HTMLElement>('[data-bar]')!.hidden = false;
+
+		const contentEls = content.reduce((s, v) => s + v.items.length, 0);
+		status.textContent = `Read ${probes.map((p) => p.dataset.label).join(', ')} at 1440 × 900: ${contentEls} elements in ${content.length} variants, plus ${cvars.length} in the site chrome.`;
+	};
+
+	(async () => {
+		const items: Item[] = [];
+		for (const frame of probes) {
+			status.textContent = `Reading ${frame.dataset.label}…`;
+			if (!(await load(frame))) {
+				status.textContent = `${frame.dataset.label} did not load. Is the dev server running?`;
+				return;
+			}
+			const doc = frame.contentDocument!;
+			await doc.fonts.ready;
+			await wait(2200);
+			const ctx: Ctx = {
+				key: frame.dataset.probe!,
+				label: frame.dataset.label!,
+				doc,
+				sheet: sheetOf(doc),
+				rootVars: rootVarsOf(doc),
+				hover: collectHover(doc),
+			};
+			items.push(...harvest(ctx));
+		}
+		status.textContent = 'Laying out…';
+		await wait(0);
+		paint(items);
+		// Two frames, so the specimens have laid out and their images have had a turn to size.
+		await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+		checkDrift();
+		const drifted = ui.querySelectorAll('.ui-drift').length;
+		if (drifted) {
+			const one = drifted === 1;
+			status.textContent += ` ${drifted} specimen${one ? ' renders' : 's render'} differently from ${one ? 'its' : 'their'} page — flagged in the caption${one ? '' : 's'}.`;
+		}
+		// The pages are no longer needed: specimens hold clones and a copy of each page's CSS.
+		probes.forEach((f) => f.remove());
+	})();
+</script>
