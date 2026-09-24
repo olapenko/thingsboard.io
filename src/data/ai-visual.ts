@@ -180,7 +180,111 @@ export const AI_COLUMNS_VALUE: { assistant: AiColumn; cli: AiColumn } = {
 };
 
 /**
- * The conversation the assistant window plays out, as a list of exchanges.
+ * One prompt and what the Assistant does with it. `reply` and `actions` are rendered with `set:html`
+ * and are ours: `<b>` marks an entity, `<code>` a key or value (bold monospace in the page's amber,
+ * where the product paints it red).
+ */
+export interface AiAssistantExchange {
+	prompt: string;
+	reply: string;
+	/**
+	 * What the working row says while the Assistant is busy; unset, it is the plain "Thinking…". Either
+	 * way the row goes when the answer lands — a live status, not a line of the transcript.
+	 */
+	working?: string;
+	/**
+	 * What the Assistant confirms it did, one ✓ line each, landing one by one while it works and ahead
+	 * of the reply. Simplified from the product's green confirmation card to a checkmark before the text.
+	 */
+	actions?: string[];
+}
+
+/** One scenario for the assistant window: the exchanges it plays, and the empty state it starts from. */
+export interface AiAssistantDemo {
+	exchanges: AiAssistantExchange[];
+	hello: string;
+	lead: string;
+	/** The suggestion chip under the greeting. Optional: left out, the greeting stands alone. */
+	chip?: string;
+	placeholder: string;
+}
+
+/**
+ * The conversation the assistant window plays out — THE HOMEPAGE since 2026-09-24, judged at
+ * `/internal/sections/ai/` as a copy of the dew-point chat below, which it replaced and which is kept.
+ *
+ * ⚠ KEEP EACH PROMPT ON ONE LINE of the composer: at or under 40 characters as a rule, and measure
+ * anything past it. A prompt long enough to scroll is a prompt whose opening words the reader never
+ * sees being typed. The working lines are held to one line down to a 320 phone for the same reason.
+ */
+export const AI_ASSISTANT_DEMO: AiAssistantDemo = {
+	/**
+	 * TWO exchanges (2026-09-24), and between them the window shows ALL FOUR things the Assistant
+	 * configures (`docs/user-guide/ai-assistant`: Dashboards, Alarm Rules, Calculated Fields,
+	 * Notifications) — the first two here, the other two in the follow-up.
+	 *
+	 * The first is from the product's own transcript: a request in plain English that takes TWO
+	 * entities to satisfy — an alarm rule and a notification rule — so the answer shows the Assistant
+	 * working out the setup rather than filling in one form.
+	 *
+	 * The transcript's prompt, "Email the store manager if a freezer door is left open.", was 55
+	 * characters and scrolled in the composer; it is cut to one line here. "the manager" keeps the
+	 * recipient the Assistant has to resolve (the reply still names the store manager), and "a freezer
+	 * stays open" is how people say it — the door is implied, and "stays" matches the alarm's 5-minute
+	 * hold. 41 characters, one over the rule of thumb, but MEASURED: 333px of the composer's 377.
+	 */
+	exchanges: [
+		{
+			prompt: 'Email the manager if a freezer stays open',
+			/** 235px with its dots: one line down to a 320 phone, whose chat leaves 244 (the transcript's longer line wrapped on phones). */
+			working: 'Checking your freezers and alerts…',
+			actions: [
+				'Alarm rule ‘<b>Freezer Door Open</b>’ created',
+				/** ‘Door Alert’, not the transcript's ‘Freezer door open notification’: the only confirmation on two lines, and this one line fits down to a 375 phone. */
+				'Notification rule ‘<b>Door Alert</b>’ created',
+			],
+			reply:
+				'Done. A critical alarm fires when a door stays open over 5 min and clears when it closes. The store manager gets an email right away.',
+		},
+		{
+			/**
+			 * The follow-up, and each part of it is there for a claim the docs make:
+			 *
+			 * - "they" — no entity named. The docs: "The Assistant remembers everything from the current
+			 *   conversation… Follow-ups can be short." One exchange cannot show that; this line does.
+			 * - A CALCULATED FIELD and a DASHBOARD — the two features the first exchange left out.
+			 * - The history RECALCULATED — one of the changes the docs list as needing approval, and the
+			 *   reason the new chart has something in it the moment it exists. 30 days is illustrative.
+			 * - The working line reads the data — "sees your data" — and the reply names the new key in
+			 *   `<code>`, the product's way of writing a key.
+			 *
+			 * 38 characters, inside the composer's 40.
+			 */
+			prompt: 'Chart how long they stay open, per day',
+			working: 'Looking at your door sensor data…',
+			actions: [
+				/** ‘Door Open Time’, not ‘Daily Door Open Time’: the longer name wrapped on a phone. The reply's "per day" carries the daily. */
+				'Calculated field ‘<b>Door Open Time</b>’ created',
+				'Last 30 days recalculated',
+				'Dashboard ‘<b>Freezer Monitoring</b>’ updated',
+			],
+			reply:
+				'Done. Each freezer now adds up its open-door minutes per day as <code>doorOpenDaily</code>, and the dashboard charts them side by side, so the door left open most stands out.',
+		},
+	],
+	hello: 'Hello! I’m your AI Assistant',
+	lead: 'I can help you set up and manage your Devices, Dashboards, Calculated Fields, Alarm Rules and Notifications — just describe what you need, and I’ll handle the rest.',
+	// TEST (2026-09-25): no "Connect my device" chip — the greeting stands alone. The dew-point chat keeps it.
+	placeholder: 'Describe what you’d like to set up…',
+};
+
+/** What the window is doing, for the `role="img"` label — it is a picture, not a live assistant. */
+export const AI_ASSISTANT_LABEL =
+	'The ThingsBoard AI Assistant: asked to email the manager if a freezer stays open, it creates an alarm rule and a notification rule. Asked in a follow-up to chart how long the doors stay open per day, it creates a calculated field, recalculates the last 30 days, and adds the chart to the freezer dashboard.';
+
+/**
+ * THE PREVIOUS HOMEPAGE'S CHAT, kept as `chat="dewPoint"` since the freezer scenario above was
+ * promoted (2026-09-24): the sandbox's reference and the way back. Its notes are as they were.
  *
  * TWO of them, and the second is doing a specific job. The first shows a Calculated Field being
  * created; the second shows an Alarm Rule — a different one of the four things the Assistant
@@ -202,7 +306,7 @@ export const AI_COLUMNS_VALUE: { assistant: AiColumn; cli: AiColumn } = {
  * `.assistant__typed`), but a prompt long enough to scroll is a prompt whose opening words the
  * reader never sees being typed. 40 leaves room to edit them without re-measuring.
  */
-export const AI_ASSISTANT_DEMO = {
+export const AI_ASSISTANT_DEMO_DEW_POINT: AiAssistantDemo = {
 	exchanges: [
 		{
 			prompt: 'Dew point calculated field on thermostat',
@@ -230,9 +334,19 @@ export const AI_ASSISTANT_DEMO = {
 	placeholder: 'Describe what you’d like to set up…',
 };
 
-/** What the window is doing, for the `role="img"` label — it is a picture, not a live assistant. */
-export const AI_ASSISTANT_LABEL =
+export const AI_ASSISTANT_LABEL_DEW_POINT =
 	'The ThingsBoard AI Assistant: asked to add a dew point calculated field to the thermostat profile, then asked in a follow-up to warn above 18 °C, creating an alarm rule from the field it just made.';
+
+/**
+ * The chat scenarios by name, for `AiSection`'s `chat` prop. `shipping` is the homepage's; `dewPoint`
+ * is the one it replaced on 2026-09-24.
+ */
+export const AI_ASSISTANT_SCENARIOS = {
+	shipping: { demo: AI_ASSISTANT_DEMO, label: AI_ASSISTANT_LABEL },
+	dewPoint: { demo: AI_ASSISTANT_DEMO_DEW_POINT, label: AI_ASSISTANT_LABEL_DEW_POINT },
+} as const;
+
+export type AiChatScenario = keyof typeof AI_ASSISTANT_SCENARIOS;
 
 /**
  * The CLI session the terminal types out.

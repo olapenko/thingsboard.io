@@ -15,9 +15,13 @@ import {
 	AI_CLI_SESSION,
 	AI_CLI_LABEL,
 } from '@data/ai-visual';
-import type { AiColumn } from '@data/ai-visual';
+import type { AiColumn, AiChatScenario } from '@data/ai-visual';
 
 /**
+ * PROMOTED 2026-09-24, later the same day: the freezer-door chat (`chat`, the dew-point one kept as
+ * `chat="dewPoint"`) and windows that fill their column like the key-visual rows (`fit`, the centred
+ * 500px windows kept as `fit="inset"`).
+ *
  * PROMOTED 2026-09-24: the terminal runs a CODING AGENT (`AgentTerminal`) by default — judged as
  * `AiSectionNext`, a full copy, at `/internal/sections/ai/` and folded back in here. The shell
  * session it replaced stays reachable as `terminal="cli"`, the sandbox's reference and the way back.
@@ -127,9 +131,29 @@ interface Props {
 	 * overrides, so the stacked-layout overrides still win over both.
 	 */
 	terminal?: 'agent' | 'cli';
+	/**
+	 * Which conversation the chat window plays (`AI_ASSISTANT_SCENARIOS`). `shipping` — THE HOMEPAGE, and
+	 * the default: the freezer-door scenario, promoted 2026-09-24. `dewPoint` — the chat it replaced,
+	 * kept as the sandbox's reference and the way back.
+	 */
+	chat?: AiChatScenario;
+	/**
+	 * How the windows sit in their column.
+	 *
+	 * `column` — THE HOMEPAGE, and the default, promoted 2026-09-24 from `/internal/sections/ai/`. Side by side the windows
+	 * FILL the media column — 544 = 400 native x 1.36, beside a 360px copy — so their outer edge stands
+	 * on the page's 960 grid and they sit the rows' 56px from the copy. The same 544 stacked, from 600. (They bled 40px past the grid like the key-visual rows until 2026-09-25;
+	 * see the note on the rules below.)
+	 * Stacked, the copy is capped to the window's width, so the two read as one column, as on a phone.
+	 *
+	 * `inset` — the PREVIOUS homepage: both windows 500 wide, centred in the 543px media column, so each
+	 * stops ~60px inside the edge the key-visual rows' visuals reach and 78px from its copy. Kept as the
+	 * sandbox's reference and the way back.
+	 */
+	fit?: 'inset' | 'column';
 }
 
-const { animate = true, layout = 'toggle', copy = 'shipping', wash = 'route', terminal = 'agent' } = Astro.props;
+const { animate = true, layout = 'toggle', copy = 'shipping', wash = 'route', terminal = 'agent', chat = 'shipping', fit = 'column' } = Astro.props;
 const toggle = layout === 'toggle';
 const washCycle = toggle && wash === 'cycle';
 const COLS = copy === 'value' ? AI_COLUMNS_VALUE : AI_COLUMNS;
@@ -146,7 +170,7 @@ const kicker = (col: AiColumn) => (toggle ? col.kicker : (col.kicker ?? col.eyeb
  * props rather than drawn at random, so a build is the same every time — no two directions on the
  * sandbox page share all three.
  */
-const uid = `${layout}-${copy}-${wash}${terminal === 'cli' ? '-cli' : ''}`;
+const uid = `${layout}-${copy}-${wash}${terminal === 'cli' ? '-cli' : ''}${chat === 'shipping' ? '' : `-${chat}`}${fit === 'column' ? '' : `-${fit}`}`;
 const PANELS = { assistant: `ai-${uid}-prompt`, cli: `ai-${uid}-cli` };
 
 /**
@@ -179,7 +203,13 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 
 <section
 	id={sectionId}
-	class:list={['ai', toggle && 'ai--toggle', washCycle && 'ai--wash-cycle', terminal === 'cli' && 'ai--cli']}
+	class:list={[
+		'ai',
+		toggle && 'ai--toggle',
+		washCycle && 'ai--wash-cycle',
+		terminal === 'cli' && 'ai--cli',
+		fit === 'column' && 'ai--fit-column',
+	]}
 	style={sectionStyle}
 	data-animate={animate ? 'on' : null}
 >
@@ -235,7 +265,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		<div class="main-div">
 			<div class="ai__row">
 				<div class="ai__media">
-					<AiAssistant animate={animate} />
+					<AiAssistant animate={animate} scenario={chat} />
 				</div>
 
 				<div class="ai__copy">
@@ -738,10 +768,10 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 	// and 60 is comfortably more than the 47 the `New chat` bar occupies once scaled, so the bar goes
 	// with the cut. What survives is the live end — the composer, the chip and the latest replies.
 	.ai__media :global(.assistant) {
-		// 500 ÷ 365 — the common window width over the chat's native width. Both windows are 500 wide
-		// here, which is what finally matches them: same width, and the chat's body type lands at
-		// 16.4px against the terminal's 18px mono, which is parity once the mono's bigger x-height is
-		// accounted for.
+		// 500 ÷ 365 — the common window width over the chat's native width, for `fit="inset"`, where both
+		// windows are 500 wide: same width, and the chat's body type lands at 16.4px against the
+		// terminal's 18px mono, which is parity once the mono's bigger x-height is accounted for. The
+		// homepage's `fit="column"` overrides this with 400 x 1.36 = 544 — see the rules at the end.
 		--ui-scale: 1.37;
 
 		// POSITIONED, like the terminal beside it, and for a reason that only shows on a phone: a
@@ -1035,12 +1065,12 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		}
 
 		// NOTHING ABOUT SIZE BELONGS IN THIS BLOCK. Stacking is a question about DIRECTION — the row
-		// turns into a column, the dock has no side to reach for — and it starts at 991px, where the
+		// turns into a column, the dock has no side to reach for — and it starts at 1023px (`media-down(lg)`), where the
 		// column is still 700px wide and holds the full-size composition without complaint. The size
 		// reductions live under `max-width: 560px` below, at the width where the cell actually stops
 		// holding a 500px window.
 		//
-		// They were in here, and the seam showed: from 560 to 991 the chat was pinned to 365 and drawn
+		// They were in here, and the seam showed: from 560 to 1023 the chat was pinned to 365 and drawn
 		// at native scale while the terminal beside it kept its 500 and its 18px log, so a tablet got
 		// the two windows at visibly different sizes with the chat's type half the terminal's — the
 		// exact mismatch the matched widths were meant to end.
@@ -1245,6 +1275,102 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 
 		:where(.ai--cli) .ai__cli :global(.cli__path) {
 			font-size: 8.5px;
+		}
+	}
+
+	// ── The windows fill the column (`fit="column"`, the homepage since 2026-09-24) ─────────────
+	// Every rule here is under `.ai--fit-column`, so `fit="inset"` — the previous homepage, kept on the
+	// sandbox — matches none of it and renders exactly as it shipped.
+	//
+	// ROUND NUMBERS, BY CONSTRUCTION (2026-09-25). Four numbers set the window, and each is now whole:
+	//
+	//   copy 360  +  gap 56  +  window 544  =  960, the page's content grid
+	//   window 544  =  400 native  x  1.36
+	//
+	// Before, the copy was 40ch (360.96px), which left a 543.04 column, a 396.4 native width and a
+	// 1.37 scale that was itself 500 ÷ 365 from the old window. 1.36 moves the chat's body type from
+	// 16.4 to 16.3px and its height from 396 to 393 — the crop still takes the whole 46px bar (the cut
+	// is 67) and still lands inside the log's 20px transparent hold. The copy gives up 0.96px against
+	// the key-visual rows' 40ch, which is not visible.
+	//
+	// ONE WIDTH FROM 600 UP. Stacked below 1024 the window used to drop to its old 500 while side by
+	// side it was 543, so the section changed width at the same moment it changed direction. It is 544
+	// everywhere the full-size composition is drawn now, and the phone (below 600) is untouched.
+	//
+	// THE CROP BOX IS WIDER THAN THE WINDOW, by the shadow's reach each side, and the window takes that
+	// back off its own width — the phone's method (see `max-width: 599px`), for the same reason. The
+	// chat's box masks its top fade, and a mask deletes whatever paints outside the box, so a window as
+	// wide as its box would lose both side shadows. 24 covers the terminal's 18px blur and the chat's
+	// 12px x 1.36. The box has no background, so the extra width is invisible: outward it is page
+	// margin (clipped by `.ai__bands`, never scrollable), inward it sits in the gap and never reaches
+	// the copy.
+	.ai--fit-column {
+		--ai-fit-room: 24px;
+		--ai-fit-bleed: 0px;
+		--ai-fit-window: 544px;
+	}
+
+	// NO BLEED (2026-09-25). The windows first took the rows' 40px outward bleed from 1120, to 583. A
+	// notch narrower was asked for, and 40 is the notch that lands on something: the window's outer
+	// edge IS the page's 960 grid — the edge the header and every copy column stand on — where 20 would
+	// have lined up with nothing. Measured cost: one line, the final reply going from three to four.
+	// `--ai-fit-bleed` stays, at 0, as the one number to change to bring the bleed back.
+
+	@media (min-width: 600px) {
+		.ai--fit-column .ai__row .ai__media {
+			margin-right: calc(-1 * var(--ai-fit-room));
+			margin-left: calc(-1 * var(--ai-fit-room));
+		}
+
+		// WIDER BY NATIVE WIDTH, NOT BY SCALE: 400 native at 1.36, against the old 365 at 1.37, so the
+		// extra width is line length — the composer holds ~50 characters rather than ~45 — and the type
+		// and the height barely move. `min()` holds it inside a narrow stacked cell.
+		.ai--fit-column .ai__media :global(.assistant) {
+			--ui-scale: 1.36;
+
+			width: calc(min(var(--ai-fit-window), 100% - 2 * var(--ai-fit-room)) / var(--ui-scale));
+		}
+
+		// The terminal's 500 cap goes; its height (nine whole lines) is unchanged.
+		.ai--fit-column .ai__cli {
+			width: min(var(--ai-fit-window), 100% - 2 * var(--ai-fit-room));
+			max-width: none;
+		}
+	}
+
+	@include media-up(lg) {
+		// The copy's measure, in pixels rather than 40ch, so the column it leaves is the round 544.
+		.ai--fit-column .ai__copy {
+			flex-basis: 360px;
+			max-width: 360px;
+		}
+
+		// Outward only, like the rows: left for the chat, whose media leads, right for the terminal,
+		// whose row is reversed. Zero while `--ai-fit-bleed` is.
+		.ai--fit-column .ai__row .ai__media {
+			margin-left: calc(-1 * (var(--ai-fit-room) + var(--ai-fit-bleed)));
+		}
+
+		.ai--fit-column .ai__row--flip .ai__media {
+			margin-right: calc(-1 * (var(--ai-fit-room) + var(--ai-fit-bleed)));
+			margin-left: calc(-1 * var(--ai-fit-room));
+		}
+	}
+
+	// Stacked, the COPY comes to the window: capped to its width and centred with it, so the text starts
+	// on the window's left edge and the band reads as one column — the phone's composition — rather
+	// than a window over a paragraph twice its width.
+	@include media-down(lg) {
+		.ai--fit-column .ai__band .ai__copy {
+			align-self: center;
+			width: 100%;
+			max-width: var(--ai-fit-window);
+		}
+	}
+
+	@media (max-width: 599px) {
+		.ai--fit-column .ai__band .ai__copy {
+			max-width: 365px;
 		}
 	}
 

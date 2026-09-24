@@ -1,6 +1,7 @@
 ---
 import { Icon } from 'astro-icon/components';
-import { AI_ASSISTANT_DEMO, AI_ASSISTANT_LABEL } from '@data/ai-visual';
+import { AI_ASSISTANT_SCENARIOS } from '@data/ai-visual';
+import type { AiChatScenario } from '@data/ai-visual';
 
 /**
  * The AI Assistant, as a window typing out one exchange and answering it.
@@ -53,9 +54,16 @@ import { AI_ASSISTANT_DEMO, AI_ASSISTANT_LABEL } from '@data/ai-visual';
 interface Props {
 	/** Play the exchange. Off renders the empty state as a still. */
 	animate?: boolean;
+	/**
+	 * Which scenario plays — `shipping` is the homepage's, the others are sandbox candidates. Named on
+	 * the plate as `data-assistant-scenario`, because the player below is one bundled script for every
+	 * window on the page and reads each window's scenario from the window itself.
+	 */
+	scenario?: AiChatScenario;
 }
 
-const { animate = true } = Astro.props;
+const { animate = true, scenario = 'shipping' } = Astro.props;
+const { demo: AI_ASSISTANT_DEMO, label: AI_ASSISTANT_LABEL } = AI_ASSISTANT_SCENARIOS[scenario];
 ---
 
 <div
@@ -63,6 +71,7 @@ const { animate = true } = Astro.props;
 	role="img"
 	aria-label={AI_ASSISTANT_LABEL}
 	data-assistant-plate
+	data-assistant-scenario={scenario}
 	data-animate={animate ? 'on' : null}
 >
 	<div class="assistant__bar" aria-hidden="true">
@@ -78,10 +87,10 @@ const { animate = true } = Astro.props;
 	</div>
 
 	<div class="assistant__log" data-assistant-log aria-hidden="true">
-		<div class="assistant__intro" data-assistant-intro>
+		<div class:list={['assistant__intro', !AI_ASSISTANT_DEMO.chip && 'assistant__intro--bare']} data-assistant-intro>
 			<p class="assistant__hello">{AI_ASSISTANT_DEMO.hello}</p>
 			<p class="assistant__lead">{AI_ASSISTANT_DEMO.lead}</p>
-			<span class="assistant__chip">{AI_ASSISTANT_DEMO.chip}</span>
+			{AI_ASSISTANT_DEMO.chip && <span class="assistant__chip">{AI_ASSISTANT_DEMO.chip}</span>}
 		</div>
 	</div>
 
@@ -120,15 +129,17 @@ const { animate = true } = Astro.props;
 		// text wraps where it would in a 365px panel, so it reads like a real assistant docked in a
 		// sidebar instead of a wide box with small type in it.
 		//
-		// 365 IS THE NUMBER THAT SATISFIES THREE THINGS AT ONCE, and there is not much room either
-		// side of it:
+		// 365 IS THE AUTHORED DEFAULT, and the section overrides it per layout — the section owns the
+		// column the window has to fill, so it sets both the native width and the scale:
 		//
-		//   composer holds 45 characters      → native ≥ 361
-		//   phone body type stays above 11px  → native ≤ 365
-		//   body type matches the terminal    → scale ≈ 1.37, which 500 ÷ 365 gives
+		//   homepage, 600 and up   400 native x 1.36 = 544   (`fit="column"` in `AiSection`)
+		//   phone, below 600       the cell's width, max 365, at scale 1
+		//   `fit="inset"`          365 x 1.37 = 500          (the previous homepage, on the sandbox)
 		//
-		// The scale is not a taste setting: it is the common window width divided by this number, so
-		// changing either one moves the type at BOTH breakpoints. Re-derive all three if you touch it.
+		// Two things bound any change. Keep the SCALE near 1.36–1.37: that is what puts the body type at
+		// ~16.3px, level with the terminal's 18px mono once the mono's bigger x-height is counted. And
+		// keep the prompts on one line of the composer, which holds ~50 characters at 400 native and ~45
+		// at 365; the phone's 335 holds ~41, which is where the prompts' 40-character rule comes from.
 		//
 		// `bottom center` pairs with the crop in `AiSection`: the layout box is placed by the flow and
 		// the scale grows UP and out from its bottom edge, so the bottom stays where it was put and the
@@ -249,6 +260,17 @@ const { animate = true } = Astro.props;
 	// its place: the top of the list genuinely dissolves, which is what says the exchange continues
 	// above the cut. It swaps length at the moment the intro fades and the first bubble lands, which
 	// is busy enough to hide the change.
+	// THE RESET FADES. The finished conversation dissolves before the log is swapped back to the
+	// greeting, and the greeting comes up through the same transition — the log is the same element
+	// throughout, so removing the class is the fade-in. A one-frame swap was the harshest cut in the loop.
+	.assistant__log {
+		transition: opacity 0.45s ease;
+	}
+
+	.assistant__log.is-clearing {
+		opacity: 0;
+	}
+
 	.assistant__log.is-running {
 		-webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 20px, #000 96px);
 		mask-image: linear-gradient(to bottom, transparent 0, transparent 20px, #000 96px);
@@ -282,6 +304,25 @@ const { animate = true } = Astro.props;
 		padding-bottom: 48px; // room for the chip pinned above the composer
 		text-align: center;
 		transition: opacity 0.3s ease;
+	}
+
+	// WITHOUT THE CHIP the greeting is centred in what the window SHOWS — from the crop's cut to the
+	// composer — rather than lifted to leave the chip room under it. 18 moves from the bottom padding to
+	// the top: measured at 1440 the block sat 25px (18 native) above that centre, which is the room the
+	// chip took. The sum stays 72, so the block's box is unchanged and nothing outgrows it.
+	.assistant__intro--bare {
+		padding-top: 42px;
+		padding-bottom: 30px;
+	}
+
+	// On a phone the lead wraps a line more and the crop is shallower, so the same split left the block
+	// 31 under the cut and 44 over the composer. 6 more lands it at 37 / 38. 600 is `AiSection`'s own
+	// threshold, where the chat drops to scale 1 and this box is laid out at the cell's width.
+	@media (max-width: 599px) {
+		.assistant__intro--bare {
+			padding-top: 48px;
+			padding-bottom: 24px;
+		}
 	}
 
 	.assistant__intro.is-out {
@@ -354,6 +395,13 @@ const { animate = true } = Astro.props;
 		color: var(--tb-green);
 	}
 
+	// The entities in a confirmation — quoted, as the product quotes them, and bold, in
+	// the INK rather than the reply's green (trial, 2026-09-24): the tick already carries the green.
+	.assistant__log :global(.assistant__done b) {
+		font-weight: $font-weight-medium;
+		color: var(--tb-ink);
+	}
+
 	.assistant__log :global(.assistant__thinking) {
 		display: flex;
 		align-items: center;
@@ -361,6 +409,48 @@ const { animate = true } = Astro.props;
 		margin: 0;
 		font-size: 13px;
 		color: var(--tb-muted);
+	}
+
+	// A confirmed action — the product's green card, simplified to a tick before the text. The tick
+	// carries the green; the words stay ink, so a pair of these does not read as a banner.
+	.assistant__log :global(.assistant__done) {
+		display: flex;
+		align-items: flex-start;
+		align-self: flex-start;
+		gap: 6px;
+		max-width: 92%;
+		margin: 0;
+		padding: 0 3px;
+		font-size: 13px;
+		line-height: 18px;
+		color: var(--tb-ink);
+		animation: assistant-in 0.35s ease-out both;
+	}
+
+	.assistant__log :global(.assistant__tick) {
+		flex: none;
+		width: 14px;
+		height: 18px;
+		fill: none;
+		stroke: var(--tb-green);
+		stroke-width: 2.5;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	// A key or value in the Assistant's words: bold monospace in the page's amber — `#b45309`, the
+	// accent the platform and connect visuals already use (5:1 on white), rather than the product's red.
+	//
+	// SIZED TO THE BODY'S x-HEIGHT, not its em: Ubuntu Mono Bold draws its x at 0.47em against Ubuntu's
+	// 0.52, so at the same size the key read a step smaller than the words around it. Measured in the
+	// browser, 1.1em lands it at 6.72px against the body's 6.76 (1.08 left it at 6.60).
+	.assistant__log :global(:is(.assistant__msg--bot, .assistant__done) code) {
+		font-family: $font-family-mono;
+		font-size: 1.1em;
+		font-weight: $font-weight-bold;
+		line-height: 1;
+		color: #b45309;
+		background: none;
 	}
 
 	.assistant__log :global(.assistant__dots) {
@@ -517,10 +607,11 @@ const { animate = true } = Astro.props;
 		opacity: 1;
 	}
 
-	// With nothing typed the caret sits at the head of the hint, not after it.
+	// With nothing typed the caret sits at the head of the hint, not after it — and against it: 1px,
+	// down from 3 (4 once scaled), which read as a gap between the cursor and the text it leads.
 	.assistant__typed:empty::after {
 		order: -1;
-		margin-right: 3px;
+		margin-right: 1px;
 		margin-left: 0;
 	}
 
@@ -572,6 +663,7 @@ const { animate = true } = Astro.props;
 	@media (prefers-reduced-motion: reduce) {
 		.assistant__typed::after,
 		.assistant__log :global(.assistant__msg),
+		.assistant__log :global(.assistant__done),
 		.assistant__log :global(.assistant__dots i) {
 			animation: none;
 		}
@@ -583,7 +675,8 @@ const { animate = true } = Astro.props;
 </style>
 
 <script>
-	import { AI_ASSISTANT_DEMO } from '@data/ai-visual';
+	import { AI_ASSISTANT_SCENARIOS } from '@data/ai-visual';
+	import type { AiChatScenario } from '@data/ai-visual';
 
 	/**
 	 * The exchange, played on a loop, KEYBOARD-ONLY: the composer is already focused, the prompt is
@@ -601,6 +694,10 @@ const { animate = true } = Astro.props;
 	 */
 	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+	/** The confirmation tick — tabler's `check`, inline because the script cannot render `<Icon>`. */
+	const CHECK =
+		'<svg class="assistant__tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5l10 -10" /></svg>';
+
 	document.querySelectorAll<HTMLElement>('[data-assistant-plate]').forEach((frame) => {
 		if (frame.dataset.animate !== 'on') return;
 
@@ -614,7 +711,8 @@ const { animate = true } = Astro.props;
 		if (reduce) return;
 
 		const introHTML = log.innerHTML;
-		const { exchanges } = AI_ASSISTANT_DEMO;
+		const scenario = (frame.dataset.assistantScenario ?? 'shipping') as AiChatScenario;
+		const { exchanges } = (AI_ASSISTANT_SCENARIOS[scenario] ?? AI_ASSISTANT_SCENARIOS.shipping).demo;
 
 		let timers: number[] = [];
 		let run = 0;
@@ -646,7 +744,7 @@ const { animate = true } = Astro.props;
 		 * running and the follow-up simply joins it, which is the whole reason there are two.
 		 */
 		function exchange(n: number) {
-			const { prompt, reply } = exchanges[n];
+			const { prompt, reply, working, actions = [] } = exchanges[n];
 			const intro = log!.querySelector<HTMLElement>('[data-assistant-intro]');
 			let i = 0;
 
@@ -670,18 +768,41 @@ const { animate = true } = Astro.props;
 
 			const done = () => {
 				if (n + 1 < exchanges.length) at(1500, () => exchange(n + 1));
-				else at(4200, cycle);
+				// 5.2s on the finished conversation, a second longer than it was, then the fade (see `cycle`).
+				else at(5200, cycle);
 			};
 
+			/**
+			 * The working row, then the answer. With `actions`, each confirmation lands ABOVE the row
+			 * while the dots keep going under it, so the list builds up in reading order and the live
+			 * indicator stays at the foot of the log. The row goes once the answer lands, custom
+			 * `working` line or stock "Thinking…" alike: it is a live status, not part of the transcript.
+			 */
 			const think = () => {
 				sendBtn!.classList.add('is-busy');
-				const row = el('assistant__thinking', '<span class="assistant__dots"><i></i><i></i><i></i></span>Thinking…');
-				at(1700, () => {
+				const dots = '<span class="assistant__dots"><i></i><i></i><i></i></span>';
+				const row = el('assistant__thinking', `${dots}${working ?? 'Thinking…'}`);
+
+				const answer = () => {
 					row.remove();
 					sendBtn!.classList.remove('is-busy');
 					el('assistant__msg assistant__msg--bot', reply);
 					done();
-				});
+				};
+
+				const confirm = (k: number) => {
+					if (k === actions.length) {
+						at(650, answer);
+						return;
+					}
+					const line = document.createElement('p');
+					line.className = 'assistant__done';
+					line.innerHTML = `${CHECK}<span>${actions[k]}</span>`;
+					log!.insertBefore(line, row);
+					at(700, () => confirm(k + 1));
+				};
+
+				at(actions.length ? 1400 : 1700, () => (actions.length ? confirm(0) : answer()));
 			};
 
 			const send = () => {
@@ -722,12 +843,20 @@ const { animate = true } = Astro.props;
 				return;
 			}
 
+			// A conversation on screen fades out first, and the reset runs once it is gone. The first run,
+			// and a return from off screen onto the resting greeting, have nothing to fade.
+			if (log!.classList.contains('is-running') && !log!.classList.contains('is-clearing')) {
+				log!.classList.add('is-clearing');
+				at(480, cycle);
+				return;
+			}
+
 			run++;
 			timers.forEach(clearTimeout);
 			timers = [];
 
 			log!.innerHTML = introHTML;
-			log!.classList.remove('is-running');
+			log!.classList.remove('is-running', 'is-clearing');
 			typed!.textContent = '';
 			typed!.scrollLeft = 0;
 			typed!.classList.remove('is-typing');

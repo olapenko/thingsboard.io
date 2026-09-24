@@ -499,6 +499,14 @@ const turnCls = (i: number) => (gapBefore(i) ? 'agent__row agent__row--turn agen
 			mix-blend-mode: difference;
 			animation: none;
 		}
+
+		// ...except on the suggestion the loop ENDS on, held through the wait for the reset. Nothing more
+		// arrives, so the console is idle, and an idle cursor blinks — standing still there for seven
+		// seconds read as the window having frozen. Blinking off, the ghost's first character shows
+		// through undimmed by the block, as a real block cursor does.
+		:global(.agent__caret--over.agent__caret--hold) {
+			animation: agent-blink 1.1s steps(1, end) infinite;
+		}
 	}
 
 	@keyframes agent-blink {
@@ -513,7 +521,8 @@ const turnCls = (i: number) => (gapBefore(i) ? 'agent__row agent__row--turn agen
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.agent :global(.agent__caret--idle) {
+		.agent :global(.agent__caret--idle),
+		.agent :global(.agent__caret--over.agent__caret--hold) {
 			animation: none;
 		}
 	}
@@ -765,7 +774,11 @@ const turnCls = (i: number) => (gapBefore(i) ? 'agent__row agent__row--turn agen
 				return el;
 			});
 			caret.classList.add('agent__caret--over');
-			if (hold) return;
+			// Held to the end of the loop: the console is waiting, which is when a cursor blinks.
+			if (hold) {
+				caret.classList.add('agent__caret--hold');
+				return;
+			}
 			// Long enough to be read as an offer before it is taken.
 			at(1400, () => {
 				caret.classList.remove('agent__caret--idle', 'agent__caret--over');
@@ -948,7 +961,7 @@ const turnCls = (i: number) => (gapBefore(i) ? 'agent__row agent__row--turn agen
 				body.classList.remove('agent__body--clearing');
 				typed.textContent = '';
 				ghost.textContent = '';
-				caret.classList.remove('agent__caret--over');
+				caret.classList.remove('agent__caret--over', 'agent__caret--hold');
 				caret.classList.add('agent__caret--idle');
 				step(0);
 			};
