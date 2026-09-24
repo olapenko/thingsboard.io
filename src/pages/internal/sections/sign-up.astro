@@ -1,0 +1,155 @@
+---
+import VisualPage from '@root/pages/internal/_VisualPage.astro';
+import Variant from '@root/pages/internal/_Variant.astro';
+import CloudAuth from '@root/pages/internal/_CloudAuth.astro';
+import RegionDialog from '@root/pages/internal/_RegionDialog.astro';
+import { kv } from '@root/pages/internal/_key-visuals';
+
+/**
+ * Sign up: the path behind "Try for free", as two variants of one flow.
+ *
+ * FORM FIRST: the button goes straight to the sign-up page of the region the site picks by
+ * geography, and the region switch IN the form is the correction. One decision fewer, and the
+ * region is still in view before anything that leaves the page.
+ *
+ * DIALOG FIRST: the button opens a chooser on the site, and the region is picked before the product
+ * is reached. It keeps Europe visible on the site side for as long as the product's form has no
+ * switch, at the cost of one decision.
+ *
+ * WHAT IT IS TODAY (2026-09-24, on FE-handoff): the hero's "Try for free" goes straight to
+ * `thingsboard.cloud/signup`, North America with no way to Europe once there, while the header's goes
+ * to `/installations/`, a four-tab product catalogue with the two region buttons under its first
+ * tab. Same label, two destinations.
+ *
+ * Every direction is `bleed`: the form and the hero are whole screens, and the phone frame is the
+ * only honest view of a stacked card or a bottom sheet. `_CloudAuth` and `_RegionDialog` each say
+ * why they are shaped as they are.
+ */
+---
+
+<VisualPage visual="sign-up">
+	<aside class="brief">
+		<p class="brief__kicker">The flow</p>
+		<dl class="brief__facts">
+			<div>
+				<dt>Today</dt>
+				<dd>
+					Hero <em>Try for free</em> → <code>thingsboard.cloud/signup</code> (US only, no way to EU). Header
+					<em>Try for free</em> → <code>/installations/</code> → region → sign-up. Same label, two destinations.
+				</dd>
+			</div>
+			<div>
+				<dt>Form first</dt>
+				<dd>
+					The CTA lands on the sign-up page of the geo-picked region; a switch in the form corrects it. Each region is a
+					link to its own host.
+				</dd>
+			</div>
+			<div>
+				<dt>Dialog first</dt>
+				<dd>The CTA opens a thin chooser: two regions, the nearest marked, self-hosting one line below.</dd>
+			</div>
+			<div>
+				<dt>Not drafted</dt>
+				<dd>
+					The geo default (edge <code>CF-IPCountry</code>, client <code>Intl</code> timezone) and
+					<code>/installations/</code> rewritten as the Install page.
+				</dd>
+			</div>
+			<div>
+				<dt>Peers</dt>
+				<dd>
+					PostHog, Sentry, Datadog and Bitwarden ask the region inside the form, defaulted. Grafana, HiveMQ and Supabase
+					send the CTA straight to sign-up. EMQX has a chooser page, and even its Cloud tab asks no region.
+				</dd>
+			</div>
+		</dl>
+	</aside>
+
+	<Variant
+		visual={kv('sign-up')}
+		component={CloudAuth}
+		props={{ mode: 'signup', region: 'us', switchAt: 'beside', id: 'su-form', browser: true }}
+		bleed
+		name="Form first · region switch in the form"
+		note="candidate · the CTA lands on the geo-picked region's sign-up page; “Sign up” on the left, the region switch balancing it on the right, the help glyph opening the region dialog · providers in one row, full-bleed on a phone"
+	/>
+
+	<Variant
+		visual={kv('sign-up')}
+		component={RegionDialog}
+		props={{ flow: 'signup', id: 'su-dialog', nearest: 'us' }}
+		bleed
+		name="Dialog first · pick the region, then the form"
+		note="candidate · the CTA opens a thin chooser on the hero: two region cards, the nearest chipped and focused, self-hosting as a line beneath; a bottom sheet under 560"
+	/>
+
+	<Variant
+		visual={kv('sign-up')}
+		component={CloudAuth}
+		props={{ mode: 'signup', region: 'us', switchAt: 'above', id: 'su-above', browser: true }}
+		bleed
+		name="Form first · switch above the title"
+		note="alternative · the region between the logo and “Sign up with”, which keeps leading straight into the providers"
+	/>
+</VisualPage>
+
+<style lang="scss">
+	@use '../../../styles/variables' as *;
+
+	.brief {
+		max-width: 1200px;
+		margin: 0 auto $spacing-12;
+		padding: $spacing-6;
+		border-radius: $radius-lg;
+		background: var(--color-bg-secondary, #f5f6ff);
+	}
+
+	.brief__kicker {
+		@include text-xs;
+		margin: 0 0 $spacing-4;
+		font-family: $font-family-mono;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.brief__facts {
+		display: grid;
+		gap: $spacing-3;
+		margin: 0;
+
+		> div {
+			display: grid;
+			grid-template-columns: 110px minmax(0, 1fr);
+			gap: $spacing-4;
+
+			@media (max-width: 599px) {
+				grid-template-columns: 1fr;
+				gap: $spacing-1;
+			}
+		}
+
+		dt {
+			@include text-s;
+			font-family: $font-family-mono;
+			color: var(--color-text-secondary, #5b616e);
+		}
+
+		dd {
+			@include text-s;
+			margin: 0;
+			max-width: 80ch;
+		}
+
+		code {
+			font-family: $font-family-mono;
+			font-size: 0.92em;
+		}
+
+		em {
+			font-style: normal;
+			font-weight: $font-weight-medium;
+		}
+	}
+</style>

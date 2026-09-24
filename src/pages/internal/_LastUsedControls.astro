@@ -1,0 +1,139 @@
+---
+import type { LastUsedStore } from '@root/pages/internal/_last-used';
+
+/**
+ * Draft controls for the "Last used" marks, set from the sandbox page rather than from inside a
+ * frame, so the directions show only what would ship.
+ *
+ * Each group writes the store its component reads, through `_last-used.ts`, so the component
+ * hears it in this document and in the phone frames alike. "None" stores an empty value, so the
+ * component's demo fallback does not come back on the next load.
+ */
+interface Group {
+	/** The heading over the options: which direction it drives. */
+	label: string;
+	/** The store the component reads. */
+	store: LastUsedStore;
+	/** What the component shows while nothing is stored: its demo fallback, pressed at first. */
+	fallback: string;
+	options: { value: string; label: string }[];
+}
+
+interface Props {
+	groups: Group[];
+}
+
+const { groups } = Astro.props;
+---
+
+<div class="luc" data-luc>
+	<p class="luc__kicker">Draft controls · last used</p>
+	{
+		groups.map((g, i) => (
+			<div class="luc__group" role="group" aria-labelledby={`luc-${i}`} data-store={g.store} data-fallback={g.fallback}>
+				<span class="luc__label" id={`luc-${i}`}>
+					{g.label}
+				</span>
+				<span class="luc__opts">
+					{g.options.map((o) => (
+						<button type="button" class="luc__opt" data-value={o.value} aria-pressed="false">
+							{o.label}
+						</button>
+					))}
+				</span>
+			</div>
+		))
+	}
+</div>
+
+<script>
+	import { onLastUsed, readLastUsed, writeLastUsed, type LastUsedStore } from '@root/pages/internal/_last-used';
+
+	document.querySelectorAll<HTMLElement>('[data-luc] .luc__group').forEach((group) => {
+		const store = group.dataset.store as LastUsedStore;
+		const buttons = [...group.querySelectorAll<HTMLButtonElement>('.luc__opt')];
+		const press = (value: string | null) =>
+			buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === (value ?? ''))));
+
+		press(readLastUsed(store) ?? group.dataset.fallback ?? '');
+		buttons.forEach((b) => b.addEventListener('click', () => writeLastUsed(store, b.dataset.value!)));
+		// Stay in step when the mark moves some other way: a provider or a region card chosen on the
+		// page, or a write from a phone frame.
+		onLastUsed(store, press);
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.luc {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-3 $spacing-6;
+		max-width: 1200px;
+		margin: 0 auto $spacing-12;
+		padding: $spacing-4 $spacing-6;
+		border: 1px dashed var(--color-border, #c9ccd4);
+		border-radius: $radius-lg;
+	}
+
+	.luc__kicker {
+		@include text-xs;
+		flex-basis: 100%;
+		margin: 0;
+		font-family: $font-family-mono;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.luc__group {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-2 $spacing-3;
+	}
+
+	.luc__label {
+		@include text-s;
+		font-family: $font-family-mono;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.luc__opts {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 2px;
+		padding: 3px;
+		border-radius: 8px;
+		background: var(--color-bg-secondary, #f2f4f8);
+	}
+
+	.luc__opt {
+		@include text-s;
+		height: 30px;
+		padding: 0 12px;
+		border: 0;
+		border-radius: 6px;
+		background: none;
+		color: var(--color-text-secondary, #5b616e);
+		cursor: pointer;
+
+		&:hover {
+			color: var(--color-text-primary, #17181c);
+		}
+
+		&[aria-pressed='true'] {
+			background: var(--color-bg-surface, #fff);
+			color: var(--color-text-primary, #17181c);
+			font-weight: $font-weight-medium;
+			box-shadow: 0 1px 2px rgb(23 24 28 / 12%);
+		}
+
+		&:focus-visible {
+			outline: 2px solid $color-brand;
+			outline-offset: 2px;
+		}
+	}
+</style>

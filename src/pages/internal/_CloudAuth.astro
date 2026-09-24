@@ -1,0 +1,1488 @@
+---
+import '@fontsource/material-icons';
+import { CLOUD_REGIONS, SOCIAL } from '@root/pages/internal/_cloud-auth';
+
+/**
+ * A CANDIDATE for the Cloud auth card, `thingsboard.cloud/signup` and `/login`: the live form, form
+ * only, inverted to white and given a data-region switch. One component for both, by `mode`,
+ * because the two live pages are one card with different words. The live card is teal (`#00695c`,
+ * 528 wide, Material outline fields, the `#ff5722` submit); the pages themselves are the reference.
+ *
+ * What changed from the live card, and why:
+ * - A white card with a soft two-layer shadow on the live page's `#eee` ground; the logo drawn
+ *   black. The static host has only the white logo, so the draft blacks it out with a filter. The
+ *   product would ship a dark asset.
+ * - One accent, the card's old ground `#00695c`: focus rings, the focused field's outline, links,
+ *   and the "Last used" and "Current" marks. It is 6.6:1 on white.
+ * - Errors in `#c62828`, 5.6:1 on white, each with a glyph so color is not the only signal. The
+ *   live `#f44336` sits at 1.8:1 on the teal and all but disappears. Each field points
+ *   `aria-describedby` at its message only while the message shows, so a valid field is never
+ *   read as an error.
+ * - Field outlines at 46% black, so they reach the 3:1 a control's edge needs; Material's 38% is
+ *   2.7:1 on white.
+ * - Labels without the `*`, sitting in the field like placeholders and hidden, not removed, once
+ *   it is filled, so they never jump. `required` tells assistive tech, and the error says what to do.
+ * - A bigger, bolder title, a 48px submit with 16px type, and a "Sign in" that is a padded text
+ *   button in a centred row.
+ * - On a phone the card fills the screen edge to edge and the three providers stay in one row.
+ * - Nothing under 14px, a 440px measure instead of the live 528, and white provider buttons.
+ *
+ * WHERE THE SWITCH SITS is a prop. `beside` puts it on the title's row, the heading on the left and
+ * the help glyph and switch balancing it on the right, with the "Data region" label kept for screen
+ * readers only: it arrives preselected, so it should read as secondary. `above` puts it, labelled,
+ * between the logo and the title, which can then stay "Sign up with" and lead straight into the
+ * providers. Both keep the region above the providers. Google, GitHub and Apple each hand off and
+ * come back to whichever host started it, so the region has to be settled before any of them is
+ * pressed: below the divider it would only govern the email path.
+ *
+ * PRESELECTION has no UI, by design. In the product the current region is the HOST the form is
+ * served on: `thingsboard.cloud` is North America, `eu.thingsboard.cloud` is Europe. The host is
+ * what the website's CTA chose by geography (edge: `CF-IPCountry`; client fallback: an `Intl`
+ * timezone under `Europe/`), so for most people the switch arrives right and is never touched.
+ * Choosing the other region loads the other host's page with the query string carried, so `utm_*`
+ * survive the hop, and that form arrives with ITS region current.
+ *
+ * SIGN IN differs where the job does. The password is `current-password` and only required: a
+ * sign-in form checks the account, not the rule it was made under. "Forgot your password?" sits
+ * under the password, where the live page's bottom corner was far from the field it is about. No
+ * terms line. And a "Last used" badge on the method this browser last signed in with, so a returning
+ * user goes straight back to Google or to the email form instead of guessing and landing on a
+ * second account. It is kept as the method name only, never the email: an address in storage is
+ * personal data sitting unencrypted on a shared machine. Storage is per origin, so each region's
+ * host remembers its own. Sign-up records the method too, so the first sign-in after an account is
+ * made is already marked. See `_last-used.ts`.
+ *
+ * The help glyph opens a native `<dialog>` in the spirit of PostHog's region dialog: which region
+ * to choose when signing up, which region the account is in when signing in, with a switch to it.
+ * Its copy says only what our own docs say, the Cloud FAQ on `/pricing/` and `/products/paas/`:
+ * the region (North America or the EU), not a datacentre city, and moving from one region to the
+ * other is a manual migration rather than a switch.
+ */
+interface Props {
+	/** Which live page this is: `/signup` or `/login`. */
+	mode?: 'signup' | 'signin';
+	/**
+	 * Draft only: the method the "Last used" badge shows while this browser has none stored, so the
+	 * sign-in card can be judged without first clicking a provider. The product shows no badge until
+	 * a method has been used.
+	 */
+	demoLastUsed?: 'google' | 'github' | 'apple' | 'email';
+	/** The segment that arrives current. Stands in for the host; see PRESELECTION above. */
+	region?: 'us' | 'eu';
+	/** The region switch on the title's row, or above the title. See WHERE THE SWITCH SITS. */
+	switchAt?: 'beside' | 'above';
+	/** Prefix for the ids the labelling needs. Distinct per instance, because the sandbox stacks directions. */
+	id?: string;
+	/**
+	 * A mock address bar over the page, so switching region can be seen doing what it would in the
+	 * product: reload the form from the other host. Draft-only chrome, hidden from assistive tech.
+	 */
+	browser?: boolean;
+}
+
+const { mode = 'signup', demoLastUsed, region = 'us', switchAt = 'beside', id = 'csl', browser = false } = Astro.props;
+
+const signin = mode === 'signin';
+const verb = signin ? 'Sign in' : 'Sign up';
+const path = signin ? '/login' : '/signup';
+const title = switchAt === 'above' ? `${verb} with` : verb;
+
+// The help glyph asks a different question per mode. Signing up, it is which region to pick.
+// Signing in, it is which region the account is already in, and the dialog can switch to it.
+const helpLabel = signin ? 'Which region is my account in?' : 'Which region should I choose?';
+
+// The sign-up dialog's facts per region. Latency is plain distance. The storage lines are the FAQ's
+// "stored in either North America or the EU". The hosts are the ones devices are pointed at.
+const FACTS: Record<string, string[]> = {
+	us: [
+		'Lower latency for devices and users in North America',
+		'Stores your data in North America',
+		'Devices connect to thingsboard.cloud',
+	],
+	eu: [
+		'Lower latency for devices and users in Europe',
+		'Stores your data in the European Union, for EU data-residency needs',
+		'Devices connect to eu.thingsboard.cloud',
+	],
+};
+
+// Hosts are set semibold wherever the dialog names them: the address is what a returning user
+// recognises, so it is the part of the line to find at a glance. `<b>`, not `<strong>`: it is set
+// apart for the eye, not stressed. Split out of the fact strings rather than written into them, so
+// the copy stays plain text.
+const HOST_RE = /((?:eu\.)?thingsboard\.cloud)/;
+
+const hostOf = (r: string) => CLOUD_REGIONS.find((c) => c.id === r)!.host;
+const ids = {
+	title: `${id}-title`,
+	dlgTitle: `${id}-dlg-title`,
+	email: `${id}-email`,
+	emailErr: `${id}-email-err`,
+	password: `${id}-password`,
+	passwordErr: `${id}-password-err`,
+};
+---
+
+<div class="csl" data-csl data-region={region} data-mode={mode} data-demo-last={demoLastUsed}>
+	{
+		browser && (
+			<div class="bar" aria-hidden="true" data-csl-bar>
+				<span class="bar__nav">
+					<span class="material-icons">arrow_back</span>
+					<span class="material-icons">arrow_forward</span>
+					<span class="material-icons" data-csl-reload>
+						refresh
+					</span>
+				</span>
+				<span class="bar__url">
+					<span class="material-icons">lock</span>
+					<span class="bar__addr">
+						<span class="bar__host" data-csl-host set:text={hostOf(region)} />
+						<span class="bar__path">{path}</span>
+					</span>
+				</span>
+				<span class="bar__progress" />
+			</div>
+		)
+	}
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" />
+
+	<form
+		class="csl__card"
+		novalidate
+		aria-label={signin ? 'Sign in to ThingsBoard Cloud' : 'Sign up for ThingsBoard Cloud'}
+		data-csl-form
+	>
+		{
+			/* Which instance this page is: the EU flag as a tab docked to the card's right edge,
+			   flush with it, while it is the EU one. Flag only. It repeats the switch, so it is
+			   hidden from assistive tech; the switch is the one they read. The stars follow the
+			   flag's construction: twelve five-point stars on a ring two thirds of its height. */
+		}
+		<svg class="eu" viewBox="0 0 27 18" aria-hidden="true">
+			<path d="M3 0H27V18H3A3 3 0 0 1 0 15V3A3 3 0 0 1 3 0Z" fill="#003399"></path>
+			{
+				Array.from({ length: 12 }, (_, i) => {
+					const a = (i * Math.PI) / 6;
+					const cx = 13.5 + 6 * Math.sin(a);
+					const cy = 9 - 6 * Math.cos(a);
+					const pts = Array.from({ length: 10 }, (_, k) => {
+						const r = k % 2 ? 0.4 : 1;
+						const t = (k * Math.PI) / 5;
+						return `${(cx + r * Math.sin(t)).toFixed(2)},${(cy - r * Math.cos(t)).toFixed(2)}`;
+					}).join(' ');
+					return <polygon points={pts} fill="#ffcc00" />;
+				})
+			}
+		</svg>
+		<img
+			class="csl__logo"
+			src="https://static.thingsboard.cloud/assets/logo_title_white_cloud.svg"
+			alt="ThingsBoard Cloud"
+			width="363"
+			height="80"
+		/>
+
+		<div class={`csl__head csl__head--${switchAt}`}>
+			{
+				/* The title and the switch in the order the prop asks for, from one copy of each: the
+			   loop only decides where the switch lands. DOM order is reading and tab order, so
+			   this is done in markup, never with CSS `order`. The product would ship an h1. */
+				(switchAt === 'above' ? (['region', 'title'] as const) : (['title', 'region'] as const)).map((slot) =>
+					slot === 'title' ? (
+						<h1 class="csl__title" id={ids.title}>
+							{title}
+						</h1>
+					) : (
+						<nav class={`region region--${switchAt}`} aria-labelledby={`${id}-region-label`}>
+							<span class="region__legend" id={`${id}-region-label`}>
+								Data region
+							</span>
+							<button type="button" class="region__help" aria-label={helpLabel} aria-haspopup="dialog" data-csl-help>
+								<span class="material-icons" aria-hidden="true">
+									help_outline
+								</span>
+								{/* The aria-label already names the button, so the tip is for the eye only. */}
+								<span class="region__tip" aria-hidden="true">
+									{helpLabel}
+								</span>
+							</button>
+							{/* Links, not radios: choosing a region LOADS the other host's page, so it is
+							    navigation, and a link is what lets it be opened in a new tab. The current
+							    host is `aria-current="page"`. The product would append `location.search`
+							    to each href so `utm_*` survive the hop. */}
+							<div class="region__switch">
+								{CLOUD_REGIONS.map((r) => (
+									<a
+										class="region__opt"
+										href={`https://${r.host}${path}`}
+										aria-current={r.id === region ? 'page' : undefined}
+										data-region={r.id}
+										data-host={r.host}
+									>
+										{r.name}
+									</a>
+								))}
+							</div>
+						</nav>
+					)
+				)
+			}
+		</div>
+
+		<div class="csl__social">
+			{
+				SOCIAL.map((s) => (
+					<a
+						class="csl__provider"
+						href="#"
+						onclick="return false"
+						aria-label={`${verb} with ${s.name}`}
+						data-label={`${verb} with ${s.name}`}
+						data-method={s.name.toLowerCase()}
+					>
+						<span class="csl__mark" set:html={s.svg} />
+						<span>{s.name}</span>
+						{signin && (
+							<span class="csl__last" aria-hidden="true" hidden>
+								Last used
+							</span>
+						)}
+					</a>
+				))
+			}
+		</div>
+
+		<div class="csl__or" role="separator" aria-label="or"><span>OR</span></div>
+
+		<div class="csl__f">
+			<div class="csl__box" data-method="email">
+				<span class="material-icons csl__icon" aria-hidden="true">email</span>
+				<label for={ids.email}>
+					Email
+					{/* The badge is for the eye; this is what a screen reader hears in its place. */}
+					{
+						signin && (
+							<span class="csl__sr" data-csl-last-sr hidden>
+								(last used)
+							</span>
+						)
+					}
+				</label>
+				{
+					signin && (
+						<span class="csl__last" aria-hidden="true" hidden>
+							Last used
+						</span>
+					)
+				}
+				<input
+					id={ids.email}
+					type="email"
+					name="email"
+					placeholder=" "
+					autocomplete="email"
+					required
+					data-csl-input
+					data-err={ids.emailErr}
+				/>
+			</div>
+			<p class="csl__sub">
+				<span class="csl__err" id={ids.emailErr} hidden>
+					<span class="material-icons" aria-hidden="true">error</span><span data-csl-msg></span>
+				</span>
+			</p>
+		</div>
+
+		<div class="csl__f">
+			<div class="csl__box">
+				<span class="material-icons csl__icon" aria-hidden="true">lock</span>
+				<label for={ids.password}>{signin ? 'Password' : 'Create a password'}</label>
+				<input
+					id={ids.password}
+					type="password"
+					name="password"
+					placeholder=" "
+					autocomplete={signin ? 'current-password' : 'new-password'}
+					required
+					minlength={signin ? undefined : 6}
+					maxlength={signin ? undefined : 72}
+					data-csl-input
+					data-err={ids.passwordErr}
+				/>
+				<button type="button" class="csl__eye" aria-label="Show password" aria-pressed="false" data-csl-eye>
+					<span class="material-icons" aria-hidden="true">visibility_off</span>
+				</button>
+			</div>
+			<p class="csl__sub">
+				<span class="csl__err" id={ids.passwordErr} hidden>
+					<span class="material-icons" aria-hidden="true">error</span><span data-csl-msg></span>
+				</span>
+				{
+					signin && (
+						<a class="csl__forgot" href="#" onclick="return false">
+							Forgot your password?
+						</a>
+					)
+				}
+			</p>
+		</div>
+
+		{
+			!signin && (
+				<p class="csl__terms">
+					By selecting Sign up, I agree to the{' '}
+					<a href="#" onclick="return false">
+						Terms of Use
+					</a>{' '}
+					and acknowledge the{' '}
+					<a href="#" onclick="return false">
+						Privacy Policy
+					</a>
+				</p>
+			)
+		}
+
+		<button type="submit" class="csl__submit">{verb}</button>
+
+		<p class="csl__already">
+			{signin ? 'Don’t have an account?' : 'Already have an account?'}
+			<a class="csl__signin" href="#" onclick="return false">{signin ? 'Sign up' : 'Sign in'}</a>
+		</p>
+	</form>
+
+	{/* Outside the form: its buttons are not the form's, and a dialog is not a field. */}
+	<dialog class="rd" aria-labelledby={ids.dlgTitle} data-csl-dlg>
+		<div class="rd__panel">
+			<div class="rd__head">
+				<h2 class="rd__title" id={ids.dlgTitle}>{helpLabel}</h2>
+				<button type="button" class="rd__close" aria-label="Close" data-csl-close>
+					<span class="material-icons" aria-hidden="true">close</span>
+				</button>
+			</div>
+			{
+				signin ? (
+					<>
+						<p class="rd__lead">
+							Your account is in the region you signed up in. Each region is its own site, so an account in one can’t
+							sign in to the other.
+						</p>
+						{CLOUD_REGIONS.map((r) => (
+							<section class="rd__row" aria-labelledby={`${id}-ra-${r.id}`}>
+								<div>
+									<h3 class="rd__name" id={`${id}-ra-${r.id}`}>
+										{r.name}
+									</h3>
+									<p class="rd__host">
+										If you sign in at <b class="rd__url">{r.host}</b>
+									</p>
+								</div>
+								<button
+									type="button"
+									class="rd__go"
+									data-csl-go={r.id}
+									data-name={r.name}
+									aria-label={`Switch to ${r.name}`}
+								>
+									Switch
+								</button>
+							</section>
+						))}
+						<p class="rd__foot">
+							Moving an account to the other region is a manual migration. Contact us if you need a hand.
+						</p>
+					</>
+				) : (
+					<>
+						<p class="rd__lead">
+							You can move to the other region later, but it’s a manual migration, so it’s worth choosing now.
+						</p>
+						{CLOUD_REGIONS.map((r) => (
+							<section class="rd__region" aria-labelledby={`${id}-rd-${r.id}`}>
+								<h3 class="rd__name" id={`${id}-rd-${r.id}`}>
+									{r.name}
+								</h3>
+								<ul class="rd__points">
+									{FACTS[r.id].map((p) => (
+										<li>
+											<span class="material-icons" aria-hidden="true">
+												check
+											</span>
+											<span>{p.split(HOST_RE).map((part, i) => (i % 2 ? <b class="rd__url">{part}</b> : part))}</span>
+										</li>
+									))}
+								</ul>
+							</section>
+						))}
+						<p class="rd__foot">Both regions run on SOC 2- and ISO 27001-compliant infrastructure.</p>
+					</>
+				)
+			}
+		</div>
+	</dialog>
+</div>
+
+<script>
+	import { onLastUsed, readLastUsed, writeLastUsed } from '@root/pages/internal/_last-used';
+
+	// Per instance, found by the root rather than by id, as `_RegionDialog` does: the sandbox stacks
+	// directions, and the phone frame MOVES a direction into an empty body, so listeners on the
+	// nodes survive it.
+
+	// Each field's message, keyed by its `autocomplete`: the one attribute that already says which of
+	// the three fields it is, sign-up's password and sign-in's being the same `name`.
+	const MESSAGES: Record<string, (v: ValidityState) => string> = {
+		email: (v) => (v.valueMissing ? 'Enter your email' : 'Enter a valid email, like name@example.com'),
+		'new-password': (v) => (v.valueMissing ? 'Create a password' : 'Use at least 6 characters'),
+		'current-password': () => 'Enter your password',
+	};
+
+	document.querySelectorAll<HTMLElement>('[data-csl]').forEach((root) => {
+		const dlg = root.querySelector<HTMLDialogElement>('[data-csl-dlg]');
+		// Sign-in's rows each switch the region. The current one says so and does nothing; it is
+		// worked out as the dialog opens, because a switch may have happened since the page loaded.
+		const goes = [...root.querySelectorAll<HTMLButtonElement>('[data-csl-go]')];
+		const markCurrent = () =>
+			goes.forEach((g) => {
+				const here = g.dataset.cslGo === root.dataset.region;
+				g.disabled = here;
+				g.textContent = here ? 'Current' : 'Switch';
+				g.setAttribute('aria-label', here ? `${g.dataset.name}, current region` : `Switch to ${g.dataset.name}`);
+			});
+		root.querySelector('[data-csl-help]')?.addEventListener('click', () => {
+			markCurrent();
+			dlg?.showModal();
+		});
+		goes.forEach((g) =>
+			g.addEventListener('click', () => {
+				dlg?.close();
+				// The same path as choosing the segment, reload and all.
+				root.querySelector<HTMLAnchorElement>(`.region__opt[data-region="${g.dataset.cslGo}"]`)?.click();
+			})
+		);
+		root.querySelector('[data-csl-close]')?.addEventListener('click', () => dlg?.close());
+		// The panel fills the dialog box, so a click on the dialog element itself is on the backdrop.
+		dlg?.addEventListener('click', (e) => {
+			if (e.target === dlg) dlg.close();
+		});
+
+		const eye = root.querySelector<HTMLButtonElement>('[data-csl-eye]');
+		eye?.addEventListener('click', () => {
+			const input = eye.parentElement?.querySelector('input');
+			if (!input) return;
+			// The name stays "Show password" and `aria-pressed` carries the state. Flipping both would
+			// announce "Hide password, pressed".
+			const show = input.type === 'password';
+			input.type = show ? 'text' : 'password';
+			eye.setAttribute('aria-pressed', String(show));
+			eye.querySelector('.material-icons')!.textContent = show ? 'visibility' : 'visibility_off';
+		});
+
+		// The mock reload. In the product each segment is a plain link to the other host's `/signup`
+		// with `location.search` appended; here the address bar shows that hop: the progress line
+		// runs, the form dims as a page being replaced does, and the host swaps when it "arrives".
+		const bar = root.querySelector<HTMLElement>('[data-csl-bar]');
+		const opts = [...root.querySelectorAll<HTMLAnchorElement>('.region__opt')];
+		let timer = 0;
+
+		// `data-region` on the root is the page's host as far as the draft is concerned: the EU tab
+		// reads it, so the tab arrives with the reload rather than on the click.
+		const arrive = (opt: HTMLAnchorElement) => {
+			opts.forEach((o) => (o === opt ? o.setAttribute('aria-current', 'page') : o.removeAttribute('aria-current')));
+			root.dataset.region = opt.dataset.region;
+			if (bar) bar.querySelector('[data-csl-host]')!.textContent = opt.dataset.host!;
+		};
+
+		opts.forEach((opt) =>
+			opt.addEventListener('click', (e) => {
+				// A modified or middle click is the visitor asking for a new tab or window: let the
+				// browser have it, to the real host. Only a plain click is the draft's to fake.
+				if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+				e.preventDefault();
+				if (opt.hasAttribute('aria-current')) return;
+				if (!bar) return arrive(opt);
+
+				// The mock reload: the progress line runs, the form dims as a page being replaced
+				// does, and the host swaps when it "arrives".
+				clearTimeout(timer);
+				root.classList.remove('is-loading');
+				void root.offsetWidth; // restart the progress animation on a quick second switch
+				root.classList.add('is-loading');
+				bar.querySelector('[data-csl-reload]')!.textContent = 'close';
+				timer = window.setTimeout(() => {
+					arrive(opt);
+					bar.querySelector('[data-csl-reload]')!.textContent = 'refresh';
+					root.classList.remove('is-loading');
+				}, 700);
+			})
+		);
+
+		// The "Last used" badge, sign-in only. Each method's element carries `data-method`; the badge
+		// inside it shows for the stored one. The provider's accessible name gains "(last used)", and
+		// the email field's label gains it through a span the badge stands in for.
+		const methods = [...root.querySelectorAll<HTMLElement>('[data-method]')];
+		const paint = (last: string | null) => {
+			if (root.dataset.mode !== 'signin') return;
+			methods.forEach((el) => {
+				const on = el.dataset.method === last;
+				el.querySelector<HTMLElement>('.csl__last')!.hidden = !on;
+				if (el.dataset.label) el.setAttribute('aria-label', el.dataset.label + (on ? ' (last used)' : ''));
+			});
+			root.querySelector<HTMLElement>('[data-csl-last-sr]')!.hidden = last !== 'email';
+		};
+		paint(readLastUsed('method') ?? root.dataset.demoLast ?? null);
+		// The page's draft controls, and a card in another frame, write the same store: follow them.
+		onLastUsed('method', paint);
+
+		// Choosing a provider records it in either mode: a Google sign-up makes Google the method to
+		// mark on the first sign-in. In the product this is written as the hand-off leaves.
+		root
+			.querySelectorAll<HTMLElement>('.csl__provider')
+			.forEach((a) => a.addEventListener('click', () => writeLastUsed('method', a.dataset.method!)));
+
+		const inputs = [...root.querySelectorAll<HTMLInputElement>('[data-csl-input]')];
+
+		// Shows or clears one field's error. `aria-describedby` is set only while the message shows:
+		// a description pointing at a hidden node is still read, and a valid field would sound broken.
+		const check = (input: HTMLInputElement) => {
+			const err = root.querySelector<HTMLElement>(`#${input.dataset.err}`);
+			const bad = !input.validity.valid;
+			input.setAttribute('aria-invalid', String(bad));
+			if (err) {
+				err.hidden = !bad;
+				err.querySelector('[data-csl-msg]')!.textContent = bad ? MESSAGES[input.autocomplete](input.validity) : '';
+			}
+			if (bad) input.setAttribute('aria-describedby', input.dataset.err!);
+			else input.removeAttribute('aria-describedby');
+			return !bad;
+		};
+
+		inputs.forEach((input) => {
+			// Not on the first pass through an empty field: tabbing past it is not a mistake yet.
+			input.addEventListener('blur', () => {
+				if (input.value || input.getAttribute('aria-invalid') === 'true') check(input);
+			});
+			// Once flagged, clear the moment it is fixed rather than on the next blur.
+			input.addEventListener('input', () => {
+				if (input.getAttribute('aria-invalid') === 'true') check(input);
+			});
+		});
+
+		root.querySelector<HTMLFormElement>('[data-csl-form]')?.addEventListener('submit', (e) => {
+			e.preventDefault();
+			const results = inputs.map(check);
+			if (results.every(Boolean)) writeLastUsed('method', 'email');
+			else inputs[results.indexOf(false)]?.focus();
+		});
+	});
+</script>
+
+<style lang="scss">
+	// The product's ground and type, not this site's, so nothing here reads the site tokens. The
+	// colors are custom properties on the root, so the dialog, which sits inside it, takes them too.
+	.csl {
+		--teal: #00695c;
+		--teal-tint: rgba(0, 105, 92, 0.08);
+		--ink: rgba(0, 0, 0, 0.87);
+		--ink-2: rgba(0, 0, 0, 0.6);
+		--line: rgba(0, 0, 0, 0.46);
+		--rule: rgba(0, 0, 0, 0.12);
+		--error: #c62828;
+		--card: #fff;
+
+		padding: 40px 16px 56px;
+		background: #eee;
+		color: var(--ink);
+		font-family: Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+		line-height: 1.5;
+		-webkit-font-smoothing: antialiased;
+
+		// `:where()` so these resets sit under the class rules below.
+		:where(p, h1, h2, h3, ul) {
+			margin: 0;
+		}
+
+		:where(button) {
+			padding: 0;
+			border: 0;
+			background: none;
+			color: inherit;
+			font: inherit;
+			cursor: pointer;
+		}
+
+		// One focus ring for every control: the accent at 2px, clear of the edge.
+		:where(a, button, input[type='radio']):focus-visible {
+			outline: 2px solid var(--teal);
+			outline-offset: 2px;
+		}
+
+		// Material's glyph font, sized as the live card's `mat-icon`s are. `@fontsource/material-icons`
+		// ships the face alone; the class that turns a word into its glyph is the consumer's, so these
+		// are Google's own rules for it.
+		.material-icons {
+			display: inline-block;
+			font-family: 'Material Icons';
+			font-weight: normal;
+			font-style: normal;
+			font-size: 24px;
+			line-height: 1;
+			letter-spacing: normal;
+			text-transform: none;
+			white-space: nowrap;
+			word-wrap: normal;
+			direction: ltr;
+			font-feature-settings: 'liga';
+			-webkit-font-smoothing: antialiased;
+			user-select: none;
+		}
+
+		// Full bleed on a phone. A card with 16px of grey either side at 375 is a card pretending to be
+		// the page, so the card becomes the page.
+		@media (max-width: 599px) {
+			padding: 0;
+			background: var(--card);
+		}
+	}
+
+	.csl__card {
+		// Narrower than the live 528: one column of fields reads best at this measure.
+		width: 100%;
+		max-width: 440px;
+		margin: 0 auto;
+		padding: 24px 24px 28px;
+		border-radius: 8px;
+		background: var(--card);
+		// Two layers: a hairline that defines the edge against the grey, and a wide soft one for lift.
+		box-shadow:
+			0 1px 2px rgba(0, 0, 0, 0.06),
+			0 8px 24px rgba(0, 0, 0, 0.06);
+
+		@media (max-width: 599px) {
+			width: 100%;
+			padding: 24px 16px 32px;
+			border-radius: 0;
+			box-shadow: none;
+		}
+	}
+
+	// 363 → 240: the brand, not the headline. "Sign up" is the first thing to read.
+	// ---- Mock address bar ------------------------------------------------------------------
+	// Pulled out over the ground's padding so it spans the frame's top edge like a browser's.
+	.bar {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		height: 48px;
+		margin: -40px -16px 40px;
+		padding: 0 12px;
+		border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+		background: #fff;
+		color: var(--ink-2);
+
+		.material-icons {
+			font-size: 20px;
+		}
+
+		@media (max-width: 599px) {
+			margin: 0;
+			background: #f8f9fa;
+		}
+	}
+
+	.bar__nav {
+		display: flex;
+		gap: 8px;
+
+		@media (max-width: 599px) {
+			display: none;
+		}
+	}
+
+	.bar__url {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		max-width: 560px;
+		height: 32px;
+		margin: 0 auto;
+		padding: 0 14px;
+		border-radius: 16px;
+		background: #f1f3f4;
+		font-size: 14px;
+		white-space: nowrap;
+		overflow: hidden;
+
+		.material-icons {
+			font-size: 16px;
+		}
+
+		@media (max-width: 599px) {
+			justify-content: center;
+			background: #e8eaed;
+		}
+	}
+
+	// One flex item, so the flex gap stays between the lock and the address, not inside it.
+	.bar__addr {
+		display: flex;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.bar__host {
+		color: var(--ink);
+	}
+
+	.bar__progress {
+		position: absolute;
+		left: 0;
+		bottom: -1px;
+		width: 0;
+		height: 2px;
+		background: #1a73e8;
+		opacity: 0;
+	}
+
+	.csl.is-loading {
+		.bar__progress {
+			opacity: 1;
+			animation: csl-load 0.7s ease-out forwards;
+		}
+
+		.csl__card {
+			opacity: 0.4;
+			pointer-events: none;
+		}
+	}
+
+	.csl__card {
+		position: relative;
+		transition: opacity 0.2s ease;
+	}
+
+	// ---- EU tab ----------------------------------------------------------------------------
+	// Flush with the right edge, rounded only on the side that faces in. Its top edge shares the
+	// logo's: 32px down, the card's 24px padding plus the logo's 8px margin, on desktop and phone
+	// alike, so the flag and the mark start on one line.
+	.eu {
+		position: absolute;
+		top: 32px;
+		right: 0;
+		display: none;
+		width: 36px;
+		height: 24px;
+	}
+
+	.csl[data-region='eu'] .eu {
+		display: block;
+	}
+
+	@keyframes csl-load {
+		from {
+			width: 0;
+		}
+		to {
+			width: 100%;
+		}
+	}
+
+	.csl__logo {
+		display: block;
+		width: 240px;
+		max-width: 100%;
+		height: auto;
+		margin: 8px auto 0;
+		filter: brightness(0);
+	}
+
+	// 20 → 26, 400 → 700.
+	.csl__title {
+		margin-top: 32px;
+		font-size: 26px;
+		line-height: 32px;
+		font-weight: 700;
+		letter-spacing: -0.2px;
+		text-align: center;
+		color: var(--ink);
+	}
+
+	// `beside`: one row, the heading on the left and the switch on the right. It wraps rather than
+	// squeezes if a narrow phone cannot hold both.
+	.csl__head--beside {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px 16px;
+		margin-top: 32px;
+
+		.csl__title {
+			margin: 0;
+			text-align: left;
+		}
+
+		.region {
+			margin: 0;
+		}
+
+		// The heading says what the form is and the switch shows its two regions, so the label goes;
+		// it stays for screen readers as the navigation's name.
+		.region__legend {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+	}
+
+	// ---- Region ----------------------------------------------------------------------------
+	// One quiet row: the label and its help glyph on the left, a compact switch on the right. The
+	// region arrives preselected from the host, so for most people this is a line to glance at,
+	// not a question to answer, and it is drawn smaller than anything else in the form.
+	.region {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		min-width: 0;
+		margin: 24px 0 0;
+		padding: 0;
+		border: 0;
+	}
+
+	// Names the group through `aria-labelledby`; visible only when the switch sits above the title.
+	.region__legend {
+		padding: 0;
+		font-size: 14px;
+		line-height: 20px;
+		color: var(--ink-2);
+	}
+
+	// Icon-only, at the 24px minimum target. Grey at rest and on hover alike: no teal in this row.
+	.region__help {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		color: var(--ink-2);
+
+		.material-icons {
+			font-size: 20px;
+		}
+
+		&:hover {
+			background: rgba(0, 0, 0, 0.06);
+			color: var(--ink);
+		}
+	}
+
+	// A hover tip naming what the glyph opens, on a pointer that can hover. On touch, a tap opens
+	// the dialog straight away, and a tip would flash on that same tap. Keyboard focus shows it too.
+	.region__help {
+		position: relative;
+	}
+
+	.region__tip {
+		position: absolute;
+		bottom: calc(100% + 8px);
+		left: 50%;
+		display: none;
+		padding: 6px 10px;
+		border-radius: 6px;
+		background: rgba(33, 33, 33, 0.94);
+		color: #fff;
+		font-size: 14px;
+		line-height: 20px;
+		white-space: nowrap;
+		pointer-events: none;
+		transform: translateX(-50%);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.region__help:hover .region__tip,
+		.region__help:focus-visible .region__tip {
+			display: block;
+		}
+	}
+
+	// A grey track with the checked segment lifted out of it on a shadow, in black against the
+	// unchecked segment's grey. No accent: the switch is a setting, not a call to act.
+	.region__switch {
+		display: flex;
+		gap: 2px;
+		margin-left: auto;
+		padding: 3px;
+		border-radius: 8px;
+		background: #ebedef;
+	}
+
+	// Each segment is a link to the other host's page. The one you are not on underlines on
+	// hover, the way a link says it will take you somewhere; the current one is the page itself
+	// and does nothing.
+	.region__opt {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 32px;
+		padding: 0 14px;
+		border-radius: 6px;
+		font-size: 14px;
+		white-space: nowrap;
+		color: var(--ink-2);
+		text-decoration: none;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		@media (max-width: 599px) {
+			padding: 0 10px;
+		}
+
+		&:not([aria-current]):hover {
+			color: var(--ink);
+			text-decoration: underline;
+			text-decoration-thickness: 1px;
+			text-underline-offset: 3px;
+		}
+
+		&[aria-current] {
+			background: var(--card);
+			color: var(--ink);
+			font-weight: 500;
+			cursor: default;
+			box-shadow:
+				0 1px 2px rgba(0, 0, 0, 0.12),
+				0 1px 3px rgba(0, 0, 0, 0.08);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--teal);
+			outline-offset: 2px;
+		}
+	}
+
+	// ---- Providers -------------------------------------------------------------------------
+	// One row at every width: three that share it on the desktop card, and still three at 375,
+	// where each gets about 109px and "Google" with its mark needs about 80.
+	.csl__social {
+		display: flex;
+		gap: 16px;
+		margin-top: 24px;
+
+		@media (max-width: 599px) {
+			gap: 8px;
+		}
+	}
+
+	// The heading row is the card's header, so it stands further off than the 24px the rest of the
+	// form keeps between its parts. Space, not a rule: the OR line is already one rule below.
+	.csl__head--beside + .csl__social {
+		margin-top: 32px;
+	}
+
+	.csl__provider {
+		position: relative;
+		flex: 1 1 0;
+		min-width: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		height: 40px;
+		padding: 0 6px;
+		border: 1px solid rgba(0, 0, 0, 0.2);
+		border-radius: 4px;
+		background: var(--card);
+		color: var(--ink);
+		font-size: 14px;
+		font-weight: 500;
+		letter-spacing: 0.25px;
+		text-decoration: none;
+
+		&:hover {
+			background: #f5f5f5;
+		}
+
+		@media (max-width: 599px) {
+			gap: 6px;
+			padding: 0 4px;
+		}
+	}
+
+	// "Last used". On a provider button it is a tab docked to the button's top edge, centred and only
+	// as wide as its words, so the button keeps its own rounded corners. It sits on top of the
+	// button's stroke, never across it, with no stroke of its own. On the email field, where the
+	// centre is the label's, it stays a small tag on the right of the top edge.
+	.csl__last {
+		position: absolute;
+		white-space: nowrap;
+		pointer-events: none;
+		font-size: 14px;
+		font-weight: 500;
+		letter-spacing: 0;
+		color: var(--teal);
+		background: #e0f2f1;
+
+		&[hidden] {
+			display: none;
+		}
+
+		.csl__provider > & {
+			// Measured from inside the button's 1px border, so pushed out by that pixel to sit on
+			// the stroke rather than over it.
+			bottom: calc(100% + 1px);
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 0 10px;
+			border-radius: 4px 4px 0 0;
+			line-height: 22px;
+		}
+
+		.csl__box > & {
+			top: -11px;
+			right: 12px;
+			padding: 0 8px;
+			border-radius: 10px;
+			line-height: 20px;
+		}
+	}
+
+	.csl__sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	.csl__mark {
+		display: inline-flex;
+		flex: none;
+		width: 20px;
+		height: 20px;
+
+		:global(svg) {
+			width: 100%;
+			height: 100%;
+		}
+	}
+
+	.csl__or {
+		display: flex;
+		align-items: center;
+		height: 24px;
+		margin: 20px 0;
+		font-size: 14px;
+		color: var(--ink-2);
+
+		span {
+			padding: 0 12px;
+		}
+
+		&::before,
+		&::after {
+			content: '';
+			flex: 1;
+			border-top: 1px solid var(--rule);
+		}
+	}
+
+	// ---- Fields ----------------------------------------------------------------------------
+	// An outline field whose label sits where a placeholder would and steps out of sight once the
+	// field has a value, rather than jumping into the top edge. It is a real `<label for>` the
+	// whole time, hidden by clipping rather than `display: none`, so a screen reader names the field
+	// "Email" filled or empty. `placeholder=" "` is what lets `:placeholder-shown` tell the two apart.
+	// The icon and the value itself (an address, masked dots) say what a filled field holds.
+	.csl__box {
+		position: relative;
+		display: flex;
+		align-items: center;
+		height: 56px;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		transition: border-color 0.15s ease;
+
+		&:hover {
+			border-color: var(--ink);
+		}
+
+		label {
+			position: absolute;
+			top: 50%;
+			left: 48px;
+			padding: 0 4px;
+			transform: translateY(-50%);
+			font-size: 16px;
+			line-height: 1;
+			color: var(--ink-2);
+			white-space: nowrap;
+			pointer-events: none;
+		}
+
+		input {
+			flex: 1;
+			min-width: 0;
+			height: 100%;
+			margin-left: 4px;
+			padding: 0 12px 0 0;
+			border: 0;
+			background: none;
+			color: var(--ink);
+			font: inherit;
+			font-size: 16px;
+			outline: none;
+
+			// Chrome paints autofill blue; the inset shadow paints it back to the card.
+			&:-webkit-autofill {
+				-webkit-box-shadow: 0 0 0 100px var(--card) inset;
+				-webkit-text-fill-color: var(--ink);
+			}
+		}
+
+		&:has(input:not(:placeholder-shown)) label {
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			overflow: hidden;
+			clip-path: inset(50%);
+		}
+
+		// Focus thickens the rule to 2px with an inset shadow, so nothing moves.
+		&:focus-within {
+			border-color: var(--teal);
+			box-shadow: inset 0 0 0 1px var(--teal);
+		}
+
+		&:has(input[aria-invalid='true']) {
+			border-color: var(--error);
+
+			// The outline and the leading glyph carry the state; the label, sitting in the field as a
+			// placeholder, stays grey (red there read as too much), and so does the eye, a control.
+			.csl__icon {
+				color: var(--error);
+			}
+
+			&:focus-within {
+				box-shadow: inset 0 0 0 1px var(--error);
+			}
+		}
+	}
+
+	.csl__icon {
+		flex: none;
+		width: 48px;
+		text-align: center;
+		color: var(--ink-2);
+	}
+
+	.csl__eye {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		margin-right: 4px;
+		border-radius: 50%;
+		color: var(--ink-2);
+
+		&:hover {
+			background: rgba(0, 0, 0, 0.04);
+		}
+	}
+
+	// Room under each field for its message, held open so an error appearing never pushes the form
+	// down. The live form keeps 22px; 30 fits a 14px line with air before the next field.
+	.csl__sub {
+		min-height: 30px;
+		padding: 4px 0 6px 12px;
+		font-size: 14px;
+		line-height: 20px;
+	}
+
+	// In sign-in the password's row also holds "Forgot your password?", pushed right, so an error
+	// and the link share the line.
+	.csl__sub {
+		display: flex;
+		align-items: flex-start;
+		gap: 8px;
+	}
+
+	.csl__forgot {
+		margin-left: auto;
+		color: var(--teal);
+		font-weight: 500;
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 3px;
+		text-decoration-color: rgba(0, 105, 92, 0.4);
+		white-space: nowrap;
+
+		&:hover {
+			text-decoration-color: currentColor;
+		}
+	}
+
+	.csl__err {
+		display: flex;
+		align-items: flex-start;
+		gap: 4px;
+		color: var(--error);
+
+		&[hidden] {
+			display: none;
+		}
+
+		.material-icons {
+			margin-top: 2px;
+			font-size: 16px;
+		}
+	}
+
+	// ---- Terms, submit, sign in ---------------------------------------------------------------
+	.csl__terms {
+		margin-top: 2px;
+		font-size: 14px;
+		line-height: 20px;
+		color: var(--ink-2);
+
+		// A 1px line set 3px below the text at 40% of the link color, which fills in on hover. The
+		// browser default cuts through descenders at full weight.
+		a {
+			color: var(--teal);
+			font-weight: 500;
+			text-decoration: underline;
+			text-decoration-thickness: 1px;
+			text-underline-offset: 3px;
+			text-decoration-color: rgba(0, 105, 92, 0.4);
+			transition: text-decoration-color 0.15s ease;
+
+			&:hover {
+				text-decoration-color: currentColor;
+			}
+		}
+	}
+
+	// 36 → 48, 14 → 16. The live orange is kept, but white on `#ff5722` is 3.2:1, under the 4.5:1
+	// body-size text needs.
+	.csl__submit {
+		width: 100%;
+		height: 48px;
+		margin-top: 24px;
+		border: 0;
+		border-radius: 4px;
+		background: #ff5722;
+		color: #fff;
+		font: inherit;
+		font-size: 16px;
+		font-weight: 500;
+		letter-spacing: 0.25px;
+		cursor: pointer;
+
+		&:hover {
+			background: #f4511e;
+		}
+	}
+
+	// Centred, with "Sign in" as a text button: transparent at rest, a tint behind its padding on
+	// hover. The padding is always there, so hovering moves nothing.
+	.csl__already {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 4px;
+		margin-top: 16px;
+		font-size: 14px;
+		line-height: 20px;
+		color: var(--ink-2);
+	}
+
+	.csl__signin {
+		padding: 6px 10px;
+		border-radius: 6px;
+		color: var(--teal);
+		font-weight: 500;
+		text-decoration: none;
+		transition: background-color 0.15s ease;
+
+		&:hover {
+			background: var(--teal-tint);
+		}
+
+		&:active {
+			background: rgba(0, 105, 92, 0.14);
+		}
+	}
+
+	// ---- Region dialog ---------------------------------------------------------------------
+	.rd {
+		width: min(520px, calc(100% - 32px));
+		max-height: calc(100dvh - 32px);
+		margin: auto;
+		padding: 0;
+		border: 0;
+		border-radius: 12px;
+		background: var(--card);
+		color: var(--ink);
+		box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+		overscroll-behavior: contain;
+
+		&::backdrop {
+			background: rgba(0, 0, 0, 0.4);
+		}
+	}
+
+	.rd__panel {
+		padding: 24px 24px 20px;
+	}
+
+	.rd__head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 16px;
+	}
+
+	.rd__title {
+		font-size: 22px;
+		line-height: 28px;
+		font-weight: 700;
+		letter-spacing: -0.2px;
+	}
+
+	.rd__close {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		margin: -6px -8px 0 0;
+		border-radius: 50%;
+		color: var(--ink-2);
+
+		&:hover {
+			background: rgba(0, 0, 0, 0.06);
+			color: var(--ink);
+		}
+	}
+
+	.rd__lead {
+		margin-top: 8px;
+		padding-bottom: 20px;
+		border-bottom: 1px solid var(--rule);
+		font-size: 15px;
+		line-height: 22px;
+		color: var(--ink-2);
+	}
+
+	.rd__region {
+		padding: 20px 0;
+
+		& + & {
+			border-top: 1px dashed rgba(0, 0, 0, 0.16);
+		}
+	}
+
+	.rd__name {
+		font-size: 18px;
+		line-height: 24px;
+		font-weight: 700;
+	}
+
+	// Semibold: set apart from the sentence without the weight of the headings around it.
+	.rd__url {
+		font-weight: 600;
+		color: var(--ink);
+	}
+
+	.rd__points {
+		display: grid;
+		gap: 10px;
+		margin-top: 12px;
+		padding: 0;
+		list-style: none;
+
+		li {
+			display: flex;
+			align-items: flex-start;
+			gap: 12px;
+			font-size: 15px;
+			line-height: 22px;
+		}
+
+		.material-icons {
+			flex: none;
+			margin-top: 1px;
+			font-size: 20px;
+			color: var(--teal);
+		}
+	}
+
+	// Sign-in rows: the region and where it signs in on the left, its switch on the right.
+	.rd__row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		padding: 16px 0;
+
+		& + & {
+			border-top: 1px dashed rgba(0, 0, 0, 0.16);
+		}
+	}
+
+	.rd__host {
+		margin-top: 2px;
+		font-size: 14px;
+		line-height: 20px;
+		color: var(--ink-2);
+	}
+
+	.rd__go {
+		flex: none;
+		height: 36px;
+		padding: 0 16px;
+		border: 1px solid rgba(0, 0, 0, 0.2);
+		border-radius: 6px;
+		font-size: 14px;
+		font-weight: 500;
+		color: var(--ink);
+
+		&:hover:not(:disabled) {
+			background: #f5f5f5;
+		}
+
+		// The region the page is on reads as a status, in the "Last used" tag's teal, rather than as
+		// a greyed button: it is not unavailable, it is where you are.
+		&:disabled {
+			border-color: transparent;
+			background: #e0f2f1;
+			color: var(--teal);
+			cursor: default;
+		}
+	}
+
+	.rd__lead + .rd__row {
+		margin-top: 4px;
+	}
+
+	.rd__foot {
+		padding-top: 16px;
+		border-top: 1px solid var(--rule);
+		font-size: 14px;
+		line-height: 20px;
+		color: var(--ink-2);
+	}
+</style>

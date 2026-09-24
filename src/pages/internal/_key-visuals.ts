@@ -169,14 +169,23 @@ export const KEY_VISUALS: KeyVisual[] = [
 		check: true,
 	},
 	{
-		// The "Try for free" FUNNEL rather than a section: what the CTA opens, and a draft of the
-		// Cloud sign-up page it lands on. A check, so the hub lists it apart from the sections — it is
-		// never headed for a row; what it decides is where the primary button goes.
-		id: 'try-for-free',
-		label: 'Try for free',
-		title: 'Try for free — the sign-up funnel',
+		// The path behind "Try for free": the sign-up form with its region switch, and the dialog that
+		// asks the region first. Two variants of one flow. A check, so the hub lists it apart from the
+		// sections: it is never headed for a row, and what it decides is where the button goes.
+		id: 'sign-up',
+		label: 'Sign up',
+		title: 'Sign up — from “Try for free” to the form',
 		check: true,
-		badge: { icon: 'tabler:cloud-filled', color: '#3d50f5' },
+		badge: { icon: 'tabler:user-plus', color: '#3d50f5' },
+	},
+	{
+		// The path behind the header's "Sign in": the product's sign-in form, and the dialog that
+		// replaces the header's region dropdown.
+		id: 'sign-in',
+		label: 'Sign in',
+		title: 'Sign in — from the header to the form',
+		check: true,
+		badge: { icon: 'tabler:login-2', color: '#00695c' },
 	},
 ];
 

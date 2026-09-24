@@ -1,0 +1,165 @@
+---
+import VisualPage from '@root/pages/internal/_VisualPage.astro';
+import Variant from '@root/pages/internal/_Variant.astro';
+import CloudAuth from '@root/pages/internal/_CloudAuth.astro';
+import RegionDialog from '@root/pages/internal/_RegionDialog.astro';
+import LastUsedControls from '@root/pages/internal/_LastUsedControls.astro';
+import { kv } from '@root/pages/internal/_key-visuals';
+
+/**
+ * Sign in: the product's sign-in form, and the website dialog that sends people to it.
+ *
+ * THE FORM is `thingsboard.cloud/login` as the same white card as sign-up, with a "Last used" badge
+ * on the method this browser signed in with before, and a help dialog that switches region for
+ * anyone who landed on the wrong one.
+ *
+ * THE DIALOG replaces the header's live "Sign in" dropdown ("Choose your region", two links to the
+ * hosts' roots). Same question, asked in the chooser the sign-up flow uses, with the region this
+ * browser last signed in to marked and focused.
+ *
+ * Both directions are `bleed`. Their "Last used" states are set from the draft controls under the
+ * brief, outside the frames, so every state is judged in one variant and the frames show only what
+ * ships. The phone frames follow through storage events.
+ */
+---
+
+<VisualPage visual="sign-in">
+	<aside class="brief">
+		<p class="brief__kicker">The flow</p>
+		<dl class="brief__facts">
+			<div>
+				<dt>Today</dt>
+				<dd>
+					Header <em>Sign in</em> → a “Choose your region” dropdown → <code>thingsboard.cloud</code> or
+					<code>eu.thingsboard.cloud</code> in a new tab → the teal sign-in card.
+				</dd>
+			</div>
+			<div>
+				<dt>Form</dt>
+				<dd>
+					The card in white, with a region switch and a “Last used” badge on the method this browser last signed in
+					with, kept as a method name only, never the email.
+				</dd>
+			</div>
+			<div>
+				<dt>Dialog</dt>
+				<dd>
+					The header’s dropdown as the sign-up chooser: two regions named by their hosts, the last visited one marked
+					and focused, each opening its <code>/login</code>.
+				</dd>
+			</div>
+		</dl>
+	</aside>
+
+	<LastUsedControls
+		groups={[
+			{
+				label: 'Form · method',
+				store: 'method',
+				fallback: 'google',
+				options: [
+					{ value: '', label: 'None' },
+					{ value: 'google', label: 'Google' },
+					{ value: 'github', label: 'Github' },
+					{ value: 'apple', label: 'Apple' },
+					{ value: 'email', label: 'Email' },
+				],
+			},
+			{
+				label: 'Dialog · region',
+				store: 'region',
+				fallback: 'eu',
+				options: [
+					{ value: '', label: 'None' },
+					{ value: 'us', label: 'North America' },
+					{ value: 'eu', label: 'Europe' },
+				],
+			},
+		]}
+	/>
+
+	<Variant
+		visual={kv('sign-in')}
+		component={CloudAuth}
+		props={{
+			mode: 'signin',
+			demoLastUsed: 'google',
+			region: 'us',
+			switchAt: 'beside',
+			id: 'si-form',
+			browser: true,
+		}}
+		bleed
+		name="Form · last used"
+		note="candidate · the card at /login: “Forgot your password?” under the field, no terms · a “Last used” badge on the method this browser last used, set from the draft controls under the brief · the help glyph asks which region the account is in and can switch"
+	/>
+
+	<Variant
+		visual={kv('sign-in')}
+		component={RegionDialog}
+		props={{ flow: 'signin', id: 'si-dialog', nearest: 'us', demoLastUsed: 'eu' }}
+		bleed
+		name="Dialog · replaces the header’s region dropdown"
+		note="candidate · the header’s Sign in opens the chooser: two regions named by their hosts, the last visited one marked and focused, each opening its /login in a new tab · set the last visited region from the draft controls under the brief"
+	/>
+</VisualPage>
+
+<style lang="scss">
+	@use '../../../styles/variables' as *;
+
+	.brief {
+		max-width: 1200px;
+		margin: 0 auto $spacing-12;
+		padding: $spacing-6;
+		border-radius: $radius-lg;
+		background: var(--color-bg-secondary, #f5f6ff);
+	}
+
+	.brief__kicker {
+		@include text-xs;
+		margin: 0 0 $spacing-4;
+		font-family: $font-family-mono;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.brief__facts {
+		display: grid;
+		gap: $spacing-3;
+		margin: 0;
+
+		> div {
+			display: grid;
+			grid-template-columns: 110px minmax(0, 1fr);
+			gap: $spacing-4;
+
+			@media (max-width: 599px) {
+				grid-template-columns: 1fr;
+				gap: $spacing-1;
+			}
+		}
+
+		dt {
+			@include text-s;
+			font-family: $font-family-mono;
+			color: var(--color-text-secondary, #5b616e);
+		}
+
+		dd {
+			@include text-s;
+			margin: 0;
+			max-width: 80ch;
+		}
+
+		code {
+			font-family: $font-family-mono;
+			font-size: 0.92em;
+		}
+
+		em {
+			font-style: normal;
+			font-weight: $font-weight-medium;
+		}
+	}
+</style>
