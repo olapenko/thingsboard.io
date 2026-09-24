@@ -1,0 +1,485 @@
+---
+import '@fontsource/material-icons';
+
+/**
+ * A DRAFT of the sign-up card on `thingsboard.cloud/signup` with one thing added: a data-region
+ * switch. The card only — the feature list and the dashboard art the live page sets beside it are
+ * the product's marketing, not the form, and are left out.
+ *
+ * The page belongs to the product, not to this site, so this is a restatement for judging the
+ * addition in place rather than a component headed anywhere in `src/`. Every measure is the live
+ * card's, read on 2026-09-24: 528 wide with 24px padding on a `#00695c` ground at 8px; the 363×80 logo 16px
+ * down; "Sign up with" 40 below it at 20px; the three `#e0f2f1` provider buttons at 36px, 170 wide
+ * and shrinking to 149 to share the row, wrapping to a centred column on a phone; the OR rule at
+ * 38% white;
+ * outline fields 56px tall with a 48px icon box and a 22px subscript under each; the `#ff5722`
+ * submit at 36px with Material's 0.4375px tracking; "Already have an account?" 16 below. The
+ * provider marks are the page's own SVGs, inlined; the field icons are Material's, from the font
+ * the repo already carries. Roboto is not bundled here, so the draft loads it from Google Fonts —
+ * a `<link>` inside the root, where the phone frame's trim keeps it.
+ *
+ * WHERE THE SWITCH SITS. Between the logo and "Sign up with", before anything else in the card. The
+ * three provider buttons LEAVE the page — Google, GitHub and Apple each hand off and come back to
+ * whichever host started it — so the region has to be settled before any of them is pressed. Below
+ * the divider it would only govern the email path, and an account created through Google would land
+ * wherever the form happened to be served from. Two visible segments rather than a dropdown:
+ * Baymard's finding for small sets (fewer errors when every option is in view), and the shape
+ * PostHog and Sentry use for the same two-way choice. It is drawn in the card's own outline
+ * language — the 38% white rule, the 4px corner, the Material glyph — so it reads as part of the
+ * form rather than as a widget dropped onto it.
+ *
+ * PRESELECTION — no UI for it, by design. In the product, the checked segment is the HOST the form
+ * is served on: `thingsboard.cloud` checks North America, `eu.thingsboard.cloud` checks Europe. The
+ * host is what the website's CTA chose for the visitor by geography (edge: `CF-IPCountry`; client
+ * fallback: an `Intl` timezone under `Europe/`), so for most people the switch arrives already right
+ * and is never touched. Switching navigates to the other host's `/signup`, carrying the query string
+ * so `utm_*` and the like survive the hop — see the commented handler at the end. The draft itself
+ * only toggles: a handler that navigated would take the sandbox with it.
+ */
+interface Props {
+	/** The segment that arrives checked. Stands in for the host; see the note above. */
+	region?: 'us' | 'eu';
+}
+
+const { region = 'us' } = Astro.props;
+
+const REGIONS = [
+	{
+		id: 'us',
+		label: 'North America',
+		host: 'https://thingsboard.cloud/signup',
+		note: 'Your account and its data will live in the United States.',
+	},
+	{
+		id: 'eu',
+		label: 'Europe',
+		host: 'https://eu.thingsboard.cloud/signup',
+		note: 'Your account and its data will live in the European Union.',
+	},
+] as const;
+
+// The live page's marks, verbatim: Google's four-colour G, the GitHub cat in its `#211c19`, the
+// Apple mark in black. Each is drawn 20×20 in the button.
+const SOCIAL = [
+	{
+		name: 'Google',
+		svg: '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>',
+	},
+	{
+		name: 'Github',
+		svg: '<svg viewBox="0 0 32.7 32.7" aria-hidden="true"><path fill="#211c19" d="M16.3 0C7.3 0 0 7.3 0 16.3c0 7.2 4.7 13.3 11.1 15.5.8.1 1.1-.4 1.1-.8v-2.8c-4.5 1-5.5-2.2-5.5-2.2-.7-1.9-1.8-2.4-1.8-2.4-1.5-1 .1-1 .1-1 1.6.1 2.5 1.7 2.5 1.7 1.5 2.5 3.8 1.8 4.7 1.4.1-1.1.6-1.8 1-2.2-3.6-.4-7.4-1.8-7.4-8.1 0-1.8.6-3.2 1.7-4.4-.2-.4-.7-2.1.2-4.3 0 0 1.4-.4 4.5 1.7 1.3-.4 2.7-.5 4.1-.5s2.8.2 4.1.5c3.1-2.1 4.5-1.7 4.5-1.7.9 2.2.3 3.9.2 4.3 1 1.1 1.7 2.6 1.7 4.4 0 6.3-3.8 7.6-7.4 8 .6.5 1.1 1.5 1.1 3v4.5c0 .4.3.9 1.1.8 6.5-2.2 11.1-8.3 11.1-15.5C32.6 7.3 25.3 0 16.3 0z"/></svg>',
+	},
+	{
+		name: 'Apple',
+		svg: '<svg viewBox="0 0 256 315" aria-hidden="true"><path fill="#000" d="M213.803394,167.030943 C214.2452,214.609646 255.542482,230.442639 256,230.644727 C255.650812,231.761357 249.401383,253.208293 234.24263,275.361446 C221.138555,294.513969 207.538253,313.596333 186.113759,313.991545 C165.062051,314.379442 158.292752,301.507828 134.22469,301.507828 C110.163898,301.507828 102.642899,313.596301 82.7151126,314.379442 C62.0350407,315.16201 46.2873831,293.668525 33.0744079,274.586162 C6.07529317,235.552544 -14.5576169,164.286328 13.147166,116.18047 C26.9103111,92.2909053 51.5060917,77.1630356 78.2026125,76.7751096 C98.5099145,76.3877456 117.677594,90.4371851 130.091705,90.4371851 C142.497945,90.4371851 165.790755,73.5415029 190.277627,76.0228474 C200.528668,76.4495055 229.303509,80.1636878 247.780625,107.209389 C246.291825,108.132333 213.44635,127.253405 213.803394,167.030988 M174.239142,50.1987033 C185.218331,36.9088319 192.607958,18.4081019 190.591988,0 C174.766312,0.636050225 155.629514,10.5457909 144.278109,23.8283506 C134.10507,35.5906758 125.195775,54.4170275 127.599657,72.4607932 C145.239231,73.8255433 163.259413,63.4970262 174.239142,50.1987249"/></svg>',
+	},
+];
+---
+
+<div class="cs">
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" />
+
+	<form class="cs__card" onsubmit="return false" aria-label="Sign up for ThingsBoard Cloud">
+		<img
+			class="cs__logo"
+			src="https://static.thingsboard.cloud/assets/logo_title_white_cloud.svg"
+			alt="ThingsBoard Cloud"
+			width="363"
+			height="80"
+		/>
+
+		<fieldset class="region">
+			<legend class="region__legend">Data region</legend>
+			<div class="region__switch">
+				{
+					REGIONS.map((r) => (
+						<label class="region__opt">
+							<input type="radio" name="region" value={r.id} checked={r.id === region} data-host={r.host} />
+							<span class="material-icons" aria-hidden="true" set:text="cloud" />
+							<span>{r.label}</span>
+						</label>
+					))
+				}
+			</div>
+			{
+				/* One line under the switch that says what the choice means, and that it is for keeps.
+				   Sentry and Datadog both say so at this exact spot, because the account cannot be
+				   moved afterwards. Only the checked region's line shows, by `:has()` below. */
+			}
+			{
+				REGIONS.map((r) => (
+					<p class="region__note" data-for={r.id}>
+						{r.note} This can’t be changed once the account exists.
+					</p>
+				))
+			}
+		</fieldset>
+
+		<p class="cs__with">Sign up with</p>
+		<div class="cs__social">
+			{
+				SOCIAL.map((s) => (
+					<a class="cs__provider" href="#" onclick="return false">
+						<span class="cs__mark" set:html={s.svg} />
+						<span>{s.name}</span>
+					</a>
+				))
+			}
+		</div>
+
+		<div class="cs__or" role="separator" aria-label="or"><span>OR</span></div>
+
+		<label class="cs__field">
+			<span class="material-icons" aria-hidden="true">email</span>
+			<input type="email" name="email" placeholder="Email*" autocomplete="email" />
+		</label>
+		<label class="cs__field">
+			<span class="material-icons" aria-hidden="true">lock</span>
+			<input type="password" name="password" placeholder="Create a password*" autocomplete="new-password" />
+			<span class="material-icons cs__eye" aria-hidden="true">visibility_off</span>
+		</label>
+
+		<p class="cs__terms">
+			By selecting Sign up, I agree to the <a href="#" onclick="return false">Terms of Use</a> and acknowledge the
+			<a href="#" onclick="return false">Privacy Policy</a>
+		</p>
+
+		<button type="submit" class="cs__submit">Sign up</button>
+
+		<p class="cs__already">Already have an account? <a href="#" onclick="return false">Sign in</a></p>
+	</form>
+</div>
+
+{
+	/* The handler the product would ship, kept out of the draft on purpose:
+
+	   document.querySelectorAll('input[name="region"]').forEach((r) =>
+	     r.addEventListener('change', () => {
+	       if (r.checked) location.href = r.dataset.host + location.search;
+	     })
+	   );
+
+	   The other host's form arrives with ITS region checked, so the switch reads the same on both
+	   sides of the hop. */
+}
+
+<style lang="scss">
+	// The product's ground, type and measure — none of them this site's, so nothing here reads the
+	// tokens.
+	.cs {
+		padding: 40px 16px 56px;
+		background: #eee;
+		font-family: Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+		line-height: 1.5;
+		-webkit-font-smoothing: antialiased;
+
+		// `:where()` so the reset sits under the class rules below: `.cs p` would outrank `.cs__terms`
+		// and swallow every margin the card sets.
+		:where(p) {
+			margin: 0;
+		}
+
+		// Material's glyph font, sized as the card's `mat-icon`s are. `@fontsource/material-icons`
+		// ships the face alone; the class that turns a word into its glyph is the consumer's, so
+		// these are Google's own rules for it.
+		.material-icons {
+			display: inline-block;
+			font-family: 'Material Icons';
+			font-weight: normal;
+			font-style: normal;
+			font-size: 24px;
+			line-height: 1;
+			letter-spacing: normal;
+			text-transform: none;
+			white-space: nowrap;
+			word-wrap: normal;
+			direction: ltr;
+			font-feature-settings: 'liga';
+			-webkit-font-smoothing: antialiased;
+			user-select: none;
+		}
+	}
+
+	// 528 wide, as the desktop layout sets it beside the feature column; the 692 seen on a tablet is
+	// the stacked layout letting it grow, not the card's own measure. It only fills on a phone.
+	.cs__card {
+		width: 528px;
+		max-width: 100%;
+		margin: 0 auto;
+		padding: 24px;
+		border-radius: 8px;
+		background: #00695c;
+		color: #fff;
+	}
+
+	.cs__logo {
+		display: block;
+		width: 363px;
+		max-width: 100%;
+		height: auto;
+		margin: 16px auto 0;
+	}
+
+	// ---- The addition ----------------------------------------------------------------------
+	// Between the logo and "Sign up with". The card's outline language: a 38% white rule at 4px
+	// around two segments; the checked one takes the card's white with the green for its text.
+	.region {
+		margin: 24px 0 0;
+		padding: 0;
+		border: 0;
+		min-width: 0;
+	}
+
+	.region__legend {
+		padding: 0;
+		margin-bottom: 8px;
+		font-size: 14px;
+		letter-spacing: 0.25px;
+		color: rgba(255, 255, 255, 0.7);
+	}
+
+	.region__switch {
+		display: flex;
+		gap: 3px;
+		padding: 3px;
+		border: 1px solid rgba(255, 255, 255, 0.38);
+		border-radius: 4px;
+	}
+
+	.region__opt {
+		position: relative;
+		flex: 1 1 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		height: 36px;
+		border-radius: 3px;
+		font-size: 14px;
+		font-weight: 500;
+		letter-spacing: 0.4375px;
+		color: rgba(255, 255, 255, 0.87);
+		cursor: pointer;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		.material-icons {
+			font-size: 18px;
+		}
+
+		input {
+			position: absolute;
+			inset: 0;
+			margin: 0;
+			opacity: 0;
+			cursor: pointer;
+		}
+
+		&:hover {
+			background: rgba(255, 255, 255, 0.08);
+		}
+
+		&:has(input:checked) {
+			background: #fff;
+			color: #00695c;
+		}
+
+		&:has(input:focus-visible) {
+			outline: 2px solid #fff;
+			outline-offset: 2px;
+		}
+	}
+
+	.region__note {
+		display: none;
+		margin-top: 6px;
+		font-size: 12px;
+		line-height: 16px;
+		color: rgba(255, 255, 255, 0.7);
+	}
+
+	.region:has(input[value='us']:checked) .region__note[data-for='us'],
+	.region:has(input[value='eu']:checked) .region__note[data-for='eu'] {
+		display: block;
+	}
+
+	// ---- The card as it ships ------------------------------------------------------------------
+	.cs__with {
+		margin-top: 32px;
+		font-size: 20px;
+		line-height: 24px;
+		text-align: center;
+	}
+
+	// Three sharing the row on the desktop card (149 each in 480); a centred column of 170s on a
+	// phone — the live behaviour. Not `flex-wrap`: with it the buttons wrap before they shrink, and
+	// the 528 card came out as two and one.
+	.cs__social {
+		display: flex;
+		justify-content: center;
+		gap: 16px;
+		margin-top: 32px;
+
+		@media (max-width: 599px) {
+			flex-direction: column;
+			align-items: center;
+		}
+	}
+
+	.cs__provider {
+		flex: 1 1 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		height: 36px;
+		padding: 0 6px;
+		border: 1px solid rgba(0, 0, 0, 0.12);
+		border-radius: 4px;
+		background: #e0f2f1;
+		color: rgba(0, 0, 0, 0.87);
+		font-size: 14px;
+		font-weight: 500;
+		letter-spacing: 0.4375px;
+		text-decoration: none;
+
+		@media (max-width: 599px) {
+			flex: none;
+			width: 170px;
+		}
+
+		&:hover {
+			background: #d0ebe9;
+		}
+	}
+
+	.cs__mark {
+		display: inline-flex;
+		flex: none;
+		width: 20px;
+		height: 20px;
+
+		:global(svg) {
+			width: 100%;
+			height: 100%;
+		}
+	}
+
+	.cs__or {
+		display: flex;
+		align-items: center;
+		height: 24px;
+		margin-top: 16px;
+		font-size: 16px;
+
+		span {
+			padding: 0 8px;
+		}
+
+		&::before,
+		&::after {
+			content: '';
+			flex: 1;
+			border-top: 1px solid rgba(255, 255, 255, 0.38);
+		}
+	}
+
+	// Material's outline field: 56px inside a 38% white rule at 4px, a 48px box for the leading
+	// glyph, text from 52px in, and 22px of subscript under each for the hint or error the live
+	// form can show there. Focus thickens the rule to 2px without moving anything.
+	.cs__field {
+		display: flex;
+		align-items: center;
+		height: 56px;
+		margin-bottom: 22px;
+		border: 1px solid rgba(255, 255, 255, 0.38);
+		border-radius: 4px;
+		cursor: text;
+
+		.material-icons {
+			flex: none;
+			width: 48px;
+			text-align: center;
+			color: #fff;
+		}
+
+		input {
+			flex: 1;
+			min-width: 0;
+			height: 100%;
+			margin-left: 4px;
+			border: 0;
+			background: none;
+			color: #fff;
+			font: inherit;
+			font-size: 16px;
+			outline: none;
+
+			&::placeholder {
+				color: rgba(255, 255, 255, 0.7);
+			}
+		}
+
+		&:focus-within {
+			border-color: #fff;
+			box-shadow: inset 0 0 0 1px #fff;
+		}
+	}
+
+	.cs__or + .cs__field {
+		margin-top: 16px;
+	}
+
+	.cs__eye {
+		cursor: pointer;
+	}
+
+	.cs__terms {
+		margin-bottom: 36px;
+		font-size: 16px;
+		line-height: 24px;
+
+		a {
+			color: #82b1ff;
+			text-decoration: underline;
+		}
+	}
+
+	.cs__submit {
+		width: 100%;
+		height: 36px;
+		border: 0;
+		border-radius: 4px;
+		background: #ff5722;
+		color: #fff;
+		font: inherit;
+		font-size: 14px;
+		font-weight: 500;
+		letter-spacing: 0.4375px;
+		cursor: pointer;
+
+		&:hover {
+			background: #f4511e;
+		}
+	}
+
+	.cs__already {
+		margin-top: 16px;
+		font-size: 14px;
+		line-height: 18px;
+
+		a {
+			margin-left: 8px;
+			color: #fff;
+			font-weight: 500;
+			text-decoration: none;
+
+			&:hover {
+				text-decoration: underline;
+			}
+		}
+	}
+</style>

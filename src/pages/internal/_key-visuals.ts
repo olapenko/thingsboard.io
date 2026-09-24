@@ -168,6 +168,16 @@ export const KEY_VISUALS: KeyVisual[] = [
 		label: 'CLI',
 		check: true,
 	},
+	{
+		// The "Try for free" FUNNEL rather than a section: what the CTA opens, and a draft of the
+		// Cloud sign-up page it lands on. A check, so the hub lists it apart from the sections — it is
+		// never headed for a row; what it decides is where the primary button goes.
+		id: 'try-for-free',
+		label: 'Try for free',
+		title: 'Try for free — the sign-up funnel',
+		check: true,
+		badge: { icon: 'tabler:cloud-filled', color: '#3d50f5' },
+	},
 ];
 
 /** The visuals that are on the homepage, in page order. */
