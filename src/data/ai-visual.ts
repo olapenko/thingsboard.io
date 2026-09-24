@@ -1,4 +1,5 @@
 import type { CliStep } from '@models/cli-terminal';
+import type { AgentStep } from '@models/agent-terminal';
 
 import { CONNECT_COPY } from './connect-visual';
 import { DIGITAL_TWIN_COPY } from './digital-twin-visual';
@@ -108,6 +109,10 @@ export interface AiColumn {
 export const AI_COLUMNS: { assistant: AiColumn; cli: AiColumn } = {
 	assistant: {
 		eyebrow: 'From a prompt',
+		// The switch names WHO does the work (2026-09-24, promoted with the agent terminal); the eyebrow
+		// stays for the `bands` layout.
+		switchLabel: 'Ask the Assistant',
+		switchShort: 'Assistant',
 		title: 'AI assistants built into the platform',
 		body: 'A unified AI layer that helps you build every part of your IoT solution through natural language — from a full prototype (AI Solution Creator) to individual dashboards, rules, and calculated fields.',
 		accent: '#0d7a5f',
@@ -115,6 +120,8 @@ export const AI_COLUMNS: { assistant: AiColumn; cli: AiColumn } = {
 	},
 	cli: {
 		eyebrow: 'From your terminal',
+		switchLabel: 'Brief your agent',
+		switchShort: 'Agent',
 		title: 'ThingsBoard CLI for AI coding agents',
 		body: 'Develop your IoT solution from your terminal. Integrate with AI coding agents to build, test, and deploy ThingsBoard as code.',
 		accent: '#7c5cf0',
@@ -290,6 +297,103 @@ export const AI_CLI_SESSION: CliStep[] = [
 /** What the terminal is doing, for the `role="img"` label — it is a picture, not a live console. */
 export const AI_CLI_LABEL =
 	'A ThingsBoard CLI session: creating a cold-chain solution, saving a calculated field, validating, and pushing it to production.';
+
+/**
+ * THE TERMINAL RUNS A CODING AGENT, not a shell — THE HOMEPAGE since 2026-09-24; `AI_CLI_SESSION` above
+ * is the shell session it replaced, kept for `terminal="cli"` and the cards page.
+ *
+ * The transcript is the real one from Slack, lightly trimmed. A tighter cut was tried on 2026-09-24
+ * (items under one line each, a three-word question) and REVERTED as too minimal — the wrapped
+ * items are part of how an agent's answer reads: a request in plain English, the agent
+ * calling `update-solution`, its answer in prose with a list of what changed, and the person handing
+ * it a `tb push`. NO AGENT IS NAMED, anywhere — the window is recognisably an agent's transcript by
+ * its SHAPE (a `>` prompt, `●` turns, prose that wraps, streamed words) and not by a logo.
+ *
+ * Added to the Slack transcript: the nested results (`⎿`) under the two tool calls — the skill's
+ * summary, and the push seen to land, or the loop would end on a command with no answer. The agent
+ * runs the handed-over push as `Bash(…)`, which is how a coding agent does run it. Results are
+ * illustrative, as the CLI window's counts are.
+ *
+ * SIZE. The CLI window fitted nine short lines with no scroll; this is ~15 rows of wrapped prose and
+ * the log SCROLLS, following its newest turn, with the input docked under it. The type stays at the
+ * CLI window's 18px. Lines can be any length; a longer one only scrolls sooner.
+ */
+export const AI_AGENT_SESSION: AgentStep[] = [
+	/**
+	 * The CLI's launch banner, as pasted from the real thing (2026-09-24): the mark, the version, the
+	 * profile it is pointed at, and the agent it found. The real banner names the agent; here it says
+	 * "Coding agent" — nominative use would be lawful, but naming one tool under a transcript that
+	 * mimics it reads as an endorsement, and the section's argument is any agent (decided 2026-09-24).
+	 */
+	{
+		role: 'banner',
+		art: [' _   _', '| |_| |__', "|  _| '_ \\", ' \\__|_.__/'],
+		lines: [
+			[],
+			[
+				{ t: 'brand', v: 'ThingsBoard CLI ' },
+				{ t: 'dim', v: '4.3.1.5' },
+			],
+			[
+				{ t: 'ok', v: '\u2713 ' },
+				{ t: 'text', v: 'profile ' },
+				{ t: 'arg', v: 'dev' },
+				{ t: 'dim', v: ' \u203a thingsboard.cloud' },
+			],
+			[
+				{ t: 'ok', v: '\u2713 ' },
+				{ t: 'text', v: 'Coding agent detected' },
+			],
+		],
+	},
+	{
+		role: 'user',
+		text: 'Each freezer in my stores needs its own alarm limit. Let me set it from the dashboard.',
+	},
+	/** Both results are `ok`: what a tool returned is dim while it runs and green once it succeeded — one rule, twice. */
+	{ role: 'tool', text: 'Skill(update-solution)', spin: 1600, result: 'attribute, alarm rule and dashboard updated', ok: true },
+	{
+		role: 'agent',
+		text: 'Done. Each freezer now has its own temperature threshold:',
+		items: [
+			'New attribute temperatureThreshold, set to -15 °C on all freezers',
+			'Freezer Too Warm alarm now reads each freezer’s own threshold',
+			'Dashboard: the freezer view has a Temperature Threshold card to set it per freezer',
+		],
+		/** The agent hands the next step back as a question; the console then offers the command for it. */
+		tail: 'Want me to push this to dev?',
+	},
+	/**
+	 * SUGGESTED, not typed: once the change is made, the push is the obvious next step, so the console
+	 * offers it as ghost text and the person takes it with Tab. Typing it out was theatre — and it is
+	 * the one thing in the window that shows the console knows what comes next.
+	 */
+	{
+		role: 'user',
+		suggested: true,
+		cmd: [
+			{ t: 'cmd', v: 'tb push ' },
+			{ t: 'arg', v: 'smart-retail ' },
+			{ t: 'flag', v: '--profile ' },
+			{ t: 'arg', v: 'dev' },
+		],
+	},
+	/** The agent runs the command it was handed, and the result nests under the call. */
+	{
+		role: 'tool',
+		text: 'Bash(tb push smart-retail --profile dev)',
+		// 2.6s: a push of nine entities takes a few seconds; 1.5 read as instant.
+		spin: 2600,
+		result: 'smart-retail deployed → dev · 9 entities',
+		ok: true,
+	},
+	/** The loop ends on the console holding out a reply — shown as a suggestion, never sent. */
+	{ role: 'user', suggested: true, pending: true, text: 'Easy!' },
+];
+
+/** What the terminal is doing, for the `role="img"` label — it is a picture, not a live console. */
+export const AI_AGENT_LABEL =
+	'A coding agent in a terminal: asked in plain English to give each freezer its own alarm limit, it updates the solution, lists what changed, and the smart-retail solution is pushed to the dev profile.';
 
 /**
  * The hues the section's mark cycles through: every OTHER section's badge colour on this page.

@@ -2,19 +2,26 @@
 import SectionHeader from './SectionHeader.astro';
 import AiAssistant from './AiAssistant.astro';
 import CliTerminal from './CliTerminal.astro';
+import AgentTerminal from './AgentTerminal.astro';
 import SegmentedToggle from './SegmentedToggle.astro';
 import AiHandoff from './AiHandoff.astro';
 import {
 	AI_COPY,
 	AI_COLUMNS,
 	AI_COLUMNS_VALUE,
+	AI_AGENT_SESSION,
+	AI_AGENT_LABEL,
+	AI_BADGE_CYCLE,
 	AI_CLI_SESSION,
 	AI_CLI_LABEL,
-	AI_BADGE_CYCLE,
 } from '@data/ai-visual';
 import type { AiColumn } from '@data/ai-visual';
 
 /**
+ * PROMOTED 2026-09-24: the terminal runs a CODING AGENT (`AgentTerminal`) by default — judged as
+ * `AiSectionNext`, a full copy, at `/internal/sections/ai/` and folded back in here. The shell
+ * session it replaced stays reachable as `terminal="cli"`, the sandbox's reference and the way back.
+ *
  * "Build IoT solutions faster than ever with AI inside ThingsBoard" — two routes into the platform,
  * a prompt and a terminal, each shown as a working window.
  *
@@ -112,9 +119,17 @@ interface Props {
 	 * that hue's wash, and a wash moving through five other colours would leave it on the wrong one.
 	 */
 	wash?: 'route' | 'cycle';
+	/**
+	 * What the second window is. `agent` — THE HOMEPAGE since 2026-09-24: a coding-agent console, the
+	 * transcript in `AI_AGENT_SESSION`, a whole window centred in a symmetric band. `cli` — the shell
+	 * session it replaced (`AI_CLI_SESSION` in `CliTerminal`), docked to the band's base and cut there;
+	 * every `cli` rule below is scoped under `:where(.ai--cli)` at the same specificity as the rule it
+	 * overrides, so the stacked-layout overrides still win over both.
+	 */
+	terminal?: 'agent' | 'cli';
 }
 
-const { animate = true, layout = 'toggle', copy = 'shipping', wash = 'route' } = Astro.props;
+const { animate = true, layout = 'toggle', copy = 'shipping', wash = 'route', terminal = 'agent' } = Astro.props;
 const toggle = layout === 'toggle';
 const washCycle = toggle && wash === 'cycle';
 const COLS = copy === 'value' ? AI_COLUMNS_VALUE : AI_COLUMNS;
@@ -131,13 +146,13 @@ const kicker = (col: AiColumn) => (toggle ? col.kicker : (col.kicker ?? col.eyeb
  * props rather than drawn at random, so a build is the same every time — no two directions on the
  * sandbox page share all three.
  */
-const uid = `${layout}-${copy}-${wash}`;
+const uid = `${layout}-${copy}-${wash}${terminal === 'cli' ? '-cli' : ''}`;
 const PANELS = { assistant: `ai-${uid}-prompt`, cli: `ai-${uid}-cli` };
 
 /**
  * The section's own id, by the same rule. The default configuration — the one the homepage renders —
  * keeps `ai`, which the homepage's `/#ai` anchor and its scroll margin answer to; every other
- * configuration is suffixed, so the sandbox's stack of directions is not four elements sharing one
+ * configuration is suffixed, so the sandbox's stack of directions is not several elements sharing one
  * id, with `#ai` resolving to whichever came first.
  */
 const sectionId = uid === 'toggle-shipping-route' ? 'ai' : `ai-${uid}`;
@@ -164,7 +179,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 
 <section
 	id={sectionId}
-	class:list={['ai', toggle && 'ai--toggle', washCycle && 'ai--wash-cycle']}
+	class:list={['ai', toggle && 'ai--toggle', washCycle && 'ai--wash-cycle', terminal === 'cli' && 'ai--cli']}
 	style={sectionStyle}
 	data-animate={animate ? 'on' : null}
 >
@@ -237,11 +252,17 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 			<div class="ai__row ai__row--flip">
 				<div class="ai__media">
 					{
-						/* `CliTerminal` reads `--accent` for its prompt and caret, so the row's hue reaches
+						/* `AgentTerminal` reads `--accent` for its prompt and its tool dot, so the row's hue reaches
 						   inside the terminal without this section knowing anything about its internals. */
 					}
 					<div class="ai__cli">
-						<CliTerminal session={AI_CLI_SESSION} path="cold-chain" ariaLabel={AI_CLI_LABEL} />
+						{
+							terminal === 'cli' ? (
+								<CliTerminal session={AI_CLI_SESSION} path="cold-chain" ariaLabel={AI_CLI_LABEL} />
+							) : (
+								<AgentTerminal session={AI_AGENT_SESSION} path="smart-retail" ariaLabel={AI_AGENT_LABEL} />
+							)
+						}
 					</div>
 				</div>
 
@@ -498,16 +519,43 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		}
 	}
 
+	// THE TERMINAL NO LONGER DOCKS (2026-09-24). Its band kept the dock's one-sided padding after the
+	// window stopped running past the edge, so a whole window sat low in a band padded only above it.
+	// The band's 64 now splits 32/32, the window centres in the row, and the copy needs no offset — the
+	// band's height is unchanged (32 + 350 + 32 = 64 + 350), so the two routes still match and the
+	// hand-off never moves the page. The class name stays: it is what the hand-off and the stacked
+	// rules below select on.
 	.ai__band--dock-bottom {
-		justify-content: flex-end;
-		padding-bottom: 0;
+		justify-content: center;
+		padding-top: math.div($band-pad, 2);
+		padding-bottom: math.div($band-pad, 2);
 
 		.ai__media {
-			align-self: flex-end;
+			align-self: center;
+			// No crop any more: the box only places the window, and the shadow paints past it.
+			overflow: visible;
 		}
 
 		.ai__copy {
 			position: relative;
+			top: 0;
+		}
+	}
+
+	// `terminal="cli"`: the dock the shell window had — one-sided padding, the window flush with the
+	// band's base and cut by it, the copy offset to the band's centre. `:where()` keeps this at the
+	// symmetric rule's specificity, so the stacked overrides below still beat it.
+	:where(.ai--cli) .ai__band--dock-bottom {
+		justify-content: flex-end;
+		padding-top: $band-pad;
+		padding-bottom: 0;
+
+		.ai__media {
+			align-self: flex-end;
+			overflow: hidden;
+		}
+
+		.ai__copy {
 			top: -(math.div($band-pad, 2));
 		}
 	}
@@ -736,7 +784,9 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 	// 350 − 20 (offset) − 41 (title bar) = 289px tall.
 	.ai__cli {
 		position: absolute;
-		top: 20px;
+		// Centred in the 350 box: (350 − 316) / 2. It was 20, the dock's offset for a window that ran
+		// past the box's far edge.
+		top: 17px;
 		right: 0;
 		left: 0;
 		margin: 0 auto;
@@ -752,10 +802,22 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		max-width: 500px;
 	}
 
-	.ai__cli :global(.cli) {
+	.ai__cli :global(.agent) {
 		display: flex;
 		flex-direction: column;
-		height: 354px;
+		// 318, NOT 354 (2026-09-24). The CLI window overhung the 350 box by 24 and was CUT at the band's
+		// edge — its live end was the top. The agent console's live end is its BOTTOM: the docked input
+		// and the status line under it, which have to be seen. So the window now ends inside the crop,
+		// 12px above the box's edge, with its shadow: 350 − 20 (offset) − 12. The composition changes
+		// with it — a whole window standing on the band rather than one running past it — and that is
+		// the trade to judge.
+		//
+		// 316 (2026-09-24): sized so the log shows NINE WHOLE LINES when scrolled to its end. At 18px
+		// on a 1.3 leading a line is 23.4; the bar is 38.2 (its label's line box is pinned, see
+		// `.agent__path` below) and the composer 44.2 (9 + 23.4 + 10.8 + 1), so 316 leaves the log
+		// 233.6, and less the one-line foot that is 210.2 = 9 x 23.4 − 0.4. Re-derive if the leading,
+		// the type size, the composer's padding or the bar changes.
+		height: 316px;
 		// CUT TO FIT THE CROP. The component's own `0 12px 32px` is right for a terminal standing in a
 		// card, and wrong inside a box that clips it: a 32px blur paints 32px past the frame and the crop
 		// leaves 21, so the outer third of the shadow ended on a straight vertical line down both sides,
@@ -771,7 +833,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		border-radius: 10px;
 	}
 
-	.ai__cli :global(.cli__scroll) {
+	.ai__cli :global(.agent__scroll) {
 		flex: 1 1 auto;
 		min-height: 0;
 	}
@@ -798,7 +860,88 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 	//
 	// Height is the binding bound; the width has room to spare. Re-measure both if a command gets
 	// longer, a step is added, or the crop offsets change.
-	.ai__cli :global(.cli__body) {
+	.ai__cli :global(.agent) {
+		// The log, the state line and the input inherit from the root — see `AgentTerminal`.
+		// 1.3 (2026-09-24), down from the CLI window's 1.4. That window needed the air because its output
+		// lines read as attached to the command above them; here the transcript's turns carry a blank
+		// line of their own, so the leading can close up and wrapped prose reads as a paragraph. Set as
+		// the window's grid variable, not `line-height`: every gap in the window is derived from it.
+		--agent-lead: 1.3;
+
+		// NOT a container query. `min(18px, calc((100cqw - 32px) / 25.15))` off a
+		// `container-type: inline-size` on the wrapper is the obvious way to tie the type to the
+		// terminal's own width, and it does not work here: inline-size containment on a flex item
+		// collapsed the width it was meant to measure, and all nine rows wrapped to three lines each.
+		// A breakpoint below.
+		//
+		// BACK AT 18 (2026-09-24, second pass). The agent transcript first came down to 15 to fit the
+		// crop with no scroll; the decision since is that the log SCROLLS — it is a transcript, and the
+		// newest turn is what matters — so the type returns to the CLI window's size, parity with the
+		// chat's body.
+		font-size: 18px;
+	}
+
+	// 15 under an 18px log (2026-09-24, from 14): the title is the window's name, not a caption. The
+	// LINE HEIGHT IS PINNED to the 14px label's line box (14 x 1.3), so the bar keeps its 38.2 and only
+	// the type grows — left to the leading, a bigger label made the bar taller, which was not wanted.
+	.ai__cli :global(.agent__path) {
+		font-size: 16px;
+		line-height: 18.2px;
+	}
+
+	// ── `terminal="cli"`: the shell window's own geometry ──────────────────
+	// The offset and the rules the CLI window shipped with, kept for the sandbox reference.
+	:where(.ai--cli) .ai__cli {
+		top: 20px;
+	}
+
+	:where(.ai--cli) .ai__cli :global(.cli) {
+		display: flex;
+		flex-direction: column;
+		height: 354px;
+		// CUT TO FIT THE CROP. The component's own `0 12px 32px` is right for a terminal standing in a
+		// card, and wrong inside a box that clips it: a 32px blur paints 32px past the frame and the crop
+		// leaves 21, so the outer third of the shadow ended on a straight vertical line down both sides,
+		// and the 20px above the window was exactly the reach of the top edge. 18px of blur fits both
+		// with room to spare; the alpha comes up a little so it does not read as weaker for being
+		// tighter. The BOTTOM is cut either way — that cut is the composition.
+		box-shadow:
+			0 1px 0 rgba(255, 255, 255, 0.06) inset,
+			0 8px 18px rgba(0, 0, 0, 0.3);
+		// Matched to the chat's rendered corner rather than to its authored one: the chat is scaled
+		// 1.2, so its 8px becomes 9.6 on the page. Overridden here rather than in `CliTerminal`, whose
+		// own 6px is right for the cards it sits in elsewhere.
+		border-radius: 10px;
+	}
+
+	:where(.ai--cli) .ai__cli :global(.cli__scroll) {
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	// 18/1.3, against the component's 12.5/1.9. That ratio is built for a still being read at rest; a
+	// session being typed wants the lines closer together, so the log reads as one block of output
+	// rather than a list, and much larger so the command is legible across the row.
+	//
+	// THE SIZE IS DERIVED, NOT CHOSEN, because the session has to fit with NO SCROLL — a log that
+	// scrolls hides the command that opened it. Both bounds were measured in the browser rather than
+	// estimated:
+	//
+	//   down   16 top + 9 rows x 22.5 + 8 bottom = 227 against 288px of visible log   → 61px spare
+	//   across the longest line is `tb calculated-field save --name mean-cargo-temp` at 47 characters;
+	//          this mono font advances 0.5em per character, so with the 1.65em gutter that is 25.15em
+	//          = 453px against 468px of content width                                 → 15px spare
+	//
+	// 218 IS THE NUMBER THAT MATTERS and it is not the log's own height. The window is 284 tall and
+	// hangs 24px past the media box that crops it, so `body.clientHeight` reports 242 while only 218
+	// is ever seen. Sizing against 242 fit the log on paper and dropped its last line into the cut —
+	// `scrollHeight <= clientHeight` is not the test here; the media's bottom edge is.
+	//
+	//   visible log = 350 (media) − 20 (the window’s top offset) − 41 (title bar) = 289
+	//
+	// Height is the binding bound; the width has room to spare. Re-measure both if a command gets
+	// longer, a step is added, or the crop offsets change.
+	:where(.ai--cli) .ai__cli :global(.cli__body) {
 		max-height: 100%;
 		height: 100%;
 		padding-bottom: 8px;
@@ -817,7 +960,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 	}
 
 	// The title bar was left at the component's 11px and read as a caption under an 18px log.
-	.ai__cli :global(.cli__path) {
+	:where(.ai--cli) .ai__cli :global(.cli__path) {
 		font-size: 14px;
 	}
 
@@ -1000,8 +1143,15 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		// line; 234 leaves 21 at 375 (49 at 320), so the session still ends clear of the cut with no
 		// scroll. The chat keeps 250 — its crop is sized to take the `New chat` bar with it.
 		.ai__band--dock-bottom .ai__media {
+			// 240 (2026-09-24), from 234: room for a window that shows nine whole lines (217, below),
+			// centred. Still under the chat's 250. The box does not crop, so the shadow is not its concern.
+			height: 240px;
+		}
+
+		:where(.ai--cli) .ai__band--dock-bottom .ai__media {
 			height: 234px;
 		}
+
 
 		// The terminal keeps its offset and its bleed past the cut:
 		//
@@ -1012,12 +1162,48 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		// the terminal simply took whatever the cell offered and ran 135px wider than the chat above it
 		// from about 405px of viewport up. 365 still holds the longest line at 11.5px with 44px spare.
 		.ai__cli {
+			// Centred in the 240 box: (240 − 217) / 2. The box no longer crops, so the shadow shows whole.
+			top: 11.5px;
+			width: calc(100% - 40px);
+			max-width: 365px;
+		}
+
+		.ai__cli :global(.agent) {
+			--agent-lead: 1.4;
+
+			font-size: 11.5px;
+		}
+
+		// The title bar comes down with the log, and it is the only part of the window that would not
+		// have. Everything else in here is sized off the log's font; the bar is drawn in absolute
+		// pixels, so at 11.5px type the stock 10px dots sat at 0.87 of the body where they sit at 0.56
+		// at full size — the window controls had become the largest objects in the terminal. 0.65 puts
+		// them back on that ratio, and the bar gives up 9px of height on the way, which the log takes.
+		.ai__cli :global(.agent) {
+			--agent-chrome: 0.65;
+
+			// NINE WHOLE LINES, as at full size: at 11.5px on a 1.4 leading a line is 16.1; the bar is
+			// 26.3 (label pinned) and the composer 29.75, so 217 leaves the log 161 = 9 lines + the
+			// one-line foot. Inside the 240 box with 8px for the shadow: 240 − 14 − 8 − 1.
+			height: 217px;
+		}
+
+		// 9.5px holds the bar's own ratio to the log (14:18 at full size) rather than nearly matching
+		// it at 11, which is what made the path read as a line of the session rather than as chrome.
+		// Pinned likewise to the 9.5px label's box (9.5 x 1.4), so the bar keeps its 26.3.
+		.ai__cli :global(.agent__path) {
+			font-size: 11.5px;
+			line-height: 13.3px;
+		}
+
+		// `terminal="cli"`, as it shipped.
+		:where(.ai--cli) .ai__cli {
 			top: 14px;
 			width: calc(100% - 40px);
 			max-width: 365px;
 		}
 
-		.ai__cli :global(.cli__body) {
+		:where(.ai--cli) .ai__cli :global(.cli__body) {
 			font-size: 11.5px;
 			line-height: 1.5;
 		}
@@ -1027,7 +1213,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 		// pixels, so at 11.5px type the stock 10px dots sat at 0.87 of the body where they sit at 0.56
 		// at full size — the window controls had become the largest objects in the terminal. 0.65 puts
 		// them back on that ratio, and the bar gives up 9px of height on the way, which the log takes.
-		.ai__cli :global(.cli) {
+		:where(.ai--cli) .ai__cli :global(.cli) {
 			--cli-chrome: 0.65;
 
 			height: 236px;
@@ -1035,7 +1221,7 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 
 		// 9.5px holds the bar's own ratio to the log (14:18 at full size) rather than nearly matching
 		// it at 11, which is what made the path read as a line of the session rather than as chrome.
-		.ai__cli :global(.cli__path) {
+		:where(.ai--cli) .ai__cli :global(.cli__path) {
 			font-size: 9.5px;
 		}
 	}
@@ -1045,11 +1231,19 @@ const sectionStyle = washCycle ? `${badgeHues}; --ai-hue-0: ${AI_COPY.badge.colo
 	// and a wrapped command is the one thing this window is here to show not happening. 9.5px needs
 	// 239, which clears it.
 	@media (max-width: 374px) {
-		.ai__cli :global(.cli__body) {
+		.ai__cli :global(.agent) {
 			font-size: 9.5px;
 		}
 
-		.ai__cli :global(.cli__path) {
+		.ai__cli :global(.agent__path) {
+			font-size: 8.5px;
+		}
+
+		:where(.ai--cli) .ai__cli :global(.cli__body) {
+			font-size: 9.5px;
+		}
+
+		:where(.ai--cli) .ai__cli :global(.cli__path) {
 			font-size: 8.5px;
 		}
 	}
