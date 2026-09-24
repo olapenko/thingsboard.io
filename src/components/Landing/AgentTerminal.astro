@@ -1,0 +1,995 @@
+---
+import type { AgentStep } from '@models/agent-terminal';
+
+/**
+ * A terminal running a CODING AGENT, not a shell: the person types a request in plain English, the
+ * agent calls a tool, works, and answers in prose — and the person can still hand it a `tb` command.
+ *
+ * Made 2026-09-24 for `AiSectionNext`, as a component of its own beside `CliTerminal` rather than a
+ * mode on it. It keeps the CLI window's chrome — the dark surface, the three dots, the title bar, the
+ * typed caret — so the two windows are recognisably one family, and under the
+ * bar it is the shape of an agent's console:
+ *
+ * - THE LOG SCROLLS and follows its newest line. A transcript is longer than a shell log, and the
+ *   newest turn is what matters, so the history runs off the top — the way an agent's session does.
+ * - THE INPUT IS DOCKED AT THE BOTTOM: a `❯` line the person types into, ruled off from the log. The
+ *   prompt is echoed into the log when it is sent. A turn marked `suggested` is not typed: the console
+ *   offers it as GHOST TEXT after the caret and it is accepted whole, as Tab does.
+ * - `✻ Thinking…` IS A LINE OF THE OUTPUT, always the last one while a turn is in flight — the
+ *   glyph spinning the CLI's own braille spinner. When the turn is done it SETTLES into `⠿ Done in
+ *   4s`, dim, with the turn's real duration, and stays in the transcript as a console leaves it.
+ *   It sits in the log, not in the chrome, because that is where an agent's console prints it.
+ * - Rows are a gutter column plus a text column that WRAPS, every turn gets air above it, a tool's
+ *   result nests under its call behind a `⎿`, and the agent's own lines stream in word by word.
+ * - NO SCROLLBAR, native or drawn. The log is a picture being played, not a pane to be scrolled.
+ *
+ * NO AGENT IS NAMED. Nothing here says whose model is running; the title bar says what it is for.
+ *
+ * ⚠ Its root class is `agent`, NOT `cli`, and that is load-bearing: `CliTerminal`'s script walks
+ * every `.cli` in the document, and a second player on this window would type over the first.
+ * Everything inside is `agent__*` for the same reason.
+ *
+ * Session mode only. The log is server-rendered in its FINISHED state as the poster — what a reader
+ * sees before the window is scrolled to, what survives without the script, and what reduced motion
+ * keeps — and the player clears it the moment it starts.
+ */
+
+interface Props {
+	session: AgentStep[];
+	/** Shown in the title bar, before the em dash. */
+	path?: string;
+	/** After the em dash — what is running in this window. */
+	tool?: string;
+	/** What the transcript shows, for the `role="img"` label. */
+	ariaLabel?: string;
+}
+
+const {
+	session,
+	path = 'smart-retail',
+	tool = 'agent',
+	ariaLabel = 'A coding agent session in a terminal: a request in plain English, the agent updating the solution, and a push to the dev profile.',
+} = Astro.props;
+
+/**
+ * The glyphs, in one place: the prompt, the turn dot, the tree branch under a tool call, and the
+ * tick on the answer's points — the list follows "Done." and every point is a change that was made,
+ * which is how an agent writes such a summary. In the DIM ink, on purpose: the ticks are the agent
+ * reporting, and the green result under the tool call is the one loud confirmation. NOT `⎿`, which
+ * is reserved for what a tool returned.
+ */
+const PROMPT = '❯';
+const DOT = '●';
+const TREE = '⎿';
+const ITEM = '✓';
+
+/**
+ * A blank line between SPEAKERS, none within one speaker's turn: the person's `❯` opens with a gap,
+ * the agent's first line after it opens with a gap, and the agent's following actions and its report
+ * run on. The banner carries its own gap below, so the first prompt does not add one.
+ */
+const speaker = (st: AgentStep) => (st.role === 'user' ? 'me' : st.role === 'banner' ? 'sys' : 'ai');
+const gapBefore = (i: number) => i > 0 && speaker(session[i - 1]) !== 'sys' && speaker(session[i - 1]) !== speaker(session[i]);
+const turnCls = (i: number) => (gapBefore(i) ? 'agent__row agent__row--turn agent__row--gap' : 'agent__row agent__row--turn');
+---
+
+<div class="agent" role="img" aria-label={ariaLabel} data-agent-session={JSON.stringify(session)}>
+	<div class="agent__bar" aria-hidden="true">
+		<span class="agent__dot agent__dot--close"></span>
+		<span class="agent__dot agent__dot--min"></span>
+		<span class="agent__dot agent__dot--max"></span>
+		<span class="agent__path">{path} — {tool}</span>
+	</div>
+
+	<div class="agent__scroll">
+		<div class="agent__body" aria-hidden="true">
+			{
+				/* The poster: every turn finished. The `.agent__text` spans are kept on ONE line with no
+				   whitespace between the tag and its children — the text column is `pre-wrap`, so a
+				   template newline would become a real one. */
+				session.map((st, i) => {
+					if (st.role === 'banner')
+						return (
+							<span class="agent__banner">
+								{st.art.map((row, i) => (
+									<span class="agent__banner-row">
+										{/* prettier-ignore */}
+										<span class="agent__art">{row}</span><span class="agent__banner-line">{(st.lines[i] ?? []).map((sg) => (<span class={`agent__b-${sg.t}`}>{sg.v}</span>))}</span>
+									</span>
+								))}
+							</span>
+						);
+					if (st.role === 'user')
+						return (
+							<span class={turnCls(i)}>
+								<span class="agent__prompt">{PROMPT}</span>
+								{/* prettier-ignore */}
+								<span class="agent__text agent__text--user">{st.cmd ? st.cmd.map((sg) => (<span class={`agent__${sg.t}`}>{sg.v}</span>)) : st.text}</span>
+							</span>
+						);
+					if (st.role === 'tool')
+						return (
+							<Fragment>
+								<span class={turnCls(i)}>
+									<span class="agent__bullet agent__bullet--tool">{DOT}</span>
+									{/* prettier-ignore */}
+									<span class="agent__text agent__text--tool">{st.text}</span>
+								</span>
+								{st.result && (
+									<span class="agent__row">
+										<span class="agent__gap"></span>
+										{/* prettier-ignore */}
+										<span class={`agent__text agent__text--nest ${st.ok ? 'agent__text--ok' : 'agent__text--dim'}`}><span class="agent__tree">{TREE}</span>{st.result}</span>
+									</span>
+								)}
+							</Fragment>
+						);
+					return (
+						<Fragment>
+							<span class={turnCls(i)}>
+								<span class="agent__bullet">{DOT}</span>
+								{/* prettier-ignore */}
+								<span class="agent__text">{st.text}</span>
+							</span>
+							{(st.items ?? []).map((it) => (
+								<span class="agent__row">
+									<span class="agent__gap"></span>
+									{/* prettier-ignore */}
+									<span class="agent__text agent__text--item"><span class="agent__dash">{ITEM}</span>{it}</span>
+								</span>
+							))}
+							{st.tail && (
+								<span class="agent__row agent__row--para">
+									<span class="agent__gap"></span>
+									{/* prettier-ignore */}
+									<span class="agent__text">{st.tail}</span>
+								</span>
+							)}
+						</Fragment>
+					);
+				})
+			}
+		</div>
+	</div>
+
+	{
+		/* The input, docked under the log. Empty and waiting in the poster; the player types the
+		   person's turns into it and echoes them into the log on send. */
+	}
+	<div class="agent__input" aria-hidden="true">
+		<span class="agent__prompt">{PROMPT}</span>
+		{/* One cell for the text AND the caret: as two grid children the caret dropped to a row of its own. */}
+		<span class="agent__line"><span class="agent__typed" data-agent-typed></span><span class="agent__caret agent__caret--idle" data-agent-caret></span><span class="agent__ghost" data-agent-ghost></span></span>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// The chrome is `CliTerminal`'s to the value, so the two windows read as one family. See that
+	// component for why each number is what it is; only what sits under the bar differs.
+	.agent {
+		--agent-chrome: 1;
+
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		border-radius: $radius-md;
+		background: #14161d;
+		box-shadow:
+			0 1px 0 rgba(255, 255, 255, 0.06) inset,
+			0 12px 32px rgba(0, 0, 0, 0.28);
+		// THE LINE GRID. One leading, as a number, and everything vertical in the window is a multiple
+		// of it: the log's lines, the composer's line, the blank line between turns, the foot under the
+		// last line. That is what lets a consumer size the log to N whole lines and know the top edge
+		// falls between lines, never through one. Set `--agent-lead` and `font-size`, nothing else.
+		--agent-lead: 1.9;
+
+		font-family: $font-family-mono;
+		// The log and the input inherit this one size; a consumer sets it here.
+		font-size: 12.5px;
+		line-height: var(--agent-lead);
+		text-align: left;
+	}
+
+	.agent__bar {
+		display: flex;
+		flex: none;
+		align-items: center;
+		gap: calc(6px * var(--agent-chrome));
+		padding: calc(10px * var(--agent-chrome)) calc(12px * var(--agent-chrome));
+		background: #232733;
+	}
+
+	.agent__dot {
+		width: calc(10px * var(--agent-chrome));
+		height: calc(10px * var(--agent-chrome));
+		border-radius: 50%;
+	}
+
+	.agent__dot--close {
+		background: #ec6a5e;
+	}
+
+	.agent__dot--min {
+		background: #f4bf4f;
+	}
+
+	.agent__dot--max {
+		background: #61c454;
+	}
+
+	// CENTRED in the bar, as a terminal titles its window, and a step heavier than the CLI window's
+	// caption: the log is large here, and a faint 11px label under it read as an afterthought. Kept in
+	// flow so the bar's height still comes from this line; the right padding mirrors what sits to the
+	// left of the label (three dots of 10, three gaps of 6) so the centre is the bar's, not the
+	// remaining space's.
+	.agent__path {
+		flex: 1 1 auto;
+		padding-right: calc(48px * var(--agent-chrome));
+		font-size: 11px;
+		letter-spacing: 0.02em;
+		text-align: center;
+		color: rgba(255, 255, 255, 0.6);
+	}
+
+	// The log takes whatever height the input leaves it, and scrolls inside that.
+	.agent__scroll {
+		position: relative;
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	.agent__body--clearing {
+		opacity: 0;
+	}
+
+	.agent__body {
+		height: 100%;
+		// One empty line at the foot, so the last output never sits on the composer's rule. Two were
+		// tried and read as a hole under the transcript. Exactly one line, so the foot is on the grid.
+		padding: $spacing-4 $spacing-4 calc(var(--agent-lead) * 1em);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		color: #e6e8ef;
+		// The reset: the log fades out over a quarter second before it is cleared, and the banner fades
+		// in through the same transition. A one-frame wipe was the harshest cut in the loop.
+		transition: opacity 0.25s ease;
+		// No scrollbar of any kind: the native one is removed, and there is no drawn one either.
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+
+		&::-webkit-scrollbar {
+			width: 0;
+			height: 0;
+		}
+	}
+
+	// ── The input ─────────────────────────────────────────────
+	// Ruled off from the log above, at the log's own type size: it is the same console, and the rule
+	// is the whole boundary — a second background would make it a form field.
+	.agent__input {
+		display: grid;
+		flex: none;
+		grid-template-columns: 1.65em minmax(0, 1fr);
+		align-items: start;
+		padding: 0.5em $spacing-4 0.6em;
+		border-top: 1px solid rgba(255, 255, 255, 0.12);
+		// The log's leading, so a prompt that wraps grows the composer by exactly one log line.
+		line-height: var(--agent-lead);
+		color: #f2f4f8;
+	}
+
+	.agent__line {
+		min-width: 0;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
+	// A suggestion is ONE DIM COLOUR, whatever it says: a shell highlights syntax only on text that is
+	// actually on the line, and the suggestion is not yet. The spans take their colours when accepted.
+	.agent__ghost {
+		color: rgba(230, 232, 239, 0.4);
+	}
+
+	// ── The log ───────────────────────────────────────────────
+	// EVERY rule here is `:global`, for the reason `CliTerminal` gives: the player builds its rows with
+	// `createElement`, so they never carry the scope class. `.agent` itself is server-rendered and
+	// confines them.
+	.agent {
+		// A row is a GUTTER and a TEXT column, so a line that wraps comes back under its own first
+		// word rather than under the glyph. That hanging indent is half of what makes this read as a
+		// transcript rather than as output.
+		:global(.agent__row) {
+			display: grid;
+			grid-template-columns: 1.65em minmax(0, 1fr);
+			align-items: start;
+		}
+
+		// Air between SPEAKERS — the other half. A shell prints line after line; a conversation has
+		// beats. ONE WHOLE LINE, for two reasons: it is the blank line a console prints when the other
+		// side starts, and it keeps every gap on the line grid — so when the log is scrolled to its
+		// end, the top edge always falls between whole lines and never through one. Half a line was
+		// tried and left the first visible line cut in most states. A gap above EVERY turn was tried
+		// too and read as sparse: the agent's action and its report belong to one breath, so they run
+		// on, and only a change of speaker opens a line (`.agent__row--gap`, set by whoever builds the
+		// row — the poster from the step list, the player from the last speaker it printed).
+		:global(.agent__row--gap) {
+			margin-top: calc(var(--agent-lead) * 1em);
+		}
+
+		:global(.agent__row--gap:first-child) {
+			margin-top: 0;
+		}
+
+		// A second paragraph of the same answer: no new dot, and no blank line either (2026-09-24) — it
+		// runs on under the list, the one voice keeping one breath.
+		:global(.agent__row--para) {
+			margin-top: 0;
+		}
+
+		// The launch banner: the mark in the accent down the left, status lines beside it. `pre`, so
+		// the art's spaces hold; the gap to the lines is four cells, as the CLI prints it.
+		:global(.agent__banner) {
+			display: block;
+			margin-bottom: calc(var(--agent-lead) * 1em);
+			white-space: pre;
+		}
+
+		:global(.agent__banner-row) {
+			display: block;
+		}
+
+		:global(.agent__art) {
+			display: inline-block;
+			width: 5em;
+			color: var(--accent, #4dabf7);
+		}
+
+		:global(.agent__banner-line) {
+			padding-left: 2em;
+		}
+
+		:global(.agent__b-brand) {
+			color: #f2f4f8;
+		}
+
+		:global(.agent__b-ok) {
+			color: #63d19e;
+		}
+
+		:global(.agent__b-arg) {
+			color: #d2a8ff;
+		}
+
+		:global(.agent__b-dim) {
+			color: rgba(230, 232, 239, 0.55);
+		}
+
+		:global(.agent__b-text) {
+			color: #e6e8ef;
+		}
+
+		:global(.agent__prompt),
+		:global(.agent__bullet),
+		:global(.agent__spin),
+		:global(.agent__gap) {
+			display: inline-block;
+			width: 1.1em;
+			text-align: center;
+		}
+
+		// `pre-wrap`: the command segments keep their own trailing spaces, and prose wraps.
+		:global(.agent__text) {
+			min-width: 0;
+			white-space: pre-wrap;
+			overflow-wrap: anywhere;
+		}
+
+		// The person's prompt takes the route's accent, as the CLI window's `$` does.
+		:global(.agent__prompt) {
+			color: var(--accent, #4dabf7);
+		}
+
+		:global(.agent__text--user) {
+			color: #f2f4f8;
+		}
+
+		// The agent's dot is the foreground; the tool call's is the accent.
+		:global(.agent__bullet) {
+			color: #e6e8ef;
+		}
+
+		:global(.agent__bullet--tool) {
+			color: var(--accent, #4dabf7);
+		}
+
+		:global(.agent__text--tool) {
+			color: #c7cdd6;
+		}
+
+		// What nests under a turn — a tool's result behind the tree glyph, the answer's points behind a
+		// bullet — is indented under the turn's text with the glyph hanging, so wrapped lines come back
+		// under the first word and not under the glyph.
+		:global(.agent__text--nest),
+		:global(.agent__text--item) {
+			padding-left: 1.65em;
+			text-indent: -1.65em;
+		}
+
+		// The list's glyph is one cell narrower than the tree's: `✓` then ONE space then the point, where
+		// the tree keeps two (`⎿  result`) as the console prints it. Both hang, so wrapped lines come
+		// back under the first word either way.
+		:global(.agent__text--item) {
+			padding-left: 1.15em;
+			text-indent: -1.15em;
+			color: rgba(230, 232, 239, 0.72);
+		}
+
+
+		:global(.agent__tree),
+		:global(.agent__dash) {
+			display: inline-block;
+			width: 1.65em;
+			text-indent: 0;
+			color: rgba(230, 232, 239, 0.45);
+		}
+
+		// The list's glyph is one cell narrower than the tree's — see `.agent__text--item`.
+		:global(.agent__dash) {
+			width: 1.15em;
+		}
+
+		// The thinking line: the last line of the output while the agent works, pulsing in the accent —
+		// and, once the turn is done, the same row settled into the dim summary of how long it took.
+		// Flush under the last output: it is the turn's footer, not a new voice.
+		:global(.agent__row--think) {
+			color: var(--accent, #4dabf7);
+		}
+
+		:global(.agent__row--done) {
+			color: rgba(230, 232, 239, 0.45);
+		}
+
+		// A handed-over command, coloured as the CLI window colours it.
+		:global(.agent__cmd) {
+			color: #f2f4f8;
+		}
+
+		:global(.agent__flag) {
+			color: #8b96a2;
+		}
+
+		:global(.agent__arg) {
+			color: #d2a8ff;
+		}
+
+		:global(.agent__text--ok) {
+			color: #63d19e;
+		}
+
+		:global(.agent__text--dim) {
+			color: rgba(230, 232, 239, 0.55);
+		}
+
+		// The caret: one character cell in the foreground — see `CliTerminal` for the cell's numbers.
+		// SOLID while characters arrive; BLINKING when the console is idle waiting for input, which is
+		// the one state where a terminal cursor blinks. The player swaps the class at each edge.
+		:global(.agent__caret) {
+			display: inline-block;
+			width: 0.5em;
+			height: 1em;
+			vertical-align: -0.167em;
+			background: #f2f4f8;
+		}
+
+		:global(.agent__caret--idle) {
+			animation: agent-blink 1.1s steps(1, end) infinite;
+		}
+
+		// While a suggestion shows, the cursor stands ON its first cell in reverse video, as a block
+		// cursor does, rather than in a cell of its own before it. The negative margin puts the ghost's
+		// first character under the block; the blend inverts it so the glyph shows through; and because
+		// the caret takes no cell, accepting the suggestion moves nothing — the text stays where it is
+		// and only the cursor travels to the end. Without this the whole line stepped left by one cell.
+		:global(.agent__caret--over) {
+			position: relative;
+			z-index: 1;
+			margin-right: -0.5em;
+			mix-blend-mode: difference;
+			animation: none;
+		}
+	}
+
+	@keyframes agent-blink {
+		0%,
+		50% {
+			opacity: 1;
+		}
+		50.01%,
+		100% {
+			opacity: 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.agent :global(.agent__caret--idle) {
+			animation: none;
+		}
+	}
+
+	@include media-down(md) {
+		.agent {
+			font-size: 11.5px;
+		}
+	}
+</style>
+
+<script>
+	import type { AgentStep } from '@models/agent-terminal';
+	import type { CliSeg } from '@models/cli-terminal';
+
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	const PROMPT = '❯';
+	const DOT = '●';
+	const TREE = '⎿';
+	const ITEM = '✓';
+	/**
+	 * The thinking line's pulse: the braille spinner the ThingsBoard CLI itself uses — the CLI window
+	 * beside this one spins it on `tb push` — so the two windows share one visual language. It
+	 * replaced a set of asterisks that was one particular agent's signature.
+	 */
+	const PULSE = [...'⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'];
+
+	/**
+	 * Plays a transcript and loops it. The person's turns are TYPED into the docked input, character
+	 * by character with a caret, then sent — echoed into the log as a `❯` row; a tool call shows its
+	 * result nested under it when it returns; the agent's prose STREAMS a word at a time and its list
+	 * lands a line at a time. While a turn is in flight the `✻ Thinking…` line is the last line of the
+	 * log, and every new row goes in above it. The log follows its own end throughout.
+	 *
+	 * Held to the viewport and to tab visibility at cycle boundaries, and restarted from the top the
+	 * moment the window is revealed from `display: none` — the section's switch does that to the
+	 * route that is not showing. Both as in `CliTerminal`.
+	 */
+	function play(
+		root: HTMLElement,
+		body: HTMLElement,
+		typed: HTMLElement,
+		caret: HTMLElement,
+		ghost: HTMLElement,
+		steps: AgentStep[]
+	) {
+		let timers: number[] = [];
+		let run = 0;
+		let onScreen = false;
+		let parked = 0;
+		let undisplayed = false;
+
+		const at = (ms: number, fn: () => void) => {
+			const id = run;
+			timers.push(
+				window.setTimeout(() => {
+					if (id === run) fn();
+				}, ms)
+			);
+		};
+
+		// ── The reader ── the log follows its end only while it IS at its end. A reader who scrolls up
+		// is left alone: no following under them, and no restart while they are away — for up to 30s
+		// of stillness, after which the loop resumes so the window never stays frozen. Scrolling back
+		// to the bottom hands control straight back.
+		//
+		// AWAY IS SET BY THE GESTURE, NOT BY THE SCROLL EVENT. Scroll events arrive a frame late with the
+		// final position, and a streamed word's own follow can have put the log back at its end by then
+		// — so a reader's wheel-up was never seen. An upward wheel, a touch drag or an up key marks the
+		// reader away at once; only reaching the end again (any scroll that lands there, or a downward
+		// gesture that finds it already there) clears it.
+		let away = false;
+		let awaySince = 0;
+		const atEnd = () => body.scrollHeight - body.clientHeight - body.scrollTop < 2;
+		const leave = () => {
+			if (!away) awaySince = performance.now();
+			away = true;
+		};
+		const settle = () => {
+			requestAnimationFrame(() => {
+				if (atEnd()) away = false;
+			});
+		};
+		body.addEventListener('wheel', (e) => (e.deltaY < 0 ? leave() : settle()), { passive: true });
+		body.addEventListener('touchmove', leave, { passive: true });
+		body.addEventListener('touchend', settle, { passive: true });
+		body.addEventListener('keydown', (e) => (['ArrowUp', 'PageUp', 'Home'].includes(e.key) ? leave() : settle()));
+		body.addEventListener(
+			'scroll',
+			() => {
+				if (atEnd()) away = false;
+			},
+			{ passive: true }
+		);
+		// Interaction, at a cycle boundary: scrolled away, or the pointer resting on the window. Either
+		// holds the restart, for up to 30s from when it began, so the window never stays frozen.
+		// Timed from the pointer's last MOVE, not its arrival: a hand on the mouse is a reader, a pointer
+		// parked on the window for half a minute is not.
+		let hoverSince = 0;
+		root.addEventListener('pointermove', () => (hoverSince = performance.now()), { passive: true });
+		const engaged = () => {
+			const now = performance.now();
+			if (away && now - awaySince < 30000) return true;
+			return root.matches(':hover') && now - hoverSince < 30000;
+		};
+
+		const follow = () => {
+			if (away) return;
+			body.scrollTop = body.scrollHeight;
+		};
+
+		// ── The thinking line ── a row of the log, kept last while the agent works.
+		let think: HTMLElement | null = null;
+		let pulse = 0;
+		let turnStart = 0;
+		const thinking = (on: boolean) => {
+			window.clearInterval(pulse);
+			pulse = 0;
+			if (!on) {
+				think?.remove();
+				think = null;
+				follow();
+				return;
+			}
+			if (!think) {
+				turnStart = performance.now();
+				think = document.createElement('span');
+				think.className = 'agent__row agent__row--think';
+				const g = document.createElement('span');
+				g.className = 'agent__spin';
+				const t = document.createElement('span');
+				t.className = 'agent__text';
+				t.textContent = 'Thinking…';
+				think.append(g, t);
+			}
+			body.appendChild(think);
+			const g = think.firstElementChild as HTMLElement;
+			let f = 0;
+			const tick = () => {
+				g.textContent = PULSE[f++ % PULSE.length];
+			};
+			tick();
+			pulse = window.setInterval(tick, 120);
+			timers.push(pulse);
+			follow();
+		};
+
+		/**
+		 * The turn is done: the thinking line stops pulsing and becomes the console's summary of it —
+		 * `⠿ Done in 4s`, dim, from the turn's REAL duration — and stays in the log as history. Neutral
+		 * words: "Worked for" was one agent's phrasing; the glyph is the spinner's filled cell.
+		 */
+		const finish = () => {
+			if (!think) return;
+			window.clearInterval(pulse);
+			pulse = 0;
+			const secs = Math.max(1, Math.round((performance.now() - turnStart) / 1000));
+			think.className = 'agent__row agent__row--think agent__row--done';
+			// The braille spinner come to rest: the filled cell.
+			(think.firstElementChild as HTMLElement).textContent = '\u283f';
+			(think.lastElementChild as HTMLElement).textContent = `Done in ${secs}s`;
+			think = null;
+			follow();
+		};
+
+		/** Whether step `n` closes the agent's turn — the next step is the person's, or there is none. */
+		const closes = (n: number) => !steps[n + 1] || steps[n + 1].role === 'user';
+
+		// Who printed last, for the blank line between speakers — see `.agent__row--gap`. `sys` is the
+		// banner, which carries its own gap.
+		let last: 'me' | 'ai' | 'sys' | '' = '';
+
+		/**
+		 * Opens a log row — above the thinking line, if it is showing — and returns its two cells.
+		 * `turn` names the speaker opening a turn, or is false for a line inside one.
+		 */
+		const row = (glyph: string, glyphCls: string, textCls: string, turn: 'me' | 'ai' | false) => {
+			const r = document.createElement('span');
+			const gap = turn && last && last !== 'sys' && last !== turn;
+			r.className = turn ? `agent__row agent__row--turn${gap ? ' agent__row--gap' : ''}` : 'agent__row';
+			if (turn) last = turn;
+			const g = document.createElement('span');
+			g.className = glyphCls;
+			g.textContent = glyph;
+			const t = document.createElement('span');
+			t.className = textCls;
+			r.append(g, t);
+			body.insertBefore(r, think);
+			follow();
+			return { glyph: g, text: t };
+		};
+
+		/** A nested line — a tool's result or an answer's point — behind its hanging glyph. */
+		const nested = (glyph: string, glyphCls: string, textCls: string) => {
+			const { text } = row('', 'agent__gap', textCls, false);
+			const lead = document.createElement('span');
+			lead.className = glyphCls;
+			lead.textContent = glyph;
+			const host = document.createElement('span');
+			text.append(lead, host);
+			return { text, lead, host };
+		};
+
+		/** Types segments into the INPUT, one character at a time, then hands back the built spans. */
+		const type = (segs: CliSeg[], done: (spans: HTMLElement[]) => void) => {
+			caret.classList.remove('agent__caret--idle');
+			const spans = segs.map((seg) => {
+				const el = document.createElement('span');
+				el.className = `agent__${seg.t}`;
+				typed.appendChild(el);
+				return el;
+			});
+
+			let si = 0;
+			let ci = 0;
+			const tick = () => {
+				if (document.hidden) {
+					at(300, tick);
+					return;
+				}
+				const seg = segs[si];
+				spans[si].textContent += seg.v.charAt(ci++);
+				if (ci >= seg.v.length) {
+					si++;
+					ci = 0;
+				}
+				if (si >= segs.length) {
+					at(320, () => done(spans));
+					return;
+				}
+				// A person typing prose: a touch quicker than the CLI's command entry.
+				at(28 + Math.random() * 40, tick);
+			};
+			tick();
+		};
+
+		/**
+		 * Offers segments as a suggestion after the caret, then accepts them whole — the spans move in
+		 * front of the caret at full strength, as Tab would put them there — and hands them back.
+		 */
+		const suggest = (segs: CliSeg[], done: (spans: HTMLElement[]) => void, hold = false) => {
+			// Unclassed while ghosted — one dim colour — and coloured only on accept, when the text is
+			// really on the line. Highlighting a suggestion would be the mock showing.
+			const spans = segs.map((seg) => {
+				const el = document.createElement('span');
+				el.textContent = seg.v;
+				ghost.appendChild(el);
+				return el;
+			});
+			caret.classList.add('agent__caret--over');
+			if (hold) return;
+			// Long enough to be read as an offer before it is taken.
+			at(1400, () => {
+				caret.classList.remove('agent__caret--idle', 'agent__caret--over');
+				spans.forEach((el, i) => {
+					el.className = `agent__${segs[i].t}`;
+					typed.appendChild(el);
+				});
+				at(420, () => done(spans));
+			});
+		};
+
+		/** Sends what is in the input: the spans move into a `❯` row in the log and the input empties. */
+		const send = (spans: HTMLElement[]) => {
+			const { text } = row(PROMPT, 'agent__prompt', 'agent__text agent__text--user', 'me');
+			spans.forEach((s) => text.appendChild(s));
+			typed.textContent = '';
+			caret.classList.add('agent__caret--idle');
+			follow();
+		};
+
+		/** Streams text into a host a word at a time — the model's cadence, not the shell's. */
+		const stream = (host: HTMLElement, text: string, done: () => void) => {
+			const words = text.split(' ');
+			let i = 0;
+			const next = () => {
+				if (document.hidden) {
+					at(300, next);
+					return;
+				}
+				host.textContent += (i ? ' ' : '') + words[i++];
+				follow();
+				if (i >= words.length) {
+					done();
+					return;
+				}
+				at(24 + Math.random() * 40, next);
+			};
+			next();
+		};
+
+		const step = (n: number) => {
+			if (n >= steps.length) {
+				// The hold on the finished transcript. Seven seconds when nobody is interacting (ten felt
+				// long on a page that is scrolling past; five felt cut short). Anyone reading — scrolled up,
+				// or simply resting the pointer on the window — holds it longer, see `engaged` in `cycle`.
+				at(7000, cycle);
+				return;
+			}
+			const st = steps[n];
+			const then = (ms: number) => at(ms, () => step(n + 1));
+
+			if (st.role === 'banner') {
+				// Printed whole: a CLI writes its banner in one go as it comes up.
+				const b = document.createElement('span');
+				b.className = 'agent__banner';
+				st.art.forEach((row, i) => {
+					const r = document.createElement('span');
+					r.className = 'agent__banner-row';
+					const art = document.createElement('span');
+					art.className = 'agent__art';
+					art.textContent = row;
+					const line = document.createElement('span');
+					line.className = 'agent__banner-line';
+					(st.lines[i] ?? []).forEach((sg) => {
+						const el = document.createElement('span');
+						el.className = `agent__b-${sg.t}`;
+						el.textContent = sg.v;
+						line.appendChild(el);
+					});
+					r.append(art, line);
+					b.appendChild(r);
+				});
+				body.insertBefore(b, think);
+				last = 'sys';
+				follow();
+				// A breath after the banner before anyone types.
+				then(900);
+				return;
+			}
+
+			if (st.role === 'user') {
+				// A `cmd` keeps its colours; prose is typed as one run, and `agent__cmd` IS the person's ink.
+				const segs: CliSeg[] = st.cmd ?? [{ t: 'cmd', v: st.text ?? '' }];
+				// Offered and left standing: the ghost shows, nothing is accepted, and the transcript ends
+				// on it. Only the final turn does this.
+				if (st.suggested && st.pending) {
+					suggest(segs, () => {}, true);
+					then(0);
+					return;
+				}
+				const enter = st.suggested ? suggest : type;
+				enter(segs, (spans) => {
+					send(spans);
+					thinking(true);
+					then(700);
+				});
+				return;
+			}
+
+			if (st.role === 'tool') {
+				thinking(true);
+				const { text } = row(DOT, 'agent__bullet agent__bullet--tool', 'agent__text agent__text--tool', 'ai');
+				text.textContent = st.text;
+				// The result's line opens at once as `⎿  Running…`, STATIC, and is replaced by the result when
+				// the tool returns. Nothing spins here on purpose: while a tool runs, the one thing moving in
+				// an agent's console is the thinking line at the bottom. A second loader under the call —
+				// the CLI window's braille spinner, borrowed at first — was the tell of a mock.
+				const nest = nested(TREE, 'agent__tree', 'agent__text agent__text--nest agent__text--dim');
+				nest.host.textContent = 'Running\u2026';
+				// Follow AFTER the text lands: the row was opened empty, and its line of height only exists
+				// once it has words. Following before left the log one line short — the thinking line sat
+				// on the composer's rule until the next row arrived.
+				follow();
+				at(st.spin, () => {
+					if (st.result) {
+						nest.host.textContent = st.result;
+						nest.text.className = `agent__text agent__text--nest ${st.ok ? 'agent__text--ok' : 'agent__text--dim'}`;
+					} else nest.text.parentElement?.remove();
+					follow();
+					if (closes(n)) finish();
+					then(420);
+				});
+				return;
+			}
+
+			// agent
+			thinking(true);
+			const { text } = row(DOT, 'agent__bullet', 'agent__text', 'ai');
+			const items = st.items ?? [];
+			const close = () => {
+				if (closes(n)) finish();
+				then(700);
+			};
+			const item = (i: number) => {
+				if (i >= items.length) {
+					if (!st.tail) {
+						close();
+						return;
+					}
+					// The closing paragraph, after a beat, as a continuation of the same message.
+					at(360, () => {
+						const { text: t } = row('', 'agent__gap', 'agent__text', false);
+						t.parentElement!.classList.add('agent__row--para');
+						stream(t, st.tail!, close);
+					});
+					return;
+				}
+				const { host } = nested(ITEM, 'agent__dash', 'agent__text agent__text--item');
+				stream(host, items[i], () => at(140, () => item(i + 1)));
+			};
+			stream(text, st.text, () => at(220, () => item(0)));
+		};
+
+		function cycle() {
+			if (!root.isConnected) return;
+			if (!onScreen || document.hidden || engaged()) {
+				if (parked) return;
+				parked = window.setTimeout(() => {
+					parked = 0;
+					cycle();
+				}, 600);
+				return;
+			}
+			begin();
+		}
+
+		function begin() {
+			run++;
+			timers.forEach((t) => {
+				window.clearTimeout(t);
+				window.clearInterval(t);
+			});
+			timers = [];
+			const start = () => {
+				think = null;
+				last = '';
+				away = false;
+				body.innerHTML = '';
+				body.scrollTop = 0;
+				body.classList.remove('agent__body--clearing');
+				typed.textContent = '';
+				ghost.textContent = '';
+				caret.classList.remove('agent__caret--over');
+				caret.classList.add('agent__caret--idle');
+				step(0);
+			};
+			// Fade the old transcript out before the wipe; an empty log (the first run, or a reveal from
+			// `display: none`) has nothing to fade and starts at once.
+			if (!body.firstChild) {
+				start();
+				return;
+			}
+			body.classList.add('agent__body--clearing');
+			at(260, start);
+		}
+
+		new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					onScreen = e.isIntersecting;
+					if (onScreen && undisplayed) {
+						window.clearTimeout(parked);
+						parked = 0;
+						begin();
+					}
+					undisplayed = !onScreen && e.boundingClientRect.height === 0;
+				});
+			},
+			{ threshold: 0.2 }
+		).observe(root);
+
+		cycle();
+	}
+
+	document.querySelectorAll<HTMLElement>('.agent').forEach((root) => {
+		const body = root.querySelector<HTMLElement>('.agent__body');
+		const typed = root.querySelector<HTMLElement>('[data-agent-typed]');
+		const caret = root.querySelector<HTMLElement>('[data-agent-caret]');
+		const ghost = root.querySelector<HTMLElement>('[data-agent-ghost]');
+		const raw = root.dataset.agentSession;
+		if (!body || !typed || !caret || !ghost || !raw) return;
+
+		// Reduced motion keeps the poster — it is already the finished transcript.
+		if (reduce) return;
+		play(root, body, typed, caret, ghost, JSON.parse(raw) as AgentStep[]);
+	});
+</script>
