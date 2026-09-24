@@ -56,7 +56,7 @@ export const AI_COPY = {
 	 * which is tuned for a 24px glyph — blown up to the 34 this section's tile carries, the stroke
 	 * stays 2 and the mark thins out as it grows. The filled cut has no stroke to fall behind.
 	 */
-	badge: { icon: 'tabler:sparkles-filled', color: '#3d50f5' },
+	badge: { icon: 'tabler:sparkles-filled', color: 'var(--color-brand)' },
 };
 
 export interface AiColumn {

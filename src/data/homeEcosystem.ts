@@ -52,7 +52,7 @@ export const homeEcosystem: EcosystemItem[] = [
 		icon: '/src/assets/images/landings/ce/gateway-icon.svg',
 		href: '/docs/iot-gateway/',
 		action: 'See supported protocols',
-		accent: '#7b3fe4',
+		accent: 'var(--color-accent-violet)',
 		wide: true,
 		// One destination, like the other two doubles, so the same whole-card
 		// target and hover.
@@ -100,7 +100,7 @@ export const homeEcosystem: EcosystemItem[] = [
 		// so the primary sends you to the product page instead of duplicating them.
 		action: 'Tour the app',
 		// Takes the app icon's own green rather than the brand purple.
-		accent: '#1f8b4d',
+		accent: 'var(--brand-pe)',
 		wide: true,
 		// One destination now the store buttons are gone (they pointed at the
 		// product page anyway, for want of real store URLs), so the whole card
@@ -129,7 +129,7 @@ export const homeEcosystem: EcosystemItem[] = [
 		// Ochre, not the retail orange: the tiles already carry the card's colour,
 		// and this keeps the section's one warm slot without the sale register.
 		// Same hue family as GatewayRelay's Modbus chip.
-		accent: '#b45309',
+		accent: 'var(--color-product-iot-hub)',
 		wide: true,
 		// Unflipped: copy left, tiles right, same reading order as the app card
 		// above it. The tiles ride above the whole-card link on their z-index.
@@ -181,6 +181,6 @@ export const homeEcosystem: EcosystemItem[] = [
 		icon: '/src/assets/images/landings/ce/tbmq-icon.svg',
 		href: TBMQ_SITE_URL,
 		action: 'Go to tbmq.io',
-		accent: '#1f9d55',
+		accent: 'var(--color-accent-green)',
 	},
 ];

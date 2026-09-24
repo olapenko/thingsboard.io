@@ -51,7 +51,7 @@ export const homeProducts: ProductChoice[] = [
 			'We run the servers, scaling, backups and upgrades on a 99.9% SLA. Start free on shared infrastructure, or move to Private Cloud, a dedicated cluster we provision and operate for you.',
 		icon: '/src/assets/images/landings/thingsboard-mark.svg',
 		cornerIcon: 'tabler:cloud',
-		badgeFill: '#3d50f5',
+		badgeFill: 'var(--color-product-cloud)',
 		nameHighlight: 'Cloud',
 		href: '/products/paas/',
 		// The link names the fork the Cloud page is built around, not the page itself. "Explore
@@ -106,7 +106,7 @@ export const homeProducts: ProductChoice[] = [
 		// numbers in `EcosystemCard` carry over untouched. The extra pair of vent
 		// lines is the whole visible difference.
 		cornerIcon: 'tabler:server',
-		badgeFill: '#1f8b4d',
+		badgeFill: 'var(--brand-pe)',
 		nameHighlight: 'On-premises',
 		href: '/products/thingsboard-pe/',
 		// Generic on purpose, unlike Cloud's "Public vs Private": the licence fork is one section of

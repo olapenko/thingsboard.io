@@ -73,7 +73,7 @@ export const SOLUTION_COPY = {
 	// `tools`. It says BUILDING, which is the section's verb — "Build IoT solutions from device to
 	// end-user" — where `layout-dashboard` said the output instead, and the output is already spoken
 	// for: the Operate stage in the platform overview carries it with `chart-dots`.
-	badge: { icon: 'tabler:tools', color: '#3d50f5' },
+	badge: { icon: 'tabler:tools', color: 'var(--color-brand)' },
 };
 
 /** How many points of history the sparkline shows at once. */
