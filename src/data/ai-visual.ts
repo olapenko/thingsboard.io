@@ -181,8 +181,8 @@ export const AI_COLUMNS_VALUE: { assistant: AiColumn; cli: AiColumn } = {
 
 /**
  * One prompt and what the Assistant does with it. `reply` and `actions` are rendered with `set:html`
- * and are ours: `<b>` marks an entity, `<code>` a key or value (bold monospace in the page's amber,
- * where the product paints it red).
+ * and are ours: `<b>` marks an entity, and `<code>` a key, a value or a severity (bold monospace in
+ * the page's amber, where the product paints it red). `<code data-severity="critical">` takes the red.
  */
 export interface AiAssistantExchange {
 	prompt: string;
@@ -244,7 +244,9 @@ export const AI_ASSISTANT_DEMO: AiAssistantDemo = {
 				'Notification rule ‘<b>Door Alert</b>’ created',
 			],
 			reply:
-				'Done. A critical alarm fires when a door stays open over 5 min and clears when it closes. The store manager gets an email right away.',
+				// The severity as the product writes it in a reply — capitals, set apart — in the key style,
+				// but RED: in the amber it read as a warning, which is the level below.
+				'Done. A <code data-severity="critical">CRITICAL</code> alarm fires when a door stays open over 5 min and clears when it closes. The store manager gets an email right away.',
 		},
 		{
 			/**
