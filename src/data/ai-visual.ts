@@ -114,7 +114,7 @@ export const AI_COLUMNS: { assistant: AiColumn; cli: AiColumn } = {
 		switchLabel: 'Ask the Assistant',
 		switchShort: 'Assistant',
 		title: 'AI assistants built into the platform',
-		body: 'A unified AI layer that helps you build every part of your IoT solution through natural language — from a full prototype (AI Solution Creator) to individual dashboards, rules, and calculated fields.',
+		body: 'A unified AI layer that helps you build every part of your IoT solution through natural language — from a full prototype in AI Solution Creator to individual dashboards, rules, and calculated fields.',
 		accent: '#0d7a5f',
 		accentText: '#0b6952',
 	},
@@ -123,7 +123,21 @@ export const AI_COLUMNS: { assistant: AiColumn; cli: AiColumn } = {
 		switchLabel: 'Brief your agent',
 		switchShort: 'Agent',
 		title: 'ThingsBoard CLI for AI coding agents',
-		body: 'Develop your IoT solution from your terminal. Integrate with AI coding agents to build, test, and deploy ThingsBoard as code.',
+		/**
+		 * ⚠ KEEP THIS THE SAME NUMBER OF LINES AS THE CHAT'S BODY, AT EVERY STACKED WIDTH.
+		 *
+		 * Stacked (below 1024) each route's band is its window plus its copy, and only the showing band
+		 * is laid out — so a band is as tall as its copy, and a copy that wraps shorter here makes the
+		 * section JUMP when the switch flips. This line was lengthened for that alone (2026-09-25): the
+		 * original two sentences plus "every change versioned in git, and one push to production",
+		 * 185 characters against the chat's 199. Measured, body lines chat / this:
+		 *
+		 *   320  6/6    375  5/5    414  4/4    480  4/4    600–1000  3/3
+		 *
+		 * Edit either body and re-measure both at those widths. Desktop does not care: side by side the
+		 * copy sits beside a fixed-height window (there, 5 vs 4 lines at 1440 is fine).
+		 */
+		body: 'Develop your IoT solution from your terminal. Integrate with AI coding agents to build, test, and deploy ThingsBoard as code — every change versioned in git, and one push to production.',
 		accent: '#7c5cf0',
 		accentText: '#6249be',
 	},
