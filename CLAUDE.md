@@ -175,9 +175,13 @@ gotchas (stale scoped-style HMR, the global `svg` reset, the missing 600 weight)
 hour to find.
 
 They are judged in context on the homepage itself, and one at a time under `/internal/` (all
-`noindex`): `/internal/sections/` is the hub, one tile per section, and `/internal/sections/<id>/`
-holds one visual's directions at known widths; `/internal/library/` holds the pieces used across
-the site (cards, type). Never change a shipped visual to try an idea — add a candidate beside it.
+`noindex`). The floating island links the real Home, Cloud and On-premises pages and three areas:
+**Components** (every homepage section, the ecosystem cards included), **Flows** (Sign up, Sign in)
+and **Design system** (Type, UI). Every area opens on an overview of tiles, and its sticky top bar
+shows the overview as a grid icon and the pages as tabs, or as a grouped picker past five
+(`src/pages/internal/_areas.ts`). `/internal/components/` is the section overview, and
+`/internal/sections/<id>/` holds one visual's directions as tabs at known widths, the one in use
+flagged `shipping`; `/internal/flows/<id>/` holds the flows the same way. Never change a shipped visual to try an idea — add a candidate beside it.
 
 ### Use-Case Pages
 

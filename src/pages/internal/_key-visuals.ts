@@ -1,20 +1,21 @@
 /**
- * The key visuals, one per link in the sandbox strip. Copy is the design's, verbatim.
+ * The key visuals: one entry per page under Components › Sections and Flows. Copy is the design's,
+ * verbatim.
  *
  * Its own module because the sandbox page and every one of its panels needs it, and a panel that
  * had to reach back into the page for it would be a panel that cannot be moved or deleted on its
  * own. Addressed by id through `kv()`, never by array position: the panels used to say
  * `KEY_VISUALS[6]`, which meant inserting a visual silently retitled four others. That is also what
- * makes the order below free to change — this array decides the strip and nothing else.
+ * makes the order below free to change — this array decides the menus' order and nothing else.
  *
  * THE ORDER IS THE PAGE'S ORDER. Platform first: it opens the homepage as a centred section
- * above the rows. Then the five rows in the order
- * `index.astro` runs them — connect, solution, twin, normalize, scale — so walking the strip walks
- * the page. `ai` sits between twin and normalize because that is where `AiSection` runs: it is a
- * full-bleed section rather than a row, but it is on the page there, and the strip is the page's
- * order. Everything after `scale` is not on the homepage at all, and sits at the end for that
- * reason rather than by age: gateway, deploy and whitelabel are drawn and waiting for a section,
- * and cli is a token-wiring check with no copy of its own.
+ * above the rows. Then the rows in the order `index.astro` runs them, so walking the section menu
+ * walks the page. `ai` sits between twin and normalize because that is where `AiSection` runs: a
+ * full-bleed section rather than a row, but on the page there. `products` and `ecosystem` close the
+ * homepage run.
+ * After it, what is not on the homepage: `choice`, which ships on the product pages instead, then
+ * gateway, deploy and whitelabel, drawn and waiting for a section. The flows come last, in their
+ * own area.
  */
 import { PLATFORM_COPY } from '@data/platform-visual';
 import { SOLUTION_COPY } from '@data/solution-flow';
@@ -46,10 +47,20 @@ export interface KeyVisual {
 	 */
 	home?: string;
 	/**
-	 * A component check rather than a section — it has no copy and is not headed for a row. The hub
-	 * lists these apart from the sections waiting for a place on the page.
+	 * Where it ships when that is not the homepage, in words for the hub: "the Cloud and On-premises
+	 * pages". Its section lists it under "Product pages" rather than as waiting.
 	 */
-	check?: boolean;
+	shipsOn?: string;
+	/**
+	 * Which menu it belongs to. `sections` (the default) is Components › Sections, the homepage's
+	 * pieces; `flows` is Flows, the paths behind a button. It decides the page's URL and its menus.
+	 */
+	area?: 'sections' | 'flows';
+	/**
+	 * A page of its own rather than `/internal/<area>/<id>/`: a section judged somewhere else, as the
+	 * ecosystem cards are in their gallery. Its tile has no directions to summarise.
+	 */
+	href?: string;
 }
 
 export const KEY_VISUALS: KeyVisual[] = [
@@ -126,6 +137,27 @@ export const KEY_VISUALS: KeyVisual[] = [
 		badge: { icon: 'tabler:cloud', color: '#3d50f5' },
 	},
 	{
+		// A section of cards, the ecosystem list under the products. Judged in its gallery, every card
+		// one-wide beside two-wide, rather than on a page of directions. Copy from `index.astro`'s
+		// SectionHeader call, where it lives inline.
+		id: 'ecosystem',
+		home: 'product-ecosystem',
+		label: 'Ecosystem',
+		title: 'Product ecosystem',
+		body: 'Add what your project needs — protocol bridges, analytics, edge nodes, a mobile app, and a library of ready-made components.',
+		href: '/internal/library/cards/',
+		badge: { icon: 'tabler:apps', color: '#007c7b' },
+	},
+	{
+		// The product pages' choice cards — Cloud's Public/Private pair and On-premises' licence
+		// pair — each on its own page's ground. Not a homepage section: the cards ship on those two
+		// pages, and this is where their treatments get judged before touching them there.
+		id: 'choice',
+		label: 'Choice cards',
+		shipsOn: 'the Cloud and On-premises pages',
+		badge: { icon: 'tabler:layout-columns', color: '#5b616e' },
+	},
+	{
 		id: 'gateway',
 		label: 'IoT Gateway',
 		// The Gateway's own words, from its `homeEcosystem` entry — description, action label and
@@ -155,42 +187,60 @@ export const KEY_VISUALS: KeyVisual[] = [
 		badge: WHITELABEL_COPY.badge,
 	},
 	{
-		// The product pages' choice cards — Cloud's Public/Private pair and On-premises' licence
-		// pair — on their own dark ground. A component check: the cards ship on those two pages,
-		// and this is where their treatments get judged before touching them there.
-		id: 'choice',
-		label: 'Choice cards',
-		check: true,
-		badge: { icon: 'tabler:layout-columns', color: '#5b616e' },
-	},
-	{
-		id: 'cli',
-		label: 'CLI',
-		check: true,
-	},
-	{
 		// The path behind "Try for free": the sign-up form with its region switch, and the dialog that
-		// asks the region first. Two variants of one flow. A check, so the hub lists it apart from the
-		// sections: it is never headed for a row, and what it decides is where the button goes.
+		// asks the region first. Two variants of one flow; what it decides is where the button goes.
 		id: 'sign-up',
+		area: 'flows',
 		label: 'Sign up',
 		title: 'Sign up — from “Try for free” to the form',
-		check: true,
 		badge: { icon: 'tabler:user-plus', color: '#3d50f5' },
 	},
 	{
 		// The path behind the header's "Sign in": the product's sign-in form, and the dialog that
 		// replaces the header's region dropdown.
 		id: 'sign-in',
+		area: 'flows',
 		label: 'Sign in',
 		title: 'Sign in — from the header to the form',
-		check: true,
 		badge: { icon: 'tabler:login-2', color: '#00695c' },
 	},
 ];
 
 /** The visuals that are on the homepage, in page order. */
 export const ON_HOME = KEY_VISUALS.filter((v) => v.home);
+
+/** The visuals in one menu, in the array's order. */
+export const inArea = (area: 'sections' | 'flows') => KEY_VISUALS.filter((v) => (v.area ?? 'sections') === area);
+
+/** A visual's page. Sections keep the URL every code comment cites; flows have their own. */
+export const visualHref = (v: Pick<KeyVisual, 'id' | 'area' | 'href'>) =>
+	v.href ?? `/internal/${v.area === 'flows' ? 'flows' : 'sections'}/${v.id}/`;
+
+/**
+ * An area's pages as the hub and the section menu group them. Sections: on the homepage in page
+ * order, then on the product pages, then waiting for a section. Flows: one group.
+ */
+export function areaGroups(area: 'sections' | 'flows') {
+	const all = inArea(area);
+	if (area === 'flows') return [{ key: 'flows', title: 'Flows', items: all }];
+	return [
+		{
+			key: 'home',
+			title: 'Homepage',
+			items: all.filter((v) => v.home),
+		},
+		{
+			key: 'product',
+			title: 'Product pages',
+			items: all.filter((v) => !v.home && v.shipsOn),
+		},
+		{
+			key: 'waiting',
+			title: 'Waiting for a section',
+			items: all.filter((v) => !v.home && !v.shipsOn),
+		},
+	].filter((g) => g.items.length);
+}
 
 /** The entry for `id`. Throws at build time rather than rendering a row with no copy in it. */
 export function kv(id: string): KeyVisual {

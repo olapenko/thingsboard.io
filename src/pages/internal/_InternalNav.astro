@@ -20,27 +20,25 @@
  * Underscore-prefixed so Astro does not make it a route.
  */
 import { Icon } from 'astro-icon/components';
+import { AREAS, areaFor } from '@root/pages/internal/_areas';
 
 /**
- * Home first — the real homepage, not an internal page; it is the one every other page is judged
- * against. Then the page's sections, then the library: pieces used across the site rather than
- * parts of one page. The rule between the two groups is the difference between them.
+ * The real pages first: Home, Cloud and On-premises, the three new pages. They are shown as they
+ * ship, with this island over them and nothing else, and every internal page is judged against
+ * them. Then one link per area (Components, Flows, Design system), each opening the area on its
+ * first page. Switching between an area's pages is the top bar's job, not the island's, so there
+ * are no menus here. The areas are defined once, in `_areas.ts`.
  */
-const GROUPS = [
-	[{ href: '/internal/sections/', label: 'Sections', hint: 'The hub — every homepage section, each on its own page' }],
-	[
-		{ href: '/internal/library/cards/', label: 'Cards', hint: 'Ecosystem cards, one-wide beside two-wide' },
-		{ href: '/internal/library/type/', label: 'Type', hint: 'The scale, declared and as used' },
-		{ href: '/internal/library/ui/', label: 'UI', hint: 'Buttons, links and reused UI on Home, Cloud and On-premises' },
-	],
+const PAGES = [
+	{ href: '/products/paas/', label: 'Cloud', icon: 'tabler:cloud' },
+	{ href: '/products/thingsboard-pe/', label: 'On-premises', icon: 'tabler:server' },
 ];
 
 /** Trailing slash either way, so `/internal/launch-home` and `/internal/launch-home/` both match. */
 const here = Astro.url.pathname.replace(/\/?$/, '/');
 const isHome = here === '/';
-// Prefix, not equality: every page under the hub (`/internal/sections/cli/`) is still in
-// "Sections", and the link should say so.
-const isIn = (href: string) => here.startsWith(href);
+const currentArea = areaFor(here).area;
+const isPage = (href: string) => here === href;
 ---
 
 <div class="inav-root" data-internal-nav data-open="true">
@@ -48,7 +46,9 @@ const isIn = (href: string) => here.startsWith(href);
 		(function (root) {
 			try {
 				if (sessionStorage.getItem('internal-nav:open') === 'false') root.dataset.open = 'false';
-			} catch (e) {}
+			} catch {
+				// No session storage: the island opens, which is the default anyway.
+			}
 
 			// Held invisible, not collapsed, until Ubuntu 500 is in, so the island is never painted in
 			// the fallback and re-set a moment later — measured at 306px, then 275. `check` is true when
@@ -56,7 +56,7 @@ const isIn = (href: string) => here.startsWith(href);
 			// and the timeout means a failed font costs the island nothing but its face.
 			if (document.fonts && !document.fonts.check('500 12.5px Ubuntu')) {
 				root.dataset.fontPending = '';
-				var ready = function () {
+				const ready = function () {
 					delete root.dataset.fontPending;
 				};
 				document.fonts.load('500 12.5px Ubuntu').then(ready, ready);
@@ -75,28 +75,40 @@ const isIn = (href: string) => here.startsWith(href);
 		>
 			<Icon name="tabler:home" aria-hidden="true" />
 		</a>
+		<ul class="inav__list">
+			{
+				PAGES.map((p) => (
+					<li>
+						<a
+							href={p.href}
+							title={p.label}
+							aria-label={p.label}
+							aria-current={isPage(p.href) ? 'page' : undefined}
+							class:list={['inav__link', 'inav__link--icon', isPage(p.href) && 'is-here']}
+						>
+							<Icon name={p.icon} aria-hidden="true" />
+						</a>
+					</li>
+				))
+			}
+		</ul>
 		<span class="inav__sep" aria-hidden="true"></span>
-		{
-			GROUPS.map((group, i) => (
-				<Fragment>
-					{i > 0 && <span class="inav__sep" aria-hidden="true" />}
-					<ul class="inav__list">
-						{group.map((p) => (
-							<li>
-								<a
-									href={p.href}
-									title={p.hint}
-									aria-current={isIn(p.href) ? 'page' : undefined}
-									class:list={['inav__link', isIn(p.href) && 'is-here']}
-								>
-									{p.label}
-								</a>
-							</li>
-						))}
-					</ul>
-				</Fragment>
-			))
-		}
+		<ul class="inav__list">
+			{
+				AREAS.map((area) => (
+					<li>
+						<a
+							href={area.pages[0].href}
+							title={area.label}
+							aria-current={currentArea === area ? 'true' : undefined}
+							class:list={['inav__link', currentArea === area && 'is-here']}
+						>
+							{area.label}
+						</a>
+					</li>
+				))
+			}
+		</ul>
 		<span class="inav__sep" aria-hidden="true"></span>
 		<button
 			class="inav__btn"
@@ -393,9 +405,16 @@ const isIn = (href: string) => here.startsWith(href);
 		}
 	}
 
-	/* At phone width the four labels and two icons still fit one row (~310px); below that the
-	   island scrolls rather than wrapping, because a two-line island no longer reads as one control. */
-	@media (max-width: 320px) {
+	/* Three page icons, three area labels and the hide control come to ~390px. At phone width the
+	   labels lose a little padding (~350px at 375); below that the island scrolls rather than
+	   wrapping, because a two-line island no longer reads as one control. */
+	@media (max-width: 480px) {
+		.inav__link:not(.inav__link--icon) {
+			padding: 0 8px;
+		}
+	}
+
+	@media (max-width: 370px) {
 		.inav {
 			overflow-x: auto;
 			scrollbar-width: none;

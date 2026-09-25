@@ -10,23 +10,31 @@ Two pages render them, both internal and both `noindex`:
 | Page | What it is |
 | --- | --- |
 | `/` | The homepage. Where the visuals actually run, and the only place one is seen in context. |
-| `/internal/sections/` | The hub. One tile per visual, grouped by where it stands on the page. |
-| `/internal/sections/<id>/` | One visual, its exhibits at known widths. |
-| `/internal/library/cards/` | Every ecosystem card, one-wide beside two-wide. |
-| `/internal/library/type/` | The type scale, declared and as used. |
+| `/internal/components/` | Components › Overview. One tile per section, grouped by where it ships. |
+| `/internal/sections/<id>/` | One visual, its directions as tabs at known widths; the one in use first. |
+| `/internal/flows/` | Flows › Overview. One tile per flow. |
+| `/internal/flows/<id>/` | Flows: the sign-up and sign-in paths, one page each, built the same way. |
+| `/internal/design-system/` | Design system › Overview. One tile per page: Type, UI (Color later). |
+| `/internal/library/cards/` | Components › Ecosystem. Every ecosystem card, one-wide beside two-wide. |
+| `/internal/library/type/` | Design system › Type. The type scale, declared and as used. |
+| `/internal/library/ui/` | Design system › UI. Every button, link and reused piece, harvested live. |
 
 **One route per visual**, each its own file:
 
 ```
-_key-visuals.ts              the copy and the tab labels; addressed by kv('twin'), never by index
-_VisualPage.astro            the shell every visual's page shares: the strip of links between
-                             them, the retire control, and the stage chrome (is:global)
-sections/index.astro         the index
-sections/twin.astro          one visual's stages — <VisualPage visual="twin"> … </VisualPage>
+_key-visuals.ts              the copy, labels and area of each page; addressed by kv('twin'), never by index
+_VisualPage.astro            the shell every visual's page shares: the area menu, the page bar
+                             (promote, retire, row ground), the tabs, and the stage chrome (is:global)
+_Variant.astro               one direction; `shipping` marks the one in use (the green check)
+_HubGrid.astro               the overviews' tiles
+_areas.ts                    the areas: the island's links and each area's top-bar tabs
+_AreaBar.astro               the sticky top bar every internal page gets from the layout
+components/index.astro       the Components overview, one tile per section
+sections/twin.astro          one visual's directions — <VisualPage visual="twin"> … </VisualPage>
 ```
 
-Add a visual: an entry in `_key-visuals.ts` and a page in `sections/`. It appears on the
-index and in every other page's strip with no further edit. Remove one: delete those two things.
+Add a visual: an entry in `_key-visuals.ts` and a page in `sections/`. It appears on the hub and
+in every other page's menu with no further edit. Remove one: delete those two things.
 
 This replaced a single 1346-line page holding all nine as tab panels. Opening it compiled and
 rendered fifty-eight stages to look at six, and pulled the stylesheets of twenty components;

@@ -18,9 +18,15 @@ import type { KeyVisual } from '@root/pages/internal/_key-visuals';
  * The middle probe is gone: it duplicated the desktop row at the same width and was only ever there
  * because the row was drawn at the wrong one.
  *
+ * On the page, `_VisualPage` turns each direction into a tab: the header below is the tab's heading,
+ * and its promote and retire buttons live in the page's bar over the tabs. Without script the
+ * directions simply stack, each under its rule.
+ *
  * The desktop view passes `badge` along with the copy, because the mark is part of the section and
  * a row judged without it is a row with a 40px hole where the homepage has a glyph. It comes from
- * the visual's own copy object, so both pages take the same one from the same place.
+ * the visual's own copy object, so both pages take the same one from the same place. The header
+ * does NOT carry the mark: on a header it read as a status, and the one status a header shows is
+ * `shipping`.
  *
  * The GROUND under that row — tint or white — is a page-level toggle rather than a prop here. The
  * homepage alternates, so which one a visual gets depends on where its row happens to fall, and the
@@ -46,6 +52,12 @@ interface Props {
 	name: string;
 	/** One line on what makes it different from its neighbours. */
 	note?: string;
+	/**
+	 * The direction in use: on the homepage, or for a piece that ships elsewhere, on its page. Set
+	 * in source, never from the promote mark, so the green check it earns is always true. The tab
+	 * and the hub tile show it; its tab comes first.
+	 */
+	shipping?: boolean;
 	/** The visual itself. Rendered twice — once per view — from this one reference. */
 	component: any;
 	/** Props for it. The same object both times, so the two views cannot drift apart. */
@@ -115,6 +127,7 @@ const {
 	visual,
 	name,
 	note,
+	shipping = false,
 	component: C,
 	props = {},
 	phoneProps,
@@ -132,24 +145,30 @@ const onPhone = phoneProps ? { ...props, ...phoneProps } : props;
 const key = `${visual.id}/${name}`;
 ---
 
-<section class="vx" data-variant data-vx-key={key} data-vx-label={`${visual.id} · ${name}`}>
+<section
+	class="vx"
+	data-variant
+	data-vx-key={key}
+	data-vx-name={name}
+	data-vx-label={`${visual.id} · ${name}`}
+	data-vx-shipping={shipping ? '' : undefined}
+>
 	<header class="vx__cap">
-		{
-			/* The mark, for the sections that have no row to carry it. A `deskWidth` direction is a
-		    full-bleed section rather than a row's media, so `FeatureBlockSection` never renders — and
-		    without this, platform would be the one page in the sandbox with no icon on it. Only when
-		    there is no row, so nothing ever shows its badge twice. */
-		}
-		{
-			deskWidth && visual.badge && (
-				<span class="vx__badge" style={`--badge-color: ${visual.badge.color}`} aria-hidden="true">
-					<Icon name={visual.badge.icon} />
-				</span>
-			)
-		}
-		<h2 class="vx__name">{name}</h2>
-		{note && <p class="vx__note">{note}</p>}
-		{/* The two commands are appended here by the page's script. */}
+		<div class="vx__titles">
+			<div class="vx__head">
+				<h2 class="vx__name">{name}</h2>
+				{
+					shipping && (
+						<span class="vx__inuse">
+							<Icon name="tabler:circle-check-filled" aria-hidden="true" />
+							In use
+						</span>
+					)
+				}
+			</div>
+			{note && <p class="vx__note">{note}</p>}
+		</div>
+		{/* The page's promote and retire pair is moved in here while this direction is open. */}
 		<div class="vx__cmds" data-vx-cmds></div>
 	</header>
 
@@ -234,37 +253,42 @@ const key = `${visual.id}/${name}`;
 					)
 				}
 			</p>
-			{
-				deskWidth && !intro ? (
-					// No row to frame: a full-bleed section is not in a feature row on any page. The
-					// probe stays, on the row's ground rather than the checkerboard.
-					<div class="vx__phonebox">
-						<div class="probe" style={`--probe: ${phone}px`}>
-							<C {...onPhone} />
-						</div>
-					</div>
-				) : (
-					<div class="vx__phonebox">
-						{/* `data-src`, NOT `src`. The frame is this same page, which holds more of these
-						    frames — and `loading="lazy"` does not hold them back: Chrome starts a lazy
-						    iframe 1250-2500px before it scrolls in, and a page of full-bleed sections put
-						    the next phone inside that margin, so each frame loaded frames of its own
-						    before the trim in `_VisualPage` could run. One load of the AI page turned into
-						    hundreds, and the tab ran out of connections — fonts first, which is how it
-						    showed. Only the top-level page copies this into `src`, so a frame never gets
-						    one: no recursion, by construction rather than by winning a race. */}
-						<iframe
-							class="vx__phone"
-							data-src={`?frame=${encodeURIComponent(key)}`}
-							width={phone}
-							height="600"
-							loading="lazy"
-							title={`${name} at ${phone}px`}
-							data-vx-phone={key}
-						/>
-					</div>
-				)
-			}
+			<div class="vx__phonebox">
+				<div class="vx__device">
+					{
+						deskWidth && !intro ? (
+							// No row to frame: a full-bleed section is not in a feature row on any page. The
+							// probe stays, on the row's ground rather than the checkerboard.
+							<div class="probe vx__screen" style={`--probe: ${phone}px`}>
+								<C {...onPhone} />
+							</div>
+						) : (
+							/* `data-src`, NOT `src`. The frame is this same page, which holds more of these
+							   frames — and `loading="lazy"` does not hold them back: Chrome starts a lazy
+							   iframe 1250-2500px before it scrolls in, and a page of full-bleed sections put
+							   the next phone inside that margin, so each frame loaded frames of its own
+							   before the trim in `_VisualPage` could run. One load of the AI page turned into
+							   hundreds, and the tab ran out of connections — fonts first, which is how it
+							   showed. Only the top-level page copies this into `src`, so a frame never gets
+							   one: no recursion, by construction rather than by winning a race. */
+							<iframe
+								class="vx__phone vx__screen"
+								data-src={`?frame=${encodeURIComponent(key)}`}
+								width={phone}
+								height="600"
+								loading="lazy"
+								title={`${name} at ${phone}px`}
+								data-vx-phone={key}
+							/>
+						)
+					}
+				</div>
+				{/* Beside the phone it changes. Every phone on the page moves together (`_VisualPage`). */}
+				<div class="page-ctl vx__phonectl" role="group" aria-label="Phone view">
+					<button type="button" data-phone-pick="screen" aria-pressed="true">One screen</button>
+					<button type="button" data-phone-pick="full" aria-pressed="false">Full length</button>
+				</div>
+			</div>
 		</div>
 	</div>
 </section>
@@ -289,70 +313,96 @@ const key = `${visual.id}/${name}`;
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
-	// A section, with a rule above it: the point of the refactor is that the eye can find where one
-	// direction stops and the next starts without reading the captions.
 	.vx {
 		max-width: 1200px;
 		margin: 0 auto $spacing-16;
-		padding-top: $spacing-6;
-		border-top: 2px solid var(--color-text, #17181c);
 
-		// Marked, not hidden — a decision stays visible and can be taken back.
-		&[data-vx-state='retire'] {
-			opacity: 0.4;
+		// Marked, not hidden: a decision stays visible and can be taken back. Only the heading dims,
+		// so a retired direction can still be read while it is open.
+		&[data-vx-state='retire'] .vx__head {
+			opacity: 0.5;
 
 			.vx__name {
 				text-decoration: line-through;
 			}
 		}
-
-		&[data-vx-state='promote'] {
-			border-top-color: $color-brand;
-		}
 	}
 
+	// With the tabs, a hairline over the open direction sets it off from the tabs and controls above.
+	:global(:root[data-vp-tabs]) .vx {
+		padding-top: $spacing-6;
+		border-top: 1px solid var(--sl-color-hairline-light);
+	}
+
+	// Without the tabs (no script), directions stack, and the rule is what tells one from the next.
+	:global(:root:not([data-vp-tabs])) .vx {
+		padding-top: $spacing-6;
+		border-top: 2px solid var(--color-text, #17181c);
+	}
+
+	// The name and its description on the left, held to a reading width; promote and retire at the
+	// right, level with the name.
 	.vx__cap {
 		display: flex;
-		align-items: baseline;
-		gap: $spacing-3;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: $spacing-4;
 		margin-bottom: $spacing-8;
 	}
 
-	// The row's badge, at the caption's scale: 24px around a 15px glyph where the row runs 40 around
-	// 24, and the same 32% rounding, which is a percentage and so holds at either size.
-	.vx__badge {
-		align-self: center;
-		flex: none;
-		display: grid;
-		place-items: center;
-		width: 24px;
-		height: 24px;
-		border-radius: 32%;
-		background: var(--badge-color, #{$color-brand});
-		color: #fff;
-
-		[data-icon] {
-			width: 15px;
-			height: 15px;
-		}
-	}
-
-	.vx__name {
-		@include card-title-sm;
-		margin: 0;
-		font-family: $font-family-mono;
-	}
-
-	.vx__note {
-		@include text-xs;
-		margin: 0;
-		color: var(--color-text-secondary, #5b616e);
+	.vx__titles {
+		min-width: 0;
+		max-width: 80ch;
 	}
 
 	.vx__cmds {
+		flex: none;
+		padding-top: 2px;
+
+		&:empty {
+			display: none;
+		}
+	}
+
+	.vx__head {
 		display: flex;
-		gap: $spacing-2;
-		margin-left: auto;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-2 $spacing-3;
+	}
+
+	// The direction's name in the site's own face: it is the thing being decided about, so it reads
+	// as a heading, not as a code identifier.
+	.vx__name {
+		@include card-title;
+		margin: 0;
+	}
+
+	// Green, the same green as the hub's check: in use means the same thing on every page.
+	.vx__inuse {
+		@include text-s;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 2px 10px 2px 6px;
+		border-radius: 999px;
+		background: #e7f5ec;
+		font-weight: $font-weight-medium;
+		color: #17693a;
+
+		[data-icon] {
+			width: 18px;
+			height: 18px;
+			color: #1f8b4d;
+		}
+	}
+
+	// Under the name, regular and at reading size: it is the one line that says what is different
+	// about this direction.
+	.vx__note {
+		@include text-m;
+		margin: $spacing-2 0 0;
+		color: var(--color-text-secondary, #5b616e);
 	}
 
 	// Desktop above, phone below. Side by side would put the 525 row and the 335 probe at the same
@@ -375,24 +425,87 @@ const key = `${visual.id}/${name}`;
 		color: $color-brand;
 	}
 
-	// The phone sits centred on the page rather than in a frame of its own: the row inside the iframe
-	// paints its own ground edge to edge, which is what a phone shows, and a checkerboard around it
-	// would be a border the homepage does not have.
+	// The phone sits centred on the page. The row inside paints its own ground edge to edge, which is
+	// what a phone shows; a checkerboard around it would be a border the homepage does not have.
+	// Three columns so the phone stays centred with its switch beside it: the outer two share what is
+	// left, and the switch takes the start of the right one.
 	.vx__phonebox {
-		display: flex;
-		justify-content: center;
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: start;
 		padding: $spacing-6 0;
 	}
 
-	// A device-width slab, not a panel. The shadow says "this is a screen" without drawing a bezel
-	// that would have to be kept honest about which phone it is.
-	.vx__phone {
-		display: block;
-		border: 0;
-		border-radius: $radius-md;
+	.vx__device {
+		grid-column: 2;
+	}
+
+	// Stacked, and sticky under the top bar, so at full length it is still beside the phone halfway
+	// down it.
+	.vx__phonectl {
+		position: sticky;
+		top: 88px;
+		flex-direction: column;
+		align-items: stretch;
+		justify-self: start;
+		max-width: none;
+		margin: 0 0 0 $spacing-5;
+	}
+
+	// A flat dark frame, so the screen reads as a phone in a hand rather than a strip of page: an even
+	// bezel and rounded corners, no notch, buttons or gloss — nothing that would have to be kept
+	// honest about which phone it is. The screen's corners follow the bezel's, inset by its width.
+	.vx__device {
+		--bezel: 10px;
+		--corner: 44px;
+		// A charcoal a step above the page's darkest ink, so the edge still shows round the dark bands
+		// (Products, Choice), whose ground is near-black themselves.
+		--frame: #2c2e35;
+		padding: var(--bezel);
+		border-radius: var(--corner);
+		background: var(--frame);
+		// Lifted off the page just enough to read as an object, not a cut-out.
 		box-shadow:
-			0 1px 2px rgb(23 24 28 / 8%),
-			0 8px 24px rgb(23 24 28 / 8%);
+			0 1px 2px rgb(23 24 28 / 10%),
+			0 16px 32px -12px rgb(23 24 28 / 28%);
+	}
+
+	// The screen's own box is painted the frame's colour, not white: the rounded clip antialiases the
+	// element's background and the framed document separately, and a white box left a light hairline
+	// round the corners wherever the row is dark. The document inside paints its own ground anyway.
+	.vx__screen {
+		display: block;
+		overflow: hidden;
+		border-radius: calc(var(--corner) - var(--bezel));
+		background: var(--frame);
+	}
+
+	// A probe has no document of its own to paint the ground, so it keeps the page's white.
+	.probe.vx__screen {
+		background: #fff;
+	}
+
+	// ONE SCREEN, the phone view's default (the switch is in `_VisualPage`): the screen held at a
+	// phone's height, the row scrolling inside it. 667 is the 375-wide phone's viewport, which is
+	// also about what Safari leaves of a taller phone once its bars are showing. `!important` over
+	// the frame's own measured height, which `_VisualPage` writes inline for full length.
+	:global(:root[data-phone='screen']) .vx__screen {
+		height: 667px !important;
+		overflow-y: auto;
+		scrollbar-width: none;
+	}
+
+	.vx__phone {
+		border: 0;
+	}
+
+	// A sandbox window that is itself phone-width already shows the row as a phone gets it, in the
+	// desktop view above, so a phone preview under it is the same row twice — and a 395px frame
+	// that overflows the page. `_VisualPage` does not load the frame at this width either.
+	@include media-down(md) {
+		.vx__view--phone {
+			display: none;
+		}
 	}
 
 	// The checkerboard shows where a visual's own background stops and the page's begins — a

@@ -1,16 +1,23 @@
 ---
 import { Icon } from 'astro-icon/components';
 import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
-import { KEY_VISUALS, ON_HOME, kv } from '@root/pages/internal/_key-visuals';
+import { kv } from '@root/pages/internal/_key-visuals';
 
 /**
- * One visual's page in the sandbox: the shell every one of them shares.
+ * One visual's page in the sandbox: the shell every section and flow page shares.
  *
  * The sandbox used to be a single page holding all nine visuals as tab panels. Looking at six
- * stages meant compiling and rendering fifty-eight, and the tab strip was machinery that existed
- * only because they were on one page. Now each visual is its own route and its own file, and this
- * carries what they have in common — the strip of links between them, the promote/retire control,
- * and the chrome the exhibits use.
+ * stages meant compiling and rendering fifty-eight. Now each visual is its own route and its own
+ * file, and this carries what they have in common:
+ *
+ * - THE TOP BAR is the layout's (`_AreaBar`): the area's overview and pages. A section page adds
+ *   the marks summary to it, as a slim row that sticks with the bar.
+ * - THE CONTROLS over the directions: the row ground where a row is on show, and the page's own
+ *   controls. Promote and retire are not here: they sit in the open direction's own header.
+ * - THE TABS: one per direction, then one per still (`<figure class="stage">`). Built here, in the
+ *   browser, from the page's own markup, so a page writes its directions once and in order and
+ *   gets the tabs for free; without script they simply stack. The direction in use (`shipping`)
+ *   comes first and wears the green check.
  *
  * The chrome is `is:global` on purpose, not scoped: the exhibits are written in the PAGE that uses
  * this component, and an Astro scoped rule only matches markup in its own file. Scoped here, every
@@ -25,15 +32,12 @@ interface Props {
 const { visual } = Astro.props;
 const me = kv(visual);
 
-/**
- * Where the strip's divider goes: after the last visual that is on the homepage — a row, or (for
- * `ai`) a section of its own.
- *
- * Counted from the data rather than typed — a visual is on the page when it has a `home` anchor —
- * so putting a row on the page moves the rule by setting one field; the order and the seam cannot
- * disagree.
- */
-const HOME_COUNT = ON_HOME.length;
+// The line under the title: the section's headline, minus anything that repeats the title. A flow's
+// headline opens with its own name ("Sign in — from the header to the form"), so that part goes; a
+// page with no headline (Choice cards) or one that only repeats it gets no line rather than filler.
+const stripped = me.title?.replace(new RegExp(`^${me.label}\\s*[—–-]\\s*`), '').replace(/^./, (c) => c.toUpperCase());
+// A headline that is only the label again ("Products", "Deploy anywhere") says nothing new.
+const lede = stripped && stripped.toLowerCase() !== me.label.toLowerCase() ? stripped : undefined;
 
 /**
  * FRAME MODE. `?frame=<visual/name>` turns this page into one direction's row and nothing else, so a
@@ -45,114 +49,82 @@ const HOME_COUNT = ON_HOME.length;
  * It is done in the BROWSER, not here. These routes are prerendered (static output, no adapter), so
  * `Astro.url.searchParams` is empty at build time and the server cannot see which frame was asked
  * for. The script below reads the query, lifts that section's row out, and drops everything else.
- * The cost is that the server still renders the whole page per frame; `loading="lazy"` keeps that
- * off the critical path. What stops a frame loading frames of its own is NOT this trim — the phone
- * iframes ship `data-src`, and only the top-level page gives them a `src` (see `_Variant`).
+ * The cost is that the server still renders the whole page per frame. What stops a frame loading
+ * frames of its own is NOT this trim — the phone iframes ship `data-src`, and only the top-level
+ * page gives them a `src`, and only for the tab that is open (see `_Variant`).
  */
 ---
 
-<PlaygroundLayout title={me.label} description={me.title ?? 'Directions for one key visual.'}>
+<PlaygroundLayout title={me.label} description={lede} badge={me.badge}>
 	{
-		/* Every visual one click away, the current one marked rather than linked, in the order the
-	    homepage runs them.
-
-	    The rule after `scale` is the seam in that order: everything before it is a row on the
-	    homepage, everything after is drawn and waiting for a section. It was implied by the order
-	    and invisible, which is the kind of thing that gets forgotten between sessions.
-
-	    The way back to the index is the icon, not a word. It was the word "Sandbox" in grey mono,
-	    sitting at the head of a row of pills and reading as a label for them rather than as a link
-	    out — and `InternalNav`, fixed in the corner of every one of these pages, already carries a
-	    "Sandbox" link. One of the two had to stop being a word. */
+		/* The marks summary: a slim row under the top bar that sticks with it, shown only while
+	    something is marked. Marking is not doing. It records a decision in localStorage; the
+	    promotion is carried out by putting the component on the homepage (and flagging it
+	    `shipping`), the retirement by deleting files, both separate commits. The store is shared
+	    across every page, so the counts and the copied list are the whole sandbox, not just this
+	    page. Copy it before clearing site data: this is the only place it lives. */
 	}
-	<nav class="vnav" slot="nav" aria-label="Key visual">
-		<a class="vnav__up" href="/internal/sections/" title="All visuals" aria-label="All visuals">
-			<Icon name="tabler:layout-grid" aria-hidden="true" />
-		</a>
-		{
-			KEY_VISUALS.map((v, i) => (
-				<Fragment>
-					{i === HOME_COUNT && <span class="vnav__seam" aria-hidden="true" />}
-					{v.id === visual ? (
-						<span class="vnav__here" aria-current="page">
-							{v.label}
-						</span>
-					) : (
-						<a class="vnav__link" href={`/internal/sections/${v.id}/`}>
-							{v.label}
-						</a>
-					)}
-				</Fragment>
-			))
-		}
-	</nav>
+	<div class="vp-marks" slot="below" data-mark-bar hidden>
+		<span class="vp-marks__lbl">Marked</span>
+		<span class="vp-marks__n vp-marks__n--up"><b data-mark-count="promote">0</b> promoted</span>
+		<span class="vp-marks__n"><b data-mark-count="retire">0</b> retired</span>
+		<span class="vp-marks__scope">across the sandbox</span>
+		<span class="vp-marks__acts">
+			<button type="button" data-mark-copy>Copy list</button>
+			<button type="button" data-mark-hide aria-pressed="false">Hide retired</button>
+			<button type="button" data-mark-clear>Clear</button>
+		</span>
+	</div>
 
 	{
-		/* Two commands, and the unit both of them act on is the DIRECTION.
-	    The judgement about a direction is only good while you are looking at it — so it is made
-	    there, in the section's own header, and collected here.
+		/* The controls over the tabs. The ROW GROUND shows only while the open direction is a homepage
+	    row, the one thing it changes: the homepage alternates its rows, so which ground a visual gets
+	    depends on where its row falls, and the two are not equally kind to a pale diagram. The page's
+	    own controls (Connect's cloud chips, Twin's caption size) are moved in here by the script. The
+	    row hides itself when none of it applies. */
+	}
+	<div class="vp-bar" data-vp-bar>
+		<div class="page-ctl" role="group" aria-label="Row ground" data-ground-switch hidden>
+			<span class="page-ctl__name">Row ground</span>
+			<button type="button" data-ground-pick="tint" aria-pressed="true">Tint</button>
+			<button type="button" data-ground-pick="white" aria-pressed="false">White</button>
+		</div>
+	</div>
 
-	    Promote and retire are not opposites of different weight: one says this is the one, the other
-	    says this one is done. Having only retire meant the good news had nowhere to go, so the way
-	    to record a winner was to retire everything else, which reads identically to abandoning the
-	    whole visual.
-
-	    Marking is not doing. It records a decision in localStorage; the promotion is carried out by
-	    putting the component on the homepage and the retirement by deleting files, both of which are
-	    separate commits and a revert if they turn out to be wrong. The store is shared across every
-	    visual's page, so the counts and the copied list are the whole sandbox, not just this page.
-	    Copy it before clearing site data — this is the only place it lives. */
+	{
+		/* Promote and retire, for the direction that is open. One pair, moved by the script into the
+	    open direction's header, where the direction is in front of you: the judgement about a
+	    direction is only good while you are looking at it. Promote says this is the one, retire says
+	    this one is done; pressing the one already pressed takes it back. */
 	}
 	{
-		/* The ground under every desktop row on the page.
-
-	    The homepage alternates its rows, so which one a visual gets is decided by where its row
-	    happens to fall — and the two grounds are not equally kind to a pale diagram. A visual that
-	    reads on #f5f6ff can lose its lightest strokes on white, and one drawn on white can look like
-	    a card sitting on the tint. Neither is the ground: both are, for three rows and two.
-
-	    Always visible, unlike the marks bar, because it applies whether or not anything is marked.
-	    Sandbox-only — nothing sets `data-ground` on the homepage, so the rule below stays inert
-	    there. */
+		/* Previous and next DIRECTION, at the right end of the tabs: the way to walk a page's
+	    directions in order without reaching for the tab. Moved in by the script, which also
+	    disables each at its end. */
 	}
-	{
-		(
-			<>
-				<div class="page-ctl" role="group" aria-label="Row ground" data-ground-switch>
-					<span class="page-ctl__name">Row ground</span>
-					<button type="button" data-ground-pick="tint" aria-pressed="true">
-						Tint
-					</button>
-					<button type="button" data-ground-pick="white" aria-pressed="false">
-						White
-					</button>
-				</div>
+	<div class="vp-steps" data-vp-steps hidden>
+		<button type="button" class="vp-step" data-vp-step="-1" aria-label="Previous direction" title="Previous direction">
+			<Icon name="tabler:chevron-left" aria-hidden="true" />
+		</button>
+		<button type="button" class="vp-step" data-vp-step="1" aria-label="Next direction" title="Next direction">
+			<Icon name="tabler:chevron-right" aria-hidden="true" />
+		</button>
+	</div>
 
-				<div class="page-ctl" data-mark-bar hidden>
-					<span class="page-ctl__name">Marked</span>
-					<span class="page-ctl__count page-ctl__count--up" data-mark-count="promote">
-						0
-					</span>
-					<span class="page-ctl__lbl">promote</span>
-					<span class="page-ctl__count" data-mark-count="retire">
-						0
-					</span>
-					<span class="page-ctl__lbl">retire</span>
-					<button type="button" data-mark-copy>
-						Copy list
-					</button>
-					<button type="button" data-mark-hide aria-pressed="false">
-						Hide retired
-					</button>
-					<button type="button" data-mark-clear>
-						Clear marks
-					</button>
-				</div>
-			</>
-		)
-	}
+	<div class="vx-cmds" role="group" aria-label="Mark this direction" data-dir-cmds hidden>
+		<button type="button" class="vx-cmd" data-vx-cmd="promote" aria-pressed="false" title="This is the one to ship">
+			<Icon name="tabler:circle-check" aria-hidden="true" />
+			Promote
+		</button>
+		<button type="button" class="vx-cmd" data-vx-cmd="retire" aria-pressed="false" title="Done with this direction">
+			<Icon name="tabler:archive" aria-hidden="true" />
+			Retire
+		</button>
+	</div>
 
-	<slot />
+	<div class="vp-body" data-vp-body>
+		<slot />
+	</div>
 </PlaygroundLayout>
 
 <script>
@@ -190,9 +162,7 @@ const HOME_COUNT = ON_HOME.length;
 		 * `astro-icon` writes each glyph's `<symbol>` inline in its FIRST use on the page and a bare
 		 * `<use href="#ai:…">` everywhere after. Both the section badge and every icon inside a visual
 		 * go through it, and on a page of twelve directions the definitions therefore all sit in the
-		 * first one. Keeping row seven and dropping the rest left seven's `<use>` pointing at nothing:
-		 * a 40px badge tile with no glyph in it, which is what the phone previews were showing — ten
-		 * of eleven on the connect page, every one except the first.
+		 * first one. Keeping row seven and dropping the rest left seven's `<use>` pointing at nothing.
 		 *
 		 * So every symbol NOT already inside the row comes along, in a hidden sprite. Filtered rather
 		 * than cloned wholesale, because a duplicate id would shadow the real one in the row itself.
@@ -224,33 +194,22 @@ const HOME_COUNT = ON_HOME.length;
 		document.fonts?.ready.then(post);
 
 		// The page's ground toggle writes to localStorage, which fires `storage` in every OTHER
-		// same-origin document — that is these frames. Without it, flipping the toggle would leave
-		// twelve phones on the old ground until a reload.
+		// same-origin document — that is these frames.
 		window.addEventListener('storage', (e) => {
 			if (e.key === GROUND_KEY) document.documentElement.dataset.ground = readGround();
 		});
 	} else {
-		// The phone previews get their `src` here, from the top-level page only — see the note on
-		// `data-src` in `_Variant`. This branch never runs inside a frame, so a frame's own phone
-		// iframes stay empty and it cannot load the page again. `loading="lazy"` is on the element,
-		// so they still wait until they are near the viewport.
-		document.querySelectorAll<HTMLIFrameElement>('iframe[data-vx-phone][data-src]').forEach((f) => {
-			f.src = f.dataset.src!;
-		});
+		const root = document.documentElement;
+		const bar = document.querySelector<HTMLElement>('[data-vp-bar]');
+		const body = document.querySelector<HTMLElement>('[data-vp-body]');
 
 		/**
-		 * The promote / retire control.
-		 *
-		 * Every `[data-variant]` section gets two buttons in its header. A section is in one of three
-		 * states — unmarked, promoted, retired — and the buttons toggle between them, so pressing
-		 * Promote on something already retired moves it rather than needing the retire cleared first.
+		 * The promote / retire marks, stored per direction.
 		 *
 		 * A direction is keyed by `visual/name`, written by `_Variant`, and stored WITH its label. The
 		 * key alone would rot the first time a name was edited; the label alone is not unique. Together
 		 * they survive either one changing, which matters because the list is read back days later by
 		 * someone deleting files or moving a component onto the homepage.
-		 *
-		 * Nothing here changes a file. It writes a decision down at the moment the decision is good.
 		 */
 		const MARK_KEY = 'launch-visuals:marks';
 
@@ -273,116 +232,295 @@ const HOME_COUNT = ON_HOME.length;
 			}
 		};
 
-		{
-			const bar = document.querySelector<HTMLElement>('[data-mark-bar]');
-			const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-variant]'));
+		// ---- The tabs --------------------------------------------------------------------------
+		//
+		// Every direction and every still that is a direct child of the page becomes a panel with a
+		// tab. The page's own `.page-ctl` groups move into the page bar. The bar and the tab list go
+		// in where the first panel was, so whatever the page puts first (a brief, draft controls)
+		// stays above them.
+		const children = body ? Array.from(body.children) : [];
+		const panels = children.filter((el): el is HTMLElement => el.matches('.vx[data-variant], figure.stage'));
+		children.filter((el) => el.matches('.page-ctl')).forEach((el) => bar?.append(el));
 
-			const paint = () => {
-				const marks = readMarks();
-				sections.forEach((s) => {
-					const mark = marks[s.dataset.vxKey ?? ''];
-					if (mark) s.dataset.vxState = mark.state;
-					else delete s.dataset.vxState;
-					s.querySelectorAll<HTMLButtonElement>('[data-vx-cmd]').forEach((b) =>
-						b.setAttribute('aria-pressed', String(b.dataset.vxCmd === mark?.state))
-					);
-				});
+		const dirs = panels.filter((p) => p.matches('.vx'));
+		const stills = panels.filter((p) => !p.matches('.vx'));
+		// The direction in use first, then the page's order, then the stills.
+		const ordered = [
+			...dirs.filter((d) => d.hasAttribute('data-vx-shipping')),
+			...dirs.filter((d) => !d.hasAttribute('data-vx-shipping')),
+			...stills,
+		];
 
-				const all = Object.values(marks);
-				(['promote', 'retire'] as State[]).forEach((state) => {
-					const el = document.querySelector<HTMLElement>(`[data-mark-count="${state}"]`);
-					if (el) el.textContent = String(all.filter((m) => m.state === state).length);
-				});
-				if (bar) bar.hidden = all.length === 0;
-			};
+		const slug = (s: string) =>
+			s
+				.toLowerCase()
+				.normalize('NFKD')
+				.replace(/[^a-z0-9]+/g, '-')
+				.replace(/^-+|-+$/g, '') || 'tab';
 
-			sections.forEach((section) => {
-				const slot = section.querySelector('[data-vx-cmds]');
-				const key = section.dataset.vxKey;
-				const label = section.dataset.vxLabel ?? key ?? '';
-				if (!slot || !key) return;
+		const CHECK_SOLID =
+			'<svg viewBox="0 0 24 24" aria-hidden="true" class="vp-tab__check"><path fill="currentColor" d="M17 3.34a10 10 0 1 1-14.995 8.984L2 12l.005-.324A10 10 0 0 1 17 3.34m-1.293 5.953a1 1 0 0 0-1.32-.083l-.094.083L11 12.585l-1.293-1.292l-.094-.083a1 1 0 0 0-1.403 1.403l.083.094l2 2l.094.083a1 1 0 0 0 1.226 0l.094-.083l4-4l.083-.094a1 1 0 0 0-.083-1.32"/></svg>';
+		const CHECK_OUTLINE =
+			'<svg viewBox="0 0 24 24" aria-hidden="true" class="vp-tab__check vp-tab__check--outline"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0m6 0l2 2l4-4"/></svg>';
 
-				(
-					[
-						['promote', 'Promote', 'This is the one to ship'],
-						['retire', 'Retire', 'Done with this direction'],
-					] as const
-				).forEach(([state, text, title]) => {
-					const btn = document.createElement('button');
-					btn.type = 'button';
-					btn.className = 'vx__cmd';
-					btn.dataset.vxCmd = state;
-					btn.title = title;
-					btn.textContent = text;
-					btn.setAttribute('aria-pressed', 'false');
-					btn.addEventListener('click', () => {
-						const marks = readMarks();
-						// Pressing the state it already has clears it; pressing the other one moves it.
-						if (marks[key]?.state === state) delete marks[key];
-						else marks[key] = { state, label };
-						writeMarks(marks);
-						paint();
-					});
-					slot.appendChild(btn);
-				});
+		const tabs: HTMLButtonElement[] = [];
+		const byId = new Map<string, HTMLElement>();
+
+		// One panel is nothing to choose between: it stays a plain section under the page bar, with no
+		// tab strip naming the one thing on the page.
+		const single = ordered.length === 1;
+		if (bar && body && ordered.length) {
+			const list = document.createElement('div');
+			list.className = 'vp-tabs';
+			list.setAttribute('role', 'tablist');
+			list.setAttribute('aria-label', 'Directions');
+
+			ordered.forEach((panel, i) => {
+				const isDir = panel.matches('.vx');
+				const name = isDir
+					? (panel.dataset.vxName ?? `Direction ${i + 1}`)
+					: (panel.querySelector('.stage__name')?.textContent?.trim() ?? `Still ${i + 1}`);
+				let id = slug(name);
+				while (byId.has(id)) id += '-2';
+				byId.set(id, panel);
+
+				panel.id = `panel-${id}`;
+				if (single) return;
+				panel.setAttribute('role', 'tabpanel');
+				panel.setAttribute('aria-labelledby', `tab-${id}`);
+
+				const tab = document.createElement('button');
+				tab.type = 'button';
+				tab.id = `tab-${id}`;
+				tab.className = isDir ? 'vp-tab' : 'vp-tab vp-tab--still';
+				if (!isDir && panel === stills[0]) tab.classList.add('vp-tab--first-still');
+				tab.setAttribute('role', 'tab');
+				tab.setAttribute('aria-controls', panel.id);
+				tab.setAttribute('aria-selected', 'false');
+				tab.tabIndex = -1;
+				tab.dataset.target = id;
+
+				const shipping = panel.hasAttribute('data-vx-shipping');
+				tab.innerHTML =
+					(shipping ? CHECK_SOLID : '') +
+					`<span class="vp-tab__promote" hidden>${CHECK_OUTLINE}</span>` +
+					`<span class="vp-tab__name"></span>` +
+					(shipping ? '<span class="vp-sr">, in use</span>' : '') +
+					`<span class="vp-sr" data-tab-state></span>`;
+				tab.querySelector('.vp-tab__name')!.textContent = name;
+				if (shipping) tab.dataset.shipping = '';
+
+				tab.addEventListener('click', () => select(id));
+				list.append(tab);
+				tabs.push(tab);
 			});
 
-			// Promotions first: the list is read top down by whoever acts on it, and what to ship is a
-			// different job from what to delete.
-			document.querySelector('[data-mark-copy]')?.addEventListener('click', () => {
-				const marks = readMarks();
-				const rows = (state: State) =>
-					Object.entries(marks)
-						.filter(([, m]) => m.state === state)
-						.map(([k, m]) => `${k}\t${m.label}`);
-				const text = [
-					...(rows('promote').length ? ['PROMOTE', ...rows('promote'), ''] : []),
-					...(rows('retire').length ? ['RETIRE', ...rows('retire')] : []),
-				].join('\n');
-				navigator.clipboard?.writeText(text);
+			// Arrow keys move along the tabs, Home and End to either end; Enter or Space opens one. Manual
+			// activation, because a panel can hold a phone frame, and walking past twelve of them should
+			// not load twelve pages.
+			list.addEventListener('keydown', (e) => {
+				const shown = tabs.filter((t) => t.offsetParent !== null);
+				const at = shown.indexOf(document.activeElement as HTMLButtonElement);
+				if (at < 0) return;
+				const to =
+					e.key === 'ArrowRight'
+						? shown[(at + 1) % shown.length]
+						: e.key === 'ArrowLeft'
+							? shown[(at - 1 + shown.length) % shown.length]
+							: e.key === 'Home'
+								? shown[0]
+								: e.key === 'End'
+									? shown[shown.length - 1]
+									: null;
+				if (!to) return;
+				e.preventDefault();
+				tabs.forEach((t) => (t.tabIndex = t === to ? 0 : -1));
+				to.focus();
 			});
 
-			// Retired sections are dimmed, not hidden, so a mark can be reconsidered. This hides them,
-			// which is the only way to see what the page would look like after the cleanup.
-			document.querySelector<HTMLButtonElement>('[data-mark-hide]')?.addEventListener('click', (e) => {
-				const btn = e.currentTarget as HTMLButtonElement;
-				const on = btn.getAttribute('aria-pressed') === 'true';
-				btn.setAttribute('aria-pressed', on ? 'false' : 'true');
-				btn.textContent = on ? 'Hide retired' : 'Retired hidden';
-				document.documentElement.toggleAttribute('data-hide-retired', !on);
-			});
-
-			document.querySelector('[data-mark-clear]')?.addEventListener('click', () => {
-				writeMarks({});
-				paint();
-			});
-
-			paint();
+			const first = panels[0];
+			// The tabs first, then the controls for what is open under them. The tabs share a row with
+			// the previous/next pair.
+			if (!single) {
+				const row = document.createElement('div');
+				row.className = 'vp-tabrow';
+				row.append(list);
+				const steps = document.querySelector<HTMLElement>('[data-vp-steps]');
+				if (steps) {
+					steps.hidden = false;
+					row.append(steps);
+				}
+				body.insertBefore(row, first);
+			}
+			body.insertBefore(bar, first);
+			root.dataset.vpTabs = '';
 		}
+
+		let active: HTMLElement | undefined;
+
+		// The phone previews get their `src` here, from the top-level page only, and only for the tab
+		// being opened — see the note on `data-src` in `_Variant`. This branch never runs inside a
+		// frame, so a frame's own phone iframes stay empty and it cannot load the page again.
+		// Not at all while the window is itself phone-width, where `_Variant` hides the phone view; a
+		// window widened past it loads the open tab's then.
+		const narrow = window.matchMedia('(max-width: 749px)');
+		const loadFrames = (panel: HTMLElement) => {
+			if (narrow.matches) return;
+			panel.querySelectorAll<HTMLIFrameElement>('iframe[data-vx-phone][data-src]').forEach((f) => {
+				if (!f.getAttribute('src')) f.src = f.dataset.src!;
+			});
+		};
+		narrow.addEventListener('change', () => active && loadFrames(active));
+
+		const dirCmds = document.querySelector<HTMLElement>('[data-dir-cmds]');
+		const groundSwitch = document.querySelector<HTMLElement>('[data-ground-switch]');
+
+		// Previous / next direction, over the tabs that are showing (retired ones can be hidden).
+		const shownTabs = () => tabs.filter((t) => t.offsetParent !== null);
+		const stepButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-vp-step]'));
+		const updateSteps = () => {
+			const shown = shownTabs();
+			const at = shown.findIndex((t) => t.getAttribute('aria-selected') === 'true');
+			stepButtons.forEach((b) => {
+				const to = at + Number(b.dataset.vpStep);
+				b.disabled = at < 0 || to < 0 || to >= shown.length;
+			});
+		};
+		stepButtons.forEach((b) =>
+			b.addEventListener('click', () => {
+				const shown = shownTabs();
+				const at = shown.findIndex((t) => t.getAttribute('aria-selected') === 'true');
+				const to = shown[at + Number(b.dataset.vpStep)];
+				if (to) select(to.dataset.target!);
+			})
+		);
+
+		const select = (id: string, { remember = true } = {}) => {
+			const panel = byId.get(id);
+			if (!panel) return;
+			active = panel;
+			tabs.forEach((t) => {
+				const on = t.dataset.target === id;
+				t.setAttribute('aria-selected', String(on));
+				t.tabIndex = on ? 0 : -1;
+			});
+			panels.forEach((p) => (p.hidden = p !== panel));
+			loadFrames(panel);
+			// The commands go into the open direction's header; a still carries no mark and gets none.
+			// The ground only changes a row.
+			if (dirCmds) {
+				const slot = panel.querySelector('[data-vx-cmds]');
+				if (slot) slot.append(dirCmds);
+				dirCmds.hidden = !slot;
+			}
+			if (groundSwitch) groundSwitch.hidden = !panel.querySelector('.new-rows .feature-block-section');
+			paint();
+			updateSteps();
+			if (remember) history.replaceState(null, '', `#${id}`);
+		};
+
+		/** Directions, tabs and the page bar, from the stored marks. */
+		const paint = () => {
+			const marks = readMarks();
+			dirs.forEach((s) => {
+				const mark = marks[s.dataset.vxKey ?? ''];
+				if (mark) s.dataset.vxState = mark.state;
+				else delete s.dataset.vxState;
+			});
+			tabs.forEach((t) => {
+				const panel = byId.get(t.dataset.target ?? '');
+				const state = panel?.dataset.vxState;
+				if (state) t.dataset.state = state;
+				else delete t.dataset.state;
+				// An outlined check for a promotion that has not shipped yet; the solid one is `shipping`.
+				t.querySelector<HTMLElement>('.vp-tab__promote')!.hidden =
+					state !== 'promote' || t.hasAttribute('data-shipping');
+				t.querySelector('[data-tab-state]')!.textContent =
+					state === 'promote' ? ', promoted' : state === 'retire' ? ', retired' : '';
+			});
+			const mark = active?.matches('.vx') ? marks[active.dataset.vxKey ?? ''] : undefined;
+			document
+				.querySelectorAll<HTMLButtonElement>('[data-vx-cmd]')
+				.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vxCmd === mark?.state)));
+
+			const all = Object.values(marks);
+			(['promote', 'retire'] as State[]).forEach((state) => {
+				const el = document.querySelector<HTMLElement>(`[data-mark-count="${state}"]`);
+				if (el) el.textContent = String(all.filter((m) => m.state === state).length);
+			});
+			const markBar = document.querySelector<HTMLElement>('[data-mark-bar]');
+			if (markBar) markBar.hidden = all.length === 0;
+		};
+
+		document.querySelectorAll<HTMLButtonElement>('[data-vx-cmd]').forEach((btn) =>
+			btn.addEventListener('click', () => {
+				const key = active?.dataset.vxKey;
+				if (!active?.matches('.vx') || !key) return;
+				const state = btn.dataset.vxCmd as State;
+				const marks = readMarks();
+				// Pressing the state it already has clears it; pressing the other one moves it.
+				if (marks[key]?.state === state) delete marks[key];
+				else marks[key] = { state, label: active.dataset.vxLabel ?? key };
+				writeMarks(marks);
+				paint();
+			})
+		);
+
+		// Promotions first: the list is read top down by whoever acts on it, and what to ship is a
+		// different job from what to delete.
+		document.querySelector('[data-mark-copy]')?.addEventListener('click', () => {
+			const marks = readMarks();
+			const rows = (state: State) =>
+				Object.entries(marks)
+					.filter(([, m]) => m.state === state)
+					.map(([k, m]) => `${k}\t${m.label}`);
+			const text = [
+				...(rows('promote').length ? ['PROMOTE', ...rows('promote'), ''] : []),
+				...(rows('retire').length ? ['RETIRE', ...rows('retire')] : []),
+			].join('\n');
+			navigator.clipboard?.writeText(text);
+		});
+
+		// Retired directions are dimmed, not hidden, so a mark can be reconsidered. This hides their
+		// tabs, which is the only way to see what the page would look like after the cleanup.
+		document.querySelector<HTMLButtonElement>('[data-mark-hide]')?.addEventListener('click', (e) => {
+			const btn = e.currentTarget as HTMLButtonElement;
+			const on = btn.getAttribute('aria-pressed') === 'true';
+			btn.setAttribute('aria-pressed', on ? 'false' : 'true');
+			btn.textContent = on ? 'Hide retired' : 'Retired hidden';
+			root.toggleAttribute('data-hide-retired', !on);
+			updateSteps();
+			if (!on && active?.dataset.vxState === 'retire') {
+				const open = tabs.find((t) => t.dataset.state !== 'retire');
+				if (open) select(open.dataset.target!);
+			}
+		});
+
+		document.querySelector('[data-mark-clear]')?.addEventListener('click', () => {
+			writeMarks({});
+			paint();
+		});
+
+		// The tab the address names, so a reload or a shared link lands where it was; otherwise the first.
+		const wanted = decodeURIComponent(location.hash.slice(1));
+		const firstId = byId.keys().next().value;
+		if (byId.has(wanted)) select(wanted);
+		else if (firstId) select(firstId, { remember: false });
+		else paint();
 
 		{
 			/**
 			 * The ground switch. Sets `data-ground` on the document, which the rule in this file's global
-			 * block reads, and remembers the pick so a reload does not reset it mid-comparison.
-			 *
-			 * On the document rather than on each row: every row on the page moves together, which is the
-			 * only way the comparison is between GROUNDS rather than between rows.
+			 * block reads, and remembers the pick so a reload does not reset it mid-comparison. On the
+			 * document rather than on each row: every row moves together, so the comparison is between
+			 * GROUNDS rather than between rows.
 			 */
 			const picks = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-ground-pick]'));
-
 			const applyGround = (value: string) => {
-				document.documentElement.dataset.ground = value;
+				root.dataset.ground = value;
 				picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.groundPick === value)));
 			};
-
-			let savedGround: string | null = null;
-			try {
-				savedGround = localStorage.getItem(GROUND_KEY);
-			} catch {
-				/* private window; tint is the default and that is fine */
-			}
-			applyGround(savedGround === 'white' ? 'white' : 'tint');
-
+			applyGround(readGround());
 			picks.forEach((b) =>
 				b.addEventListener('click', () => {
 					const value = b.dataset.groundPick ?? 'tint';
@@ -394,78 +532,62 @@ const HOME_COUNT = ON_HOME.length;
 					}
 				})
 			);
-
-			// The phone previews are iframes of this same page, so each one runs this script too and reads
-			// the stored ground at load. `storage` fires in every OTHER same-origin document when the key
-			// changes, which is exactly the frames — so flipping the toggle moves them with the page
-			// rather than leaving twelve phones on yesterday's ground until a reload.
+			// The phone previews are iframes of this same page and read the stored ground at load.
+			// `storage` fires in every OTHER same-origin document when the key changes, which is
+			// exactly the frames, so flipping the toggle moves them with the page.
 			window.addEventListener('storage', (e) => {
 				if (e.key === GROUND_KEY) applyGround(e.newValue === 'white' ? 'white' : 'tint');
 			});
 		}
 
 		{
-			// Parent side. Each frame says how tall it came out and which direction it is; the message
-			// names its key so twelve of them on one page cannot resize each other.
-			window.addEventListener('message', (e) => {
-				if (e.source === window || typeof e.data !== 'object' || !e.data) return;
-				const { kvFrameHeight, kvFrameKey } = e.data as { kvFrameHeight?: number; kvFrameKey?: string };
-				if (typeof kvFrameHeight !== 'number' || !kvFrameKey) return;
-				const frameEl = document.querySelector<HTMLIFrameElement>(`[data-vx-phone="${CSS.escape(kvFrameKey)}"]`);
-				if (frameEl) frameEl.style.height = `${kvFrameHeight}px`;
-			});
+			/**
+			 * The phone view's length. ONE SCREEN, the default, holds the phone at a screen's height
+			 * and scrolls inside it, so what shows before any scrolling is what a reader gets first;
+			 * FULL LENGTH grows it to the whole row, for reading it through. On the document, like the
+			 * ground, so every phone on the page moves together; `_Variant` draws a switch beside each phone and holds
+			 * the styles.
+			 */
+			const PHONE_KEY = 'launch-visuals:phone';
+			const picks = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-phone-pick]'));
+			const applyPhone = (value: string) => {
+				root.dataset.phone = value;
+				picks.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.phonePick === value)));
+			};
+			let stored: string | null = null;
+			try {
+				stored = localStorage.getItem(PHONE_KEY);
+			} catch {
+				/* private window — one screen, the default */
+			}
+			applyPhone(stored === 'full' ? 'full' : 'screen');
+			picks.forEach((b) =>
+				b.addEventListener('click', () => {
+					const value = b.dataset.phonePick ?? 'screen';
+					applyPhone(value);
+					try {
+						localStorage.setItem(PHONE_KEY, value);
+					} catch {
+						/* ignore */
+					}
+				})
+			);
 		}
+
+		// Parent side. Each frame says how tall it came out and which direction it is; the message
+		// names its key so twelve of them on one page cannot resize each other.
+		window.addEventListener('message', (e) => {
+			if (e.source === window || typeof e.data !== 'object' || !e.data) return;
+			const { kvFrameHeight, kvFrameKey } = e.data as { kvFrameHeight?: number; kvFrameKey?: string };
+			if (typeof kvFrameHeight !== 'number' || !kvFrameKey) return;
+			const frameEl = document.querySelector<HTMLIFrameElement>(`[data-vx-phone="${CSS.escape(kvFrameKey)}"]`);
+			if (frameEl) frameEl.style.height = `${kvFrameHeight}px`;
+		});
 	}
 </script>
 
 <style lang="scss" is:global>
 	@use '../../styles/variables' as *;
-
-	// --- the commands in a variant's header ------------------------------------------------------
-	//
-	// Global because the buttons are built in the script above and appended into `_Variant`'s markup,
-	// so there is no one file a scoped rule could be written in that would match them.
-
-	.vx__cmd {
-		@include text-xs;
-		padding: 2px $spacing-3;
-		border: 1px solid var(--color-border, #ebebeb);
-		border-radius: $radius-md;
-		background: none;
-		font-family: $font-family-mono;
-		color: var(--color-text-secondary, #5b616e);
-		// Quiet until wanted: two of these on every section would read as a page full of buttons.
-		opacity: 0;
-		cursor: pointer;
-
-		&:hover,
-		&:focus-visible {
-			color: var(--color-text, #17181c);
-		}
-
-		&[aria-pressed='true'] {
-			border-color: transparent;
-			color: #fff;
-		}
-
-		&[data-vx-cmd='promote'][aria-pressed='true'] {
-			background: $color-brand;
-		}
-
-		&[data-vx-cmd='retire'][aria-pressed='true'] {
-			background: var(--color-text, #17181c);
-		}
-	}
-
-	.vx:hover .vx__cmd,
-	.vx__cmd:focus-visible,
-	.vx[data-vx-state] .vx__cmd {
-		opacity: 1;
-	}
-
-	:root[data-hide-retired] .vx[data-vx-state='retire'] {
-		display: none;
-	}
 
 	// --- frame mode ------------------------------------------------------------------------------
 	//
@@ -476,10 +598,25 @@ const HOME_COUNT = ON_HOME.length;
 		padding: 0;
 	}
 
+	// Held to one screen, the phone scrolls inside its frame; a classic scrollbar there would take
+	// its width out of the 375 the row is being judged at. The wheel and the trackpad still scroll.
+	:root[data-kv-frame] {
+		scrollbar-width: none;
+
+		&::-webkit-scrollbar {
+			display: none;
+		}
+	}
+
 	// Astro injects its dev toolbar into every document, and a phone preview is a document — so each
 	// frame was drawing a floating toolbar over the bottom of the row it exists to show, and
 	// measuring itself tall enough to hold one. Dev-only markup, so this costs nothing in a build.
 	:root[data-kv-frame] astro-dev-toolbar {
+		display: none;
+	}
+
+	// Without tabs (no script) the retired directions can still be hidden, as they were.
+	:root[data-hide-retired] .vx[data-vx-state='retire'] {
 		display: none;
 	}
 
@@ -496,12 +633,239 @@ const HOME_COUNT = ON_HOME.length;
 		background: none;
 	}
 
+	// --- the controls over the tabs --------------------------------------------------------------
+	//
+	// Global because the page's own `.page-ctl` groups are written in the page and moved in by the
+	// script, and the tabs are built by it: no one file a scoped rule could match them from.
+
+	.vp-bar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-3 $spacing-8;
+		max-width: 1200px;
+		margin: 0 auto $spacing-6;
+
+		.page-ctl {
+			max-width: none;
+			margin: 0;
+		}
+
+		// Nothing that applies (no row on show, no page controls): no empty row of space.
+		&:not(:has(> .page-ctl:not([hidden]))) {
+			display: none;
+		}
+	}
+
+	.page-ctl {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-2;
+		max-width: 1200px;
+		margin: 0 auto $spacing-10;
+
+		// `display: flex` above beats the UA sheet's `[hidden] { display: none }` on specificity, so
+		// the bar sat on every page reading "0 promote 0 retire" however the script set `hidden`.
+		&[hidden] {
+			display: none;
+		}
+
+		// `font-family: inherit`: a button does not take the page's face by default, and these were
+		// drawing in the system font while everything around them was in Ubuntu.
+		button {
+			@include text-xs;
+			padding: $spacing-1 $spacing-3;
+			border: 1px solid var(--sl-color-hairline-light);
+			border-radius: $radius-md;
+			background: none;
+			font-family: inherit;
+			font-weight: $font-weight-medium;
+			color: var(--color-text-secondary, #5b616e);
+			cursor: pointer;
+
+			&[aria-pressed='true'] {
+				border-color: var(--color-text, #17181c);
+				background: var(--color-text, #17181c);
+				color: #fff;
+			}
+
+			&:focus-visible {
+				outline: 2px solid $color-brand;
+				outline-offset: 2px;
+			}
+		}
+	}
+
+	.page-ctl__name {
+		@include text-xs;
+		margin-right: $spacing-1;
+		font-family: $font-family-mono;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.page-ctl__count {
+		@include text-xs;
+		min-width: 1.6em;
+		padding: 0 $spacing-1;
+		border-radius: $radius-sm;
+		background: var(--color-text, #17181c);
+		font-family: $font-family-mono;
+		text-align: center;
+		color: #fff;
+	}
+
+	// --- the tabs ----------------------------------------------------------------------------------
+	//
+	// Compact chips that wrap, not an underlined strip: a page holds up to a dozen directions, and an
+	// underline across two wrapped rows no longer says which row it belongs to. Small on purpose: they
+	// are a switch, and the open direction's own heading is what should draw the eye.
+
+	.vp-tabrow {
+		display: flex;
+		align-items: flex-start;
+		gap: $spacing-4;
+		max-width: 1200px;
+		margin: 0 auto $spacing-4;
+	}
+
+	.vp-tabs {
+		display: flex;
+		flex: 1;
+		flex-wrap: wrap;
+		gap: 4px;
+		min-width: 0;
+	}
+
+	.vp-steps {
+		display: inline-flex;
+		flex: none;
+		gap: 2px;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.vp-step {
+		display: grid;
+		place-items: center;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		border: 1px solid var(--sl-color-hairline-light);
+		border-radius: $radius-md;
+		background: var(--color-bg-surface, #fff);
+		color: var(--color-text, #17181c);
+		cursor: pointer;
+
+		[data-icon] {
+			width: 16px;
+			height: 16px;
+		}
+
+		&:hover:not(:disabled) {
+			border-color: var(--color-border, #c9ccd4);
+		}
+
+		&:disabled {
+			opacity: 0.35;
+			cursor: default;
+		}
+
+		&:focus-visible {
+			outline: 2px solid $color-brand;
+			outline-offset: 2px;
+		}
+	}
+
+	.vp-tab {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		height: 28px;
+		padding: 0 10px;
+		border: 1px solid var(--sl-color-hairline-light);
+		border-radius: $radius-md;
+		background: var(--color-bg-surface, #fff);
+		font-family: inherit;
+		font-size: 13px;
+		line-height: 1;
+		font-weight: $font-weight-medium;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #5b616e);
+		cursor: pointer;
+
+		&:hover {
+			border-color: var(--color-border, #c9ccd4);
+			color: var(--color-text, #17181c);
+		}
+
+		&:focus-visible {
+			outline: 2px solid $color-brand;
+			outline-offset: 2px;
+		}
+
+		&[aria-selected='true'] {
+			border-color: var(--color-text, #17181c);
+			background: var(--color-text, #17181c);
+			color: #fff;
+
+			.vp-tab__check {
+				color: #5fd08d;
+			}
+		}
+
+		&[data-state='retire'] .vp-tab__name {
+			text-decoration: line-through;
+			opacity: 0.6;
+		}
+	}
+
+	// The stills after the directions, set apart by a gap and a dashed edge: they are exhibits, not
+	// versions, and carry no marks.
+	.vp-tab--still {
+		border-style: dashed;
+	}
+
+	.vp-tab--first-still {
+		margin-left: $spacing-3;
+	}
+
+	.vp-tab__check {
+		flex: none;
+		width: 14px;
+		height: 14px;
+		color: #1f8b4d;
+	}
+
+	.vp-tab__promote {
+		display: inline-flex;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	:root[data-hide-retired] .vp-tab[data-state='retire'] {
+		display: none;
+	}
+
+	.vp-sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
 	// --- exhibits ---------------------------------------------------------------------------------
 	//
 	// What is left of `.stage` after the refactor. A direction is a `_Variant`; a stage is a
 	// TECHNICAL exhibit — a breakpoint being pinned down, a component's own parts laid out, a
 	// measurement. They are not versions and carry no promote or retire, because the way to be rid
-	// of one is to delete it.
+	// of one is to delete it. Each gets a tab after the directions.
 
 	.stage {
 		margin: 0 auto $spacing-16;
@@ -555,68 +919,6 @@ const HOME_COUNT = ON_HOME.length;
 		background: none;
 	}
 
-	// --- the page's own bar -----------------------------------------------------------------------
-
-	.page-ctl {
-		display: flex;
-		align-items: center;
-		gap: $spacing-2;
-		max-width: 1200px;
-		margin: 0 auto $spacing-10;
-
-		// `display: flex` above beats the UA sheet's `[hidden] { display: none }` on specificity, so
-		// the bar sat on every page reading "0 promote 0 retire" however the script set `hidden`.
-		&[hidden] {
-			display: none;
-		}
-
-		button {
-			@include text-xs;
-			padding: $spacing-1 $spacing-3;
-			border: 1px solid var(--sl-color-hairline-light);
-			border-radius: $radius-md;
-			background: none;
-			font-weight: $font-weight-medium;
-			color: var(--color-text-secondary, #5b616e);
-			cursor: pointer;
-
-			&[aria-pressed='true'] {
-				border-color: var(--color-text, #17181c);
-				background: var(--color-text, #17181c);
-				color: #fff;
-			}
-		}
-	}
-
-	.page-ctl__name {
-		@include text-xs;
-		margin-right: $spacing-1;
-		font-family: $font-family-mono;
-		color: var(--color-text-secondary, #5b616e);
-	}
-
-	.page-ctl__lbl {
-		@include text-xs;
-		margin-right: $spacing-2;
-		color: var(--color-text-secondary, #5b616e);
-	}
-
-	.page-ctl__count {
-		@include text-xs;
-		min-width: 1.6em;
-		padding: 0 $spacing-1;
-		border-radius: $radius-sm;
-		background: var(--color-text, #17181c);
-		font-family: $font-family-mono;
-		text-align: center;
-		color: #fff;
-	}
-
-	// Promotions are the brand colour wherever they appear, so the bar and the buttons agree.
-	.page-ctl__count--up {
-		background: $color-brand;
-	}
-
 	// A hard-set width so the composition is judged at a known size rather than whatever the page
 	// happens to give it. Each probe names its own width; the dashed edge shows exactly how much room
 	// the visual was handed, so an upscale cap or a floor is visible as space rather than guessed.
@@ -661,92 +963,130 @@ const HOME_COUNT = ON_HOME.length;
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
-	// The strip of links between visuals. Replaced a tab strip, and is a different thing: a tab hid
-	// eight panels that were still on the page, this leaves them on disk.
-	//
-	// STICKY, because these pages run to twelve thousand pixels and the strip was only reachable from
-	// the top of one. It is what you use after deciding something, which is exactly when you are at
-	// the bottom.
-	//
-	// FULL BLEED, by cancelling the playground's body padding on three sides and paying it back as
-	// its own. A bar that stops 24px short of the window does not read as a bar; it reads as a row of
-	// pills that happens not to scroll. The negative top margin is what lets it sit against the top
-	// edge rather than sliding up to it — it is the first element in the document now, above the
-	// page's own heading, because a page title is not navigation.
-	//
-	// It needs an opaque background: sticky only takes it out of flow, so without one the rows scroll
-	// through it. Opaque rather than a blur — what passes under is the tinted row, and a blur would
-	// tint the strip along with it.
-	.vnav {
-		position: sticky;
-		top: 0;
-		z-index: 10;
+	// ---- The marks summary, the top bar's sticky second row ---------------------------------------
+
+	.vp-marks {
+		@include text-xs;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
+		gap: $spacing-1 $spacing-3;
+		padding: 5px $spacing-6;
+		border-top: 1px solid var(--sl-color-hairline-light);
+		background: var(--sl-color-gray-7, #fafbfc);
+		color: var(--color-text-secondary, #5b616e);
+
+		&[hidden] {
+			display: none;
+		}
+
+		b {
+			display: inline-block;
+			min-width: 1.5em;
+			margin-right: 2px;
+			padding: 0 4px;
+			border-radius: $radius-sm;
+			background: var(--color-text, #17181c);
+			font-family: $font-family-mono;
+			font-weight: 400;
+			text-align: center;
+			color: #fff;
+		}
+
+		button {
+			padding: 2px $spacing-2;
+			border: 0;
+			border-radius: $radius-sm;
+			background: none;
+			font: inherit;
+			font-weight: $font-weight-medium;
+			color: var(--color-text, #17181c);
+			cursor: pointer;
+
+			&:hover {
+				background: var(--sl-color-gray-6, #f2f3f7);
+			}
+
+			&[aria-pressed='true'] {
+				background: var(--color-text, #17181c);
+				color: #fff;
+			}
+
+			&:focus-visible {
+				outline: 2px solid $color-brand;
+				outline-offset: 1px;
+			}
+		}
+	}
+
+	.vp-marks__lbl {
+		font-family: $font-family-mono;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
+	// Promotions green, as every check is.
+	.vp-marks__n--up b {
+		background: #1f8b4d;
+	}
+
+	.vp-marks__acts {
+		display: inline-flex;
 		gap: 2px;
-		margin: calc(-1 * #{$spacing-10}) calc(-1 * #{$spacing-6}) $spacing-10;
-		padding: $spacing-2 $spacing-6;
-		background: #fff;
-		border-bottom: 1px solid var(--color-border, #ebebeb);
+		margin-left: auto;
 	}
 
-	// The way out, as a mark. See the note on the markup for why it stopped being the word "Sandbox".
-	.vnav__up {
-		display: grid;
-		place-items: center;
-		width: 24px;
-		height: 24px;
-		margin-right: $spacing-2;
-		border-radius: $radius-sm;
-		color: var(--color-text-secondary, #5b616e);
+	// ---- Promote and retire, in the open direction's header ----------------------------------------
 
-		[data-icon] {
-			width: 16px;
-			height: 16px;
-		}
+	.vx-cmds {
+		display: inline-flex;
+		gap: 4px;
 
-		&:hover,
-		&:focus-visible {
-			background: var(--sl-color-hairline-light, #ebebeb);
-			color: var(--color-text, #17181c);
+		&[hidden] {
+			display: none;
 		}
 	}
 
-	// The seam between what is on the homepage and what is not. A rule rather than a gap: a gap in a
-	// wrapping row is just where a line happened to break.
-	.vnav__seam {
-		width: 1px;
-		height: 14px;
-		margin: 0 $spacing-2;
-		background: var(--color-border, #ebebeb);
-	}
-
-	// Compact: 12px in a 2px gutter, so ten of them hold one line at the measure these pages are read
-	// at. They were 14px in a 12px gutter and wrapped to two.
-	.vnav__link,
-	.vnav__here {
+	.vx-cmd {
 		@include text-xs;
-		padding: 3px $spacing-2;
-		border-radius: $radius-sm;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		height: 28px;
+		padding: 0 10px 0 8px;
+		border: 1px solid var(--sl-color-hairline-light);
+		border-radius: $radius-md;
+		background: var(--color-bg-surface, #fff);
+		font-family: inherit;
 		font-weight: $font-weight-medium;
-		line-height: 1.5;
-		text-decoration: none;
-		white-space: nowrap;
-	}
-
-	.vnav__link {
 		color: var(--color-text-secondary, #5b616e);
+		cursor: pointer;
 
-		&:hover,
-		&:focus-visible {
-			background: var(--sl-color-hairline-light, #ebebeb);
+		:global([data-icon]) {
+			width: 15px;
+			height: 15px;
+		}
+
+		&:hover {
+			border-color: var(--color-border, #c9ccd4);
 			color: var(--color-text, #17181c);
 		}
-	}
 
-	.vnav__here {
-		background: var(--color-text, #17181c);
-		color: #fff;
+		&:focus-visible {
+			outline: 2px solid $color-brand;
+			outline-offset: 2px;
+		}
+
+		&[data-vx-cmd='promote'][aria-pressed='true'] {
+			border-color: #1f8b4d;
+			background: #1f8b4d;
+			color: #fff;
+		}
+
+		&[data-vx-cmd='retire'][aria-pressed='true'] {
+			border-color: var(--color-text, #17181c);
+			background: var(--color-text, #17181c);
+			color: #fff;
+		}
 	}
 </style>

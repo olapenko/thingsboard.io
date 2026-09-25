@@ -1,0 +1,381 @@
+---
+import { Icon } from 'astro-icon/components';
+import { visualHref, type KeyVisual } from '@root/pages/internal/_key-visuals';
+
+/**
+ * A hub's tiles: one per page, grouped, each linking to its page. Every area's overview uses it:
+ * Components, Flows and Design system.
+ *
+ * A tile is either a key visual (a section or a flow), summarised from its page's own source, or a
+ * plain page (Ecosystem, Type, UI) with its own `href` and no directions to summarise.
+ *
+ * A tile is kept to what helps pick a page: the mark, the page's short name (the same word the top
+ * bar and the picker use), and, for a page of directions, a summary of them:
+ *
+ * - WHAT SHIPS: the direction in use, with the green check, read from the page's own source (the
+ *   `<Variant shipping>` flag), so it cannot drift from the page it summarises.
+ * - HOW FAR ALONG IT IS: directions counted from the source, and the promote/retire marks the pages
+ *   keep in localStorage, read back here.
+ *
+ * A homepage section also gets its number in page order and a link to its row. Nothing else: no
+ * kicker, no headline, no description, which the page itself carries.
+ */
+/** A key visual, or a plain page with its own address and a line to show where the summary goes. */
+export type HubItem = Pick<KeyVisual, 'id' | 'label' | 'title' | 'badge' | 'home' | 'area' | 'href'>;
+
+interface Group {
+	key: string;
+	title: string;
+	items: HubItem[];
+}
+
+interface Props {
+	groups: Group[];
+}
+
+const { groups } = Astro.props;
+
+// Every area's page sources, raw, so the tiles can count and name what is on each page.
+const sources = import.meta.glob<string>('/src/pages/internal/{sections,flows}/*.astro', {
+	query: '?raw',
+	import: 'default',
+	eager: true,
+});
+const sourceOf = (v: HubItem) => sources[`/src/pages${visualHref(v).replace(/\/$/, '')}.astro`] ?? '';
+
+/**
+ * Directions and the ones in use, from the page's `<Variant />` blocks: one block is one direction,
+ * and a `shipping` attribute marks the one in use. A page with none is a set of stills
+ * (`<figure class="stage">`) and says so rather than claiming zero.
+ */
+const summary = (v: HubItem) => {
+	if (v.href) return { count: '', inUse: [] as string[] };
+	const src = sourceOf(v);
+	const blocks = src.match(/<Variant\b[\s\S]*?\/>/g) ?? [];
+	const inUse = blocks.filter((b) => /\sshipping(?=[\s/>])/.test(b)).map((b) => b.match(/\bname="([^"]+)"/)?.[1] ?? '');
+	if (blocks.length) {
+		return { count: `${blocks.length} ${blocks.length === 1 ? 'direction' : 'directions'}`, inUse };
+	}
+	const stills = src.match(/<figure class="stage\b/g)?.length ?? 0;
+	return { count: `${stills || 1} ${stills > 1 ? 'stills' : 'still'}`, inUse };
+};
+
+/** Tiles without a mark of their own get a neutral one, so the grid keeps its rhythm. */
+const FALLBACK_BADGE = { icon: 'tabler:code', color: '#5b616e' };
+---
+
+<div class="hub">
+	{
+		groups.map((g) => (
+			<section class="hub__group" aria-label={g.title}>
+				{
+					/* A heading only where there is more than one group: on a single-group overview it
+					   would repeat the page's own title. */
+					groups.length > 1 && (
+						<header class="hub__group-head">
+							<h2>{g.title}</h2>
+							<span class="hub__group-count">{g.items.length}</span>
+						</header>
+					)
+				}
+
+				<ul class="hub__grid">
+					{g.items.map((v, i) => {
+						const badge = v.badge ?? FALLBACK_BADGE;
+						const { count, inUse } = summary(v);
+						return (
+							<li class="tile" style={`--hue: ${badge.color}`}>
+								<div class="tile__top">
+									<span class="tile__badge" aria-hidden="true">
+										<Icon name={badge.icon} />
+									</span>
+									{g.key === 'home' && <span class="tile__num">{String(i + 1).padStart(2, '0')}</span>}
+								</div>
+
+								<a class="tile__title" href={visualHref(v)}>
+									{v.label}
+								</a>
+
+								{(count || v.home) && (
+									<div class="tile__foot">
+										{inUse.length > 0 && (
+											<p class="tile__inuse" title={inUse.join(', ')}>
+												<Icon name="tabler:circle-check-filled" aria-hidden="true" />
+												<span class="tile__inuse-name">
+													<span class="tile__sr">In use: </span>
+													{inUse[0]}
+													{inUse.length > 1 && ` +${inUse.length - 1}`}
+												</span>
+											</p>
+										)}
+										<p class="tile__meta">
+											<span class="tile__status">
+												{count}
+												<span class="tile__marks" data-marks={v.id} />
+											</span>
+											{v.home && (
+												<a class="tile__home" href={`/#${v.home}`} title="See it in its row on the homepage">
+													Homepage
+													<Icon name="tabler:arrow-up-right" aria-hidden="true" />
+												</a>
+											)}
+										</p>
+									</div>
+								)}
+							</li>
+						);
+					})}
+				</ul>
+			</section>
+		))
+	}
+</div>
+
+<script>
+	// The promote/retire marks the pages write (see `_VisualPage`), tallied per visual. Keyed
+	// `visual/name`, so the prefix is the visual. Read-only here: marking is done on the page itself,
+	// where the direction is in front of you.
+	type Marks = Record<string, { state: 'promote' | 'retire'; label: string }>;
+	let marks: Marks = {};
+	try {
+		marks = JSON.parse(localStorage.getItem('launch-visuals:marks') || '{}') as Marks;
+	} catch {
+		/* private window, cleared site data — the tiles just show their counts */
+	}
+
+	document.querySelectorAll<HTMLElement>('[data-marks]').forEach((el) => {
+		const mine = Object.entries(marks).filter(([key]) => key.startsWith(`${el.dataset.marks}/`));
+		const n = (state: string) => mine.filter(([, m]) => m.state === state).length;
+		(
+			[
+				['promote', 'promoted'],
+				['retire', 'retired'],
+			] as const
+		).forEach(([state, word]) => {
+			if (!n(state)) return;
+			const part = document.createElement('span');
+			part.className = `tile__mark tile__mark--${state}`;
+			part.textContent = ` · ${n(state)} ${word}`;
+			el.append(part);
+		});
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.hub {
+		max-width: 1200px;
+		margin: 0 auto;
+	}
+
+	.hub__group + .hub__group {
+		margin-top: $spacing-16;
+	}
+
+	.hub__group-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: $spacing-1 $spacing-3;
+		margin-bottom: $spacing-5;
+		padding-bottom: $spacing-3;
+		border-bottom: 1px solid var(--sl-color-hairline-light);
+
+		h2 {
+			@include card-title;
+			margin: 0;
+		}
+	}
+
+	.hub__group-count {
+		@include text-xs;
+		padding: 2px 7px;
+		border-radius: 999px;
+		background: var(--sl-color-gray-6, #f2f3f7);
+		font-family: $font-family-mono;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.hub__grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+		gap: $spacing-4;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// ── Tile ─────────────────────────────────────────────
+	// The whole tile is the link to the page, a stretched `::after` on the title so the accessible
+	// name stays the headline, and the homepage link sits above that layer as a second, smaller
+	// destination. Nesting one <a> in another is not an option.
+	.tile {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		padding: $spacing-5;
+		border: 1px solid var(--sl-color-hairline-light);
+		border-radius: $radius-lg;
+		// The section's hue as a wash from the top, the way the two-wide ecosystem cards carry their
+		// accent: enough to tell the tiles apart at a glance, not enough to read as a fill.
+		background:
+			radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--hue) 13%, transparent), transparent 70%),
+			var(--color-bg-surface, #fff);
+		transition: box-shadow 0.15s ease;
+
+		// A soft shadow and nothing else: no coloured stroke and no raise, as the homepage's cards
+		// retired theirs.
+		&:hover {
+			box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--hue) 30%, transparent);
+		}
+
+		&:has(.tile__title:focus-visible) {
+			outline: 2px solid var(--hue);
+			outline-offset: 2px;
+		}
+	}
+
+	.tile__top {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		margin-bottom: $spacing-4;
+	}
+
+	// The homepage row's own mark (`.feature-badge`), at hub size: a squircle in the section's hue
+	// with the glyph at ~58% of the tile.
+	.tile__badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 32%;
+		background: var(--hue);
+		color: #fff;
+
+		:global([data-icon]) {
+			width: 23px;
+			height: 23px;
+		}
+	}
+
+	.tile__num {
+		@include card-title;
+		font-family: $font-family-mono;
+		font-weight: 400;
+		line-height: 1;
+		color: color-mix(in srgb, var(--hue) 55%, var(--color-text-secondary, #5b616e));
+	}
+
+	.tile__title {
+		@include card-title-sm;
+		flex: 1;
+		color: var(--color-text, #17181c);
+		text-decoration: none;
+		text-wrap: pretty;
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+		}
+
+		&:focus-visible {
+			outline: none;
+		}
+	}
+
+	.tile__foot {
+		display: grid;
+		gap: $spacing-2;
+		margin-top: $spacing-5;
+		padding-top: $spacing-3;
+		border-top: 1px solid color-mix(in srgb, var(--hue) 14%, var(--sl-color-hairline-light));
+	}
+
+	// What ships: the green check and the direction's name. Green, not the section's hue: it says
+	// the same thing on every tile, so it should look the same on every tile.
+	.tile__inuse {
+		@include text-s;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+		margin: 0;
+		font-weight: $font-weight-medium;
+		color: var(--color-text, #17181c);
+
+		:global([data-icon]) {
+			flex: none;
+			width: 18px;
+			height: 18px;
+			color: #1f8b4d;
+		}
+	}
+
+	.tile__inuse-name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.tile__sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	.tile__meta {
+		@include text-xs;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: $spacing-3;
+		margin: 0;
+		font-family: $font-family-mono;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.tile__status {
+		min-width: 0;
+	}
+
+	// Built by the script, so `:global`: a scoped rule would not reach it.
+	.tile__marks :global(.tile__mark--promote) {
+		color: #1f8b4d;
+	}
+
+	.tile__home {
+		position: relative;
+		z-index: 1;
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		gap: 2px;
+		padding: 3px 6px 3px 8px;
+		margin: -3px -6px -3px 0;
+		border-radius: 999px;
+		color: color-mix(in srgb, var(--hue) 80%, #000);
+		text-decoration: none;
+
+		:global([data-icon]) {
+			width: 14px;
+			height: 14px;
+		}
+
+		&:hover {
+			background: color-mix(in srgb, var(--hue) 10%, transparent);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--hue);
+			outline-offset: 1px;
+		}
+	}
+</style>

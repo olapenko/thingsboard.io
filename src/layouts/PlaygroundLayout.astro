@@ -22,7 +22,9 @@
  * The upshot: a visual built on a playground page renders against the same tokens, fonts and
  * mixins it will get on a marketing page, so it moves across without being re-fitted.
  */
+import { Icon } from 'astro-icon/components';
 import InternalNav from '@root/pages/internal/_InternalNav.astro';
+import AreaBar from '@root/pages/internal/_AreaBar.astro';
 
 import '../../node_modules/@astrojs/starlight/style/props.css';
 import '@fontsource/ubuntu/300.css';
@@ -38,6 +40,8 @@ interface Props {
 	title: string;
 	/** Shown under the title. One line on what the page is for. */
 	description?: string;
+	/** The page's mark before its title: a section's own badge, as its homepage row carries it. */
+	badge?: { icon: string; color: string };
 	/**
 	 * Page furniture off: no header, no service nav, just the slot.
 	 *
@@ -47,7 +51,7 @@ interface Props {
 	bare?: boolean;
 }
 
-const { title, description, bare = false } = Astro.props;
+const { title, description, badge, bare = false } = Astro.props;
 ---
 
 <!doctype html>
@@ -66,18 +70,32 @@ const { title, description, bare = false } = Astro.props;
 
 	<body>
 		{
-			/* Above the heading, and the first thing in the document. A page's own title is not
-			   navigation, so it should not come before the way out of the page — and the strip is
-			   sticky, which only reads as a toolbar if it starts at the top edge rather than sliding
-			   up to it. Pages with nothing to put here render nothing. */
+			/* Above the heading, and the first thing in the document: the area's top bar. A page's own
+			   title is not navigation, so it should not come before the way between pages, and the bar is
+			   sticky, which only reads as a toolbar if it starts at the top edge. A page adds to it
+			   through two slots: `nav` at the bar's right (a section page's picker) and `below`, a slim
+			   row that sticks with it (the marks summary). */
 		}
-		<slot name="nav" />
+		{
+			!bare && (
+				<AreaBar path={Astro.url.pathname}>
+					<slot name="nav" slot="end" />
+					<slot name="below" slot="below" />
+				</AreaBar>
+			)
+		}
 
 		{
 			!bare && (
 				<header class="pg__head">
-					<p class="pg__kicker">Internal · not linked, not indexed</p>
-					<h1>{title}</h1>
+					<div class="pg__title">
+						{badge && (
+							<span class="pg__badge" style={`--badge: ${badge.color}`} aria-hidden="true">
+								<Icon name={badge.icon} />
+							</span>
+						)}
+						<h1>{title}</h1>
+					</div>
 					{description && <p class="pg__lede">{description}</p>}
 				</header>
 			)
@@ -118,27 +136,42 @@ const { title, description, bare = false } = Astro.props;
 	// the same left edge as the visuals it labels. Only the lede is held to a reading width.
 	.pg__head {
 		max-width: 1200px;
-		margin: 0 auto $spacing-12;
+		margin: 0 auto $spacing-10;
 	}
 
-	.pg__kicker {
-		@include text-s;
-		margin: 0 0 $spacing-2;
-		font-family: $font-family-mono;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		color: var(--color-text-secondary, #5b616e);
+	// The mark and the title on one line, the mark centred on the title's cap height.
+	.pg__title {
+		display: flex;
+		align-items: center;
+		gap: $spacing-4;
 	}
 
 	.pg__head h1 {
-		@include page-title;
-		margin: 0 0 $spacing-3;
+		@include section-title;
+		margin: 0;
+	}
+
+	// The homepage row's own mark (`.feature-badge`) at title size: a squircle in the section's hue.
+	.pg__badge {
+		display: grid;
+		flex: none;
+		place-items: center;
+		width: 48px;
+		height: 48px;
+		border-radius: 32%;
+		background: var(--badge);
+		color: #fff;
+
+		svg {
+			width: 28px;
+			height: 28px;
+		}
 	}
 
 	.pg__lede {
-		@include text-m;
+		@include body-text;
 		max-width: 70ch;
-		margin: 0;
+		margin: $spacing-3 0 0;
 		color: var(--color-text-secondary, #5b616e);
 		text-wrap: pretty;
 	}

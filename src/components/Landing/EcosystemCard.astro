@@ -111,6 +111,13 @@ interface Props {
 	 * band; absent, the card is exactly what ships.
 	 */
 	dark?: boolean;
+	/**
+	 * The button and the quiet link side by side on one centred line once the
+	 * card is 400px wide, instead of the full-bleed button with the link beneath.
+	 * Narrower cards keep the stacked pair. The homepage's products pair since
+	 * 2026-09-25; opt-in, so the product pages' cards stay as they are.
+	 */
+	pairInline?: boolean;
 	tiles?: { slug: string; label: string; href: string; color: string; icon: string }[];
 	class?: string;
 }
@@ -138,6 +145,7 @@ const {
 	at = {},
 	primaryNote,
 	dark = false,
+	pairInline = false,
 	tiles,
 	class: className = '',
 } = Astro.props;
@@ -176,6 +184,7 @@ if (nameHighlight) {
 		'ecosystem-card',
 		wide && 'ecosystem-card--wide',
 		dark && 'ecosystem-card--dark',
+		pairInline && 'ecosystem-card--pair-inline',
 		wholeCard && 'ecosystem-card--whole',
 		at.cols3 === 'flip' && 'ecosystem-card--cols3-flip',
 		at.cols2 === 'flip' && 'ecosystem-card--cols2-flip',
@@ -684,6 +693,32 @@ if (nameHighlight) {
 
 		.ecosystem-card__more {
 			align-self: center;
+		}
+	}
+
+	// Both actions on one centred line — the button at its own width, the link beside
+	// it — once the card is wide enough to hold them unbroken; narrower, the full-bleed
+	// stack above holds. Keyed to the card's own width, not the viewport's: the grid
+	// runs two columns from `md`, so the card is at its NARROWEST just above `md`
+	// (a viewport breakpoint put "Start for / free" on two lines there). The widest
+	// pair, "Install for free" + "Explore On-premises", needs ~365px; 400 leaves air.
+	// The body is stretched to the card by the column flex, so querying it costs
+	// nothing its width depended on.
+	.ecosystem-card--pair-inline .ecosystem-card__body {
+		container: pair / inline-size;
+	}
+
+	.ecosystem-card--pair-inline .ecosystem-card__actions--pair {
+		@container pair (min-width: 400px) {
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+			gap: $spacing-5;
+
+			.ecosystem-card__cta,
+			.ecosystem-card__more {
+				white-space: nowrap;
+			}
 		}
 	}
 
