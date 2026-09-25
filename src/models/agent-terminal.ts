@@ -10,7 +10,7 @@ import type { CliSeg } from './cli-terminal';
  *
  *   ❯ the person's prompt
  *   ● Tool(argument)
- *     └what the tool returned
+ *     └ what the tool returned
  *   ● the agent's answer
  *     ✔ a point under it
  *
