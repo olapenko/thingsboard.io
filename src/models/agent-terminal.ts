@@ -10,7 +10,7 @@ import type { CliSeg } from './cli-terminal';
  *
  *   ❯ the person's prompt
  *   ● Tool(argument)
- *     ┗  what the tool returned
+ *     └what the tool returned
  *   ● the agent's answer
  *     ✓ a point under it
  *
@@ -42,7 +42,7 @@ export interface AgentUserTurn {
 
 /**
  * The agent calling a tool: `Skill(update-solution)`, `Bash(tb push …)`. It runs for `spin` ms,
- * then `result` lands NESTED under it behind a `┗` — the tree glyph that says "this came back from
+ * then `result` lands NESTED under it behind a `└` — the tree glyph that says "this came back from
  * the line above". `ok` colours the result as a success.
  */
 export interface AgentToolTurn {
