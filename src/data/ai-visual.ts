@@ -439,7 +439,7 @@ export const AI_CLI_LABEL =
  * its offer to push. NO AGENT IS NAMED, anywhere — the window is recognisably an agent's transcript by
  * its SHAPE (a `>` prompt, `●` turns, prose that wraps, streamed words) and not by a logo.
  *
- * Added to the Slack transcript: the nested results (`⎿`) under the two tool calls — the skill's
+ * Added to the Slack transcript: the nested results (`┗`) under the two tool calls — the skill's
  * summary, and the push seen to land, or the loop would end on a command with no answer. The agent
  * runs the push as `Bash(…)`, which is how a coding agent does run it. Results are
  * illustrative, as the CLI window's counts are.
