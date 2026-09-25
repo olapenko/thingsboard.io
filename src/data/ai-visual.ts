@@ -435,13 +435,13 @@ export const AI_CLI_LABEL =
  * The transcript is the real one from Slack, lightly trimmed. A tighter cut was tried on 2026-09-24
  * (items under one line each, a three-word question) and REVERTED as too minimal — the wrapped
  * items are part of how an agent's answer reads: a request in plain English, the agent
- * calling `update-solution`, its answer in prose with a list of what changed, and the person handing
- * it a `tb push`. NO AGENT IS NAMED, anywhere — the window is recognisably an agent's transcript by
+ * calling `update-solution`, its answer in prose with a list of what changed, and the person taking
+ * its offer to push. NO AGENT IS NAMED, anywhere — the window is recognisably an agent's transcript by
  * its SHAPE (a `>` prompt, `●` turns, prose that wraps, streamed words) and not by a logo.
  *
  * Added to the Slack transcript: the nested results (`⎿`) under the two tool calls — the skill's
  * summary, and the push seen to land, or the loop would end on a command with no answer. The agent
- * runs the handed-over push as `Bash(…)`, which is how a coding agent does run it. Results are
+ * runs the push as `Bash(…)`, which is how a coding agent does run it. Results are
  * illustrative, as the CLI window's counts are.
  *
  * SIZE. The CLI window fitted nine short lines with no scroll; this is ~15 rows of wrapped prose and
@@ -454,10 +454,16 @@ export const AI_AGENT_SESSION: AgentStep[] = [
 	 * profile it is pointed at, and the agent it found. The real banner names the agent; here it says
 	 * "Coding agent" — nominative use would be lawful, but naming one tool under a transcript that
 	 * mimics it reads as an endorsement, and the section's argument is any agent (decided 2026-09-24).
+	 *
+	 * The mark is an uppercase TB in figlet's "small" cut (2026-09-25; the lowercase "tb" before it read
+	 * as a word, not the brand). Four rows, like the one it replaced, so nothing under it moves. PLAIN
+	 * ASCII ON PURPOSE: the terminal's Ubuntu Mono is loaded for Latin only, so a block or box glyph
+	 * (`█`, `╗`) would come from a wider fallback face and shear the art. Kept to 11 columns: on a
+	 * phone the log holds ~52, and the widest status line needs 33 plus the four-cell gap.
 	 */
 	{
 		role: 'banner',
-		art: [' _   _', '| |_| |__', "|  _| '_ \\", ' \\__|_.__/'],
+		art: [' _____ ___', '|_   _| _ )', '  | | | _ \\', '  |_| |___/'],
 		lines: [
 			[],
 			[
@@ -490,25 +496,17 @@ export const AI_AGENT_SESSION: AgentStep[] = [
 			'Freezer Too Warm alarm now reads each freezer’s own threshold',
 			'Dashboard: the freezer view has a Temperature Threshold card to set it per freezer',
 		],
-		/** The agent hands the next step back as a question; the console then offers the command for it. */
+		/** The agent hands the next step back as a question, and offers the answer to it below. */
 		tail: 'Want me to push this to dev?',
 	},
 	/**
-	 * SUGGESTED, not typed: once the change is made, the push is the obvious next step, so the console
-	 * offers it as ghost text and the person takes it with Tab. Typing it out was theatre — and it is
-	 * the one thing in the window that shows the console knows what comes next.
+	 * SUGGESTED, not typed: the agent offers the reply as ghost text and the person takes it with Tab.
+	 * A plain-English "Push to dev", NOT the `tb push …` command it stands for (changed 2026-09-25) —
+	 * the person briefs, the agent works out the command and runs it. Handing the agent a finished
+	 * command made the person the operator and the agent a typist.
 	 */
-	{
-		role: 'user',
-		suggested: true,
-		cmd: [
-			{ t: 'cmd', v: 'tb push ' },
-			{ t: 'arg', v: 'smart-retail ' },
-			{ t: 'flag', v: '--profile ' },
-			{ t: 'arg', v: 'dev' },
-		],
-	},
-	/** The agent runs the command it was handed, and the result nests under the call. */
+	{ role: 'user', suggested: true, text: 'Push to dev' },
+	/** The agent turns the brief into the command and runs it; the result nests under the call. */
 	{
 		role: 'tool',
 		text: 'Bash(tb push smart-retail --profile dev)',

@@ -63,6 +63,9 @@ const DOT = '●';
 const TREE = '⎿';
 const ITEM = '✓';
 
+/** The banner art's width in cells: its longest row. */
+const artCols = (art: string[]) => Math.max(...art.map((row) => row.length));
+
 /**
  * A blank line between SPEAKERS, none within one speaker's turn: the person's `❯` opens with a gap,
  * the agent's first line after it opens with a gap, and the agent's following actions and its report
@@ -90,7 +93,7 @@ const turnCls = (i: number) => (gapBefore(i) ? 'agent__row agent__row--turn agen
 				session.map((st, i) => {
 					if (st.role === 'banner')
 						return (
-							<span class="agent__banner">
+							<span class="agent__banner" style={`--agent-art: ${artCols(st.art)}`}>
 								{st.art.map((row, i) => (
 									<span class="agent__banner-row">
 										{/* prettier-ignore */}
@@ -340,9 +343,11 @@ const turnCls = (i: number) => (gapBefore(i) ? 'agent__row agent__row--turn agen
 			display: block;
 		}
 
+		// The art's column is as wide as its longest row, handed over as `--agent-art` so the status
+		// lines start at one column whatever the mark. `ch` is a cell of the monospace face.
 		:global(.agent__art) {
 			display: inline-block;
-			width: 5em;
+			width: calc(var(--agent-art, 10) * 1ch);
 			color: var(--accent, #4dabf7);
 		}
 
@@ -834,6 +839,7 @@ const turnCls = (i: number) => (gapBefore(i) ? 'agent__row agent__row--turn agen
 				// Printed whole: a CLI writes its banner in one go as it comes up.
 				const b = document.createElement('span');
 				b.className = 'agent__banner';
+				b.style.setProperty('--agent-art', String(Math.max(...st.art.map((row) => row.length))));
 				st.art.forEach((row, i) => {
 					const r = document.createElement('span');
 					r.className = 'agent__banner-row';
