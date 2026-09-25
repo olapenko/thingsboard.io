@@ -12,7 +12,7 @@ import type { CliSeg } from './cli-terminal';
  *   ● Tool(argument)
  *     └what the tool returned
  *   ● the agent's answer
- *     ✓ a point under it
+ *     ✔ a point under it
  *
  * The player gives every turn its own leading glyph in a gutter column, wraps the text under itself
  * (prose wraps; a shell log never does), and opens a little air above each new turn.

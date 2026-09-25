@@ -471,13 +471,13 @@ export const AI_AGENT_SESSION: AgentStep[] = [
 				{ t: 'dim', v: '4.3.1.5' },
 			],
 			[
-				{ t: 'ok', v: '\u2713 ' },
+				{ t: 'ok', v: '\u2714 ' },
 				{ t: 'text', v: 'profile ' },
 				{ t: 'arg', v: 'dev' },
 				{ t: 'dim', v: ' \u203a thingsboard.cloud' },
 			],
 			[
-				{ t: 'ok', v: '\u2713 ' },
+				{ t: 'ok', v: '\u2714 ' },
 				{ t: 'text', v: 'Coding agent detected' },
 			],
 		],
