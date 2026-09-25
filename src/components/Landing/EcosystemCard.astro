@@ -37,6 +37,7 @@ import EcosystemMark from '@components/Landing/EcosystemMark.astro';
 // 	'rule-chains': ruleChainCluster,
 // };
 import { externalLinkAttrs } from '@util/external-links';
+import type { HubTile } from '@data/homeEcosystem';
 
 interface Props {
 	name: string;
@@ -118,7 +119,7 @@ interface Props {
 	 * 2026-09-25; opt-in, so the product pages' cards stay as they are.
 	 */
 	pairInline?: boolean;
-	tiles?: { slug: string; label: string; href: string; color: string; icon: string }[];
+	tiles?: HubTile[];
 	class?: string;
 }
 
@@ -319,7 +320,7 @@ if (nameHighlight) {
 		tiles && (
 			<div class="ecosystem-card__tiles">
 				{tiles.map((tile) => (
-					<a class="ecosystem-card__tile" data-cat={tile.slug} href={tile.href} style={`--tile: ${tile.color}`}>
+					<a class="ecosystem-card__tile" data-cat={tile.slug} href={tile.href} style={`--tile: ${tile.color}; --tile-strong: ${tile.colorDark}`}>
 						<Icon name={tile.icon} class="ecosystem-card__tile-icon" aria-hidden="true" />
 						<span>{tile.label}</span>
 					</a>
@@ -1228,8 +1229,6 @@ if (nameHighlight) {
 		gap: $spacing-1;
 		min-height: 78px;
 		padding: $spacing-3 $spacing-2;
-		// Colour lives in the card's gradient now; the tiles stay neutral so six of
-		// them in a grid don't read as six unrelated things.
 		border: 1px solid rgba(0, 0, 0, 0.14);
 		border-radius: $radius-md;
 		background-color: transparent;
@@ -1237,21 +1236,34 @@ if (nameHighlight) {
 		@include type-small-strong;
 		text-align: center;
 		text-decoration: none;
+		// The category's strong colour, darkened to an ink that reads: the Hub's own
+		// `tileColorDark` is a background colour, and two of them (calculated fields,
+		// rule chains) are too light for text. 60% of it over black clears 4.5:1 on the
+		// category's tint and on white for all six (the hover ground is lighter still).
+		--tile-ink: color-mix(in srgb, var(--tile-strong, currentColor) 60%, #000);
 		transition:
 			background-color 0.15s ease,
-			border-color 0.15s ease;
+			border-color 0.15s ease,
+			color 0.15s ease;
 
+		// At rest the tiles stay neutral, so six of them in a grid don't read as six
+		// unrelated things; on hover each one takes its category's colour, so the tile says
+		// where it leads before the click. The colour is carried by the icon and the label;
+		// the ground and the border only whisper it — a full tint read as a filled button,
+		// and a lighter ground only raises the ink's contrast.
 		&:hover,
 		&:focus-visible {
-			border-color: rgba(0, 0, 0, 0.3);
-			background-color: rgba(255, 255, 255, 0.6);
+			border-color: color-mix(in srgb, var(--tile-ink) 35%, transparent);
+			background-color: color-mix(in srgb, var(--tile-strong, currentColor) 6%, #fff);
+			color: var(--tile-ink);
 		}
 	}
 
 	.ecosystem-card__tile-icon {
 		width: 28px;
 		height: 28px;
-		color: var(--color-text);
+		// Follows the tile, so it takes the category's ink on hover with the label.
+		color: inherit;
 	}
 
 	.ecosystem-card__stores {

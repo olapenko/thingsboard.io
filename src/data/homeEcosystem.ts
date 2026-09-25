@@ -1,3 +1,4 @@
+import { IOT_HUB_CATEGORIES } from '@models/iot-hub';
 import { TBMQ_SITE_URL } from '@models/tbmq';
 
 export interface EcosystemItem {
@@ -38,8 +39,31 @@ export interface EcosystemItem {
 	/** Wide card with a single destination: whole-card hit area, like the singles. */
 	wholeCard?: boolean;
 	/** Category tiles — the visual and the navigation in one. */
-	tiles?: { slug: string; label: string; href: string; color: string; icon: string }[];
+	tiles?: HubTile[];
 }
+
+/** One IoT Hub category, as a tile on the card. */
+export interface HubTile {
+	slug: string;
+	label: string;
+	href: string;
+	/** The category's light tint (`tileColor`): the tile's hover ground. */
+	color: string;
+	/** The category's strong colour (`tileColorDark`): its hover ink, darkened for contrast. */
+	colorDark: string;
+	icon: string;
+}
+
+/**
+ * A tile for an IoT Hub category, its colours read from the category itself (src/models/iot-hub.ts)
+ * so the homepage and the Hub cannot drift apart. Throws on an unknown slug rather than drawing a
+ * tile in no colour.
+ */
+const hubTile = (slug: string, label: string, icon: string): HubTile => {
+	const cat = IOT_HUB_CATEGORIES.find((c) => c.slug === slug);
+	if (!cat) throw new Error(`homeEcosystem: no IoT Hub category "${slug}".`);
+	return { slug, label, href: `/iot-hub/${slug}/`, color: cat.tileColor, colorDark: cat.tileColorDark, icon };
+};
 
 // One card per product. The two mobile entries are now a single card pointing at
 // the PE page, since they are one app to a reader even if there are two builds.
@@ -137,40 +161,16 @@ export const homeEcosystem: EcosystemItem[] = [
 		// Demoted to a single in the 2-column grid so TBMQ is not an orphan on a
 		// half-empty last row; the tiles go below md with the other visuals.
 		at: { cols2: 'single', stack: 'no-visual' },
-		// Colours are the categories' own `tileColor` from src/models/iot-hub.ts —
-		// the visual and the links are the same thing here, which is why this card
-		// needs no separate button row.
+		// Colours are the categories' own, read from src/models/iot-hub.ts by `hubTile` — the
+		// visual and the links are the same thing here, which is why this card needs no separate
+		// button row.
 		tiles: [
-			{ slug: 'devices', label: 'Device Library', href: '/iot-hub/devices/', color: '#ccd5ff', icon: 'tabler:cpu' },
-			{
-				slug: 'solution-templates',
-				label: 'Templates',
-				href: '/iot-hub/solution-templates/',
-				color: '#b8d9ff',
-				icon: 'tabler:template',
-			},
-			{ slug: 'widgets', label: 'Widgets', href: '/iot-hub/widgets/', color: '#a3ffc3', icon: 'tabler:layout-grid' },
-			{
-				slug: 'calculated-fields',
-				label: 'Calculated Fields',
-				href: '/iot-hub/calculated-fields/',
-				color: '#bdedff',
-				icon: 'tabler:math-function',
-			},
-			{
-				slug: 'alarm-rules',
-				label: 'Alarm Rules',
-				href: '/iot-hub/alarm-rules/',
-				color: '#ffe6cc',
-				icon: 'tabler:bell',
-			},
-			{
-				slug: 'rule-chains',
-				label: 'Rule Chains',
-				href: '/iot-hub/rule-chains/',
-				color: '#ecd1ff',
-				icon: 'tabler:sitemap',
-			},
+			hubTile('devices', 'Device Library', 'tabler:cpu'),
+			hubTile('solution-templates', 'Templates', 'tabler:template'),
+			hubTile('widgets', 'Widgets', 'tabler:layout-grid'),
+			hubTile('calculated-fields', 'Calculated Fields', 'tabler:math-function'),
+			hubTile('alarm-rules', 'Alarm Rules', 'tabler:bell'),
+			hubTile('rule-chains', 'Rule Chains', 'tabler:sitemap'),
 		],
 	},
 	{

@@ -18,15 +18,32 @@ const repoMap: Partial<Record<Products, string>> = {
 
 const repo = repoMap[platform] ?? 'thingsboard/thingsboard';
 const link = `https://github.com/${repo}`;
+
+// A count to show from the first paint. The live one is fetched only after interaction or 5.5s
+// (see the script), and until then the button was a 96px box holding nothing but the mark — a
+// control that looked broken for the first seconds of every visit, and for good wherever the API
+// is out of reach (rate limits, blockers, a static copy). Rounded down to the hundred and written
+// short, so it never claims a precision it does not have; the fetch swaps in the exact number.
+// Counts as of 2026-09-25 — refresh when one crosses the next hundred, or leave them: they only
+// ever read low.
+const starsAsOf: Record<string, number> = {
+	'thingsboard/thingsboard': 22480,
+	'thingsboard/thingsboard-gateway': 2190,
+	'thingsboard/thingsboard-edge': 180,
+	'thingsboard/tbmq': 766,
+};
+const known = starsAsOf[repo];
+const shortStars = (n: number) => (n < 1000 ? String(n) : `${Math.floor(n / 100) / 10}k`);
+const fallback = known === undefined ? undefined : shortStars(known);
 ---
 
 <div class="gh-wrap">
 	<a
 		href={link}
-		class="gh-button"
+		class:list={['gh-button', fallback && 'is-loaded']}
 		target="_blank"
 		rel="noopener noreferrer"
-		aria-label={`Star ${repo} on GitHub`}
+		aria-label={fallback ? `Star ${repo} on GitHub — ${fallback} stars` : `Star ${repo} on GitHub`}
 		data-repo={repo}
 	>
 		{/* Octicon `mark-github` (GitHub Octicons, MIT). Fills with currentColor so the
@@ -37,7 +54,7 @@ const link = `https://github.com/${repo}`;
 				d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"
 			></path>
 		</svg>
-		<span class="gh-count">&nbsp;</span>
+		<span class="gh-count">{fallback ?? '\u00a0'}</span>
 	</a>
 </div>
 
@@ -214,8 +231,9 @@ const link = `https://github.com/${repo}`;
 	}
 
 	.gh-count {
-		// Hidden until the fetch lands so the placeholder `&nbsp;` never paints as a
-		// blank gap; the width is reserved all along, so nothing shifts when it does.
+		// Hidden until there is a count, so the placeholder `&nbsp;` never paints as a blank
+		// gap; the width is reserved all along, so nothing shifts when one lands. A known
+		// repo ships `is-loaded` with its rounded count, so this only holds for an unknown one.
 		opacity: 0;
 		font-variant-numeric: tabular-nums;
 		transition: opacity $transition-fast;
