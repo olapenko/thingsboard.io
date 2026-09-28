@@ -149,14 +149,15 @@ const defaultAchievement: Achievement = {
 const achievementData = achievement || defaultAchievement;
 const titles = Array.isArray(title) ? title : [title];
 
-// The copy's measurements, for the two layouts that size something from them: `--hero-copy-h`
-// on the panel, which fills what the stacked copy leaves before the fold, and `--hero-copy-rest`
-// / `--hero-title-lines` on the section, which size the side-by-side headline to the fold
-// (everything in the copy but the headline, and the headline's height in font-sizes), and the
-// side-by-side panel's floor. The rest and the lines are the same at any headline size, so setting
-// them never changes them. The copy's height is not: side by side, the headline takes its size
-// from those two, so the height is read again once they are set. Read first, it was the copy at
-// the headline's previous size: 573 at 1366x645 against a settled 549, and the panel held to it
+// The copy's measurements, for the layouts that size something from them, all on the section:
+// `--hero-copy-h`, which the stacked panel fills up to before the fold and the side-by-side panel
+// takes as its floor; `--hero-copy-rest` / `--hero-title-lines`, which size the side-by-side
+// headline to the fold (everything in the copy but the headline, and the headline's height in
+// font-sizes); and `--hero-copy-w`, the band, which the side-by-side cap on the composition adds
+// the panel to. The rest and the lines are the same at any headline size, so setting them never
+// changes them. The copy's height and width are not: side by side, the headline takes its size
+// from those two, so both are read again once they are set. Read first, the height was the copy
+// at the headline's previous size: 573 at 1366x645 against a settled 549, and the panel held to it
 // ran the hero 24px past its fold. The panel's own height never reaches the copy.
 //
 // The headline is the H1's lines at the headline's own size, read off its last line. A line set at
@@ -169,7 +170,6 @@ const MEASURE_COPY = `(() => {
 	const hero = document.currentScript.closest('#hero');
 	const copy = hero.querySelector('#hero-content');
 	const title = copy.querySelector('h1');
-	const panel = hero.querySelector('.video-cover');
 	const measure = () => {
 		const copyHeight = copy.offsetHeight;
 		const titleSize = parseFloat(getComputedStyle(title.lastElementChild).fontSize);
@@ -182,7 +182,8 @@ const MEASURE_COPY = `(() => {
 		}
 		hero.style.setProperty('--hero-copy-rest', copyHeight - titleHeight + 'px');
 		hero.style.setProperty('--hero-title-lines', String(titleHeight / titleSize));
-		panel.style.setProperty('--hero-copy-h', copy.offsetHeight + 'px');
+		hero.style.setProperty('--hero-copy-h', copy.offsetHeight + 'px');
+		hero.style.setProperty('--hero-copy-w', copy.offsetWidth + 'px');
 	};
 	measure();
 	let frame = 0;
@@ -561,13 +562,21 @@ const MEASURE_COPY = `(() => {
 			// visible.
 			//
 			// `--hero-fold` is the height the hero may take: the viewport less the promo
-			// banner above it and the 56px of the next section left showing. `svh`, not
-			// `vh`: on mobile `vh` is the tallest the viewport ever gets, which is the one
-			// value that guarantees the promise is broken while the browser's own bars are
-			// on screen. If the banner goes, `--promo-h` is 0 and everything widens on its
-			// own. `--hero-budget` is the same less the header, for the panel, which starts
-			// under the header.
-			--hero-reveal: 56px;
+			// banner above it and `--hero-reveal`, what of the page under the hero stays on
+			// the first screen. That is whatever CLOSES the hero — `--hero-tail`, which the
+			// page sets: the homepage's logo strip is a dark band that reads as the hero's
+			// last 100px, so the next section is the one after it; a page with nothing of
+			// the kind leaves it 0 — plus 64px of the next section itself, the intro's own
+			// top padding, so its light ground is on the first screen and its title starts
+			// at the fold. It was 56px with no tail, sized when the strip was taken for the
+			// next section, and every desktop screen from 1440 up ended its first screen on
+			// the strip's last pixel: a black page to the bottom edge, nothing on it to say
+			// there was more. `svh`, not `vh`: on mobile `vh` is the tallest the viewport
+			// ever gets, which is the one value that guarantees the promise is broken while
+			// the browser's own bars are on screen. If the banner goes, `--promo-h` is 0
+			// and everything widens on its own. `--hero-budget` is the same less the
+			// header, for the panel, which starts under the header.
+			--hero-reveal: calc(var(--hero-tail, 0px) + 64px);
 			--hero-fold: calc(100svh - var(--promo-h, 0px) - var(--hero-reveal));
 			--hero-budget: calc(var(--hero-fold) - var(--home-header-h, #{$header-height}));
 
@@ -583,6 +592,10 @@ const MEASURE_COPY = `(() => {
 			// The headline's measure, in its own ems: see `.tb-title` below. The stacked
 			// two-column layout sizes the headline from the same number.
 			--hero-title-measure: 7;
+
+			// The lede's measure, in its own characters: see `.tb-sub-title` below. A 21:9 screen
+			// widens it.
+			--hero-lede-measure: 34ch;
 
 			// The room between the fixed bar and the first thing in the hero. It is a
 			// token, and the one padding rule reads it, because the short/narrow trim has
@@ -722,12 +735,13 @@ const MEASURE_COPY = `(() => {
 				}
 
 				.tb-sub-title {
-					// Weight comes off 300, which was the page's only use of it. The measure is the 34ch
-					// below; the leading is the one every piece of running copy on the page takes.
+					// Weight comes off 300, which was the page's only use of it. The measure is 34ch
+					// (`--hero-lede-measure`); the leading is the one every piece of running copy on the
+					// page takes.
 					@include type-body;
 					text-wrap: pretty;
 					margin-bottom: 32px;
-					max-width: 34ch;
+					max-width: var(--hero-lede-measure);
 					text-shadow: none;
 				}
 
@@ -1033,35 +1047,149 @@ const MEASURE_COPY = `(() => {
 				// text: at 2560 it was 848px of black around 432px of copy.
 				//
 				// THE FOOTAGE GIVES WAY BEFORE THE HEADLINE DOES. 16:9 of its width, but it stops
-				// `--hero-footage-reveal` short of the fold, 100px to the headline's 56: the logo
-				// strip under the hero (99px at these widths) whole, where the headline's fold keeps
-				// only part of it in view. A band off the footage's top and bottom costs nothing a
-				// smaller headline would, so the footage pays for the strip: about 5% of the frame
-				// at 1440x780, 13% at 1920x960 (8% before). Where the copy is the taller of the two
-				// (1024-1280, and any short screen) the row is the copy's and nothing changes.
+				// `--hero-footage-reveal` short of the fold: the tail (the logo strip) and 120px of
+				// the section after it — its 64px of padding, which every homepage section has,
+				// and the first thing in it: the AI section's badge, or a title's line — where the
+				// headline's fold (`--hero-reveal`) keeps only that padding in view. So wherever
+				// the footage is the taller column, 1680x900 and up, the first screen ends inside
+				// the next section; where the copy is (laptops, 1024-1536, and any short screen)
+				// the row is the copy's and the strip shows with what the headline leaves. A
+				// band off the footage's top and bottom costs nothing a smaller headline would,
+				// and `object-position: center` takes it evenly, so the widgets' titles along the
+				// frame's top and their legends along its bottom go together and last: nothing of
+				// either at 1920x1080, where the frame shows whole by height, 7% of each at
+				// 1920x960, and a fifth of the frame in all at most (`--hero-panel-col`, below). It
+				// was the tail alone, 100px, and from 1440 up the footage ended on the strip's
+				// last pixel.
 				@media #{$hero-split} {
 					grid-template-columns: auto 1fr;
-					--hero-footage-reveal: 100px;
+					--hero-footage-reveal: calc(var(--hero-tail, 0px) + 120px);
+					// The panel's height: its ceiling is the fold less the header it starts under and
+					// the reveal it stops short of, but never shorter than the copy beside it
+					// (`--hero-copy-h`, measured, which includes the same header clearance): capped
+					// under a copy-tall row, the panel would leave a band of black beneath it.
+					//
+					// And never taller than the footage itself: a panel past its 924 blows the frame
+					// up, and beside a band it ran the hero to 81% of a 3440x1350 screen. At the
+					// footage's own height the hero is 988 at most. Both sizes are the homepage's
+					// footage, as `--hero-footage-ratio` already is; a page with other footage would
+					// set them with it.
+					--hero-footage-w: 1920px;
+					--hero-footage-h: 924px;
+					// The widest the panel may be for its height, 2.6: the footage's 2.08:1 over 0.8,
+					// so that at most a fifth of the frame is cut. The crop's limit, read twice below.
+					--hero-panel-ratio-max: 2.6;
+					--hero-panel-max: var(--hero-footage-h);
+					--hero-panel-cap: min(
+						var(--hero-panel-max),
+						calc(100svh - var(--promo-h, 0px) - var(--hero-footage-reveal) - var(--home-header-h, #{$header-height}))
+					);
+					--hero-panel-h: max(
+						var(--hero-panel-cap),
+						calc(var(--hero-copy-h, 0px) - var(--home-header-h, #{$header-height}))
+					);
+					// How far the panel reaches under the copy's margin: the column's padding plus 16,
+					// which puts the fade's black end just past the copy's widest line (the headline's
+					// first at 48px, the lede's at 34). One edge treatment at every side-by-side width.
+					--hero-reach: calc(var(--hero-pad-x) + 16px);
 
-					// THE HEADLINE BY HEIGHT, NOT WIDTH. 48, unless the screen is too short for
-					// the copy and the peek together; only then does it give, and only as much as
-					// it has to, down to 34. The copy is the headline's lines (`--hero-title-lines`
+					// A WIDE SCREEN: THE COMPOSITION IS CAPPED, AND CENTRED IN WHAT IS LEFT.
+					//
+					// The panel took whatever the band did not, and past 2560 that is a box wider than
+					// the footage: 3064 at 3440x1350, the 1920px frame blown up 1.6x with 22% of its
+					// height cut to fit; 4744 at 5120, 2.5x and half the frame gone. The band and the
+					// panel together are held to `--hero-max-w`, and whatever the viewport has past
+					// that is `--hero-slack`, split evenly to both sides as padding — two black fields,
+					// and between them the text block and the video block, in the middle of the
+					// screen as the sections under the hero are. Not a breakpoint: `max()` is 0 until
+					// the cap binds and grows a pixel for every two of viewport after it.
+					//
+					// The panel's column is the lesser of two, less the reach it keeps under the band.
+					// One is the footage's own width, so its box is the frame at 1:1 and never blown
+					// up sideways. The other is `--hero-panel-ratio-max` of its height
+					// (`--hero-panel-h`): the width at which the panel shows four fifths of the frame.
+					// It is the crop's limit — a screen wide and short enough to cut more than that
+					// (2560x1080 would take a third, 1920x800 nearly as much) narrows the panel
+					// instead and keeps the frame's titles and legends. On no common 16:9 viewport
+					// does it bind (1920x960 crops 15% and sits under it), and where it does, the
+					// window is itself ultra-wide in shape.
+					//
+					// THE BAND WIDENS WITH THE SCREEN (`--hero-band-min`, on the copy below): the
+					// copy's own width, 430-450, was a slot of black beside the frame on a 2560 or
+					// 3440 screen. From ~1950 it grows with the screen, to 600 at ~2730 and up; the
+					// text keeps its left edge and the room is between it and the footage. 22vw
+					// clears the copy's natural width only past 1950, so 1920 is untouched. The band
+					// is what the script measures as `--hero-copy-w`, min-width included. 600 holds
+					// the 21:9 headline (7em at 64 is 448) and lede (44ch, ~390) in its 488 of
+					// content; 640 was tried and left a slot of black between the lede and the frame.
+					//
+					// The video block ends where the padding begins, in a hard edge. Fading it into
+					// the field, as the copy's edge fades, was tried (2026-09-28): the footage has
+					// light frames, and over a white one the ramp to black read as a grey smear. A
+					// cut edge reads as a screen.
+					//
+					// `100vw`, not `100%`: the viewport, as the band's `22vw` is; a percentage here
+					// would be the hero's own width, the same thing less a scrollbar.
+					//
+					// The copy leaves the header's line here — the logo stays at the page inset, the
+					// headline moves in with the composition — which is what any capped container
+					// does, and on a screen this wide the two are not read together.
+					--hero-band-min: min(22vw, 600px);
+					--hero-panel-col: calc(
+						min(var(--hero-footage-w), var(--hero-panel-h) * var(--hero-panel-ratio-max)) - var(--hero-reach)
+					);
+					--hero-max-w: calc(var(--hero-copy-w, max(448px, var(--hero-band-min))) + var(--hero-panel-col));
+					--hero-slack: max(0px, calc((100vw - var(--hero-max-w)) / 2));
+					padding-inline: var(--hero-slack);
+
+					// ULTRA-WIDE (`$hero-ultrawide`, 21:9 and wider): SHORTER STILL. A 3440x1440 or a
+					// 3840x1600 at 100%, a 5120x1440, is wide for its height, and a hero that took
+					// 73% of it (988 of 1350) read as a wall. The panel stops at half the viewport,
+					// or at the height the crop limit allows the footage at its own width (1920 over
+					// 2.6, 738) if that is less: 675 at 3440x1350, where the crop limit then narrows
+					// it to 1755 (0.91x, four fifths of the frame) and the hero is 739, 55% of the
+					// screen, with the strip and the whole opening of the next section under it. 738
+					// alone was the round before, at 802 and 59%. A 2560x1080 is 21:9 too and
+					// shorter than this already; a 1920x800 window, the same shape, is the copy's
+					// row; neither changes. 21/9, not 2/1: 1920x960 is exactly 2:1 and stays as it is.
+					//
+					// AND A LARGER HEADLINE, with the width: 48 was the page's display size against a
+					// 1920px video block, and in a 640px band it read small. The ceiling rises with
+					// the screen, 48 at 2560 to 64 from ~3460 — the size the centred hero's headline
+					// once was — so a 2560x1080 keeps the 48 it has room for and a 3440 gets ~63. The
+					// measure holds: 7em at 64 is 448, inside the band's 488 of content. The lede
+					// keeps its size and runs to 44 characters rather than 34 (~390 at 16px), three
+					// lines under the larger headline rather than four in a column half the band's
+					// width; the buttons stay as they are.
+					@media #{$hero-ultrawide} {
+						--hero-panel-max: min(calc(var(--hero-footage-w) / var(--hero-panel-ratio-max)), 50svh);
+						--hero-h1-max: clamp(48px, 1.85vw, 64px);
+						--hero-lede-measure: 44ch;
+					}
+
+					// THE HEADLINE BY HEIGHT, NOT WIDTH. 48 (`--hero-h1-max`: more on a 21:9 screen,
+					// above), unless the screen is too short for the copy and the peek together;
+					// only then does it give, and only as much as it has to, down to 40. The copy is the headline's lines (`--hero-title-lines`
 					// headline-heights) plus everything else in it (`--hero-copy-rest`), both
 					// measured by the script — so an edit to the lede, a margin the short-screen
 					// trim takes back, or a web font landing all move it to the right size. The
-					// fallbacks are today's copy: 3.6 lines (kicker and two, at 1.2) and 416px.
+					// fallbacks are today's copy: 3.6 lines (kicker and two, at 1.2) and 418px.
+					//
+					// 40 is `type-title`, the ladder's step under the display size — not the 34
+					// every phone sits on. Beside a 16px lede, and over section titles of 32 to 40,
+					// the headline has to stay the largest thing on the page, and at 34 in a
+					// 1536x730 window (a 15" laptop at 125%, with the taskbar and the browser's
+					// bars) it was smaller than the title of the section under it, for 22px more
+					// of that section's padding. The floor binds on laptops under ~800 tall with
+					// the banner up: there the copy runs past the fold by what the floor keeps,
+					// and the strip under it shows whole, or nearly, with little or nothing after.
 					--hero-h1: clamp(
-						34px,
-						calc((var(--hero-fold) - var(--hero-copy-rest, 416px)) / var(--hero-title-lines, 3.6)),
-						48px
+						40px,
+						calc((var(--hero-fold) - var(--hero-copy-rest, 418px)) / var(--hero-title-lines, 3.6)),
+						var(--hero-h1-max, 48px)
 					);
 
 					.video-cover {
-						// Under the copy's margin: the column's padding plus 16, which puts the
-						// fade's black end just past the copy's widest line (the headline's first
-						// at 48px, the lede's at 34). One edge treatment at every side-by-side width.
-						--reach: calc(var(--hero-pad-x) + 16px);
-
 						grid-column: 2;
 						grid-row: 1;
 						// 16:9 whatever the footage's shape. The fold and the copy set this box's
@@ -1082,16 +1210,11 @@ const MEASURE_COPY = `(() => {
 						// to its right) or from a copy-tall row at 1024 (a 937px box overflowing the
 						// hero). Definite, a cap crops the frame top and bottom rather than
 						// narrowing it.
-						width: calc(100% + var(--reach));
-						margin-left: calc(-1 * var(--reach));
-						// Short of the footage's own fold (above), but never shorter than the copy
-						// beside it (`--hero-copy-h`, measured, which includes the same header
-						// clearance): capped under a copy-tall row, the panel would leave a band of
-						// black beneath it.
-						max-height: max(
-							calc(100svh - var(--promo-h, 0px) - var(--hero-footage-reveal) - var(--home-header-h, #{$header-height})),
-							calc(var(--hero-copy-h, 0px) - var(--home-header-h, #{$header-height}))
-						);
+						width: calc(100% + var(--hero-reach));
+						margin-left: calc(-1 * var(--hero-reach));
+						// Short of the footage's own fold, but never shorter than the copy beside it
+						// (see `--hero-panel-h`).
+						max-height: var(--hero-panel-h);
 						// The footage starts 2px inside its box, poster and video alike, so the
 						// fade's own edge is the only edge there. The box's left falls on a
 						// fractional pixel, and two anti-aliased edges on one pixel, the footage's
@@ -1117,6 +1240,8 @@ const MEASURE_COPY = `(() => {
 					#hero-content {
 						grid-column: 1;
 						grid-row: 1;
+						// See THE BAND WIDENS WITH THE SCREEN, above.
+						min-width: var(--hero-band-min);
 						// Centred on the row by its own height rather than stretched to it, so the
 						// script's `offsetHeight` is the copy and not the row.
 						align-self: center;

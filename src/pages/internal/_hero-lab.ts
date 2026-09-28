@@ -205,6 +205,10 @@ export interface Screen {
  * side, the two stacked copy columns, and the phone's single one.
  */
 export const SCREENS: Screen[] = [
+	// 34" 21:9 with the browser's own bars, and a 29"/34" 2560x1080 with them: both 21:9, so both
+	// get the hero's ultra-wide composition, one tall and one short.
+	{ id: 'ultra', label: 'Ultra-wide', w: 3440, h: 1350 },
+	{ id: 'ultra-short', label: 'Ultra-wide, short', w: 2560, h: 990 },
 	{ id: 'wide', label: 'Wide', w: 1920, h: 960 },
 	{ id: 'laptop', label: 'Laptop', w: 1440, h: 780, on: true },
 	{ id: 'short', label: 'Short laptop', w: 1366, h: 645 },
