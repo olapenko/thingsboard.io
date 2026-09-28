@@ -1,0 +1,224 @@
+---
+import { Icon } from 'astro-icon/components';
+import DocsNotice from '@components/starlight/DocsNotice.astro';
+
+/**
+ * The top of the CE docs landing, as a slice, with the notice where it would sit: between the
+ * header and the docs hero. `DocHero.astro` cannot be rendered here (it reads
+ * `Astro.locals.starlightRoute`), so the hero is restated — the title, the tagline and the two
+ * actions from `content/docs/docs/index.mdx`, at the hero's own content width (72rem) and gutter
+ * (`--sl-content-pad-x`, 2rem on the site) — and the notice is the real component. What is judged
+ * is the notice against the page it lands on, not the hero.
+ *
+ * The header bar above it is a plain white strip with the site name, so the frame reads as the top
+ * of a page and the notice is seen under a header rather than on the sandbox's own ground.
+ */
+interface Props {
+	notice: Parameters<typeof DocsNotice>[0];
+}
+
+const { notice } = Astro.props;
+---
+
+<div class="ds" data-notice-layout={notice.layout ?? 'strip'}>
+	<div class="ds__header" aria-hidden="true">
+		<span class="ds__logo">ThingsBoard</span>
+		<span class="ds__nav"><span>Products</span><span>Docs</span><span>Blog</span><span>Pricing</span></span>
+		<span class="ds__cta">Try for free</span>
+	</div>
+
+	<div class="ds__page">
+		{/* A `band` notice runs the viewport itself, so it gets no gutter to stand inside. */}
+		<div class:list={[notice.layout !== 'band' && 'ds__gutter']}>
+			<DocsNotice {...notice} />
+		</div>
+
+		<div class="ds__hero">
+			<div class="ds__grid" aria-hidden="true"></div>
+			<div class="ds__gutter ds__content">
+				<h1 class="ds__title">ThingsBoard Docs</h1>
+				<p class="ds__tagline">
+					Guides, recipes, and API references to build IoT solutions with ThingsBoard Community Edition.
+				</p>
+				<div class="ds__actions">
+					<span class="ds__btn">Getting Started <Icon name="tabler:rocket" aria-hidden="true" /></span>
+					<span class="ds__more">Why ThingsBoard? <Icon name="tabler:arrow-narrow-right" aria-hidden="true" /></span>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.ds {
+		font-family: var(--font-family, $font-family-base);
+		color: var(--color-text, #17181c);
+		background: #fff;
+	}
+
+	// ---- A header, in outline ---------------------------------------------------------------
+	.ds__header {
+		display: flex;
+		align-items: center;
+		gap: $spacing-8;
+		height: 64px;
+		padding: 0 $spacing-8;
+		border-bottom: 1px solid var(--sl-color-hairline-light, #eceef2);
+		@include type-small-strong;
+		color: var(--color-text-secondary, #63656c);
+
+		@include media-down(md) {
+			height: 56px;
+			padding: 0 $spacing-4;
+			gap: $spacing-4;
+		}
+	}
+
+	.ds__logo {
+		font-weight: $font-weight-bold;
+		font-size: 17px;
+		color: var(--color-text, #17181c);
+	}
+
+	.ds__nav {
+		display: flex;
+		gap: $spacing-5;
+		margin-right: auto;
+
+		@include media-down(md) {
+			display: none;
+		}
+	}
+
+	.ds__cta {
+		margin-left: auto;
+		padding: 8px 14px;
+		border-radius: $radius-md;
+		background: var(--color-primary, #3d50f5);
+		color: #fff;
+		font-weight: $font-weight-medium;
+		font-size: 14px;
+	}
+
+	// ---- The page below it ------------------------------------------------------------------
+	//
+	// The washes are the docs hero's: a red bloom far left, a blue one top right (`DocHero.astro`'s
+	// `.main-pane` background at ≥78rem), faint enough to be a ground and not a picture.
+	.ds__page {
+		position: relative;
+		padding-top: $spacing-6;
+		background:
+			radial-gradient(60% 70% at -10% 60%, rgba(255, 56, 69, 0.08), transparent 70%),
+			radial-gradient(40% 60% at 105% 0%, rgba(61, 80, 245, 0.1), transparent 70%);
+
+		:global(html[data-kv-frame]) & {
+			min-height: 100svh;
+		}
+
+		// A band hugs the header; the gap is for the boxed layouts.
+		.ds[data-notice-layout='band'] & {
+			padding-top: 0;
+		}
+	}
+
+	.ds__gutter {
+		max-width: calc(72rem + 2 * var(--sl-content-pad-x, 2rem));
+		margin: 0 auto;
+		padding: 0 var(--sl-content-pad-x, 2rem);
+
+		@include media-down(md) {
+			--sl-content-pad-x: 1rem;
+		}
+	}
+
+	.ds__hero {
+		position: relative;
+		padding: 88px 0 96px;
+
+		@include media-down(md) {
+			padding: 48px 0 56px;
+		}
+	}
+
+	// The hero's line grid, top right, as `DocHero.astro` draws it.
+	.ds__grid {
+		position: absolute;
+		inset: 0;
+		background-image:
+			linear-gradient(to right, rgba(23, 24, 28, 0.07) 1px, transparent 1px),
+			linear-gradient(to bottom, rgba(23, 24, 28, 0.07) 1px, transparent 1px);
+		background-position: right -1px;
+		background-size: 23px 23px;
+		-webkit-mask-image: radial-gradient(circle at 100% 0%, white, transparent 60%);
+		mask-image: radial-gradient(circle at 100% 0%, white, transparent 60%);
+		pointer-events: none;
+	}
+
+	.ds__content {
+		position: relative;
+		max-width: 44rem;
+		margin-inline: 0 auto;
+		padding-left: calc(
+			var(--sl-content-pad-x, 2rem) + max(0px, (100% - 72rem - 2 * var(--sl-content-pad-x, 2rem)) / 2)
+		);
+	}
+
+	.ds__title {
+		@include type-display;
+		margin: 0 0 $spacing-5;
+		font-weight: $font-weight-bold;
+		letter-spacing: -0.02em;
+
+		@include media-down(md) {
+			font-size: 36px;
+		}
+	}
+
+	.ds__tagline {
+		@include type-body;
+		max-width: 52ch;
+		margin: 0 0 $spacing-8;
+		font-size: 18px;
+		line-height: 1.55;
+		color: var(--color-text-secondary, #63656c);
+	}
+
+	.ds__actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-4 $spacing-8;
+	}
+
+	.ds__btn {
+		display: inline-flex;
+		align-items: center;
+		gap: $spacing-2;
+		padding: 14px 26px;
+		border-radius: $radius-full;
+		background: var(--color-primary, #3d50f5);
+		color: #fff;
+		@include type-button;
+		font-weight: $font-weight-medium;
+
+		svg {
+			width: 22px;
+			height: 22px;
+		}
+	}
+
+	.ds__more {
+		display: inline-flex;
+		align-items: center;
+		gap: $spacing-2;
+		@include type-link;
+		font-weight: $font-weight-medium;
+
+		svg {
+			width: 20px;
+			height: 20px;
+		}
+	}
+</style>

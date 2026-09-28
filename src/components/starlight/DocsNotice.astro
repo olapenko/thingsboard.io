@@ -1,0 +1,431 @@
+---
+import { Icon } from 'astro-icon/components';
+
+/**
+ * The notice over the Community Edition docs: from 4.4 the product is source-available, and the
+ * CE documentation under `/docs/` is not the place it used to be. Sits between the header and the
+ * docs hero on the CE landing (the same slot the current red banner holds on develop.tbqa.cloud).
+ *
+ * NOT WIRED INTO THE DOCS YET. This is the component only; where it goes is `DocHero.astro`'s
+ * parent (the CE `index.mdx` hero), and that is a separate change. Judge it at
+ * `/internal/flows/docs-notice/`.
+ *
+ * WHAT CHANGED FROM THE ONE IN USE. The shipped banner is red, three lines tall, with the triangle
+ * glyph the site uses for errors — which reads as "something is broken" over docs that work fine.
+ * A licence change is news, not a fault, so this one is AMBER and holds to ONE LINE on desktop:
+ * the lead in emphasis, the support sentence after it in regular weight with its link INLINE —
+ * "…free with the Community Grant Program ›", underlined, in the text colour, a chevron after it
+ * rather than a blue call to action — and the close at the right edge. The glyph is the round one (`alert-circle`) rather than the triangle:
+ * same family, one step down in alarm. On a phone the line wraps and the link drops under the copy.
+ *
+ * `layout` is what the sandbox compares; `tone` is the fill's hue. Both are props rather than
+ * separate files, so every direction is the same markup and only the CSS moves:
+ *
+ * - `strip`  — a card at the content width: pale fill, hairline of the same hue, 8px corners.
+ * - `line`   — no fill, no box: a hairline above and below, the glyph carries the colour alone.
+ * - `pill`   — a centred capsule holding only the sentence, for the version that wants to be small.
+ * - `band`   — edge to edge, the fill running the full width, the copy at the content width.
+ * - `stack`  — the shipped banner's two-line shape (lead over support), recoloured. Here as the baseline the others are judged against.
+ */
+
+export type NoticeLayout = 'strip' | 'line' | 'pill' | 'band' | 'stack';
+export type NoticeTone = 'amber' | 'yellow';
+export type NoticeSize = 'small' | 'base';
+
+interface Props {
+	/** The emphasised opening. Kept short: it has to share a line with `support` and the link. */
+	lead: string;
+	/**
+	 * The sentence after the lead, regular weight, with `{link}` where the link goes: "Keep what
+	 * you run today free with the {link}." Dropped by the `pill` layout, which shows the link alone.
+	 */
+	support?: string;
+	/** The inline link: its words and where they go. Rendered where `{link}` sits in `support`. */
+	link?: { text: string; href: string };
+	layout?: NoticeLayout;
+	tone?: NoticeTone;
+	/**
+	 * The type: 14/22 (`small`, the default) is what lets the shipped sentence hold one line at the
+	 * docs width; `base` is 16/24, the page's running size, and needs the shorter copy to do the
+	 * same. The `stack` layout is always `base`, as the shipped banner is.
+	 */
+	size?: NoticeSize;
+	/** The round glyph by default. Pass `false` for none; the `pill` keeps it either way. */
+	icon?: string | false;
+	/**
+	 * The close at the right edge. Dismissal is remembered per browser under `key`, so the notice
+	 * does not come back on every docs page; pass `false` for a notice that stays.
+	 */
+	dismissible?: boolean;
+	/** The storage key a dismissal is kept under. One per notice, so a new notice shows again. */
+	key?: string;
+	/** Draft only: a second instance on the same page needs its own ids. */
+	id?: string;
+}
+
+const {
+	lead,
+	support,
+	link,
+	layout = 'strip',
+	tone = 'amber',
+	size = 'small',
+	icon = 'tabler:alert-circle',
+	dismissible = true,
+	key = 'docs-notice:ce-4.4',
+	id = 'docs-notice',
+} = Astro.props;
+
+const showIcon = icon !== false;
+const pill = layout === 'pill';
+
+// The support sentence around its link. No placeholder means the link follows the sentence.
+const [before = '', after = ''] = (support ?? '').includes('{link}')
+	? (support ?? '').split('{link}', 2)
+	: [support ? `${support} ` : '', ''];
+
+/**
+ * The sentence is rendered from a STRING, not from template children. Astro keeps the whitespace
+ * between children, and Prettier puts every run on its own line — which put a space between the
+ * link and the full stop after it. One escaped string has no whitespace to leak. The chevron is
+ * CSS (see `.dn__link::after`), so the link needs no icon child either.
+ */
+const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const linkHtml = link ? `<a class="dn__link" href="${esc(link.href)}">${esc(link.text)}</a>` : '';
+const supportHtml = `${esc(before)}${linkHtml}${esc(after)}`;
+---
+
+<aside
+	class="dn"
+	data-layout={layout}
+	data-tone={tone}
+	data-size={layout === 'stack' ? 'base' : size}
+	data-dn
+	data-dn-key={key}
+	id={id}
+	aria-labelledby={`${id}-lead`}
+>
+	<div class="dn__in">
+		{
+			showIcon && (
+				<Icon name={typeof icon === 'string' ? icon : 'tabler:alert-circle'} class="dn__glyph" aria-hidden="true" />
+			)
+		}
+		<p class="dn__text">
+			<strong class="dn__lead" id={`${id}-lead`}>{lead}</strong>
+			{/* Inside the sentence; or, in the pill, which drops the sentence, alone. */}
+			{!pill && support && <span class="dn__support" set:html={supportHtml} />}
+			{pill && link && <span class="dn__support dn__support--alone" set:html={linkHtml} />}
+		</p>
+		{
+			dismissible && (
+				<button type="button" class="dn__close" data-dn-close aria-label="Dismiss this notice">
+					<Icon name="tabler:x" aria-hidden="true" />
+				</button>
+			)
+		}
+	</div>
+</aside>
+
+<script>
+	/**
+	 * Dismissal, remembered. Read before paint would need an inline script in the head; here the
+	 * notice is already drawn when this runs, so a dismissed one blinks for a frame on a cold load.
+	 * Acceptable for a draft; the wired-in version reads the key from the layout's head script.
+	 *
+	 * Draft: `data-dn-reset` anywhere on the page (the sandbox's "show again" button) clears them all.
+	 */
+	const hide = (el: HTMLElement) => {
+		el.hidden = true;
+	};
+
+	document.querySelectorAll<HTMLElement>('[data-dn]').forEach((el) => {
+		const key = el.dataset.dnKey || 'docs-notice';
+		try {
+			if (localStorage.getItem(key) === '1') hide(el);
+		} catch {
+			/* private window: the notice simply shows */
+		}
+		el.querySelector('[data-dn-close]')?.addEventListener('click', () => {
+			hide(el);
+			try {
+				localStorage.setItem(key, '1');
+			} catch {
+				/* not remembered, still dismissed for this page */
+			}
+		});
+	});
+
+	document.querySelectorAll<HTMLElement>('[data-dn-reset]').forEach((btn) =>
+		btn.addEventListener('click', () => {
+			document.querySelectorAll<HTMLElement>('[data-dn]').forEach((el) => {
+				el.hidden = false;
+				try {
+					localStorage.removeItem(el.dataset.dnKey || 'docs-notice');
+				} catch {
+					/* nothing stored */
+				}
+			});
+		})
+	);
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// ---- Hue --------------------------------------------------------------------------------
+	//
+	// Two tones, each three values: the glyph and lead (`--dn-ink`), the hairline (`--dn-edge`) and
+	// the fill (`--dn-fill`). AMBER is the site's own `--color-accent-amber` (#b45309, the IoT Hub
+	// ochre), so the notice speaks in a colour the site already uses. YELLOW is one step warmer and
+	// paler — closer to what "yellow banner" means in most heads — with a darker ink so the lead
+	// still passes contrast on the fill. The copy itself stays the page's text colour in both: only
+	// the glyph, the lead and the box carry the hue, which is what keeps it a note and not an alarm.
+	.dn {
+		--dn-ink: var(--color-accent-amber, #b45309);
+		--dn-edge: color-mix(in srgb, var(--dn-ink) 32%, transparent);
+		--dn-fill: color-mix(in srgb, var(--dn-ink) 7%, #fff);
+		--dn-text: var(--color-text, #17181c);
+		--dn-support: var(--color-text-secondary, #63656c);
+
+		&[data-tone='yellow'] {
+			--dn-ink: #d97706;
+			--dn-edge: color-mix(in srgb, #f59e0b 45%, transparent);
+			--dn-fill: #fff8e1;
+		}
+
+		font-family: var(--font-family, $font-family-base);
+		color: var(--dn-text);
+		margin: 0 auto;
+		max-width: 72rem; // the docs hero's content width (`DocHero.astro`)
+	}
+
+	// ---- One line ---------------------------------------------------------------------------
+	//
+	// A flex row: glyph, the sentence, the close. The sentence is ONE paragraph holding the lead and
+	// the support as inline runs, the link inside the support, so at width it is a line of prose and
+	// on a phone it wraps as prose would, rather than cells fighting over the row. The link's words
+	// and chevron stay together (`nowrap`), so a wrap never leaves the chevron alone on a line.
+	.dn__in {
+		display: flex;
+		align-items: flex-start;
+		gap: $spacing-3;
+		padding: $spacing-3 $spacing-4;
+		border: 1px solid var(--dn-edge);
+		border-radius: $radius-lg;
+		background: var(--dn-fill);
+	}
+
+	.dn__glyph {
+		flex: none;
+		width: 22px;
+		height: 22px;
+		margin-top: 1px; // optical: centred on the first line's x-height rather than its box
+		color: var(--dn-ink);
+	}
+
+	.dn__text {
+		@include type-small;
+		flex: 1 1 auto;
+		min-width: 0;
+		margin: 0;
+	}
+
+	.dn[data-size='base'] .dn__text {
+		@include type-body;
+		line-height: 24px;
+	}
+
+	.dn[data-size='small'] .dn__glyph {
+		width: 20px;
+		height: 20px;
+	}
+
+	.dn__lead {
+		font-weight: $font-weight-medium;
+		color: var(--dn-text);
+
+		&::after {
+			content: '\00a0'; // the space before the support run, kept inside the strong
+		}
+	}
+
+	.dn__support {
+		color: var(--dn-support);
+	}
+
+	// The pill's link stands alone after the lead, so it is in the text colour like the lead.
+	.dn__support--alone {
+		color: var(--dn-text);
+	}
+
+	// The link, inline: the text colour rather than the brand blue, underlined so it still reads as
+	// a link inside grey prose, a chevron after the words in the same ink. Not a call to action —
+	// the sentence is the message and the programme's name is where it goes.
+	.dn :global(.dn__link) {
+		display: inline;
+		font-weight: $font-weight-medium;
+		color: var(--dn-text);
+		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, var(--dn-text) 45%, transparent);
+		text-decoration-thickness: 1px;
+		text-underline-offset: 3px;
+		white-space: nowrap;
+
+		&:hover,
+		&:focus-visible {
+			text-decoration-color: currentColor;
+		}
+	}
+
+	// The chevron: tabler's `chevron-right`, as a mask so it takes the link's colour, drawn 16px on
+	// the baseline's -3px so it sits on the x-height like the text beside it.
+	.dn :global(.dn__link)::after {
+		content: '';
+		display: inline-block;
+		width: 16px;
+		height: 16px;
+		margin-left: 1px;
+		vertical-align: -3px;
+		background: currentColor;
+		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6l-6 6'/%3E%3C/svg%3E")
+			center / contain no-repeat;
+		transition: transform 0.15s ease;
+	}
+
+	.dn :global(.dn__link:hover)::after {
+		transform: translateX(2px);
+	}
+
+	// The close: a 32px hit area drawn as a 16px glyph, level with the first line.
+	.dn__close {
+		flex: none;
+		display: inline-grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		margin: -4px -8px -4px 0;
+		padding: 0;
+		border: 0;
+		border-radius: $radius-md;
+		background: none;
+		color: var(--dn-support);
+		cursor: pointer;
+
+		svg {
+			width: 16px;
+			height: 16px;
+		}
+
+		&:hover,
+		&:focus-visible {
+			color: var(--dn-text);
+			background: color-mix(in srgb, var(--dn-ink) 12%, transparent);
+			outline: none;
+		}
+	}
+
+	// ---- Layouts ----------------------------------------------------------------------------
+
+	// Line: the box gone, two hairlines in its place. The glyph is the only thing in colour.
+	.dn[data-layout='line'] .dn__in {
+		border-width: 1px 0;
+		border-radius: 0;
+		background: none;
+		padding-inline: 0;
+	}
+
+	// Pill: the sentence alone in a capsule, centred. It drops the support run (see the template),
+	// which is what lets it stay one short line; the link is the one way onward.
+	.dn[data-layout='pill'] {
+		display: flex;
+		justify-content: center;
+
+		.dn__in {
+			align-items: center;
+			gap: $spacing-2;
+			padding: 6px $spacing-2 6px $spacing-3;
+			border-radius: $radius-full;
+		}
+
+		.dn__glyph {
+			width: 20px;
+			height: 20px;
+			margin-top: 0;
+		}
+
+		.dn__text {
+			@include type-small;
+			line-height: 22px;
+		}
+
+		.dn__close {
+			width: 28px;
+			height: 28px;
+			margin: -2px 0;
+		}
+	}
+
+	// Band: the fill runs the viewport, the copy stays at the content width. `100vw` is what the
+	// homepage's bleed sections use; `overflow-x: clip` on the page is theirs to set.
+	// Under a header that already draws its own bottom hairline, so only the band's lower edge
+	// gets one; two hairlines a pixel apart would read as a mistake.
+	.dn[data-layout='band'] {
+		max-width: none;
+		background: var(--dn-fill);
+		border-bottom: 1px solid var(--dn-edge);
+
+		.dn__in {
+			max-width: 72rem;
+			margin: 0 auto;
+			padding-block: 10px;
+			border: 0;
+			border-radius: 0;
+			background: none;
+		}
+	}
+
+	// Stack: the shipped shape. The lead on its own line, the support under it with the link in it,
+	// the glyph level with the lead. Kept so the one-line ones are judged against what
+	// is there today rather than against memory.
+	.dn[data-layout='stack'] {
+		.dn__in {
+			padding: $spacing-4 $spacing-5;
+		}
+
+		.dn__lead,
+		.dn__support {
+			display: block;
+
+			&::after {
+				content: none;
+			}
+		}
+
+		.dn__lead {
+			font-weight: $font-weight-bold;
+		}
+	}
+
+	// ---- Phone ------------------------------------------------------------------------------
+	@include media-down(md) {
+		.dn__in {
+			padding: $spacing-3;
+		}
+
+		.dn[data-layout='band'] .dn__in {
+			padding-inline: $spacing-4;
+		}
+
+		// The capsule cannot hold a wrapped sentence; it opens back into a soft box.
+		.dn[data-layout='pill'] .dn__in {
+			align-items: flex-start;
+			border-radius: $radius-xl;
+			padding: 8px 8px 8px $spacing-3;
+		}
+
+		.dn[data-layout='pill'] .dn__glyph {
+			margin-top: 1px;
+		}
+	}
+</style>

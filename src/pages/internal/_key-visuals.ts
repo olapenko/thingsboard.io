@@ -269,6 +269,17 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: 'Sign in — from the header to the form',
 		badge: { icon: 'tabler:login-2', color: '#00695c' },
 	},
+	{
+		// The notice over the Community Edition docs: source-available from 4.4, the CE docs here
+		// discontinued. A component with its layouts, judged on a slice of the docs landing; not a
+		// path behind a button, but it lives with the flows because it is a site piece outside the
+		// homepage's sections.
+		id: 'docs-notice',
+		area: 'flows',
+		label: 'Docs notice',
+		title: 'Docs notice — the banner over the Community Edition docs',
+		badge: { icon: 'tabler:alert-circle', color: '#b45309' },
+	},
 ];
 
 /**
