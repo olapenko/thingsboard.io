@@ -36,7 +36,15 @@ const ALARM_W = 236;
 const BAR_W = 18;
 /** The least a bar stands, in units: a 3s opening is still a bar, not a line on the floor. */
 const BAR_MIN = 3;
-const Y_MAX = 4.5 * 60;
+/** The limit's range when dragged: long enough to catch any past opening, up to 5:00. */
+const LIMIT = { min: 30, max: 5 * 60, step: 5 };
+/**
+ * The live bar climbs this far past the highest limit, so the rule fires wherever the limit is
+ * set, and the chart's top clears the bar by as much again.
+ */
+const OVER = 15;
+const PEAK = LIMIT.max + OVER;
+const Y_MAX = PEAK + OVER;
 /** The time the plot spans, in minutes after midnight: 07:30 to 10:00, the live opening a little left of middle. */
 const DAY = { from: 7 * 60 + 30, to: 10 * 60 };
 
@@ -57,13 +65,10 @@ const bars = FILTER_HISTORY.map((o) => ({
 const liveMin = FILTER_CHART.openedAt / 60 - 6 * 60;
 const liveX = xOfMin(liveMin);
 const limitY = yOf(FILTER_CHART.limit);
-/** The limit's range when dragged: long enough to catch any past opening, short of the chart's top. */
-const LIMIT = { min: 30, max: Y_MAX - 15, step: 5 };
 
 // --- the live bar's climb ---------------------------------------------------------------------
-// One pace to the top of its range (the drag's own top), whatever the limit; the limit only sets
-// where it turns red (`filterChartFrames`, shared with the drag's replay).
-const PEAK = LIMIT.max;
+// One pace to its peak, past the highest limit, whatever the limit is; the limit only sets where
+// it turns red (`filterChartFrames`, shared with the drag's replay).
 const uid = renderId('fch');
 const frames = filterChartFrames(uid, FILTER_CHART.limit, PEAK, { base: PLOT.base, top: PLOT.top, yMax: Y_MAX });
 const liveTop = yOf(PEAK);
