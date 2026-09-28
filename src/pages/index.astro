@@ -46,9 +46,12 @@ const { composition = shippingComposition(), preview = false } = Astro.props;
 //
 // The dashboards tour is 1920x924, wider than 16:9. Stacked from 600 (portrait
 // tablets), the panel takes that shape (`HERO_FOOTAGE_RATIO`) and shows it
-// whole; on a phone it plays behind the copy, to the fold. Side by side the panel's shape is the fold's, so `cover` trims its
-// sides: of its width, 98% shows at 1920x960, 89% at 1440x780, 85% at 1280x680,
-// and 60% at 1024x698, where the copy beside it makes the panel tall and narrow.
+// whole; on a phone it plays behind the copy, to the fold. Side by side the panel's shape is the
+// fold's less the strip and a look at the section after it, so `cover` trims its top and bottom
+// evenly: of its height, 100% shows at 1920x1080, 85% at 1920x960, 96% at 1440x780 and 82% at
+// 1536x730, never under 80% (the cap in Hero narrows the panel before that). Where the copy is
+// the taller column and the panel takes its height, the sides go instead: 87% of its width at
+// 1280x680.
 // tb-cover2, the 16:9 video before it, is kept on /internal/sections/hero/.
 const HERO_BACKGROUND = '/images/hero/horizontal-slider.webp';
 const HERO_FOOTAGE_RATIO = '1920 / 924';
@@ -208,6 +211,17 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 			width: fit-content;
 			align-items: center;
 			margin-top: 6px;
+
+			// ON A 21:9 SCREEN, ON THE CAPTION'S LINE. The band there is 600 wide and the lede
+			// runs 44 characters, so the question and the link fit side by side with room to
+			// spare, and stacked they read as two short lines under a wide one. Inline, the
+			// source's line break between them renders as a space; 4px more makes the 8 the
+			// stack retired. The link still wraps whole if it ever has to.
+			@media #{$hero-ultrawide} {
+				display: inline-flex;
+				margin-top: 0;
+				margin-left: 4px;
+			}
 			color: rgba(255, 255, 255, 0.85);
 			text-decoration: underline;
 			text-underline-offset: 3px;
@@ -245,6 +259,15 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 		// mixes the colour toward the black column, which is what kept flattening
 		// the hue. Vividness has to come from the colour, not the opacity.
 		--hero-muted: rgba(150, 164, 255, 0.72);
+	}
+
+	// The logo strip under the hero is the hero's own dark tail — it closes the hero rather than
+	// opening the page (see the markup) — so the section the fold keeps on the first screen is the
+	// one after it, and the hero counts the strip's height as its own: `--hero-reveal` and
+	// `--hero-footage-reveal` add it. 100: the strip's padding is `clamp(24px, 2.5vw, 36px)` a side
+	// and its marks 27, so 99 from 1440 up and 91 at 1280. Zero it if the strip moves.
+	#hero {
+		--hero-tail: 100px;
 	}
 
 	header.header {
