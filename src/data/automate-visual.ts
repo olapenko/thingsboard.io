@@ -93,16 +93,17 @@ export const FILTER_CHART = {
 
 /**
  * The morning's other openings on the same door, for the chart: minutes after 06:00 and how long the
- * door stood open, in seconds. All short — the argument is that the rule leaves these alone. The
- * one that runs over is the live one, opened at `openedAt`; asserted below to be the only one over.
+ * door stood open, in seconds. All short — the argument is that the rule leaves these alone — and
+ * three of them only seconds, a door checked and shut, so the chart has the whole range a real
+ * door produces under the limit. The one that runs over is the live one, opened at `openedAt`;
+ * asserted below to be the only one over.
  */
 export const FILTER_HISTORY: { at: number; open: number }[] = [
-	{ at: 92, open: 42 },
-	{ at: 103, open: 64 },
-	{ at: 114, open: 35 },
-	{ at: 124, open: 90 },
-	{ at: 134, open: 48 },
-	{ at: 146, open: 72 },
+	{ at: 96, open: 4 },
+	{ at: 110, open: 58 },
+	{ at: 123, open: 3 },
+	{ at: 135, open: 75 },
+	{ at: 147, open: 5 },
 ];
 
 if (FILTER_HISTORY.some((o) => o.open > FILTER_CHART.limit)) {

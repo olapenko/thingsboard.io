@@ -21,8 +21,9 @@ import { ALARM_FIRED_AT, FILTER_CHART, FREEZER_ALARM, NOTIFY_FEED, openFor } fro
  * units, R = 38.
  *
  * MOTION, 12s while the tab shows (`--flow-play`): each channel opens for 3s, the next opening as it
- * closes. Each channel's head is a button: a click stops the cycle on that channel. Without motion:
- * email open, at rest, and the buttons still switch.
+ * closes. Each channel's head is a button: a click holds the cycle on that channel, and 4.5s after
+ * the last click it goes on from there (`RESUME_AT`). Without motion: email open, at rest, and the
+ * buttons still switch, and stay.
  */
 
 const NATIVE = 574;
@@ -40,6 +41,8 @@ const GAP = 6;
 const STEP_S = 3;
 const LOOP_S = STEP_S * NOTIFY_FEED.length;
 const r2 = (v: number) => +v.toFixed(2);
+/** The loop starts this far in, so a tab opened on its first frame shows email settled. */
+const LEAD_S = r2(LOOP_S * 0.04);
 
 const n = NOTIFY_FEED.length;
 const top = (H - (n * HEAD + OPEN + (n - 1) * GAP)) / 2;
@@ -111,6 +114,12 @@ NOTIFY_FEED.forEach((_, k) => {
 const PCT = 100 / LOOP_S;
 const CURVE_LEG = r2(0.4 * PCT);
 const TRUNK_LEG = r2(0.3 * PCT);
+/**
+ * Where the loop picks up after a click on channel i, in seconds of its clock: channel i held open,
+ * at the moment its hand-off to the next begins (the signal leaving the node) — the same picture the
+ * click had settled on, so the cycle goes on from it without a jump.
+ */
+const RESUME_AT = NOTIFY_FEED.map((_, i) => r2((((i + 1) * 25 - CURVE_LEG - TRUNK_LEG) / 100) * LOOP_S));
 const DASH = 10;
 const TRUNK_X0 = NODE_X + NODE / 2 + 4;
 const TRUNK_LEN = CURVE_X0 - TRUNK_X0;
@@ -137,9 +146,24 @@ const hidden = 'stroke-dashoffset: calc(' + DASH + ' * var(--u));';
 NOTIFY_FEED.forEach((_, k) => {
 	const b = k === 0 ? 100 : k * 25;
 	const a = r2(b - CURVE_LEG);
-	// It runs while the rows still stand as they were: the state before row k opens.
+	// It runs while the rows still stand as they were: the state before row k opens. Landed, it is
+	// hidden again at once (a step): parked past the end of the bend it ran, it would show on the bend
+	// later, once the rows above close and the bend grows longer than the one it landed on.
 	const past = 'stroke-dashoffset: calc(' + -curveLen(k, (k + n - 1) % n) + ' * var(--u));';
-	const frames = '0%, ' + a + '% { ' + hidden + ' } ' + b + '%' + (b === 100 ? '' : ', 100%') + ' { ' + past + ' }';
+	const frames =
+		b === 100
+			? '0%, ' + a + '% { ' + hidden + ' } 100% { ' + past + ' }'
+			: '0%, ' +
+				a +
+				'% { ' +
+				hidden +
+				' } ' +
+				b +
+				'% { ' +
+				past +
+				' animation-timing-function: step-start; } 100% { ' +
+				hidden +
+				' }';
 	keyframes += '@keyframes ' + uid + '-send-' + k + ' { ' + frames + ' } ';
 	keyframes +=
 		'@media (prefers-reduced-motion: no-preference) { [data-nf="' +
@@ -198,6 +222,8 @@ const TINT: Record<string, string[]> = {
 		data-nf={uid}
 		data-nf-time={ALARM_FIRED_AT}
 		data-nf-limit={openFor(FILTER_CHART.limit)}
+		data-nf-resume={JSON.stringify(RESUME_AT)}
+		data-nf-lead={LEAD_S}
 		data-flow="in"
 		style={[
 			`--nf-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
@@ -215,7 +241,7 @@ const TINT: Record<string, string[]> = {
 			`--nf-top: ${top}`,
 			`--nf-loop: ${LOOP_S}s`,
 			`--nf-step: ${STEP_S}s`,
-			`--nf-lead: ${r2(LOOP_S * 0.04)}s`,
+			`--nf-lead: ${LEAD_S}s`,
 		].join('; ')}
 	>
 		<div class="nf__node">
@@ -343,7 +369,11 @@ const TINT: Record<string, string[]> = {
 <script>
 	// Click a channel to open it. The loop's CSS animations are frozen where they stand (their values
 	// written inline), the feed switches to picked mode, and on the next frame the inline values give
-	// way to the picked state, so everything eases from where it was rather than jumping.
+	// way to the picked state, so everything eases from where it was rather than jumping. A while
+	// after the last click the loop resumes from the picked channel (`resume`).
+	/** How long a pick holds after the last click before the cycle goes on. */
+	const RESUME_MS = 4500;
+
 	document.querySelectorAll<HTMLElement>('[data-nf]').forEach((root) => {
 		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		const rows = [...root.querySelectorAll<HTMLElement>('.nf__row')];
@@ -351,7 +381,11 @@ const TINT: Record<string, string[]> = {
 		const lits = [...root.querySelectorAll<SVGPathElement>('.nf__lit')];
 		const trunkSignal = root.querySelector<SVGElement>('.nf__signal--trunk');
 		const signals = [...root.querySelectorAll<SVGPathElement>('.nf__signal:not(.nf__signal--trunk)')];
+		const resumeAt = JSON.parse(root.dataset.nfResume ?? '[]') as number[];
+		const lead = Number(root.dataset.nfLead) * 1000;
 		let opening = 0;
+		let resuming = 0;
+		let picked = 0;
 		const states = curves.map((c) => JSON.parse(c.dataset.states ?? '[]') as string[]);
 
 		const freeze = () => {
@@ -397,12 +431,51 @@ const TINT: Record<string, string[]> = {
 				void root.offsetWidth;
 			}
 			clearTimeout(opening);
+			clearTimeout(resuming);
+			picked = i;
 			if (reduced) {
 				open(i);
 				return;
 			}
 			send(i);
 			opening = window.setTimeout(() => open(i), 320);
+			resuming = window.setTimeout(resume, RESUME_MS);
+		};
+
+		// RESUME: back to the loop, from the picked channel. Everything the pick wrote inline is cleared
+		// and the loop's own animations come back — at their start, so they are wound to the loop's
+		// clock at `resumeAt[picked]`: the picked channel held open, its hand-off to the next about to
+		// begin. That is the picture already showing, so nothing moves until the signal leaves. All of
+		// them share one clock, `--nf-lead` ahead of their own (their delays wind the rows to their
+		// quarters and are not touched), so each gets the same time, folded into its own period (the
+		// trunk's signal runs per step) so none is set before its start.
+		const resume = () => {
+			if (!root.classList.contains('is-manual')) return;
+			rows.forEach((row) => {
+				row.classList.remove('is-open');
+				row.style.backgroundColor = '';
+				row.style.boxShadow = '';
+				const inner = row.querySelector<HTMLElement>('.nf__inner');
+				if (inner) inner.style.height = '';
+				row.querySelectorAll<HTMLElement>('.nf__head, .nf__stub').forEach((el) => (el.style.color = ''));
+				row.querySelector('.nf__head')?.removeAttribute('aria-expanded');
+			});
+			[...curves, ...lits].forEach((c) => c.style.removeProperty('transform'));
+			lits.forEach((l) => l.style.removeProperty('opacity'));
+			signals.forEach((sg) => {
+				sg.style.removeProperty('transform');
+				sg.style.removeProperty('--nf-len');
+				sg.classList.remove('is-sending');
+			});
+			trunkSignal?.classList.remove('is-sending');
+			root.classList.remove('is-manual');
+			const at = (resumeAt[picked] ?? 0) * 1000 - lead;
+			root.getAnimations({ subtree: true }).forEach((a) => {
+				if (!(a instanceof CSSAnimation)) return;
+				const period = Number(a.effect?.getComputedTiming().duration);
+				if (!period) return;
+				a.currentTime = ((at % period) + period) % period;
+			});
 		};
 
 		const open = (i: number) => {
@@ -944,12 +1017,20 @@ const TINT: Record<string, string[]> = {
 		}
 	}
 
+	// Landed, the dash is hidden again at once: the bend it ran is the one the click found, and the
+	// one drawn next may be longer, which would show the parked dash on it.
 	@keyframes nf-send {
-		from {
+		0% {
 			stroke-dashoffset: calc(10 * var(--u));
 		}
-		to {
+
+		99% {
 			stroke-dashoffset: calc(-1 * var(--nf-len) * var(--u));
+			animation-timing-function: step-start;
+		}
+
+		100% {
+			stroke-dashoffset: calc(10 * var(--u));
 		}
 	}
 

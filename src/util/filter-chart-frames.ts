@@ -3,11 +3,11 @@
  * renders the default limit's with it, and the chart's script rewrites them with it when the limit
  * is dragged, so the replay and the first play cannot be timed differently.
  *
- * THE CLIMB HAS ONE PACE: the live bar would take 6s to reach the top of its range (`peak`), and it
- * stops a few seconds of open time past the limit — the moment the rule has fired — rather than
- * climbing on. So a lower limit is a shorter climb and a shorter loop; a limit above the peak climbs
- * the full 6s and fires nothing. After it stops: the alarm holds, then the live bar and what it raised
- * fade, and the loop starts over.
+ * THE CLIMB HAS ONE PACE AND ONE END: the live bar takes the same few seconds to the top of its range
+ * (`peak`) whatever the limit is — the door stays open; the rule does not stop it — so the limit
+ * only sets the moment it crosses, turns red and raises the alarm. A limit at or above the peak
+ * fires nothing. After the bar stops: it holds (long enough after the crossing for the alarm to
+ * settle), then the live bar and what it raised fade, and the loop starts over.
  *
  * Built by concatenation, not template literals: the component also builds strings in its
  * frontmatter, and Astro's frontmatter scanner loses its place in nested template literals.
@@ -22,10 +22,8 @@ export interface FilterChartGeo {
 
 export interface FilterChartFrames {
 	css: string;
-	/** The climb as [loop %, open seconds], for the live reading. */
+	/** The climb as [loop %, open seconds], for the live reading; it ends at the peak. */
 	climb: [number, number][];
-	/** Where the live bar stops, in seconds. */
-	end: number;
 	/** The loop's length, in seconds. */
 	loop: number;
 	/** Whether the live bar crosses the limit at all. */
@@ -34,51 +32,39 @@ export interface FilterChartFrames {
 
 /** Seconds: the pause before the climb, the full climb, the hold after it, the fade. */
 const START = 0.3;
-const FULL = 6;
-const HOLD = 2.2;
+const FULL = 3.5;
+const HOLD = 1.4;
 const FADE = 0.35;
-/** How far past the limit, in seconds of open time, the bar climbs before it stops. */
-const OVER = 6;
+/** The least the picture holds after the crossing: the alarm's rise and ring (`alarm` below) settle. */
+const SETTLE = 1.2;
 
 export function filterChartFrames(uid: string, limit: number, peak: number, geo: FilterChartGeo): FilterChartFrames {
 	const r2 = (v: number) => Math.round(v * 100) / 100;
 	const yOf = (s: number) => geo.base - (s / geo.yMax) * (geo.base - geo.top);
 	const rate = peak / FULL;
 	const fires = limit < peak;
-	const end = fires ? Math.min(peak, limit + OVER) : peak;
-	const tStop = START + end / rate;
+	const tStop = START + FULL;
 	const tCross = START + limit / rate;
-	const tHold = tStop + HOLD;
+	const tHold = Math.max(tStop, fires ? tCross + SETTLE : 0) + HOLD;
 	const loop = r2(tHold + FADE);
 	const p = (t: number) => r2(Math.min(100, (t / loop) * 100));
-	const liveTop = yOf(peak);
 	const ring = (spread: number, alpha: number) =>
 		'0 0 0 ' + spread + 'px color-mix(in srgb, var(--fch-alarm) ' + alpha + '%, transparent)';
 	const k = (name: string, body: string) => '@keyframes ' + uid + '-' + name + ' { ' + body + ' } ';
 	const at = (t: number) => p(tCross + t);
 
+	// The bar from nothing to its full height, and its reading riding its top from the floor up.
 	let css =
-		k(
-			'grow',
-			'0%, ' +
-				p(START) +
-				'% { transform: scaleY(0); } ' +
-				p(tStop) +
-				'%, 100% { transform: scaleY(' +
-				r2(end / peak) +
-				'); }'
-		) +
+		k('grow', '0%, ' + p(START) + '% { transform: scaleY(0); } ' + p(tStop) + '%, 100% { transform: scaleY(1); }') +
 		k(
 			'ride',
 			'0%, ' +
 				p(START) +
 				'% { transform: translateY(' +
-				r2(yOf(0) - liveTop) +
+				r2(yOf(0) - yOf(peak)) +
 				'px); } ' +
 				p(tStop) +
-				'%, 100% { transform: translateY(' +
-				r2(yOf(end) - liveTop) +
-				'px); }'
+				'%, 100% { transform: none; }'
 		) +
 		k('fade', '0%, ' + p(tHold) + '% { opacity: 1; } 100% { opacity: 0; }');
 
@@ -124,23 +110,10 @@ export function filterChartFrames(uid: string, limit: number, peak: number, geo:
 			k('alarm', '0%, 100% { opacity: 0; }');
 
 	const on = "[data-fch='" + uid + "'] ";
-	// The resting picture, outside the motion query: where the climb ends and whether it fired. The
+	// The resting picture, outside the motion query: the bar at its peak, and whether it fired. The
 	// animations override it; without motion (and after a drag's replay) it is what shows.
-	css +=
-		on +
-		'.fch__live { transform: scaleY(' +
-		r2(end / peak) +
-		'); fill: ' +
-		(fires ? 'var(--fch-alarm)' : 'var(--fch-hue)') +
-		'; } ' +
-		on +
-		'.fch__reading { transform: translateY(' +
-		r2(yOf(end) - liveTop) +
-		'px); } ' +
-		on +
-		'.fch__readout { fill: ' +
-		(fires ? 'var(--fch-alarm)' : 'var(--fch-hue)') +
-		'; } ';
+	const ink = fires ? 'var(--fch-alarm)' : 'var(--fch-hue)';
+	css += on + '.fch__live { fill: ' + ink + '; } ' + on + '.fch__readout { fill: ' + ink + '; } ';
 	const run = (name: string, ease = 'linear') => uid + '-' + name + ' var(--fch-loop) ' + ease + ' infinite';
 	css +=
 		'@media (prefers-reduced-motion: no-preference) { ' +
@@ -189,9 +162,8 @@ export function filterChartFrames(uid: string, limit: number, peak: number, geo:
 		css,
 		climb: [
 			[p(START), 0],
-			[p(tStop), end],
+			[p(tStop), peak],
 		],
-		end,
 		loop,
 		fires,
 	};
