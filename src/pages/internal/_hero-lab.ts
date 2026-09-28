@@ -58,9 +58,29 @@ export interface Footage {
 /** A candidate is one entry here: it gets a button. The first is what ships. */
 export const FOOTAGE: Footage[] = [
 	{
+		id: 'slides',
+		label: 'Slides',
+		note: 'On the homepage now: the dashboards tour with slide transitions between the dashboards · 1920×924, 30 fps from a 60 fps master, 26.2 s, the fade-in and the fade-out cut so the loop is a hard cut · VP9 2.3 MB, H.264 2.4 MB',
+		webm: '/videos/horizontal-slider-slides.webm',
+		mp4: '/videos/horizontal-slider-slides.mp4',
+		// Its exact first frame, 63 KB.
+		poster: '/images/hero/horizontal-slider-slides.webp',
+		ratio: '1920 / 924',
+	},
+	{
+		id: 'smooth',
+		label: 'Smooth slider',
+		note: 'The cut before it: the tour re-rendered with eased pans · 1920×924, 30 fps from a 60 fps master, 26.5 s, the slide-in and the zoom-out cut so the loop is a hard cut · VP9 2.2 MB, H.264 2.5 MB',
+		webm: '/videos/horizontal-slider-smooth.webm',
+		mp4: '/videos/horizontal-slider-smooth.mp4',
+		// Its exact first frame, 63 KB.
+		poster: '/images/hero/horizontal-slider-smooth.webp',
+		ratio: '1920 / 924',
+	},
+	{
 		id: 'slider',
 		label: 'Horizontal slider',
-		note: 'On the homepage now: the dashboards tour · 1920×924, 30 fps, 40.5 s, the black fades cut so the loop is a hard cut · VP9 2.3 MB, H.264 3.3 MB',
+		note: 'The first cut: the dashboards tour · 1920×924, 30 fps, 40.5 s, the black fades cut so the loop is a hard cut · VP9 2.3 MB, H.264 3.3 MB',
 		webm: '/videos/horizontal-slider.webm',
 		mp4: '/videos/horizontal-slider.mp4',
 		// Its exact first frame, 64 KB.
