@@ -1,0 +1,808 @@
+---
+import { Icon } from 'astro-icon/components';
+import NavIcon from '@components/Landing/NavIcon.astro';
+import SmartImage from '@components/SmartImage.astro';
+import logo from '@root/assets/images/landings/thingsboard-logo.svg?raw';
+import { socialNetworks } from '@data/socialNetworks';
+import {
+	FOOTER_COLUMNS,
+	FOOTER_ECOSYSTEM,
+	FOOTER_LEGAL,
+	FOOTER_NEWSLETTER,
+	FOOTER_PLATFORM_LINKS,
+	FOOTER_PLATFORMS,
+	FOOTER_SOCIAL,
+	FOOTER_TAGLINE,
+	type FooterProduct,
+} from '@data/footer-map';
+
+/**
+ * A FOOTER THAT MAPS THE PLATFORM — the candidate for `Landing/Footer`, judged at
+ * `/internal/sections/footer/`. Not wired in: the footer in use is untouched.
+ *
+ * The one in use is a newsletter, four award badges, six links and the social row. It says nothing
+ * about what ThingsBoard is made of, which is the one thing a reader who has scrolled to the bottom
+ * of any page is still asking. This one answers it in three tiers, top to bottom:
+ *
+ * 1. THE BRAND ROW: the logo, one sentence on what it is, the three channels that are kept up; the newsletter beside it.
+ * 2. THE PLATFORM, as the Products menu groups it: the two ways to run it, then the six products
+ *    around it, each with its mark, its hue and one line. `layout` decides how much room that takes:
+ *    - `map`: a panel of tiles, name and line under each mark — the platform unpacked.
+ *    - `strip`: one wrapping row of chips, marks and names only — the same map, a third the height.
+ * 3. FOUR LINK COLUMNS: the solutions, the developer references, services and partners, the
+ *    company. Then the bottom line: copyright, the cookie policy, the badges.
+ *
+ * THE GROUND is the bookends' (`#121425`, the closing band's and the deployments band's), not the
+ * `#0f161d` the footer in use has. Under the closing band, two near-blacks that were nearly but not
+ * quite alike read as a mistake — the closing band's own note says the same of the crop it replaced —
+ * so the page's dark close is now one ground, the band and the footer split by a hairline.
+ *
+ * THE MEASURE is the page's: 960 inside 20px of padding, the construction `ClosingCta` and every
+ * card grid use, so the footer's left edge is the edge of everything above it.
+ */
+
+interface Props {
+	layout?: 'map' | 'strip';
+}
+
+const { layout = 'map' } = Astro.props;
+
+// Ids for the form's label and field, per render: the sandbox shows several footers on one page, and
+// a duplicated id points every label at the first field.
+const uid = `fm-${Math.random().toString(36).slice(2, 10)}`;
+
+// The logo in the ink of whatever it sits in, instead of the old footer's CSS `filter` that pushed a
+// dark background image to white.
+const logoSvg = logo.replace(/fill="#212529"/g, 'fill="currentColor"').replace(/<svg\b/, '<svg aria-hidden="true"');
+
+const year = new Date().getFullYear();
+
+// The kept-up channels, in `FOOTER_SOCIAL`'s order, with their links from the shared list.
+const social = FOOTER_SOCIAL.map((icon) => socialNetworks.find((n) => n.icon === icon)).filter((n) => n !== undefined);
+
+const isTabler = (p: FooterProduct) => p.icon.startsWith('tabler:');
+const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopener noreferrer' } : {});
+---
+
+<footer class:list={['fm', `fm--${layout}`]}>
+	<div class="fm__inner">
+		<div class="fm__top">
+			<div class="fm__brand">
+				<a href="/" class="fm__logo" aria-label="ThingsBoard home" set:html={logoSvg} />
+				<p class="fm__tagline">{FOOTER_TAGLINE}</p>
+				<ul class="fm__social" aria-label="ThingsBoard elsewhere">
+					{
+						social.map((n) => (
+							<li>
+								<a href={n.href} aria-label={n.ariaLabel} target="_blank" rel="noopener noreferrer">
+									{n.icon && <Icon name={n.icon} aria-hidden="true" />}
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+
+			{
+				/* The same MailerLite endpoint and field names as the footer in use, posted natively. The
+			    footer in use does the same today: its script waits for a "Sign up for news" button this
+			    branch removed, so MailerLite's own script never loads there either. */
+			}
+			<form class="fm__news" action={FOOTER_NEWSLETTER.action} method="POST" target="_blank">
+				<label class="fm__news-label" for={`${uid}-email`}>{FOOTER_NEWSLETTER.label}</label>
+				<p class="fm__news-lede" id={`${uid}-lede`}>{FOOTER_NEWSLETTER.lede}</p>
+				<div class="fm__field">
+					<input
+						id={`${uid}-email`}
+						type="email"
+						name="fields[email]"
+						required
+						placeholder="you@company.com"
+						autocomplete="email"
+						spellcheck="false"
+						autocapitalize="off"
+						aria-describedby={`${uid}-lede`}
+					/>
+					<input type="hidden" name="ml-submit" value="1" />
+					<button type="submit">Subscribe</button>
+				</div>
+				<p class="fm__consent">{FOOTER_NEWSLETTER.consent}</p>
+			</form>
+		</div>
+
+		<nav class="fm__map" aria-label="Products">
+			<div class="fm__group fm__group--run">
+				<h2 class="fm__kicker">IoT platforms</h2>
+				<ul class="fm__products">
+					{
+						FOOTER_PLATFORMS.map((p) => (
+							<li>
+								<a class="fm__product fm__product--platform" href={p.href} style={`--hue: ${p.hue}`}>
+									<span class="fm__mark fm__mark--badge">
+										<NavIcon src={p.icon} size={layout === 'map' ? 36 : 20} />
+									</span>
+									<span class="fm__pname">{p.name}</span>
+									{layout === 'map' && <span class="fm__pline">{p.line}</span>}
+								</a>
+							</li>
+						))
+					}
+				</ul>
+				<ul class="fm__plinks">
+					{
+						FOOTER_PLATFORM_LINKS.map((l) => (
+							<li>
+								<a href={l.href}>{l.label}</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+
+			<div class="fm__group fm__group--eco">
+				<h2 class="fm__kicker">Product ecosystem</h2>
+				<ul class="fm__products">
+					{
+						FOOTER_ECOSYSTEM.map((p) => (
+							<li>
+								<a class="fm__product" href={p.href} style={`--hue: ${p.hue}`} {...ext(p.external)}>
+									<span class="fm__mark">
+										{isTabler(p) ? <Icon name={p.icon} aria-hidden="true" /> : <NavIcon src={p.icon} size={26} />}
+									</span>
+									<span class="fm__pname">
+										{p.name}
+										{p.external && (
+											<Icon name="tabler:arrow-up-right" class="fm__ext" aria-label="(opens a new site)" />
+										)}
+									</span>
+									{layout === 'map' && <span class="fm__pline">{p.line}</span>}
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+		</nav>
+
+		<nav class="fm__cols" aria-label="Site">
+			{
+				FOOTER_COLUMNS.map((col) => (
+					<div class="fm__col">
+						<h2 class="fm__col-title">{col.title}</h2>
+						<ul>
+							{col.links.map((l) => (
+								<li>
+									<a href={l.href} {...ext(l.external)}>
+										{l.label}
+										{l.external && (
+											<Icon name="tabler:arrow-up-right" class="fm__ext" aria-label="(opens a new site)" />
+										)}
+									</a>
+								</li>
+							))}
+						</ul>
+						{col.more && (
+							<a class="fm__more" href={col.more.href}>
+								{col.more.label}
+								<Icon name="tabler:arrow-right" aria-hidden="true" />
+							</a>
+						)}
+					</div>
+				))
+			}
+		</nav>
+
+		<div class="fm__base">
+			<p class="fm__copy">
+				&copy; {year} The ThingsBoard Authors
+				{
+					FOOTER_LEGAL.map((l) => (
+						<>
+							<span class="fm__dot" aria-hidden="true">
+								·
+							</span>
+							<a href={l.href}>{l.label}</a>
+						</>
+					))
+				}
+			</p>
+			<div class="fm__badges">
+				<SmartImage
+					src="/src/assets/images/landings/footer/crozdesk-quality-choice-badge.png"
+					alt="Crozdesk Quality Choice"
+					height="48"
+					width="48"
+				/>
+				<SmartImage
+					src="/src/assets/images/landings/footer/crozdesk-trusted-vendor-badge.png"
+					alt="Crozdesk Trusted Vendor"
+					height="48"
+					width="48"
+				/>
+				<SmartImage
+					src="/src/assets/images/landings/footer/crozdesk-happiest-users-badge.png"
+					alt="Crozdesk Happiest Users"
+					height="48"
+					width="48"
+				/>
+				<SmartImage
+					src="/src/assets/images/landings/footer/supplier-retail.webp"
+					alt="Top Supplier in Retail 2024"
+					height="48"
+					width="33"
+				/>
+			</div>
+		</div>
+	</div>
+</footer>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Every shade here is white at an alpha over the one ground, so the whole footer retunes from
+	// `--fm-ground`. Measured on #121425: 0.64 is 7.4:1, 0.5 is 5.0:1 — both clear AA for 14px type.
+	.fm {
+		--fm-ground: #121425;
+		--fm-text: #fff;
+		--fm-soft: rgba(255, 255, 255, 0.72);
+		--fm-muted: rgba(255, 255, 255, 0.64);
+		--fm-faint: rgba(255, 255, 255, 0.5);
+		--fm-rule: rgba(255, 255, 255, 0.09);
+		--fm-panel: rgba(255, 255, 255, 0.03);
+		--fm-hover: rgba(255, 255, 255, 0.06);
+		--fm-focus: #8b9bff;
+
+		background: var(--fm-ground);
+		color: var(--fm-text);
+		// The hairline to the closing band, whose ground this is.
+		border-top: 1px solid var(--fm-rule);
+
+		a {
+			color: inherit;
+			text-decoration: none;
+		}
+
+		a:focus-visible,
+		button:focus-visible,
+		input:focus-visible {
+			outline: 2px solid var(--fm-focus);
+			outline-offset: 2px;
+			border-radius: 4px;
+		}
+
+		ul {
+			list-style: none;
+			margin: 0;
+			padding: 0;
+		}
+
+		h2 {
+			margin: 0;
+		}
+	}
+
+	.fm__inner {
+		max-width: calc(960px + #{$spacing-5} * 2);
+		margin-inline: auto;
+		padding: $spacing-16 $spacing-5 $spacing-8;
+
+		@include media-down(md) {
+			padding-top: $spacing-12;
+		}
+	}
+
+	// ---- 1. Brand row ------------------------------------------------------------------------
+
+	.fm__top {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+		gap: $spacing-10 $spacing-16;
+		align-items: start;
+		padding-bottom: $spacing-10;
+
+		// Side by side down to a tablet, the form narrowing first; stacked on a phone.
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+			column-gap: $spacing-10;
+		}
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.fm__logo {
+		display: inline-flex;
+		color: #fff;
+
+		:global(svg) {
+			display: block;
+			width: 168px;
+			height: auto;
+		}
+	}
+
+	.fm__tagline {
+		margin: $spacing-3 0 $spacing-5;
+		max-width: 38ch;
+		@include type-body;
+		color: var(--fm-soft);
+		text-wrap: pretty;
+	}
+
+	.fm__social {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-1;
+		// Pulls the first icon's hit area back onto the text edge above it.
+		margin-left: -8px;
+
+		a {
+			display: grid;
+			place-items: center;
+			width: 36px;
+			height: 36px;
+			border-radius: $radius-md;
+			color: var(--fm-muted);
+			transition:
+				color 0.15s,
+				background-color 0.15s;
+
+			&:hover {
+				color: #fff;
+				background: var(--fm-hover);
+			}
+		}
+
+		:global(svg) {
+			width: 18px;
+			height: 18px;
+		}
+	}
+
+	.fm__news-label {
+		display: block;
+		font-size: $font-size-base;
+		font-weight: $font-weight-bold;
+		line-height: 1.5;
+	}
+
+	.fm__news-lede {
+		margin: $spacing-1 0 $spacing-3;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+		color: var(--fm-muted);
+	}
+
+	// Field and button as one control: the seam is the button's own left edge.
+	.fm__field {
+		display: flex;
+		height: 44px;
+
+		input[type='email'] {
+			flex: 1 1 auto;
+			min-width: 0;
+			height: 100%;
+			padding: 0 14px;
+			border: 1px solid rgba(255, 255, 255, 0.16);
+			border-right: 0;
+			border-radius: $radius-md 0 0 $radius-md;
+			background: rgba(255, 255, 255, 0.05);
+			color: #fff;
+			font: inherit;
+			font-size: $font-size-base;
+
+			&::placeholder {
+				color: var(--fm-faint);
+			}
+
+			&:hover {
+				border-color: rgba(255, 255, 255, 0.28);
+			}
+
+			&:focus-visible {
+				border-radius: $radius-md 0 0 $radius-md;
+				outline-offset: -1px;
+			}
+		}
+
+		button {
+			flex: 0 0 auto;
+			height: 100%;
+			padding: 0 18px;
+			border: 0;
+			border-radius: 0 $radius-md $radius-md 0;
+			background: var(--color-brand, #3d50f5);
+			color: #fff;
+			font: inherit;
+			font-size: $font-size-base;
+			font-weight: $font-weight-bold;
+			cursor: pointer;
+			transition: background-color 0.15s;
+
+			&:hover {
+				background: color-mix(in srgb, var(--color-brand, #3d50f5) 86%, #fff);
+			}
+		}
+	}
+
+	.fm__consent {
+		margin: $spacing-2 0 0;
+		font-size: $font-size-xs;
+		line-height: 1.5;
+		color: var(--fm-faint);
+	}
+
+	// ---- 2. The platform ---------------------------------------------------------------------
+
+	// The platforms' column is as wide as its longest line needs — "Deploy it inside your own
+	// network", 201px at 13px, beside the 40px mark and its 12px gap — and the ecosystem takes the
+	// rest. At 1fr/2fr the ecosystem's lines got 140px and "Dedicated MQTT broker" (142) broke; at
+	// 256 they get 153.
+	.fm__map {
+		display: grid;
+		grid-template-columns: 256px minmax(0, 1fr);
+		gap: $spacing-8;
+		padding: $spacing-6;
+		border: 1px solid var(--fm-rule);
+		border-radius: $radius-xl;
+		background: var(--fm-panel);
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: $spacing-6;
+		}
+
+		@include media-down(md) {
+			padding: $spacing-4;
+		}
+	}
+
+	.fm__kicker {
+		margin: 0 0 $spacing-3;
+		font-size: $font-size-xs;
+		font-weight: $font-weight-medium;
+		line-height: 1.5;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--fm-faint);
+	}
+
+	.fm__group--run {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.fm__group--run .fm__products {
+		display: grid;
+		gap: $spacing-1;
+
+		// Tablet: the map is one column there, so the two platforms go side by side rather than
+		// stacking over the ecosystem's grid.
+		@media (min-width: $breakpoint-md) and (max-width: #{$breakpoint-lg - 1px}) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	// Three across down to a tablet; one on a phone, where two across left the names 98px and
+	// "Trendz Analytics" and "Mobile Application" broke. One column there is the menu's own shape.
+	.fm__group--eco .fm__products {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: $spacing-1;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0;
+		}
+	}
+
+	// One product: its mark, its name, its line. The whole tile is the link.
+	.fm__product {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		grid-template-rows: auto auto;
+		column-gap: $spacing-3;
+		align-items: center;
+		padding: 10px;
+		// The tile's hover ground reaches past the text; the negative margin keeps the text on the
+		// group's edge instead of 10px inside it.
+		margin-inline: -10px;
+		border-radius: $radius-lg;
+		transition: background-color 0.15s;
+
+		&:hover {
+			background: var(--fm-hover);
+
+			.fm__pname {
+				text-decoration: underline;
+				text-underline-offset: 3px;
+				text-decoration-color: color-mix(in srgb, var(--hue) 70%, transparent);
+			}
+		}
+	}
+
+	.fm__mark {
+		grid-row: 1 / span 2;
+		display: grid;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 12px;
+		color: var(--hue);
+		// The ecosystem's glyphs sit on a wash of their own hue: the Products section's badges in
+		// outline, so the six read as a family beside the two filled platform badges.
+		background: color-mix(in srgb, var(--hue) 14%, transparent);
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 22%, transparent);
+
+		// The nav glyphs are drawn inside a 54 box with ~5 of air on each side, so 26 here shows a
+		// ~22px glyph: the tile's 40 less 9 on each side, the proportion of the Products badges.
+		:global(svg) {
+			width: 26px;
+			height: 26px;
+			display: block;
+		}
+	}
+
+	// The platforms' marks ARE badges — a filled squircle with the mark knocked out — so they get no
+	// tile of their own, and run 4px larger than the tiles beside them.
+	.fm__mark--badge {
+		background: none;
+		box-shadow: none;
+		border-radius: 0;
+
+		:global(svg) {
+			width: 36px;
+			height: 36px;
+		}
+	}
+
+	.fm__pname {
+		align-self: end;
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		font-size: 15px;
+		font-weight: $font-weight-medium;
+		line-height: 1.35;
+		color: #fff;
+	}
+
+	.fm__pline {
+		align-self: start;
+		font-size: 13px;
+		line-height: 1.45;
+		color: var(--fm-muted);
+	}
+
+	// The platforms' two plain links, under their tiles and on their text edge.
+	.fm__plinks {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-1 $spacing-5;
+		margin-top: auto;
+		padding-top: $spacing-4;
+
+		a {
+			font-size: $font-size-sm;
+			line-height: 1.5;
+			color: var(--fm-soft);
+			text-decoration: underline;
+			text-decoration-color: rgba(255, 255, 255, 0.28);
+			text-underline-offset: 3px;
+
+			&:hover {
+				color: #fff;
+				text-decoration-color: currentColor;
+			}
+		}
+	}
+
+	.fm__ext {
+		width: 14px;
+		height: 14px;
+		flex: 0 0 auto;
+		color: var(--fm-faint);
+	}
+
+	// ---- 2b. The strip -----------------------------------------------------------------------
+	//
+	// The same two groups and the same eight links, as chips on one wrapping row: no lines, no panel.
+	// The platforms keep their badges at chip size; the glyphs lose their tiles and keep their hue.
+
+	.fm--strip .fm__map {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: $spacing-3;
+		padding: 0 0 $spacing-8;
+		border: 0;
+		border-radius: 0;
+		background: none;
+		border-bottom: 1px solid var(--fm-rule);
+	}
+
+	// Each group is ONE row: its name on the left, as a row label, and its chips after it. Stacked
+	// kickers over the chips cost a line per group and left the strip 55px short of the map.
+	.fm--strip .fm__group {
+		display: flex;
+		flex-flow: row wrap;
+		align-items: center;
+		gap: $spacing-2 $spacing-5;
+
+		.fm__kicker {
+			flex: 0 0 156px;
+			white-space: nowrap;
+			margin: 0;
+
+			@include media-down(md) {
+				flex-basis: 100%;
+			}
+		}
+	}
+
+	.fm--strip .fm__products {
+		display: flex !important;
+		flex-wrap: wrap;
+		gap: $spacing-2;
+	}
+
+	.fm--strip .fm__plinks {
+		margin: 0;
+		padding: 0;
+	}
+
+	.fm--strip .fm__product {
+		display: inline-flex;
+		gap: $spacing-2;
+		height: 36px;
+		margin: 0;
+		padding: 0 12px 0 8px;
+		border: 1px solid var(--fm-rule);
+		border-radius: $radius-full;
+
+		&:hover {
+			border-color: color-mix(in srgb, var(--hue) 45%, transparent);
+		}
+	}
+
+	.fm--strip .fm__mark {
+		width: 20px;
+		height: 20px;
+		background: none;
+		box-shadow: none;
+		border-radius: 0;
+
+		:global(svg) {
+			width: 18px;
+			height: 18px;
+		}
+	}
+
+	.fm--strip .fm__mark--badge :global(svg) {
+		width: 20px;
+		height: 20px;
+	}
+
+	.fm--strip .fm__pname {
+		font-size: $font-size-sm;
+	}
+
+	// ---- 3. Link columns ---------------------------------------------------------------------
+
+	.fm__cols {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: $spacing-8 $spacing-6;
+		padding: $spacing-12 0;
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		@include media-down(md) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			padding: $spacing-10 0;
+		}
+	}
+
+	.fm__col-title {
+		margin-bottom: $spacing-3;
+		font-size: $font-size-sm;
+		font-weight: $font-weight-bold;
+		line-height: 1.5;
+		color: #fff;
+	}
+
+	.fm__col ul {
+		display: grid;
+		gap: 2px;
+
+		a {
+			display: inline-flex;
+			align-items: center;
+			gap: 2px;
+			padding: 4px 0;
+			font-size: $font-size-sm;
+			line-height: 1.45;
+			color: var(--fm-muted);
+			transition: color 0.15s;
+
+			&:hover {
+				color: #fff;
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+		}
+	}
+
+	.fm__more {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		margin-top: $spacing-2;
+		font-size: $font-size-sm;
+		font-weight: $font-weight-medium;
+		line-height: 1.5;
+		color: #fff !important;
+
+		:global(svg) {
+			width: 16px;
+			height: 16px;
+			transition: transform 0.15s;
+		}
+
+		&:hover :global(svg) {
+			transform: translateX(2px);
+		}
+	}
+
+	// ---- Bottom line -------------------------------------------------------------------------
+
+	.fm__base {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: $spacing-5;
+		padding-top: $spacing-6;
+		border-top: 1px solid var(--fm-rule);
+
+		@include media-down(md) {
+			flex-direction: column-reverse;
+			align-items: flex-start;
+		}
+	}
+
+	.fm__copy {
+		margin: 0;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+		color: var(--fm-faint);
+
+		a {
+			color: var(--fm-muted);
+
+			&:hover {
+				color: #fff;
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+		}
+	}
+
+	.fm__dot {
+		margin-inline: $spacing-2;
+	}
+
+	.fm__badges {
+		display: flex;
+		align-items: center;
+		gap: $spacing-3;
+
+		:global(img) {
+			display: block;
+			height: 48px;
+			width: auto;
+		}
+	}
+</style>

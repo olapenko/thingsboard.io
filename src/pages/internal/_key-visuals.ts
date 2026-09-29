@@ -214,6 +214,16 @@ export const KEY_VISUALS: KeyVisual[] = [
 		badge: { icon: 'tabler:quote', color: '#121425' },
 	},
 	{
+		// Every marketing page's last word, under the homepage's closing band. Not a running-order
+		// section: it closes every order as the hero opens every one, so it ranks last on the
+		// homepage (`CLOSE` below). The candidate maps the platform; see `sections/footer.astro`.
+		id: 'footer',
+		home: 'footer',
+		label: 'Footer',
+		title: 'Footer — the platform mapped at the foot of every page',
+		badge: { icon: 'tabler:layout-bottombar', color: '#121425' },
+	},
+	{
 		// The product pages' choice cards — Cloud's Public/Private pair and On-premises' licence
 		// pair — each on its own page's ground. Not a homepage section: the cards ship on those two
 		// pages, and this is where their treatments get judged before touching them there.
@@ -293,12 +303,16 @@ export const KEY_VISUALS: KeyVisual[] = [
  * always on the homepage, and first.
  */
 const FRAME = ['hero'];
+/** The same for the other end: the footer closes every order, so it is always on the homepage, and last. */
+const CLOSE = ['footer'];
 const SHIPPING_ANCHORS = compositionAnchors(shippingComposition());
 
 const homeRank = (v: Pick<KeyVisual, 'home'>) => {
 	if (!v.home) return -1;
 	const framed = FRAME.indexOf(v.home);
 	if (framed >= 0) return framed;
+	const closing = CLOSE.indexOf(v.home);
+	if (closing >= 0) return FRAME.length + SHIPPING_ANCHORS.length + closing;
 	const i = SHIPPING_ANCHORS.indexOf(v.home);
 	return i < 0 ? -1 : FRAME.length + i;
 };
