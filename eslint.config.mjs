@@ -33,7 +33,7 @@ export default defineConfig([
 
 	// Set globals for Node scripts.
 	{
-		files: ['scripts/**'],
+		files: ['scripts/**', 'lighthouserc.cjs'],
 		languageOptions: {
 			globals: globals.node,
 		},
