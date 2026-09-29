@@ -38,6 +38,12 @@ export interface FooterColumn {
 	links: FooterLink[];
 	/** The column's own last word — "All use cases" — set apart from the list as a link with an arrow. */
 	more?: FooterLink;
+	/**
+	 * A group under the column's own list, with its own small heading and its own arrowed last link:
+	 * Solutions' Customers, the header's Customers menu (case studies, clients feedback) folded in
+	 * under the use cases they prove.
+	 */
+	sub?: { title: string; links: FooterLink[]; more?: FooterLink };
 }
 
 const NAV = '/src/assets/images/landings/nav';
@@ -132,7 +138,8 @@ export const FOOTER_PLATFORM_LINKS: FooterLink[] = [
 ];
 
 /**
- * The link columns. SOLUTIONS is the Use Cases menu's first five and the SCADA group; DEVELOPERS the
+ * The link columns. SOLUTIONS is the Use Cases menu's first five and the SCADA group, then the
+ * Customers menu under them (case studies were the seventh use case until then); DEVELOPERS the
  * references a builder goes looking for, AI included; the last two are the Services, Partners,
  * Customers and Company menus folded together.
  *
@@ -152,9 +159,13 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Smart farming', href: '/use-cases/smart-farming/' },
 			{ label: 'Environment monitoring', href: '/use-cases/environment-monitoring/' },
 			{ label: 'SCADA systems', href: '/use-cases/scada/' },
-			{ label: 'Case studies', href: '/case-studies/' },
 		],
 		more: { label: 'All use cases', href: '/use-cases/' },
+		sub: {
+			title: 'Customers',
+			links: [{ label: 'Clients feedback', href: '/clients-feedback/' }],
+			more: { label: 'Case studies', href: '/case-studies/' },
+		},
 	},
 	{
 		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
@@ -187,7 +198,6 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 		title: 'Company',
 		links: [
 			{ label: 'About us', href: '/company/' },
-			{ label: 'Clients feedback', href: '/clients-feedback/' },
 			{ label: 'Blog', href: '/blog/' },
 			{ label: 'Media kit', href: '/mediakit/' },
 			{ label: 'Careers', href: CAREERS_URL, external: true },
@@ -197,14 +207,14 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 ];
 
 /**
- * The social row: only the channels that are kept up (checked 2026-09-29). GitHub shipped 4.4 that
- * day, YouTube's tutorials are the evergreen ones, LinkedIn posts daily. Left out: X (silent since
+ * The Follow line: only the channels that are kept up (checked 2026-09-29) and that are news, not
+ * product. YouTube's tutorials are the evergreen ones, LinkedIn posts daily. GitHub is kept up too
+ * (4.4 shipped that day) but is linked once, in Developers, where the source is looked for. Left out: X (silent since
  * August 2025), Stack Overflow (no question for ten months, most unanswered), Instagram (team life,
  * not the product), Facebook (kept up, but re-posts with little reach). The shared
  * `data/socialNetworks.ts` is untouched: the footer in use still reads all seven.
  */
 export const FOOTER_SOCIAL = [
-	{ icon: 'simple-icons:github', name: 'GitHub' },
 	{ icon: 'simple-icons:youtube', name: 'YouTube' },
 	{ icon: 'simple-icons:linkedin', name: 'LinkedIn' },
 ];
