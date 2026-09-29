@@ -126,16 +126,22 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
 	},
 ];
 
-/**
- * Under the map, across both groups: what it costs, where it installs, and — for the self-hosted
- * customer who already has keys — the License Portal (the "License Server" account the pricing FAQ
- * sends people to).
- */
+/** Under the map, across both groups, on the left: what it costs and where it installs. */
 export const FOOTER_PLATFORM_LINKS: FooterLink[] = [
 	{ label: 'Pricing', href: '/pricing/' },
 	{ label: 'Installation options', href: '/installations/' },
-	{ label: 'License portal', href: 'https://license.thingsboard.io/', external: true },
 ];
+
+/**
+ * The same row's right end: the License Portal, the "License Server" account the pricing FAQ sends
+ * people to, for the self-hosted customer buying or renewing keys. Captioned, because the name alone
+ * does not say who it is for — the two links beside it are for someone still choosing.
+ */
+export const FOOTER_LICENSE_PORTAL = {
+	caption: 'Buying or renewing a license?',
+	label: 'License portal',
+	href: 'https://license.thingsboard.io/',
+};
 
 /**
  * The link columns. SOLUTIONS is the Use Cases menu's first five and the SCADA group; DEVELOPERS the
