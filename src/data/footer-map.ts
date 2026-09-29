@@ -138,8 +138,7 @@ export const FOOTER_PLATFORM_LINKS: FooterLink[] = [
 ];
 
 /**
- * The link columns. SOLUTIONS is the Use Cases menu's first five and the SCADA group, then the
- * Customers menu under them (case studies were the seventh use case until then); DEVELOPERS the
+ * The link columns. SOLUTIONS is the Use Cases menu's first five and the SCADA group; DEVELOPERS the
  * references a builder goes looking for, AI included; the last two are the Services, Partners,
  * Customers and Company menus folded together.
  *
@@ -149,6 +148,19 @@ export const FOOTER_PLATFORM_LINKS: FooterLink[] = [
  * back when the capability pages (`/device-management/`, `/iot-data-visualization/`…) are rebuilt,
  * pointing at those rather than at the docs.
  */
+/**
+ * WIP — PARKED 2026-09-29, not rendered. Case studies are Solutions' seventh link and Clients feedback
+ * sits in Company, which splits the two customer-proof pages and makes case studies read as one more
+ * use case. This group under Solutions — the header's Customers menu, case studies arrowed like
+ * "All use cases →" — was tried and pulled back undecided. To try it again: set it as `sub` on the
+ * Solutions column and drop the two links from Solutions and Company; `FooterMap` renders `sub`.
+ */
+export const FOOTER_CUSTOMERS_WIP: NonNullable<FooterColumn['sub']> = {
+	title: 'Customers',
+	links: [{ label: 'Clients feedback', href: '/clients-feedback/' }],
+	more: { label: 'Case studies', href: '/case-studies/' },
+};
+
 export const FOOTER_COLUMNS: FooterColumn[] = [
 	{
 		title: 'Solutions',
@@ -159,13 +171,9 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Smart farming', href: '/use-cases/smart-farming/' },
 			{ label: 'Environment monitoring', href: '/use-cases/environment-monitoring/' },
 			{ label: 'SCADA systems', href: '/use-cases/scada/' },
+			{ label: 'Case studies', href: '/case-studies/' },
 		],
 		more: { label: 'All use cases', href: '/use-cases/' },
-		sub: {
-			title: 'Customers',
-			links: [{ label: 'Clients feedback', href: '/clients-feedback/' }],
-			more: { label: 'Case studies', href: '/case-studies/' },
-		},
 	},
 	{
 		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
@@ -198,6 +206,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 		title: 'Company',
 		links: [
 			{ label: 'About us', href: '/company/' },
+			{ label: 'Clients feedback', href: '/clients-feedback/' },
 			{ label: 'Blog', href: '/blog/' },
 			{ label: 'Media kit', href: '/mediakit/' },
 			{ label: 'Careers', href: CAREERS_URL, external: true },
