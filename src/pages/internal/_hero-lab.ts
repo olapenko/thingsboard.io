@@ -173,6 +173,11 @@ export const SWITCHES: LabSwitch[] = [
 				note: 'The smoothstep before it, whose end showed as a line over white frames',
 			},
 			{ value: 'off', label: 'Off', note: 'The footage starts beside the copy, with a hard edge' },
+			{
+				value: 'off-centred',
+				label: 'Off once centred',
+				note: 'As now where the footage bleeds to the edge; once the composition is capped and centred (past 2000), a hard edge beside the band, like its right one',
+			},
 		],
 	},
 	{
