@@ -139,15 +139,6 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 						))
 					}
 				</ul>
-				<ul class="fm__plinks">
-					{
-						FOOTER_PLATFORM_LINKS.map((l) => (
-							<li>
-								<a href={l.href}>{l.label}</a>
-							</li>
-						))
-					}
-				</ul>
 			</div>
 
 			<div class="fm__group fm__group--eco">
@@ -173,6 +164,20 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 					}
 				</ul>
 			</div>
+			{/* Across the whole map, under both groups: the platform's next steps, set as the columns' "All use cases →". */}
+			<ul class="fm__plinks">
+				{
+					FOOTER_PLATFORM_LINKS.map((l) => (
+						<li>
+							<a href={l.href} {...ext(l.external)}>
+								{l.label}
+								<Icon name={l.external ? 'tabler:arrow-up-right' : 'tabler:arrow-right'} aria-hidden="true" />
+								{l.external && <span class="fm__sr">(opens a new site)</span>}
+							</a>
+						</li>
+					))
+				}
+			</ul>
 		</nav>
 
 		<nav class="fm__cols" aria-label="Site">
@@ -204,19 +209,18 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		</nav>
 
 		<div class="fm__base">
-			<p class="fm__copy">
-				&copy; {year} The ThingsBoard Authors
-				{
-					FOOTER_LEGAL.map((l) => (
-						<>
-							<span class="fm__dot" aria-hidden="true">
-								·
-							</span>
-							<a href={l.href}>{l.label}</a>
-						</>
-					))
-				}
-			</p>
+			<div class="fm__legalblock">
+				<p class="fm__copy">&copy; {year} The ThingsBoard Authors</p>
+				<ul class="fm__legal" aria-label="Legal">
+					{
+						FOOTER_LEGAL.map((l) => (
+							<li>
+								<a href={l.href}>{l.label}</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
 			<div class="fm__badges">
 				<SmartImage
 					src="/src/assets/images/landings/footer/crozdesk-quality-choice-badge.png"
@@ -359,7 +363,8 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 			align-items: center;
 			gap: $spacing-2;
 			height: 40px;
-			padding: 0 14px 0 12px;
+			// 12/10: at 14/12 the three came to 345px and wrapped in the tablet's 340px column.
+			padding: 0 12px 0 10px;
 			border: 1px solid rgba(255, 255, 255, 0.14);
 			border-radius: $radius-md;
 			font-size: $font-size-sm;
@@ -598,27 +603,49 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		color: var(--fm-muted);
 	}
 
-	// The platforms' two plain links, under their tiles and on their text edge.
+	// The platform's next steps, one row across the map under a hairline: white, medium, an arrow —
+	// the columns' "All use cases →" — so they read as the way on rather than as small print.
 	.fm__plinks {
+		grid-column: 1 / -1;
 		display: flex;
 		flex-wrap: wrap;
-		gap: $spacing-1 $spacing-5;
-		margin-top: auto;
-		padding-top: $spacing-4;
+		gap: $spacing-2 $spacing-8;
+		padding-top: $spacing-5;
+		border-top: 1px solid var(--fm-rule);
 
 		a {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
 			font-size: $font-size-sm;
+			font-weight: $font-weight-medium;
 			line-height: 1.5;
-			color: var(--fm-soft);
-			text-decoration: underline;
-			text-decoration-color: rgba(255, 255, 255, 0.28);
-			text-underline-offset: 3px;
+			color: #fff;
+
+			:global(svg) {
+				width: 16px;
+				height: 16px;
+				transition: transform 0.15s;
+			}
 
 			&:hover {
-				color: #fff;
-				text-decoration-color: currentColor;
+				text-decoration: underline;
+				text-underline-offset: 3px;
+
+				:global(svg) {
+					transform: translateX(2px);
+				}
 			}
 		}
+	}
+
+	.fm__sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
 	}
 
 	.fm__ext {
@@ -646,20 +673,23 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 
 	// Each group is ONE row: its name on the left, as a row label, and its chips after it. Stacked
 	// kickers over the chips cost a line per group and left the strip 55px short of the map.
+	// A grid, not a wrapping row: label in its own column, chips wrapping INSIDE the second one. As a
+	// flex row, a group whose chips were wider than what was left beside the label dropped the whole
+	// list under it — Ecosystem did at tablet widths while Platforms did not, so the two rows and the
+	// links under them stopped sharing a left edge.
 	.fm--strip .fm__group {
-		display: flex;
-		flex-flow: row wrap;
+		display: grid;
+		grid-template-columns: 156px minmax(0, 1fr);
 		align-items: center;
 		gap: $spacing-2 $spacing-5;
 
 		.fm__kicker {
-			flex: 0 0 156px;
 			white-space: nowrap;
 			margin: 0;
+		}
 
-			@include media-down(md) {
-				flex-basis: 100%;
-			}
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 
@@ -669,9 +699,14 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		gap: $spacing-2;
 	}
 
+	// In the strip the row has no panel to span: it lines up with the chips, past the row labels.
 	.fm--strip .fm__plinks {
-		margin: 0;
-		padding: 0;
+		padding: $spacing-2 0 0 calc(156px + #{$spacing-5});
+		border-top: 0;
+
+		@include media-down(md) {
+			padding-left: 0;
+		}
 	}
 
 	.fm--strip .fm__product {
@@ -689,6 +724,7 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 	}
 
 	.fm--strip .fm__mark {
+		align-self: center;
 		width: 20px;
 		height: 20px;
 		background: none;
@@ -706,7 +742,10 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		height: 20px;
 	}
 
+	// The map's tile stacks name over line, so the name sits at the END of its row and the mark spans
+	// both. In a chip there is one row: both centre, or the mark rides above the text.
 	.fm--strip .fm__pname {
+		align-self: center;
 		font-size: $font-size-sm;
 	}
 
@@ -781,28 +820,41 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 
 	// ---- Bottom line -------------------------------------------------------------------------
 
+	// Two columns rather than a wrapping row: with five legal links the text block is ~600px, and in
+	// a flex row it pushed the badges onto a line of their own. Here the badges keep the right edge
+	// and the links wrap under the copyright instead.
 	.fm__base {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: center;
-		justify-content: space-between;
-		gap: $spacing-5;
+		gap: $spacing-5 $spacing-10;
 		padding-top: $spacing-6;
 		border-top: 1px solid var(--fm-rule);
 
 		@include media-down(md) {
-			flex-direction: column-reverse;
-			align-items: flex-start;
+			grid-template-columns: minmax(0, 1fr);
+
+			.fm__badges {
+				order: -1;
+			}
 		}
 	}
 
 	.fm__copy {
-		margin: 0;
+		margin: 0 0 $spacing-1;
 		font-size: $font-size-sm;
 		line-height: 1.5;
 		color: var(--fm-faint);
+	}
+
+	.fm__legal {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0 $spacing-5;
 
 		a {
+			font-size: 13px;
+			line-height: 1.8;
 			color: var(--fm-muted);
 
 			&:hover {
@@ -813,14 +865,10 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		}
 	}
 
-	.fm__dot {
-		margin-inline: $spacing-2;
-	}
-
 	.fm__badges {
 		display: flex;
 		align-items: center;
-		gap: $spacing-3;
+		gap: $spacing-5;
 
 		// 64, up from 48: at 48 the seals' own lettering was unreadable, and they are the one proof
 		// the foot carries. The footer in use shows them at 80, in its top row.

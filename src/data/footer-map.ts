@@ -56,7 +56,10 @@ export const FOOTER_PLATFORMS: FooterProduct[] = [
 		hue: '#3d50f5',
 	},
 	{
-		name: 'ThingsBoard On-premises',
+		// Named as the menu names it: "ThingsBoard", beside "ThingsBoard Cloud". The map's line under it
+		// says where it runs; the strip has no line, and the pair still reads as the platform and its
+		// hosted form.
+		name: 'ThingsBoard',
 		line: 'Deploy it inside your own network',
 		href: '/products/thingsboard-pe/',
 		icon: `${NAV}/thingsboard-p-icon.svg`,
@@ -117,10 +120,15 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
 	},
 ];
 
-/** Beside the map's two groups: what the platform costs and where it installs. */
+/**
+ * Under the map, across both groups: what it costs, where it installs, and — for the self-hosted
+ * customer who already has keys — the License Portal (the "License Server" account the pricing FAQ
+ * sends people to).
+ */
 export const FOOTER_PLATFORM_LINKS: FooterLink[] = [
 	{ label: 'Pricing', href: '/pricing/' },
 	{ label: 'Installation options', href: '/installations/' },
+	{ label: 'License portal', href: 'https://license.thingsboard.io/', external: true },
 ];
 
 /**
@@ -149,15 +157,17 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 		more: { label: 'All use cases', href: '/use-cases/' },
 	},
 	{
+		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
+		// else already knows to look. One API link, not two: REST is the one people build ON; the
+		// device-side protocols (MQTT, HTTP, CoAP, LwM2M, SNMP) are what the connectivity guide lists.
 		title: 'Developers',
 		links: [
-			{ label: 'Documentation', href: '/docs/pe/' },
 			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
+			{ label: 'Documentation', href: '/docs/pe/' },
+			{ label: 'Device connectivity', href: '/docs/pe/connect-iot-devices/' },
+			{ label: 'REST API', href: '/docs/pe/reference/rest-api/' },
 			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
 			{ label: 'AI and MCP server', href: '/docs/pe/iot-solutions-with-ai/' },
-			{ label: 'REST API', href: '/docs/pe/reference/rest-api/' },
-			{ label: 'MQTT API', href: '/docs/pe/reference/mqtt-api/' },
-			{ label: 'Architecture', href: '/docs/pe/reference/architecture/' },
 			{ label: 'Release notes', href: '/docs/pe/releases/' },
 			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
 		],
@@ -199,8 +209,21 @@ export const FOOTER_SOCIAL = [
 	{ icon: 'simple-icons:linkedin', name: 'LinkedIn' },
 ];
 
-/** The bottom line's links. The cookie policy is the only legal page the site has. */
-export const FOOTER_LEGAL: FooterLink[] = [{ label: 'Cookie policy', href: '/cookie-policy/' }];
+/**
+ * The bottom line's legal links. There is no site-wide privacy policy or terms page; the legal pages
+ * are per product. Cloud's three live under `/products/paas/`; the License Agreement is one of the
+ * `/legal/` pages main added with 4.4 (live on thingsboard.io, NOT in this branch yet — it 404s here
+ * until main's `src/pages/legal/` comes across). Left out: the EU Cloud pair (the US pages are the
+ * default), the License Portal's own terms and privacy (its sign-up shows them), the Community Grant
+ * agreement (the grant's own page is the place for it).
+ */
+export const FOOTER_LEGAL: FooterLink[] = [
+	{ label: 'Cloud terms', href: '/products/paas/terms-of-use/' },
+	{ label: 'Cloud privacy', href: '/products/paas/privacy-policy/' },
+	{ label: 'Data processing agreement', href: '/products/paas/dpa/' },
+	{ label: 'License agreement', href: '/legal/license-agreement/' },
+	{ label: 'Cookie policy', href: '/cookie-policy/' },
+];
 
 /** The newsletter block, word for word from the footer in use. */
 export const FOOTER_NEWSLETTER = {
