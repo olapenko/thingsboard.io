@@ -210,18 +210,18 @@ export const FOOTER_SOCIAL = [
 ];
 
 /**
- * The bottom line's legal links. There is no site-wide privacy policy or terms page; the legal pages
- * are per product. Cloud's three live under `/products/paas/`; the License Agreement is one of the
- * `/legal/` pages main added with 4.4 (live on thingsboard.io, NOT in this branch yet — it 404s here
- * until main's `src/pages/legal/` comes across). Left out: the EU Cloud pair (the US pages are the
- * default), the License Portal's own terms and privacy (its sign-up shows them), the Community Grant
- * agreement (the grant's own page is the place for it).
+ * The bottom line's legal links: the ones that apply to anyone on any page. There is no site-wide
+ * terms or privacy page, so the pair is Cloud's — the service most readers sign up for — and the
+ * cookie policy is the site's own (the cookie banner links it too). Named as Cloud's, not as plain
+ * "Terms" and "Privacy": they cover the service, and a reader of this site is not only a Cloud user.
+ *
+ * Left to their own pages: the DPA (both Cloud terms pages link it), the License agreement and the
+ * On-premises EULA (paid-licence documents; the On-premises page and the License Portal carry them),
+ * the EU Cloud pair, and the Community Grant agreement.
  */
 export const FOOTER_LEGAL: FooterLink[] = [
-	{ label: 'Cloud terms', href: '/products/paas/terms-of-use/' },
-	{ label: 'Cloud privacy', href: '/products/paas/privacy-policy/' },
-	{ label: 'Data processing agreement', href: '/products/paas/dpa/' },
-	{ label: 'License agreement', href: '/legal/license-agreement/' },
+	{ label: 'Cloud terms of use', href: '/products/paas/terms-of-use/' },
+	{ label: 'Cloud privacy policy', href: '/products/paas/privacy-policy/' },
 	{ label: 'Cookie policy', href: '/cookie-policy/' },
 ];
 
