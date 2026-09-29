@@ -186,12 +186,12 @@ export const SWITCHES: LabSwitch[] = [
 		group: 'phone',
 		scope: 'under 600px',
 		options: [
+			{ value: 'panel', label: 'Panel below', note: 'As now: the footage in a strip under the copy' },
 			{
 				value: 'backdrop',
 				label: 'Backdrop',
-				note: 'As now: the footage behind the copy, darkened, and the hero to the fold',
+				note: 'The footage behind the copy from under the menu, darkened, the copy over it',
 			},
-			{ value: 'panel', label: 'Panel below', note: 'The footage in a strip under the copy' },
 		],
 	},
 	{
