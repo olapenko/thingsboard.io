@@ -263,6 +263,27 @@ export const AI_COLUMNS_VALUE: { assistant: AiColumn; cli: AiColumn } = {
 };
 
 /**
+ * MAIN'S WORDS, for the `live` running order (`copy: 'live'` in `home-compositions.ts`): the switch
+ * and the two bodies as `origin/main` ships them at ThingsBoard 4.4 (`72563afc5`, 2026-09-29), where
+ * the section is this branch's `AiWide`. The titles, the hues and the calls to action (`AI_CTA`) are
+ * already main's, word for word. The rest of that order's words are in `data/home-live.ts`.
+ */
+export const AI_COLUMNS_LIVE: { assistant: AiColumn; cli: AiColumn } = {
+	assistant: {
+		...AI_COLUMNS.assistant,
+		switchLabel: 'AI Assistant',
+		switchShort: 'Assistant',
+		body: 'Describe what you need in plain language and the platform builds it. AI Solution Creator creates your solution from scratch; the AI Assistant edits and improves it.',
+	},
+	cli: {
+		...AI_COLUMNS.cli,
+		switchLabel: 'ThingsBoard CLI',
+		switchShort: 'CLI',
+		body: 'Develop your IoT solution from your terminal. Integrate with AI coding agents to build, test, and deploy your ThingsBoard solution as code. Every change is versioned in git, and one push ships it to dev, staging, or production.',
+	},
+};
+
+/**
  * One prompt and what the Assistant does with it. `reply` and `actions` are rendered with `set:html`
  * and are ours: `<b>` marks an entity, and `<code>` a key, a value or a severity (bold monospace in
  * the page's amber, where the product paints it red). `<code data-severity="critical">` takes the red.
@@ -423,6 +444,23 @@ export const AI_ASSISTANT_LABEL_DEW_POINT =
 	'The ThingsBoard AI Assistant: asked to add a dew point calculated field to the thermostat profile, then asked in a follow-up to warn above 18 °C, creating an alarm rule from the field it just made.';
 
 /**
+ * The shipping conversation as MAIN plays it, for the `live` order: the same two exchanges, and the
+ * door alarm holds for 5 minutes where this branch's holds for 3.
+ */
+export const AI_ASSISTANT_DEMO_LIVE: AiAssistantDemo = {
+	...AI_ASSISTANT_DEMO,
+	exchanges: AI_ASSISTANT_DEMO.exchanges.map((exchange, i) =>
+		i === 0
+			? {
+					...exchange,
+					reply:
+						'Done. A <code data-severity="critical">CRITICAL</code> alarm fires when a door stays open over 5 min and clears when it closes. The store manager gets an email right away.',
+				}
+			: exchange
+	),
+};
+
+/**
  * The chat window's title, for a treatment that shows its bar as a plain label — `AiWide` — instead of
  * the product's `New chat` picker.
  */
@@ -430,11 +468,12 @@ export const AI_ASSISTANT_TITLE = 'AI Assistant';
 
 /**
  * The chat scenarios by name, for `AiSection`'s `chat` prop. `shipping` is the homepage's; `dewPoint`
- * is the one it replaced on 2026-09-24.
+ * is the one it replaced on 2026-09-24; `live` is main's (the `live` running order).
  */
 export const AI_ASSISTANT_SCENARIOS = {
 	shipping: { demo: AI_ASSISTANT_DEMO, label: AI_ASSISTANT_LABEL },
 	dewPoint: { demo: AI_ASSISTANT_DEMO_DEW_POINT, label: AI_ASSISTANT_LABEL_DEW_POINT },
+	live: { demo: AI_ASSISTANT_DEMO_LIVE, label: AI_ASSISTANT_LABEL },
 } as const;
 
 export type AiChatScenario = keyof typeof AI_ASSISTANT_SCENARIOS;
@@ -503,6 +542,9 @@ export const AI_CLI_SESSION: CliStep[] = [
 export const AI_CLI_LABEL =
 	'A ThingsBoard CLI session: creating a cold-chain solution, saving a calculated field, validating, and pushing it to production.';
 
+/** The version the CLI's banner prints. Named so the `live` sessions below can swap it for main's. */
+const AI_CLI_VERSION = '4.3.1.5';
+
 /**
  * THE TERMINAL RUNS A CODING AGENT, not a shell — THE HOMEPAGE since 2026-09-24; `AI_CLI_SESSION` above
  * is the shell session it replaced, kept for `terminal="cli"` and the cards page.
@@ -543,7 +585,7 @@ export const AI_AGENT_SESSION: AgentStep[] = [
 			[],
 			[
 				{ t: 'brand', v: 'ThingsBoard CLI ' },
-				{ t: 'dim', v: '4.3.1.5' },
+				{ t: 'dim', v: AI_CLI_VERSION },
 			],
 			[
 				{ t: 'ok', v: '\u2714 ' },
@@ -626,6 +668,24 @@ export const AI_AGENT_SESSION_WORDMARK: AgentStep[] = (() => {
 		...turns,
 	];
 })();
+
+/** A session whose banner prints `version` where it printed `AI_CLI_VERSION`. */
+const withCliVersion = (session: AgentStep[], version: string): AgentStep[] =>
+	session.map((step) =>
+		step.role === 'banner'
+			? {
+					...step,
+					lines: step.lines.map((line) => line.map((seg) => (seg.v === AI_CLI_VERSION ? { ...seg, v: version } : seg))),
+				}
+			: step
+	);
+
+/**
+ * Both sessions as MAIN prints them, for the `live` order: the same transcript, with the banner on
+ * main's CLI version (its `CE_FULL_VER` at 4.4; this branch's `versions.ts` is behind it).
+ */
+export const AI_AGENT_SESSION_LIVE = withCliVersion(AI_AGENT_SESSION, '4.3.1.6');
+export const AI_AGENT_SESSION_WORDMARK_LIVE = withCliVersion(AI_AGENT_SESSION_WORDMARK, '4.3.1.6');
 
 /** What the terminal is doing, for the `role="img"` label — it is a picture, not a live console. */
 export const AI_AGENT_LABEL =

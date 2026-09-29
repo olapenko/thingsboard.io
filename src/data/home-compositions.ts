@@ -8,11 +8,12 @@
  * changes it in every order at once.
  *
  * THE HERO, THE LOGO STRIP AND THE CLOSING CTA ARE NOT SECTIONS HERE. Every order opens and closes
- * the same way, and those three stay in `index.astro` where the hero's own work happens.
+ * the same way, and those three stay in `index.astro` where the hero's own work happens. Only their
+ * WORDS follow the order, through its `copy`.
  *
- * THE REFERENCE IS PINNED. `handoff` is the page as it was before A, and it states every option it
- * depends on, even where that option is a section's default: a default that moves must not move the
- * reference with it.
+ * THE REFERENCE IS PINNED. `live` is the homepage as main ships it (it replaced `handoff`, the page as
+ * it was before A, on 2026-09-29), and it states every option it depends on, even where that option
+ * is a section's default: a default that moves must not move the reference with it.
  *
  * The rows (see `ROW_SECTIONS`) take their sides and their wash from where they fall, not from
  * here: `HomeSections` alternates them by their position among the rows, so reordering them cannot
@@ -53,15 +54,17 @@ export type HomeSection =
 			 * title. For any order where the AI section sits next to the loop: its heading also opens
 			 * on "Build", and two in a row read as one heading said twice. It also drops a promise the
 			 * page stops keeping once the Scale row leaves: "scale".
+			 * `live` — "The IoT platform between your equipment and your customers", main's heading, with
+			 * main's lede under it (`data/home-live.ts`).
 			 */
-			heading: 'build' | 'loop';
+			heading: 'build' | 'loop' | 'live';
 	  }
 	| {
 			id: 'ai';
 			/**
 			 * `wide` — `AiWide` (FE-handoff, 2026-09-26): a whole 600px window beside a column of copy that
-			 * ends on its own call to action, so `cta` does not apply. `toggle` — `AiSection`, as the
-			 * handoff shipped it.
+			 * ends on its own call to action, so `cta` does not apply. Main ships this one. `toggle` —
+			 * `AiSection`, as the handoff shipped it; it has no `copy: 'live'` words.
 			 */
 			layout: 'wide' | 'toggle';
 			/**
@@ -90,8 +93,9 @@ export type HomeSection =
 			/**
 			 * `why` — "Why choose ThingsBoard" as the heading, as the handoff shipped it. `value` — the
 			 * same words as an eyebrow, under a heading that says what the twelve tiles are worth.
+			 * `live` — "ThingsBoard Features", main's heading, with no lede under it.
 			 */
-			heading: 'why' | 'value';
+			heading: 'why' | 'value' | 'live';
 	  }
 	| { id: Exclude<HomeSectionId, 'platform' | 'ai' | 'normalize' | 'features'> };
 
@@ -139,18 +143,29 @@ export interface HomeComposition {
 	/** One sentence on what this order does differently, for the overview and the switch's tooltip. */
 	note: string;
 	/**
-	 * What colours the sections. `primary` — the handoff's: the rows alternate one flat primary wash
-	 * (`#f5f6ff`) and every drawing's connectors are the brand blue. `section` — each section takes
-	 * its OWN badge colour: a subtle gradient in that hue under the row (and under the use cases and
-	 * the customer voices), and the connectors inside its drawing in the same hue, so a row's mark,
-	 * ground and lines are one colour. Set per order so the handoff stays the page it was.
+	 * What colours the sections. `primary` — the handoff's, which main kept: the rows alternate one
+	 * flat primary wash (`#f5f6ff`) and every drawing's connectors are the brand blue. `section` — each
+	 * section takes its OWN badge colour: a subtle gradient in that hue under the row (and under the
+	 * use cases and the customer voices), and the connectors inside its drawing in the same hue, so a
+	 * row's mark, ground and lines are one colour. Set per order so the reference stays the page it is.
 	 */
 	hues: 'primary' | 'section';
+	/**
+	 * What the page says. `facelift` — this branch's words. `live` — main's, as it ships them, on every
+	 * element both pages have: the hero and the page title, the AI switch, routes, chat and terminal,
+	 * the rows, the use cases' links, the Cloud card's actions, the ecosystem cards and the closing
+	 * note's link (`data/home-live.ts`, and the `_LIVE` copy in `data/ai-visual.ts`). The two headings
+	 * that already have options take theirs as `heading: 'live'`.
+	 */
+	copy: 'facelift' | 'live';
 	sections: HomeSection[];
 }
 
 /** The order `/` renders. Also first in `HOME_COMPOSITIONS`, so every list shows it first. */
 export const SHIPPING_COMPOSITION = 'a';
+
+/** The order every other one is a change to: the overview marks what each adds, moves and drops against it. */
+export const REFERENCE_COMPOSITION = 'live';
 
 export const HOME_COMPOSITIONS: HomeComposition[] = [
 	{
@@ -158,6 +173,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		label: 'A',
 		name: 'Show, then explain',
 		hues: 'section',
+		copy: 'facelift',
 		note: 'The AI demo straight under the hero, in the wide window with its call to action, then the platform loop and its four rows in the loop’s own order. A trust band, “Why choose” under a value heading, and customer quotes join; Scale leaves for the On-premises page. Every section takes its own colour.',
 		sections: [
 			{ id: 'ai', layout: 'wide', cta: 'none', wash: 'cycle' },
@@ -175,23 +191,33 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		],
 	},
 	{
-		id: 'handoff',
-		label: 'Handoff',
-		name: 'As handed off',
+		/*
+		 * MAIN'S HOMEPAGE, kept as the reference. It replaced `handoff` on 2026-09-29, when main shipped
+		 * the facelift at ThingsBoard 4.4 (`72563afc5`, served at thingsboard.io): the handoff's order
+		 * with AI lifted to the top, in the wide window. `/internal/homepages/handoff/` redirects here.
+		 *
+		 * A MIRROR, NOT A COPY OF MAIN'S CODE: this branch's sections in main's order, speaking main's
+		 * words (`copy: 'live'`). What main does differently in its markup and chrome stays this
+		 * branch's, and is listed in `data/home-live.ts`. Re-sync it when main's homepage moves.
+		 */
+		id: 'live',
+		label: 'Live',
+		name: 'As shipped',
 		hues: 'primary',
-		note: 'The running order before A, kept as the reference: the platform loop, three rows, AI in the seam, two more rows, the use cases, Products, Ecosystem and “Why choose”.',
+		copy: 'live',
+		note: 'The homepage main ships today (ThingsBoard 4.4, on thingsboard.io), kept as the reference: the AI demo straight under the hero, then the platform loop, its five rows, the use cases, Products, Ecosystem and the features — in main’s words, on this branch’s sections.',
 		sections: [
-			{ id: 'platform', heading: 'build' },
+			{ id: 'ai', layout: 'wide', cta: 'none', wash: 'cycle' },
+			{ id: 'platform', heading: 'live' },
 			{ id: 'connect' },
 			{ id: 'solution' },
 			{ id: 'twin' },
-			{ id: 'ai', layout: 'toggle', cta: 'none', wash: 'route' },
 			{ id: 'normalize', media: 'pulse' },
 			{ id: 'scale' },
 			{ id: 'dashboards' },
 			{ id: 'products' },
 			{ id: 'ecosystem' },
-			{ id: 'features', heading: 'why' },
+			{ id: 'features', heading: 'live' },
 		],
 	},
 	{
@@ -199,6 +225,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		label: 'B',
 		name: 'Map, then magic',
 		hues: 'section',
+		copy: 'facelift',
 		note: 'A with its first two sections swapped: the platform loop orients first, then the AI demo. The smallest change from the handoff that still moves AI up.',
 		sections: [
 			{ id: 'platform', heading: 'loop' },
@@ -235,11 +262,26 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 	if (HOME_COMPOSITIONS[0]?.id !== SHIPPING_COMPOSITION) {
 		throw new Error('home-compositions: the shipping order must come first, so every list shows it first');
 	}
+	if (!ids.has(REFERENCE_COMPOSITION)) {
+		throw new Error(`home-compositions: the reference "${REFERENCE_COMPOSITION}" is not an order`);
+	}
+	// Main's words for the AI section exist for `AiWide` alone, the layout main ships; the toggle
+	// would keep this branch's and say nothing about it.
+	for (const c of HOME_COMPOSITIONS) {
+		if (c.copy === 'live' && c.sections.some((s) => s.id === 'ai' && s.layout !== 'wide')) {
+			throw new Error(`home-compositions: "${c.id}" speaks main's words, which the toggle AI layout has none of`);
+		}
+	}
 })();
 
 export const shippingComposition = (): HomeComposition => HOME_COMPOSITIONS[0];
 
 export const isShipping = (c: Pick<HomeComposition, 'id'>) => c.id === SHIPPING_COMPOSITION;
+
+export const referenceComposition = (): HomeComposition =>
+	HOME_COMPOSITIONS.find((c) => c.id === REFERENCE_COMPOSITION) as HomeComposition;
+
+export const isReference = (c: Pick<HomeComposition, 'id'>) => c.id === REFERENCE_COMPOSITION;
 
 /** Where an order lives. The shipping one is the real homepage, so its address is `/`. */
 export const compositionHref = (c: Pick<HomeComposition, 'id'>) =>

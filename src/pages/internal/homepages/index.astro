@@ -5,56 +5,84 @@ import {
 	HOME_COMPOSITIONS,
 	HOME_SECTIONS,
 	compositionHref,
+	isReference,
 	isShipping,
+	referenceComposition,
 	type HomeComposition,
 	type HomeSection,
 } from '@data/home-compositions';
 
 /**
  * Homepages › Overview: every running order the homepage can take, side by side, the shipping one
- * first. Each column is the order top to bottom, with what it does differently from the handoff —
- * the reference every other order is a change to — marked on the section where it happens.
+ * first. Each column is the order top to bottom, with what it does differently from the reference —
+ * `live`, the homepage main ships, which every other order is a change to — marked on the section
+ * where it happens.
  *
  * ADD an order: an entry in `data/home-compositions.ts`. It appears here, gets its own page at
  * `/internal/homepages/<id>/`, and joins the island's switch, with no other edit.
  */
 
-const REFERENCE = HOME_COMPOSITIONS.find((c) => c.id === 'handoff');
+const REFERENCE = referenceComposition();
 
-/** What a section's options say, where they are not the handoff's. Nothing for a section without options. */
+/** What each option's values say, for the note on a section whose option is not the reference's. */
+const OPTION_WORDS: Record<string, Record<string, string>> = {
+	'platform.heading': {
+		build: 'the “Build, deploy, and scale” heading',
+		loop: 'the loop’s own heading',
+		live: 'main’s heading',
+	},
+	'ai.layout': { wide: 'the wide window', toggle: 'the toggle, windows cut' },
+	'ai.cta': { block: 'a call to action under it', route: 'an action per route', none: 'no call to action' },
+	'ai.wash': { cycle: 'the wash follows the mark', route: 'the wash follows the route' },
+	'normalize.media': { switch: 'Normalize · Filter · Notify switch', pulse: 'the Normalize drawing alone' },
+	'features.heading': { why: 'under “Why choose”', value: 'under a value heading', live: 'under main’s heading' },
+};
+
+/**
+ * What a section's options say, where they are not the reference's own for that section. Nothing for a
+ * section without options, or one the reference does not run — that one is marked new instead.
+ */
 function optionNote(s: HomeSection): string | undefined {
-	switch (s.id) {
-		case 'platform':
-			return s.heading === 'loop' ? 'the loop’s own heading' : undefined;
-		case 'ai': {
-			const cta = s.cta === 'block' ? 'a call to action under it' : s.cta === 'route' ? 'an action per route' : '';
-			const wash = s.wash === 'cycle' ? 'the wash follows the mark' : '';
-			return [cta, wash].filter(Boolean).join(' · ') || undefined;
-		}
-		case 'normalize':
-			return s.media === 'switch' ? 'Normalize · Filter · Notify switch' : undefined;
-		case 'features':
-			return s.heading === 'value' ? 'under a value heading' : undefined;
-		default:
-			return undefined;
-	}
+	const ref: Record<string, unknown> | undefined = REFERENCE.sections.find((r) => r.id === s.id);
+	if (!ref) return undefined;
+	const notes = Object.entries(s)
+		.filter(([key, value]) => key !== 'id' && ref[key] !== value)
+		// `cta` is the toggle's: the wide window ends on its own call to action whatever it says.
+		.filter(([key]) => !(key === 'cta' && 'layout' in s && s.layout === 'wide'))
+		.map(([key, value]) => OPTION_WORDS[`${s.id}.${key}`]?.[String(value)] ?? `${key}: ${String(value)}`);
+	return notes.join(' · ') || undefined;
+}
+
+/** What an order does differently across the whole page: its words and its colours. */
+const ORDER_WORDS = {
+	copy: { facelift: 'this branch’s words', live: 'main’s words' },
+	hues: { primary: 'one flat wash', section: 'each section in its own colour' },
+};
+
+function orderNote(c: HomeComposition): string | undefined {
+	return (
+		(['copy', 'hues'] as const)
+			.filter((key) => c[key] !== REFERENCE[key])
+			.map((key) => (ORDER_WORDS[key] as Record<string, string>)[c[key]])
+			.join(' · ') || undefined
+	);
 }
 
 /**
- * What an order adds, moves and drops against the handoff.
+ * What an order adds, moves and drops against the reference.
  *
  * MOVED IS THE FEWEST SECTIONS THAT HAD TO MOVE, not every section whose index changed. Lifting AI
  * above the loop shifts everything it passes down by one; calling all of those moved would say
- * nothing. So the sections the two orders share keep the longest run that is still in the handoff's
- * order, and only the ones outside that run are marked.
+ * nothing. So the sections the two orders share keep the longest run that is still in the
+ * reference's order, and only the ones outside that run are marked.
  */
 function diff(c: HomeComposition) {
-	const refIds = REFERENCE?.sections.map((s) => s.id) ?? [];
+	const refIds = REFERENCE.sections.map((s) => s.id);
 	const mine = new Set(c.sections.map((s) => s.id));
 	const shared = c.sections.filter((s) => refIds.includes(s.id)).map((s) => s.id);
 	const at = shared.map((id) => refIds.indexOf(id));
 
-	// Longest increasing run of handoff positions, O(n²) — a dozen sections.
+	// Longest increasing run of the reference's positions, O(n²) — a dozen sections.
 	const len = at.map(() => 1);
 	const prev = at.map(() => -1);
 	at.forEach((v, i) => {
@@ -71,7 +99,7 @@ function diff(c: HomeComposition) {
 	return {
 		added: (s: HomeSection) => !refIds.includes(s.id),
 		moved: (s: HomeSection) => refIds.includes(s.id) && !kept.has(s.id),
-		gone: (REFERENCE?.sections ?? []).filter((s) => !mine.has(s.id)).map((s) => HOME_SECTIONS[s.id].label),
+		gone: REFERENCE.sections.filter((s) => !mine.has(s.id)).map((s) => HOME_SECTIONS[s.id].label),
 	};
 }
 ---
@@ -93,7 +121,7 @@ function diff(c: HomeComposition) {
 									<Icon name="tabler:circle-check-filled" aria-hidden="true" />
 									Ships at /
 								</span>
-							) : c.id === REFERENCE?.id ? (
+							) : isReference(c) ? (
 								<span class="order__ref">Reference</span>
 							) : null}
 						</div>
@@ -120,6 +148,12 @@ function diff(c: HomeComposition) {
 								);
 							})}
 						</ol>
+
+						{orderNote(c) && (
+							<p class="order__gone">
+								<span>Throughout:</span> {orderNote(c)}
+							</p>
+						)}
 
 						{d.gone.length > 0 && (
 							<p class="order__gone">

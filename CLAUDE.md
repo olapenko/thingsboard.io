@@ -190,9 +190,14 @@ visual to try an idea — add a candidate beside it.
 order also renders as the real homepage at `/internal/homepages/<id>/`, and `/internal/homepages/` sets
 them side by side. On any homepage the island grows a switch between the orders that keeps your place
 (`[` and `]` step, `O` outlines and numbers the sections). Add an order with one entry there. The
-`handoff` order is the reference and pins every option it depends on; rows take their sides and wash
-from their position, so reorder freely. An order's `hues` decides what colours the sections:
-`primary` is the handoff's one flat wash; `section` gives each alternating row a linear gradient and
+`live` order is the reference and pins every option it depends on: the homepage `main` ships
+(ThingsBoard 4.4, thingsboard.io), mirrored on this branch's sections in main's order and words — it
+replaced `handoff` on 2026-09-29, and the old address redirects to it. An order's `copy` decides
+whose words the page speaks, `facelift` (this branch's) or `live` (main's, in `src/data/home-live.ts`
+and the `_LIVE` copy in `src/data/ai-visual.ts`); re-sync those when main's homepage moves. Rows take
+their sides and wash from their position, so reorder freely. An order's `hues` decides what colours
+the sections: `primary` is the one flat wash the handoff had and main kept; `section` gives each
+alternating row a linear gradient and
 each centred section a glow behind its mark, both in the section's own badge colour, with the lines
 in its drawing in the same hue — while the two bands that run into a dark bookend (trust, voices)
 take the bookends' indigo. The AI section's mark (and its wash, where the

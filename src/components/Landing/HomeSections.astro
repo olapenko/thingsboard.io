@@ -28,6 +28,7 @@ import { homeEcosystem } from '@data/homeEcosystem';
 import { homeProducts } from '@data/homeProducts';
 import { ROW_SECTIONS, type HomeComposition, type HomeSection } from '@data/home-compositions';
 import { aiBadgeCycleFor } from '@data/ai-visual';
+import { LIVE_PLATFORM, LIVE_ROWS, liveEcosystemCard, liveProduct } from '@data/home-live';
 
 /**
  * The homepage between the hero and the closing CTA, as one running order from
@@ -67,6 +68,28 @@ const aiHues = aiBadgeCycleFor(
 	composition.sections.map((s) => s.id),
 	composition.hues
 );
+
+// MAIN'S WORDS, where the order speaks them (`copy: 'live'`, `data/home-live.ts`): laid over this
+// branch's copy field by field, so a row main words the same keeps its own, and its mark with it.
+const live = composition.copy === 'live';
+const rowCopy = <T extends object>(copy: T, id: keyof typeof LIVE_ROWS): T =>
+	live ? { ...copy, ...LIVE_ROWS[id] } : copy;
+const ROW = {
+	connect: rowCopy(CONNECT_COPY, 'connect'),
+	solution: rowCopy(SOLUTION_COPY, 'solution'),
+	twin: rowCopy(DIGITAL_TWIN_COPY, 'twin'),
+	normalize: rowCopy(NORMALIZE_COPY, 'normalize'),
+	scale: rowCopy(SCALE_COPY, 'scale'),
+};
+
+/** The platform intro's heading and lede, by the section's `heading` option. */
+const introCopy = (heading: Extract<HomeSection, { id: 'platform' }>['heading']) =>
+	heading === 'live'
+		? LIVE_PLATFORM
+		: {
+				title: heading === 'loop' ? PLATFORM_COPY.title : PLATFORM_SECTION_COPY.title,
+				description: PLATFORM_SECTION_COPY.description,
+			};
 
 // Trial: the filled badge treatment, now carried by the mobile card alone — the
 // other six were tried filled and reverted. A card opts in with its own `filled`
@@ -118,10 +141,10 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 								return (
 									<FeatureBlockSection
 										id="connect"
-										heading={CONNECT_COPY.title}
-										description={CONNECT_COPY.body}
-										links={[{ href: CONNECT_COPY.link.href, text: CONNECT_COPY.link.text }]}
-										badge={CONNECT_COPY.badge}
+										heading={ROW.connect.title}
+										description={ROW.connect.body}
+										links={[{ href: ROW.connect.link.href, text: ROW.connect.link.text }]}
+										badge={ROW.connect.badge}
 										imageFirst={imageFirst}
 										imageEqual
 									>
@@ -144,10 +167,10 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 								return (
 									<FeatureBlockSection
 										id="solution"
-										heading={SOLUTION_COPY.title}
-										description={SOLUTION_COPY.body}
-										links={[{ href: SOLUTION_COPY.link.href, text: SOLUTION_COPY.link.text }]}
-										badge={SOLUTION_COPY.badge}
+										heading={ROW.solution.title}
+										description={ROW.solution.body}
+										links={[{ href: ROW.solution.link.href, text: ROW.solution.link.text }]}
+										badge={ROW.solution.badge}
 										imageFirst={imageFirst}
 										imageEqual
 									>
@@ -158,10 +181,10 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 								return (
 									<FeatureBlockSection
 										id="twin"
-										heading={DIGITAL_TWIN_COPY.title}
-										description={DIGITAL_TWIN_COPY.body}
-										links={[{ href: DIGITAL_TWIN_COPY.link.href, text: DIGITAL_TWIN_COPY.link.text }]}
-										badge={DIGITAL_TWIN_COPY.badge}
+										heading={ROW.twin.title}
+										description={ROW.twin.body}
+										links={[{ href: ROW.twin.link.href, text: ROW.twin.link.text }]}
+										badge={ROW.twin.badge}
 										imageFirst={imageFirst}
 										imageEqual
 									>
@@ -173,10 +196,10 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 								return (
 									<FeatureBlockSection
 										id="normalize"
-										heading={NORMALIZE_COPY.title}
-										description={NORMALIZE_COPY.body}
-										links={[{ href: NORMALIZE_COPY.link.href, text: NORMALIZE_COPY.link.text }]}
-										badge={NORMALIZE_COPY.badge}
+										heading={ROW.normalize.title}
+										description={ROW.normalize.body}
+										links={[{ href: ROW.normalize.link.href, text: ROW.normalize.link.text }]}
+										badge={ROW.normalize.badge}
 										imageFirst={imageFirst}
 										imageEqual
 									>
@@ -187,10 +210,10 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 								return (
 									<FeatureBlockSection
 										id="scale"
-										heading={SCALE_COPY.title}
-										description={SCALE_COPY.body}
-										links={[{ href: SCALE_COPY.link.href, text: SCALE_COPY.link.text }]}
-										badge={SCALE_COPY.badge}
+										heading={ROW.scale.title}
+										description={ROW.scale.body}
+										links={[{ href: ROW.scale.link.href, text: ROW.scale.link.text }]}
+										badge={ROW.scale.badge}
 										imageFirst={imageFirst}
 										imageEqual
 									>
@@ -227,7 +250,11 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 											   Set here rather than in `homeProducts`, which the product pages and the header
 											   also read. */
 											homeProducts.map((product) => (
-												<EcosystemCard {...product} pairInline primaryNote={undefined} />
+												<EcosystemCard
+													{...(live ? liveProduct(product) : product)}
+													pairInline
+													primaryNote={undefined}
+												/>
 											))
 										}
 									</div>
@@ -244,7 +271,10 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 									/>
 									<div class="product-ecosystem-list">
 										{homeEcosystem.map((product) => {
-											const card = { ...product, filled: ECOSYSTEM_FILLED && (product.filled ?? false) };
+											const card = {
+												...(live ? liveEcosystemCard(product) : product),
+												filled: ECOSYSTEM_FILLED && (product.filled ?? false),
+											};
 											// The Gateway card's visual is a component rather than data, so it
 											// alone takes a slot child. The others must pass NO slot at all —
 											// even an empty one would beat the video and tiles branches inside.
@@ -281,8 +311,8 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 				   column, where it stays horizontal and simply scales. */
 				return (
 					<IntroSection
-						title={section.heading === 'loop' ? PLATFORM_COPY.title : PLATFORM_SECTION_COPY.title}
-						description={PLATFORM_SECTION_COPY.description}
+						title={introCopy(section.heading).title}
+						description={introCopy(section.heading).description}
 						titleLink={null}
 					>
 						<PlatformClear />
@@ -295,12 +325,18 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 				   sits inside `.new-rows` (see the grouping above), whose `.main-div` padding would blow
 				   apart the band geometry the windows are docked to. */
 				return section.layout === 'wide' ? (
-					<AiWide id="ai" wash={section.wash} hues={aiHues} />
+					<AiWide
+						id="ai"
+						wash={section.wash}
+						hues={aiHues}
+						copy={live ? 'live' : 'shipping'}
+						chat={live ? 'live' : 'shipping'}
+					/>
 				) : (
 					<AiSection id="ai" cta={section.cta} wash={section.wash} hues={aiHues} />
 				);
 			case 'dashboards':
-				return <UseCasesSection hued={composition.hues === 'section'} />;
+				return <UseCasesSection hued={composition.hues === 'section'} copy={composition.copy} />;
 			case 'trust':
 				return <TrustBand />;
 			case 'features':

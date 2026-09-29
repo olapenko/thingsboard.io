@@ -10,6 +10,7 @@ import {
 	DASHBOARD_TONES,
 	type DashboardTones,
 } from '@data/home-dashboards';
+import { liveUseCaseLink } from '@data/home-live';
 
 /**
  * The use cases: the dashboards heading over `DashboardShowcase`, the board and the named cases.
@@ -26,6 +27,8 @@ import {
 
 interface Props {
 	hued?: boolean;
+	/** The running order's `copy`: `live` names each case's link as main does, "Smart energy use case". */
+	copy?: 'facelift' | 'live';
 	/**
 	 * The glow under the board: each case's own colour (`DASHBOARD_TONES`), or the section's berry
 	 * throughout (`section`). Only where `hued`, which is what draws the glow; there it defaults to each
@@ -34,11 +37,16 @@ interface Props {
 	tones?: DashboardTones | 'section';
 }
 
-const { hued = false, tones = hued ? 'shot' : 'section' } = Astro.props;
+const { hued = false, copy = 'facelift', tones = hued ? 'shot' : 'section' } = Astro.props;
 
 // The use cases take their own berry where every section wears its own colour, and keep the blue
 // they shipped with in the handoff (see `@data/home-dashboards`).
 const badge = hued ? DASHBOARDS_BADGE : DASHBOARDS_BADGE_HANDOFF;
+
+const items =
+	copy === 'live'
+		? homeCarouselItems.map((item) => ({ ...item, linkLabel: liveUseCaseLink(item.title) }))
+		: homeCarouselItems;
 ---
 
 <section id="dashboard_description" class:list={[hued && 'home-hued']} style={`--row-hue: ${badge.color}`}>
@@ -63,13 +71,11 @@ const badge = hued ? DASHBOARDS_BADGE : DASHBOARDS_BADGE_HANDOFF;
 			</div>
 		</SectionHeader>
 		<DashboardShowcase
-			items={homeCarouselItems}
+			items={items}
 			interval={12000}
 			glow={hued}
 			motion={hued ? 'handoff' : 'cut'}
-			tones={tones === 'section'
-				? undefined
-				: homeCarouselItems.map((item) => DASHBOARD_TONES[tones][item.href] ?? badge.color)}
+			tones={tones === 'section' ? undefined : items.map((item) => DASHBOARD_TONES[tones][item.href] ?? badge.color)}
 		/>
 	</div>
 </section>

@@ -8,9 +8,12 @@ import AiHandoff from './AiHandoff.astro';
 import {
 	AI_COPY,
 	AI_COLUMNS,
+	AI_COLUMNS_LIVE,
 	AI_COLUMNS_VALUE,
 	AI_AGENT_SESSION,
+	AI_AGENT_SESSION_LIVE,
 	AI_AGENT_SESSION_WORDMARK,
+	AI_AGENT_SESSION_WORDMARK_LIVE,
 	AI_AGENT_LABEL,
 	AI_ASSISTANT_TITLE,
 	AI_CTA,
@@ -58,8 +61,12 @@ import type { AiChatScenario } from '@data/ai-visual';
 interface Props {
 	/** Play both windows. Off renders them as stills — used by the sandbox. */
 	animate?: boolean;
-	/** Which copy the routes carry: `shipping` is `AI_COLUMNS`, `value` the candidate `AI_COLUMNS_VALUE`. */
-	copy?: 'shipping' | 'value';
+	/**
+	 * Which copy the routes carry: `shipping` is `AI_COLUMNS`, `value` the candidate `AI_COLUMNS_VALUE`,
+	 * `live` main's (`AI_COLUMNS_LIVE`, with the terminal's banner on main's CLI version) — the `live`
+	 * running order's.
+	 */
+	copy?: 'shipping' | 'value' | 'live';
 	/** Which conversation the chat plays (`AI_ASSISTANT_SCENARIOS`). */
 	chat?: AiChatScenario;
 	/**
@@ -82,7 +89,11 @@ interface Props {
 }
 
 const { animate = true, copy = 'shipping', chat = 'shipping', wash = 'route', hues = AI_BADGE_CYCLE, id } = Astro.props;
-const COLS = copy === 'value' ? AI_COLUMNS_VALUE : AI_COLUMNS;
+const COLS = copy === 'value' ? AI_COLUMNS_VALUE : copy === 'live' ? AI_COLUMNS_LIVE : AI_COLUMNS;
+const SESSIONS =
+	copy === 'live'
+		? { wordmark: AI_AGENT_SESSION_WORDMARK_LIVE, mark: AI_AGENT_SESSION_LIVE }
+		: { wordmark: AI_AGENT_SESSION_WORDMARK, mark: AI_AGENT_SESSION };
 const washCycle = wash === 'cycle';
 
 /**
@@ -222,7 +233,7 @@ const sectionStyle = [badgeHues, cycleVars, washCycle && `--ai-hue-0: ${AI_COPY.
 							   shipping session with the small mark beside its status on a phone. See the note above. */
 						}
 						<div class="wide__cli wide__cli--wordmark">
-							<AgentTerminal session={AI_AGENT_SESSION_WORDMARK} path="smart-retail" ariaLabel={AI_AGENT_LABEL} />
+							<AgentTerminal session={SESSIONS.wordmark} path="smart-retail" ariaLabel={AI_AGENT_LABEL} />
 							{
 								/* The CLI's mark in the window's corner, as the rows carry their product's: the switch's
 								   glyph for this route on the route's hue. Desktop only, since this instance is. */
@@ -232,7 +243,7 @@ const sectionStyle = [badgeHues, cycleVars, washCycle && `--ai-hue-0: ${AI_COPY.
 							</span>
 						</div>
 						<div class="wide__cli wide__cli--mark">
-							<AgentTerminal session={AI_AGENT_SESSION} path="smart-retail" ariaLabel={AI_AGENT_LABEL} />
+							<AgentTerminal session={SESSIONS.mark} path="smart-retail" ariaLabel={AI_AGENT_LABEL} />
 						</div>
 					</div>
 
