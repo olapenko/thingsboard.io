@@ -94,7 +94,9 @@ export const homeEcosystem: EcosystemItem[] = [
 		icon: '/src/assets/images/landings/ce/thingsboard-e-icon.svg',
 		href: '/products/thingsboard-edge/',
 		action: 'See how Edge works',
-		accent: '#0f9b8e',
+		// #008478, not the #0f9b8e it was: same teal hue, lightness taken down until the 14px
+		// kicker set in it reads at 4.6:1 on white (it was 3.4:1). `--brand-edge` is 3.2:1.
+		accent: '#008478',
 		addOn: true,
 	},
 	{
