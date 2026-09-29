@@ -41,9 +41,14 @@ interface Props {
 	 * covers everywhere but its edges.
 	 */
 	glow?: boolean;
+	/**
+	 * One colour per item for the glow, which then follows the case on the board and cross-fades as
+	 * it changes (`--dashshow-glow`). Without it the glow is the section's hue throughout.
+	 */
+	tones?: string[];
 }
 
-const { items, id = 'dashboards', interval = 12000, motion = 'cut', glow = false } = Astro.props;
+const { items, id = 'dashboards', interval = 12000, motion = 'cut', glow = false, tones } = Astro.props;
 
 // Each shot's own aspect ratio, handed to the board so the card can take the
 // shape of whatever it is showing. See `--item-ratio` in the styles.
@@ -55,6 +60,7 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 	data-dashshow
 	data-dashshow-interval={interval}
 	data-dashshow-motion={motion}
+	style={tones?.[0] ? `--dashshow-tone: ${tones[0]}` : undefined}
 >
 	{glow && <div class="dashshow__glow" aria-hidden="true" />}
 	<div class="dashshow__board" style={items.length ? `--item-ratio: ${ratioOf(items[0])}` : undefined}>
@@ -65,6 +71,7 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 					id={`${id}-board-${i}`}
 					hidden={i !== 0}
 					data-ratio={ratioOf(item)}
+					data-tone={tones?.[i]}
 					style={
 						`--frame-ratio: ${ratioOf(item)}` + (item.overlaySrc ? `; --cmp-ratio: ${item.width} / ${item.height}` : '')
 					}
@@ -191,14 +198,30 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		// Strong where the board covers it, so what shows past the board's edges is what counts: ~13%
 		// of the hue along its top and foot (half the ellipse's height out), ~5% at its sides — the
 		// strength the glow behind the heading had before it moved here.
+		//
+		// Its colour is the showing case's `--dashshow-tone` where the showcase has `tones`, and the
+		// section's hue where it has not. Resolved into a REGISTERED colour (below), so a change of case
+		// eases the light from one colour to the next rather than switching it.
+		--dashshow-glow: var(--dashshow-tone, var(--row-hue, var(--color-primary, #{$color-brand})));
+
 		background: radial-gradient(
 			closest-side,
-			color-mix(in srgb, var(--row-hue, var(--color-primary, #{$color-brand})) 24%, transparent) 0%,
-			color-mix(in srgb, var(--row-hue, var(--color-primary, #{$color-brand})) 13%, transparent) 50%,
-			color-mix(in srgb, var(--row-hue, var(--color-primary, #{$color-brand})) 4%, transparent) 78%,
+			color-mix(in srgb, var(--dashshow-glow) 24%, transparent) 0%,
+			color-mix(in srgb, var(--dashshow-glow) 13%, transparent) 50%,
+			color-mix(in srgb, var(--dashshow-glow) 4%, transparent) 78%,
 			transparent 100%
 		);
 		pointer-events: none;
+		// Slower than the board: the light drifts after the picture rather than flashing with it.
+		transition: --dashshow-glow 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	// A colour, so the browser can interpolate it. An unregistered custom property is a string and
+	// can only switch.
+	@property --dashshow-glow {
+		syntax: '<color>';
+		inherits: false;
+		initial-value: transparent;
 	}
 
 	// The board steps out of the 960 measure, but only as far as there is room.
@@ -575,6 +598,7 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 	@media (prefers-reduced-motion: reduce) {
 		.dashshow__case,
 		.dashshow__arrow,
+		.dashshow__glow,
 		.dashshow--handoff .dashshow__board {
 			transition: none;
 		}
@@ -681,9 +705,13 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		let shown = 0;
 		let request = 0;
 
-		const setRatio = (i: number) => {
+		// The card takes the shape of the shot it is showing, and the glow under it (with `tones`) its
+		// colour.
+		const setShape = (i: number) => {
 			const ratio = frames[i]?.dataset.ratio;
 			if (board && ratio) board.style.setProperty('--item-ratio', ratio);
+			const tone = frames[i]?.dataset.tone;
+			if (tone) root.style.setProperty('--dashshow-tone', tone);
 		};
 
 		const settle = () => {
@@ -716,7 +744,7 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 
 			shown = to;
 			panels.forEach((panel, i) => (panel.hidden = i !== to));
-			setRatio(to);
+			setShape(to);
 			arriving.hidden = false;
 
 			onBoard.forEach(({ frame, opacity, transform }) => {
@@ -797,8 +825,8 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 			} else {
 				panels.forEach((panel, i) => (panel.hidden = i !== active));
 				frames.forEach((frame, i) => (frame.hidden = i !== active));
-				// The card takes the shape of the shot it is showing.
-				setRatio(active);
+				// The card takes the shape (and the glow the colour) of the shot it is showing.
+				setShape(active);
 			}
 
 			warmAround(active);
