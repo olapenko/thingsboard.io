@@ -58,7 +58,10 @@ const logoSvg = logo.replace(/fill="#212529"/g, 'fill="currentColor"').replace(/
 const year = new Date().getFullYear();
 
 // The kept-up channels, in `FOOTER_SOCIAL`'s order, with their links from the shared list.
-const social = FOOTER_SOCIAL.map((icon) => socialNetworks.find((n) => n.icon === icon)).filter((n) => n !== undefined);
+const social = FOOTER_SOCIAL.map(({ icon, name }) => {
+	const n = socialNetworks.find((x) => x.icon === icon);
+	return n && { ...n, name };
+}).filter((n) => n !== undefined);
 
 const isTabler = (p: FooterProduct) => p.icon.startsWith('tabler:');
 const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopener noreferrer' } : {});
@@ -70,44 +73,52 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 			<div class="fm__brand">
 				<a href="/" class="fm__logo" aria-label="ThingsBoard home" set:html={logoSvg} />
 				<p class="fm__tagline">{FOOTER_TAGLINE}</p>
-				<ul class="fm__social" aria-label="ThingsBoard elsewhere">
+			</div>
+
+			<div class="fm__keep">
+				{
+					/* The same MailerLite endpoint and field names as the footer in use, posted natively. The
+			    footer in use does the same today: its script waits for a "Sign up for news" button this
+			    branch removed, so MailerLite's own script never loads there either. */
+				}
+				<form class="fm__news" action={FOOTER_NEWSLETTER.action} method="POST" target="_blank">
+					<label class="fm__news-label" for={`${uid}-email`}>{FOOTER_NEWSLETTER.label}</label>
+					<p class="fm__news-lede" id={`${uid}-lede`}>{FOOTER_NEWSLETTER.lede}</p>
+					<div class="fm__field">
+						<input
+							id={`${uid}-email`}
+							type="email"
+							name="fields[email]"
+							required
+							placeholder="you@company.com"
+							autocomplete="email"
+							spellcheck="false"
+							autocapitalize="off"
+							aria-describedby={`${uid}-lede`}
+						/>
+						<input type="hidden" name="ml-submit" value="1" />
+						<button type="submit">Subscribe</button>
+					</div>
+					<p class="fm__consent">{FOOTER_NEWSLETTER.consent}</p>
+				</form>
+				{
+					/* The kept-up channels, under the newsletter rather than under the logo: both answer "how
+				    do I keep up", and three channels can carry their names, so they are buttons you can
+				    read rather than a row of small glyphs. */
+				}
+				<ul class="fm__social" aria-label="Follow ThingsBoard">
 					{
 						social.map((n) => (
 							<li>
-								<a href={n.href} aria-label={n.ariaLabel} target="_blank" rel="noopener noreferrer">
+								<a href={n.href} target="_blank" rel="noopener noreferrer">
 									{n.icon && <Icon name={n.icon} aria-hidden="true" />}
+									{n.name}
 								</a>
 							</li>
 						))
 					}
 				</ul>
 			</div>
-
-			{
-				/* The same MailerLite endpoint and field names as the footer in use, posted natively. The
-			    footer in use does the same today: its script waits for a "Sign up for news" button this
-			    branch removed, so MailerLite's own script never loads there either. */
-			}
-			<form class="fm__news" action={FOOTER_NEWSLETTER.action} method="POST" target="_blank">
-				<label class="fm__news-label" for={`${uid}-email`}>{FOOTER_NEWSLETTER.label}</label>
-				<p class="fm__news-lede" id={`${uid}-lede`}>{FOOTER_NEWSLETTER.lede}</p>
-				<div class="fm__field">
-					<input
-						id={`${uid}-email`}
-						type="email"
-						name="fields[email]"
-						required
-						placeholder="you@company.com"
-						autocomplete="email"
-						spellcheck="false"
-						autocapitalize="off"
-						aria-describedby={`${uid}-lede`}
-					/>
-					<input type="hidden" name="ml-submit" value="1" />
-					<button type="submit">Subscribe</button>
-				</div>
-				<p class="fm__consent">{FOOTER_NEWSLETTER.consent}</p>
-			</form>
 		</div>
 
 		<nav class="fm__map" aria-label="Products">
@@ -210,26 +221,26 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 				<SmartImage
 					src="/src/assets/images/landings/footer/crozdesk-quality-choice-badge.png"
 					alt="Crozdesk Quality Choice"
-					height="48"
-					width="48"
+					height="64"
+					width="64"
 				/>
 				<SmartImage
 					src="/src/assets/images/landings/footer/crozdesk-trusted-vendor-badge.png"
 					alt="Crozdesk Trusted Vendor"
-					height="48"
-					width="48"
+					height="64"
+					width="64"
 				/>
 				<SmartImage
 					src="/src/assets/images/landings/footer/crozdesk-happiest-users-badge.png"
 					alt="Crozdesk Happiest Users"
-					height="48"
-					width="48"
+					height="64"
+					width="64"
 				/>
 				<SmartImage
 					src="/src/assets/images/landings/footer/supplier-retail.webp"
 					alt="Top Supplier in Retail 2024"
-					height="48"
-					width="33"
+					height="64"
+					width="44"
 				/>
 			</div>
 		</div>
@@ -270,13 +281,16 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 			border-radius: 4px;
 		}
 
-		ul {
+		// Resets at a single class's weight (`:where` adds nothing), so each piece's own margin below
+		// beats them. As `.fm ul` / `.fm h2` they outranked every one: the column titles lost their
+		// 12px, the social row its rule and the platforms' links their 16px.
+		:where(ul) {
 			list-style: none;
 			margin: 0;
 			padding: 0;
 		}
 
-		h2 {
+		:where(h2) {
 			margin: 0;
 		}
 	}
@@ -323,40 +337,49 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 	}
 
 	.fm__tagline {
-		margin: $spacing-3 0 $spacing-5;
+		margin: $spacing-3 0 0;
 		max-width: 38ch;
 		@include type-body;
 		color: var(--fm-soft);
 		text-wrap: pretty;
 	}
 
+	// Three named buttons at the size of the form's control above them: 40 against its 44, so the
+	// block reads form first, channels second.
 	.fm__social {
 		display: flex;
 		flex-wrap: wrap;
-		gap: $spacing-1;
-		// Pulls the first icon's hit area back onto the text edge above it.
-		margin-left: -8px;
+		gap: $spacing-2;
+		margin-top: $spacing-5;
+		padding-top: $spacing-5;
+		border-top: 1px solid var(--fm-rule);
 
 		a {
-			display: grid;
-			place-items: center;
-			width: 36px;
-			height: 36px;
+			display: inline-flex;
+			align-items: center;
+			gap: $spacing-2;
+			height: 40px;
+			padding: 0 14px 0 12px;
+			border: 1px solid rgba(255, 255, 255, 0.14);
 			border-radius: $radius-md;
-			color: var(--fm-muted);
+			font-size: $font-size-sm;
+			font-weight: $font-weight-medium;
+			color: var(--fm-soft);
 			transition:
 				color 0.15s,
-				background-color 0.15s;
+				background-color 0.15s,
+				border-color 0.15s;
 
 			&:hover {
 				color: #fff;
 				background: var(--fm-hover);
+				border-color: rgba(255, 255, 255, 0.28);
 			}
 		}
 
 		:global(svg) {
-			width: 18px;
-			height: 18px;
+			width: 20px;
+			height: 20px;
 		}
 	}
 
@@ -799,9 +822,11 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		align-items: center;
 		gap: $spacing-3;
 
+		// 64, up from 48: at 48 the seals' own lettering was unreadable, and they are the one proof
+		// the foot carries. The footer in use shows them at 80, in its top row.
 		:global(img) {
 			display: block;
-			height: 48px;
+			height: 64px;
 			width: auto;
 		}
 	}

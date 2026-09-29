@@ -193,7 +193,11 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
  * not the product), Facebook (kept up, but re-posts with little reach). The shared
  * `data/socialNetworks.ts` is untouched: the footer in use still reads all seven.
  */
-export const FOOTER_SOCIAL = ['simple-icons:github', 'simple-icons:youtube', 'simple-icons:linkedin'];
+export const FOOTER_SOCIAL = [
+	{ icon: 'simple-icons:github', name: 'GitHub' },
+	{ icon: 'simple-icons:youtube', name: 'YouTube' },
+	{ icon: 'simple-icons:linkedin', name: 'LinkedIn' },
+];
 
 /** The bottom line's links. The cookie policy is the only legal page the site has. */
 export const FOOTER_LEGAL: FooterLink[] = [{ label: 'Cookie policy', href: '/cookie-policy/' }];
