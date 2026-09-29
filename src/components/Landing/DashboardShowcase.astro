@@ -27,10 +27,12 @@ interface Props {
 	 *
 	 *   cut      at once, as the handoff homepage shipped it.
 	 *   handoff  the page's own switch motion (the AI section's hand-off, the Automate switch's): the
-	 *            next shot fades in over the last from the side it comes from while the last drifts
-	 *            the other way under it, the card eases to the next shot's width, and the copy rises
-	 *            into place. 420ms for the board — a screenshot this size needs longer than a panel of
-	 *            text to read as moving rather than flashing — on the same curve.
+	 *            next shot fades in over the last from the side it comes from and settles to its
+	 *            size, the last holds under it until it is covered and then drifts the other way, the
+	 *            card morphs to the next shot's width with its edge sweeping across both, and the copy
+	 *            rises into place. 480ms for the board — long enough for a SCADA case's change of
+	 *            shape to read as one movement — against 260ms for the fade itself, all on the page's
+	 *            ease-out, so it moves from the press's first frame.
 	 */
 	motion?: 'cut' | 'handoff';
 	/**
@@ -63,7 +65,9 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 					id={`${id}-board-${i}`}
 					hidden={i !== 0}
 					data-ratio={ratioOf(item)}
-					style={item.overlaySrc ? `--cmp-ratio: ${item.width} / ${item.height}` : undefined}
+					style={
+						`--frame-ratio: ${ratioOf(item)}` + (item.overlaySrc ? `; --cmp-ratio: ${item.width} / ${item.height}` : '')
+					}
 				>
 					{item.overlaySrc ? (
 						<ImageComparison
@@ -85,15 +89,6 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 				</div>
 			))
 		}
-
-		<div class="dashshow__arrows">
-			<button type="button" class="dashshow__arrow" data-dashshow-prev aria-label="Previous use case">
-				<Icon name="tabler:chevron-left" aria-hidden="true" />
-			</button>
-			<button type="button" class="dashshow__arrow" data-dashshow-next aria-label="Next use case">
-				<Icon name="tabler:chevron-right" aria-hidden="true" />
-			</button>
-		</div>
 	</div>
 
 	<div class="dashshow__body">
@@ -123,6 +118,15 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		</div>
 
 		<div class="dashshow__detail">
+			<div class="dashshow__arrows">
+				<button type="button" class="dashshow__arrow" data-dashshow-prev aria-label="Previous use case">
+					<Icon name="tabler:chevron-left" aria-hidden="true" />
+				</button>
+				<button type="button" class="dashshow__arrow" data-dashshow-next aria-label="Next use case">
+					<Icon name="tabler:chevron-right" aria-hidden="true" />
+				</button>
+			</div>
+
 			{
 				items.map((item, i) => (
 					<div
@@ -223,14 +227,36 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		position: relative;
 		overflow: hidden;
 		border-radius: $radius-lg;
-		border: 1px solid var(--sl-color-hairline-light);
-		background: var(--color-bg-surface);
+		// FULL BLEED: the shots cover the card to its outer edge. A 1px border took the
+		// card's content box 2px narrower than the width each shot is sized to, so every
+		// shot, fitted with `contain`, painted 0.85–1.2px short of each side and the
+		// card showed through down both edges. The hairline is drawn OVER the shots
+		// instead (`::after`).
+		//
+		// The ground is the SCADA pool's own canvas, for whatever still shows — a
+		// sub-pixel at an edge, or the card's width opening ahead of a shot: its
+		// high-performance half on the left (#e0e0e0), the traditional one on the
+		// right (#efefef), which is where each half meets the card's edge.
+		background: linear-gradient(90deg, #e0e0e0 50%, #efefef 50%);
 		// The board is a screenshot of a product, and it sat flat on the section
 		// with only a hairline to say where it ended — on the near-white band that
 		// edge is most of what separates a dashboard from the page around it.
 		// `--shadow-card` rather than a new value: it is the token this site lifts
 		// cards with, and it tracks the dark theme on its own.
 		box-shadow: var(--shadow-card);
+
+		// Dark and translucent, so it firms up a pale shot's edge and disappears into a
+		// dark one — a light hairline around a dark dashboard read as the card's
+		// ground peeking out from behind it.
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			z-index: 3;
+			border-radius: inherit;
+			box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+			pointer-events: none;
+		}
 	}
 
 	// Ten shots at three aspect ratios: the eight original cases are 1920x866, the
@@ -249,93 +275,133 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		height: 100%;
 	}
 
+	// `cover`, not `contain`: the frame already has the shot's own ratio, so this
+	// crops nothing but the rounding — and rounding is what `contain` left as a
+	// sliver of card down each side.
 	.dashshow__frame :global(img) {
 		display: block;
 		width: 100%;
 		height: 100%;
-		object-fit: contain;
+		object-fit: cover;
 	}
 
 	// ImageComparison is built for a use-case page, where it spaces itself off the
-	// prose around it. In the board it IS the board, so the margin comes off.
-	//
-	// It takes its OWN shot's ratio rather than the frame's: letting it fill a
-	// wider frame would leave the drag handle travelling across blank ground at
-	// both ends, where there is no picture under it to compare.
+	// prose around it. In the board it IS the board, so the margin comes off, and it
+	// fills the frame — which is sized to its shot's ratio, so the drag handle still
+	// travels only across picture.
 	.dashshow__frame :global(.uc-img-comparison) {
+		width: 100%;
 		height: 100%;
-		aspect-ratio: var(--cmp-ratio);
-		margin: 0 auto;
+		margin: 0;
 	}
 
-	// Both halves have to fit the SAME box or the two shots drift out of register
-	// under the slider — the component's own `cover` crops each to fill instead.
+	// Both halves fill the SAME box, so they stay in register under the slider: the
+	// two shots differ by a pixel in width (2238 and 2237), which `cover` absorbs.
+	.dashshow__frame :global(.uc-img-comparison img),
 	.dashshow__frame :global(.uc-img-overlay img) {
-		object-fit: contain;
+		height: 100%;
+		object-fit: cover;
 	}
 
 	// THE HAND-OFF'S STACK: every shot in the board's one cell, so the leaving one can stay under the
-	// arriving one while it drifts out. Only the two in play are shown; the rest keep `hidden`. The
-	// card's width follows the shot, eased, so a squarer shot is met rather than jumped to.
+	// arriving one while it drifts out. Only the ones in play are shown; the rest keep `hidden`. The
+	// card's width follows the shot, so a squarer shot is met rather than jumped to — on the page's
+	// ease-out, which moves on the click's first frame. (An in-out curve here hid the card's ground
+	// better, but barely moved for the first 100ms and read as a lag; the ground is the SCADA grey
+	// now, so there is nothing to hide.)
+	//
+	// `isolation` keeps the shots' z-indexes inside the card.
 	.dashshow--handoff .dashshow__board {
 		display: grid;
 		grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+		isolation: isolate;
 		transition:
-			width 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
-			margin-inline 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+			width 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
+			margin-inline 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
 	}
 
+	// EACH SHOT AT ITS OWN SIZE, centred, whatever width the card is at. Sized by the card instead,
+	// both shots shrank and grew with it while it eased to a SCADA case's shape — the leaving one
+	// letterboxed, the arriving one swelling into place — which is most of what made that change read
+	// as a jolt. Now nothing inside the card scales: its edge sweeps across the shots like a mask.
+	// Centred by margins, as the board is, since the hand-off animates the shots' `transform`.
 	.dashshow--handoff .dashshow__frame {
-		grid-area: 1 / 1;
-		z-index: 1;
-		min-width: 0;
+		--frame-w: min(var(--board-w), calc(var(--board-h) * var(--frame-ratio, (1920 / 866))));
 
-		&.is-leaving {
-			z-index: 0;
+		grid-area: 1 / 1;
+		z-index: 2;
+		width: var(--frame-w);
+		margin-inline: calc((100% - var(--frame-w)) / 2);
+
+		&.is-leaving,
+		&.is-left {
+			z-index: 1;
 			pointer-events: none;
+		}
+
+		// A shot left while it was still leaving, when a change lands mid-flight: under the one now
+		// leaving, which is under the one arriving.
+		&.is-left {
+			z-index: 0;
 		}
 	}
 
-	// Over the board's corner rather than in the body, so the list below stays a
-	// clean two-column read.
+	// Beside the case's title, not over the board. On the board's corner they moved with the card —
+	// 95px in on each SCADA case, whose squarer shot gives up that much width — and in the hand-off's
+	// stack the shots painted over them. Here nothing that changes with the case can move them.
+	.dashshow__detail {
+		position: relative;
+	}
+
 	.dashshow__arrows {
 		position: absolute;
-		right: $spacing-3;
-		bottom: $spacing-3;
+		// Centred on the title's first line (`type-card`: 1.2 × the 2xl size).
+		top: calc((#{$font-size-2xl} * 1.2 - 40px) / 2);
+		right: 0;
 		display: flex;
 		gap: $spacing-2;
 
 		// Below md the board is swiped and the rail under it names every case, so
-		// the arrows are a third control over the smallest picture on the page —
-		// 96px of discs across a card that is 280px wide at its narrowest.
+		// the arrows are a third control over the smallest picture on the page.
 		@include media-down(md) {
 			display: none;
 		}
 	}
 
-	// Solid black discs: the boards behind them are dark dashboards, and a pale
-	// outlined button disappeared into the screenshot.
+	// Solid black discs, flat. The press answers at once (`:active`), before the board has moved a
+	// pixel, so the click is felt on the button rather than waited for on the picture.
 	.dashshow__arrow {
 		display: grid;
 		place-items: center;
-		width: 44px;
-		height: 44px;
+		width: 40px;
+		height: 40px;
 		padding: 0;
 		border: 0;
 		border-radius: 50%;
 		background: var(--color-text);
 		color: #fff;
 		cursor: pointer;
-		transition: opacity 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			transform 0.1s ease;
 
 		&:hover,
 		&:focus-visible {
 			opacity: 0.82;
 		}
 
+		&:focus-visible {
+			outline: 2px solid var(--color-text);
+			outline-offset: 2px;
+		}
+
+		&:active {
+			transform: scale(0.92);
+		}
+
 		svg {
-			width: 22px;
-			height: 22px;
+			width: 20px;
+			height: 20px;
 		}
 	}
 
@@ -458,6 +524,12 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		// every other heading on the page sat at `--color-text`. The homepage was correcting it from
 		// an ID-keyed rule; this component has one caller, so the correction belongs here.
 		color: var(--color-text);
+		// The arrows' room: two 40px discs, their gap, and a step of air before them.
+		padding-inline-end: calc(80px + #{$spacing-2} + #{$spacing-4});
+
+		@include media-down(md) {
+			padding-inline-end: 0;
+		}
 	}
 
 	.dashshow__desc {
@@ -524,6 +596,7 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 
 		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+		// What the list and the copy say is showing.
 		let active = 0;
 
 		// Below md the list is a rail showing about three names at a time, so a
@@ -539,55 +612,153 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 			rail.scrollBy({ left: t.left - r.left - (r.width - t.width) / 2, behavior: reduced ? 'auto' : 'smooth' });
 		};
 
+		// ── Warming ───────────────────────────────────────────
+		// Every shot but the first is `loading="lazy"`, and a hidden lazy image is never fetched — so
+		// the first time a case came up, its shot was not there yet: the change ran over an empty card
+		// and the picture landed after it. The shots either side of the showing case are fetched and
+		// decoded ahead (so the ticker's next is always ready), and so is any the pointer or focus
+		// reaches in the list, which is a click's head start.
+		const warmed = new Map<number, Promise<unknown>>();
+
+		const warm = (i: number) => {
+			const at = (i + frames.length) % frames.length;
+			let done = warmed.get(at);
+			if (!done) {
+				done = Promise.all(
+					[...(frames[at]?.querySelectorAll('img') ?? [])].map((img) => {
+						img.loading = 'eager';
+						return img.decode().catch(() => {});
+					})
+				);
+				warmed.set(at, done);
+			}
+			return done;
+		};
+
+		const loaded = (i: number) =>
+			[...(frames[i]?.querySelectorAll('img') ?? [])].every((img) => img.complete && img.naturalWidth > 0);
+
+		const warmAround = (i: number) => {
+			warm(i + 1);
+			warm(i - 1);
+		};
+
+		tabs.forEach((tab, i) => {
+			tab.addEventListener('pointerenter', () => warm(i));
+			tab.addEventListener('focus', () => warm(i));
+		});
+
 		// ── The hand-off ──────────────────────────────────────
-		// `motion="handoff"`: the arriving shot fades in over the leaving one from the side it comes
-		// from, the leaving one drifts the other way under it and is hidden once the arrival lands,
-		// and the copy rises into place. A change that lands mid-flight settles the last one first —
-		// every animation cancelled, every shot but the showing one hidden — so a fast reader never
-		// sees three boards at once.
+		// `motion="handoff"`: the arriving shot fades in over the showing one from the side it comes
+		// from and settles to its size; the showing one holds, whole, under it until it is covered —
+		// fading earlier let the card's white through both, which read as a flash between a dark
+		// dashboard and a pale SCADA canvas — then fades and drifts the other way. The card morphs to
+		// the arriving shot's width (in the styles), and the copy rises with it.
+		//
+		// It waits for its shot, up to WAIT_MAX: a shot that is not decoded yet would otherwise fade
+		// in as an empty frame. The list says what was picked at once; only the board and the copy
+		// wait, and together.
+		//
+		// A change that lands mid-flight starts from wherever every shot on the board is, rather than
+		// snapping them back to full strength first — so a quick double press on an arrow is one
+		// continuous movement, not two with a flash between.
 		const handoff = root.dataset.dashshowMotion === 'handoff' && !reduced;
 		const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
-		const EASE_OUT = 'cubic-bezier(0.4, 0, 1, 1)';
+		// Short and front-loaded: every curve here moves most in its first frames, so the board answers
+		// the press rather than gathering itself for it.
+		const DURATION = 480;
+		const FADE_IN = 260;
+		const WAIT_MAX = 400;
 		let inFlight: Animation[] = [];
+
+		// The shot on the board. Behind `active` only while the next one is still loading.
+		let shown = 0;
+		let request = 0;
+
+		const setRatio = (i: number) => {
+			const ratio = frames[i]?.dataset.ratio;
+			if (board && ratio) board.style.setProperty('--item-ratio', ratio);
+		};
 
 		const settle = () => {
 			inFlight.forEach((a) => a.cancel());
 			inFlight = [];
 			frames.forEach((frame, i) => {
-				frame.classList.remove('is-leaving');
-				frame.hidden = i !== active;
+				frame.classList.remove('is-leaving', 'is-left');
+				frame.hidden = i !== shown;
 			});
 		};
 
-		const handOff = (from: HTMLElement, to: HTMLElement, panel: HTMLElement | undefined, dir: number) => {
-			settle();
-			from.hidden = false;
-			from.classList.add('is-leaving');
-			const out = from.animate(
-				[
-					{ transform: 'none', opacity: 1 },
-					{ transform: `translateX(${-dir * 20}px)`, opacity: 0.4 },
-				],
-				{ duration: 420, easing: EASE_OUT, fill: 'forwards' }
-			);
+		const handOff = (to: number, dir: number) => {
+			const from = frames[shown];
+			const arriving = frames[to];
+
+			// Every shot on the board as it is painted right now, read before anything is cancelled.
+			const now = (frame: HTMLElement) => {
+				const { opacity, transform } = getComputedStyle(frame);
+				return { frame, opacity: Number(opacity), transform };
+			};
+			const onBoard = frames.filter((frame, i) => !frame.hidden && i !== to).map(now);
+			// A shot called back while it was still leaving comes in from where it had got to.
+			const start = arriving.hidden
+				? { opacity: 0, transform: `translateX(${dir * 20}px) scale(1.015)` }
+				: now(arriving);
+
+			inFlight.forEach((a) => a.cancel());
+			inFlight = [];
+			frames.forEach((frame) => frame.classList.remove('is-leaving', 'is-left'));
+
+			shown = to;
+			panels.forEach((panel, i) => (panel.hidden = i !== to));
+			setRatio(to);
+			arriving.hidden = false;
+
+			onBoard.forEach(({ frame, opacity, transform }) => {
+				frame.classList.add(frame === from ? 'is-leaving' : 'is-left');
+				// Held at the strength it has until the arrival is whole over it, then gone as the card
+				// finishes its change of shape — the part of a wider shot the card has not yet closed
+				// over fades rather than being cut. A shot already on its way out holds too: letting it
+				// finish first uncovered the card's white under a half-arrived one.
+				inFlight.push(
+					frame.animate([{ opacity }, { opacity, offset: FADE_IN / DURATION }, { opacity: 0 }], {
+						duration: DURATION,
+						fill: 'forwards',
+					}),
+					frame.animate([{ transform }, { transform: `translateX(${-dir * 16}px) scale(0.985)` }], {
+						duration: DURATION,
+						easing: EASE,
+						fill: 'forwards',
+					})
+				);
+			});
+
 			// One keyframe with `offset: 0` is a START: the element animates from it to its own style.
-			const arrive = to.animate([{ transform: `translateX(${dir * 28}px)`, opacity: 0, offset: 0 }], {
-				duration: 420,
+			const settleIn = arriving.animate([{ transform: start.transform, offset: 0 }], {
+				duration: DURATION,
 				easing: EASE,
 				fill: 'backwards',
 			});
-			inFlight = [out, arrive];
+			inFlight.push(
+				settleIn,
+				arriving.animate([{ opacity: start.opacity, offset: 0 }], {
+					duration: FADE_IN,
+					easing: EASE,
+					fill: 'backwards',
+				})
+			);
+
+			const panel = panels[to];
 			if (panel) {
 				inFlight.push(
-					panel.animate([{ transform: 'translateY(8px)', opacity: 0, offset: 0 }], {
-						duration: 300,
-						delay: 80,
+					panel.animate([{ transform: 'translateY(6px)', opacity: 0, offset: 0 }], {
+						duration: FADE_IN,
 						easing: EASE,
 						fill: 'backwards',
 					})
 				);
 			}
-			arrive.finished.then(settle, () => {});
+
+			settleIn.finished.then(settle, () => {});
 		};
 
 		const show = (next: number, focus = false, dir?: number) => {
@@ -600,18 +771,31 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 				// Roving tabindex: the list is one stop, arrow keys move within it.
 				tab.tabIndex = on ? 0 : -1;
 			});
-			panels.forEach((panel, i) => (panel.hidden = i !== active));
-			if (handoff && previous !== active) {
-				// The control says which way it went — next wraps from the last case to the first and is
-				// still "next" — and a pick from the list goes the way the list runs.
-				handOff(frames[previous], frames[active], panels[active], dir ?? (active > previous ? 1 : -1));
+
+			if (handoff) {
+				if (previous !== active) {
+					const to = active;
+					// The control says which way it went — next wraps from the last case to the first and
+					// is still "next" — and a pick from the list goes the way the list runs.
+					const way = dir ?? (active > previous ? 1 : -1);
+					// Only the latest request runs: one overtaken while its shot loaded is dropped.
+					const id = ++request;
+					// A shot that is already in starts in this same frame. Going through the promise even
+					// then cost a frame or two between the press and the first movement.
+					if (loaded(to)) handOff(to, way);
+					else
+						Promise.race([warm(to), new Promise((resolve) => window.setTimeout(resolve, WAIT_MAX))]).then(() => {
+							if (id === request && to !== shown) handOff(to, way);
+						});
+				}
 			} else {
+				panels.forEach((panel, i) => (panel.hidden = i !== active));
 				frames.forEach((frame, i) => (frame.hidden = i !== active));
+				// The card takes the shape of the shot it is showing.
+				setRatio(active);
 			}
 
-			// The card takes the shape of the shot it is showing.
-			const ratio = frames[active]?.dataset.ratio;
-			if (board && ratio) board.style.setProperty('--item-ratio', ratio);
+			warmAround(active);
 
 			// `focus()` scrolls the chip into view itself, by the shortest hop and
 			// instantly, which cancels the centring below part-way through. Where we
@@ -638,7 +822,11 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		let stopped = reduced;
 		let onScreen = false;
 
-		new IntersectionObserver((entries) => (onScreen = entries[0].isIntersecting)).observe(root);
+		new IntersectionObserver((entries) => {
+			onScreen = entries[0].isIntersecting;
+			// The first look at the section is when the arrows and the ticker can first be used.
+			if (onScreen) warmAround(active);
+		}).observe(root);
 
 		const ticker = window.setInterval(() => {
 			if (stopped) {
@@ -678,12 +866,14 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		// captures the pointer on `pointerdown` and a horizontal drag there IS the
 		// gesture that moves its handle.
 		const SWIPE_MIN = 40;
-		const onComparison = (target: EventTarget | null) => target instanceof Element && !!target.closest('.uc-img-comparison');
+		const onComparison = (target: EventTarget | null) =>
+			target instanceof Element && !!target.closest('.uc-img-comparison');
 
 		let swipeFrom: { x: number; y: number } | null = null;
 
 		board?.addEventListener('pointerdown', (event) => {
-			swipeFrom = event.pointerType === 'touch' && !onComparison(event.target) ? { x: event.clientX, y: event.clientY } : null;
+			swipeFrom =
+				event.pointerType === 'touch' && !onComparison(event.target) ? { x: event.clientX, y: event.clientY } : null;
 		});
 
 		// A vertical pan is the browser's to scroll, and it cancels the pointer on
