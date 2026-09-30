@@ -20,23 +20,29 @@ import {
  * `ClosingCta` (homepage) and the `.page-closing` bands of the Cloud and On-premises pages, which
  * are three copies of one shape. Judged at `/internal/sections/footer/`; not wired in.
  *
- * The shape: the product's mark, a title, a lead, the way in, a quieter way to ask a person, a note.
- * `id` picks the page's words (`data/bookends.ts`); `ways` picks what the way in is made of:
+ * `id` picks the page's words (`data/bookends.ts`); `ways` picks what the way in is made of, and
+ * with it the layout:
  *
- * - `buttons` — the primary and the secondary, as all three pages have it today.
- * - `regions` — Cloud's two regions, each a sign-up on its host, IN PLACE OF the primary: sign-up
- *   has to know the region, so the bookend asks it here instead of in a dialog. The secondary stays.
- * - `platforms` — the pair, then four of the On-premises guides as chips and a link to the rest.
- * - `paths` — both platforms side by side, Cloud with its regions, On-premises with its guide and
- *   chips: the installations hub's two sections, as one decision. The homepage's.
+ * - `buttons` — CENTRED, as all three pages ship today: the mark, the title, the lead, the primary
+ *   and the secondary, then whatever the page adds under them (a question, a line across, a note).
  *
- * The regions and guides are the installations hub's own data, so they cannot drift from that page.
- * The pieces are drawn here rather than lifted from `installations/index.astro`, which ships and is
- * not touched to try an idea; once a direction is promoted, the two should share one component.
+ * The rest are COLUMNS (2026-09-30, after a Stripe-like example of the layout): an intro column —
+ * a smaller title, the lead, the buttons — beside one or two columns that ARE the way in. Only what
+ * the decision needs; the mark, the question, the line across and the legal note go, the footer
+ * under the band carries the legal links and the pricing link.
  *
- * `tone` is the ground: `dark` (the homepage's bookend, `#121425` with the wave in indigo) or `light`
- * (the product pages', their own tint with the wave in their accent). Set as `data-tone`, so the
- * sandbox's switch can flip every instance on the page without re-rendering.
+ * - `regions` — Cloud's two regions, each a sign-up on its host, in place of the primary: sign-up has
+ *   to know the region, so the band asks it here rather than in a dialog.
+ * - `platforms` — four of the On-premises guides and a link to the rest, beside the install pair.
+ * - `paths` — Cloud and On-premises as two columns, each its mark, its name, one line and its way
+ *   in: the installations hub's two sections as one decision. The homepage's.
+ *
+ * The regions and guides are the installations hub's own data. The region cards are WHITE on either
+ * ground, so on the dark one they are the brightest thing in the band — the thing to press.
+ *
+ * `tone` is the ground: `dark` (the homepage's, `#121425` with the wave in indigo) or `light` (the
+ * product pages', their own tint with the wave in their accent). Set as `data-tone`, so the
+ * sandbox's switch can flip every instance without a re-render.
  */
 
 interface Props {
@@ -53,133 +59,134 @@ const DEFAULT_TONE = { home: 'dark', cloud: 'light', onprem: 'light' } as const;
 const { id, ways = DEFAULT_WAYS[id], tone = DEFAULT_TONE[id], expertHref } = Astro.props;
 const b = BOOKENDS[id];
 const ask = b.ask && expertHref ? { ...b.ask, action: { ...b.ask.action, href: expertHref } } : b.ask;
+const columns = ways !== 'buttons';
 
-// The mark in both dresses, and CSS shows the one the tone wants: the white tile with the inked mark
-// on the dark ground (the homepage's close), the mark knocked out of the accent on the light one (the
-// product pages' app logo). Both are rendered so the tone can flip without a re-render.
+// The centred layout's mark, in both dresses; CSS shows the one the tone wants — the white tile
+// with the inked mark on dark (the homepage's close), the mark knocked out of the accent on light
+// (the product pages' app logo) — so the tone can flip without a re-render.
 const markLight = tbMark.replace(/<svg\b/, '<svg aria-hidden="true"');
 const markDark = inkedMark();
 
+type Button = { a: BookendAction; kind: 'primary' | 'secondary' };
+const primary = (a: BookendAction): Button => ({ a, kind: 'primary' });
+const secondary = (a: BookendAction): Button => ({ a, kind: 'secondary' });
+
+// The intro's buttons. Where the regions or the paths are the way in, the buttons are the OTHER ways
+// — outlines, so the white cards stay the thing to press; with the platforms, the install pair.
+const buttons: Button[] =
+	ways === 'buttons' || ways === 'platforms'
+		? [primary(b.primary), secondary(b.secondary)]
+		: ways === 'regions'
+			? [secondary(b.secondary), ...(ask ? [secondary(ask.action)] : [])]
+			: [secondary(ask?.action ?? b.secondary)];
+
 const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
-const button = (a: BookendAction, kind: 'primary' | 'secondary') => ({ a, kind });
-const pair = [button(b.primary, 'primary'), button(b.secondary, 'secondary')];
-// The quiet links under the way in, on one row: with the platforms, "All installation options"
-// leads it, beside pricing.
-const links = [...(ways === 'platforms' ? [BOOKEND_ALL_OPTIONS] : []), ...(b.links ?? [])];
-// Regions stand in for the primary; the secondary stays beside the way in.
-const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways === 'paths' ? [] : pair;
 ---
 
-<section class="bk" data-tone={tone} data-ways={ways} style={style}>
+<section class:list={['bk', columns ? 'bk--cols' : 'bk--center']} data-tone={tone} data-ways={ways} style={style}>
 	<PricingBackground contained />
 
 	<div class="bk__inner">
-		<span class="bk__mark bk__mark--dark" aria-hidden="true" set:html={markDark} />
-		<span class="bk__mark bk__mark--light" aria-hidden="true" set:html={markLight} />
-
-		<h2 class="bk__title">{b.title}</h2>
-		<p class="bk__lead">{b.lead}</p>
-
-		{ways === 'regions' && <p class="bk__caption">{b.primary.text}</p>}
-		{
-			ways === 'regions' && (
-				<ul class="bk__regions">
-					{BOOKEND_REGIONS.map((r) => (
-						<li class="bk__region" data-region={r.id}>
-							<a href={r.signup} {...externalLinkAttrs(r.signup)}>
-								<span class="bk__globe">
-									<Icon name="tabler:world" aria-hidden="true" />
-								</span>
-								<span class="bk__region-name">
-									{r.name}
-									<small>{r.note}</small>
-								</span>
-								<span class="bk__region-cta">
-									Sign up
-									<span class="bk__sr"> for ThingsBoard Cloud in {r.name}</span>
-									<Icon name="tabler:chevron-right" aria-hidden="true" />
-								</span>
-							</a>
-						</li>
-					))}
-				</ul>
-			)
-		}
-
-		{
-			ways === 'paths' && b.paths && (
-				<div class="bk__paths">
-					<div class="bk__path bk__path--cloud">
-						<p class="bk__path-name">{b.paths.cloud.name}</p>
-						<p class="bk__path-line">{b.paths.cloud.line}</p>
-						<ul class="bk__regions">
-							{BOOKEND_REGIONS.map((r) => (
-								<li class="bk__region" data-region={r.id}>
-									<a href={r.signup} {...externalLinkAttrs(r.signup)}>
-										<span class="bk__globe">
-											<Icon name="tabler:world" aria-hidden="true" />
-										</span>
-										<span class="bk__region-name">
-											{r.name}
-											<small>{r.note}</small>
-										</span>
-										<span class="bk__region-cta">
-											Sign up
-											<span class="bk__sr"> for ThingsBoard Cloud in {r.name}</span>
-											<Icon name="tabler:chevron-right" aria-hidden="true" />
-										</span>
-									</a>
-								</li>
-							))}
-						</ul>
-						<a class="bk__more bk__more--foot" href={BOOKEND_CLOUD_PLANS.href}>
-							{BOOKEND_CLOUD_PLANS.text}
-							<Icon name="tabler:arrow-right" aria-hidden="true" />
-						</a>
-					</div>
-					<div class="bk__path bk__path--onprem">
-						<p class="bk__path-name">{b.paths.onprem.name}</p>
-						<p class="bk__path-line">{b.paths.onprem.line}</p>
-						<a class="bk__btn bk__btn--guide" href="/docs/installation/">
-							<Icon name="tabler:server" aria-hidden="true" />
-							Installation guide
-						</a>
-						<ul class="bk__chips">
-							{BOOKEND_PLATFORMS.map((o) => (
-								<li>
-									<a class="bk__chip" href={o.href}>
-										<SmartImage src={o.logo} alt="" width="90" height="18" loading="lazy" />
-										{o.label}
-										{o.note && <span class="bk__chip-note">{o.note}</span>}
-									</a>
-								</li>
-							))}
-						</ul>
-						<a class="bk__more bk__more--foot" href={BOOKEND_ALL_OPTIONS.href}>
-							{BOOKEND_ALL_OPTIONS.text}
-							<Icon name="tabler:arrow-right" aria-hidden="true" />
-						</a>
-					</div>
-				</div>
-			)
-		}
-
-		{
-			after.length > 0 && (
-				<div class="bk__actions">
-					{after.map(({ a, kind }) => (
+		<div class="bk__intro">
+			{
+				!columns && (
+					<Fragment>
+						<span class="bk__mark bk__mark--dark" aria-hidden="true" set:html={markDark} />
+						<span class="bk__mark bk__mark--light" aria-hidden="true" set:html={markLight} />
+					</Fragment>
+				)
+			}
+			<h2 class="bk__title">{b.title}</h2>
+			<p class="bk__lead">{b.lead}</p>
+			<div class="bk__actions">
+				{
+					buttons.map(({ a, kind }) => (
 						<a class:list={['bk__btn', `bk__btn--${kind}`]} href={a.href} {...a.attrs}>
 							<Icon name={a.icon} aria-hidden="true" />
 							{a.text}
 						</a>
-					))}
+					))
+				}
+			</div>
+
+			{
+				!columns && ask && (
+					<div class="bk__ask">
+						<p class="bk__ask-label">{ask.label}</p>
+						<a class="bk__btn bk__btn--secondary" href={ask.action.href}>
+							<Icon name={ask.action.icon} aria-hidden="true" />
+							{ask.action.text}
+						</a>
+					</div>
+				)
+			}
+			{
+				!columns && b.links && (
+					<p class="bk__links">
+						{b.links.map((l) => (
+							<a class="bk__more" href={l.href}>
+								{l.text}
+								<Icon name="tabler:arrow-right" aria-hidden="true" />
+							</a>
+						))}
+					</p>
+				)
+			}
+			{
+				!columns && b.cross && (
+					<p class="bk__cross">
+						{b.cross.lead} <a href={b.cross.link.href}>{b.cross.link.text}</a>
+						{b.cross.tail}
+					</p>
+				)
+			}
+			{
+				!columns && b.note && (
+					<p class="bk__note">
+						<a href={b.note.href}>{b.note.text}</a>
+					</p>
+				)
+			}
+		</div>
+
+		{
+			ways === 'regions' && (
+				<div class="bk__col">
+					<p class="bk__caption">{b.primary.text}</p>
+					<ul class="bk__regions">
+						{BOOKEND_REGIONS.map((r) => (
+							<li class="bk__region" data-region={r.id}>
+								<a href={r.signup} {...externalLinkAttrs(r.signup)}>
+									<span class="bk__globe">
+										<Icon name="tabler:world" aria-hidden="true" />
+									</span>
+									<span class="bk__region-name">
+										{r.name}
+										<small>{r.note}</small>
+									</span>
+									<span class="bk__region-cta">
+										Sign up
+										<span class="bk__sr"> for ThingsBoard Cloud in {r.name}</span>
+										<Icon name="tabler:chevron-right" aria-hidden="true" />
+									</span>
+								</a>
+							</li>
+						))}
+					</ul>
+					{id === 'cloud' && (
+						<a class="bk__more" href={BOOKEND_CLOUD_PLANS.href}>
+							{BOOKEND_CLOUD_PLANS.text}
+							<Icon name="tabler:arrow-right" aria-hidden="true" />
+						</a>
+					)}
 				</div>
 			)
 		}
 
 		{
 			ways === 'platforms' && (
-				<div class="bk__platforms">
+				<div class="bk__col">
+					<p class="bk__caption">On your servers</p>
 					<ul class="bk__chips">
 						{BOOKEND_PLATFORMS.map((o) => (
 							<li>
@@ -191,49 +198,52 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 							</li>
 						))}
 					</ul>
-				</div>
-			)
-		}
-
-		{
-			links.length > 0 && (
-				<p class="bk__links">
-					{links.map((l) => (
-						<a class="bk__more" href={l.href}>
-							{l.text}
-							<Icon name="tabler:arrow-right" aria-hidden="true" />
-						</a>
-					))}
-				</p>
-			)
-		}
-
-		{
-			ask && (
-				<div class="bk__ask">
-					<p class="bk__ask-label">{ask.label}</p>
-					<a class="bk__btn bk__btn--secondary" href={ask.action.href}>
-						<Icon name={ask.action.icon} aria-hidden="true" />
-						{ask.action.text}
+					<a class="bk__more" href={BOOKEND_ALL_OPTIONS.href}>
+						{BOOKEND_ALL_OPTIONS.text}
+						<Icon name="tabler:arrow-right" aria-hidden="true" />
 					</a>
 				</div>
 			)
 		}
 
 		{
-			b.cross && (
-				<p class="bk__cross">
-					{b.cross.lead} <a href={b.cross.link.href}>{b.cross.link.text}</a>
-					{b.cross.tail}
-				</p>
-			)
-		}
-
-		{
-			b.note && (
-				<p class="bk__note">
-					<a href={b.note.href}>{b.note.text}</a>
-				</p>
+			ways === 'paths' && b.paths && (
+				<div class="bk__paths">
+					<div class="bk__col">
+						<span class="bk__pmark" style="--pmark: #3d50f5" aria-hidden="true" set:html={markLight} />
+						<p class="bk__path-name">{b.paths.cloud.name}</p>
+						<p class="bk__path-line">{b.paths.cloud.line}</p>
+						<ul class="bk__regions bk__regions--compact">
+							{BOOKEND_REGIONS.map((r) => (
+								<li class="bk__region" data-region={r.id}>
+									<a href={r.signup} {...externalLinkAttrs(r.signup)}>
+										<span class="bk__globe">
+											<Icon name="tabler:world" aria-hidden="true" />
+										</span>
+										<span class="bk__region-name">{r.name}</span>
+										<span class="bk__region-cta">
+											<span class="bk__sr">Sign up for ThingsBoard Cloud in {r.name}</span>
+											<Icon name="tabler:chevron-right" aria-hidden="true" />
+										</span>
+									</a>
+								</li>
+							))}
+						</ul>
+					</div>
+					<div class="bk__col">
+						<span class="bk__pmark" style="--pmark: #178649" aria-hidden="true" set:html={markLight} />
+						<p class="bk__path-name">{b.paths.onprem.name}</p>
+						<p class="bk__path-line">{b.paths.onprem.line}</p>
+						<a class="bk__btn bk__btn--guide" href="/docs/installation/">
+							<Icon name="tabler:server" aria-hidden="true" />
+							Installation guide
+						</a>
+						<a class="bk__more" href={BOOKEND_ALL_OPTIONS.href}>
+							{BOOKEND_ALL_OPTIONS.text}
+							<Icon name="tabler:arrow-right" aria-hidden="true" />
+						</a>
+					</div>
+				</div>
 			)
 		}
 	</div>
@@ -254,14 +264,9 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 		--bk-muted: rgba(255, 255, 255, 0.6);
 		--bk-outline: rgba(255, 255, 255, 0.35);
 		--bk-outline-hover: rgba(255, 255, 255, 0.14);
-		--bk-card: rgba(255, 255, 255, 0.07);
-		--bk-card-hover: rgba(255, 255, 255, 0.12);
-		--bk-panel: rgba(255, 255, 255, 0.04);
 		--bk-wave: #8b9bff;
 		--bk-focus: #fff;
 		--bk-link: #fff;
-		--bk-us: #8b9bff;
-		--bk-eu: #2dd4bf;
 
 		position: relative;
 		overflow: hidden;
@@ -288,14 +293,9 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 		--bk-muted: var(--color-text-secondary, #5b616e);
 		--bk-outline: rgba(15, 23, 42, 0.22);
 		--bk-outline-hover: rgba(15, 23, 42, 0.05);
-		--bk-card: #fff;
-		--bk-card-hover: #fff;
-		--bk-panel: rgba(255, 255, 255, 0.72);
 		--bk-wave: var(--bk-accent);
 		--bk-focus: var(--bk-accent);
 		--bk-link: var(--bk-accent);
-		--bk-us: #3d50f5;
-		--bk-eu: #0f9b8e;
 	}
 
 	a {
@@ -309,10 +309,13 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 		max-width: calc(960px + #{$spacing-5} * 2);
 		margin-inline: auto;
 		padding-inline: $spacing-5;
-		text-align: center;
 	}
 
-	// ---- Mark, title, lead ---------------------------------------------------------------------
+	// ---- Centred (buttons) ---------------------------------------------------------------------
+
+	.bk--center .bk__inner {
+		text-align: center;
+	}
 
 	.bk__mark {
 		display: none;
@@ -362,16 +365,118 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 		text-wrap: pretty;
 	}
 
-	// ---- Buttons -------------------------------------------------------------------------------
-	//
-	// `ClosingCta`'s geometry, which is the hero pair's: 44 high, 16 across, an 18px glyph.
-
 	.bk__actions {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
 		gap: $spacing-3;
 	}
+
+	// ---- Columns -------------------------------------------------------------------------------
+	//
+	// The intro left, the way in beside it. Two columns (intro · regions or platforms) share the
+	// measure evenly; the two paths make three, the intro a little wider. The title is a step down
+	// from the centred one's 40 — 32 at most — so a two-line title fits the narrower column.
+
+	.bk--cols .bk__inner {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-10 $spacing-12;
+		align-items: start;
+		text-align: left;
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.bk--cols[data-ways='paths'] .bk__inner {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+		gap: $spacing-10;
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.bk--cols .bk__title {
+		margin: 0 0 $spacing-4;
+		max-width: none;
+		font-size: clamp(26px, calc(0.5rem + 1.8vw), 32px);
+	}
+
+	.bk--cols .bk__lead {
+		margin: 0 0 $spacing-6;
+		max-width: 44ch;
+	}
+
+	.bk--cols .bk__actions {
+		justify-content: flex-start;
+	}
+
+	.bk__col {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		min-width: 0;
+	}
+
+	.bk__paths {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-8;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	// A path's mark: the platform's squircle, the mark knocked out — the Products section's badge.
+	.bk__pmark {
+		display: grid;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		margin-bottom: $spacing-4;
+		padding: 8px;
+		border-radius: 12px;
+		background: var(--pmark);
+		color: #fff;
+
+		:global(svg) {
+			display: block;
+			width: 100%;
+			height: 100%;
+		}
+	}
+
+	.bk__path-name {
+		margin: 0;
+		font-size: $font-size-base;
+		font-weight: $font-weight-bold;
+		line-height: 1.25;
+		color: var(--bk-text);
+	}
+
+	.bk__path-line {
+		margin: $spacing-1 0 $spacing-4;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+		color: var(--bk-soft);
+	}
+
+	// What the column is: the primary's own words ("Start free on Cloud"), or the hub's group name.
+	.bk__caption {
+		margin: 0 0 $spacing-3;
+		font-size: $font-size-sm;
+		font-weight: $font-weight-bold;
+		line-height: 1.5;
+		color: var(--bk-text);
+	}
+
+	// ---- Buttons -------------------------------------------------------------------------------
+	//
+	// `ClosingCta`'s geometry, which is the hero pair's: 44 high, 16 across, an 18px glyph.
 
 	.bk__btn {
 		display: inline-flex;
@@ -410,8 +515,7 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 		}
 	}
 
-	// The homepage's two-path form: the On-premises guide in the On-premises green, beside Cloud's
-	// regions in theirs — the installations hub's own button.
+	// The two paths' On-premises guide, in the On-premises green — the installations hub's button.
 	.bk__btn--guide {
 		--bk-accent: #178649;
 	}
@@ -428,40 +532,25 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 	// ---- Regions -------------------------------------------------------------------------------
 	//
 	// The installations hub's rows: a globe in the region's hue, the region over where its data stays,
-	// "Sign up" at the end. Two across in the centred column; one on a phone.
+	// "Sign up" at the end. WHITE on both grounds: on the dark one they pop, and the hues and text are
+	// the light ones throughout. Stacked in their column; the compact form (the paths) drops the note,
+	// which the column's own line already says, and shows "Sign up" as its chevron alone (the words
+	// stay for screen readers) — at 267px "North America" broke beside them.
 
-	// What the regions are: the primary's own words ("Start free on Cloud"), over them.
-	.bk__caption {
-		margin: 0 0 $spacing-3;
-		font-size: $font-size-sm;
-		font-weight: $font-weight-bold;
-		line-height: 1.5;
-		color: var(--bk-text);
-	}
-
-	// 820, not the hub's 480 a row: two across, and the longer note ("Data stored in the European
-	// Union", ~230px at 14) holds one line beside the globe and "Sign up" — at 640 both broke, at
-	// 760 Europe's still did.
 	.bk__regions {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: $spacing-3;
-		max-width: 820px;
-		margin: 0 auto $spacing-6;
+		width: 100%;
+		margin: 0;
 		padding: 0;
 		list-style: none;
-		text-align: left;
-
-		@include media-down(md) {
-			grid-template-columns: minmax(0, 1fr);
-		}
 	}
 
 	.bk__region {
-		--region-hue: var(--bk-us);
+		--region-hue: #3d50f5;
 
 		&[data-region='eu'] {
-			--region-hue: var(--bk-eu);
+			--region-hue: #0f9b8e;
 		}
 
 		a {
@@ -470,32 +559,26 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 			gap: $spacing-3;
 			padding: $spacing-3 $spacing-4;
 			border-radius: $radius-lg;
-			background: var(--bk-card);
-			color: var(--bk-text);
+			background: #fff;
+			color: #17181c;
+			box-shadow:
+				0 1px 2px rgba(23, 24, 28, 0.06),
+				0 6px 18px rgba(23, 24, 28, 0.06);
 			transition:
-				background-color 0.15s,
-				box-shadow 0.15s;
+				box-shadow 0.15s,
+				transform 0.15s;
 
 			&:hover {
-				background: var(--bk-card-hover);
+				box-shadow:
+					0 1px 2px rgba(23, 24, 28, 0.08),
+					0 10px 24px rgba(23, 24, 28, 0.14);
+				transform: translateY(-1px);
 			}
 
 			&:focus-visible {
 				outline: 2px solid var(--bk-focus);
 				outline-offset: 3px;
 			}
-		}
-	}
-
-	.bk[data-tone='light'] .bk__region a {
-		box-shadow:
-			0 1px 2px rgba(23, 24, 28, 0.06),
-			0 6px 18px rgba(23, 24, 28, 0.06);
-
-		&:hover {
-			box-shadow:
-				0 1px 2px rgba(23, 24, 28, 0.08),
-				0 10px 24px rgba(23, 24, 28, 0.1);
 		}
 	}
 
@@ -506,7 +589,7 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 		width: 36px;
 		height: 36px;
 		border-radius: 50%;
-		background: color-mix(in srgb, var(--region-hue) 16%, transparent);
+		background: color-mix(in srgb, var(--region-hue) 14%, #fff);
 		color: var(--region-hue);
 
 		:global(svg) {
@@ -527,7 +610,7 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 			font-size: $font-size-sm;
 			font-weight: $font-weight-normal;
 			line-height: 1.5;
-			color: var(--bk-muted);
+			color: #5b616e;
 		}
 	}
 
@@ -547,19 +630,18 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 		}
 	}
 
+	.bk__regions--compact a {
+		padding-block: 10px;
+	}
+
 	// ---- Platforms -----------------------------------------------------------------------------
 	//
 	// The hub's chips: a wordmark and the name, each to its guide. White in both tones — the
 	// wordmarks are drawn for a light ground, and Docker's penguin and apple are black.
 
-	.bk__platforms {
-		margin-top: $spacing-6;
-	}
-
 	.bk__chips {
 		display: flex;
 		flex-wrap: wrap;
-		justify-content: center;
 		gap: $spacing-2;
 		margin: 0;
 		padding: 0;
@@ -645,12 +727,6 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 		margin: $spacing-2 0 0;
 	}
 
-	// The last link in a path's panel sits on its foot, so the two panels end on one line.
-	.bk__more--foot {
-		margin-top: auto;
-		padding-top: $spacing-4;
-	}
-
 	.bk__ask {
 		margin-top: $spacing-8;
 	}
@@ -694,62 +770,6 @@ const after = ways === 'regions' ? [button(b.secondary, 'secondary')] : ways ===
 				color: var(--bk-text);
 			}
 		}
-	}
-
-	// ---- Two paths (the homepage's) ------------------------------------------------------------
-	//
-	// Cloud and On-premises side by side, each on a panel of its own: its name, one line, its way in.
-	// Left-aligned inside the centred band, as the installations hub sets them. One column on a phone.
-
-	.bk__paths {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: $spacing-5;
-		text-align: left;
-
-		@include media-down(md) {
-			grid-template-columns: minmax(0, 1fr);
-		}
-	}
-
-	.bk__path {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		padding: $spacing-6;
-		border-radius: $radius-xl;
-		background: var(--bk-panel);
-
-		@include media-down(md) {
-			padding: $spacing-5;
-		}
-
-		.bk__regions {
-			grid-template-columns: minmax(0, 1fr);
-			width: 100%;
-			max-width: none;
-			margin: 0;
-		}
-
-		.bk__chips {
-			justify-content: flex-start;
-			margin-top: $spacing-5;
-		}
-	}
-
-	.bk__path-name {
-		margin: 0;
-		font-size: $font-size-base;
-		font-weight: $font-weight-bold;
-		line-height: 1.25;
-		color: var(--bk-text);
-	}
-
-	.bk__path-line {
-		margin: $spacing-1 0 $spacing-4;
-		font-size: $font-size-sm;
-		line-height: 1.5;
-		color: var(--bk-soft);
 	}
 
 	.bk__sr {
