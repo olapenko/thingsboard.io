@@ -250,10 +250,15 @@ export const FOOTER_LEGAL: FooterLink[] = [
 	{ label: 'Cookie policy', href: '/cookie-policy/' },
 ];
 
-/** The newsletter block, word for word from the footer in use. */
+/**
+ * The newsletter block: the heading and consent line from the footer in use; the lede rewritten
+ * (2026-09-30). It promised "no sales mail", and the list does carry product news, so the promise
+ * is the one that holds — no spam — and "roughly monthly" becomes plain words. "About once a
+ * month" was 406px against the form's 400 and left "No spam." on a line of its own; this is 366.
+ */
 export const FOOTER_NEWSLETTER = {
 	label: 'Keep up with ThingsBoard',
-	lede: 'Release notes and IoT know-how. Roughly monthly, no sales mail.',
+	lede: 'Release notes and IoT know-how, once a month. No spam.',
 	consent: 'By subscribing you agree to receive newsletters from ThingsBoard, Inc.',
 	action: 'https://static.mailerlite.com/webforms/submit/r9r9x7',
 };
