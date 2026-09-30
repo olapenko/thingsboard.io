@@ -77,6 +77,18 @@ import { kv } from '@root/pages/internal/_key-visuals';
 		</dl>
 	</aside>
 
+	{
+		/* The bookends' ground, for every bookend tab at once: each one's own (the homepage's dark,
+	    the product pages' light), or all dark, or all light. Moved into the page bar by
+	    `_VisualPage`; remembered per browser. */
+	}
+	<div class="page-ctl" role="group" aria-label="Bookend ground" data-bk-tone-ctl>
+		<span class="page-ctl__name">Bookend ground</span>
+		<button type="button" data-bk-tone="own" aria-pressed="true">As set</button>
+		<button type="button" data-bk-tone="dark" aria-pressed="false">Dark</button>
+		<button type="button" data-bk-tone="light" aria-pressed="false">Light</button>
+	</div>
+
 	<Variant
 		visual={kv('footer')}
 		component={FooterStage}
@@ -112,6 +124,57 @@ import { kv } from '@root/pages/internal/_key-visuals';
 		bleed
 		name="Site footer"
 		note="the footer every other marketing page has, and the Live order: main's, under the same closing band"
+	/>
+
+	{
+		/* ---- Bookends ------------------------------------------------------------------------------
+	    The band that closes a page, as one component (`Landing/Bookend`, words in `data/bookends.ts`),
+	    each over the footer that ships on A and B. The regions and guides are the installations
+	    hub's own. The ground switch above flips them all. */
+	}
+	<Variant
+		visual={kv('footer')}
+		component={FooterStage}
+		props={{ bookend: { id: 'home', ways: 'buttons' } }}
+		bleed
+		name="Bookend · Home"
+		note="reference · the homepage's closing band as the component: ClosingCta's words and buttons — Start free on Cloud, Install On-premises, and Talk to an expert under its question"
+	/>
+
+	<Variant
+		visual={kv('footer')}
+		component={FooterStage}
+		props={{ bookend: { id: 'home', ways: 'regions' } }}
+		bleed
+		name="Bookend · Home, regions"
+		note="Cloud's two regions in place of Start free on Cloud — each a sign-up on its own host, so nobody meets the region dialog — with Install On-premises beside the way in, and the question and Talk to an expert under it"
+	/>
+
+	<Variant
+		visual={kv('footer')}
+		component={FooterStage}
+		props={{ bookend: { id: 'home', ways: 'paths' } }}
+		bleed
+		name="Bookend · Home, two paths"
+		note="both platforms side by side, as the installations hub has them: Cloud with its two regions, On-premises with its guide, four platforms and all the options; the question and Talk to an expert under both"
+	/>
+
+	<Variant
+		visual={kv('footer')}
+		component={FooterStage}
+		props={{ bookend: { id: 'cloud' } }}
+		bleed
+		name="Bookend · Cloud"
+		note="the Cloud page's close with its two regions for Try Cloud for free, Talk to an expert beside them, See plans, a line to On-premises (new) and the Cloud privacy policy · on the page's own tint"
+	/>
+
+	<Variant
+		visual={kv('footer')}
+		component={FooterStage}
+		props={{ bookend: { id: 'onprem' } }}
+		bleed
+		name="Bookend · On-premises"
+		note="the On-premises page's close: Install for free and Talk to an expert, then four platforms from the hub and all the options, See plans, the page's own line to Cloud and the licence · on the page's green tint"
 	/>
 </VisualPage>
 
@@ -180,3 +243,50 @@ import { kv } from '@root/pages/internal/_key-visuals';
 		}
 	}
 </style>
+
+<script>
+	/**
+	 * The bookends' ground switch. `As set` puts back each bookend's own `data-tone` (kept on first run
+	 * as `data-tone-own`); `Dark` and `Light` set them all. Remembered in localStorage, and heard by the
+	 * phone frames through the `storage` event, since they are documents of their own.
+	 */
+	const KEY = 'launch-visuals:bookend-tone';
+	type Tone = 'own' | 'dark' | 'light';
+
+	const read = (): Tone => {
+		try {
+			const v = localStorage.getItem(KEY);
+			return v === 'dark' || v === 'light' ? v : 'own';
+		} catch {
+			return 'own';
+		}
+	};
+
+	const apply = (tone: Tone) => {
+		document.querySelectorAll<HTMLElement>('.bk').forEach((el) => {
+			if (!el.dataset.toneOwn) el.dataset.toneOwn = el.dataset.tone;
+			el.dataset.tone = tone === 'own' ? el.dataset.toneOwn : tone;
+		});
+		document.querySelectorAll<HTMLButtonElement>('[data-bk-tone]').forEach((b) => {
+			b.setAttribute('aria-pressed', String(b.dataset.bkTone === tone));
+		});
+	};
+
+	document.querySelectorAll<HTMLButtonElement>('[data-bk-tone]').forEach((b) =>
+		b.addEventListener('click', () => {
+			const tone = b.dataset.bkTone as Tone;
+			try {
+				localStorage.setItem(KEY, tone);
+			} catch {
+				/* the switch still works for this page */
+			}
+			apply(tone);
+		})
+	);
+
+	window.addEventListener('storage', (e) => {
+		if (e.key === KEY) apply(read());
+	});
+
+	apply(read());
+</script>
