@@ -58,12 +58,12 @@ const b = BOOKENDS[id];
 const ask = b.ask && expertHref ? { ...b.ask, action: { ...b.ask.action, href: expertHref } } : b.ask;
 const columns = ways !== 'buttons';
 
-// The centred layout's mark, in both dresses; CSS shows the one the tone wants — the mark itself in
-// white on dark (2026-09-30: it was the white tile with the inked mark, `ClosingCta`'s), the mark
-// knocked out of the accent on light (the product pages' app logo) — so the tone can flip without a
-// re-render. One SVG, in `currentColor`, serves both.
-const markLight = tbMark.replace(/<svg\b/, '<svg aria-hidden="true"');
-const markDark = markLight;
+// The centred layout's mark, in both dresses; CSS shows the one the page and tone want, so the tone
+// can flip without a re-render. The TILE — a white squircle with the mark in near-black, as main's
+// homepage closes — is the homepage's on either ground, and a product page's on the dark one; the
+// ACCENT — the mark knocked out of the page's colour, the product pages' app logo — is a product
+// page's on the light one. One SVG, in `currentColor`, serves both.
+const mark = tbMark.replace(/<svg\b/, '<svg aria-hidden="true"');
 
 // With the regions and side cards (the homepage's): the regions are the path, under the lede, and
 // the other ways on are the side cards; no buttons.
@@ -85,7 +85,13 @@ const buttons: Button[] = side
 const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 ---
 
-<section class:list={['bk', columns ? 'bk--cols' : 'bk--center']} data-tone={tone} data-ways={ways} style={style}>
+<section
+	class:list={['bk', columns ? 'bk--cols' : 'bk--center']}
+	data-tone={tone}
+	data-ways={ways}
+	data-product={b.badge ? '' : undefined}
+	style={style}
+>
 	<PricingBackground contained />
 
 	<div class="bk__inner">
@@ -93,12 +99,12 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 			{
 				!columns && (
 					<Fragment>
-						<span class="bk__mark bk__mark--dark" aria-hidden="true" set:html={markDark} />
-						<span class="bk__mark bk__mark--light" aria-hidden="true" set:html={markLight} />
+						<span class="bk__mark bk__mark--tile" aria-hidden="true" set:html={mark} />
+						<span class="bk__mark bk__mark--accent" aria-hidden="true" set:html={mark} />
 					</Fragment>
 				)
 			}
-			{columns && b.badge && <span class="bk__badge" aria-hidden="true" set:html={markLight} />}
+			{columns && b.badge && <span class="bk__badge" aria-hidden="true" set:html={mark} />}
 			<h2 class="bk__title">{b.title}</h2>
 			<p class="bk__lead">{b.lead}</p>
 			{
@@ -350,21 +356,32 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		}
 	}
 
-	// The mark itself, white, on the dark ground: no tile. 64px of mark, the tile's 80 less its pad.
-	.bk[data-tone='dark'] .bk__mark--dark {
+	// Main's homepage close, to the value: the white squircle washed 5% toward the primary at its foot,
+	// the mark flat in #111318, 12px in. On the light ground a hairline shadow gives the tile its edge.
+	.bk__mark--tile {
 		display: flex;
-		width: 64px;
-		height: 64px;
-		margin-bottom: $spacing-5;
-		padding: 0;
-		color: #fff;
+		color: #111318;
+		background: linear-gradient(155deg, #fff 35%, color-mix(in srgb, #3d50f5 5%, #fff) 100%);
 	}
 
-	.bk[data-tone='light'] .bk__mark--light {
-		display: flex;
-		padding: 14px;
-		color: #fff;
-		background: var(--bk-accent);
+	.bk[data-tone='light'] .bk__mark--tile {
+		box-shadow:
+			0 1px 2px rgba(23, 24, 28, 0.06),
+			0 6px 18px rgba(23, 24, 28, 0.08);
+	}
+
+	// A product page on the light ground: its app logo instead, the tile hidden.
+	.bk[data-tone='light'][data-product] {
+		.bk__mark--tile {
+			display: none;
+		}
+
+		.bk__mark--accent {
+			display: flex;
+			padding: 14px;
+			color: #fff;
+			background: var(--bk-accent);
+		}
 	}
 
 	.bk__title {
