@@ -219,6 +219,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Development services', href: '/services/development-services/' },
 			{ label: 'Support plans', href: '/services/' },
 			{ label: 'Trainings', href: '/services/trainings/' },
+			{ label: 'Affiliate program', href: '/partners/affiliate/' },
 			{ label: 'Hardware partners', href: '/partners/hardware/' },
 			{ label: 'Distributors', href: '/partners/distributors/' },
 		],
