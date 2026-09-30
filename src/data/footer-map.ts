@@ -66,8 +66,7 @@ export const FOOTER_PLATFORMS: FooterProduct[] = [
 	},
 	{
 		// Named as the menu names it: "ThingsBoard", beside "ThingsBoard Cloud". The map's line under it
-		// says where it runs; the strip has no line, and the pair still reads as the platform and its
-		// hosted form.
+		// says where it runs.
 		name: 'ThingsBoard',
 		line: 'Deploy it inside your own network',
 		href: '/products/thingsboard-pe/',

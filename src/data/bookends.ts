@@ -32,12 +32,6 @@ export interface BookendLink {
 	href: string;
 }
 
-/** One path in the bookend's two-path form: a platform, its line, and its way in. */
-export interface BookendPath {
-	name: string;
-	line: string;
-}
-
 export interface Bookend {
 	title: string;
 	lead: string;
@@ -56,8 +50,6 @@ export interface Bookend {
 	cross?: { lead: string; link: BookendLink; tail?: string };
 	/** The legal line at the foot. */
 	note?: BookendLink;
-	/** The two paths' labels, for the homepage's two-path form. */
-	paths?: { cloud: BookendPath; onprem: BookendPath };
 	/**
 	 * With the regions: the other ways on, as quiet cards beside them — an icon, a name, one line, the
 	 * whole card the link. No accent: the regions are the path, these are the side doors.
@@ -99,7 +91,7 @@ export const BOOKEND_PLATFORMS: InstallOption[] = PICK.map((href) => {
 });
 export const BOOKEND_ALL_OPTIONS: BookendLink = { text: 'All installation options', href: '/installations/' };
 
-/** Cloud's own quiet link on the hub ("See plans"), for the Cloud panel of the two-path form. */
+/** Cloud's own quiet link on the hub ("See plans"), under the Cloud bookend's regions. */
 const plans = cloud.links[0];
 export const BOOKEND_CLOUD_PLANS: BookendLink = { text: plans.label, href: plans.href };
 
@@ -132,11 +124,6 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 			{ title: 'Pricing', line: 'Cloud plans and self-hosted licences.', href: '/pricing/', icon: 'tabler:tag' },
 			{ title: TALK.text, line: 'Evaluating for a large deployment?', href: TALK.href, icon: TALK.icon },
 		],
-		// The two-path form's labels: each platform's line on the installations hub, cut to one clause.
-		paths: {
-			cloud: { name: 'ThingsBoard Cloud', line: 'Nothing to install. Pick the region your data lives in.' },
-			onprem: { name: 'ThingsBoard On-premises', line: 'Free to install, on your own servers or fully offline.' },
-		},
 	},
 
 	// The Cloud page's `.page-closing`, word for word; the pricing link and the line to On-premises

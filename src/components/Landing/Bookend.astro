@@ -33,8 +33,6 @@ import {
  * - `regions` — Cloud's two regions, each a sign-up on its host, in place of the primary: sign-up has
  *   to know the region, so the band asks it here rather than in a dialog.
  * - `platforms` — four of the On-premises guides and a link to the rest, beside the install pair.
- * - `paths` — Cloud and On-premises as two columns, each its mark, its name, one line and its way
- *   in: the installations hub's two sections as one decision. The homepage's.
  *
  * The regions and guides are the installations hub's own data. The region cards are WHITE on either
  * ground, so on the dark one they are the brightest thing in the band — the thing to press.
@@ -46,7 +44,7 @@ import {
 
 interface Props {
 	id: BookendId;
-	ways?: 'buttons' | 'regions' | 'platforms' | 'paths';
+	ways?: 'buttons' | 'regions' | 'platforms';
 	tone?: 'dark' | 'light';
 	/** Where the homepage's "Talk to an expert" goes; the `live` order passes main's. */
 	expertHref?: string;
@@ -75,15 +73,14 @@ type Button = { a: BookendAction; kind: 'primary' | 'secondary' };
 const primary = (a: BookendAction): Button => ({ a, kind: 'primary' });
 const secondary = (a: BookendAction): Button => ({ a, kind: 'secondary' });
 
-// The intro's buttons. Where the regions or the paths are the way in, the buttons are the OTHER ways
-// — outlines, so the white cards stay the thing to press; with the platforms, the install pair.
+// The intro's buttons. Where the regions are the way in, the buttons are the OTHER ways — outlines,
+// so the white cards stay the thing to press (and none at all when side cards carry them); with the
+// platforms, and centred, the pair.
 const buttons: Button[] = side
 	? []
-	: ways === 'buttons' || ways === 'platforms'
-		? [primary(b.primary), secondary(b.secondary)]
-		: ways === 'regions'
-			? [secondary(b.secondary), ...(ask ? [secondary(ask.action)] : [])]
-			: [secondary(ask?.action ?? b.secondary)];
+	: ways === 'regions'
+		? [secondary(b.secondary), ...(ask ? [secondary(ask.action)] : [])]
+		: [primary(b.primary), secondary(b.secondary)];
 
 const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 ---
@@ -258,47 +255,6 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 				</div>
 			)
 		}
-
-		{
-			ways === 'paths' && b.paths && (
-				<div class="bk__paths">
-					<div class="bk__col">
-						<span class="bk__pmark" style="--pmark: #3d50f5" aria-hidden="true" set:html={markLight} />
-						<p class="bk__path-name">{b.paths.cloud.name}</p>
-						<p class="bk__path-line">{b.paths.cloud.line}</p>
-						<ul class="bk__regions bk__regions--compact">
-							{BOOKEND_REGIONS.map((r) => (
-								<li class="bk__region" data-region={r.id}>
-									<a href={r.signup} {...externalLinkAttrs(r.signup)}>
-										<span class="bk__globe">
-											<Icon name="tabler:world" aria-hidden="true" />
-										</span>
-										<span class="bk__region-name">{r.name}</span>
-										<span class="bk__region-cta">
-											<span class="bk__sr">Sign up for ThingsBoard Cloud in {r.name}</span>
-											<Icon name="tabler:chevron-right" aria-hidden="true" />
-										</span>
-									</a>
-								</li>
-							))}
-						</ul>
-					</div>
-					<div class="bk__col">
-						<span class="bk__pmark" style="--pmark: #178649" aria-hidden="true" set:html={markLight} />
-						<p class="bk__path-name">{b.paths.onprem.name}</p>
-						<p class="bk__path-line">{b.paths.onprem.line}</p>
-						<a class="bk__btn bk__btn--guide" href="/docs/installation/">
-							<Icon name="tabler:server" aria-hidden="true" />
-							Installation guide
-						</a>
-						<a class="bk__more" href={BOOKEND_ALL_OPTIONS.href}>
-							{BOOKEND_ALL_OPTIONS.text}
-							<Icon name="tabler:arrow-right" aria-hidden="true" />
-						</a>
-					</div>
-				</div>
-			)
-		}
 	</div>
 </section>
 
@@ -437,9 +393,8 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 
 	// ---- Columns -------------------------------------------------------------------------------
 	//
-	// The intro left, the way in beside it. Two columns (intro · regions or platforms) share the
-	// measure evenly; the two paths make three, the intro a little wider. The title is a step down
-	// from the centred one's 40 — 32 at most — so a two-line title fits the narrower column.
+	// The intro left, the way in beside it, the two columns sharing the measure evenly. The title is a
+	// step down from the centred one's 40 — 32 at most — so a two-line title fits the half.
 
 	.bk--cols .bk__inner {
 		display: grid;
@@ -447,15 +402,6 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		gap: $spacing-10 $spacing-12;
 		align-items: start;
 		text-align: left;
-
-		@include media-down(lg) {
-			grid-template-columns: minmax(0, 1fr);
-		}
-	}
-
-	.bk--cols[data-ways='paths'] .bk__inner {
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
-		gap: $spacing-10;
 
 		@include media-down(lg) {
 			grid-template-columns: minmax(0, 1fr);
@@ -571,50 +517,6 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		color: var(--bk-muted);
 	}
 
-	.bk__paths {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: $spacing-8;
-
-		@include media-down(md) {
-			grid-template-columns: minmax(0, 1fr);
-		}
-	}
-
-	// A path's mark: the platform's squircle, the mark knocked out — the Products section's badge.
-	.bk__pmark {
-		display: grid;
-		place-items: center;
-		width: 40px;
-		height: 40px;
-		margin-bottom: $spacing-4;
-		padding: 8px;
-		border-radius: 12px;
-		background: var(--pmark);
-		color: #fff;
-
-		:global(svg) {
-			display: block;
-			width: 100%;
-			height: 100%;
-		}
-	}
-
-	.bk__path-name {
-		margin: 0;
-		font-size: $font-size-base;
-		font-weight: $font-weight-bold;
-		line-height: 1.25;
-		color: var(--bk-text);
-	}
-
-	.bk__path-line {
-		margin: $spacing-1 0 $spacing-4;
-		font-size: $font-size-sm;
-		line-height: 1.5;
-		color: var(--bk-soft);
-	}
-
 	// What the column is: the primary's own words ("Start free on Cloud"), or the hub's group name.
 	.bk__caption {
 		margin: 0 0 $spacing-3;
@@ -654,8 +556,7 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		}
 	}
 
-	.bk__btn--primary,
-	.bk__btn--guide {
+	.bk__btn--primary {
 		border: 1px solid var(--bk-accent);
 		background-color: var(--bk-accent);
 		color: #fff;
@@ -663,11 +564,6 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		&:hover {
 			background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
 		}
-	}
-
-	// The two paths' On-premises guide, in the On-premises green — the installations hub's button.
-	.bk__btn--guide {
-		--bk-accent: #178649;
 	}
 
 	.bk__btn--secondary {
@@ -683,9 +579,7 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 	//
 	// The installations hub's rows: a globe in the region's hue, the region over where its data stays,
 	// "Sign up" at the end. WHITE on both grounds: on the dark one they pop, and the hues and text are
-	// the light ones throughout. Stacked in their column; the compact form (the paths) drops the note,
-	// which the column's own line already says, and shows "Sign up" as its chevron alone (the words
-	// stay for screen readers) — at 267px "North America" broke beside them.
+	// the light ones throughout. Stacked in their column.
 
 	.bk__regions {
 		display: grid;
@@ -778,10 +672,6 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 			width: 18px;
 			height: 18px;
 		}
-	}
-
-	.bk__regions--compact a {
-		padding-block: 10px;
 	}
 
 	// ---- Platforms -----------------------------------------------------------------------------
