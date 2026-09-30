@@ -202,14 +202,12 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 	},
 	{
 		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
-		// else already knows to look. One API link, not two: REST is the one people build ON; the
-		// device-side protocols (MQTT, HTTP, CoAP, LwM2M, SNMP) are what the connectivity guide lists.
+		// else already knows to look. No API or protocol references (REST, connectivity): they are
+		// one click inside Documentation, and a footer is not a docs index.
 		title: 'Developers',
 		links: [
 			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
 			{ label: 'Documentation', href: '/docs/pe/' },
-			{ label: 'Device connectivity', href: '/docs/pe/connect-iot-devices/' },
-			{ label: 'REST API', href: '/docs/pe/reference/rest-api/' },
 			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
 			{ label: 'Release notes', href: '/docs/pe/releases/' },
 			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
@@ -221,7 +219,6 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Development services', href: '/services/development-services/' },
 			{ label: 'Support plans', href: '/services/' },
 			{ label: 'Trainings', href: '/services/trainings/' },
-			{ label: 'Affiliate program', href: '/partners/affiliate/' },
 			{ label: 'Hardware partners', href: '/partners/hardware/' },
 			{ label: 'Distributors', href: '/partners/distributors/' },
 		],
