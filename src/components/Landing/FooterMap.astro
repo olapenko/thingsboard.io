@@ -32,8 +32,9 @@ import {
  *    around it, each with its mark, its hue and one line. `layout` decides how much room that takes:
  *    - `map`: a panel of tiles, name and line under each mark — the platform unpacked.
  *    - `strip`: one wrapping row of chips, marks and names only — the same map, a third the height.
- *    - `focus`: one row — the two platforms side by side, Pricing and Installation options as icon
- *      links at its right end; the ecosystem moves to a link column, the License Portal at its foot.
+ *    - `focus`: one "Platform" group of four peers — ThingsBoard Cloud, ThingsBoard, Pricing,
+ *      Installation options — a mark and a name each; the ecosystem moves to a link column, the
+ *      License Portal at its foot.
  * 3. FOUR LINK COLUMNS: the solutions, the developer references, services and partners, the
  *    company. Then the bottom line: copyright, the cookie policy, the badges.
  *
@@ -148,8 +149,13 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		</div>
 
 		<nav class="fm__map" aria-label="Products">
+			{
+				/* `focus`: ONE group, "Platform" — the product in its two forms and the two pages that
+			    decide it, as four peers with a mark and a name each and no line. The other layouts:
+			    the two platforms with a line each, as the Products menu has them. */
+			}
 			<div class="fm__group fm__group--run">
-				<h2 class="fm__kicker">IoT platforms</h2>
+				<h2 class="fm__kicker">{focus ? 'Platform' : 'IoT platforms'}</h2>
 				<ul class="fm__products">
 					{
 						FOOTER_PLATFORMS.map((p) => (
@@ -159,27 +165,29 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 										<NavIcon src={p.icon} size={lines ? 36 : 20} />
 									</span>
 									<span class="fm__pname">{p.name}</span>
-									{lines && <span class="fm__pline">{p.line}</span>}
+									{lines && !focus && <span class="fm__pline">{p.line}</span>}
 								</a>
 							</li>
 						))
+					}
+					{
+						focus &&
+							FOOTER_HIGHLIGHTS.map((l) => (
+								<li>
+									<a class="fm__product" href={l.href} style="--hue: #8b9bff">
+										<span class="fm__mark">
+											<Icon name={l.icon} aria-hidden="true" />
+										</span>
+										<span class="fm__pname">{l.label}</span>
+									</a>
+								</li>
+							))
 					}
 				</ul>
 			</div>
 
 			{
-				focus ? (
-					<ul class="fm__hl" aria-label="Pricing and installation">
-						{FOOTER_HIGHLIGHTS.map((l) => (
-							<li>
-								<a href={l.href}>
-									<Icon name={l.icon} aria-hidden="true" />
-									{l.label}
-								</a>
-							</li>
-						))}
-					</ul>
-				) : (
+				!focus && (
 					<Fragment>
 						<div class="fm__group fm__group--eco">
 							<h2 class="fm__kicker">Product ecosystem</h2>
@@ -750,58 +758,39 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 
 	// ---- 2a. The focus layout --------------------------------------------------------------------
 	//
-	// One row: the platforms side by side, taking what is left; the two links stacked at the right
-	// end, on the tiles' baseline. On a phone the tiles stack and the links run under them.
+	// One group of four peers: the two platforms and the two pages that decide them, each a mark and
+	// a name. Four across on a desktop (222px each at 960), two on a tablet, one on a phone.
 	.fm--focus .fm__map {
-		grid-template-columns: minmax(0, 1fr) auto;
-		align-items: end;
-
-		@include media-down(md) {
-			grid-template-columns: minmax(0, 1fr);
-		}
+		grid-template-columns: minmax(0, 1fr);
 	}
 
 	.fm--focus .fm__group--run .fm__products {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: $spacing-1 $spacing-6;
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
 
 		@include media-down(md) {
 			grid-template-columns: minmax(0, 1fr);
+			gap: 0;
 		}
 	}
 
-	// An icon in the pages' indigo and a label, 14px medium: links, not tiles.
-	.fm__hl {
-		display: grid;
-		gap: $spacing-3;
-		padding-bottom: 10px;
+	// No line under the name, so mark and name centre on one row instead of the tile's two.
+	.fm--focus .fm__mark {
+		grid-row: auto;
+	}
 
-		@include media-down(md) {
-			display: flex;
-			flex-wrap: wrap;
-			gap: $spacing-2 $spacing-6;
-		}
+	.fm--focus .fm__pname {
+		align-self: center;
+	}
 
-		a {
-			display: inline-flex;
-			align-items: center;
-			gap: $spacing-2;
-			font-size: $font-size-sm;
-			font-weight: $font-weight-medium;
-			line-height: 1.5;
-			color: #fff;
-
-			&:hover {
-				text-decoration: underline;
-				text-underline-offset: 3px;
-			}
-		}
-
-		:global(svg) {
-			width: 18px;
-			height: 18px;
-			color: #8b9bff;
-		}
+	// The two pages' glyphs, a step under the ecosystem's 26 (tabler's are drawn to the box edge).
+	.fm--focus .fm__mark:not(.fm__mark--badge) :global(svg) {
+		width: 22px;
+		height: 22px;
 	}
 
 	// Five columns with the ecosystem in front: 172px each at 960, which the longest link —

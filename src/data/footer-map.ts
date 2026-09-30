@@ -127,11 +127,11 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
 ];
 
 /**
- * `focus` layout: the two links at the right end of the panel's one row, beside the two platforms —
- * what it costs, where it installs. An icon and a label each, no heading and no line: they are the
- * platforms' own links, not a group of their own (a "Start here" over them made Pricing read as a
- * first step). The ecosystem is a link column in this layout, the License Portal at its foot. A page
- * here is not repeated in the columns below.
+ * `focus` layout: the two pages that sit in the panel's one "Platform" group beside the two
+ * platforms, as peers — the product in its two forms, then what it costs and where it installs. A
+ * mark and a name each, no line: a "Start here" group over them made Pricing read as a first step,
+ * and two icon links at the row's end read as an afterthought. A page here is not repeated in the
+ * columns below.
  */
 export const FOOTER_HIGHLIGHTS: (FooterLink & { icon: string })[] = [
 	{ label: 'Pricing', href: '/pricing/', icon: 'tabler:receipt-2' },
