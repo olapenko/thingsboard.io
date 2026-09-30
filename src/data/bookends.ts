@@ -37,6 +37,12 @@ export interface Bookend {
 	lead: string;
 	/** The mark's squircle on the light ground, where it is filled (the product pages' app logo). */
 	accent: string;
+	/**
+	 * The product's badge — the mark knocked out of `accent` — over the title in the column layout:
+	 * the product pages' own, which open on it. The homepage's bookend is not one product's, so it
+	 * has none.
+	 */
+	badge?: boolean;
 	/** The light ground: the page's own tint. */
 	band: string;
 	/** The way in as buttons, when the bookend shows no regions or platforms. */
@@ -130,6 +136,7 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 	// are new (drafted here, not the design's), the second mirroring the one the On-premises page has.
 	cloud: {
 		title: 'Ready to build on ThingsBoard Cloud?',
+		badge: true,
 		lead: 'Start free on Public Cloud in under five minutes, or talk to our team about a dedicated Private Cloud cluster.',
 		accent: '#3d50f5',
 		band: '#f5f6ff',
@@ -151,6 +158,7 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 	// The On-premises page's `.page-closing`, word for word, with the page's own line to Cloud.
 	onprem: {
 		title: 'Ready to deploy ThingsBoard?',
+		badge: true,
 		lead: 'Start on the Free plan and run it on your own hardware, or talk to our team about a perpetual licence and offline operation.',
 		accent: '#178649',
 		band: '#f1f8f4',
