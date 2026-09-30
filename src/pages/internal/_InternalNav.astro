@@ -56,22 +56,38 @@ const protoData = order && {
 };
 
 /**
- * The real pages first: Home, Cloud and On-premises, the three new pages. They are shown as they
- * ship, with this island over them and nothing else, and every internal page is judged against
- * them. Then one link per area (Components, Flows, Design system), each opening the area on its
- * first page. Switching between an area's pages is the top bar's job, not the island's, so there
- * are no menus here. The areas are defined once, in `_areas.ts`.
+ * The real pages first: Home as its icon, then every other page this branch redesigned, in the
+ * Pages menu. They are shown as they ship, with this island over them and nothing else, and every
+ * internal page is judged against them. A menu and not an area: the pages are the site itself, so
+ * there is no overview to open on and no top bar to switch between them.
+ *
+ * Then one link per area (Homepages, Components, Flows, Design system), each opening the area on
+ * its overview. Switching between an area's pages is the top bar's job, not the island's. The areas
+ * are defined once, in `_areas.ts`.
+ *
+ * A page listed here carries the island itself: search `TEMP-INTERNAL-NAV`.
  */
-const PAGES = [
+interface RealPage {
+	href: string;
+	label: string;
+	icon: string;
+	/** Other paths that count as this page: the step a flow takes after it. */
+	also?: string[];
+}
+
+const PAGES: RealPage[] = [
 	{ href: '/products/paas/', label: 'Cloud', icon: 'tabler:cloud' },
 	{ href: '/products/thingsboard-pe/', label: 'On-premises', icon: 'tabler:server' },
+	{ href: '/installations/', label: 'Installations', icon: 'tabler:download' },
+	{ href: '/contact-us/', label: 'Contact us', icon: 'tabler:message-circle', also: ['/contact-us-thanks/'] },
 ];
 
 /** Trailing slash either way, so `/internal/launch-home` and `/internal/launch-home/` both match. */
 const here = Astro.url.pathname.replace(/\/?$/, '/');
 const isHome = here === '/';
 const currentArea = areaFor(here).area;
-const isPage = (href: string) => here === href;
+const isPage = (p: RealPage) => here === p.href || !!p.also?.includes(here);
+const onAPage = PAGES.some(isPage);
 ---
 
 <div class="inav-root" data-internal-nav data-open="true">
@@ -155,23 +171,41 @@ const isPage = (href: string) => here === href;
 		>
 			<Icon name="tabler:home" aria-hidden="true" />
 		</a>
-		<ul class="inav__list">
-			{
-				PAGES.map((p) => (
-					<li>
-						<a
-							href={p.href}
-							title={p.label}
-							aria-label={p.label}
-							aria-current={isPage(p.href) ? 'page' : undefined}
-							class:list={['inav__link', 'inav__link--icon', isPage(p.href) && 'is-here']}
-						>
-							<Icon name={p.icon} aria-hidden="true" />
-						</a>
-					</li>
-				))
-			}
-		</ul>
+		{
+			/* A popover, so the menu opens in the top layer: over the running-order pill, and unclipped by
+		   the island, which scrolls sideways on a narrow phone. The script below places it over its
+		   button, since it no longer sits in the island's box. */
+		}
+		<button
+			class:list={['inav__link', 'inav__pick', onAPage && 'is-here']}
+			type="button"
+			popovertarget="inav-pages"
+			aria-controls="inav-pages"
+			aria-expanded="false"
+			title="The redesigned pages"
+			data-inav-pick
+		>
+			Pages
+			<Icon name="tabler:chevron-up" class="inav__caret" aria-hidden="true" />
+		</button>
+		<div class="inav-menu" id="inav-pages" popover data-inav-menu>
+			<ul class="inav-menu__list" aria-label="Redesigned pages">
+				{
+					PAGES.map((p) => (
+						<li>
+							<a
+								href={p.href}
+								aria-current={isPage(p) ? 'page' : undefined}
+								class:list={['inav-menu__link', isPage(p) && 'is-here']}
+							>
+								<Icon name={p.icon} aria-hidden="true" />
+								{p.label}
+							</a>
+						</li>
+					))
+				}
+			</ul>
+		</div>
 		<span class="inav__sep" aria-hidden="true"></span>
 		<ul class="inav__list">
 			{
@@ -250,6 +284,53 @@ const isPage = (href: string) => here === href;
 
 		hide.addEventListener('click', () => set(false));
 		show.addEventListener('click', () => set(true));
+	}
+
+	// --- the Pages menu --------------------------------------------------------------------------
+
+	const pick = root?.querySelector<HTMLButtonElement>('[data-inav-pick]');
+	const menu = root?.querySelector<HTMLElement>('[data-inav-menu]');
+
+	if (root && pick && menu) {
+		const isOpen = () => menu.matches(':popover-open');
+		// Over its button, opening upwards: the island sits on the bottom edge. Fixed to the viewport,
+		// as the island is, so it only needs placing again when the window changes size.
+		const place = () => {
+			const r = pick.getBoundingClientRect();
+			menu.style.left = `${r.left}px`;
+			menu.style.bottom = `${document.documentElement.clientHeight - r.top + 8}px`;
+		};
+
+		menu.addEventListener('beforetoggle', (e) => {
+			const open = (e as ToggleEvent).newState === 'open';
+			if (open) place();
+			pick.setAttribute('aria-expanded', String(open));
+		});
+		window.addEventListener('resize', () => isOpen() && place());
+
+		// Hiding the island by keyboard does not light-dismiss the menu; close it with the island.
+		root.querySelector('[data-inav-hide]')?.addEventListener('click', () => isOpen() && menu.hidePopover());
+
+		// From the button, up or down opens the menu on its first page.
+		pick.addEventListener('keydown', (e) => {
+			if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+			e.preventDefault();
+			// Through the button, so the menu knows its invoker and Escape hands focus back to it.
+			if (!isOpen()) pick.click();
+			menu.querySelector<HTMLAnchorElement>('a')?.focus();
+		});
+
+		// Up and down step through the pages, wrapping; Escape is the popover's own.
+		menu.addEventListener('keydown', (e) => {
+			if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+			const links = [...menu.querySelectorAll<HTMLAnchorElement>('a')];
+			const i = links.indexOf(document.activeElement as HTMLAnchorElement);
+			const n = links.length;
+			const down = e.key === 'ArrowDown' || e.key === 'Home';
+			const next = e.key === 'Home' || e.key === 'End' || i < 0 ? (down ? 0 : n - 1) : (i + (down ? 1 : n - 1)) % n;
+			e.preventDefault();
+			links[next]?.focus();
+		});
 	}
 
 	// --- the running-order switch, on homepages only ---------------------------------------------
@@ -591,6 +672,126 @@ const isPage = (href: string) => here === href;
 		}
 	}
 
+	/* The Pages button: a label like the areas', with a caret that points the way the menu opens. */
+	.inav__pick {
+		gap: 3px;
+		padding: 0 8px 0 11px;
+		background: none;
+		cursor: pointer;
+
+		:global(.inav__caret) {
+			width: 14px;
+			height: 14px;
+			color: var(--inav-muted);
+			transition: transform 0.15s ease;
+		}
+
+		&.is-here :global(.inav__caret) {
+			color: inherit;
+		}
+
+		&[aria-expanded='true'] :global(.inav__caret) {
+			transform: rotate(180deg);
+		}
+	}
+
+	/* The menu: the island's surface, opened over its button. A popover, so the UA's own box — centred,
+	   bordered, `Canvas` — is undone here. Never `display` on it: that would override the UA rule
+	   that hides a closed popover. */
+	.inav-menu {
+		position: fixed;
+		inset: auto;
+		box-sizing: border-box;
+		min-width: 176px;
+		margin: 0;
+		padding: 4px;
+		overflow: visible;
+		border: 1px solid rgba(23, 28, 34, 0.1);
+		border-radius: 16px;
+		background: rgba(255, 255, 255, 0.97);
+		box-shadow:
+			0 1px 2px rgba(23, 28, 34, 0.06),
+			0 10px 28px rgba(23, 28, 34, 0.14);
+		backdrop-filter: blur(8px);
+		color: var(--inav-ink);
+		opacity: 1;
+		transform: none;
+		transform-origin: left bottom;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s var(--inav-ease),
+			overlay 0.15s allow-discrete,
+			display 0.15s allow-discrete;
+
+		&:not(:popover-open) {
+			opacity: 0;
+			transform: translateY(4px);
+		}
+
+		@starting-style {
+			&:popover-open {
+				opacity: 0;
+				transform: translateY(4px);
+			}
+		}
+	}
+
+	.inav-menu__list {
+		display: grid;
+		gap: 2px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			margin: 0;
+			padding: 0;
+		}
+	}
+
+	.inav-menu__link {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		height: 34px;
+		padding: 0 14px 0 10px;
+		border-radius: 12px;
+		color: var(--inav-ink);
+		font: inherit;
+		text-decoration: none;
+		white-space: nowrap;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		:global(svg) {
+			display: block;
+			flex: none;
+			width: 16px;
+			height: 16px;
+			color: var(--inav-muted);
+		}
+
+		&:hover {
+			background: var(--inav-hover);
+			color: var(--inav-ink);
+		}
+
+		&.is-here {
+			background: var(--inav-accent);
+			color: #fff;
+
+			:global(svg) {
+				color: inherit;
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--inav-accent);
+			outline-offset: -2px;
+		}
+	}
+
 	.inav__sep {
 		flex: none;
 		width: 1px;
@@ -719,21 +920,28 @@ const isPage = (href: string) => here === href;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.inav-root.is-ready :is(.inav, .inav-tab) {
+		.inav-root.is-ready :is(.inav, .inav-tab),
+		.inav-menu,
+		.inav__pick :global(.inav__caret) {
 			transition: none;
 		}
 	}
 
-	/* Three page icons, three area labels and the hide control come to ~390px. At phone width the
-	   labels lose a little padding (~350px at 375); below that the island scrolls rather than
-	   wrapping, because a two-line island no longer reads as one control. */
+	/* Home, Pages, four area labels and the hide control come to ~490px, and ~456 at phone width, where
+	   the labels lose a little padding. Narrower than that the island scrolls sideways rather than
+	   wrapping, because a two-line island no longer reads as one control; the Pages menu is a popover,
+	   so the scrolling box does not clip it. Not at every width: a scrolling box clips the focus ring. */
 	@media (max-width: 480px) {
 		.inav__link:not(.inav__link--icon) {
 			padding: 0 8px;
 		}
+
+		.inav__link.inav__pick {
+			padding-right: 6px;
+		}
 	}
 
-	@media (max-width: 370px) {
+	@media (max-width: 540px) {
 		.inav {
 			overflow-x: auto;
 			scrollbar-width: none;
