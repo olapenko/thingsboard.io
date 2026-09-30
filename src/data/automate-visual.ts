@@ -195,3 +195,22 @@ export const NOTIFY_FEED: NotifyFeedMessage[] = NOTIFY_MESSAGES.map((m) => ({
 	text: m.channel === 'SMS' ? `${FREEZER_ALARM.source} · open over ${openFor(FILTER_CHART.limit)}` : m.text,
 	detail: FEED_DETAIL[m.channel] ?? '',
 }));
+
+/**
+ * What `NotifyFeed` can say beside a channel instead of `to` (2026-09-30); ADDRESS is the homepage's.
+ * `to` is four kinds of thing in one column — two people, a Slack channel, and for the CRM the route
+ * rather than anyone it reaches. Each field here is ONE kind for all four:
+ *
+ * WHO — the people each channel reaches, the Slack channel's and the ticket's as the teams behind
+ * them. ADDRESS — where it lands, in each channel's own notation (a reserved example domain, a 555-01
+ * number). AFTER — seconds after the alarm fired that it landed, for a delivery time.
+ *
+ * Wherever `to` is not shown, "via n8n" moves onto the CRM ticket, so the drawing still does not
+ * imply a built-in connector (see `NOTIFY_MESSAGES`).
+ */
+export const NOTIFY_ASIDES: Record<string, { who: string; address: string; after: number }> = {
+	Email: { who: 'Store manager', address: 'manager@example.com', after: 1 },
+	SMS: { who: 'On-call tech', address: '+1 555 0142', after: 1 },
+	Slack: { who: 'Cold-chain team', address: '#cold-chain', after: 2 },
+	CRM: { who: 'Service desk', address: 'Ticket #148', after: 3 },
+};

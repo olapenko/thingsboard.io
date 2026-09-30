@@ -1,7 +1,15 @@
 ---
 import { Icon } from 'astro-icon/components';
 import { renderId } from '@util/render-id';
-import { ALARM_FIRED_AT, FILTER_CHART, FREEZER_ALARM, NOTIFY_FEED, openFor } from '@data/automate-visual';
+import {
+	ALARM_FIRED_AT,
+	FILTER_CHART,
+	FREEZER_ALARM,
+	NOTIFY_ASIDES,
+	NOTIFY_FEED,
+	clock,
+	openFor,
+} from '@data/automate-visual';
 
 /**
  * Notify without the mark, beside `FilterChart` — the homepage's since 2026-09-27, over `NotifyFlow`.
@@ -11,6 +19,10 @@ import { ALARM_FIRED_AT, FILTER_CHART, FREEZER_ALARM, NOTIFY_FEED, openFor } fro
  * its own colour; one at a time opens into the message as it arrived, drawn as that channel shows it:
  * an unread email, the SMS as a green bubble, a post in the Slack channel, a CRM ticket with its status
  * chips. The open channel's arrow is red.
+ *
+ * EACH HEAD NAMES WHERE IT LANDED, after the channel and in that channel's own notation — an address,
+ * a number, #cold-chain, a ticket — since 2026-09-30 (`aside`). The column on the right it replaced
+ * held four kinds of thing: two people, a channel and the CRM's route, which is now on the ticket.
  *
  * THE ARROWS ARE COMPUTED. Every open message is one height, so where each row's head sits is known
  * for each of the four states, and each arrow is one S-curve scaled to reach its row's head in the
@@ -25,6 +37,29 @@ import { ALARM_FIRED_AT, FILTER_CHART, FREEZER_ALARM, NOTIFY_FEED, openFor } fro
  * the last click it goes on from there (`RESUME_AT`). Without motion: email open, at rest, and the
  * buttons still switch, and stay.
  */
+
+interface Props {
+	/**
+	 * What each channel's head says besides the channel (`NOTIFY_ASIDES`). `address`, the homepage's
+	 * since 2026-09-30 — where it landed in the channel's own notation, after the channel. `to` — the
+	 * column on the right it replaced: who or where, four kinds of thing. `who` — the people reached,
+	 * after the channel.
+	 * `time` — the column kept for one kind of thing, the time each landed. `who-time`, `address-time` —
+	 * either beside the channel, and the time on the right. `none` — the channel alone.
+	 */
+	aside?: 'to' | 'who' | 'address' | 'time' | 'who-time' | 'address-time' | 'none';
+}
+
+const { aside = 'address' } = Astro.props;
+const besideOf = (channel: string) =>
+	aside === 'who' || aside === 'who-time'
+		? NOTIFY_ASIDES[channel]?.who
+		: aside === 'address' || aside === 'address-time'
+			? NOTIFY_ASIDES[channel]?.address
+			: undefined;
+const timed = aside === 'time' || aside === 'who-time' || aside === 'address-time';
+/** The alarm's time in seconds since midnight: each delivery time is this plus its channel's `after`. */
+const FIRED_S = FILTER_CHART.openedAt + FILTER_CHART.limit;
 
 const NATIVE = 574;
 const H = 256;
@@ -312,7 +347,20 @@ const TINT: Record<string, string[]> = {
 								))}
 							</span>
 							<span class="nf__channel">{m.channel}</span>
-							<span class="nf__to">{m.to}</span>
+							{besideOf(m.channel) && (
+								<span class:list={['nf__beside', aside.startsWith('address') && 'nf__beside--mono']}>
+									<span class="nf__dot" aria-hidden="true">
+										·
+									</span>
+									{besideOf(m.channel)}
+								</span>
+							)}
+							{aside === 'to' && <span class="nf__to">{m.to}</span>}
+							{timed && (
+								<span class="nf__to nf__time" data-nf-after={NOTIFY_ASIDES[m.channel]?.after ?? 0}>
+									{clock(FIRED_S + (NOTIFY_ASIDES[m.channel]?.after ?? 0))}
+								</span>
+							)}
 						</button>
 						<span class="nf__body" id={`${uid}-body-${i}`}>
 							<span class="nf__inner">
@@ -353,6 +401,7 @@ const TINT: Record<string, string[]> = {
 										<span class="nf__chips">
 											<span class="nf__chip nf__chip--status">{m.text}</span>
 											<span class="nf__chip nf__chip--critical">{FREEZER_ALARM.severity.toLowerCase()}</span>
+											{aside !== 'to' && <span class="nf__via">via n8n</span>}
 										</span>
 										<span class="nf__ticket-title">{m.detail}</span>
 									</span>
@@ -504,6 +553,11 @@ const TINT: Record<string, string[]> = {
 		let time = root.dataset.nfTime ?? '';
 		let limit = root.dataset.nfLimit ?? '';
 		const synced = [...root.querySelectorAll<HTMLElement>('[data-nf-sync]')];
+		// The delivery times, each its seconds after the alarm.
+		const delivered = [...root.querySelectorAll<HTMLElement>('[data-nf-after]')];
+		const seconds = (t: string) => t.split(':').reduce((s, v) => s * 60 + Number(v), 0);
+		const hms = (s: number) =>
+			[Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((v) => String(v).padStart(2, '0')).join(':');
 		root.closest('[data-automate]')?.addEventListener('automate:limit', (e) => {
 			const next = (e as CustomEvent<{ limit: string; firedAt: string }>).detail;
 			if (next.firedAt === time && next.limit === limit) return;
@@ -513,6 +567,7 @@ const TINT: Record<string, string[]> = {
 					.replaceAll(time.slice(0, 5), next.firedAt.slice(0, 5))
 					.replaceAll('over ' + limit, 'over ' + next.limit);
 			});
+			delivered.forEach((el) => (el.textContent = hms(seconds(next.firedAt) + Number(el.dataset.nfAfter))));
 			time = next.firedAt;
 			limit = next.limit;
 		});
@@ -745,6 +800,39 @@ const TINT: Record<string, string[]> = {
 		margin-left: auto;
 		font-size: u(15);
 		line-height: u(20);
+	}
+
+	// After the channel, on its line: lighter than the channel's name, and grey on the open row too.
+	.nf__beside {
+		display: flex;
+		gap: u(8);
+		min-width: 0;
+		font-size: u(15);
+		line-height: u(20);
+		white-space: nowrap;
+		color: var(--nf-grey);
+	}
+
+	.nf__beside--mono {
+		font-family: $font-family-mono;
+	}
+
+	.nf__dot {
+		font-family: $font-family-base;
+		opacity: 0.6;
+	}
+
+	// The time each landed, in the node's clock face, so the column is one width all the way down.
+	.nf__time {
+		font-family: $font-family-mono;
+		font-variant-numeric: tabular-nums;
+	}
+
+	// The CRM's route, on the ticket, wherever the head no longer says it.
+	.nf__via {
+		font-size: u(15);
+		line-height: u(22);
+		color: var(--nf-grey);
 	}
 
 	// The message, folded to nothing until its channel opens; open, every message is one height, which
