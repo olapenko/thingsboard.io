@@ -208,7 +208,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
 			{ label: 'Documentation', href: '/docs/pe/' },
 			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
-			{ label: 'Release notes', href: '/docs/pe/releases/' },
+			{ label: 'Release notes', href: '/docs/pe/releases/releases-table/' },
 			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
 		],
 	},
