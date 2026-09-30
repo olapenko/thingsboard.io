@@ -133,9 +133,11 @@ export const KEY_VISUALS: KeyVisual[] = [
 		badge: AI_COPY.badge,
 	},
 	{
+		// The row and the three visuals it can hold — Normalize, Filter, Notify — so it is named for the
+		// row's subject, not its first drawing. The id and the URL stay, as the code comments cite them.
 		id: 'normalize',
 		home: 'normalize',
-		label: 'Normalize',
+		label: 'Data',
 		title: NORMALIZE_COPY.title,
 		body: NORMALIZE_COPY.body,
 		link: NORMALIZE_COPY.link,
