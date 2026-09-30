@@ -111,11 +111,14 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
 		hue: '#60a5fa',
 	},
 	{
-		name: 'Mobile Application',
+		// As the homepage's ecosystem section has it (`homeEcosystem`): "Mobile App", the PE app's
+		// page, and the app's own green — the dark menu's `--brand-pe` — not the menu's "Mobile
+		// Application" at `/products/mobile/` in its slate blue.
+		name: 'Mobile App',
 		line: 'iOS & Android',
-		href: '/products/mobile/',
+		href: '/products/mobile-pe/',
 		icon: `${NAV}/tb-mobile-icon.svg`,
-		hue: '#7da9d8',
+		hue: '#4ade80',
 	},
 	{
 		name: 'IoT Hub',
