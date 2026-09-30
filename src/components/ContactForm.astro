@@ -28,8 +28,19 @@ const DEVICE_STEPS = [
 	'100,000–1M',
 	'Over 1M',
 ];
-// Topics where a fleet size says nothing, so the question is left out.
-const DEVICES_HIDDEN_FOR = ['General Feedback', 'Other'];
+// Topics where the fleet's size shapes the answer — a plan, a quote, a deployment, a project's
+// scope — plus no topic at all, since most messages arrive without one. Everywhere else (training,
+// support, partnership, press, feedback, something else) the question is left out: a listed topic
+// has to earn the slider, so a new topic starts without it.
+const DEVICES_SHOWN_FOR = [
+	'',
+	'ThingsBoard Products',
+	'Private Cloud',
+	'Deployment Options',
+	'TBMQ',
+	'Professional Services',
+	'Custom Development Service',
+];
 
 // `value` is what the form submits and what `?subject=` links across the site match, so it never
 // changes; `label` is only what the reader sees. `prompt` replaces the message box's placeholder
@@ -224,7 +235,7 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 				class="cf-field cf-field--full cf-field--devices"
 				id="devices-field"
 				data-steps={JSON.stringify(DEVICE_STEPS)}
-				data-hidden-for={JSON.stringify(DEVICES_HIDDEN_FOR)}
+				data-shown-for={JSON.stringify(DEVICES_SHOWN_FOR)}
 			>
 				<div class="cf-range-head">
 					<label class="cf-label" for="devices-range">
@@ -329,7 +340,7 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 		if (!field || !range || !readout || !submitted || !label) return () => {};
 
 		const steps: string[] = JSON.parse(field.dataset.steps || '[]');
-		const hiddenFor: string[] = JSON.parse(field.dataset.hiddenFor || '[]');
+		const shownFor: string[] = JSON.parse(field.dataset.shownFor || '[]');
 
 		const render = () => {
 			// A broker counts connected clients, not devices.
@@ -347,9 +358,9 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 		};
 
 		const sync = () => {
-			const hide = hiddenFor.includes(select?.value ?? '');
+			const hide = !shownFor.includes(select?.value ?? '');
 			field.hidden = hide;
-			// Disabled, so a count set before switching to feedback isn't sent with it.
+			// Disabled, so a count set before switching to another topic isn't sent with it.
 			submitted.disabled = hide;
 			render();
 		};
