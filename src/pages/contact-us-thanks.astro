@@ -1,8 +1,118 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro';
 import { Icon } from 'astro-icon/components';
-import NButton from '../components/Landing/NButton.astro';
 import PricingBackground from '../components/Pricing/PricingBackground.astro';
+import { TBMQ_DOCS_URL } from '@models/tbmq';
+
+// The form keeps what was sent in this tab's sessionStorage under this key (`ContactForm.astro`),
+// never in the URL. Older than an hour, it belongs to an earlier visit and the page stays generic.
+const SENT_KEY = 'tb-contact-sent';
+const SENT_MAX_AGE_MS = 60 * 60 * 1000;
+
+interface NextLink {
+	icon: string;
+	title: string;
+	line: string;
+	href: string;
+	external?: boolean;
+	/** Opens the header's region dialog instead of the fallback host (`CloudRegionDialog`). */
+	cloudAuth?: 'signup';
+}
+
+const TRY_CLOUD: NextLink = {
+	icon: 'tabler:cloud',
+	title: 'Try ThingsBoard Cloud',
+	line: 'Start free, with nothing to install and no credit card.',
+	href: 'https://thingsboard.cloud/signup',
+	cloudAuth: 'signup',
+};
+const GETTING_STARTED: NextLink = {
+	icon: 'tabler:rocket',
+	title: 'Getting started',
+	line: 'Connect a device, send telemetry and build your first dashboard.',
+	href: '/docs/getting-started/',
+};
+const STORIES: NextLink = {
+	icon: 'tabler:building-factory-2',
+	title: 'Customer stories',
+	line: 'How companies across industries use ThingsBoard.',
+	href: '/case-studies/',
+};
+const DOCS: NextLink = {
+	icon: 'tabler:book',
+	title: 'Documentation',
+	line: 'Guides and reference for every part of the platform.',
+	href: '/docs/',
+};
+
+// What's worth a look while the reply is on its way, by the topic the message was sent under.
+// Keys are the form's submitted topic values; anything else gets `default`.
+const NEXT: Record<string, NextLink[]> = {
+	default: [TRY_CLOUD, GETTING_STARTED, STORIES],
+	'Private Cloud': [
+		{
+			icon: 'tabler:server-2',
+			title: 'Private Cloud plans',
+			line: 'Compare Launch, Growth, Scale and Enterprise side by side.',
+			href: '/pricing/?product=thingsboard-private-cloud',
+		},
+		{ ...TRY_CLOUD, line: 'Try the platform on our public cloud while we size yours.' },
+		STORIES,
+	],
+	TBMQ: [
+		{
+			icon: 'tabler:book',
+			title: 'TBMQ documentation',
+			line: 'Architecture, installation and what the broker can do.',
+			href: TBMQ_DOCS_URL,
+			external: true,
+		},
+		{
+			icon: 'tabler:server-2',
+			title: 'TBMQ pricing',
+			line: 'What a dedicated broker, run by us, costs.',
+			href: '/pricing/?product=tbmq-private-cloud',
+		},
+		STORIES,
+	],
+	'Technical Support': [
+		{
+			icon: 'tabler:lifebuoy',
+			title: 'Support portal',
+			line: 'The fastest route to our support engineers on a paid plan.',
+			href: 'https://thingsboard-portal.atlassian.net/servicedesk/customer/portal/1',
+			external: true,
+		},
+		{
+			icon: 'tabler:brand-github',
+			title: 'GitHub issues',
+			line: 'Search known issues, or ask the team and the community.',
+			href: 'https://github.com/thingsboard/thingsboard/issues',
+			external: true,
+		},
+		DOCS,
+	],
+	Training: [
+		{
+			icon: 'tabler:school',
+			title: 'Training sessions',
+			line: 'The workshops we run, and what each one covers.',
+			href: '/services/trainings/',
+		},
+		GETTING_STARTED,
+		DOCS,
+	],
+	'Custom Development Service': [
+		{
+			icon: 'tabler:code',
+			title: 'Development services',
+			line: 'How we build IoT solutions on ThingsBoard for customers.',
+			href: '/services/development-services/',
+		},
+		STORIES,
+		TRY_CLOUD,
+	],
+};
 ---
 
 <BaseLayout
@@ -15,20 +125,125 @@ import PricingBackground from '../components/Pricing/PricingBackground.astro';
 >
 	<PricingBackground />
 	<div class="thanks-page">
-		<div class="thanks-card">
+		<section class="thanks-card" aria-labelledby="thanks-title">
 			<span class="thanks-mark" aria-hidden="true">
-				<Icon name="tabler:circle-check" />
+				<svg viewBox="0 0 32 32" fill="none">
+					<path
+						d="M9 16.5l4.5 4.5L23 11.5"
+						stroke="currentColor"
+						stroke-width="3"
+						stroke-linecap="round"
+						stroke-linejoin="round"></path>
+				</svg>
 			</span>
-			<h1 class="thanks-title">Thanks, your message is on its way</h1>
-			<p class="thanks-lede">
-				Someone from our team will read it and reply to the email address you gave us, as soon as we can.
+			<p class="thanks-eyebrow">Message sent</p>
+			<h1 class="thanks-title" id="thanks-title" data-thanks="title">Thanks, your message is on its way</h1>
+			<p class="thanks-lede" data-thanks="lede">
+				Someone from our team will read it and reply by email as soon as we can.
 			</p>
-			<div class="thanks-actions">
-				<NButton href="/">Back to the homepage</NButton>
-				<NButton href="/docs/" variant="outlined">Browse the docs</NButton>
-			</div>
-		</div>
+
+			<dl class="thanks-summary" data-thanks="summary" hidden>
+				<div class="thanks-summary__item" data-thanks="topic-row" hidden>
+					<dt>Topic</dt>
+					<dd data-thanks="topic"></dd>
+				</div>
+				<div class="thanks-summary__item" data-thanks="devices-row" hidden>
+					<dt>Scale</dt>
+					<dd data-thanks="devices"></dd>
+				</div>
+			</dl>
+
+			<p class="thanks-fix" data-thanks="fix" hidden>
+				Wrong address, or forgot something? <a href="/contact-us/?resend">Edit and send again</a>
+			</p>
+		</section>
+
+		<section class="thanks-next" aria-labelledby="thanks-next-title">
+			<h2 class="thanks-next__title" id="thanks-next-title">While you wait</h2>
+			{
+				Object.entries(NEXT).map(([set, links]) => (
+					<ul class="thanks-links" data-set={set} hidden={set !== 'default'}>
+						{links.map((link) => (
+							<li>
+								<a
+									class="thanks-link"
+									href={link.href}
+									data-cloud-auth={link.cloudAuth}
+									{...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+								>
+									<span class="thanks-link__icon" aria-hidden="true">
+										<Icon name={link.icon} />
+									</span>
+									<span class="thanks-link__title">
+										{link.title}
+										<Icon
+											name={link.external ? 'tabler:arrow-up-right' : 'tabler:arrow-right'}
+											class="thanks-link__arrow"
+											aria-hidden="true"
+										/>
+										{link.external && <span class="thanks-sr"> (opens in a new tab)</span>}
+									</span>
+									<span class="thanks-link__line">{link.line}</span>
+								</a>
+							</li>
+						))}
+					</ul>
+				))
+			}
+		</section>
+
+		<a class="thanks-home" href="/">
+			<Icon name="tabler:arrow-left" aria-hidden="true" />
+			Back to the homepage
+		</a>
 	</div>
+
+	{
+		/* Personalises the page from what the form kept for it. Inline and after the content, so it
+		   runs while the page is still being parsed: the generic copy is the fallback, not a flash. */
+	}
+	<script is:inline define:vars={{ SENT_KEY, SENT_MAX_AGE_MS, SETS: Object.keys(NEXT) }}>
+		(() => {
+			let sent = null;
+			try {
+				sent = JSON.parse(sessionStorage.getItem(SENT_KEY) || 'null');
+			} catch {
+				sent = null;
+			}
+			if (!sent || typeof sent.at !== 'number' || Date.now() - sent.at > SENT_MAX_AGE_MS) return;
+
+			const part = (name) => document.querySelector(`[data-thanks="${name}"]`);
+
+			if (sent.firstName) part('title').textContent = `Thanks, ${sent.firstName}. Your message is on its way.`;
+
+			if (sent.email) {
+				// Built as nodes, not markup: the address is the reader's own input.
+				const address = document.createElement('strong');
+				address.textContent = sent.email;
+				part('lede').replaceChildren(
+					'Someone from our team will read it and reply to ',
+					address,
+					' as soon as we can.'
+				);
+				part('fix').hidden = false;
+			}
+
+			[
+				['topic', sent.topicLabel],
+				['devices', sent.devices],
+			].forEach(([name, value]) => {
+				if (!value) return;
+				part(name).textContent = value;
+				part(`${name}-row`).hidden = false;
+				part('summary').hidden = false;
+			});
+
+			const set = SETS.includes(sent.subject) ? sent.subject : 'default';
+			document.querySelectorAll('.thanks-links').forEach((list) => {
+				list.hidden = list.dataset.set !== set;
+			});
+		})();
+	</script>
 </BaseLayout>
 
 <style lang="scss" is:global>
@@ -46,40 +261,86 @@ import PricingBackground from '../components/Pricing/PricingBackground.astro';
 
 	.thanks-page {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		min-height: calc(100svh - var(--sl-nav-height, 72px));
-		padding: calc(var(--home-header-h, #{$header-height}) + #{$spacing-8}) $spacing-5 $spacing-20;
+		max-width: 1000px;
+		margin: 0 auto;
+		padding: calc(var(--home-header-h, #{$header-height}) + #{$spacing-12}) $spacing-5 $spacing-20;
 
 		@include media-down(md) {
-			padding-left: $spacing-4;
-			padding-right: $spacing-4;
+			padding: calc(var(--home-header-h, #{$header-height}) + #{$spacing-8}) $spacing-4 $spacing-16;
 		}
 
-		:where(p, h1) {
+		:where(p, h1, h2, ul, dl, dd) {
 			margin: 0;
 		}
 	}
 
+	// The form's own card, so the answer sits where the question was asked.
 	.thanks-card {
-		max-width: 560px;
+		width: 100%;
+		max-width: 620px;
+		padding: $spacing-12 $spacing-10;
 		text-align: center;
+		background: var(--color-bg-surface);
+		border: 1px solid rgba(42, 125, 236, 0.16);
+		border-radius: $radius-xl;
+		box-shadow: 0 26px 40px 0 rgba(42, 125, 236, 0.08);
+
+		@include media-down(md) {
+			padding: $spacing-8 $spacing-5;
+		}
 	}
 
 	.thanks-mark {
 		display: inline-grid;
 		place-items: center;
-		width: 56px;
-		height: 56px;
+		width: 64px;
+		height: 64px;
 		margin-bottom: $spacing-6;
 		border-radius: 32%;
 		color: var(--color-success);
 		background: color-mix(in srgb, var(--color-success) 12%, var(--color-bg-surface));
+		animation: thanks-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
 
-		:global(svg) {
-			width: 30px;
-			height: 30px;
+		svg {
+			width: 36px;
+			height: 36px;
 		}
+
+		path {
+			stroke-dasharray: 22;
+			stroke-dashoffset: 22;
+			animation: thanks-draw 0.35s 0.2s ease-out forwards;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
+
+			path {
+				stroke-dashoffset: 0;
+				animation: none;
+			}
+		}
+	}
+
+	@keyframes thanks-pop {
+		from {
+			transform: scale(0.6);
+			opacity: 0;
+		}
+	}
+
+	@keyframes thanks-draw {
+		to {
+			stroke-dashoffset: 0;
+		}
+	}
+
+	.thanks-eyebrow {
+		@include type-eyebrow;
+		margin-bottom: $spacing-3;
+		color: var(--color-success);
 	}
 
 	.thanks-title {
@@ -90,22 +351,217 @@ import PricingBackground from '../components/Pricing/PricingBackground.astro';
 
 	.thanks-lede {
 		@include type-body;
-		max-width: 44ch;
+		max-width: 46ch;
 		margin: $spacing-4 auto 0;
 		font-size: $font-size-lg;
 		line-height: 1.55;
 		color: var(--color-text-secondary);
+		overflow-wrap: anywhere;
 
 		@include media-down(md) {
 			font-size: $font-size-base;
 		}
+
+		:global(strong) {
+			font-weight: $font-weight-medium;
+			color: var(--color-text);
+		}
 	}
 
-	.thanks-actions {
+	.thanks-summary {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
-		gap: $spacing-3;
-		margin-top: $spacing-8;
+		gap: $spacing-2;
+		margin-top: $spacing-6;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.thanks-summary__item {
+		@include type-small;
+		display: inline-flex;
+		gap: 6px;
+		padding: 6px 12px;
+		background: var(--color-bg-light);
+		border: 1px solid var(--color-border-light);
+		border-radius: $radius-full;
+
+		&[hidden] {
+			display: none;
+		}
+
+		dt {
+			color: var(--color-text-secondary);
+		}
+
+		dd {
+			font-weight: $font-weight-medium;
+			color: var(--color-text);
+		}
+	}
+
+	.thanks-fix {
+		@include type-small;
+		margin-top: $spacing-6;
+		padding-top: $spacing-5;
+		border-top: 1px solid var(--color-border-light);
+		color: var(--color-text-secondary);
+
+		&[hidden] {
+			display: none;
+		}
+
+		a {
+			font-weight: $font-weight-medium;
+			color: var(--color-primary);
+			text-decoration: underline;
+			text-underline-offset: 2px;
+		}
+	}
+
+	.thanks-next {
+		width: 100%;
+		margin-top: $spacing-16;
+
+		@include media-down(md) {
+			margin-top: $spacing-12;
+		}
+	}
+
+	.thanks-next__title {
+		@include type-card;
+		margin-bottom: $spacing-5;
+		text-align: center;
+		color: var(--color-text);
+	}
+
+	.thanks-links {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: $spacing-4;
+		padding: 0;
+		list-style: none;
+
+		&[hidden] {
+			display: none;
+		}
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+			max-width: 620px;
+			margin: 0 auto;
+		}
+
+		li {
+			display: flex;
+		}
+	}
+
+	.thanks-link {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		grid-template-rows: auto 1fr;
+		column-gap: 14px;
+		row-gap: 2px;
+		width: 100%;
+		padding: $spacing-5;
+		color: var(--color-text);
+		text-decoration: none;
+		background: var(--color-bg-surface);
+		border: 1px solid var(--color-border-light);
+		border-radius: $radius-xl;
+		transition:
+			border-color 0.15s ease,
+			box-shadow 0.15s ease;
+
+		&:hover,
+		&:focus-visible {
+			border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+			box-shadow: 0 12px 28px rgba(42, 125, 236, 0.1);
+			text-decoration: none;
+
+			.thanks-link__title {
+				color: var(--color-primary);
+			}
+
+			:global(.thanks-link__arrow) {
+				transform: translateX(2px);
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--color-primary);
+			outline-offset: 2px;
+		}
+	}
+
+	.thanks-link__icon {
+		display: grid;
+		place-items: center;
+		grid-row: 1 / span 2;
+		width: 48px;
+		height: 48px;
+		border-radius: 32%;
+		color: var(--color-primary);
+		background: color-mix(in srgb, var(--color-primary) 9%, var(--color-bg-surface));
+
+		:global(svg) {
+			width: 26px;
+			height: 26px;
+		}
+	}
+
+	.thanks-link__title {
+		@include type-tile;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		align-self: end;
+		transition: color 0.15s ease;
+
+		:global(.thanks-link__arrow) {
+			flex: none;
+			width: 16px;
+			height: 16px;
+			transition: transform 0.15s ease;
+		}
+	}
+
+	.thanks-link__line {
+		@include type-small;
+		color: var(--color-text-secondary);
+	}
+
+	.thanks-home {
+		@include type-link;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		margin-top: $spacing-10;
+		color: var(--color-text-secondary);
+		text-decoration: none;
+
+		:global(svg) {
+			width: 18px;
+			height: 18px;
+		}
+
+		&:hover {
+			color: var(--color-primary);
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+	}
+
+	.thanks-sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
 	}
 </style>

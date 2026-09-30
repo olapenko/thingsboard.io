@@ -558,6 +558,53 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 		}
 	}
 
+	// ── Hand-off to the thank-you page ───────────────────────────────────────
+	// What was sent, kept in this tab's sessionStorage — never the URL — so `/contact-us-thanks/` can
+	// greet the reader by name, say where the reply goes and what it was about, and its "Edit and
+	// send again" can bring the message back here. The thank-you page reads the same key.
+	const SENT_KEY = 'tb-contact-sent';
+	const SENT_FIELDS = ['firstName', 'lastName', 'email', 'company', 'subject', 'message'];
+
+	function rememberSent(form: HTMLFormElement) {
+		const sent: Record<string, string | number> = { at: Date.now() };
+		SENT_FIELDS.forEach((name) => {
+			const el = form.elements.namedItem(name) as Field | HTMLSelectElement | null;
+			if (el) sent[name] = el.value.trim();
+		});
+		const topic = form.querySelector<HTMLSelectElement>('select[name="subject"]')?.selectedOptions[0];
+		sent.topicLabel = topic?.value ? (topic.textContent ?? '').trim() : '';
+		const devices = form.querySelector<HTMLInputElement>('#devices');
+		sent.devices = devices && !devices.disabled ? devices.value : '';
+		sent.devicesStep = form.querySelector<HTMLInputElement>('#devices-range')?.value ?? '0';
+		try {
+			sessionStorage.setItem(SENT_KEY, JSON.stringify(sent));
+		} catch {
+			// Private mode or storage off: the thank-you page falls back to its generic copy.
+		}
+	}
+
+	function readSent(): Record<string, unknown> | null {
+		try {
+			return JSON.parse(sessionStorage.getItem(SENT_KEY) || 'null');
+		} catch {
+			return null;
+		}
+	}
+
+	// `?resend`, from the thank-you page: put the last message back, ready to correct.
+	function restoreSent(form: HTMLFormElement) {
+		if (!new URLSearchParams(window.location.search).has('resend')) return false;
+		const sent = readSent();
+		if (!sent) return false;
+		SENT_FIELDS.forEach((name) => {
+			const el = form.elements.namedItem(name) as Field | HTMLSelectElement | null;
+			if (el && typeof sent[name] === 'string') el.value = sent[name] as string;
+		});
+		const range = form.querySelector<HTMLInputElement>('#devices-range');
+		if (range && typeof sent.devicesStep === 'string') range.value = sent.devicesStep;
+		return true;
+	}
+
 	// ── Init ─────────────────────────────────────────────────────────────────
 	document.addEventListener('DOMContentLoaded', () => {
 		const form = document.getElementById('ContactUs') as HTMLFormElement | null;
@@ -573,6 +620,7 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 		const textarea = form.querySelector<HTMLTextAreaElement>('textarea[name="message"]');
 
 		prefillFromURL(form, select);
+		const restored = restoreSent(form);
 		if (select) {
 			applyTopic(form, select);
 			select.addEventListener('change', () => applyTopic(form, select));
@@ -581,6 +629,12 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 		if (textarea) {
 			updateCount(textarea);
 			textarea.addEventListener('input', () => updateCount(textarea));
+		}
+		// Back to correct something — most often the address the reply goes to.
+		if (restored) {
+			const email = form.querySelector<HTMLInputElement>('#email');
+			email?.focus();
+			email?.select();
 		}
 
 		// Reward early, punish late: an error clears the moment the field is fixed, but a new one
@@ -614,6 +668,7 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 				}
 			}
 
+			rememberSent(form);
 			setSending(form, true);
 		});
 
