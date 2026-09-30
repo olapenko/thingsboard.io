@@ -158,6 +158,12 @@ export interface HomeComposition {
 	 * that already have options take theirs as `heading: 'live'`.
 	 */
 	copy: 'facelift' | 'live';
+	/**
+	 * Which footer closes the page. `in-use` — `Landing/Footer`, the one every other marketing page
+	 * has and main ships. `map` — `Landing/FooterMap`, the footer that maps the platform, judged at
+	 * `/internal/sections/footer/`. Set per order so the reference keeps main's.
+	 */
+	footer: 'in-use' | 'map';
 	sections: HomeSection[];
 }
 
@@ -174,6 +180,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		name: 'Show, then explain',
 		hues: 'section',
 		copy: 'facelift',
+		footer: 'map',
 		note: 'The AI demo straight under the hero, in the wide window with its call to action, then the platform loop and its four rows in the loop’s own order. A trust band, “Why choose” under a value heading, and customer quotes join; Scale leaves for the On-premises page. Every section takes its own colour.',
 		sections: [
 			{ id: 'ai', layout: 'wide', cta: 'none', wash: 'cycle' },
@@ -205,6 +212,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		name: 'As shipped',
 		hues: 'primary',
 		copy: 'live',
+		footer: 'in-use',
 		note: 'The homepage main ships today (ThingsBoard 4.4, on thingsboard.io), kept as the reference: the AI demo straight under the hero, then the platform loop, its five rows, the use cases, Products, Ecosystem and the features — in main’s words, on this branch’s sections.',
 		sections: [
 			{ id: 'ai', layout: 'wide', cta: 'none', wash: 'cycle' },
@@ -226,6 +234,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		name: 'Map, then magic',
 		hues: 'section',
 		copy: 'facelift',
+		footer: 'map',
 		note: 'A with its first two sections swapped: the platform loop orients first, then the AI demo. The smallest change from the handoff that still moves AI up.',
 		sections: [
 			{ id: 'platform', heading: 'loop' },
