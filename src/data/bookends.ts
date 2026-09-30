@@ -61,6 +61,11 @@ export interface Bookend {
 	 * whole card the link. No accent: the regions are the path, these are the side doors.
 	 */
 	side?: BookendSide[];
+	/**
+	 * `ways: 'cards'`: the pair under the lede with this primary, and these cards beside it — for when
+	 * sign-up sends each visitor to their region on its own, so the band needs no region cards.
+	 */
+	cards?: { primary: BookendAction; items: BookendSide[] };
 }
 
 export interface BookendSide {
@@ -130,6 +135,20 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 			{ title: 'Pricing', line: 'Cloud plans and self-hosted licences.', href: '/pricing/', icon: 'tabler:tag' },
 			{ title: TALK.text, line: 'Evaluating for a large deployment?', href: TALK.href, icon: TALK.icon },
 		],
+		// The redirect form: "Try for free", the hero's and the header's words, since sign-up now picks
+		// the region itself; Install On-premises beside it; pricing and contact as the two cards.
+		cards: {
+			primary: {
+				text: 'Try for free',
+				href: 'https://thingsboard.cloud/signup',
+				icon: 'tabler:cloud-filled',
+				attrs: { 'data-cloud-auth': 'signup' },
+			},
+			items: [
+				{ title: 'Pricing', line: 'Cloud plans and self-hosted licences.', href: '/pricing/', icon: 'tabler:tag' },
+				{ title: 'Contact us', line: 'Evaluating for a large deployment?', href: TALK.href, icon: TALK.icon },
+			],
+		},
 	},
 
 	// The Cloud page's `.page-closing`, word for word; the pricing link and the line to On-premises
