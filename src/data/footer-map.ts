@@ -126,6 +126,45 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
 	},
 ];
 
+/**
+ * `focus` layout: the pages the panel puts beside the two platforms, in place of the ecosystem (which
+ * becomes a link column). The ones a reader deciding goes looking for — what it costs, how it
+ * installs, who runs it already — and the one a customer already deciding needs. One indigo for all
+ * four, lifted like the product hues, so they read as pages rather than as products. A page here is
+ * not repeated in the columns below.
+ */
+export const FOOTER_HIGHLIGHTS: FooterProduct[] = [
+	{
+		name: 'Pricing',
+		line: 'Cloud plans and self-hosted licenses',
+		href: '/pricing/',
+		icon: 'tabler:receipt-2',
+		hue: '#8b9bff',
+	},
+	{
+		name: 'Installation options',
+		line: 'Every way to install it',
+		href: '/installations/',
+		icon: 'tabler:download',
+		hue: '#8b9bff',
+	},
+	{
+		name: 'Case studies',
+		line: 'Customer projects in production',
+		href: '/case-studies/',
+		icon: 'tabler:award',
+		hue: '#8b9bff',
+	},
+	{
+		name: 'License portal',
+		line: 'Buy or renew license keys',
+		href: 'https://license.thingsboard.io/',
+		icon: 'tabler:key',
+		hue: '#8b9bff',
+		external: true,
+	},
+];
+
 /** Under the map, across both groups, on the left: what it costs and where it installs. */
 export const FOOTER_PLATFORM_LINKS: FooterLink[] = [
 	{ label: 'Pricing', href: '/pricing/' },

@@ -7,6 +7,7 @@ import { socialNetworks } from '@data/socialNetworks';
 import {
 	FOOTER_COLUMNS,
 	FOOTER_ECOSYSTEM,
+	FOOTER_HIGHLIGHTS,
 	FOOTER_LEGAL,
 	FOOTER_NEWSLETTER,
 	FOOTER_LICENSE_PORTAL,
@@ -31,6 +32,8 @@ import {
  *    around it, each with its mark, its hue and one line. `layout` decides how much room that takes:
  *    - `map`: a panel of tiles, name and line under each mark — the platform unpacked.
  *    - `strip`: one wrapping row of chips, marks and names only — the same map, a third the height.
+ *    - `focus`: the two platforms beside four highlighted pages (Pricing, Installation options, Case
+ *      studies, the License Portal); the ecosystem moves to a link column of its own.
  * 3. FOUR LINK COLUMNS: the solutions, the developer references, services and partners, the
  *    company. Then the bottom line: copyright, the cookie policy, the badges.
  *
@@ -44,7 +47,7 @@ import {
  */
 
 interface Props {
-	layout?: 'map' | 'strip';
+	layout?: 'map' | 'strip' | 'focus';
 	/** The element's id. Only the page's own footer takes one (`footer`); the sandbox's several do not. */
 	id?: string;
 }
@@ -68,6 +71,22 @@ const social = FOOTER_SOCIAL.map(({ icon, name }) => {
 }).filter((n) => n !== undefined);
 
 const isTabler = (p: FooterProduct) => p.icon.startsWith('tabler:');
+
+// The tiles carry a line under the name except in the strip.
+const lines = layout !== 'strip';
+
+// `focus`: the ecosystem as the first link column, and no column repeats a page the panel shows.
+const focus = layout === 'focus';
+const highlighted = new Set(FOOTER_HIGHLIGHTS.map((h) => h.href));
+const columns = focus
+	? [
+			{
+				title: 'Ecosystem',
+				links: FOOTER_ECOSYSTEM.map((p) => ({ label: p.name, href: p.href, external: p.external })),
+			},
+			...FOOTER_COLUMNS.map((c) => ({ ...c, links: c.links.filter((l) => !highlighted.has(l.href)) })),
+		]
+	: FOOTER_COLUMNS;
 const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopener noreferrer' } : {});
 ---
 
@@ -133,10 +152,10 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 							<li>
 								<a class="fm__product fm__product--platform" href={p.href} style={`--hue: ${p.hue}`}>
 									<span class="fm__mark fm__mark--badge">
-										<NavIcon src={p.icon} size={layout === 'map' ? 36 : 20} />
+										<NavIcon src={p.icon} size={lines ? 36 : 20} />
 									</span>
 									<span class="fm__pname">{p.name}</span>
-									{layout === 'map' && <span class="fm__pline">{p.line}</span>}
+									{lines && <span class="fm__pline">{p.line}</span>}
 								</a>
 							</li>
 						))
@@ -144,61 +163,83 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 				</ul>
 			</div>
 
-			<div class="fm__group fm__group--eco">
-				<h2 class="fm__kicker">Product ecosystem</h2>
-				<ul class="fm__products">
-					{
-						FOOTER_ECOSYSTEM.map((p) => (
-							<li>
-								<a class="fm__product" href={p.href} style={`--hue: ${p.hue}`} {...ext(p.external)}>
-									<span class="fm__mark">
-										{isTabler(p) ? <Icon name={p.icon} aria-hidden="true" /> : <NavIcon src={p.icon} size={26} />}
-									</span>
-									<span class="fm__pname">
-										{p.name}
-										{p.external && (
-											<Icon name="tabler:arrow-up-right" class="fm__ext" aria-label="(opens a new site)" />
-										)}
-									</span>
-									{layout === 'map' && <span class="fm__pline">{p.line}</span>}
-								</a>
-							</li>
-						))
-					}
-				</ul>
-			</div>
 			{
-				/* Across the whole map, under both groups: the platform's next steps on the left, set as
-			    the columns' "All use cases →"; the License Portal at the right end, captioned, for the
-			    customer who is past choosing. */
-			}
-			<div class="fm__next">
-				<ul class="fm__plinks">
-					{
-						FOOTER_PLATFORM_LINKS.map((l) => (
-							<li>
-								<a href={l.href}>
-									{l.label}
-									<Icon name="tabler:arrow-right" aria-hidden="true" />
+				focus ? (
+					<div class="fm__group fm__group--hl">
+						<h2 class="fm__kicker">Start here</h2>
+						<ul class="fm__products">
+							{FOOTER_HIGHLIGHTS.map((p) => (
+								<li>
+									<a class="fm__product" href={p.href} style={`--hue: ${p.hue}`} {...ext(p.external)}>
+										<span class="fm__mark">
+											<Icon name={p.icon} aria-hidden="true" />
+										</span>
+										<span class="fm__pname">
+											{p.name}
+											{p.external && (
+												<Icon name="tabler:arrow-up-right" class="fm__ext" aria-label="(opens a new site)" />
+											)}
+										</span>
+										<span class="fm__pline">{p.line}</span>
+									</a>
+								</li>
+							))}
+						</ul>
+					</div>
+				) : (
+					<Fragment>
+						<div class="fm__group fm__group--eco">
+							<h2 class="fm__kicker">Product ecosystem</h2>
+							<ul class="fm__products">
+								{FOOTER_ECOSYSTEM.map((p) => (
+									<li>
+										<a class="fm__product" href={p.href} style={`--hue: ${p.hue}`} {...ext(p.external)}>
+											<span class="fm__mark">
+												{isTabler(p) ? <Icon name={p.icon} aria-hidden="true" /> : <NavIcon src={p.icon} size={26} />}
+											</span>
+											<span class="fm__pname">
+												{p.name}
+												{p.external && (
+													<Icon name="tabler:arrow-up-right" class="fm__ext" aria-label="(opens a new site)" />
+												)}
+											</span>
+											{lines && <span class="fm__pline">{p.line}</span>}
+										</a>
+									</li>
+								))}
+							</ul>
+						</div>
+						{/* Across the whole map, under both groups: the platform's next steps on the left, set as
+					    the columns' "All use cases →"; the License Portal at the right end, captioned, for the
+					    customer who is past choosing. */}
+						<div class="fm__next">
+							<ul class="fm__plinks">
+								{FOOTER_PLATFORM_LINKS.map((l) => (
+									<li>
+										<a href={l.href}>
+											{l.label}
+											<Icon name="tabler:arrow-right" aria-hidden="true" />
+										</a>
+									</li>
+								))}
+							</ul>
+							<p class="fm__portal">
+								<span>{FOOTER_LICENSE_PORTAL.caption}</span>
+								<a href={FOOTER_LICENSE_PORTAL.href} target="_blank" rel="noopener noreferrer">
+									{FOOTER_LICENSE_PORTAL.label}
+									<Icon name="tabler:arrow-up-right" aria-hidden="true" />
+									<span class="fm__sr">(opens a new site)</span>
 								</a>
-							</li>
-						))
-					}
-				</ul>
-				<p class="fm__portal">
-					<span>{FOOTER_LICENSE_PORTAL.caption}</span>
-					<a href={FOOTER_LICENSE_PORTAL.href} target="_blank" rel="noopener noreferrer">
-						{FOOTER_LICENSE_PORTAL.label}
-						<Icon name="tabler:arrow-up-right" aria-hidden="true" />
-						<span class="fm__sr">(opens a new site)</span>
-					</a>
-				</p>
-			</div>
+							</p>
+						</div>
+					</Fragment>
+				)
+			}
 		</nav>
 
 		<nav class="fm__cols" aria-label="Site">
 			{
-				FOOTER_COLUMNS.map((col) => (
+				columns.map((col) => (
 					<div class="fm__col">
 						<h2 class="fm__col-title">{col.title}</h2>
 						<ul>
@@ -712,6 +753,40 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		height: 14px;
 		flex: 0 0 auto;
 		color: var(--fm-faint);
+	}
+
+	// ---- 2a. The focus layout --------------------------------------------------------------------
+	//
+	// The highlights two by two beside the platforms, each tile the ecosystem's: a mark on a wash of
+	// its hue, a name, a line. One across on a phone.
+	.fm__group--hl .fm__products {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-1 $spacing-6;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0;
+		}
+	}
+
+	.fm__group--hl .fm__mark :global(svg) {
+		width: 22px;
+		height: 22px;
+	}
+
+	// Five columns with the ecosystem in front: 172px each at 960, which the longest link —
+	// "Environment monitoring", 155px — still fits.
+	.fm--focus .fm__cols {
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+
+		@include media-down(md) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
 	}
 
 	// ---- 2b. The strip -----------------------------------------------------------------------
