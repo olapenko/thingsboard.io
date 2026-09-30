@@ -134,7 +134,7 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
  * columns below.
  */
 export const FOOTER_HIGHLIGHTS: (FooterLink & { icon: string })[] = [
-	{ label: 'Pricing', href: '/pricing/', icon: 'tabler:receipt-2' },
+	{ label: 'Pricing', href: '/pricing/', icon: 'tabler:tag' },
 	{ label: 'Installation options', href: '/installations/', icon: 'tabler:download' },
 ];
 
