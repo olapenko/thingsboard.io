@@ -125,17 +125,6 @@ const NEXT: Record<string, NextLink[]> = {
 				Someone from our team will read it and reply by email as soon as we can.
 			</p>
 
-			<dl class="thanks-summary" data-thanks="summary" hidden>
-				<div class="thanks-summary__item" data-thanks="topic-row" hidden>
-					<dt>Topic</dt>
-					<dd data-thanks="topic"></dd>
-				</div>
-				<div class="thanks-summary__item" data-thanks="devices-row" hidden>
-					<dt>Scale</dt>
-					<dd data-thanks="devices"></dd>
-				</div>
-			</dl>
-
 			<p class="thanks-fix" data-thanks="fix" hidden>
 				Wrong address, or forgot something? <a href="/contact-us/?resend">Edit and send again</a>
 			</p>
@@ -211,16 +200,6 @@ const NEXT: Record<string, NextLink[]> = {
 				part('fix').hidden = false;
 			}
 
-			[
-				['topic', sent.topicLabel],
-				['devices', sent.devices],
-			].forEach(([name, value]) => {
-				if (!value) return;
-				part(name).textContent = value;
-				part(`${name}-row`).hidden = false;
-				part('summary').hidden = false;
-			});
-
 			const set = SETS.includes(sent.subject) ? sent.subject : 'default';
 			document.querySelectorAll('.thanks-links').forEach((list) => {
 				list.hidden = list.dataset.set !== set;
@@ -243,6 +222,14 @@ const NEXT: Record<string, NextLink[]> = {
 	@use '../styles/variables' as *;
 
 	.thanks-page {
+		// The homepage's UI shadow ink, as on the form's card: a contact line and a soft drop, no edge.
+		--thanks-shadow:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.06),
+			0 18px 40px -18px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.22);
+		--thanks-shadow-hover:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.08),
+			0 22px 44px -18px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.3);
+
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -254,7 +241,7 @@ const NEXT: Record<string, NextLink[]> = {
 			padding: calc(var(--home-header-h, #{$header-height}) + #{$spacing-8}) $spacing-4 $spacing-16;
 		}
 
-		:where(p, h1, h2, ul, dl, dd) {
+		:where(p, h1, h2, ul) {
 			margin: 0;
 		}
 	}
@@ -266,32 +253,39 @@ const NEXT: Record<string, NextLink[]> = {
 		padding: $spacing-12 $spacing-10;
 		text-align: center;
 		background: var(--color-bg-surface);
-		border: 1px solid rgba(42, 125, 236, 0.16);
 		border-radius: $radius-xl;
-		box-shadow: 0 26px 40px 0 rgba(42, 125, 236, 0.08);
+		box-shadow: var(--thanks-shadow);
 
 		@include media-down(md) {
 			padding: $spacing-8 $spacing-5;
 		}
 	}
 
-	// Filled: the page's one solid colour, so the outcome reads before a word of it. White on the
-	// success green is 4.6:1, and the check is a glyph, not text, so it clears the 3:1 it needs.
+	// The homepage's centred section mark — 64px, a 40px glyph, the 32% squircle — in the success
+	// green, with the closing badge's 155deg lift so it isn't a flat chip, and the UI shadow's
+	// blue-black ink rather than a green glow. White on the green's darker half is 4.6:1 and up.
 	.thanks-mark {
 		display: inline-grid;
 		place-items: center;
-		width: 72px;
-		height: 72px;
+		width: 64px;
+		height: 64px;
 		margin-bottom: $spacing-6;
 		border-radius: 32%;
 		color: #fff;
-		background: var(--color-success);
-		box-shadow: 0 10px 24px color-mix(in srgb, var(--color-success) 28%, transparent);
+		background: linear-gradient(
+			155deg,
+			color-mix(in srgb, var(--color-success) 80%, #fff) 0%,
+			var(--color-success) 55%,
+			color-mix(in srgb, var(--color-success) 88%, #000) 100%
+		);
+		box-shadow:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.1),
+			0 10px 22px -10px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.4);
 		animation: thanks-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
 
 		svg {
-			width: 48px;
-			height: 48px;
+			width: 40px;
+			height: 40px;
 		}
 
 		path {
@@ -354,46 +348,9 @@ const NEXT: Record<string, NextLink[]> = {
 		}
 	}
 
-	.thanks-summary {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: $spacing-2;
-		margin-top: $spacing-6;
-
-		&[hidden] {
-			display: none;
-		}
-	}
-
-	.thanks-summary__item {
-		@include type-small;
-		display: inline-flex;
-		gap: 6px;
-		padding: 6px 12px;
-		background: var(--color-bg-light);
-		border: 1px solid var(--color-border-light);
-		border-radius: $radius-full;
-
-		&[hidden] {
-			display: none;
-		}
-
-		dt {
-			color: var(--color-text-secondary);
-		}
-
-		dd {
-			font-weight: $font-weight-medium;
-			color: var(--color-text);
-		}
-	}
-
 	.thanks-fix {
 		@include type-small;
 		margin-top: $spacing-6;
-		padding-top: $spacing-5;
-		border-top: 1px solid var(--color-border-light);
 		color: var(--color-text-secondary);
 
 		&[hidden] {
@@ -457,16 +414,13 @@ const NEXT: Record<string, NextLink[]> = {
 		color: var(--color-text);
 		text-decoration: none;
 		background: var(--color-bg-surface);
-		border: 1px solid var(--color-border-light);
 		border-radius: $radius-xl;
-		transition:
-			border-color 0.15s ease,
-			box-shadow 0.15s ease;
+		box-shadow: var(--thanks-shadow);
+		transition: box-shadow 0.15s ease;
 
 		&:hover,
 		&:focus-visible {
-			border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
-			box-shadow: 0 12px 28px rgba(42, 125, 236, 0.1);
+			box-shadow: var(--thanks-shadow-hover);
 			text-decoration: none;
 
 			.thanks-link__title {
@@ -491,8 +445,9 @@ const NEXT: Record<string, NextLink[]> = {
 		width: 48px;
 		height: 48px;
 		border-radius: 32%;
-		color: var(--color-primary);
-		background: color-mix(in srgb, var(--color-primary) 9%, var(--color-bg-surface));
+		// Neutral ink (option B): colour on this page is kept for the action and the outcome.
+		color: var(--color-text);
+		background: color-mix(in srgb, var(--color-text) 6%, var(--color-bg-surface));
 
 		:global(svg) {
 			width: 26px;
