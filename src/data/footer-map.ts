@@ -128,10 +128,10 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
 
 /**
  * `focus` layout: the pages the panel puts beside the two platforms, in place of the ecosystem (which
- * becomes a link column). The ones a reader deciding goes looking for — what it costs, how it
- * installs, who runs it already — and the one a customer already deciding needs. One indigo for all
- * four, lifted like the product hues, so they read as pages rather than as products. A page here is
- * not repeated in the columns below.
+ * becomes a link column, the License Portal at its foot). What it costs and how it installs — the
+ * two a reader deciding goes looking for. Case studies were a third and came out: they stay a
+ * Solutions link. One indigo for both, lifted like the product hues, so they read as pages rather
+ * than as products. A page here is not repeated in the columns below.
  */
 export const FOOTER_HIGHLIGHTS: FooterProduct[] = [
 	{
@@ -147,21 +147,6 @@ export const FOOTER_HIGHLIGHTS: FooterProduct[] = [
 		href: '/installations/',
 		icon: 'tabler:download',
 		hue: '#8b9bff',
-	},
-	{
-		name: 'Case studies',
-		line: 'Customer projects in production',
-		href: '/case-studies/',
-		icon: 'tabler:award',
-		hue: '#8b9bff',
-	},
-	{
-		name: 'License portal',
-		line: 'Buy or renew license keys',
-		href: 'https://license.thingsboard.io/',
-		icon: 'tabler:key',
-		hue: '#8b9bff',
-		external: true,
 	},
 ];
 
