@@ -175,11 +175,11 @@ export const FOOTER_LICENSE_PORTAL = {
  * pointing at those rather than at the docs.
  */
 /**
- * WIP — PARKED 2026-09-29, not rendered. Case studies are Solutions' seventh link and Clients feedback
- * sits in Company, which splits the two customer-proof pages and makes case studies read as one more
- * use case. This group under Solutions — the header's Customers menu, case studies arrowed like
- * "All use cases →" — was tried and pulled back undecided. To try it again: set it as `sub` on the
- * Solutions column and drop the two links from Solutions and Company; `FooterMap` renders `sub`.
+ * WIP — PARKED 2026-09-29, not rendered. The footer carries no case studies link since 2026-09-30:
+ * they were Solutions' seventh link, where they read as one more use case, and came out. This group
+ * under Solutions — the header's Customers menu, case studies arrowed like "All use cases →" — was
+ * tried and pulled back undecided. To try it again: set it as `sub` on the Solutions column and drop
+ * Clients feedback from Company; `FooterMap` renders `sub`.
  */
 export const FOOTER_CUSTOMERS_WIP: NonNullable<FooterColumn['sub']> = {
 	title: 'Customers',
@@ -197,7 +197,6 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Smart farming', href: '/use-cases/smart-farming/' },
 			{ label: 'Environment monitoring', href: '/use-cases/environment-monitoring/' },
 			{ label: 'SCADA systems', href: '/use-cases/scada/' },
-			{ label: 'Case studies', href: '/case-studies/' },
 		],
 		more: { label: 'All use cases', href: '/use-cases/' },
 	},
