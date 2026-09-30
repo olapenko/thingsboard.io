@@ -13,7 +13,23 @@ const SUPPORT_PORTAL_URL = 'https://thingsboard-portal.atlassian.net/servicedesk
 const GITHUB_ISSUES_URL = 'https://github.com/thingsboard/thingsboard/issues';
 
 // The message box's prompt when no topic is picked.
-const DEFAULT_PROMPT = 'What you’re working on, roughly how many devices, and any timeline you have in mind.';
+const DEFAULT_PROMPT = 'What you’re working on, where you’d like it to run, and any timeline you have in mind.';
+
+// The device slider's stops. They follow the pricing page — Cloud's plans run to 1,000 devices,
+// Private Cloud's include 5,000, 25,000 and 100,000 — so a stop maps to a plan the team can quote.
+// Stop 0 is "not sure": a reader who never touches the slider has said nothing, and sends nothing.
+const DEVICE_STEPS = [
+	'',
+	'Under 100',
+	'100–1,000',
+	'1,000–5,000',
+	'5,000–25,000',
+	'25,000–100,000',
+	'100,000–1M',
+	'Over 1M',
+];
+// Topics where a fleet size says nothing, so the question is left out.
+const DEVICES_HIDDEN_FOR = ['General Feedback', 'Other'];
 
 // `value` is what the form submits and what `?subject=` links across the site match, so it never
 // changes; `label` is only what the reader sees. `prompt` replaces the message box's placeholder
@@ -25,22 +41,22 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 			{
 				value: 'ThingsBoard Products',
 				label: 'ThingsBoard products and plans',
-				prompt: 'What you’re building, roughly how many devices, and whether you’d like us to host it.',
+				prompt: 'What you’re building, and whether you’d like us to host it or run it yourself.',
 			},
 			{
 				value: 'Private Cloud',
 				label: 'Private Cloud',
-				prompt: 'Roughly how many devices and messages, your preferred region, and when you’d like to go live.',
+				prompt: 'Your message volume, your preferred region, and when you’d like to go live.',
 			},
 			{
 				value: 'Deployment Options',
 				label: 'Deployment options',
-				prompt: 'Where you’d like to run ThingsBoard — our cloud, your servers or at the edge — and at what scale.',
+				prompt: 'Where you’d like to run ThingsBoard — our cloud, your servers or at the edge.',
 			},
 			{
 				value: 'TBMQ',
 				label: 'TBMQ MQTT broker',
-				prompt: 'Expected client sessions and message throughput, and whether you’d host the broker yourself.',
+				prompt: 'Your message throughput, and whether you’d host the broker yourself.',
 			},
 		],
 	},
@@ -204,6 +220,39 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 				</p>
 			</div>
 
+			<div
+				class="cf-field cf-field--full cf-field--devices"
+				id="devices-field"
+				data-steps={JSON.stringify(DEVICE_STEPS)}
+				data-hidden-for={JSON.stringify(DEVICES_HIDDEN_FOR)}
+			>
+				<div class="cf-range-head">
+					<label class="cf-label" for="devices-range">
+						<span id="devices-label">How many devices?</span>
+						<span class="cf-optional">Optional</span>
+					</label>
+					<output class="cf-range-value is-empty" id="devices-value" for="devices-range">Not sure yet</output>
+				</div>
+				<input
+					class="cf-range"
+					type="range"
+					id="devices-range"
+					min="0"
+					max={DEVICE_STEPS.length - 1}
+					step="1"
+					value="0"
+					aria-valuetext="Not sure yet"
+				/>
+				<div class="cf-range-ticks" aria-hidden="true">
+					{DEVICE_STEPS.map(() => <span />)}
+				</div>
+				<div class="cf-range-ends" aria-hidden="true">
+					<span>Not sure</span>
+					<span>1M+</span>
+				</div>
+				<input type="hidden" name="devices" id="devices" value="" />
+			</div>
+
 			<div class="cf-field cf-field--full">
 				<label class="cf-label" for="message">How can we help?</label>
 				<textarea
@@ -266,6 +315,49 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 
 		const note = form.querySelector<HTMLElement>('#topic-note');
 		if (note) note.hidden = select.value !== 'Technical Support';
+	}
+
+	// ── Device count ─────────────────────────────────────────────────────────
+	// The range is unnamed; what's submitted is the hidden `devices` field, in words ("5,000–25,000
+	// devices"), so the reply reads it the way the reader chose it. Left on "not sure", it's empty.
+	function initDevices(form: HTMLFormElement, select: HTMLSelectElement | null) {
+		const field = form.querySelector<HTMLElement>('#devices-field');
+		const range = form.querySelector<HTMLInputElement>('#devices-range');
+		const readout = form.querySelector<HTMLOutputElement>('#devices-value');
+		const submitted = form.querySelector<HTMLInputElement>('#devices');
+		const label = form.querySelector<HTMLElement>('#devices-label');
+		if (!field || !range || !readout || !submitted || !label) return () => {};
+
+		const steps: string[] = JSON.parse(field.dataset.steps || '[]');
+		const hiddenFor: string[] = JSON.parse(field.dataset.hiddenFor || '[]');
+
+		const render = () => {
+			// A broker counts connected clients, not devices.
+			const clients = select?.value === 'TBMQ' || document.documentElement.dataset.contactIntent === 'tbmqorder';
+			const noun = clients ? 'clients' : 'devices';
+			const i = Number(range.value);
+			const text = i === 0 ? 'Not sure yet' : `${steps[i]} ${noun}`;
+
+			label.textContent = clients ? 'How many connected clients?' : 'How many devices?';
+			readout.textContent = text;
+			readout.classList.toggle('is-empty', i === 0);
+			range.setAttribute('aria-valuetext', text);
+			range.style.setProperty('--p', String(i / (steps.length - 1)));
+			submitted.value = i === 0 ? '' : text;
+		};
+
+		const sync = () => {
+			const hide = hiddenFor.includes(select?.value ?? '');
+			field.hidden = hide;
+			// Disabled, so a count set before switching to feedback isn't sent with it.
+			submitted.disabled = hide;
+			render();
+		};
+
+		range.addEventListener('input', render);
+		select?.addEventListener('change', sync);
+		sync();
+		return sync;
 	}
 
 	// ── Validation helpers ───────────────────────────────────────────────────
@@ -474,6 +566,7 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 			applyTopic(form, select);
 			select.addEventListener('change', () => applyTopic(form, select));
 		}
+		const syncDevices = initDevices(form, select);
 		if (textarea) {
 			updateCount(textarea);
 			textarea.addEventListener('input', () => updateCount(textarea));
@@ -516,7 +609,10 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 		// Coming back with the browser's Back button restores the page from the cache as it was
 		// left — mid-send. Give the reader a working button again.
 		window.addEventListener('pageshow', (e) => {
-			if (e.persisted) setSending(form, false);
+			if (e.persisted) {
+				setSending(form, false);
+				syncDevices();
+			}
 		});
 
 		populateTracking(form);
@@ -761,6 +857,120 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 			text-decoration: underline;
 			text-underline-offset: 2px;
 		}
+	}
+
+	.cf-field--devices[hidden] {
+		display: none;
+	}
+
+	.cf-range-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 2px $spacing-4;
+	}
+
+	.cf-range-value {
+		@include type-link;
+		color: var(--color-primary);
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+
+		&.is-empty {
+			font-weight: $font-weight-normal;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	// Native range, restyled: keyboard, touch and screen readers come with it. `--p` (0–1) is the
+	// thumb's position, set by the script; the fill stops under the thumb's centre, so it runs from
+	// half a thumb in to half a thumb short of the end rather than across the whole track.
+	.cf-range {
+		--thumb: 24px;
+		--track: 6px;
+		--p: 0;
+		--fill: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p));
+
+		width: 100%;
+		height: var(--thumb);
+		margin: 6px 0 0;
+		background: transparent;
+		cursor: pointer;
+		appearance: none;
+		-webkit-appearance: none;
+
+		&::-webkit-slider-runnable-track {
+			height: var(--track);
+			border-radius: 999px;
+			background: linear-gradient(to right, var(--color-primary) var(--fill), var(--cf-border) var(--fill));
+		}
+
+		&::-moz-range-track {
+			height: var(--track);
+			border-radius: 999px;
+			background: linear-gradient(to right, var(--color-primary) var(--fill), var(--cf-border) var(--fill));
+		}
+
+		&::-webkit-slider-thumb {
+			width: var(--thumb);
+			height: var(--thumb);
+			margin-top: calc((var(--track) - var(--thumb)) / 2);
+			background: var(--color-bg-surface);
+			border: 2px solid var(--color-primary);
+			border-radius: 50%;
+			box-shadow: 0 1px 3px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.2);
+			transition: box-shadow 0.15s ease;
+			-webkit-appearance: none;
+		}
+
+		&::-moz-range-thumb {
+			box-sizing: border-box;
+			width: var(--thumb);
+			height: var(--thumb);
+			background: var(--color-bg-surface);
+			border: 2px solid var(--color-primary);
+			border-radius: 50%;
+			box-shadow: 0 1px 3px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.2);
+		}
+
+		&:hover::-webkit-slider-thumb {
+			box-shadow: 0 0 0 6px var(--cf-ring);
+		}
+
+		&:focus {
+			outline: none;
+		}
+
+		&:focus-visible::-webkit-slider-thumb {
+			box-shadow: 0 0 0 6px var(--cf-ring);
+		}
+
+		&:focus-visible::-moz-range-thumb {
+			box-shadow: 0 0 0 6px var(--cf-ring);
+		}
+	}
+
+	// One tick per stop, centred under where the thumb lands: inset half a thumb at each end.
+	.cf-range-ticks {
+		display: flex;
+		justify-content: space-between;
+		padding: 0 calc(12px - 1px);
+
+		span {
+			width: 2px;
+			height: 6px;
+			border-radius: 1px;
+			background: var(--cf-border);
+		}
+	}
+
+	.cf-range-ends {
+		@include type-small;
+		display: flex;
+		justify-content: space-between;
+		margin-top: -2px;
+		color: var(--color-text-secondary);
 	}
 
 	.cf-field__foot {
