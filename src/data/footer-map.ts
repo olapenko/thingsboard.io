@@ -20,7 +20,10 @@ export interface FooterProduct {
 	name: string;
 	line: string;
 	href: string;
-	/** A nav-sprite icon (`NavIcon`), or a `tabler:` name for the one product the menu does not list. */
+	/**
+	 * A nav-sprite icon (`NavIcon`), a `tabler:` name for the one product the menu does not list, or
+	 * `mark` for the ThingsBoard mark itself.
+	 */
 	icon: string;
 	/** The product's hue on the footer's dark ground: the dark menu's lighter brand shades. */
 	hue: string;
@@ -112,12 +115,14 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
 	},
 	{
 		// As the homepage's ecosystem section has it (`homeEcosystem`): "Mobile App", the PE app's
-		// page, and the app's own green — the dark menu's `--brand-pe` — not the menu's "Mobile
+		// page, its mark, and the app's own green — the dark menu's `--brand-pe` — not the menu's "Mobile
 		// Application" at `/products/mobile/` in its slate blue.
 		name: 'Mobile App',
 		line: 'iOS & Android',
 		href: '/products/mobile-pe/',
-		icon: `${NAV}/tb-mobile-icon.svg`,
+		// The ThingsBoard mark, not the menu's phone: the app's icon IS the mark, and the ecosystem
+		// card shows it that way.
+		icon: 'mark',
 		hue: '#4ade80',
 	},
 	{
