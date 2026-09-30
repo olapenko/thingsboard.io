@@ -3,7 +3,6 @@ import { Icon } from 'astro-icon/components';
 import PricingBackground from '@components/Pricing/PricingBackground.astro';
 import SmartImage from '@components/SmartImage.astro';
 import tbMark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
-import { inkedMark } from '@util/tb-mark';
 import { externalLinkAttrs } from '@util/external-links';
 import {
 	BOOKEND_ALL_OPTIONS,
@@ -61,11 +60,16 @@ const b = BOOKENDS[id];
 const ask = b.ask && expertHref ? { ...b.ask, action: { ...b.ask.action, href: expertHref } } : b.ask;
 const columns = ways !== 'buttons';
 
-// The centred layout's mark, in both dresses; CSS shows the one the tone wants — the white tile
-// with the inked mark on dark (the homepage's close), the mark knocked out of the accent on light
-// (the product pages' app logo) — so the tone can flip without a re-render.
+// The centred layout's mark, in both dresses; CSS shows the one the tone wants — the mark itself in
+// white on dark (2026-09-30: it was the white tile with the inked mark, `ClosingCta`'s), the mark
+// knocked out of the accent on light (the product pages' app logo) — so the tone can flip without a
+// re-render. One SVG, in `currentColor`, serves both.
 const markLight = tbMark.replace(/<svg\b/, '<svg aria-hidden="true"');
-const markDark = inkedMark();
+const markDark = markLight;
+
+// With the regions and side cards (the homepage's): the regions are the path, under the lede, and
+// the other ways on are the side cards; no buttons.
+const side = ways === 'regions' ? b.side : undefined;
 
 type Button = { a: BookendAction; kind: 'primary' | 'secondary' };
 const primary = (a: BookendAction): Button => ({ a, kind: 'primary' });
@@ -73,8 +77,9 @@ const secondary = (a: BookendAction): Button => ({ a, kind: 'secondary' });
 
 // The intro's buttons. Where the regions or the paths are the way in, the buttons are the OTHER ways
 // — outlines, so the white cards stay the thing to press; with the platforms, the install pair.
-const buttons: Button[] =
-	ways === 'buttons' || ways === 'platforms'
+const buttons: Button[] = side
+	? []
+	: ways === 'buttons' || ways === 'platforms'
 		? [primary(b.primary), secondary(b.secondary)]
 		: ways === 'regions'
 			? [secondary(b.secondary), ...(ask ? [secondary(ask.action)] : [])]
@@ -98,6 +103,33 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 			}
 			<h2 class="bk__title">{b.title}</h2>
 			<p class="bk__lead">{b.lead}</p>
+			{
+				side && (
+					<Fragment>
+						<p class="bk__caption">{b.primary.text}</p>
+						<ul class="bk__regions">
+							{BOOKEND_REGIONS.map((r) => (
+								<li class="bk__region" data-region={r.id}>
+									<a href={r.signup} {...externalLinkAttrs(r.signup)}>
+										<span class="bk__globe">
+											<Icon name="tabler:world" aria-hidden="true" />
+										</span>
+										<span class="bk__region-name">
+											{r.name}
+											<small>{r.note}</small>
+										</span>
+										<span class="bk__region-cta">
+											Sign up
+											<span class="bk__sr"> for ThingsBoard Cloud in {r.name}</span>
+											<Icon name="tabler:chevron-right" aria-hidden="true" />
+										</span>
+									</a>
+								</li>
+							))}
+						</ul>
+					</Fragment>
+				)
+			}
 			<div class="bk__actions">
 				{
 					buttons.map(({ a, kind }) => (
@@ -150,7 +182,28 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		</div>
 
 		{
-			ways === 'regions' && (
+			side && (
+				<ul class="bk__side">
+					{side.map((c) => (
+						<li>
+							<a class="bk__card" href={c.title === ask?.action.text ? ask.action.href : c.href}>
+								<span class="bk__card-icon">
+									<Icon name={c.icon} aria-hidden="true" />
+								</span>
+								<span class="bk__card-text">
+									<span class="bk__card-title">{c.title}</span>
+									<span class="bk__card-line">{c.line}</span>
+								</span>
+								<Icon name="tabler:chevron-right" class="bk__card-go" aria-hidden="true" />
+							</a>
+						</li>
+					))}
+				</ul>
+			)
+		}
+
+		{
+			ways === 'regions' && !side && (
 				<div class="bk__col">
 					<p class="bk__caption">{b.primary.text}</p>
 					<ul class="bk__regions">
@@ -267,6 +320,9 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		--bk-wave: #8b9bff;
 		--bk-focus: #fff;
 		--bk-link: #fff;
+		--bk-side: rgba(255, 255, 255, 0.06);
+		--bk-side-hover: rgba(255, 255, 255, 0.1);
+		--bk-side-icon: rgba(255, 255, 255, 0.08);
 
 		position: relative;
 		overflow: hidden;
@@ -296,6 +352,9 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		--bk-wave: var(--bk-accent);
 		--bk-focus: var(--bk-accent);
 		--bk-link: var(--bk-accent);
+		--bk-side: rgba(255, 255, 255, 0.72);
+		--bk-side-hover: #fff;
+		--bk-side-icon: rgba(15, 23, 42, 0.06);
 	}
 
 	a {
@@ -334,10 +393,14 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		}
 	}
 
+	// The mark itself, white, on the dark ground: no tile. 64px of mark, the tile's 80 less its pad.
 	.bk[data-tone='dark'] .bk__mark--dark {
 		display: flex;
-		color: #000;
-		background: linear-gradient(155deg, #fff 35%, color-mix(in srgb, #3d50f5 5%, #fff) 100%);
+		width: 64px;
+		height: 64px;
+		margin-bottom: $spacing-5;
+		padding: 0;
+		color: #fff;
 	}
 
 	.bk[data-tone='light'] .bk__mark--light {
@@ -419,6 +482,93 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		flex-direction: column;
 		align-items: flex-start;
 		min-width: 0;
+	}
+
+	// The homepage's regions-first form: the regions under the lede, full width of the intro, and the
+	// side cards in the second column, centred against it.
+	.bk--cols .bk__intro .bk__regions {
+		margin-bottom: 0;
+	}
+
+	.bk--cols:has(.bk__side) .bk__inner {
+		align-items: center;
+	}
+
+	.bk__side {
+		display: grid;
+		gap: $spacing-3;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// A side door: an icon on a neutral tile, a name over one line, a chevron — no accent anywhere, so
+	// the white region cards stay the path. The ground's own white at low alpha, a step up on hover.
+	.bk__card {
+		display: flex;
+		align-items: center;
+		gap: $spacing-4;
+		padding: $spacing-4;
+		border-radius: $radius-lg;
+		background: var(--bk-side);
+		color: var(--bk-text);
+		transition: background-color 0.15s;
+
+		&:hover {
+			background: var(--bk-side-hover);
+
+			.bk__card-title {
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--bk-focus);
+			outline-offset: 3px;
+		}
+	}
+
+	.bk__card-icon {
+		display: grid;
+		flex: none;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 10px;
+		background: var(--bk-side-icon);
+		color: var(--bk-text);
+
+		:global(svg) {
+			width: 20px;
+			height: 20px;
+		}
+	}
+
+	.bk__card-text {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.bk__card-title {
+		font-size: $font-size-base;
+		font-weight: $font-weight-bold;
+		line-height: 1.35;
+	}
+
+	.bk__card-line {
+		font-size: $font-size-sm;
+		line-height: 1.5;
+		color: var(--bk-soft);
+	}
+
+	.bk__card :global(.bk__card-go) {
+		flex: none;
+		width: 18px;
+		height: 18px;
+		color: var(--bk-muted);
 	}
 
 	.bk__paths {
