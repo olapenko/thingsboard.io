@@ -165,7 +165,7 @@ export const FOOTER_LICENSE_PORTAL = {
 
 /**
  * The link columns. SOLUTIONS is the Use Cases menu's first five and the SCADA group; DEVELOPERS the
- * references a builder goes looking for, AI included; the last two are the Services, Partners,
+ * references a builder goes looking for; the last two are the Services, Partners,
  * Customers and Company menus folded together.
  *
  * NO "BUILD" COLUMN (dropped 2026-09-29). It listed capabilities — connect devices, rule engine,
@@ -211,7 +211,6 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Device connectivity', href: '/docs/pe/connect-iot-devices/' },
 			{ label: 'REST API', href: '/docs/pe/reference/rest-api/' },
 			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
-			{ label: 'AI and MCP server', href: '/docs/pe/iot-solutions-with-ai/' },
 			{ label: 'Release notes', href: '/docs/pe/releases/' },
 			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
 		],
