@@ -127,27 +127,15 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
 ];
 
 /**
- * `focus` layout: the pages the panel puts beside the two platforms, in place of the ecosystem (which
- * becomes a link column, the License Portal at its foot). What it costs and how it installs — the
- * two a reader deciding goes looking for. Case studies were a third and came out: they stay a
- * Solutions link. One indigo for both, lifted like the product hues, so they read as pages rather
- * than as products. A page here is not repeated in the columns below.
+ * `focus` layout: the two links at the right end of the panel's one row, beside the two platforms —
+ * what it costs, where it installs. An icon and a label each, no heading and no line: they are the
+ * platforms' own links, not a group of their own (a "Start here" over them made Pricing read as a
+ * first step). The ecosystem is a link column in this layout, the License Portal at its foot. A page
+ * here is not repeated in the columns below.
  */
-export const FOOTER_HIGHLIGHTS: FooterProduct[] = [
-	{
-		name: 'Pricing',
-		line: 'Cloud plans and self-hosted licenses',
-		href: '/pricing/',
-		icon: 'tabler:receipt-2',
-		hue: '#8b9bff',
-	},
-	{
-		name: 'Installation options',
-		line: 'Every way to install it',
-		href: '/installations/',
-		icon: 'tabler:download',
-		hue: '#8b9bff',
-	},
+export const FOOTER_HIGHLIGHTS: (FooterLink & { icon: string })[] = [
+	{ label: 'Pricing', href: '/pricing/', icon: 'tabler:receipt-2' },
+	{ label: 'Installation options', href: '/installations/', icon: 'tabler:download' },
 ];
 
 /** Under the map, across both groups, on the left: what it costs and where it installs. */
