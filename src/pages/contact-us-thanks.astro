@@ -16,6 +16,8 @@ interface NextLink {
 	external?: boolean;
 	/** Opens the header's region dialog instead of the fallback host (`CloudRegionDialog`). */
 	cloudAuth?: 'signup';
+	/** The one tile in colour: the Cloud product's blue, on the step the page leads with. */
+	accent?: boolean;
 }
 
 const TRY_CLOUD: NextLink = {
@@ -24,6 +26,7 @@ const TRY_CLOUD: NextLink = {
 	line: 'Start free, with nothing to install and no credit card.',
 	href: 'https://thingsboard.cloud/signup',
 	cloudAuth: 'signup',
+	accent: true,
 };
 const GETTING_STARTED: NextLink = {
 	icon: 'tabler:rocket',
@@ -37,6 +40,13 @@ const STORIES: NextLink = {
 	line: 'How companies across industries use ThingsBoard.',
 	href: '/case-studies/',
 };
+// The homepage's own pitch for the Hub, and its icon (`homeEcosystem`).
+const IOT_HUB: NextLink = {
+	icon: 'tabler:building-store',
+	title: 'Browse the IoT Hub',
+	line: 'Device profiles, widgets and dashboards, ready to install in a click.',
+	href: '/iot-hub/',
+};
 const DOCS: NextLink = {
 	icon: 'tabler:book',
 	title: 'Documentation',
@@ -44,19 +54,45 @@ const DOCS: NextLink = {
 	href: '/docs/',
 };
 
-// What's worth a look while the reply is on its way, by the topic the message was sent under.
-// Keys are the form's submitted topic values; anything else gets `default`.
+// What's worth a look while the reply is on its way. Four, and in the same order everywhere: trying
+// the platform first — the one thing a reader can do today — then learning it, the Hub, and proof.
+// A topic the message came in under (a `?subject=` link) only swaps in its own card at the END, so
+// the topic never outranks the next step. Support is the exception: that reader already runs
+// ThingsBoard, so its four are the support routes. Keys are the form's topic values.
 const NEXT: Record<string, NextLink[]> = {
-	default: [TRY_CLOUD, GETTING_STARTED, STORIES],
+	default: [TRY_CLOUD, GETTING_STARTED, IOT_HUB, STORIES],
 	'Private Cloud': [
+		{ ...TRY_CLOUD, line: 'Try the platform on our public cloud while we size yours.' },
+		IOT_HUB,
+		STORIES,
 		{
 			icon: 'tabler:server-2',
 			title: 'Private Cloud plans',
 			line: 'Compare Launch, Growth, Scale and Enterprise side by side.',
 			href: '/pricing/?product=thingsboard-private-cloud',
 		},
-		{ ...TRY_CLOUD, line: 'Try the platform on our public cloud while we size yours.' },
+	],
+	Training: [
+		TRY_CLOUD,
+		GETTING_STARTED,
+		DOCS,
+		{
+			icon: 'tabler:school',
+			title: 'Training sessions',
+			line: 'The workshops we run, and what each one covers.',
+			href: '/services/trainings/',
+		},
+	],
+	'Custom Development Service': [
+		TRY_CLOUD,
+		IOT_HUB,
 		STORIES,
+		{
+			icon: 'tabler:code',
+			title: 'Development services',
+			line: 'How we build IoT solutions on ThingsBoard for customers.',
+			href: '/services/development-services/',
+		},
 	],
 	'Technical Support': [
 		{
@@ -73,27 +109,13 @@ const NEXT: Record<string, NextLink[]> = {
 			href: 'https://github.com/thingsboard/thingsboard/issues',
 			external: true,
 		},
-		DOCS,
-	],
-	Training: [
 		{
-			icon: 'tabler:school',
-			title: 'Training sessions',
-			line: 'The workshops we run, and what each one covers.',
-			href: '/services/trainings/',
+			icon: 'tabler:stethoscope',
+			title: 'Troubleshooting',
+			line: 'Logs, metrics and the fixes for the most common problems.',
+			href: '/docs/troubleshooting/',
 		},
-		GETTING_STARTED,
 		DOCS,
-	],
-	'Custom Development Service': [
-		{
-			icon: 'tabler:code',
-			title: 'Development services',
-			line: 'How we build IoT solutions on ThingsBoard for customers.',
-			href: '/services/development-services/',
-		},
-		STORIES,
-		TRY_CLOUD,
 	],
 };
 ---
@@ -143,7 +165,10 @@ const NEXT: Record<string, NextLink[]> = {
 									data-cloud-auth={link.cloudAuth}
 									{...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
 								>
-									<span class="thanks-link__icon" aria-hidden="true">
+									<span
+										class:list={['thanks-link__icon', link.accent && 'thanks-link__icon--accent']}
+										aria-hidden="true"
+									>
 										<Icon name={link.icon} />
 									</span>
 									<span class="thanks-link__title">
@@ -383,8 +408,10 @@ const NEXT: Record<string, NextLink[]> = {
 
 	.thanks-links {
 		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: $spacing-4;
+		max-width: 820px;
+		margin: 0 auto;
 		padding: 0;
 		list-style: none;
 
@@ -392,10 +419,9 @@ const NEXT: Record<string, NextLink[]> = {
 			display: none;
 		}
 
-		@include media-down(lg) {
+		@include media-down(md) {
 			grid-template-columns: minmax(0, 1fr);
 			max-width: 620px;
-			margin: 0 auto;
 		}
 
 		li {
@@ -453,6 +479,13 @@ const NEXT: Record<string, NextLink[]> = {
 			width: 26px;
 			height: 26px;
 		}
+	}
+
+	// The lead step's tile, in the Cloud product's blue — the menu's and the Products section's
+	// colour for ThingsBoard Cloud — so the next step reads first without another accent on the page.
+	.thanks-link__icon--accent {
+		color: var(--color-product-cloud);
+		background: color-mix(in srgb, var(--color-product-cloud) 10%, var(--color-bg-surface));
 	}
 
 	.thanks-link__title {
