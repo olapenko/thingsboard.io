@@ -72,10 +72,10 @@ interface Props {
 	/**
 	 * What colours the band. `route` — the showing route's hue, blending on a switch: green for the
 	 * chat, violet for the terminal. `cycle` — THE SECTION'S MARK: the wash follows the badge through
-	 * the other sections' hues, on the same clock, paused and resumed with it, so the tile and the band
-	 * change colour as one (the shipping section's `wash="cycle"` experiment, ported 2026-09-26). The
-	 * route no longer colours the band then, and the button's label goes to the ink with it; the
-	 * switch's label and the tiles still carry the route's hue.
+	 * the other sections' hues, on one clock that runs while either of them is on screen, so the tile
+	 * and the band change colour as one (the shipping section's `wash="cycle"` experiment, ported
+	 * 2026-09-26). The route no longer colours the band then, and the button's label goes to the ink
+	 * with it; the switch's label and the tiles still carry the route's hue.
 	 */
 	wash?: 'route' | 'cycle';
 	/**
@@ -650,7 +650,8 @@ const sectionStyle = [badgeHues, cycleVars, washCycle && `--ai-hue-0: ${AI_COPY.
 		animation-play-state: paused;
 	}
 
-	.wide :global(.section-header__badge.is-cycling) {
+	// The SECTION's class, not the badge's: the one switch the wash reads too (see the script).
+	.wide.is-cycling :global(.section-header__badge) {
 		animation-play-state: running;
 	}
 
@@ -692,17 +693,23 @@ const sectionStyle = [badgeHues, cycleVars, washCycle && `--ai-hue-0: ${AI_COPY.
 	// The SAME sequence as the tile, stop for stop — stop 0 is the mark's own colour, handed over as
 	// `--ai-hue-0` — driven into `--ai-wash`, the one gradient the hand-off layout paints. Same clock,
 	// same linear timing, so the band passes through each colour at the moment the tile does; in
-	// lockstep by construction, since both are applied at first paint, both held paused, and the
-	// observer that resumes the tile flips `is-cycling` on the section in the same callback.
+	// lockstep by construction, since both are applied at first paint, both held paused, and both run
+	// on the section's one `is-cycling`.
+	//
+	// WHEN they run is each one's own business: the section cycles while the mark OR the band is on
+	// screen. Gated on the mark alone, the band froze on a phone as soon as the heading scrolled away —
+	// there the band is the window and its copy stacked, two screens below the mark. The mark runs on
+	// unseen while only the band shows, which is what keeps the two in step for the scroll back up.
 	//
 	// An animation outranks the inline `--ai-wash` the hand-off sets on a switch, so the route no
 	// longer colours the band here; its transition simply has nothing to do.
 	//
-	// SLOWER, 18s against the mark's usual 9 — 3s a colour. At 1.5s a leg a tile is a small thing
+	// SLOWER, 2.5s a colour against the mark's usual 1.5. At 1.5s a leg a tile is a small thing
 	// changing briskly; a full-bleed band doing the same is the whole screen flickering. The tile
-	// slows with it (`--ai-cycle` feeds both), or the two would part.
+	// slows with it (`--ai-cycle` feeds both), or the two would part. It was 3s; 2.5 on 2026-10-01,
+	// when 3 read as the band stalling between colours.
 	.wide--wash-cycle {
-		--ai-leg: 3s;
+		--ai-leg: 2.5s;
 	}
 
 	.wide--wash-cycle .wide__bands {
@@ -831,23 +838,38 @@ const sectionStyle = [badgeHues, cycleVars, washCycle && `--ai-hue-0: ${AI_COPY.
 </style>
 
 <script>
-	// The section mark cycles colour while it is on screen — `AiSection`'s observer, for this section's
-	// own class, since that one looks for `section.ai` and would not find these.
+	// The section mark cycles colour while it is on screen — `AiSection`'s observers, for this section's
+	// own class, since those look for `section.ai` and would not find these.
+	//
+	// One switch per section, `is-cycling`, which the mark and a cycling wash both read, so the two
+	// share one clock. Each has its own say in it: the mark when half of it shows, the band (with
+	// `wash="cycle"`) when any of it does — a band taller than the screen is never half on it.
 	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-	const cycling = new IntersectionObserver(
-		(entries) => {
-			for (const entry of entries) {
-				entry.target.classList.toggle('is-cycling', entry.isIntersecting);
-				// And on the section, in the same callback, for a wash that follows the mark
-				// (`wash="cycle"`) — the same frame, so the two clocks never part.
-				entry.target.closest('section.wide')?.classList.toggle('is-cycling', entry.isIntersecting);
-			}
-		},
-		{ threshold: 0.5 }
-	);
+	const seen = new Map<HTMLElement, { mark: boolean; band: boolean }>();
+
+	const watch = (part: 'mark' | 'band', threshold: number) =>
+		new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					const section = entry.target.closest<HTMLElement>('section.wide');
+					const state = section ? seen.get(section) : undefined;
+					if (!section || !state) continue;
+					state[part] = entry.isIntersecting;
+					section.classList.toggle('is-cycling', state.mark || state.band);
+				}
+			},
+			{ threshold }
+		);
+
+	const marks = watch('mark', 0.5);
+	const bands = watch('band', 0);
 
 	document.querySelectorAll<HTMLElement>('section.wide').forEach((section) => {
 		const badge = section.querySelector('.section-header__badge');
-		if (badge && section.dataset.animate === 'on' && !reduced) cycling.observe(badge);
+		if (!badge || section.dataset.animate !== 'on' || reduced) return;
+		seen.set(section, { mark: false, band: false });
+		marks.observe(badge);
+		const band = section.classList.contains('wide--wash-cycle') && section.querySelector('.wide__bands');
+		if (band) bands.observe(band);
 	});
 </script>
