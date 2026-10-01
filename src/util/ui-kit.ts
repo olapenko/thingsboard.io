@@ -33,3 +33,9 @@ export function sizeClasses<T extends string | number>(block: string, size: Resp
 		.filter(([, value]) => value !== undefined)
 		.map(([bp, value]) => (bp === 'base' ? `${block}--${value}` : `${block}--${bp}-up-${value}`));
 }
+
+/** A link that leaves the site: a new tab, without handing it this page. */
+export const EXTERNAL_ATTRS = { target: '_blank', rel: 'noopener noreferrer' } as const;
+
+/** What a screen reader hears after such a link's label (in `<span class="ui-sr">`). */
+export const EXTERNAL_NOTE = ' (opens in a new tab)';

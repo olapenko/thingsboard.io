@@ -11,6 +11,7 @@
  */
 import { Icon } from 'astro-icon/components';
 import SmartImage from '@components/SmartImage.astro';
+import { EXTERNAL_ATTRS, EXTERNAL_NOTE } from '@util/ui-kit';
 
 interface Props {
 	/** Default: link with an href, tag without. */
@@ -31,8 +32,6 @@ interface Props {
 	tone?: 'accent' | 'neutral';
 	/** Tag: the scheme's fill with white text. */
 	solid?: boolean;
-	/** Default: the nearest `data-surface`. */
-	surface?: 'light' | 'dark';
 	class?: string;
 	attrs?: Record<string, string | undefined>;
 }
@@ -47,7 +46,6 @@ const {
 	note,
 	tone = 'accent',
 	solid = false,
-	surface,
 	class: className,
 	attrs = {},
 } = Astro.props;
@@ -57,7 +55,7 @@ const kind = Astro.props.kind ?? (href ? 'link' : 'tag');
 const Tag = kind === 'link' ? 'a' : kind === 'toggle' ? 'button' : 'span';
 const element =
 	kind === 'link'
-		? { href, ...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {}) }
+		? { href, ...(external ? EXTERNAL_ATTRS : {}) }
 		: kind === 'toggle'
 			? { type: 'button' as const, 'aria-pressed': pressed ? ('true' as const) : ('false' as const) }
 			: {};
@@ -71,7 +69,6 @@ const interactive = kind !== 'tag';
 		interactive ? `ui-chip--${size}` : `ui-chip--tag-${solid ? 'solid' : tone}`,
 		className,
 	]}
-	data-surface={surface}
 	{...element}
 	{...attrs}
 >
@@ -83,7 +80,7 @@ const interactive = kind !== 'tag';
 	}
 	<slot />
 	{interactive && note && <span class="ui-chip__note">{note}</span>}
-	{external && <span class="ui-chip__sr"> (opens in a new tab)</span>}
+	{external && <span class="ui-sr">{EXTERNAL_NOTE}</span>}
 </Tag>
 
 <style is:global lang="scss">
@@ -97,10 +94,6 @@ const interactive = kind !== 'tag';
 		white-space: nowrap;
 		text-decoration: none;
 		-webkit-tap-highlight-color: transparent;
-
-		&[hidden] {
-			display: none;
-		}
 	}
 
 	// LINK AND TOGGLE: a bordered pill, 40 (or 32) tall.
@@ -205,10 +198,6 @@ const interactive = kind !== 'tag';
 	.ui-chip__note {
 		color: var(--_note);
 		font-weight: $font-weight-normal;
-	}
-
-	.ui-chip__sr {
-		@include visually-hidden;
 	}
 
 	.ui-chip--toggle[aria-pressed='true'] {
