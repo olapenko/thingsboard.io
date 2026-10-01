@@ -1,0 +1,509 @@
+---
+import { Icon } from 'astro-icon/components';
+import CookieBanner from '@components/CookieBanner.astro';
+import CookieNotice from '@components/CookieNotice.astro';
+
+/**
+ * A window's worth of page with the cookie notice where it lands: pinned to the foot of the screen,
+ * over whatever is there. The stage is the window — it CONTAINS fixed positioning (`contain:
+ * layout`), so the real component, `position: fixed` and all, pins to the stage's bottom edge rather
+ * than the sandbox's. 720px tall on desktop; 640 in the phone frame, a 375x812 phone less its
+ * browser's bars.
+ *
+ * Two pages behind it, switched for the whole sandbox by "Behind it" in the bar:
+ * - HOMEPAGE: the first screen restated — header, the black hero, its headline and buttons, the
+ *   footage's dashboards as dark tiles. Where nearly everyone first meets the notice, on dark.
+ * - DOCS: header, sidebar past 72rem, an article in outline. Where the rest meet it, on white.
+ *
+ * The chat launcher is drawn too, at its real size and inset (50px, 20px from the corner, measured
+ * off the live widget), because it is above the notice on every page and the notice has to leave it
+ * room. `shipped` renders the banner in use instead of the candidate, kept from writing its cookie.
+ */
+interface Props {
+	notice?: Parameters<typeof CookieNotice>[0];
+	shipped?: boolean;
+}
+
+const { notice = {}, shipped = false } = Astro.props;
+---
+
+<div class="cs" data-cs>
+	<div class="cs__header" aria-hidden="true">
+		<span class="cs__logo"><Icon name="tabler:cpu" /> ThingsBoard</span>
+		<span class="cs__nav">
+			<span>Products</span><span>Services</span><span>Use Cases</span><span>Customers</span><span>Docs</span><span
+				>Pricing</span
+			>
+		</span>
+		<span class="cs__signin">Sign in</span>
+		<span class="cs__cta">Try for free</span>
+		<span class="cs__menu"><Icon name="tabler:menu-2" /> Menu</span>
+	</div>
+
+	{/* The homepage's first screen. */}
+	<div class="cs__home" aria-hidden="true">
+		<div class="cs__hero">
+			<p class="cs__kicker">ThingsBoard</p>
+			<p class="cs__headline">The all-in-one IoT platform</p>
+			<p class="cs__lede">
+				Device management, data processing &amp; visualization for teams who build IoT for clients — with fully
+				white-labeled apps, multi-tenant isolation, and any-device connectivity.
+			</p>
+			<span class="cs__btns">
+				<span class="cs__btn cs__btn--fill"><Icon name="tabler:cloud-filled" /> Try for free</span>
+				<span class="cs__btn cs__btn--line"><Icon name="tabler:download" /> Install</span>
+			</span>
+		</div>
+		<div class="cs__tiles">
+			{Array.from({ length: 6 }, (_, i) => <span class="cs__tile" data-i={i} />)}
+		</div>
+	</div>
+
+	{/* A docs page. */}
+	<div class="cs__docs" aria-hidden="true">
+		<div class="cs__side">
+			{[62, 48, 70, 54, 40, 66, 58, 44, 72, 50, 60, 46].map((w) => <span class="cs__bone" style={`width:${w}%`} />)}
+		</div>
+		<div class="cs__article">
+			<span class="cs__bone cs__bone--crumb"></span>
+			<p class="cs__h1">Getting started</p>
+			{
+				[0, 1, 2].map(() => (
+					<span class="cs__para">
+						{[100, 96, 99, 92, 58].map((w) => (
+							<span class="cs__bone" style={`width:${w}%`} />
+						))}
+					</span>
+				))
+			}
+		</div>
+	</div>
+
+	<span class="cs__chat" aria-hidden="true"><Icon name="tabler:message-chatbot" /></span>
+
+	{shipped ? <CookieBanner /> : <CookieNotice {...notice} demo />}
+</div>
+
+<script>
+	/**
+	 * The sandbox's side of the notice: which page is behind it, and "Show again".
+	 *
+	 * Both are stored, because each phone preview is an iframe of this page and only sees what it can
+	 * read: localStorage fires `storage` in every OTHER same-origin document, which is those frames.
+	 */
+	const GROUND_KEY = 'launch-visuals:cookie-ground';
+	const REPLAY_KEY = 'launch-visuals:cookie-replay';
+	const root = document.documentElement;
+
+	const read = () => {
+		try {
+			return localStorage.getItem(GROUND_KEY) === 'docs' ? 'docs' : 'home';
+		} catch {
+			return 'home';
+		}
+	};
+
+	const apply = (ground: string) => {
+		root.dataset.csGround = ground;
+		document
+			.querySelectorAll<HTMLButtonElement>('[data-cs-pick]')
+			.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.csPick === ground)));
+	};
+
+	/** The banner in use reads the real cookie; here it shows regardless, like the candidates. */
+	const showAll = () => {
+		document.querySelectorAll<HTMLElement>('[data-cs] [data-cn]').forEach((el) => {
+			el.hidden = false;
+		});
+		document.querySelectorAll<HTMLElement>('[data-cs] #cookie-banner').forEach((el) => {
+			el.style.removeProperty('display');
+			el.classList.add('is-visible');
+		});
+	};
+
+	apply(read());
+	showAll();
+
+	// The banner in use writes `cookie-notice-dismissed` on Accept, which would hide it on every
+	// other page of this dev site. Caught on the way down, before its own handler sees the click.
+	document.querySelectorAll<HTMLElement>('[data-cs]').forEach((stage) =>
+		stage.addEventListener(
+			'click',
+			(e) => {
+				const hit = (e.target as Element).closest('#cookie-accept, #cookie-dismiss');
+				if (!hit) return;
+				e.stopPropagation();
+				hit.closest('#cookie-banner')?.classList.remove('is-visible');
+			},
+			true
+		)
+	);
+
+	document.querySelectorAll<HTMLButtonElement>('[data-cs-pick]').forEach((b) =>
+		b.addEventListener('click', () => {
+			const ground = b.dataset.csPick === 'docs' ? 'docs' : 'home';
+			apply(ground);
+			try {
+				localStorage.setItem(GROUND_KEY, ground);
+			} catch {
+				/* the frames keep their own until reload */
+			}
+		})
+	);
+
+	document.querySelectorAll<HTMLButtonElement>('[data-cs-replay]').forEach((b) =>
+		b.addEventListener('click', () => {
+			showAll();
+			try {
+				localStorage.setItem(REPLAY_KEY, String(Date.now()));
+			} catch {
+				/* the frames stay as they are */
+			}
+		})
+	);
+
+	window.addEventListener('storage', (e) => {
+		if (e.key === GROUND_KEY) apply(read());
+		if (e.key === REPLAY_KEY) showAll();
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.cs {
+		position: relative;
+		height: 720px;
+		overflow: hidden;
+		// The window, for the notice: layout containment makes this the containing block of every
+		// `position: fixed` inside it, so the real component pins here and not to the sandbox.
+		contain: layout paint;
+		font-family: var(--font-family, $font-family-base);
+		background: #fff;
+
+		@include media-down(md) {
+			height: 640px;
+		}
+	}
+
+	// ---- The header, in outline -------------------------------------------------------------
+	.cs__header {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		gap: $spacing-6;
+		height: 64px;
+		padding: 0 36px;
+		border-bottom: 1px solid #eceef2;
+		background: #fff;
+		@include type-small;
+		color: var(--color-text, #17181c);
+
+		@include media-down(md) {
+			height: 56px;
+			padding: 0 $spacing-4;
+		}
+	}
+
+	.cs__logo {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		margin-right: auto;
+		font-size: 18px;
+
+		svg {
+			width: 24px;
+			height: 24px;
+		}
+	}
+
+	.cs__nav {
+		display: flex;
+		gap: $spacing-5;
+		margin-right: auto;
+	}
+
+	.cs__signin,
+	.cs__cta,
+	.cs__menu {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		height: 36px;
+		padding: 0 14px;
+		border-radius: $radius-sm;
+		border: 1px solid rgba(23, 24, 28, 0.18);
+	}
+
+	.cs__cta {
+		border-color: transparent;
+		background: $color-brand;
+		color: #fff;
+		font-weight: $font-weight-bold;
+	}
+
+	.cs__menu {
+		display: none;
+
+		svg {
+			width: 20px;
+			height: 20px;
+		}
+	}
+
+	@include media-down(lg) {
+		.cs__nav,
+		.cs__signin,
+		.cs__cta {
+			display: none;
+		}
+
+		.cs__menu {
+			display: inline-flex;
+		}
+	}
+
+	// ---- Homepage: the black hero and the footage's dashboards ------------------------------
+	.cs__home {
+		position: absolute;
+		inset: 64px 0 0;
+		display: grid;
+		grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+		gap: $spacing-8;
+		padding: 40px 36px;
+		background: #000;
+		color: #fff;
+
+		@include media-down(md) {
+			inset: 56px 0 0;
+			grid-template-columns: 1fr;
+			align-content: start;
+			gap: $spacing-8;
+			padding: $spacing-8 $spacing-4;
+			text-align: center;
+		}
+	}
+
+	.cs__kicker,
+	.cs__headline {
+		margin: 0;
+		font-size: 44px;
+		font-weight: $font-weight-bold;
+		line-height: 1.2;
+
+		@include media-down(md) {
+			font-size: 30px;
+		}
+	}
+
+	.cs__kicker {
+		color: #6b6d75;
+	}
+
+	.cs__lede {
+		@include type-body;
+		margin: $spacing-5 0 $spacing-6;
+		color: rgba(255, 255, 255, 0.9);
+	}
+
+	.cs__btns {
+		display: flex;
+		gap: $spacing-3;
+
+		@include media-down(md) {
+			justify-content: center;
+		}
+	}
+
+	.cs__btn {
+		@include type-button;
+		display: inline-flex;
+		align-items: center;
+		gap: $spacing-2;
+		height: 44px;
+		padding: 0 $spacing-4;
+		border-radius: $radius-sm;
+		line-height: 1;
+
+		svg {
+			width: 18px;
+			height: 18px;
+		}
+	}
+
+	.cs__btn--fill {
+		background: $color-brand;
+	}
+
+	.cs__btn--line {
+		border: 1px solid rgba(255, 255, 255, 0.4);
+	}
+
+	.cs__tiles {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		grid-auto-rows: 1fr;
+		gap: 6px;
+		margin: -40px -36px -40px 0;
+		padding: 6px;
+		background: #0a1426;
+
+		@include media-down(md) {
+			grid-auto-rows: 120px;
+			margin: 0 -16px;
+		}
+	}
+
+	// A chart's worth of colour per tile, at the footage's weight: thin marks at half strength on the
+	// panels' navy, so the ground under the notice is busy the way the dashboards are without
+	// out-shouting the thing being judged.
+	.cs__tile {
+		border-radius: 3px;
+		background:
+			linear-gradient(to top, rgba(61, 80, 245, 0.35), rgba(61, 80, 245, 0) 70%) bottom / 100% 55% no-repeat,
+			#13213b;
+
+		&[data-i='1'] {
+			background:
+				repeating-linear-gradient(to right, rgba(59, 130, 246, 0.55) 0 5px, transparent 5px 14px) bottom / 100% 55%
+					no-repeat,
+				#13213b;
+		}
+
+		&[data-i='3'] {
+			background:
+				radial-gradient(
+					circle at 50% 55%,
+					transparent 0 22%,
+					rgba(47, 125, 225, 0.5) 22% 30%,
+					rgba(194, 64, 47, 0.5) 30% 34%,
+					transparent 34%
+				),
+				#13213b;
+		}
+
+		&[data-i='4'] {
+			background:
+				linear-gradient(
+						to top,
+						rgba(194, 64, 47, 0.45) 0 30%,
+						rgba(47, 158, 68, 0.45) 30% 55%,
+						rgba(47, 125, 225, 0.45) 55% 80%,
+						transparent 80%
+					)
+					bottom / 100% 60% no-repeat,
+				#13213b;
+		}
+	}
+
+	// ---- Docs: sidebar and an article in outline --------------------------------------------
+	.cs__docs {
+		position: absolute;
+		inset: 64px 0 0;
+		display: none;
+		grid-template-columns: var(--sl-sidebar-width, 18.75rem) minmax(0, 1fr);
+		background: #fff;
+
+		@include media-down(md) {
+			inset: 56px 0 0;
+		}
+
+		@media (max-width: 71.99rem) {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	:global(:root[data-cs-ground='docs']) {
+		.cs__home {
+			display: none;
+		}
+
+		.cs__docs {
+			display: grid;
+		}
+	}
+
+	.cs__side {
+		display: grid;
+		align-content: start;
+		gap: 14px;
+		padding: $spacing-8 $spacing-6;
+		border-right: 1px solid #eceef2;
+
+		@media (max-width: 71.99rem) {
+			display: none;
+		}
+	}
+
+	.cs__bone {
+		display: block;
+		height: 10px;
+		border-radius: 5px;
+		background: #eceef2;
+	}
+
+	.cs__article {
+		display: grid;
+		align-content: start;
+		gap: $spacing-6;
+		max-width: 46rem;
+		padding: $spacing-8 $spacing-10;
+
+		@include media-down(md) {
+			padding: $spacing-6 $spacing-4;
+		}
+	}
+
+	.cs__bone--crumb {
+		width: 30%;
+	}
+
+	.cs__h1 {
+		@include type-section;
+		margin: 0;
+		color: var(--color-text, #17181c);
+	}
+
+	.cs__para {
+		display: grid;
+		gap: 10px;
+	}
+
+	// The notice starts where the docs page does, past the sidebar — `CookieNotice`'s own rule keys
+	// off `html[data-has-sidebar]`, which this sandbox page does not set, so it is restated here.
+	@media (min-width: 72rem) {
+		:global(:root[data-cs-ground='docs']) .cs {
+			:global(.cn[data-layout='bar']),
+			:global(#cookie-banner) {
+				left: var(--sl-sidebar-width, 18.75rem);
+			}
+
+			:global(.cn[data-layout='card']) {
+				left: calc(var(--sl-sidebar-width, 18.75rem) + #{$spacing-6});
+			}
+		}
+	}
+
+	// ---- The chat launcher ------------------------------------------------------------------
+	.cs__chat {
+		position: absolute;
+		right: 20px;
+		bottom: 20px;
+		z-index: 10000;
+		display: grid;
+		place-items: center;
+		width: 50px;
+		height: 50px;
+		border-radius: 50%;
+		background: #6353ee;
+		color: #fff;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+
+		svg {
+			width: 26px;
+			height: 26px;
+		}
+	}
+</style>

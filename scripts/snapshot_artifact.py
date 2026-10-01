@@ -70,7 +70,7 @@ PAGES = [
 # `_InternalNav` is the sandbox pill, stripped from the markup below; the cookie banner and the UTM
 # tracker are instrumentation that reaches for the network from a page that should be inert.
 DROP = {'GitHubButton', 'HeaderContent', 'HeaderScrollWatch', 'Navigation', 'Footer',
-        '_InternalNav', 'CookieBanner', 'UtmTracker'}
+        '_InternalNav', 'CookieBanner', 'CookieNotice', 'UtmTracker'}
 IMPORT_RE = re.compile(r'''import\s+[\w{},*\s]+\s+from\s+['"]([^'"]+)['"]''')
 
 
