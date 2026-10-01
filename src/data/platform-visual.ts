@@ -175,6 +175,13 @@ export interface PlatformStage {
 	 * indigo.
 	 */
 	accent: string;
+	/**
+	 * The homepage row this stage stands for, by its anchor: the same mapping by meaning that
+	 * `accent` makes by colour, stated as a target. `PlatformStepsBar` links each step to it and
+	 * lights the step while that row is read, and an order that docks the bar is checked to run these
+	 * four rows straight after the platform, in this order (`data/home-compositions.ts`).
+	 */
+	row: 'connect' | 'twin' | 'normalize' | 'solution';
 }
 
 /**
@@ -215,6 +222,7 @@ export const PLATFORM_STAGES: PlatformStage[] = [
 		note: 'Devices, gateways, integrations',
 		icon: 'tabler:plug-connected',
 		accent: CONNECT_COPY.badge.color,
+		row: 'connect',
 	},
 	{
 		name: 'Model',
@@ -223,6 +231,7 @@ export const PLATFORM_STAGES: PlatformStage[] = [
 		// The twin's own box — the glyph `DigitalTwin.astro` draws its unit with.
 		icon: 'tabler:box-model',
 		accent: DIGITAL_TWIN_COPY.badge.color,
+		row: 'twin',
 	},
 	{
 		name: 'Automate',
@@ -230,6 +239,7 @@ export const PLATFORM_STAGES: PlatformStage[] = [
 		note: 'Calculated fields, alarm rules, rule chains',
 		icon: 'tabler:binary-tree',
 		accent: NORMALIZE_COPY.badge.color,
+		row: 'normalize',
 	},
 	{
 		name: 'Operate',
@@ -237,6 +247,7 @@ export const PLATFORM_STAGES: PlatformStage[] = [
 		note: 'Dashboards, reports, SCADA',
 		icon: 'tabler:chart-dots',
 		accent: SOLUTION_COPY.badge.color,
+		row: 'solution',
 	},
 ];
 

@@ -24,7 +24,7 @@ import { AI_COPY } from '@data/ai-visual';
 import { CONNECT_COPY } from '@data/connect-visual';
 import { DIGITAL_TWIN_COPY } from '@data/digital-twin-visual';
 import { NORMALIZE_COPY } from '@data/normalize-visual';
-import { PLATFORM_COPY } from '@data/platform-visual';
+import { PLATFORM_COPY, PLATFORM_STAGES } from '@data/platform-visual';
 import { SCALE_COPY } from '@data/scale-visual';
 import { SOLUTION_COPY } from '@data/solution-flow';
 import { DASHBOARDS_BADGE } from '@data/home-dashboards';
@@ -58,6 +58,15 @@ export type HomeSection =
 			 * main's lede under it (`data/home-live.ts`).
 			 */
 			heading: 'build' | 'loop' | 'live';
+			/**
+			 * `loop` — `PlatformClear`: equipment and people either side of the platform, and the four
+			 * runs between them. `steps` — `PlatformSteps`: the same three in one top-to-bottom flow,
+			 * the four stages across the platform card, and those stages DOCKED under the header as a bar
+			 * (`PlatformStepsBar`) for the rows that follow, lighting each one while its row is read.
+			 * The bar takes over those rows' marks. It needs the four rows straight after the platform,
+			 * in stage order, which is checked below.
+			 */
+			diagram: 'loop' | 'steps';
 	  }
 	| {
 			id: 'ai';
@@ -184,7 +193,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		note: 'The AI demo straight under the hero, in the wide window with its call to action, then the platform loop and its four rows in the loop’s own order. A trust band, “Why choose” under a value heading, and customer quotes join; Scale leaves for the On-premises page. Every section takes its own colour.',
 		sections: [
 			{ id: 'ai', layout: 'wide', cta: 'none', wash: 'cycle' },
-			{ id: 'platform', heading: 'loop' },
+			{ id: 'platform', heading: 'loop', diagram: 'loop' },
 			{ id: 'connect' },
 			{ id: 'twin' },
 			{ id: 'normalize', media: 'switch' },
@@ -216,7 +225,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		note: 'The homepage main ships today (ThingsBoard 4.4, on thingsboard.io), kept as the reference: the AI demo straight under the hero, then the platform loop, its five rows, the use cases, Products, Ecosystem and the features — in main’s words, on this branch’s sections.',
 		sections: [
 			{ id: 'ai', layout: 'wide', cta: 'none', wash: 'cycle' },
-			{ id: 'platform', heading: 'live' },
+			{ id: 'platform', heading: 'live', diagram: 'loop' },
 			{ id: 'connect' },
 			{ id: 'solution' },
 			{ id: 'twin' },
@@ -237,8 +246,37 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		footer: 'map',
 		note: 'A with its first two sections swapped: the platform loop orients first, then the AI demo. The smallest change from the handoff that still moves AI up.',
 		sections: [
-			{ id: 'platform', heading: 'loop' },
+			{ id: 'platform', heading: 'loop', diagram: 'loop' },
 			{ id: 'ai', layout: 'wide', cta: 'none', wash: 'cycle' },
+			{ id: 'connect' },
+			{ id: 'twin' },
+			{ id: 'normalize', media: 'switch' },
+			{ id: 'solution' },
+			{ id: 'dashboards' },
+			{ id: 'trust' },
+			{ id: 'products' },
+			{ id: 'ecosystem' },
+			{ id: 'features', heading: 'value' },
+			{ id: 'voices' },
+		],
+	},
+	{
+		/*
+		 * A PROOF OF CONCEPT (2026-10-01): A with the platform drawn as a map the reader carries down
+		 * the page. Built on A because A is the order that already runs the four rows in the stages'
+		 * own order, straight after the platform; B puts the AI section between the two, and Live runs
+		 * the rows in another order with Scale among them.
+		 */
+		id: 'c',
+		label: 'C',
+		name: 'Map as you go',
+		hues: 'section',
+		copy: 'facelift',
+		footer: 'map',
+		note: 'A with the platform drawn as one flow, its four stages across the middle, and those stages docked under the header as you scroll past it: each one lights while its row is read, and the rows give up their marks to the bar.',
+		sections: [
+			{ id: 'ai', layout: 'wide', cta: 'none', wash: 'cycle' },
+			{ id: 'platform', heading: 'loop', diagram: 'steps' },
 			{ id: 'connect' },
 			{ id: 'twin' },
 			{ id: 'normalize', media: 'switch' },
@@ -279,6 +317,20 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 	for (const c of HOME_COMPOSITIONS) {
 		if (c.copy === 'live' && c.sections.some((s) => s.id === 'ai' && s.layout !== 'wide')) {
 			throw new Error(`home-compositions: "${c.id}" speaks main's words, which the toggle AI layout has none of`);
+		}
+	}
+	// The step bar walks the four stages in order, one row each. Anything else between the platform
+	// and those rows, or the rows in another order, and it would light a step for a row the reader is
+	// not on — so an order that docks it must run exactly the stages' rows, next, in the stages' order.
+	const stageRows = PLATFORM_STAGES.map((st) => st.row);
+	for (const c of HOME_COMPOSITIONS) {
+		const at = c.sections.findIndex((s) => s.id === 'platform' && s.diagram === 'steps');
+		if (at < 0) continue;
+		const next = c.sections.slice(at + 1, at + 1 + stageRows.length).map((s) => s.id);
+		if (next.join() !== stageRows.join()) {
+			throw new Error(
+				`home-compositions: "${c.id}" docks the platform's steps, so ${stageRows.join(', ')} must follow the platform in that order (it runs ${next.join(', ')})`
+			);
 		}
 	}
 })();
