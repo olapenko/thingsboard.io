@@ -292,6 +292,15 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: 'Docs notice — the banner over the Community Edition docs',
 		badge: { icon: 'tabler:alert-circle', color: '#b45309' },
 	},
+	{
+		// The notice at the foot of every page until it is accepted. Like the docs notice, a site
+		// piece outside the homepage's sections, judged over a window of the page it lands on.
+		id: 'cookie-notice',
+		area: 'flows',
+		label: 'Cookie notice',
+		title: 'Cookie notice — the banner at the foot of every page',
+		badge: { icon: 'tabler:cookie', color: '#3d50f5' },
+	},
 ];
 
 /**
