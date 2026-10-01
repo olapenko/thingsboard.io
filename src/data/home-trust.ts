@@ -40,6 +40,16 @@ export interface TrustPoint {
 /** The band's heading. Visually hidden: the three titles carry the band, the outline still needs a name. */
 export const TRUST_COPY = { title: 'Built to run where you need it' };
 
+/**
+ * A VISIBLE heading, for the sandbox direction that gives the band one (`TrustBand`'s `heading`).
+ * DRAFT, and no claim in it is new: the subtitle is the three cards' titles said as one line, and its
+ * "whichever way you deploy it" hands over to the Products band under it, which opens on "either way".
+ */
+export const TRUST_HEADING = {
+	title: 'Safe to build on',
+	subtitle: 'Certified, ready to scale and open to extend, whichever way you deploy it.',
+};
+
 export const TRUST_POINTS: TrustPoint[] = [
 	{
 		kind: 'security',

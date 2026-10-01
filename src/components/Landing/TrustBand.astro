@@ -2,7 +2,8 @@
 import { Icon } from 'astro-icon/components';
 import TrustVisual from '@components/Landing/TrustVisual.astro';
 import TrustVisualStages from '@components/Landing/TrustVisualStages.astro';
-import { TRUST_COPY, TRUST_POINTS } from '@data/home-trust';
+import SectionHeader from '@components/Landing/SectionHeader.astro';
+import { TRUST_COPY, TRUST_HEADING, TRUST_POINTS } from '@data/home-trust';
 
 /**
  * Three cards — security, scale, openness — each opening on a small drawing (`TrustVisual`). The
@@ -27,16 +28,45 @@ interface Props {
 	 * `cards` — `TrustVisual`, the drawings it replaced, kept as the sandbox's reference.
 	 */
 	drawings?: 'stages' | 'cards';
+	/**
+	 * A visible section heading over the cards (`TRUST_HEADING`), where the band otherwise names itself
+	 * only to the outline. Sandbox only for now.
+	 */
+	heading?: boolean;
+	/**
+	 * Which way the ground runs. `rise` — the homepage's: white into the bookends' indigo, the approach
+	 * to the dark Products band. `fall` — the same two colours turned over, indigo at the top: the band
+	 * starts on an edge of its own under the use cases' white instead of continuing it. Sandbox only.
+	 */
+	ground?: 'rise' | 'fall';
 }
 
-const { drawings = 'stages' } = Astro.props;
+const { drawings = 'stages', heading = false, ground = 'rise' } = Astro.props;
 const Drawing = drawings === 'stages' ? TrustVisualStages : TrustVisual;
 ---
 
-<section id="trust" class:list={['trust', drawings === 'stages' && 'trust--stages']} aria-labelledby="trust-title">
+<section
+	id="trust"
+	class:list={['trust', drawings === 'stages' && 'trust--stages', `trust--${ground}`]}
+	aria-labelledby={heading ? undefined : 'trust-title'}
+	aria-label={heading ? TRUST_HEADING.title : undefined}
+>
 	<div class="trust__band">
 		<div class="main-div">
-			<h2 id="trust-title" class="trust__title">{TRUST_COPY.title}</h2>
+			{
+				heading ? (
+					<SectionHeader
+						title={TRUST_HEADING.title}
+						subtitle={TRUST_HEADING.subtitle}
+						titleSize="section"
+						subtitleMeasure="copy"
+					/>
+				) : (
+					<h2 id="trust-title" class="trust__title">
+						{TRUST_COPY.title}
+					</h2>
+				)
+			}
 			<ul class="trust__list" role="list">
 				{
 					TRUST_POINTS.map((p) => (
@@ -76,6 +106,11 @@ const Drawing = drawings === 'stages' ? TrustVisualStages : TrustVisual;
 		@include media-down(md) {
 			padding-block: $spacing-12;
 		}
+	}
+
+	// Turned over: the indigo at the top, against the use cases' white, and white at the foot.
+	.trust--fall .trust__band {
+		background: linear-gradient(180deg, color-mix(in srgb, var(--color-brand, #3d50f5) 14%, #fff) 0%, #fff 100%);
 	}
 
 	.trust__title {
