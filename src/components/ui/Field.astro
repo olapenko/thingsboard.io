@@ -1,0 +1,329 @@
+---
+/**
+ * A form field: a real label above, the box, and an error tied to it. The contact form's field,
+ * made the one every form uses.
+ *
+ * Ids follow the field's: the error is `<id>-error`, the hint `<id>-hint`, the counter
+ * `<id>-count`, so `util/form-validate.ts` (or a form's own script) finds them. An error shows by
+ * setting `aria-invalid="true"` on the control and filling the error; `aria-describedby` points at
+ * it only while it shows. Fields are required unless `optional`, which adds "(optional)" to the
+ * label instead of asterisks on the rest.
+ *
+ * The box's edge is 3:1 against its ground (WCAG 1.4.11): `#868d9a` on white, white at 40% on
+ * dark. Focus shows on any focus, mouse included, as a 2px border in the scheme fill and a 3px
+ * halo: a field shows where the caret is. The halo is an outline, because autofill paints its fill
+ * as an inset box-shadow and the two would overwrite each other.
+ */
+interface Props {
+	name: string;
+	label: string;
+	/** Default: the name. */
+	id?: string;
+	type?: 'text' | 'email' | 'tel' | 'url' | 'textarea';
+	/** 44 inline (beside Button md) · 48 in forms (beside Button lg). A textarea is 148 at least. */
+	size?: 'md' | 'lg';
+	optional?: boolean;
+	hint?: string;
+	/** An error rendered on the server, e.g. after a failed submit. */
+	error?: string;
+	maxLength?: number;
+	/** Shows a quiet `n / max` once the text is near `maxLength`. */
+	counter?: boolean;
+	/** Visually hidden, never absent. */
+	labelHidden?: boolean;
+	/** Default: the nearest `data-surface`. */
+	surface?: 'light' | 'dark';
+	placeholder?: string;
+	autocomplete?: string;
+	inputmode?: 'text' | 'email' | 'tel' | 'url' | 'numeric' | 'search';
+	rows?: number;
+	value?: string;
+	class?: string;
+	/** Extra classes on the control itself (a tag that selects by them), beside `ui-field__control`. */
+	controlClass?: string;
+	/** Extra attributes for the control itself: `autocapitalize`, `spellcheck`, tracking hooks. */
+	attrs?: Record<string, string | undefined>;
+}
+
+const {
+	name,
+	label,
+	type = 'text',
+	size = 'lg',
+	optional = false,
+	hint,
+	error,
+	maxLength,
+	counter = false,
+	labelHidden = false,
+	surface,
+	placeholder,
+	autocomplete,
+	inputmode,
+	rows = 6,
+	value,
+	class: className,
+	controlClass,
+	attrs = {},
+} = Astro.props;
+const id = Astro.props.id ?? name;
+const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(' ') || undefined;
+
+const control = {
+	id,
+	name,
+	class: ['ui-field__control', controlClass].filter(Boolean).join(' '),
+	required: !optional || undefined,
+	maxlength: maxLength,
+	placeholder,
+	autocomplete,
+	inputmode,
+	'aria-invalid': error ? ('true' as const) : ('false' as const),
+	'aria-describedby': describedBy,
+	...attrs,
+};
+---
+
+<div
+	class:list={['ui-field', `ui-field--${size}`, type === 'textarea' && 'ui-field--area', className]}
+	data-surface={surface}
+>
+	<label class:list={['ui-field__label', labelHidden && 'ui-field__sr']} for={id}>
+		{label}
+		{optional && <span class="ui-field__optional">(optional)</span>}
+	</label>
+	{
+		hint && (
+			<p class="ui-field__hint" id={`${id}-hint`}>
+				{hint}
+			</p>
+		)
+	}
+	<div class="ui-field__row">
+		{
+			type === 'textarea' ? (
+				<textarea {...control} rows={rows} set:text={value ?? ''} />
+			) : (
+				<input {...control} type={type} value={value} />
+			)
+		}
+		<slot name="end" />
+	</div>
+	<div class="ui-field__foot">
+		<p class="ui-field__error" id={`${id}-error`} hidden={!error}>{error}</p>
+		{counter && <p class="ui-field__count" id={`${id}-count`} hidden />}
+	</div>
+</div>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
+
+	.ui-field {
+		--_edge: #868d9a;
+		--_edge-hover: #63656c;
+		--_box: var(--color-bg-surface, #fff);
+		// Autofill paints a solid fill, so on dark it is the box over the indigo ground, not the white.
+		--_autofill: var(--color-bg-surface, #fff);
+		--_text: var(--color-text, #17181c);
+		--_muted: var(--color-text-secondary, #{$color-text-secondary});
+		--_placeholder: #707275;
+		--_focus: var(--accent-fill);
+		--_halo: color-mix(in srgb, var(--accent-fill) 24%, transparent);
+		--_error: #ba0000;
+		--_error-halo: rgba(186, 0, 0, 0.18);
+
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		min-width: 0;
+
+		@include on-dark {
+			--_edge: rgba(255, 255, 255, 0.4);
+			--_edge-hover: rgba(255, 255, 255, 0.64);
+			--_box: rgba(255, 255, 255, 0.05);
+			--_autofill: color-mix(in srgb, #fff 5%, var(--band-indigo, #121425));
+			--_text: #fff;
+			--_muted: rgba(255, 255, 255, 0.64);
+			--_placeholder: rgba(255, 255, 255, 0.6);
+			--_focus: var(--accent-light);
+			--_halo: color-mix(in srgb, var(--accent-light) 24%, transparent);
+			--_error: #ff8a80;
+			--_error-halo: rgba(255, 138, 128, 0.2);
+		}
+	}
+
+	.ui-field__label {
+		@include type-link;
+
+		display: flex;
+		align-items: baseline;
+		gap: $spacing-2;
+		color: var(--_text);
+	}
+
+	.ui-field__optional {
+		font-weight: $font-weight-normal;
+		color: var(--_muted);
+	}
+
+	.ui-field__hint {
+		@include type-small;
+
+		margin: 0;
+		color: var(--_muted);
+	}
+
+	.ui-field__row {
+		display: flex;
+		min-width: 0;
+	}
+
+	.ui-field__control {
+		box-sizing: border-box;
+		flex: 1;
+		min-width: 0;
+		width: 100%;
+		height: 48px;
+		margin: 0;
+		padding: 0 14px;
+		border: 1px solid var(--_edge);
+		border-radius: $radius-md;
+		outline: 3px solid transparent;
+		outline-offset: 0;
+		background-color: var(--_box);
+		box-shadow: 0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.04);
+		color: var(--_text);
+		// 16, never smaller: iOS zooms into a field set under 16px.
+		font: inherit;
+		font-size: 16px;
+		line-height: 1.5;
+		transition:
+			border-color 0.15s ease,
+			outline-color 0.15s ease;
+
+		&::placeholder {
+			color: var(--_placeholder);
+			opacity: 1;
+		}
+
+		@media (hover: hover) {
+			&:hover {
+				border-color: var(--_edge-hover);
+			}
+		}
+
+		// Any focus, mouse included; 2px at the same outer size, so nothing moves.
+		&:focus {
+			padding-inline: 13px;
+			border-width: 2px;
+			border-color: var(--_focus);
+			outline-color: var(--_halo);
+		}
+
+		&:-webkit-autofill {
+			-webkit-box-shadow: 0 0 0 1000px var(--_autofill) inset;
+			-webkit-text-fill-color: var(--_text);
+			caret-color: var(--_text);
+		}
+
+		&[aria-invalid='true'] {
+			padding-inline: 13px;
+			border-width: 2px;
+			border-color: var(--_error);
+
+			&:focus {
+				outline-color: var(--_error-halo);
+			}
+		}
+
+		&:disabled {
+			border-color: rgba(23, 24, 28, 0.16);
+			background-color: rgba(23, 24, 28, 0.04);
+			box-shadow: none;
+			color: rgba(23, 24, 28, 0.45);
+			cursor: not-allowed;
+		}
+
+		@media (forced-colors: active) {
+			border-color: FieldText;
+		}
+	}
+
+	.ui-field--md .ui-field__control {
+		height: 44px;
+	}
+
+	textarea.ui-field__control {
+		height: auto;
+		min-height: 148px;
+		padding-block: 12px;
+		resize: vertical;
+	}
+
+	.ui-field__foot {
+		display: flex;
+		justify-content: space-between;
+		gap: $spacing-4;
+
+		&:not(:has(> :not([hidden]))) {
+			display: none;
+		}
+	}
+
+	.ui-field__error {
+		@include type-small;
+
+		display: flex;
+		align-items: flex-start;
+		gap: 6px;
+		margin: 0;
+		color: var(--_error);
+
+		&[hidden] {
+			display: none;
+		}
+
+		// The glyph carries the state alongside the colour, so the error doesn't rest on red alone.
+		&::before {
+			--ui-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 8v4M12 16h.01'/%3E%3C/svg%3E");
+
+			content: '';
+			flex: none;
+			width: 16px;
+			height: 16px;
+			margin-top: 3px;
+			background-color: currentColor;
+			-webkit-mask: var(--ui-alert) center / contain no-repeat;
+			mask: var(--ui-alert) center / contain no-repeat;
+		}
+	}
+
+	.ui-field__count {
+		@include type-small;
+
+		margin: 0 0 0 auto;
+		color: var(--_muted);
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+
+		&.is-full {
+			color: var(--_error);
+		}
+	}
+
+	.ui-field__sr {
+		@include visually-hidden;
+	}
+
+	// An attached button: the field's end edge meets the button's start edge, one corner shared.
+	.ui-field__row:has(> .ui-btn) .ui-field__control {
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+		border-inline-end-width: 0;
+
+		&:focus {
+			border-inline-end-width: 0;
+		}
+	}
+</style>

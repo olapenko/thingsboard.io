@@ -16,3 +16,11 @@ export const CLOUD_SIGNUP = {
 
 /** The On-premises product's own guide, the one `/products/thingsboard-pe/` already sends people to. */
 export const INSTALL_GUIDE_HREF = '/docs/pe/installation/';
+
+/** The two, by name, for the kit's `to` prop: `<Button to="cloud-signup">`, `<Link to="install-guide">`. */
+export const DESTINATIONS = {
+	'cloud-signup': CLOUD_SIGNUP,
+	'install-guide': { href: INSTALL_GUIDE_HREF, attrs: {} as Record<string, string> },
+} as const;
+
+export type Destination = keyof typeof DESTINATIONS;

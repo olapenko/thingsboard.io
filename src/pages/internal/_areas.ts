@@ -79,6 +79,7 @@ export const AREAS: Area[] = [
 			overview('/internal/design-system/'),
 			{ href: '/internal/library/type/', label: 'Type' },
 			{ href: '/internal/library/ui/', label: 'UI' },
+			{ href: '/internal/library/kit/', label: 'Kit' },
 		],
 	},
 ];

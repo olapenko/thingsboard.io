@@ -1,5 +1,5 @@
 ---
-import { Icon } from 'astro-icon/components';
+import Mark from '@components/ui/Mark.astro';
 
 interface Props {
 	/**
@@ -27,12 +27,16 @@ interface Props {
 	 * to `section-title` moved nothing on the homepage. Stating it as a prop puts the decision back on
 	 * the call site and the values back in the scale.
 	 */
-	titleSize?: 'display' | 'title' | 'section';
+	titleSize?: 'display' | 'title' | 'section' | 'card' | 'closing';
 	/**
 	 * Measure for the subtitle. `wide` is this component's own 900px; `copy` is the 65ch the homepage
 	 * sets so its ledes share one measure — previously `#overflow .section-header__subtitle`.
 	 */
-	subtitleMeasure?: 'wide' | 'copy';
+	subtitleMeasure?: 'wide' | 'copy' | 'closing' | 'narrow';
+	/** The lede's size: the body's 16, or the 18 a page intro takes (`type-lede`). */
+	ledeSize?: 'body' | 'lede';
+	/** The lede in the ink (a section's), or in the secondary grey (a page intro's, a card's). */
+	ledeTone?: 'ink' | 'muted';
 	/**
 	 * Measure for the TITLE. `full` is the header's own width; `headline` caps it so a long one
 	 * breaks into two lines instead of running the width of the page — see the rule for why that is
@@ -56,11 +60,28 @@ interface Props {
 	 * the header rather than above it, so it takes the header's alignment and theme.
 	 */
 	eyebrow?: string;
+	/** The eyebrow in the muted grey, or in the scheme's ink (a page intro's). */
+	eyebrowTone?: 'muted' | 'accent';
+	/**
+	 * Space under the header: 0 · 32 · 40 · 48. The eleven rules that overrode the 48 from outside
+	 * now pass this instead.
+	 */
+	spacing?: 'none' | 'sm' | 'md' | 'lg';
+	/** The mark's size, where the alignment's default (40 at the start, 64 centred) is not wanted. */
+	markSize?: 40 | 64 | 80;
 	/**
 	 * The title's heading level. 2 on a homepage section, which is what this was built for; 1 where
 	 * the header opens a page of its own and the title is the page's (the installations hub).
 	 */
 	level?: 1 | 2;
+	/** An id for the title, where something is named by it (a dialog). */
+	titleId?: string;
+	/** Attributes for the parts, for a page script that rewrites them (Contact us' `?pcorder`). */
+	partAttrs?: {
+		eyebrow?: Record<string, string>;
+		title?: Record<string, string>;
+		subtitle?: Record<string, string>;
+	};
 	class?: string;
 }
 
@@ -74,9 +95,19 @@ const {
 	subtitleMeasure = 'wide',
 	titleMeasure,
 	badge,
+	eyebrowTone = 'muted',
+	ledeSize = 'body',
+	ledeTone = 'ink',
+	spacing = 'lg',
+	markSize,
 	level = 2,
+	titleId,
+	partAttrs = {},
 	class: className = '',
 } = Astro.props;
+
+// The mark through `ui/Mark`: 40 at the start, 64 centred, 80 for a page's closing.
+const badgeSize = markSize ?? (titleSize === 'closing' ? 80 : align === 'center' ? 64 : 40);
 
 const Title = level === 1 ? 'h1' : 'h2';
 
@@ -93,71 +124,71 @@ const measure = titleMeasure ?? (align === 'center' ? 'headline' : 'full');
 		`section-header--title-${titleSize}`,
 		`section-header--subtitle-${subtitleMeasure}`,
 		`section-header--title-measure-${measure}`,
+		`section-header--lede-${ledeSize}`,
+		`section-header--lede-${ledeTone}`,
+		`section-header--eyebrow-${eyebrowTone}`,
+		`section-header--spacing-${spacing}`,
 		className,
 	]}
+	style={badge ? `--badge-color: ${badge.color}` : undefined}
 >
 	{
 		badge && (
-			<span class="section-header__badge" style={`--badge-color: ${badge.color}`} aria-hidden="true">
-				<Icon name={badge.icon} />
-			</span>
+			<Mark size={badgeSize as 40 | 64 | 80} icon={badge.icon} accent={badge.color} class="section-header__badge" />
 		)
 	}
-	{eyebrow && <p class="section-header__eyebrow">{eyebrow}</p>}
-	<Title class="section-header__title">{title}</Title>
-	{subtitle && <p class="section-header__subtitle">{subtitle}</p>}
+	{
+		eyebrow && (
+			<p class="section-header__eyebrow" {...partAttrs.eyebrow}>
+				{eyebrow}
+			</p>
+		)
+	}
+	<Title class="section-header__title" id={titleId} {...partAttrs.title}>{title}</Title>
+	{
+		subtitle && (
+			<p class="section-header__subtitle" {...partAttrs.subtitle}>
+				{subtitle}
+			</p>
+		)
+	}
 	<slot />
 </div>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
 
-	// The same tile as the rows carry, to the pixel — which is 40 at a 24 glyph, NOT the 48/28 the
-	// shared row component declares. `_home-rows.scss` takes the row badges down to 40/24 on this
-	// page, with the reason written there: at 48 with a 28 glyph the tile and the mark read as a
-	// square with something in it rather than as one object. A section mark a third larger than the
-	// row marks beside it would be a second idea of what a tile is. The 32% radius is a percentage,
-	// so it survives the smaller size without retuning.
+	// The mark is `ui/Mark` (40, or 64 centred, 80 closing), set as a block so no line box adds
+	// descender space under it, 16px over what follows. The note on why the row marks settled at
+	// 40/24 and the centred ones at 64/40 now lives with the ladder in `Mark`.
 	.section-header__badge {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 40px;
-		height: 40px;
-		margin-bottom: 18px;
-		border-radius: 32%;
-		background: var(--badge-color, #{$color-brand});
-		color: #fff;
-
-		:global([data-icon]) {
-			width: 24px;
-			height: 24px;
-		}
+		display: grid;
+		margin-bottom: $spacing-4;
 	}
 
-	// The centred mark is the larger one. The note above explains why the row marks settled at
-	// 40/24 — a section mark a third larger than the row marks beside it would be a second idea of
-	// what a tile is — and that holds where the two are read together, down a column of rows. A
-	// centred section header is not in that column: it opens a band of its own, with nothing beside
-	// it to be compared against, and at 40 it read as a row mark that had wandered into the middle.
-	//
-	// 64/40, up from 56/32, on the request that the AI mark read larger — and every centred badge
-	// takes it, which today means that mark and the dashboards one. The glyph grows faster than the
-	// tile (62% of it, from 57%), because Tabler's filled glyphs are drawn inside a 24px grid with
-	// their own margin, so at 57% the visible mark sat well inside a lot of colour.
 	.section-header--center .section-header__badge {
 		margin-inline: auto;
-		width: 64px;
-		height: 64px;
+	}
 
-		:global([data-icon]) {
-			width: 40px;
-			height: 40px;
-		}
+	.section-header--right .section-header__badge {
+		margin-left: auto;
 	}
 
 	.section-header {
 		margin-bottom: $spacing-12;
+
+		&--spacing-none {
+			margin-bottom: 0;
+		}
+
+		&--spacing-sm {
+			margin-bottom: $spacing-8;
+		}
+
+		&--spacing-md {
+			margin-bottom: $spacing-10;
+		}
 
 		// Theme resolves through these rather than through a descendant selector
 		// on the title. A page-level `#overflow h2 { color: … }` is (1,0,1) and
@@ -221,6 +252,42 @@ const measure = titleMeasure ?? (align === 'center' ? 'headline' : 'full');
 			@include type-title;
 		}
 
+		// The dialog's head: a card's title with 8 under it, a kicker 6 over it, and the lede in the
+		// secondary ink at 44ch, under the panel's own measure.
+		&--title-card {
+			--sh-subtitle-color: var(--color-text-secondary, #{$color-text-secondary});
+
+			.section-header__title {
+				@include type-card;
+
+				margin-bottom: $spacing-2;
+			}
+
+			.section-header__eyebrow {
+				margin-bottom: 6px;
+			}
+
+			.section-header__subtitle {
+				max-width: 44ch;
+				text-wrap: pretty;
+			}
+
+			.section-header__title:last-child {
+				margin-bottom: 0;
+			}
+		}
+
+		// The closing band's: fluid between the 30 the titles step down to and `type-title`'s 40, at a
+		// 28ch measure that keeps the bookend's question on two lines across the range.
+		&--title-closing .section-header__title {
+			max-width: 28ch;
+			margin-inline: auto;
+			font-size: clamp(30px, calc(0.5rem + 2.6vw), 40px);
+			font-weight: $font-weight-bold;
+			line-height: 1.2;
+			text-wrap: balance;
+		}
+
 		// THE CENTRED HEADING HAS TO OUTRANK THE ROWS IT OPENS, and on a phone it did not.
 		// `type-section` is 24px there, one step over the 16px body, which reads fine down a column
 		// of left-aligned headings because the alignment itself marks where a section starts. A
@@ -235,10 +302,33 @@ const measure = titleMeasure ?? (align === 'center' ? 'headline' : 'full');
 		//
 		// It sets one size for all three, which is no loss of ladder — `display` and `title` already
 		// collapse to the same 30px on a phone, so there was nothing left to tell apart up there.
-		&--center .section-header__title {
+		// The `section` size only (decision 8, 1 Oct: elsewhere the size decides its own phone step, so
+		// a centred `title` is the 30 it is anywhere else, the card and closing sizes keep theirs).
+		&--center.section-header--title-section .section-header__title {
 			@include media-down(md) {
 				font-size: $font-size-4xl;
 			}
+		}
+
+		&--subtitle-closing .section-header__subtitle {
+			max-width: 52ch;
+		}
+
+		// A page intro's lede beside or under its title: Contact us, Thank you.
+		&--subtitle-narrow .section-header__subtitle {
+			max-width: 46ch;
+		}
+
+		&--lede-muted {
+			--sh-subtitle-color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+
+		&--lede-lede .section-header__subtitle {
+			@include type-lede;
+		}
+
+		&--eyebrow-accent {
+			--sh-eyebrow-color: var(--accent-ink);
 		}
 
 		&--subtitle-copy .section-header__subtitle {
@@ -274,11 +364,17 @@ const measure = titleMeasure ?? (align === 'center' ? 'headline' : 'full');
 			margin-inline: auto;
 		}
 
-		// Dark theme
-		&--dark {
+		// Dark theme, by prop or by the ground (`data-surface="dark"` on a Band), unless a white box
+		// sits between: the `on-dark` rule in `_surface.scss`, written out for a scoped style.
+		&--dark,
+		:global([data-surface='dark']) &:not(:where(#{$in-light-box})) {
 			--sh-title-color: #{$color-white};
 			--sh-subtitle-color: #{$color-text-disabled};
 			--sh-eyebrow-color: #{$color-text-disabled};
+		}
+
+		:global([data-surface='dark']) &--eyebrow-accent:not(:where(#{$in-light-box})) {
+			--sh-eyebrow-color: var(--accent-light);
 		}
 	}
 </style>

@@ -1,0 +1,309 @@
+---
+/**
+ * The squircle tile: one 32% corner, one sheen, one lift, a size ladder where every step has a job.
+ *
+ * It holds exactly one of three things, and each has its own placement rule, so no page nudges a
+ * glyph: an `icon` (a tabler name) is sized by its box, 60% of the tile; the ThingsBoard `logo` and
+ * a `product` logo are sized by their ARTWORK (the box measured in `marks.ts`), the logo at 60%,
+ * a product inside 70% (80% wide when it is wider than 3:2), and centred on it.
+ *
+ * Decoration with a role, never a control: no hover or focus of its own. The card or button it
+ * sits in owns those. Where the tile sits is the parent's job (above a heading, leading it,
+ * straddling a card's edge, beside a two-line item); a parent places a mark but never resizes it.
+ */
+import { Icon } from 'astro-icon/components';
+import { MARKS, type MarkName } from '@data/marks';
+import { accentAttrs, sizeClasses, type Accent } from '@util/ui-kit';
+
+type MarkSize = 36 | 40 | 48 | 64 | 72 | 80 | 88;
+
+interface Props {
+	size: MarkSize | { base: MarkSize; md?: MarkSize; lg?: MarkSize };
+	fill?: 'solid' | 'white' | 'wash' | 'neutral';
+	/** A scheme, or a colour (a product's or a section's hue). Default: the nearest `data-accent`. */
+	accent?: Accent;
+	icon?: string;
+	logo?: 'thingsboard';
+	product?: Exclude<MarkName, 'thingsboard'>;
+	/**
+	 * knockout: the tile's glyph colour (white on solid, the default there). original: a product in
+	 * its own colours, the logo in its ink gradient on a white tile.
+	 */
+	tone?: 'knockout' | 'original';
+	/** circle for the region globes. */
+	shape?: 'squircle' | 'circle';
+	/** `--elev-mark`, for a tile that sits on a card or straddles one. */
+	lift?: boolean;
+	/** Otherwise decorative. */
+	label?: string;
+	class?: string;
+}
+
+const {
+	size,
+	fill = 'solid',
+	accent,
+	icon,
+	logo,
+	product,
+	shape = 'squircle',
+	lift = false,
+	label,
+	class: className,
+} = Astro.props;
+
+const kinds = [icon, logo, product].filter(Boolean).length;
+if (kinds !== 1) throw new Error('ui/Mark: pass exactly one of icon, logo or product.');
+
+const tone = Astro.props.tone ?? (fill === 'solid' ? 'knockout' : 'original');
+
+// The artwork, inlined so it can be recoloured and cropped to its own box.
+const rawSvgs = import.meta.glob<string>('/src/assets/images/**/*.svg', { query: '?raw', import: 'default' });
+const art = logo ? MARKS.thingsboard : product ? MARKS[product] : undefined;
+let markup = '';
+let wide = false;
+
+if (art) {
+	wide = 'wide' in art && art.wide === true;
+	markup = (await rawSvgs[art.src]?.()) ?? '';
+	if (!markup) throw new Error(`ui/Mark: no artwork at ${art.src}.`);
+
+	if (product && tone === 'knockout') {
+		// Every product logo is drawn in two tones: the darker becomes white, the paler white at 50%,
+		// so the logo keeps its structure on a filled tile (a flat invert would collapse both).
+		const lum = (hex: string) => {
+			const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+			return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		};
+		const tones = [...new Set((markup.match(/#[0-9a-fA-F]{6}\b/g) ?? []).map((t) => t.toLowerCase()))].sort(
+			(a, b) => lum(a) - lum(b)
+		);
+		tones.forEach((t, i) => {
+			markup = markup.replace(new RegExp(t, 'gi'), i === 0 ? '#ffffff' : '#ffffff80');
+		});
+	}
+
+	if (logo && fill === 'white' && tone === 'original') {
+		// The logo is drawn in the tile's glyph colour (white on solid, the scheme's ink on wash, on dark
+		// its light tone). On a white tile its own colour is the ink gradient, graphite at the top-left
+		// to black, the direction of the tile's own wash. Unique per render: a duplicated id resolves
+		// to the first copy, which renders nothing when that copy is hidden.
+		const id = `ui-mark-ink-${Math.random().toString(36).slice(2, 10)}`;
+		markup = markup
+			.replace(
+				/(<svg\b[^>]*>)/,
+				`$1<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a3d46"/><stop offset="1" stop-color="#000"/></linearGradient></defs>`
+			)
+			.replace('fill="currentColor"', `fill="url(#${id})"`);
+	}
+
+	const [x, y, w, h] = art.art;
+	markup = markup.replace(/<svg\b([^>]*)>/, (_m, attrs: string) => {
+		const kept = attrs
+			.replace(/\s*\b(width|height|viewBox|class|preserveAspectRatio)="[^"]*"/g, '')
+			.replace(/\s*\baria-hidden="[^"]*"/g, '');
+		const kind = logo ? 'logo' : wide ? 'product-wide' : 'product';
+		return `<svg${kept} viewBox="${x} ${y} ${w} ${h}" class="ui-mark__glyph ui-mark__glyph--${kind}" aria-hidden="true" focusable="false">`;
+	});
+}
+---
+
+<span
+	class:list={[
+		'ui-mark',
+		`ui-mark--${fill}`,
+		...sizeClasses('ui-mark', size),
+		shape === 'circle' && 'ui-mark--circle',
+		lift && 'ui-mark--lift',
+		className,
+	]}
+	{...accentAttrs(accent, 'mark')}
+	{...label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': 'true' }}
+>
+	{icon && <Icon name={icon} class="ui-mark__glyph ui-mark__glyph--icon" aria-hidden="true" />}
+	{art && <Fragment set:html={markup} />}
+</span>
+
+<style is:global lang="scss">
+	@use 'sass:map';
+	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
+
+	// The ladder. Per size: the icon's box, the logo's artwork, a product's artwork (and a wide
+	// product's width). Each the value most marks already used; nothing between the steps.
+	$mark-ladder: (
+		36: (
+			icon: 24px,
+			logo: 22px,
+			product: 26px,
+			wide: 29px,
+		),
+		40: (
+			icon: 24px,
+			logo: 24px,
+			product: 28px,
+			wide: 32px,
+		),
+		48: (
+			icon: 28px,
+			logo: 28px,
+			product: 34px,
+			wide: 38px,
+		),
+		64: (
+			icon: 40px,
+			logo: 38px,
+			product: 44px,
+			wide: 51px,
+		),
+		72: (
+			icon: 44px,
+			logo: 44px,
+			product: 50px,
+			wide: 58px,
+		),
+		80: (
+			icon: 48px,
+			logo: 48px,
+			product: 56px,
+			wide: 64px,
+		),
+		88: (
+			icon: 52px,
+			logo: 52px,
+			product: 62px,
+			wide: 70px,
+		),
+	);
+
+	@mixin mark-size($s) {
+		$v: map.get($mark-ladder, $s);
+
+		--mark-size: #{$s}px;
+		--mark-icon: #{map.get($v, icon)};
+		--mark-logo: #{map.get($v, logo)};
+		--mark-product: #{map.get($v, product)};
+		--mark-wide: #{map.get($v, wide)};
+	}
+
+	.ui-mark {
+		--_fill: var(--mark-fill, var(--accent-fill));
+		--_ink: var(--mark-ink, var(--accent-ink));
+		--_light: var(--mark-light, var(--accent-light));
+
+		display: inline-grid;
+		flex: none;
+		place-items: center;
+		box-sizing: border-box;
+		width: var(--mark-size);
+		height: var(--mark-size);
+		border-radius: 32%;
+		vertical-align: middle;
+
+		@media (forced-colors: active) {
+			outline: 1px solid CanvasText;
+			color: CanvasText;
+		}
+	}
+
+	@each $s, $v in $mark-ladder {
+		.ui-mark--#{$s} {
+			@include mark-size($s);
+		}
+	}
+
+	@each $bp in (md, lg) {
+		@include media-up($bp) {
+			@each $s, $v in $mark-ladder {
+				.ui-mark--#{$bp}-up-#{$s} {
+					@include mark-size($s);
+				}
+			}
+		}
+	}
+
+	.ui-mark__glyph {
+		display: block;
+		flex: none;
+	}
+
+	.ui-mark__glyph--icon {
+		width: var(--mark-icon);
+		height: var(--mark-icon);
+	}
+
+	.ui-mark__glyph--logo {
+		width: var(--mark-logo);
+		height: var(--mark-logo);
+	}
+
+	.ui-mark__glyph--product {
+		width: var(--mark-product);
+		height: var(--mark-product);
+	}
+
+	.ui-mark__glyph--product-wide {
+		width: var(--mark-wide);
+		height: var(--mark-wide);
+	}
+
+	// SOLID: the scheme's fill under the one sheen, clear to 35% then 6% black at the far corner, and
+	// an icon faded to 85% along the same line (a mask, since a stroke in currentColor cannot be a
+	// gradient). `background-image`, never `background`: the AI mark animates the colour under it.
+	.ui-mark--solid {
+		background-color: var(--_fill);
+		background-image: linear-gradient(155deg, transparent 35%, rgba(0, 0, 0, 0.06) 100%);
+		color: #fff;
+
+		.ui-mark__glyph--icon {
+			-webkit-mask-image: linear-gradient(155deg, #000 35%, rgba(0, 0, 0, 0.85) 100%);
+			mask-image: linear-gradient(155deg, #000 35%, rgba(0, 0, 0, 0.85) 100%);
+		}
+	}
+
+	// WHITE: white running to 5% of the accent at the far corner; an icon in the scheme's ink, the
+	// logo in its ink gradient, a product in its own colours.
+	.ui-mark--white {
+		background-color: var(--color-bg-surface, #fff);
+		background-image: linear-gradient(
+			155deg,
+			var(--color-bg-surface, #fff) 35%,
+			color-mix(in srgb, var(--_fill) 5%, var(--color-bg-surface, #fff)) 100%
+		);
+		color: var(--color-text, #17181c);
+
+		.ui-mark__glyph--icon {
+			color: var(--_ink);
+		}
+	}
+
+	// WASH: the accent at 12% on light, its light tone at 14% on dark; the glyph in the scheme ink.
+	.ui-mark--wash {
+		background-color: color-mix(in srgb, var(--_fill) 12%, var(--color-bg-surface, #fff));
+		color: var(--_ink);
+
+		@include on-dark {
+			background-color: color-mix(in srgb, var(--_light) 14%, transparent);
+			color: var(--_light);
+		}
+	}
+
+	// NEUTRAL: the ink at 6%, for quiet tiles; white at 10% on dark.
+	.ui-mark--neutral {
+		background-color: color-mix(in srgb, #17181c 6%, var(--color-bg-surface, #fff));
+		color: var(--color-text, #17181c);
+
+		@include on-dark {
+			background-color: rgba(255, 255, 255, 0.1);
+			color: #fff;
+		}
+	}
+
+	.ui-mark--circle {
+		border-radius: 50%;
+	}
+
+	.ui-mark--lift {
+		box-shadow: var(--elev-mark);
+	}
+</style>

@@ -1,0 +1,240 @@
+---
+/**
+ * North America or Europe, asked the one way everywhere: the region dialog, the Install hub,
+ * Bookend and choose-region render this. Each region is a Card row: a globe in the region's hue,
+ * the name over where its data stays (or, signing in, the host the account lives on), and the way
+ * on at the row's end. The hues are decoration; the names carry the meaning.
+ *
+ * - layout `card`: a chevron at the end (the dialog); `row`: "Sign up" and a chevron (the hub,
+ *   Bookend, choose-region).
+ * - every row writes the region it leads to (`writeLastRegion`), from any picker, so the next
+ *   sign-in knows where to look; signing in, the remembered one carries "Last visited".
+ * - sign-up marks the nearest region (from the browser's timezone) with "Nearest to you".
+ * - the analytics ids go on the dialog's rows only (`gtm`), so a page never carries one twice.
+ * - every row opens in the same tab (decided 1 Oct); the hrefs stay absolute Cloud URLs, which is
+ *   what `UtmTracker` tags.
+ */
+import { Icon } from 'astro-icon/components';
+import Chip from '@components/ui/Chip.astro';
+import Mark from '@components/ui/Mark.astro';
+import {
+	CLOUD_REGIONS,
+	REGION_GTM_ID,
+	REGION_HUE,
+	REGION_STORED_IN,
+	regionHref,
+	type CloudRegionId,
+} from '@util/cloud-regions';
+
+interface Props {
+	flow?: 'signup' | 'signin';
+	layout?: 'card' | 'row';
+	/** The ids analytics keys on: the dialog's rows only. */
+	gtm?: boolean;
+	/** Pins the region marked nearest (the sandbox); the site reads the timezone. */
+	nearest?: CloudRegionId;
+	/** Sandbox: rows lead to `<base><region>/` on the site instead of to Cloud. */
+	prototype?: string;
+	/** Hidden text after the row's action, e.g. "for ThingsBoard Cloud". */
+	srSuffix?: string;
+	class?: string;
+}
+
+const { flow = 'signup', layout = 'card', gtm = false, nearest, prototype, srSuffix, class: className } = Astro.props;
+const signin = flow === 'signin';
+const initialNearest: CloudRegionId = nearest ?? 'us';
+
+const REGIONS = CLOUD_REGIONS.map((r) => ({
+	...r,
+	note: signin ? r.host : REGION_STORED_IN[r.id],
+	href: prototype ? `${prototype}${r.id}/` : regionHref(r.host, flow),
+}));
+---
+
+<ul
+	class:list={['region-choice', `region-choice--${layout}`, className]}
+	data-region-choice={flow}
+	data-nearest={initialNearest}
+	data-nearest-pinned={nearest ? '' : undefined}
+>
+	{
+		REGIONS.map((r) => (
+			<li class="region-choice__item">
+				<a
+					class:list={['region-choice__row', gtm && 'gtm_button']}
+					href={r.href}
+					id={gtm ? REGION_GTM_ID[flow][r.id] : undefined}
+					data-region={r.id}
+					data-surface="light"
+				>
+					<Mark size={40} icon="tabler:world" fill="wash" shape="circle" accent={REGION_HUE[r.id]} />
+					<span class="region-choice__name">
+						<span class="region-choice__label">{r.name}</span>
+						{signin ? (
+							<Chip kind="tag" attrs={{ 'data-rc-last': '', hidden: '' }}>
+								Last visited
+							</Chip>
+						) : (
+							<Chip kind="tag" attrs={{ 'data-rc-nearest': '', hidden: r.id === initialNearest ? undefined : '' }}>
+								Nearest to you
+							</Chip>
+						)}
+					</span>
+					<span class="region-choice__note">{r.note}</span>
+					{layout === 'row' ? (
+						<span class="region-choice__cta">
+							{signin ? 'Sign in' : 'Sign up'}
+							{srSuffix && <span class="region-choice__sr">{` ${srSuffix} in ${r.name}`}</span>}
+							<Icon name="tabler:chevron-right" aria-hidden="true" />
+						</span>
+					) : (
+						<Icon name="tabler:chevron-right" class="region-choice__go" aria-hidden="true" />
+					)}
+				</a>
+			</li>
+		))
+	}
+</ul>
+
+<script>
+	import {
+		isCloudRegionId,
+		nearestCloudRegion,
+		onLastRegion,
+		readLastRegion,
+		writeLastRegion,
+	} from '@util/cloud-regions';
+
+	document.querySelectorAll<HTMLElement>('[data-region-choice]').forEach((list) => {
+		if (list.dataset.rcMounted) return;
+		list.dataset.rcMounted = '';
+		const rows = [...list.querySelectorAll<HTMLAnchorElement>('.region-choice__row')];
+
+		// "Nearest to you": the browser's timezone, unless the sandbox pinned one.
+		if (!list.hasAttribute('data-nearest-pinned')) {
+			const nearest = nearestCloudRegion();
+			list.dataset.nearest = nearest;
+			rows.forEach((row) => {
+				const tag = row.querySelector<HTMLElement>('[data-rc-nearest]');
+				if (tag) tag.hidden = row.dataset.region !== nearest;
+			});
+		}
+
+		// "Last visited": the region stored on this site, followed live across pickers and tabs.
+		const paint = (value: string | null) => {
+			list.dataset.last = value ?? '';
+			rows.forEach((row) => {
+				const tag = row.querySelector<HTMLElement>('[data-rc-last]');
+				if (tag) tag.hidden = row.dataset.region !== value;
+			});
+		};
+		paint(readLastRegion());
+		onLastRegion(paint);
+
+		rows.forEach((row) =>
+			row.addEventListener('click', () => {
+				if (isCloudRegionId(row.dataset.region)) writeLastRegion(row.dataset.region);
+			})
+		);
+	});
+</script>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
+
+	.region-choice {
+		display: grid;
+		gap: $spacing-3;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// One Card row: the tile surface, 12 16; the name underlines on hover (1px) and steps to 2px on
+	// the press, the Link's steps. Nothing moves. A white box, so `data-surface="light"` on it.
+	.region-choice__row {
+		@include surface(row, true);
+
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-rows: auto auto;
+		align-items: center;
+		column-gap: $spacing-3;
+		padding: $spacing-3 $spacing-4;
+		text-decoration: none;
+		text-underline-offset: 3px;
+		-webkit-tap-highlight-color: transparent;
+
+		> .ui-mark {
+			grid-row: 1 / 3;
+			grid-column: 1;
+		}
+
+		@media (hover: hover) {
+			&:hover .region-choice__label {
+				text-decoration-line: underline;
+				text-decoration-thickness: 1px;
+			}
+		}
+
+		&:active {
+			.region-choice__label {
+				text-decoration-line: underline;
+				text-decoration-thickness: 2px;
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+	}
+
+	.region-choice__name {
+		grid-column: 2;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px $spacing-2;
+		font-size: 16px;
+		font-weight: $font-weight-bold;
+		line-height: 1.3;
+	}
+
+	.region-choice__note {
+		@include type-small;
+
+		grid-column: 2;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.region-choice__go {
+		grid-row: 1 / 3;
+		grid-column: 3;
+		width: 20px;
+		height: 20px;
+		color: #9aa0ab;
+	}
+
+	.region-choice__cta {
+		@include type-small-strong;
+
+		grid-row: 1 / 3;
+		grid-column: 3;
+		display: inline-flex;
+		align-items: center;
+		gap: $spacing-1;
+		color: var(--accent-ink);
+		white-space: nowrap;
+
+		svg {
+			width: 18px;
+			height: 18px;
+		}
+	}
+
+	.region-choice__sr {
+		@include visually-hidden;
+	}
+</style>

@@ -1,0 +1,315 @@
+---
+/**
+ * The button for the new pages: three variants, five sizes, one 6px corner, plain by default.
+ *
+ * Colour comes from the accent schemes (`data-accent` on any ancestor, or `accent` here), the focus
+ * ring from the ground (`data-surface`). An `<a>` with `href`, a `<button>` without. Everything a
+ * page needs to track or hook a button (an id, `gtm_button`, `data-*`) passes through `attrs`
+ * untouched. The spec and every state: the plan's Button section and the Design system's UI page.
+ */
+import { Icon } from 'astro-icon/components';
+import { DESTINATIONS, type Destination } from '@data/cta-destinations';
+import { accentAttrs, sizeClasses, type Accent, type Responsive } from '@util/ui-kit';
+
+interface Props {
+	variant?: 'primary' | 'secondary' | 'tertiary';
+	/** 32 · 40 · 44 · 48 · 56, or one per breakpoint: `{ base: 'md', lg: 'xl' }`. */
+	size?: Responsive<'xs' | 'sm' | 'md' | 'lg' | 'xl'>;
+	/** A scheme, or a colour for a one-off fill (a product's hue). Default: the nearest `data-accent`. */
+	accent?: Accent;
+	/** Default: the nearest `data-surface`. */
+	surface?: 'light' | 'dark';
+	/** A tabler name before the label: 16 xs · 18 sm · 20 md and lg · 22 xl. */
+	icon?: string;
+	iconEnd?: string;
+	/** Square, the icon alone; `label` names it. */
+	iconOnly?: boolean;
+	label?: string;
+	href?: string;
+	/** A destination from `cta-destinations.ts`: its href and attributes together. */
+	to?: Destination;
+	/** Leaves the site: the up-right arrow, a new tab, and "opens in a new tab" for screen readers. */
+	external?: boolean;
+	type?: 'button' | 'submit' | 'reset';
+	block?: boolean | 'below-sm' | 'below-md';
+	/** A long or translated label may take two lines, at a minimum height. */
+	wrap?: boolean;
+	/** Tertiary: no inline padding, so the label lines up with the text above it. */
+	flush?: boolean;
+	/** Secondary: the label in the accent rather than the ink. */
+	tinted?: boolean;
+	/** Joined to a field on this side. */
+	attached?: 'start' | 'end';
+	/** Busy: the spinner and `loadingLabel` in the label's place, the width held. */
+	loading?: boolean;
+	loadingLabel?: string;
+	disabled?: boolean;
+	/** The opt-in highlight on hover; off by default. */
+	shimmer?: boolean;
+	/** Visually hidden text after the label, e.g. "for ThingsBoard Cloud". */
+	srSuffix?: string;
+	id?: string;
+	class?: string;
+	/** Passed through untouched: ids, `gtm_button`, `data-*`. */
+	attrs?: Record<string, string | undefined>;
+}
+
+const {
+	variant = 'primary',
+	size = 'md',
+	accent,
+	surface,
+	icon,
+	iconEnd,
+	iconOnly = false,
+	label,
+	to,
+	external = false,
+	type = 'button',
+	block = false,
+	wrap = false,
+	flush = false,
+	tinted = false,
+	attached,
+	loading = false,
+	loadingLabel,
+	disabled = false,
+	shimmer = false,
+	srSuffix,
+	id,
+	class: className,
+	attrs = {},
+} = Astro.props;
+
+if (iconOnly && !label) throw new Error('ui/Button: an iconOnly button needs a label.');
+
+const destination = to ? DESTINATIONS[to] : undefined;
+const href = Astro.props.href ?? destination?.href;
+
+// An `<a>` with an href, a `<button>` without. A disabled link keeps its element and loses its href,
+// so it is announced as a link that cannot be followed rather than turning into a button.
+const Tag = href === undefined ? 'button' : 'a';
+const element =
+	Tag === 'button'
+		? { type, disabled: disabled || undefined }
+		: disabled
+			? { 'aria-disabled': 'true' as const, role: 'link' as const }
+			: { href, ...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {}) };
+
+const classes = [
+	'ui-btn',
+	`ui-btn--${variant}`,
+	...sizeClasses('ui-btn', size),
+	block && (block === true ? 'ui-btn--block' : `ui-btn--block-${block}`),
+	wrap && 'ui-btn--wrap',
+	flush && 'ui-btn--flush',
+	tinted && 'ui-btn--tinted',
+	attached && `ui-btn--attached-${attached}`,
+	iconOnly && 'ui-btn--icon-only',
+	shimmer && 'ui-btn--shimmer',
+	className,
+]
+	.filter(Boolean)
+	.join(' ');
+
+// A one-off colour and a caller's own style (a minimum width) both ride on `style`.
+const { style: accentStyle, ...accentData } = accentAttrs(accent, 'btn');
+const { style: callerStyle, ...passed } = attrs;
+const style = [accentStyle, callerStyle].filter(Boolean).join('; ') || undefined;
+---
+
+<Tag
+	class={classes}
+	id={id}
+	data-surface={surface}
+	aria-label={iconOnly ? label : undefined}
+	aria-busy={loading ? 'true' : undefined}
+	style={style}
+	{...accentData}
+	{...element}
+	{...destination?.attrs}
+	{...passed}
+>
+	{
+		loadingLabel === undefined ? (
+			<>
+				{icon && <Icon name={icon} class="ui-btn__icon" aria-hidden="true" />}
+				{!iconOnly && <slot />}
+			</>
+		) : (
+			<span class="ui-btn__stack">
+				<span class="ui-btn__label">
+					{icon && <Icon name={icon} class="ui-btn__icon" aria-hidden="true" />}
+					{!iconOnly && <slot />}
+				</span>
+				<span class="ui-btn__busy" aria-hidden="true">
+					<span class="ui-btn__spin" />
+					{loadingLabel}
+				</span>
+			</span>
+		)
+	}
+	{srSuffix && <span class="ui-btn__sr"> {srSuffix}</span>}
+	{iconEnd && <Icon name={iconEnd} class="ui-btn__icon" aria-hidden="true" />}
+	{external && <Icon name="tabler:arrow-up-right" class="ui-btn__icon" aria-hidden="true" />}
+	{external && <span class="ui-btn__sr"> (opens in a new tab)</span>}
+</Tag>
+
+<style is:global lang="scss">
+	@use 'sass:map';
+	@use '../../styles/variables' as *;
+	@use '../../styles/button' as *;
+	@use '../../styles/effects' as *;
+
+	.ui-btn {
+		@include ui-button-base;
+		@include ui-button-size(md);
+	}
+
+	.ui-btn--primary {
+		@include ui-button-primary;
+	}
+
+	.ui-btn--secondary {
+		@include ui-button-secondary;
+	}
+
+	.ui-btn--secondary.ui-btn--tinted {
+		@include ui-button-secondary-tinted;
+	}
+
+	.ui-btn--tertiary {
+		@include ui-button-tertiary;
+	}
+
+	@each $size, $values in $ui-button-sizes {
+		.ui-btn--#{$size} {
+			@include ui-button-size($size);
+		}
+	}
+
+	@each $bp in (sm, md, lg) {
+		@include media-up($bp) {
+			@each $size, $values in $ui-button-sizes {
+				.ui-btn--#{$bp}-up-#{$size} {
+					@include ui-button-size($size);
+				}
+			}
+		}
+	}
+
+	// xs is under the 44px touch target: on a coarse pointer an invisible extension grows the tap
+	// area to 44 without changing the look.
+	@media (pointer: coarse) {
+		.ui-btn--xs::before {
+			content: '';
+			position: absolute;
+			inset: -6px 0;
+		}
+	}
+
+	.ui-btn--block {
+		width: 100%;
+	}
+
+	@include media-down(sm) {
+		.ui-btn--block-below-sm {
+			width: 100%;
+		}
+	}
+
+	@include media-down(md) {
+		.ui-btn--block-below-md {
+			width: 100%;
+		}
+	}
+
+	.ui-btn--wrap {
+		height: auto;
+		min-height: var(--btn-h);
+		padding-block: 8px;
+		white-space: normal;
+		text-align: center;
+	}
+
+	.ui-btn--tertiary.ui-btn--flush {
+		padding-inline: 0;
+	}
+
+	.ui-btn--icon-only {
+		width: var(--btn-h);
+		padding: 0;
+	}
+
+	.ui-btn--attached-start {
+		border-start-start-radius: 0;
+		border-end-start-radius: 0;
+	}
+
+	.ui-btn--attached-end {
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+	}
+
+	.ui-btn--shimmer {
+		@include shimmer;
+	}
+
+	@include shimmer-keyframes;
+
+	// Right-to-left: a directional icon points the other way.
+	[dir='rtl'] .ui-btn :where(.ui-btn__icon[data-icon*='arrow'], .ui-btn__icon[data-icon*='chevron']) {
+		transform: scaleX(-1);
+	}
+
+	.ui-btn__sr {
+		@include visually-hidden;
+	}
+
+	// Loading: the label and the busy line share one cell, so the width holds while it swaps.
+	.ui-btn__stack {
+		display: inline-grid;
+
+		> * {
+			grid-area: 1 / 1;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: var(--btn-gap);
+		}
+	}
+
+	.ui-btn__busy {
+		visibility: hidden;
+	}
+
+	.ui-btn[aria-busy='true'] {
+		.ui-btn__label {
+			visibility: hidden;
+		}
+
+		.ui-btn__busy {
+			visibility: visible;
+		}
+	}
+
+	.ui-btn__spin {
+		flex: none;
+		width: 16px;
+		height: 16px;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: ui-btn-spin 0.8s linear infinite;
+
+		@media (prefers-reduced-motion: reduce) {
+			animation-duration: 2.4s;
+		}
+	}
+
+	@keyframes ui-btn-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+</style>

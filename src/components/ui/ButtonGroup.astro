@@ -1,0 +1,84 @@
+---
+/**
+ * The row buttons sit in. It decides by its own width, not the screen's: below `stackBelow` the
+ * buttons stack and widen to the row, as the homepage Products card keeps its pair on one line
+ * only from 400px. Replaces the page CSS that forced hero buttons full width on phones.
+ */
+interface Props {
+	/** A container width: 320 · 360 · 400 · 440 · 480 ('sm') · 560 · 750 ('md'). Omit to never stack. */
+	stackBelow?: 320 | 360 | 400 | 440 | 480 | 560 | 750 | 'sm' | 'md';
+	align?: 'start' | 'center' | 'end';
+	/** Buttons share one width when side by side. */
+	equal?: boolean;
+	/** 8 or 12 between buttons; 12 by default, the closing bands' and the cards'. */
+	gap?: 'sm' | 'md';
+	class?: string;
+	attrs?: Record<string, string | undefined>;
+}
+
+const { stackBelow, align = 'start', equal = false, gap = 'md', class: className, attrs = {} } = Astro.props;
+const stack = stackBelow === 'sm' ? 480 : stackBelow === 'md' ? 750 : stackBelow;
+---
+
+<div class:list={['ui-btn-group', stack && 'ui-btn-group--contained', className]} {...attrs}>
+	<div
+		class:list={[
+			'ui-btn-group__row',
+			`ui-btn-group__row--${align}`,
+			`ui-btn-group__row--gap-${gap}`,
+			equal && 'ui-btn-group__row--equal',
+			stack && `ui-btn-group__row--stack-${stack}`,
+		]}
+	>
+		<slot />
+	</div>
+</div>
+
+<style is:global lang="scss">
+	.ui-btn-group--contained {
+		container-type: inline-size;
+	}
+
+	.ui-btn-group__row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+	}
+
+	.ui-btn-group__row--gap-sm {
+		gap: 8px;
+	}
+
+	.ui-btn-group__row--gap-md {
+		gap: 12px;
+	}
+
+	.ui-btn-group__row--start {
+		justify-content: flex-start;
+	}
+
+	.ui-btn-group__row--center {
+		justify-content: center;
+	}
+
+	.ui-btn-group__row--end {
+		justify-content: flex-end;
+	}
+
+	.ui-btn-group__row--equal > * {
+		flex: 1 1 0;
+	}
+
+	@each $w in (320, 360, 400, 440, 480, 560, 750) {
+		@container (max-width: #{$w - 1}px) {
+			.ui-btn-group__row--stack-#{$w} {
+				flex-direction: column;
+				align-items: stretch;
+
+				> * {
+					width: 100%;
+				}
+			}
+		}
+	}
+</style>

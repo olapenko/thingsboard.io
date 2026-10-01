@@ -1,0 +1,52 @@
+---
+/**
+ * The ways a product installs, as the installations hub lists them: one `ChipGroup` per group of
+ * `@data/installationsHub`, its title as the group's eyebrow label, and every option a link chip
+ * with its wordmark and, in grey after the name, what the old page qualified it with in brackets
+ * (Docker, Linux / macOS), so a row of Dockers reads by platform.
+ *
+ * The labels are the hub's data, never a copy: the hub renders this for every product and for
+ * Private Cloud, and Bookend's pick of four is cut from the same entries. The box around the
+ * chips (a panel, a band, nothing) is the caller's.
+ */
+import Chip from '@components/ui/Chip.astro';
+import ChipGroup from '@components/ui/ChipGroup.astro';
+import type { InstallOptionGroup } from '@data/installationsHub';
+
+interface Props {
+	groups: InstallOptionGroup[];
+	/** The ground the chips sit on. Default: the nearest `data-surface`, light without one. */
+	tone?: 'light' | 'dark';
+	/** At most this many options in each group, in the data's order. */
+	limit?: number;
+	class?: string;
+}
+
+const { groups, tone, limit, class: className } = Astro.props;
+---
+
+<div class:list={['install-options', className]} data-surface={tone}>
+	{
+		groups.map((group) => (
+			<ChipGroup label={group.title} class="install-options__group">
+				{group.items.slice(0, limit).map((option) => (
+					<li>
+						<Chip href={option.href} logo={option.logo} note={option.note}>
+							{option.label}
+						</Chip>
+					</li>
+				))}
+			</ChipGroup>
+		))
+	}
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Groups one after another, as Private Cloud's providers would sit under a second set: 20 apart,
+	// the step the hub's columns already keep between their blocks.
+	.install-options__group + .install-options__group {
+		margin-top: $spacing-5;
+	}
+</style>

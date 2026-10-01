@@ -1,0 +1,216 @@
+// ============================================
+// The button: three variants, five sizes, one 6px corner. `ui/Button.astro` renders it; these
+// mixins are for markup the component cannot render (a form a third-party script owns, HTML built
+// as a string in a script). Colour comes from the accent schemes in `_theme.scss` (`--accent-*`,
+// set by `data-accent`), the ring from `--focus-ring` (set by `data-surface`).
+// ============================================
+@use 'sass:map';
+@use 'variables' as *;
+@use 'surface' as *;
+
+// The ground mixin lives with the surfaces; forwarded so a stylesheet that reads a button's mixins
+// gets it too.
+@forward 'surface' show on-dark;
+
+// Height, side padding, type size, icon, gap. Each step is tied to a place it is used: xs dense
+// cards, sm the header bar, md everywhere else, lg beside 48px form fields, xl a wide hero.
+$ui-button-sizes: (
+	xs: (
+		h: 32px,
+		px: 12px,
+		font: 14px,
+		icon: 16px,
+		gap: 6px,
+	),
+	sm: (
+		h: 40px,
+		px: 16px,
+		font: 14px,
+		icon: 18px,
+		gap: 8px,
+	),
+	md: (
+		h: 44px,
+		px: 16px,
+		font: 16px,
+		icon: 20px,
+		gap: 8px,
+	),
+	lg: (
+		h: 48px,
+		px: 20px,
+		font: 16px,
+		icon: 20px,
+		gap: 8px,
+	),
+	xl: (
+		h: 56px,
+		px: 24px,
+		font: 18px,
+		icon: 22px,
+		gap: 10px,
+	),
+);
+
+@mixin ui-button-size($size) {
+	$s: map.get($ui-button-sizes, $size);
+
+	--btn-h: #{map.get($s, h)};
+	--btn-px: #{map.get($s, px)};
+	--btn-font: #{map.get($s, font)};
+	--btn-icon: #{map.get($s, icon)};
+	--btn-gap: #{map.get($s, gap)};
+}
+
+@mixin ui-button-base {
+	// The scheme, overridable per button through the `accent` prop or these four.
+	--_fill: var(--btn-fill, var(--accent-fill));
+	--_on: var(--btn-on, var(--accent-on-fill));
+	--_ink: var(--btn-ink, var(--accent-ink));
+	--_light: var(--btn-light, var(--accent-light));
+
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--btn-gap, 8px);
+	box-sizing: border-box;
+	height: var(--btn-h, 44px);
+	min-width: var(--btn-min-w, 0);
+	margin: 0;
+	padding: 0 var(--btn-px, 16px);
+	border: 1px solid transparent;
+	border-radius: $radius-md;
+	background-color: transparent;
+	font-family: inherit;
+	font-size: var(--btn-font, 16px);
+	font-weight: $font-weight-bold;
+	line-height: 1.25;
+	white-space: nowrap;
+	text-decoration: none;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease,
+		color 0.15s ease;
+
+	:where(.ui-btn__icon) {
+		flex: none;
+		width: var(--btn-icon, 20px);
+		height: var(--btn-icon, 20px);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--focus-ring);
+		outline-offset: 3px;
+	}
+
+	&:where(:disabled, [aria-disabled='true']) {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	// Busy is not disabled, even when the control is disabled while it waits: the spinner and its
+	// verb at full strength.
+	&:where([aria-busy='true']) {
+		opacity: 1;
+		cursor: progress;
+	}
+
+	// Windows high contrast: system colours, and the 1px border keeps every variant outlined.
+	@media (forced-colors: active) {
+		border-color: ButtonText;
+	}
+}
+
+@mixin ui-button-primary {
+	border-color: var(--_fill);
+	background-color: var(--_fill);
+	color: var(--_on);
+
+	// Hover only where there is a hover: on touch the state sticks after the tap.
+	@media (hover: hover) {
+		&:where(:not(:disabled, [aria-disabled='true'])):hover {
+			background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+		}
+	}
+
+	&:where(:not(:disabled, [aria-disabled='true'])):active {
+		background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3));
+	}
+}
+
+@mixin ui-button-secondary {
+	--_label: var(--color-text, #17181c);
+	--_line: rgba(23, 24, 28, 0.18);
+	--_line-hover: rgba(23, 24, 28, 0.18);
+	--_tint: rgba(23, 24, 28, 0.05);
+	--_press: rgba(23, 24, 28, 0.1);
+
+	border-color: var(--_line);
+	color: var(--_label);
+
+	@media (hover: hover) {
+		&:where(:not(:disabled, [aria-disabled='true'])):hover {
+			border-color: var(--_line-hover);
+			background-color: var(--_tint);
+		}
+	}
+
+	&:where(:not(:disabled, [aria-disabled='true'])):active {
+		border-color: var(--_line-hover);
+		background-color: var(--_press);
+	}
+
+	// On dark the outline also brightens on hover, to 55%.
+	@include on-dark {
+		--_label: #fff;
+		--_line: rgba(255, 255, 255, 0.35);
+		--_line-hover: rgba(255, 255, 255, 0.55);
+		--_tint: rgba(255, 255, 255, 0.14);
+		--_press: rgba(255, 255, 255, 0.22);
+	}
+}
+
+// A secondary whose label takes the accent (the AI section's, answering the switch above it).
+@mixin ui-button-secondary-tinted {
+	--_label: var(--_ink);
+
+	@include on-dark {
+		--_label: var(--_light);
+	}
+}
+
+@mixin ui-button-tertiary {
+	--_label: var(--_ink);
+
+	color: var(--_label);
+
+	@media (hover: hover) {
+		&:where(:not(:disabled, [aria-disabled='true'])):hover {
+			background-color: color-mix(in srgb, var(--_label) 6%, transparent);
+		}
+	}
+
+	&:where(:not(:disabled, [aria-disabled='true'])):active {
+		background-color: color-mix(in srgb, var(--_label) 10%, transparent);
+	}
+
+	@include on-dark {
+		--_label: var(--_light);
+	}
+}
+
+@mixin ui-button($variant: primary, $size: md) {
+	@include ui-button-base;
+	@include ui-button-size($size);
+
+	@if $variant == primary {
+		@include ui-button-primary;
+	} @else if $variant == secondary {
+		@include ui-button-secondary;
+	} @else if $variant == tertiary {
+		@include ui-button-tertiary;
+	}
+}

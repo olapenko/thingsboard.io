@@ -1,0 +1,266 @@
+---
+/**
+ * A small rounded label of three kinds:
+ *
+ * - link: goes somewhere (an install option), a bordered pill;
+ * - toggle: switches a filter on or off, `aria-pressed`, the scheme fill when on;
+ * - tag: static text on a tint ("Nearest to you"), 22 tall.
+ *
+ * Never the page's main action, which is a `Button`. A row of chips that switches panels is a tab
+ * set and renders `ui/Tabs`.
+ */
+import { Icon } from 'astro-icon/components';
+import SmartImage from '@components/SmartImage.astro';
+
+interface Props {
+	/** Default: link with an href, tag without. */
+	kind?: 'link' | 'toggle' | 'tag';
+	/** 32 · 40; a tag is always 22. */
+	size?: 'sm' | 'md';
+	href?: string;
+	external?: boolean;
+	/** Toggle: on or off. */
+	pressed?: boolean;
+	/** A tabler name, before the label. */
+	icon?: string;
+	/** A wordmark image (`/src/assets/…`), before the label, 20 tall (16 at sm). */
+	logo?: string;
+	/** Secondary text after the label, in the regular weight and the muted grey. */
+	note?: string;
+	/** Tag: 10% of the scheme's fill, or the ink at 6%. */
+	tone?: 'accent' | 'neutral';
+	/** Tag: the scheme's fill with white text. */
+	solid?: boolean;
+	/** Default: the nearest `data-surface`. */
+	surface?: 'light' | 'dark';
+	class?: string;
+	attrs?: Record<string, string | undefined>;
+}
+
+const {
+	size = 'md',
+	href,
+	external = false,
+	pressed = false,
+	icon,
+	logo,
+	note,
+	tone = 'accent',
+	solid = false,
+	surface,
+	class: className,
+	attrs = {},
+} = Astro.props;
+const kind = Astro.props.kind ?? (href ? 'link' : 'tag');
+
+// One element per kind: a link goes somewhere, a toggle is a button with a state, a tag is text.
+const Tag = kind === 'link' ? 'a' : kind === 'toggle' ? 'button' : 'span';
+const element =
+	kind === 'link'
+		? { href, ...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {}) }
+		: kind === 'toggle'
+			? { type: 'button' as const, 'aria-pressed': pressed ? ('true' as const) : ('false' as const) }
+			: {};
+const interactive = kind !== 'tag';
+---
+
+<Tag
+	class:list={[
+		'ui-chip',
+		`ui-chip--${kind}`,
+		interactive ? `ui-chip--${size}` : `ui-chip--tag-${solid ? 'solid' : tone}`,
+		className,
+	]}
+	data-surface={surface}
+	{...element}
+	{...attrs}
+>
+	{interactive && icon && <Icon name={icon} class="ui-chip__icon" aria-hidden="true" />}
+	{
+		kind === 'link' && logo && (
+			<SmartImage src={logo} alt="" width="90" height="18" loading="lazy" class="ui-chip__logo" />
+		)
+	}
+	<slot />
+	{interactive && note && <span class="ui-chip__note">{note}</span>}
+	{external && <span class="ui-chip__sr"> (opens in a new tab)</span>}
+</Tag>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
+
+	.ui-chip {
+		box-sizing: border-box;
+		display: inline-flex;
+		align-items: center;
+		white-space: nowrap;
+		text-decoration: none;
+		-webkit-tap-highlight-color: transparent;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	// LINK AND TOGGLE: a bordered pill, 40 (or 32) tall.
+	.ui-chip--link,
+	.ui-chip--toggle {
+		--_line: rgba(23, 24, 28, 0.12);
+		--_line-hover: rgba(23, 24, 28, 0.3);
+		--_fill: var(--color-bg-surface, #fff);
+		--_tint: rgba(23, 24, 28, 0.03);
+		--_press: rgba(23, 24, 28, 0.07);
+		--_label: var(--color-text, #17181c);
+		--_note: var(--color-text-secondary, #{$color-text-secondary});
+
+		position: relative;
+		gap: $spacing-2;
+		height: 40px;
+		margin: 0;
+		padding: 0 $spacing-4;
+		border: 1px solid var(--_line);
+		border-radius: $radius-full;
+		background: var(--_fill);
+		color: var(--_label);
+		font-family: inherit;
+		font-size: 16px;
+		font-weight: $font-weight-medium;
+		line-height: 1.5;
+		cursor: pointer;
+		transition:
+			border-color 0.15s ease,
+			background-color 0.15s ease;
+
+		@media (hover: hover) {
+			&:hover {
+				border-color: var(--_line-hover);
+				background: var(--_tint);
+			}
+		}
+
+		&:active {
+			border-color: var(--_line-hover);
+			background: var(--_press);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+
+		@media (forced-colors: active) {
+			border-color: ButtonText;
+		}
+
+		@include on-dark {
+			--_line: transparent;
+			--_line-hover: rgba(255, 255, 255, 0.6);
+			--_fill: rgba(255, 255, 255, 0.06);
+			--_tint: rgba(255, 255, 255, 0.06);
+			--_press: rgba(255, 255, 255, 0.14);
+			--_label: #fff;
+			--_note: rgba(255, 255, 255, 0.64);
+		}
+	}
+
+	// 40 is under the 44 touch target: a coarse pointer gets an invisible extension.
+	@media (pointer: coarse) {
+		.ui-chip--link::before,
+		.ui-chip--toggle::before {
+			content: '';
+			position: absolute;
+			inset: -3px 0;
+		}
+	}
+
+	.ui-chip--sm {
+		gap: 6px;
+		height: 32px;
+		padding: 0 $spacing-3;
+		font-size: 14px;
+		line-height: 22px;
+	}
+
+	.ui-chip__icon {
+		flex: none;
+		width: 20px;
+		height: 20px;
+
+		.ui-chip--sm & {
+			width: 16px;
+			height: 16px;
+		}
+	}
+
+	.ui-chip__logo {
+		width: auto;
+		height: 20px;
+
+		.ui-chip--sm & {
+			height: 16px;
+		}
+	}
+
+	.ui-chip__note {
+		color: var(--_note);
+		font-weight: $font-weight-normal;
+	}
+
+	.ui-chip__sr {
+		@include visually-hidden;
+	}
+
+	.ui-chip--toggle[aria-pressed='true'] {
+		--_label: var(--accent-on-fill);
+
+		border-color: var(--accent-fill);
+		background-color: var(--accent-fill);
+
+		@media (hover: hover) {
+			&:hover {
+				background-color: var(--accent-fill);
+				background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+			}
+		}
+
+		&:active {
+			background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3));
+		}
+	}
+
+	// TAG: static, 22 tall, no border.
+	.ui-chip--tag {
+		height: 22px;
+		padding: 0 $spacing-2;
+		border-radius: $radius-full;
+		font-size: 12px;
+		font-weight: $font-weight-medium;
+		line-height: 1;
+	}
+
+	.ui-chip--tag-accent {
+		background: color-mix(in srgb, var(--accent-fill) 10%, transparent);
+		color: var(--accent-ink);
+
+		@include on-dark {
+			background: color-mix(in srgb, var(--accent-light) 16%, transparent);
+			color: var(--accent-light);
+		}
+	}
+
+	.ui-chip--tag-neutral {
+		background: rgba(23, 24, 28, 0.06);
+		color: var(--color-text, #17181c);
+
+		@include on-dark {
+			background: rgba(255, 255, 255, 0.1);
+			color: #fff;
+		}
+	}
+
+	.ui-chip--tag-solid {
+		background: var(--accent-fill);
+		color: var(--accent-on-fill);
+	}
+</style>

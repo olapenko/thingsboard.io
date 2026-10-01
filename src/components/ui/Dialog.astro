@@ -1,0 +1,243 @@
+---
+/**
+ * The modal shell: a native `<dialog>` (focus trap, Escape and the inert page from the browser), a
+ * white panel on a 55% ink backdrop, a close button, an optional mark straddling the top edge, the
+ * head as a `SectionHeader` at the card size, a body that scrolls when the screen is short, and a
+ * footer. Below 560 the panel becomes a bottom sheet.
+ *
+ * The dialog element is a transparent box over the whole viewport and the panel sits inside it,
+ * because a modal dialog clips its overflow and the mark hangs outside the panel's top edge. The
+ * UA hides a closed dialog with `display: none`, which a `display: grid` would override, so the grid
+ * is set on `[open]` only.
+ *
+ * Opened by `openDialog()` from `util/dialog.ts`, or by any element with `data-dialog-open="<id>"`.
+ */
+import Button from '@components/ui/Button.astro';
+import Mark from '@components/ui/Mark.astro';
+import SectionHeader from '@components/Landing/SectionHeader.astro';
+
+interface Props {
+	id?: string;
+	/** 440 · 560 · 860. */
+	size?: 'sm' | 'md' | 'lg';
+	title: string;
+	/** Where an id is needed for the title (the dialog is named by it). Default: `<id>-title`. */
+	titleId?: string;
+	lede?: string;
+	eyebrow?: string;
+	/** A 72 mark straddling the panel's top edge. */
+	mark?: { logo?: 'thingsboard'; icon?: string; fill?: 'solid' | 'white'; accent?: string };
+	/** A backdrop click closes it. Escape always does. */
+	dismissible?: boolean;
+	class?: string;
+	panelClass?: string;
+	attrs?: Record<string, string | undefined>;
+}
+
+const {
+	id,
+	size = 'md',
+	title,
+	lede,
+	eyebrow,
+	mark,
+	dismissible = true,
+	class: className,
+	panelClass,
+	attrs = {},
+} = Astro.props;
+const titleId = Astro.props.titleId ?? `${id ?? 'ui-dialog'}-title`;
+---
+
+<dialog
+	id={id}
+	class:list={['ui-dialog', `ui-dialog--${size}`, mark && 'ui-dialog--marked', className]}
+	aria-labelledby={titleId}
+	data-dismissible={dismissible ? undefined : 'false'}
+	data-surface="light"
+	{...attrs}
+>
+	<div class:list={['ui-dialog__panel', panelClass]}>
+		{
+			mark && (
+				<Mark
+					size={72}
+					logo={mark.logo}
+					icon={mark.icon}
+					fill={mark.fill ?? 'solid'}
+					accent={mark.accent}
+					lift
+					class="ui-dialog__mark"
+				/>
+			)
+		}
+		<form method="dialog" class="ui-dialog__close">
+			<Button type="submit" variant="tertiary" accent="neutral" size="sm" iconOnly icon="tabler:x" label="Close" />
+		</form>
+		<SectionHeader
+			class="ui-dialog__head"
+			title={title}
+			titleId={titleId}
+			subtitle={lede}
+			eyebrow={eyebrow}
+			eyebrowTone="accent"
+			titleSize="card"
+			align="center"
+			spacing="none"
+		/>
+		<div class="ui-dialog__body">
+			<slot />
+		</div>
+		{
+			Astro.slots.has('footer') && (
+				<div class="ui-dialog__footer">
+					<slot name="footer" />
+				</div>
+			)
+		}
+	</div>
+</dialog>
+
+<script>
+	import { mountAllDialogs } from '@util/dialog';
+
+	mountAllDialogs();
+</script>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	$mark: 72px;
+
+	.ui-dialog {
+		width: 100%;
+		height: 100%;
+		max-width: none;
+		max-height: none;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+
+		&[open] {
+			display: grid;
+			place-items: center;
+		}
+
+		&::backdrop {
+			background: rgb(23 24 28 / 55%);
+		}
+
+		@media (max-width: 559px) {
+			&[open] {
+				place-items: end center;
+			}
+		}
+
+		:where(p, h2) {
+			margin: 0;
+		}
+	}
+
+	.ui-dialog__panel {
+		--_w: 560px;
+
+		position: relative;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+		width: min(var(--_w), calc(100vw - 32px));
+		max-height: calc(100dvh - 32px);
+		padding: $spacing-8;
+		border-radius: $radius-xl;
+		background-color: var(--color-bg-surface, #fff);
+		box-shadow: var(--elev-dialog);
+		color: var(--color-text, #17181c);
+
+		@media (prefers-reduced-motion: no-preference) {
+			.ui-dialog[open] & {
+				animation: ui-dialog-in 160ms ease-out;
+			}
+		}
+
+		@media (max-width: 559px) {
+			width: 100vw;
+			max-height: calc(100dvh - 16px);
+			padding: $spacing-8 $spacing-4;
+			border-radius: $radius-xl $radius-xl 0 0;
+
+			@media (prefers-reduced-motion: no-preference) {
+				.ui-dialog[open] & {
+					animation-name: ui-dialog-sheet;
+					animation-duration: 200ms;
+				}
+			}
+		}
+	}
+
+	.ui-dialog--sm .ui-dialog__panel {
+		--_w: 440px;
+	}
+
+	.ui-dialog--lg .ui-dialog__panel {
+		--_w: 860px;
+	}
+
+	// A mark straddles the top edge: the panel leaves half of it as headroom inside the dialog's box,
+	// and the head starts 24 under the mark's lower half.
+	.ui-dialog--marked .ui-dialog__panel {
+		max-height: calc(100dvh - 32px - #{$mark * 0.5});
+		margin-top: $mark * 0.5;
+		padding-top: $mark * 0.5 + 24px;
+
+		@media (max-width: 559px) {
+			padding-top: $mark * 0.5 + 20px;
+		}
+	}
+
+	.ui-dialog__mark {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translate(-50%, -50%);
+	}
+
+	.ui-dialog__close {
+		position: absolute;
+		top: 12px;
+		right: 12px;
+		z-index: 1;
+	}
+
+	.ui-dialog__head {
+		flex: none;
+		margin-bottom: $spacing-6;
+	}
+
+	.ui-dialog__body {
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow: auto;
+		// Room for the focus rings of what scrolls inside.
+		margin: -6px;
+		padding: 6px;
+	}
+
+	.ui-dialog__footer {
+		flex: none;
+		margin-top: $spacing-5;
+	}
+
+	@keyframes ui-dialog-in {
+		from {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+	}
+
+	@keyframes ui-dialog-sheet {
+		from {
+			transform: translateY(100%);
+		}
+	}
+</style>

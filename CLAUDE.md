@@ -166,6 +166,13 @@ All non-doc pages (landing, use-cases, case-studies, standalone pages) share a u
 
 Key rule: **Never hardcode font values** — use mixins. **Never use compile-time SCSS color variables** for theme-dependent colors — use CSS custom properties (`var(--color-*)`).
 
+### UI kit
+
+The new marketing pages are built from `src/components/ui/` (Button, Link, Mark, Chip, Tabs, Field,
+Card, Band, Dialog). **Read `src/components/ui/README.md` before building or restyling a page**: it
+holds the rules (no page CSS for what a component owns, sizes are steps, colour from `data-accent`,
+the ground from `data-surface`). Every component renders live at `/internal/library/kit/`.
+
 ### Key Visuals (homepage facelift)
 
 The homepage illustrations in `src/components/Landing/` are drawn in CSS and SVG against a derived

@@ -65,3 +65,32 @@ export function nearestCloudRegion(): CloudRegionId {
 		return 'us';
 	}
 }
+
+/**
+ * What every region picker says and keys on, in one place (the dialog, the Install hub, Bookend and
+ * choose-region all render `RegionChoice` from these). The sign-up note is the Cloud FAQ's own claim,
+ * data "stored in either North America or the EU", and no narrower: the docs name no datacentre.
+ */
+export const REGION_STORED_IN: Record<CloudRegionId, string> = {
+	us: 'Data stored in North America',
+	eu: 'Data stored in the European Union',
+};
+
+/**
+ * The analytics ids, on the dialog's rows only (a page that also mounts the dialog would otherwise
+ * carry each id twice). The sign-up ones are what the retired choose-region buttons carried, so the
+ * funnel keeps its names.
+ */
+export const REGION_GTM_ID: Record<'signup' | 'signin', Record<CloudRegionId, string>> = {
+	signup: { us: 'TryItNow_Cloud_NorthAmerica', eu: 'TryItNow_Cloud_Europe' },
+	signin: { us: 'SignIn_Cloud_NorthAmerica', eu: 'SignIn_Cloud_Europe' },
+};
+
+/** Each globe's hue. Decoration: the names carry the meaning. Europe is a graphics colour only. */
+export const REGION_HUE: Record<CloudRegionId, string> = {
+	us: '#3d50f5',
+	eu: 'var(--region-eu)',
+};
+
+export const regionHref = (host: string, flow: 'signup' | 'signin'): string =>
+	`https://${host}${flow === 'signin' ? '/login' : '/signup'}`;
