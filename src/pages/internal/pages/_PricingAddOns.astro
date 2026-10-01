@@ -1,0 +1,60 @@
+---
+/**
+ * A deployment's add-ons, for the pricing draft (`./pricing.astro`): one tile each, with the
+ * product's ecosystem badge. Markup only; the rules are the page's.
+ *
+ * Underscore-prefixed so Astro does not make it a route.
+ */
+import { Icon } from 'astro-icon/components';
+import EcosystemMark from '@components/Landing/EcosystemMark.astro';
+import { addonMark } from '@data/pricingPage';
+import type { AddOnItem } from '@data/pricing-live/types';
+
+interface Props {
+	addOns: AddOnItem[];
+	/** Where an add-on without a price sends you: main prints nothing for it. */
+	contactHref: string;
+}
+
+const { addOns, contactHref } = Astro.props;
+
+/** Main's `AddOnsSection`, in words: a number becomes dollars, a string is already priced. */
+const price = (a: AddOnItem) => {
+	if (a.priceNote) return a.priceNote;
+	if (a.priceUsd == null) return null;
+	const value = typeof a.priceUsd === 'string' ? a.priceUsd : `$${a.priceUsd.toLocaleString('en-US')}`;
+	return `${a.startingFrom ? 'From ' : ''}${value}${a.period ? ` ${a.period.replace(/^\//, 'per ')}` : ''}`;
+};
+
+const setup = (a: AddOnItem) =>
+	a.setupFee ? `+ ${a.setupFeeCurrency ?? '$'}${a.setupFee.toLocaleString('en-US')} one-time setup` : null;
+---
+
+<ul class="addon-grid">
+	{
+		addOns.map((addon) => {
+			const mark = addonMark(addon.name);
+			const amount = price(addon);
+			const fee = setup(addon);
+			return (
+				<li class="addon-tile">
+					<span class="addon-tile__mark" style={`--addon-accent: ${mark.accent}`} aria-hidden="true">
+						{mark.src ? (
+							<EcosystemMark src={mark.src} class="addon-tile__glyph" filled />
+						) : (
+							<Icon name={mark.icon!} class="addon-tile__icon" />
+						)}
+					</span>
+					<div class="addon-tile__body">
+						<h3 class="addon-tile__name">{addon.name}</h3>
+						{addon.description && <p class="addon-tile__desc">{addon.description.replace(/\.$/, '')}</p>}
+						<p class="addon-tile__price">
+							{amount ?? <a href={contactHref}>Contact us for a quote</a>}
+							{fee && <span class="addon-tile__fee">{fee}</span>}
+						</p>
+					</div>
+				</li>
+			);
+		})
+	}
+</ul>

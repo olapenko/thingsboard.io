@@ -1,0 +1,86 @@
+---
+/**
+ * One deployment's plan cards, for the pricing draft (`./pricing.astro`). Markup only: the rules
+ * are the page's, in its global sheet, as the product pages keep theirs in `_product-page.scss`.
+ *
+ * Underscore-prefixed so Astro does not make it a route.
+ */
+import { Icon } from 'astro-icon/components';
+import { formatPrice, licenseSignup } from '@data/pricingPage';
+import type { PlanCard, PlanFeature } from '@data/pricing-live/types';
+
+interface Props {
+	plans: PlanCard[];
+	/**
+	 * FAQ answers on this page, by id. A feature whose `faqId` is one of them links to it: "1M data
+	 * points/mo" opens the answer that says what a data point is. The shipped page shows the same
+	 * answers as hover tooltips, which a phone and a keyboard cannot reach.
+	 */
+	answers?: Set<string>;
+	/** The answers' id prefix: each deployment's FAQ is its own set, so its ids carry its name. */
+	faqPrefix?: string;
+}
+
+const { plans, answers = new Set<string>(), faqPrefix = 'faq-' } = Astro.props;
+
+// Main's spacer rows, there to hold its subgrid's rows level across cards. These cards keep their
+// own lists, so a blank row would only be a gap.
+const shown = (features: PlanFeature[]) => features.filter((f) => f.text.trim() !== '');
+
+// "Start Free", "Get Started", "Contact Us" on main; sentence case on every new page.
+const label = (text: string) => text.charAt(0) + text.slice(1).toLowerCase();
+---
+
+<ul class:list={['price-grid', `price-grid--${plans.length}`]} style={`--price-cols: ${plans.length}`}>
+	{
+		plans.map((plan) => (
+			<li class:list={['price-card', plan.popular && 'price-card--popular']}>
+				<div class="price-card__head">
+					<h3 class="price-card__name">{plan.name}</h3>
+					{plan.popular && <span class="price-card__flag">Popular</span>}
+				</div>
+				<p class="price-card__desc">{plan.description}</p>
+
+				<p class="price-card__price">
+					{plan.price === null ? (
+						<span class="price-card__amount">Custom</span>
+					) : (
+						<>
+							{/* Both prices are in the markup and the billing switch picks one in CSS, so the
+							    annual figure is never a number a script has to work out. */}
+							<span class="price-card__amount" data-billing-show={plan.annualPrice != null ? 'monthly' : undefined}>
+								{formatPrice(plan.price, plan.currency)}
+							</span>
+							{plan.annualPrice != null && (
+								<span class="price-card__amount" data-billing-show="annual">
+									{formatPrice(plan.annualPrice, plan.currency)}
+								</span>
+							)}
+							<span class="price-card__period">{plan.period.replace(/^\//, 'per ')}</span>
+						</>
+					)}
+				</p>
+
+				<a class:list={['price-card__cta', plan.ctaPrimary ? 'is-primary' : 'is-secondary']} href={licenseSignup(plan)}>
+					{label(plan.ctaText)}
+					<span class="sr-only">— {plan.name}</span>
+				</a>
+
+				<ul class="price-card__features">
+					{shown(plan.features).map((feature) => (
+						<li class:list={[feature.highlight && 'is-highlight']}>
+							<Icon name={feature.plusIcon ? 'tabler:plus' : 'tabler:check'} aria-hidden="true" />
+							{feature.faqId && answers.has(feature.faqId) ? (
+								<a class="price-card__term" href={`#${faqPrefix}${feature.faqId}`} data-faq-link={feature.faqId}>
+									{feature.text}
+								</a>
+							) : (
+								<span>{feature.text}</span>
+							)}
+						</li>
+					))}
+				</ul>
+			</li>
+		))
+	}
+</ul>

@@ -1,0 +1,1696 @@
+---
+// TEMP-INTERNAL-NAV
+import InternalNav from '@root/pages/internal/_InternalNav.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { Icon } from 'astro-icon/components';
+
+import PricingBackground from '@components/Pricing/PricingBackground.astro';
+import { buildFaqPageSchema } from '@util/faq-schema';
+import { CLOUD_REGIONS, LAST_REGION } from '@util/cloud-regions';
+
+import PlanCards from './_PlanCards.astro';
+import AddOnCards from './_AddOnCards.astro';
+import TopUpList from './_TopUpList.astro';
+
+import { tbCloudData, tbCloudTopUps } from '@data/pricing-live/tb-cloud';
+import { tbPrivateCloudData, tbPrivateCloudAddOns } from '@data/pricing-live/tb-private-cloud';
+import {
+	tbPerpetualAddOns,
+	tbPerpetualHero,
+	tbSelfManagedAddOns,
+	tbSelfManagedData,
+} from '@data/pricing-live/tb-self-managed';
+import { cloudAddOns } from '@data/pricing-live/add-ons';
+import { pcFeatureHeaders, pcFeatureRows } from '@data/pricing-live/tb-private-cloud-features';
+import { pricingFaqData } from '@data/pricing-live/faq';
+import {
+	DEFAULT_DEPLOYMENT,
+	DEPLOYMENTS,
+	MAIN_TAB_ORDER,
+	answerSnippets,
+	mainCopy,
+	mainTabTooltips,
+	type DeploymentId,
+} from '@data/pricingPage';
+
+/**
+ * PRICING, THE CONSERVATIVE DRAFT: main's page, section for section and word for word, in the new
+ * pages' styles. Not a route that ships — `/pricing/` keeps its page until this replaces it. The
+ * first, longer draft that reshaped the page is `./pricing-long.astro`; both are in the island's
+ * Pages menu.
+ *
+ * THE STRUCTURE IS MAIN'S (thingsboard.io/pricing/, `src/pages/pricing/index.astro` at b6abdca6a):
+ * the title, the three deployment tabs in main's order, a header row with the section's toggle,
+ * the plan cards, the upsell under them, add-ons, top-ups or the comparison, and the FAQ for the
+ * tab on screen. On the same wave ground. The plans open above the fold at 1440 × 900, as main's do.
+ *
+ * WHAT IS NEW IS ONLY THE STYLE:
+ *   - the new bar, white from the top, as the contact page sets it, and the footer that maps the
+ *     platform;
+ *   - the type ladder (`type-*`), the 40px button with a 6px radius, bold, the primary filled once
+ *     per row and every other action an ink outline;
+ *   - cards on the homepage's UI shadow with no stroke, the popular one ringed in the primary, and
+ *     the cards of a row on one subgrid so their prices and buttons line up;
+ *   - one segmented pill for the tabs and every toggle, where main has a pill and two switches;
+ *   - the product pages' comparison table (sticky pill header) and FAQ (topic sidebar);
+ *   - On-premises in its own green, as its product page has it — the tab, the plans, the FAQ and
+ *     the wave field all turn over with it — where Cloud and Private Cloud keep the primary;
+ *   - the add-ons wearing their products' marks, and main's upsell cards as a line and a button.
+ *
+ * NOT PORTED, for a draft: main's two calculators — their arithmetic is in main's page script, not
+ * in their components — so "Not sure which plan fits?" goes to a person; the GTM ids on every CTA;
+ * and `getLicense()`'s UTM and referral parameters (`licenseSignup` states the plain address).
+ */
+
+// Answers shown per topic before "More questions", as main and the product pages show six.
+const FAQ_VISIBLE = 6;
+
+const byId = (id: DeploymentId) => DEPLOYMENTS.find((d) => d.id === id)!;
+const tabs = MAIN_TAB_ORDER.map(byId);
+
+const faqFor = (id: DeploymentId) => {
+	const faq = pricingFaqData.find((f) => f.contextId === id);
+	if (!faq) throw new Error(`pricing draft: main's FAQ has no "${id}" context`);
+	return faq;
+};
+
+/** Main's tooltip text for a line with a `faqId` and no tooltip: the answer, cut to 120. */
+const snippets = answerSnippets(pricingFaqData.flatMap((f) => f.categories));
+
+/** Every answer id per deployment, so a tooltip's "Read more" opens its own FAQ and no other. */
+const answerIds = new Map<DeploymentId, Set<string>>(
+	DEPLOYMENTS.map((d) => [d.id, new Set(faqFor(d.id).categories.flatMap((c) => c.items.map((i) => i.id)))])
+);
+const faqPrefix = (id: DeploymentId) => `faq-${id}-`;
+const answers = (id: DeploymentId) => answerIds.get(id)!;
+
+// Main's one-FAQPage-per-page rule, kept: the default tab's answers, all of them.
+const faqPageSchema = buildFaqPageSchema(faqFor(DEFAULT_DEPLOYMENT).categories);
+
+// The data says `na`, the region module says `us`; the switch speaks the module's.
+const cloudRegion = {
+	us: { plans: tbCloudData.na.plans, addOns: cloudAddOns.na, topUps: tbCloudTopUps.na },
+	eu: { plans: tbCloudData.eu.plans, addOns: cloudAddOns.eu, topUps: tbCloudTopUps.eu },
+};
+
+const CONTACT_ON_PREM =
+	'/contact-us/?subject=ThingsBoard%20Products&message=I%20have%20a%20question%20about%20ThingsBoard%20On-premises';
+const CONTACT_PRIVATE_CLOUD = byId('thingsboard-private-cloud').choice.cta.href;
+
+/** What the pre-paint script needs, and nothing else. */
+const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey: LAST_REGION.key };
+---
+
+<BaseLayout
+	headerVariant="transparent"
+	headerScrolledAtTop
+	forceLightTheme
+	footer="map"
+	noIndex
+	noCanonical
+	title="Pricing (draft)"
+	description="ThingsBoard IoT Platform pricing — compare On-premises, ThingsBoard Cloud and Private Cloud plans with transparent subscription and perpetual licensing."
+	jsonLd={faqPageSchema}
+>
+	<PricingBackground />
+	<div class="p2" data-pricing-draft>
+		<header class="p2-intro">
+			<h1 class="p2-title">{mainCopy.title}</h1>
+			<div class="seg seg--tabs" role="tablist" aria-label="Deployment" data-deploy-switch>
+				{
+					tabs.map((d) => (
+						<button
+							type="button"
+							role="tab"
+							id={`deploy-tab-${d.id}`}
+							class:list={['seg__opt', d.id === DEFAULT_DEPLOYMENT && 'is-active']}
+							aria-selected={d.id === DEFAULT_DEPLOYMENT ? 'true' : 'false'}
+							aria-controls={`plans-${d.id}`}
+							tabindex={d.id === DEFAULT_DEPLOYMENT ? 0 : -1}
+							title={mainTabTooltips[d.id]}
+							data-deploy-tab={d.id}
+						>
+							<Icon name={d.icon} aria-hidden="true" />
+							{d.name}
+						</button>
+					))
+				}
+			</div>
+
+			{
+				/* Before paint: the tab from `?product=` (main's ids, and its legacy `?section=`), the
+			    On-premises licence from `?solution=`, and Cloud's region from the one the visitor last
+			    signed up or in with, else the nearest by timezone — `util/cloud-regions`, restated, since
+			    an inline script cannot import it. The state lives on <html> and the CSS shows the
+			    matching blocks, so a deep link never paints Cloud first and then swaps. */
+			}
+			<script is:inline define:vars={{ prepaint }}>
+				(function () {
+					var root = document.documentElement;
+					var p = new URLSearchParams(location.search);
+					var deploy = p.get('product');
+					if (prepaint.ids.indexOf(deploy) === -1) {
+						deploy = p.get('section') === 'thingsboard-pe-options' ? 'thingsboard-pe' : prepaint.fallback;
+					}
+					var region = null;
+					try {
+						region = localStorage.getItem(prepaint.regionKey);
+					} catch (e) {
+						// No storage: fall through to the timezone.
+					}
+					if (region !== 'us' && region !== 'eu') {
+						var tz = '';
+						try {
+							tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+						} catch (e) {
+							// No Intl: North America, where the site sent everyone before it asked.
+						}
+						region = /^(Europe|Africa|Atlantic)\//.test(tz) ? 'eu' : 'us';
+					}
+					root.dataset.deploy = deploy;
+					root.dataset.cloudRegion = region;
+					root.dataset.pcBilling = 'monthly';
+					root.dataset.onpremBilling =
+						(p.get('solution') || '').replace(/^pe-/, '') === 'perpetual' ? 'perpetual' : 'payg';
+					document.currentScript.parentElement.querySelectorAll('[data-deploy-tab]').forEach(function (tab) {
+						var on = tab.dataset.deployTab === deploy;
+						tab.classList.toggle('is-active', on);
+						tab.setAttribute('aria-selected', on ? 'true' : 'false');
+						tab.tabIndex = on ? 0 : -1;
+					});
+				})();
+			</script>
+		</header>
+
+		{/* ─── On-premises ──────────────────────────────────────────────────────────────────── */}
+		<section
+			id="plans-thingsboard-pe"
+			class="p2-panel"
+			role="tabpanel"
+			aria-labelledby="deploy-tab-thingsboard-pe"
+			data-deploy-panel="thingsboard-pe"
+		>
+			<div class="p2-head">
+				<div>
+					<h2 class="p2-h2">
+						<span data-onprem-show="payg">{mainCopy.onPremPayg.title}</span>
+						<span data-onprem-show="perpetual">{mainCopy.onPremPerpetual.title}</span>
+					</h2>
+					<p class="p2-sub">
+						<span data-onprem-show="payg">{mainCopy.onPremPayg.subtitle}</span>
+						<span data-onprem-show="perpetual">{mainCopy.onPremPerpetual.subtitle}</span>
+					</p>
+				</div>
+				<div class="seg" role="group" aria-label="Licensing" data-seg="onpremBilling">
+					<button type="button" class="seg__opt" data-value="payg" aria-pressed="true">Subscription</button>
+					<button type="button" class="seg__opt" data-value="perpetual" aria-pressed="false">Perpetual</button>
+				</div>
+			</div>
+
+			<div data-onprem-show="payg">
+				<PlanCards
+					plans={tbSelfManagedData.payg.plans}
+					snippets={snippets}
+					answers={answers('thingsboard-pe')}
+					faqPrefix={faqPrefix('thingsboard-pe')}
+				/>
+				<div class="p2-bar">
+					<p class="p2-bar__title">{mainCopy.upsellNotSure.heading}</p>
+					<a class="p2-bar__link" href={CONTACT_ON_PREM}>
+						{mainCopy.upsellNotSure.cta}
+						<Icon name="tabler:chevron-right" aria-hidden="true" />
+					</a>
+				</div>
+				<div class="p2-block">
+					<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
+					<p class="p2-sub">{mainCopy.addOns.subtitle}</p>
+					<AddOnCards
+						addOns={tbSelfManagedAddOns}
+						answers={answers('thingsboard-pe')}
+						faqPrefix={faqPrefix('thingsboard-pe')}
+					/>
+				</div>
+			</div>
+
+			<div data-onprem-show="perpetual">
+				<div class="p2-promo">
+					<div class="p2-promo__lead">
+						<h3 class="p2-promo__title">{tbPerpetualHero.title}</h3>
+						{tbPerpetualHero.subtitle && <p class="p2-promo__subtitle">{tbPerpetualHero.subtitle}</p>}
+						{tbPerpetualHero.priceLabel && <p class="p2-promo__price">{tbPerpetualHero.priceLabel}</p>}
+						<a class="p2-btn p2-btn--primary" href={tbPerpetualHero.ctaHref}>
+							{tbPerpetualHero.ctaText.charAt(0) + tbPerpetualHero.ctaText.slice(1).toLowerCase()}
+						</a>
+					</div>
+					<div class="p2-promo__body">
+						<p class="p2-promo__desc">{tbPerpetualHero.description}</p>
+						<ul class="p2-checks">
+							{
+								tbPerpetualHero.features.map((f) => (
+									<li>
+										<Icon name="tabler:check" aria-hidden="true" />
+										{f}
+									</li>
+								))
+							}
+						</ul>
+					</div>
+				</div>
+				{
+					tbSelfManagedData.perpetual.benefits && (
+						<div class="p2-block">
+							<h2 class="p2-h2">{mainCopy.perpetualBenefits}</h2>
+							<div class="benefit-grid p2-benefits">
+								{tbSelfManagedData.perpetual.benefits.map((b) => (
+									<div class="benefit-card">
+										<Icon name={b.icon} class="benefit-card__icon" aria-hidden="true" />
+										<h3 class="benefit-card__title">{b.title}</h3>
+										<p class="benefit-card__text">{b.description}</p>
+									</div>
+								))}
+							</div>
+						</div>
+					)
+				}
+				<div class="p2-block">
+					<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
+					<p class="p2-sub">{mainCopy.addOns.subtitle}</p>
+					<AddOnCards
+						addOns={tbPerpetualAddOns}
+						answers={answers('thingsboard-pe')}
+						faqPrefix={faqPrefix('thingsboard-pe')}
+					/>
+				</div>
+				<div class="p2-bar p2-bar--block">
+					<p class="p2-bar__title">{mainCopy.perpetualHelp}</p>
+					<a class="p2-bar__link" href={tbPerpetualHero.ctaHref}>
+						{mainCopy.contactUs}
+						<Icon name="tabler:chevron-right" aria-hidden="true" />
+					</a>
+				</div>
+			</div>
+		</section>
+
+		{/* ─── Cloud ─────────────────────────────────────────────────────────────────────────── */}
+		<section
+			id="plans-thingsboard-cloud"
+			class="p2-panel"
+			role="tabpanel"
+			aria-labelledby="deploy-tab-thingsboard-cloud"
+			data-deploy-panel="thingsboard-cloud"
+		>
+			<div class="p2-head">
+				<div>
+					<h2 class="p2-h2">{tbCloudData.na.sectionTitle}</h2>
+					<p class="p2-sub">{tbCloudData.na.sectionSubtitle}</p>
+				</div>
+				<div class="seg" role="group" aria-label="Cloud region" data-seg="cloudRegion">
+					{
+						CLOUD_REGIONS.map((r) => (
+							<button type="button" class="seg__opt" data-value={r.id} aria-pressed={r.id === 'us' ? 'true' : 'false'}>
+								{r.name}
+							</button>
+						))
+					}
+				</div>
+			</div>
+
+			{
+				CLOUD_REGIONS.map((r) => (
+					<div data-region-show={r.id}>
+						<PlanCards
+							plans={cloudRegion[r.id].plans}
+							snippets={snippets}
+							answers={answers('thingsboard-cloud')}
+							faqPrefix={faqPrefix('thingsboard-cloud')}
+						/>
+					</div>
+				))
+			}
+			<div class="p2-bar">
+				<p class="p2-bar__title">{mainCopy.upsellPrivateCloud.heading}</p>
+				<a class="p2-bar__link" href="?product=thingsboard-private-cloud" data-deploy-go="thingsboard-private-cloud">
+					{mainCopy.upsellPrivateCloud.cta}
+					<Icon name="tabler:chevron-right" aria-hidden="true" />
+				</a>
+			</div>
+
+			<div class="p2-block">
+				<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
+				<p class="p2-sub">{mainCopy.addOns.subtitle}</p>
+				{
+					CLOUD_REGIONS.map((r) => (
+						<div data-region-show={r.id}>
+							<AddOnCards
+								addOns={cloudRegion[r.id].addOns}
+								answers={answers('thingsboard-cloud')}
+								faqPrefix={faqPrefix('thingsboard-cloud')}
+							/>
+						</div>
+					))
+				}
+			</div>
+
+			<div class="p2-block">
+				<h2 class="p2-h2">{mainCopy.topUps}</h2>
+				{
+					CLOUD_REGIONS.map((r) => (
+						<div data-region-show={r.id}>
+							<TopUpList groups={cloudRegion[r.id].topUps} />
+						</div>
+					))
+				}
+			</div>
+		</section>
+
+		{/* ─── Private Cloud ─────────────────────────────────────────────────────────────────── */}
+		<section
+			id="plans-thingsboard-private-cloud"
+			class="p2-panel"
+			role="tabpanel"
+			aria-labelledby="deploy-tab-thingsboard-private-cloud"
+			data-deploy-panel="thingsboard-private-cloud"
+		>
+			<div class="p2-head">
+				<div>
+					<h2 class="p2-h2">{tbPrivateCloudData.sectionTitle}</h2>
+					<p class="p2-sub">{tbPrivateCloudData.sectionSubtitle}</p>
+				</div>
+				<div class="seg" role="group" aria-label="Billing period" data-seg="pcBilling">
+					<button type="button" class="seg__opt" data-value="monthly" aria-pressed="true">
+						{tbPrivateCloudData.billingOptions.monthly}
+					</button>
+					<button
+						type="button"
+						class="seg__opt"
+						data-value="annual"
+						aria-pressed="false"
+						title={mainCopy.pcBillingHint}
+					>
+						{tbPrivateCloudData.billingOptions.annual}
+						{
+							tbPrivateCloudData.billingOptions.discount && (
+								<span class="seg__save">{tbPrivateCloudData.billingOptions.discount}</span>
+							)
+						}
+					</button>
+				</div>
+			</div>
+
+			<PlanCards
+				plans={tbPrivateCloudData.plans}
+				snippets={snippets}
+				answers={answers('thingsboard-private-cloud')}
+				faqPrefix={faqPrefix('thingsboard-private-cloud')}
+			/>
+			<div class="p2-bar">
+				<p class="p2-bar__title">{mainCopy.upsellNotSure.heading}</p>
+				<a class="p2-bar__link" href={CONTACT_PRIVATE_CLOUD}>
+					{mainCopy.upsellNotSure.cta}
+					<Icon name="tabler:chevron-right" aria-hidden="true" />
+				</a>
+			</div>
+
+			<div class="p2-block">
+				<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
+				<p class="p2-sub">{mainCopy.addOns.subtitle}</p>
+				<AddOnCards
+					addOns={tbPrivateCloudAddOns}
+					answers={answers('thingsboard-private-cloud')}
+					faqPrefix={faqPrefix('thingsboard-private-cloud')}
+				/>
+			</div>
+
+			<div class="p2-block">
+				<h2 class="p2-h2">{mainCopy.comparison.title}</h2>
+				<p class="p2-sub">{mainCopy.comparison.subtitle}</p>
+				<div class="p2-table">
+					<div class="matrix-scroll">
+						<table class="matrix">
+							<caption class="sr-only">{mainCopy.comparison.caption}</caption>
+							<thead>
+								<tr>
+									<th scope="col">Feature</th>
+									{
+										pcFeatureHeaders.map((h) => (
+											<th scope="col">
+												<span class="matrix__col">{h}</span>
+											</th>
+										))
+									}
+								</tr>
+							</thead>
+							<tbody>
+								{
+									pcFeatureRows.map((row) => (
+										<tr>
+											<th scope="row">{row.feature}</th>
+											{row.values.map((value, i) => (
+												<td class:list={[value === false && 'matrix__none']}>
+													<span class="matrix__cell-label">{pcFeatureHeaders[i]}</span>
+													{value === true ? (
+														<span class="matrix__yes">
+															<Icon name="tabler:check" aria-hidden="true" />
+															<span class="sr-only">Included</span>
+														</span>
+													) : value === false ? (
+														<>
+															<span class="sr-only">Not included</span>
+															<span aria-hidden="true">—</span>
+														</>
+													) : (
+														<span>{value}</span>
+													)}
+												</td>
+											))}
+										</tr>
+									))
+								}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		{/* ─── FAQ, for the tab on screen ────────────────────────────────────────────────────── */}
+		<section class="p2-faq">
+			{
+				tabs.map((d) => {
+					const faq = faqFor(d.id);
+					const prefix = faqPrefix(d.id);
+					return (
+						<div data-deploy-panel={d.id}>
+							<h2 class="p2-h2">{faq.title}</h2>
+							<div class="faq-layout">
+								<div class="faq-tabs" role="tablist" aria-orientation="vertical" aria-label={`${d.name} FAQ topics`}>
+									{faq.categories.map((category, i) => (
+										<button
+											type="button"
+											role="tab"
+											id={`${prefix}tab-${i}`}
+											class:list={['faq-tab', i === 0 && 'is-active']}
+											aria-controls={`${prefix}panel-${i}`}
+											aria-selected={i === 0 ? 'true' : 'false'}
+											tabindex={i === 0 ? 0 : -1}
+										>
+											{category.label}
+										</button>
+									))}
+								</div>
+								<div class="faq-panels">
+									{faq.categories.map((category, i) => (
+										<div
+											role="tabpanel"
+											id={`${prefix}panel-${i}`}
+											class="faq-panel"
+											aria-labelledby={`${prefix}tab-${i}`}
+											hidden={i !== 0}
+										>
+											{category.items.map((item, j) => (
+												<details
+													id={`${prefix}${item.id}`}
+													class:list={['faq-item', j >= FAQ_VISIBLE && 'faq-item--extra']}
+													open={item.defaultOpen}
+												>
+													<summary>
+														<span>{item.question}</span>
+														<Icon name="tabler:chevron-down" class="faq-item__chevron" aria-hidden="true" />
+													</summary>
+													<div class="faq-item__answer" set:html={item.answer} />
+												</details>
+											))}
+											{category.items.length > FAQ_VISIBLE && (
+												<button type="button" class="faq-more" aria-expanded="false">
+													<span class="faq-more__label">More questions</span>
+													<Icon name="tabler:chevron-down" class="faq-more__chevron" aria-hidden="true" />
+												</button>
+											)}
+										</div>
+									))}
+								</div>
+							</div>
+						</div>
+					);
+				})
+			}
+		</section>
+	</div>
+	{
+		/* TEMP-INTERNAL-NAV — remove before this branch reaches main, with the homepage's.
+	    The internal switcher, so this page can be reached from the sandbox and back. It is NOT
+	    production chrome: the page is shown as it ships, with only the island over it.
+
+	    To remove: `grep -rln TEMP-INTERNAL-NAV src/pages` and delete both hits in each file. */
+	}
+	<InternalNav />
+</BaseLayout>
+
+<script>
+	// The FAQ tab sets, one per deployment — see `util/faq-tabs.ts`.
+	import { mountFaqTabs } from '@util/faq-tabs';
+
+	mountFaqTabs();
+
+	const root = document.documentElement;
+	const onPage = () => !!document.querySelector('[data-pricing-draft]');
+	const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	/** Under the fixed bar, with the same air the FAQ sidebar keeps from it. */
+	function scrollToElement(el: Element) {
+		const bar = parseFloat(getComputedStyle(root).getPropertyValue('--home-header-h')) || 64;
+		const top = el.getBoundingClientRect().top + window.scrollY - bar - 24;
+		window.scrollTo({ top, behavior: reducedMotion() ? 'auto' : 'smooth' });
+	}
+
+	/** The address follows the view, so a link copied from here opens on what you were reading. */
+	function updateUrl(edit: (params: URLSearchParams) => void) {
+		const url = new URL(location.href);
+		edit(url.searchParams);
+		history.replaceState(history.state, '', url);
+	}
+
+	/** Every toggle's pressed state, from the <html> attribute it writes. */
+	function syncSegments() {
+		document.querySelectorAll<HTMLElement>('[data-seg]').forEach((group) => {
+			const value = root.dataset[group.dataset.seg!];
+			group.querySelectorAll<HTMLButtonElement>('.seg__opt').forEach((opt) => {
+				opt.setAttribute('aria-pressed', String(opt.dataset.value === value));
+			});
+		});
+	}
+
+	function selectDeploy(id: string, { focus = false, scroll = false } = {}) {
+		root.dataset.deploy = id;
+		document.querySelectorAll<HTMLButtonElement>('[data-deploy-tab]').forEach((tab) => {
+			const on = tab.dataset.deployTab === id;
+			tab.classList.toggle('is-active', on);
+			tab.setAttribute('aria-selected', String(on));
+			tab.tabIndex = on ? 0 : -1;
+			if (on && focus) tab.focus();
+		});
+		// Main's `?section=` is dropped once read; `?solution=` only means anything on-prem.
+		updateUrl((params) => {
+			params.set('product', id);
+			params.delete('section');
+			if (id !== 'thingsboard-pe') params.delete('solution');
+		});
+		if (scroll) {
+			const tablist = document.querySelector('[data-deploy-switch]');
+			if (tablist) scrollToElement(tablist);
+		}
+	}
+
+	// Delegated once, on the document: the site swaps the body between pages, and these keep working
+	// on whatever body is in.
+	document.addEventListener('click', (event) => {
+		const target = event.target as Element | null;
+		if (!target || !onPage()) return;
+
+		const tab = target.closest<HTMLButtonElement>('[data-deploy-tab]');
+		if (tab) {
+			selectDeploy(tab.dataset.deployTab!);
+			return;
+		}
+
+		const go = target.closest<HTMLAnchorElement>('[data-deploy-go]');
+		if (go) {
+			event.preventDefault();
+			selectDeploy(go.dataset.deployGo!, { scroll: true });
+			return;
+		}
+
+		const opt = target.closest<HTMLButtonElement>('[data-seg] .seg__opt');
+		if (opt) {
+			const key = opt.closest<HTMLElement>('[data-seg]')!.dataset.seg!;
+			root.dataset[key] = opt.dataset.value;
+			syncSegments();
+			if (key === 'onpremBilling') {
+				updateUrl((params) => {
+					if (opt.dataset.value === 'perpetual') params.set('solution', 'pe-perpetual');
+					else params.delete('solution');
+				});
+			}
+			return;
+		}
+
+		// A tooltip's "Read more": the answer it was cut from, with its topic selected, "More
+		// questions" opened if it is past the first six, and the answer itself expanded.
+		const more = target.closest<HTMLAnchorElement>('[data-faq-link]');
+		if (more) {
+			const answer = document.getElementById(more.hash.slice(1)) as HTMLDetailsElement | null;
+			if (!answer) return;
+			event.preventDefault();
+			const panel = answer.closest<HTMLElement>('.faq-panel');
+			if (panel?.hidden) document.getElementById(panel.getAttribute('aria-labelledby') ?? '')?.click();
+			if (panel && answer.classList.contains('faq-item--extra') && !panel.classList.contains('is-expanded')) {
+				panel.querySelector<HTMLButtonElement>('.faq-more')?.click();
+			}
+			answer.open = true;
+			scrollToElement(answer);
+			answer.querySelector('summary')?.focus({ preventScroll: true });
+		}
+	});
+
+	document.addEventListener('keydown', (event) => {
+		// Escape closes a tooltip held open by focus.
+		if (event.key === 'Escape') {
+			const active = document.activeElement as HTMLElement | null;
+			if (active?.classList.contains('tip__btn')) active.blur();
+			return;
+		}
+
+		// The tabs are a tab set: arrows move along them, Home and End to their ends.
+		const tab = (event.target as Element | null)?.closest<HTMLButtonElement>('[data-deploy-tab]');
+		if (!tab) return;
+		const all = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-deploy-tab]'));
+		const i = all.indexOf(tab);
+		const moves: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+		let next = -1;
+		if (event.key === 'Home') next = 0;
+		else if (event.key === 'End') next = all.length - 1;
+		else if (moves[event.key]) next = (i + moves[event.key] + all.length) % all.length;
+		if (next < 0) return;
+		event.preventDefault();
+		selectDeploy(all[next].dataset.deployTab!, { focus: true });
+	});
+
+	// The toggles render on their defaults; the pre-paint script may have chosen otherwise.
+	function init() {
+		if (onPage()) syncSegments();
+	}
+
+	init();
+	document.addEventListener('astro:page-load', init);
+</script>
+
+<style is:global lang="scss">
+	@use '../../../styles/variables' as *;
+	// The product pages' rules: the marketing bar, the comparison table, the benefit tiles and the
+	// FAQ. This page takes only those; it has no hero, no bands and no bookend.
+	@use '../../../styles/product-page';
+
+	// Main's ground: the wave field is fixed behind the page, so the body lets it through in light
+	// mode, as the contact page does.
+	:root:not([data-theme='dark']) body:has(.p2) {
+		background-color: transparent;
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// WHICH BLOCKS SHOW. The state is on <html>, written before paint; with no script at all the
+	// defaults hold: Cloud, North America, monthly, subscription.
+	// ---------------------------------------------------------------------------------------------
+	$deployments: thingsboard-cloud, thingsboard-private-cloud, thingsboard-pe;
+
+	[data-deploy-panel]:not([data-deploy-panel='thingsboard-cloud']),
+	[data-region-show='eu'],
+	[data-billing-show='annual'],
+	[data-onprem-show='perpetual'] {
+		display: none;
+	}
+
+	html[data-deploy] [data-deploy-panel] {
+		display: none;
+	}
+
+	@each $id in $deployments {
+		html[data-deploy='#{$id}'] [data-deploy-panel='#{$id}'] {
+			display: block;
+		}
+	}
+
+	html[data-cloud-region='eu'] {
+		[data-region-show='us'] {
+			display: none;
+		}
+
+		[data-region-show='eu'] {
+			display: block;
+		}
+	}
+
+	html[data-pc-billing='annual'] {
+		[data-billing-show='monthly'] {
+			display: none;
+		}
+
+		[data-billing-show='annual'] {
+			display: inline;
+		}
+	}
+
+	html[data-onprem-billing='perpetual'] {
+		[data-onprem-show='payg'] {
+			display: none;
+		}
+
+		[data-onprem-show='perpetual'] {
+			display: block;
+		}
+
+		span[data-onprem-show='perpetual'] {
+			display: inline;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE PAGE: main's 1120 column, everything left-aligned under a centred title.
+	// ---------------------------------------------------------------------------------------------
+	// THE ACCENT. The primary everywhere but On-premises, which takes the green its product page
+	// uses: `$color-pe-dark` fills under white (4.6:1), `$color-pe-link` is its readable ink on white
+	// (5.7:1 where the fill is 3.8), and the light tone carries links on the dark tooltip. Set on the
+	// page from the tab on <html>, so the tabs, the panels and the FAQ all read one value.
+	.p2 {
+		--p2-accent: #{$color-brand};
+		--p2-accent-ink: #{$color-brand};
+		--p2-accent-tint: rgba(61, 80, 245, 0.1);
+		--p2-accent-light: #{$color-brand-dark};
+	}
+
+	html[data-deploy='thingsboard-pe'] .p2 {
+		--p2-accent: #{$color-pe-dark};
+		--p2-accent-ink: #{$color-pe-link};
+		--p2-accent-tint: rgba(23, 134, 73, 0.1);
+		--p2-accent-light: #b4e7cd;
+	}
+
+	// The field turns over too: the lifted green the On-premises page draws its waves in, since the
+	// accent itself all but vanishes at the field's 3.5–10%.
+	html[data-deploy='thingsboard-pe'] body .pricing-bg {
+		--pricing-wave-color: #{$color-pe-hover};
+	}
+
+	.p2 {
+		position: relative;
+		max-width: calc(1120px + #{$spacing-5} * 2);
+		margin: 0 auto;
+		padding: 0 $spacing-5 $spacing-20;
+	}
+
+	.p2-intro {
+		padding-top: calc(var(--home-header-h, #{$header-height}) + #{$spacing-10});
+		text-align: center;
+
+		@include media-down(md) {
+			padding-top: calc(var(--home-header-h, #{$header-height}) + #{$spacing-6});
+		}
+	}
+
+	.p2-title {
+		@include type-display;
+		margin: 0 0 $spacing-5;
+		color: var(--color-text);
+	}
+
+	// `:where(section)` paints every section the page colour; these sit on the waves.
+	.p2-panel,
+	.p2-faq {
+		background-color: transparent;
+	}
+
+	.p2-panel {
+		margin-top: $spacing-10;
+	}
+
+	.p2-head {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: $spacing-4 $spacing-6;
+		margin-bottom: $spacing-6;
+
+		@include media-down(md) {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+	}
+
+	.p2-h2 {
+		@include type-section;
+		margin: 0;
+		color: var(--color-text);
+	}
+
+	.p2-sub {
+		@include type-body;
+		margin: $spacing-1 0 0;
+		color: var(--color-text-secondary);
+	}
+
+	// A block after the plans: Add-ons, Top-ups, the comparison, the benefits.
+	.p2-block {
+		margin-top: $spacing-16;
+
+		@include media-down(md) {
+			margin-top: $spacing-12;
+		}
+
+		.p2-sub {
+			margin-bottom: $spacing-6;
+		}
+
+		> .p2-h2 + :not(.p2-sub) {
+			margin-top: $spacing-6;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE PILL: the tabs and every toggle, one control. A group of pressed buttons for the toggles
+	// — each sets a view and nothing is submitted — and a real tab set for the deployments.
+	// ---------------------------------------------------------------------------------------------
+	.seg {
+		display: inline-flex;
+		flex: none;
+		gap: $spacing-1;
+		padding: $spacing-1;
+		border-radius: $radius-full;
+		background-color: rgba(15, 23, 42, 0.06);
+	}
+
+	.seg__opt {
+		@include type-small-strong;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: $spacing-2;
+		height: 36px;
+		padding: 0 $spacing-4;
+		border: 0;
+		border-radius: $radius-full;
+		background: none;
+		color: var(--color-text-secondary);
+		white-space: nowrap;
+		cursor: pointer;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		svg {
+			flex: none;
+			width: 18px;
+			height: 18px;
+		}
+
+		&:hover {
+			color: var(--color-text);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--p2-accent);
+			outline-offset: 2px;
+		}
+
+		&[aria-pressed='true'],
+		&.is-active {
+			background-color: #fff;
+			color: var(--color-text);
+			box-shadow:
+				0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.08),
+				0 2px 6px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.06);
+
+			svg {
+				color: var(--p2-accent);
+			}
+		}
+	}
+
+	// The tabs a step larger than the toggles: they choose the page, the toggles only a view of it.
+	.seg--tabs .seg__opt {
+		@include type-link;
+		height: 40px;
+		padding: 0 $spacing-5;
+
+		@include media-down(sm) {
+			flex: 1 1 0;
+			min-width: 0;
+			padding: 0 $spacing-2;
+			font-size: $font-size-sm;
+
+			svg {
+				display: none;
+			}
+		}
+	}
+
+	.seg--tabs {
+		@include media-down(sm) {
+			display: flex;
+			width: 100%;
+		}
+	}
+
+	.seg__save {
+		padding: 0 $spacing-2;
+		border-radius: $radius-full;
+		background-color: var(--p2-accent-tint);
+		color: var(--p2-accent-ink);
+		font-size: 12px;
+		line-height: 20px;
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE BUTTON: the new pages' geometry at the card size — 40 tall, 6 radius, bold.
+	// ---------------------------------------------------------------------------------------------
+	.p2-btn {
+		@include type-button;
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		gap: $spacing-2;
+		height: 40px;
+		padding: 0 $spacing-4;
+		border-radius: $radius-md;
+		text-decoration: none;
+		white-space: nowrap;
+
+		&:focus-visible {
+			outline: 2px solid var(--p2-accent);
+			outline-offset: 3px;
+		}
+
+		&--primary {
+			background-color: var(--p2-accent);
+			color: #fff;
+
+			&:hover {
+				background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+				color: #fff;
+			}
+		}
+
+		&--secondary {
+			border: 1px solid rgba(15, 23, 42, 0.22);
+			background-color: #fff;
+			color: var(--color-text);
+
+			&:hover {
+				background-color: rgba(15, 23, 42, 0.04);
+				color: var(--color-text);
+			}
+		}
+	}
+
+	// The card ground every block here shares: white, no stroke, and a shadow that only lifts it —
+	// a contact line and a short soft fall, on the homepage's UI ink. It was the contact page's
+	// 18px-deep card shadow, which across five cards and a table read as a stack of panels.
+	%p2-card {
+		border-radius: 12px;
+		background-color: #fff;
+		box-shadow:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.05),
+			0 4px 14px -6px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.1);
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE PLANS. Each card spans five of the grid's rows as a SUBGRID, so name, description, price,
+	// button and list sit level across a row whatever the copy. Main's cards do the same with six
+	// spacer-padded feature rows; these keep only the real lines.
+	// ---------------------------------------------------------------------------------------------
+	.plan-grid {
+		display: grid;
+		grid-template-columns: repeat(var(--plan-cols, 4), minmax(0, 1fr));
+		column-gap: $spacing-4;
+		row-gap: 0;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		@media (max-width: 1099px) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+
+			&--5 {
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+			}
+		}
+
+		@include media-down(md) {
+			&,
+			&--5 {
+				grid-template-columns: minmax(0, 1fr);
+			}
+		}
+	}
+
+	.plan {
+		@extend %p2-card;
+		display: grid;
+		grid-row: span 5;
+		grid-template-rows: subgrid;
+		row-gap: 0;
+		align-content: start;
+		margin: 0 0 $spacing-4;
+		padding: $spacing-5 $spacing-4;
+
+		// The ring carries it; the shadow stays the cards' own, not a coloured glow.
+		&--popular {
+			box-shadow:
+				0 0 0 2px var(--p2-accent),
+				0 4px 14px -6px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.1);
+		}
+
+		&__head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: $spacing-2;
+		}
+
+		&__name {
+			font-size: $font-size-xl;
+			font-weight: $font-weight-bold;
+			line-height: 1.3;
+			margin: 0;
+			color: var(--color-text);
+		}
+
+		&__flag {
+			padding: 0 $spacing-2;
+			border-radius: $radius-full;
+			background-color: var(--p2-accent-tint);
+			color: var(--p2-accent-ink);
+			font-size: 12px;
+			font-weight: $font-weight-medium;
+			line-height: 22px;
+		}
+
+		&__desc {
+			@include type-small;
+			margin: $spacing-1 0 0;
+			color: var(--color-text-secondary);
+		}
+
+		&__price {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: baseline;
+			gap: 0 $spacing-1;
+			margin: $spacing-4 0 0;
+		}
+
+		&__amount {
+			font-size: $font-size-4xl;
+			font-weight: $font-weight-bold;
+			line-height: 1.15;
+			color: var(--color-text);
+			font-variant-numeric: tabular-nums;
+		}
+
+		&__period {
+			@include type-small;
+			color: var(--color-text-secondary);
+		}
+
+		.p2-btn {
+			margin-top: $spacing-4;
+		}
+
+		&__features {
+			@include type-small;
+			display: flex;
+			flex-direction: column;
+			gap: $spacing-2;
+			margin: $spacing-5 0 0;
+			padding: 0;
+			list-style: none;
+			color: var(--color-text-secondary);
+
+			li {
+				display: flex;
+				align-items: flex-start;
+				gap: $spacing-2;
+				margin: 0;
+			}
+
+			> li > svg {
+				flex: none;
+				width: 16px;
+				height: 16px;
+				margin-top: 3px;
+				color: var(--p2-accent);
+			}
+
+			// White labeling and the per-device overage: what a plan adds, in the ink.
+			.is-highlight {
+				color: var(--color-text);
+				font-weight: $font-weight-medium;
+			}
+		}
+	}
+
+	// Main's upsell under the cards, as one line: the question, and a link out of it. It was a
+	// full-width card, then a line with an outline button; both weighed as much as a plan.
+	.p2-bar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: center;
+		gap: $spacing-1 $spacing-2;
+		margin-top: $spacing-4;
+		text-align: center;
+
+		&__title {
+			@include type-body;
+			margin: 0;
+			color: var(--color-text-secondary);
+		}
+
+		&--block {
+			margin-top: $spacing-12;
+		}
+
+		// The product pages' outgoing link ("See plans"): the accent's ink, a chevron, the underline
+		// on hover.
+		&__link {
+			@include type-link;
+			display: inline-flex;
+			align-items: center;
+			gap: 2px;
+			color: var(--p2-accent-ink);
+			text-decoration: none;
+
+			svg {
+				flex: none;
+				width: 18px;
+				height: 18px;
+			}
+
+			&:hover,
+			&:focus-visible {
+				color: var(--p2-accent-ink);
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--p2-accent);
+				outline-offset: 3px;
+				border-radius: 2px;
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE ⓘ. Hover or focus shows it; on a phone it docks to the bottom of the screen instead of
+	// hanging off a card's edge.
+	// ---------------------------------------------------------------------------------------------
+	.tip {
+		position: relative;
+		display: inline-flex;
+		margin-left: $spacing-1;
+		vertical-align: -3px;
+	}
+
+	.tip__btn {
+		display: inline-grid;
+		place-items: center;
+		width: 16px;
+		height: 16px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: none;
+		color: rgba(15, 23, 42, 0.42);
+		cursor: help;
+
+		svg {
+			width: 16px;
+			height: 16px;
+		}
+
+		&:hover,
+		&:focus-visible {
+			color: var(--p2-accent-ink);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--p2-accent);
+			outline-offset: 2px;
+		}
+	}
+
+	.tip__body {
+		@include type-small;
+		position: absolute;
+		bottom: calc(100% + 8px);
+		left: 50%;
+		z-index: 30;
+		display: block;
+		width: 260px;
+		padding: 10px 12px;
+		border-radius: 8px;
+		background-color: #17181c;
+		box-shadow: 0 8px 24px rgba(16, 24, 40, 0.24);
+		color: rgba(255, 255, 255, 0.92);
+		font-weight: $font-weight-normal;
+		text-align: left;
+		white-space: normal;
+		opacity: 0;
+		visibility: hidden;
+		transform: translate(-50%, 4px);
+		transition:
+			opacity 0.12s ease,
+			transform 0.12s ease,
+			visibility 0.12s;
+
+		// The bridge over the 8px gap, so the pointer can reach a link inside without the tip closing.
+		&::after {
+			content: '';
+			position: absolute;
+			top: 100%;
+			right: 0;
+			left: 0;
+			height: 10px;
+		}
+
+		a {
+			color: var(--p2-accent-light);
+			text-decoration: underline;
+			text-underline-offset: 2px;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+		}
+
+		@include media-down(md) {
+			position: fixed;
+			right: $spacing-4;
+			bottom: $spacing-4;
+			left: $spacing-4;
+			width: auto;
+			transform: none;
+		}
+	}
+
+	// The last word and its ⓘ wrap together, so the icon never lands on a line of its own.
+	.tip-anchor {
+		white-space: nowrap;
+	}
+
+	.tip__more {
+		margin-left: $spacing-1;
+		white-space: nowrap;
+	}
+
+	.tip:hover .tip__body,
+	.tip:focus-within .tip__body {
+		opacity: 1;
+		visibility: visible;
+		transform: translate(-50%, 0);
+
+		@include media-down(md) {
+			transform: none;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// ADD-ONS: main's three cards — icon, name, line, price.
+	// ---------------------------------------------------------------------------------------------
+	.addon-cards {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: $spacing-4;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.addon-card {
+		@extend %p2-card;
+		display: flex;
+		align-items: flex-start;
+		gap: $spacing-4;
+		margin: 0;
+		padding: $spacing-5;
+
+		// The product's mark on a tint of its own accent: the homepage's ecosystem badge, to its
+		// numbers — 32% radius, artwork at 82% of the tile, a Tabler glyph at 64% — lighter than the
+		// filled squircle, so three of them do not outweigh the prices beside them.
+		&__mark {
+			display: grid;
+			flex: none;
+			place-items: center;
+			width: 44px;
+			height: 44px;
+			border-radius: 32%;
+			background-color: color-mix(in srgb, var(--addon-accent) 10%, #fff);
+			color: var(--addon-accent);
+		}
+
+		&__glyph {
+			width: 82%;
+			height: auto;
+
+			&--vector {
+				width: 64%;
+				height: 64%;
+			}
+		}
+
+		&__body {
+			min-width: 0;
+		}
+
+		&__name {
+			@include type-tile;
+			margin: 0;
+			color: var(--color-text);
+		}
+
+		&__desc {
+			@include type-small;
+			margin: 2px 0 0;
+			color: var(--color-text-secondary);
+		}
+
+		&__price {
+			@include type-small;
+			margin: $spacing-2 0 0;
+			color: var(--color-text-secondary);
+
+			strong {
+				font-weight: $font-weight-bold;
+				color: var(--color-text);
+			}
+		}
+
+		&__fee {
+			display: block;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// TOP-UPS: main's two columns of packs, each a row that opens on what it adds.
+	// ---------------------------------------------------------------------------------------------
+	.topup-cols {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-6;
+		align-items: start;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.topup-col__title {
+		margin: 0 0 $spacing-3;
+		font-size: $font-size-lg;
+		font-weight: $font-weight-bold;
+		line-height: 1.4;
+		color: var(--color-text);
+	}
+
+	.topup-col__list {
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-2;
+	}
+
+	.topup {
+		border-radius: $radius-lg;
+		background-color: #fff;
+		box-shadow:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.05),
+			0 2px 8px -4px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.08);
+
+		summary {
+			display: flex;
+			align-items: center;
+			gap: $spacing-3;
+			min-height: 44px;
+			padding: 0 $spacing-4;
+			cursor: pointer;
+			list-style: none;
+
+			&::-webkit-details-marker {
+				display: none;
+			}
+
+			&:hover .topup__name {
+				color: var(--p2-accent-ink);
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--p2-accent);
+				outline-offset: 2px;
+				border-radius: $radius-lg;
+			}
+		}
+
+		&__name {
+			@include type-small-strong;
+			flex: 1 1 auto;
+			min-width: 0;
+			color: var(--color-text);
+		}
+
+		&__price {
+			@include type-small;
+			color: var(--color-text-secondary);
+			white-space: nowrap;
+
+			strong {
+				font-weight: $font-weight-bold;
+				color: var(--color-text);
+			}
+		}
+
+		&__chevron {
+			flex: none;
+			width: 18px;
+			height: 18px;
+			color: var(--color-text-secondary);
+			transition: transform 0.15s ease;
+
+			@media (prefers-reduced-motion: reduce) {
+				transition: none;
+			}
+		}
+
+		&[open] .topup__chevron {
+			transform: rotate(180deg);
+		}
+
+		&__details {
+			@include type-small;
+			margin: 0;
+			padding: 0 $spacing-4 $spacing-3;
+
+			div {
+				display: flex;
+				justify-content: space-between;
+				gap: $spacing-4;
+				padding: $spacing-1 0;
+			}
+
+			dt {
+				color: var(--color-text-secondary);
+			}
+
+			dd {
+				margin: 0;
+				font-weight: $font-weight-medium;
+				color: var(--color-text);
+				text-align: right;
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// PERPETUAL: main's promo card, then its benefits.
+	// ---------------------------------------------------------------------------------------------
+	.p2-promo {
+		@extend %p2-card;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+		gap: $spacing-6 $spacing-10;
+		padding: $spacing-8;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+			padding: $spacing-6 $spacing-5;
+		}
+
+		&__lead {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+		}
+
+		&__title {
+			@include type-card;
+			margin: 0;
+			color: var(--color-text);
+		}
+
+		&__subtitle {
+			@include type-body;
+			margin: $spacing-3 0 0;
+			font-weight: $font-weight-medium;
+			color: var(--color-text);
+		}
+
+		&__price {
+			@include type-card;
+			margin: $spacing-5 0 $spacing-5;
+			color: var(--p2-accent-ink);
+		}
+
+		&__desc {
+			@include type-body;
+			margin: 0 0 $spacing-4;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	.p2-checks {
+		@include type-body;
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-2;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		color: var(--color-text);
+
+		li {
+			display: flex;
+			align-items: flex-start;
+			gap: $spacing-2;
+			margin: 0;
+		}
+
+		svg {
+			flex: none;
+			width: 20px;
+			height: 20px;
+			margin-top: 2px;
+			color: var(--p2-accent);
+		}
+	}
+
+	// The product pages' benefit tiles — a rule over each, no box — on main's full column.
+	.p2-benefits {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		max-width: none;
+		margin-top: $spacing-6;
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.benefit-card__icon {
+			width: 28px;
+			height: 28px;
+			color: var(--p2-accent);
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE COMPARISON: the product pages' table, in a card so its pinned cells have a ground to match.
+	// ---------------------------------------------------------------------------------------------
+	.p2-table {
+		@extend %p2-card;
+		--matrix-band: #fff;
+		padding: $spacing-2 $spacing-4 $spacing-4;
+
+		.matrix-scroll {
+			max-width: none;
+		}
+
+		.matrix tbody th[scope='row'] {
+			width: 32%;
+		}
+
+		.matrix td {
+			text-align: center;
+		}
+
+		.matrix thead th:not(:first-child) .matrix__col {
+			justify-content: center;
+		}
+
+		@media (max-width: 879px) {
+			.matrix td {
+				text-align: left;
+			}
+		}
+	}
+
+	.matrix__yes {
+		display: inline-flex;
+
+		svg {
+			width: 20px;
+			height: 20px;
+			color: var(--p2-accent);
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// FAQ: main's sidebar and answers, in the product pages' treatment, on the full column.
+	// ---------------------------------------------------------------------------------------------
+	.p2-faq {
+		margin-top: $spacing-20;
+
+		@include media-down(md) {
+			margin-top: $spacing-12;
+		}
+
+		.faq-layout {
+			grid-template-columns: 240px minmax(0, 1fr);
+			max-width: none;
+			margin-top: $spacing-6;
+
+			@include media-down(md) {
+				grid-template-columns: minmax(0, 1fr);
+			}
+		}
+
+		// The partial states these in the primary; here they follow the tab's accent.
+		.faq-tab {
+			&:hover {
+				background-color: color-mix(in srgb, var(--p2-accent) 6%, transparent);
+			}
+
+			&:focus-visible {
+				outline-color: var(--p2-accent);
+			}
+
+			&.is-active {
+				background-color: var(--p2-accent-tint);
+				color: var(--p2-accent-ink);
+			}
+		}
+
+		.faq-item summary {
+			&:hover,
+			&:hover .faq-item__chevron {
+				color: var(--p2-accent-ink);
+			}
+
+			&:focus-visible {
+				outline-color: var(--p2-accent);
+			}
+		}
+
+		.faq-item__answer a,
+		.faq-more {
+			color: var(--p2-accent-ink);
+		}
+
+		.faq-more:focus-visible {
+			outline-color: var(--p2-accent);
+		}
+	}
+</style>

@@ -1,0 +1,1628 @@
+---
+// TEMP-INTERNAL-NAV
+import InternalNav from '@root/pages/internal/_InternalNav.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { Icon } from 'astro-icon/components';
+
+import Hero from '@components/Landing/Hero.astro';
+import SectionHeader from '@components/Landing/SectionHeader.astro';
+import PricingBackground from '@components/Pricing/PricingBackground.astro';
+import { buildFaqPageSchema } from '@util/faq-schema';
+import { CLOUD_REGIONS, LAST_REGION } from '@util/cloud-regions';
+import { FOOTER_LICENSE_PORTAL } from '@data/footer-map';
+
+import PricingPlans from './_PricingPlans.astro';
+import PricingAddOns from './_PricingAddOns.astro';
+import PricingTopUps from './_PricingTopUps.astro';
+
+import { tbCloudData, tbCloudTopUps } from '@data/pricing-live/tb-cloud';
+import { tbPrivateCloudData, tbPrivateCloudAddOns } from '@data/pricing-live/tb-private-cloud';
+import {
+	tbPerpetualAddOns,
+	tbPerpetualHero,
+	tbSelfManagedAddOns,
+	tbSelfManagedData,
+} from '@data/pricing-live/tb-self-managed';
+import { cloudAddOns } from '@data/pricing-live/add-ons';
+import { pcFeatureHeaders, pcFeatureRows } from '@data/pricing-live/tb-private-cloud-features';
+import { pricingFaqData } from '@data/pricing-live/faq';
+import {
+	DEFAULT_DEPLOYMENT,
+	DEPLOYMENTS,
+	onPremPerpetual,
+	pricingChoice,
+	pricingClosing,
+	pricingHero,
+	type DeploymentId,
+} from '@data/pricingPage';
+
+/**
+ * THE LONG VERSION, kept for comparison: the first pricing draft, which reshaped the page as well
+ * as restyling it. Judged too long and too designed on 2026-10-01; the draft that carries on is
+ * `./pricing.astro`, main's structure in the new styles. Listed under it in the island's Pages menu.
+ *
+ * PRICING, DRAFTED IN THE PRODUCT PAGES' LANGUAGE. Not a route that ships: `/pricing/` keeps the
+ * page it has until this replaces it.
+ *
+ * The frame is the Cloud and On-premises pages', piece for piece, and most of its rules are theirs
+ * through `_product-page.scss`: the dark centred hero with its squircle mark, white and tinted bands
+ * under `SectionHeader`, the sticky-pill comparison table, the dark decision band on the wave field,
+ * the FAQ's topic sidebar, the light bookend, and the footer that maps the platform.
+ *
+ * What is the pricing page's own:
+ *
+ *   - THE DEPLOYMENT SWITCH IS THE HERO'S ACTION. A pricing page asks one thing first — which way
+ *     you run it — so the hero carries that choice where the product pages carry their two buttons,
+ *     and everything under it (plans, add-ons, comparison, FAQ) follows it. Main's sub-tabs did the
+ *     same job from a row of their own under the title.
+ *   - ONE CONTROL FOR EVERY OTHER CHOICE. Region, monthly or annual, subscription or perpetual: the
+ *     same segmented pill, on the light ground, centred under the plans' heading. Main has a
+ *     different toggle for each.
+ *   - THE PLANS ARE CARDS ON WHITE, lifted on the homepage's UI shadow with no stroke, as the
+ *     contact page's cards are. The popular one is ringed in the primary and is the only filled
+ *     button in its row. Five across wants more than the 960 measure, so Cloud's plans take the
+ *     1200 the homepage keeps for its two-column rows; everything else stays on 960.
+ *   - TERMS LINK TO THEIR ANSWER. Main explains "1M data points/mo" in a hover tooltip; here the
+ *     line links to the FAQ answer it was quoting, which a phone and a keyboard can reach.
+ *   - THE DECISION BAND COMPARES ALL THREE DEPLOYMENTS, with an entry price, three reasons and a way
+ *     in each. Its "See plans" switches the page and returns to the plans.
+ *
+ * Not ported, on purpose for a draft: the two calculators (Private Cloud's and On-premises' open
+ * from "Not sure which plan fits?", which here goes to a person), the GTM ids on every CTA (an
+ * internal page would only add noise to the funnel), and `getLicense()`'s UTM and referral
+ * parameters (`licenseSignup` in the data file states the plain address).
+ */
+
+// Answers shown per topic before "More questions", as the product pages show six.
+const FAQ_VISIBLE = 6;
+
+const faqFor = (id: DeploymentId) => {
+	const faq = pricingFaqData.find((f) => f.contextId === id);
+	if (!faq) throw new Error(`pricing draft: main's FAQ has no "${id}" context`);
+	return faq;
+};
+
+/** Every answer id per deployment, so a plan line can link to its own FAQ and to no other. */
+const answerIds = new Map<DeploymentId, Set<string>>(
+	DEPLOYMENTS.map((d) => [d.id, new Set(faqFor(d.id).categories.flatMap((c) => c.items.map((i) => i.id)))])
+);
+
+const faqPrefix = (id: DeploymentId) => `faq-${id}-`;
+
+// Main's one-FAQPage-per-page rule, kept: the default deployment's answers, all of them.
+const faqPageSchema = buildFaqPageSchema(faqFor(DEFAULT_DEPLOYMENT).categories);
+
+// The data says `na`, the region module says `us`; the switch speaks the module's.
+const cloudPlans = { us: tbCloudData.na.plans, eu: tbCloudData.eu.plans };
+const cloudExtras = {
+	us: { addOns: cloudAddOns.na, topUps: tbCloudTopUps.na },
+	eu: { addOns: cloudAddOns.eu, topUps: tbCloudTopUps.eu },
+};
+
+const [cloud, privateCloud, onPrem] = DEPLOYMENTS;
+const CONTACT_PRIVATE_CLOUD = privateCloud.choice.cta.href;
+const CONTACT_ON_PREM =
+	'/contact-us/?subject=ThingsBoard%20Products&message=I%20have%20a%20question%20about%20ThingsBoard%20On-premises';
+
+/** What the pre-paint script needs, and nothing else. */
+const prepaint = {
+	ids: DEPLOYMENTS.map((d) => d.id),
+	fallback: DEFAULT_DEPLOYMENT,
+	regionKey: LAST_REGION.key,
+};
+
+const addOnsSubtitle = 'Customize your deployment with optional features to suit your business needs.';
+---
+
+<BaseLayout
+	headerVariant="transparent"
+	forceLightTheme
+	footer="map"
+	noIndex
+	noCanonical
+	title="Pricing (long draft)"
+	description="ThingsBoard IoT Platform pricing — compare On-premises, ThingsBoard Cloud and Private Cloud plans with transparent subscription and perpetual licensing."
+	jsonLd={faqPageSchema}
+>
+	<Hero
+		title={pricingHero.title}
+		subtitle={pricingHero.subtitle}
+		achievement={null}
+		buttons={[]}
+		layout="split"
+		panel={false}
+		showArrow={false}
+	>
+		{/* The page's mark: the tag the footer and the menus give Pricing, on the primary's squircle. */}
+		<span slot="kicker" class="hero-mark" aria-hidden="true">
+			<Icon name="tabler:tag" class="hero-mark__icon" />
+		</span>
+
+		<div class="deploy-switch" role="tablist" aria-label="How you run ThingsBoard" data-deploy-switch>
+			{
+				DEPLOYMENTS.map((d) => (
+					<button
+						type="button"
+						role="tab"
+						id={`deploy-tab-${d.id}`}
+						class:list={['deploy-switch__tab', d.id === DEFAULT_DEPLOYMENT && 'is-active']}
+						aria-selected={d.id === DEFAULT_DEPLOYMENT ? 'true' : 'false'}
+						aria-controls={`plans-${d.id}`}
+						tabindex={d.id === DEFAULT_DEPLOYMENT ? 0 : -1}
+						data-deploy-tab={d.id}
+						data-caption={d.caption}
+					>
+						<Icon name={d.icon} aria-hidden="true" />
+						{d.name}
+					</button>
+				))
+			}
+		</div>
+		<p class="deploy-caption" data-deploy-caption>
+			{DEPLOYMENTS.find((d) => d.id === DEFAULT_DEPLOYMENT)!.caption}
+		</p>
+
+		{
+			/* Before paint: the deployment from `?product=` (main's ids, and its legacy `?section=`),
+		    On-premises' billing from `?solution=`, and Cloud's region from the one the visitor last
+		    signed up or in with, else the nearest by timezone — `util/cloud-regions`, restated, since an
+		    inline script cannot import it. The state lives on <html>, and the CSS shows the matching
+		    blocks, so the page never paints Cloud first and then swaps. */
+		}
+		<script is:inline define:vars={{ prepaint }}>
+			(function () {
+				var root = document.documentElement;
+				var p = new URLSearchParams(location.search);
+				var deploy = p.get('product');
+				if (prepaint.ids.indexOf(deploy) === -1) {
+					deploy = p.get('section') === 'thingsboard-pe-options' ? 'thingsboard-pe' : prepaint.fallback;
+				}
+				var solution = (p.get('solution') || '').replace(/^pe-/, '');
+				var region = null;
+				try {
+					region = localStorage.getItem(prepaint.regionKey);
+				} catch (e) {
+					// No storage: fall through to the timezone.
+				}
+				if (region !== 'us' && region !== 'eu') {
+					var tz = '';
+					try {
+						tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+					} catch (e) {
+						// No Intl: North America, where the site sent everyone before it asked.
+					}
+					region = /^(Europe|Africa|Atlantic)\//.test(tz) ? 'eu' : 'us';
+				}
+				root.dataset.deploy = deploy;
+				root.dataset.cloudRegion = region;
+				root.dataset.pcBilling = 'monthly';
+				root.dataset.onpremBilling = solution === 'perpetual' ? 'perpetual' : 'payg';
+
+				var here = document.currentScript.parentElement;
+				var caption = here.querySelector('[data-deploy-caption]');
+				here.querySelectorAll('[data-deploy-tab]').forEach(function (tab) {
+					var on = tab.dataset.deployTab === deploy;
+					tab.classList.toggle('is-active', on);
+					tab.setAttribute('aria-selected', on ? 'true' : 'false');
+					tab.tabIndex = on ? 0 : -1;
+					if (on && caption) caption.textContent = tab.dataset.caption;
+				});
+			})();
+		</script>
+	</Hero>
+
+	<div class="pricing-draft" data-pricing-draft>
+		{/* ─── Plans ─────────────────────────────────────────────────────────────────────────── */}
+		<section id="plans" class="plans">
+			<div class="main-div">
+				{/* Cloud */}
+				<div
+					id="plans-thingsboard-cloud"
+					role="tabpanel"
+					aria-labelledby="deploy-tab-thingsboard-cloud"
+					data-deploy-panel="thingsboard-cloud"
+				>
+					<SectionHeader title={cloud.title} subtitle={cloud.subtitle} titleSize="title" subtitleMeasure="copy" />
+					<div class="plans__controls">
+						<div class="seg" role="group" aria-label="Cloud region" data-seg="cloudRegion">
+							{
+								CLOUD_REGIONS.map((r) => (
+									<button
+										type="button"
+										class="seg__opt"
+										data-value={r.id}
+										aria-pressed={r.id === 'us' ? 'true' : 'false'}
+									>
+										{r.name}
+									</button>
+								))
+							}
+						</div>
+					</div>
+					{
+						CLOUD_REGIONS.map((r) => (
+							<div data-region-show={r.id}>
+								<PricingPlans
+									plans={cloudPlans[r.id]}
+									answers={answerIds.get('thingsboard-cloud')}
+									faqPrefix={faqPrefix('thingsboard-cloud')}
+								/>
+							</div>
+						))
+					}
+					<p class="plans__note">
+						<Icon name="tabler:cloud-lock" class="plans__note-mark" aria-hidden="true" />
+						Require dedicated infrastructure for unique enterprise needs?
+						<a href="?product=thingsboard-private-cloud#plans" data-deploy-go="thingsboard-private-cloud">
+							See Private Cloud plans
+						</a>
+					</p>
+				</div>
+
+				{/* Private Cloud */}
+				<div
+					id="plans-thingsboard-private-cloud"
+					role="tabpanel"
+					aria-labelledby="deploy-tab-thingsboard-private-cloud"
+					data-deploy-panel="thingsboard-private-cloud"
+				>
+					<SectionHeader
+						title={privateCloud.title}
+						subtitle={privateCloud.subtitle}
+						titleSize="title"
+						subtitleMeasure="copy"
+					/>
+					<div class="plans__controls">
+						<div class="seg" role="group" aria-label="Billing period" data-seg="pcBilling">
+							<button type="button" class="seg__opt" data-value="monthly" aria-pressed="true">
+								{tbPrivateCloudData.billingOptions.monthly}
+							</button>
+							<button type="button" class="seg__opt" data-value="annual" aria-pressed="false">
+								{tbPrivateCloudData.billingOptions.annual}
+								{
+									tbPrivateCloudData.billingOptions.discount && (
+										<span class="seg__save">{tbPrivateCloudData.billingOptions.discount}</span>
+									)
+								}
+							</button>
+						</div>
+					</div>
+					<PricingPlans
+						plans={tbPrivateCloudData.plans}
+						answers={answerIds.get('thingsboard-private-cloud')}
+						faqPrefix={faqPrefix('thingsboard-private-cloud')}
+					/>
+					<p class="plans__note">
+						<Icon name="tabler:message-circle" class="plans__note-mark" aria-hidden="true" />
+						Not sure which plan fits?
+						<a href={CONTACT_PRIVATE_CLOUD}>Talk to our team</a>
+					</p>
+				</div>
+
+				{/* On-premises */}
+				<div
+					id="plans-thingsboard-pe"
+					role="tabpanel"
+					aria-labelledby="deploy-tab-thingsboard-pe"
+					data-deploy-panel="thingsboard-pe"
+				>
+					<div data-onprem-show="payg">
+						<SectionHeader title={onPrem.title} subtitle={onPrem.subtitle} titleSize="title" subtitleMeasure="copy" />
+					</div>
+					<div data-onprem-show="perpetual">
+						<SectionHeader
+							title={onPremPerpetual.title}
+							subtitle={onPremPerpetual.subtitle}
+							titleSize="title"
+							subtitleMeasure="copy"
+						/>
+					</div>
+					<div class="plans__controls">
+						<div class="seg" role="group" aria-label="Licensing" data-seg="onpremBilling">
+							<button type="button" class="seg__opt" data-value="payg" aria-pressed="true">Subscription</button>
+							<button type="button" class="seg__opt" data-value="perpetual" aria-pressed="false">Perpetual</button>
+						</div>
+					</div>
+
+					<div data-onprem-show="payg">
+						<PricingPlans
+							plans={tbSelfManagedData.payg.plans}
+							answers={answerIds.get('thingsboard-pe')}
+							faqPrefix={faqPrefix('thingsboard-pe')}
+						/>
+						<p class="plans__note">
+							<Icon name="tabler:message-circle" class="plans__note-mark" aria-hidden="true" />
+							Not sure which plan fits?
+							<a href={CONTACT_ON_PREM}>Talk to an expert</a>
+						</p>
+					</div>
+
+					<div data-onprem-show="perpetual" class="perpetual">
+						<div class="perpetual__card">
+							<div class="perpetual__lead">
+								<h3 class="perpetual__title">{tbPerpetualHero.title}</h3>
+								{tbPerpetualHero.subtitle && <p class="perpetual__sub">{tbPerpetualHero.subtitle}</p>}
+								<p class="price-card__price">
+									<span class="price-card__amount">
+										{tbPerpetualHero.priceLabel?.replace(/^Starting from /, 'From ')}
+									</span>
+									<span class="price-card__period">one-time payment</span>
+								</p>
+								<a class="price-card__cta is-primary" href={tbPerpetualHero.ctaHref}>
+									<Icon name="tabler:message-circle" aria-hidden="true" />
+									Talk to sales
+								</a>
+							</div>
+							<div class="perpetual__fit">
+								<p class="perpetual__fit-title">A perpetual license fits when</p>
+								<ul class="perpetual__points">
+									{
+										tbPerpetualHero.features.map((point) => (
+											<li>
+												<Icon name="tabler:check" aria-hidden="true" />
+												{point}
+											</li>
+										))
+									}
+								</ul>
+							</div>
+						</div>
+						{
+							tbSelfManagedData.perpetual.benefits && (
+								<div class="benefit-grid benefit-grid--four">
+									{tbSelfManagedData.perpetual.benefits.map((b) => (
+										<div class="benefit-card">
+											<Icon name={b.icon} class="benefit-card__icon" aria-hidden="true" />
+											<h3 class="benefit-card__title">{b.title}</h3>
+											<p class="benefit-card__text">{b.description}</p>
+										</div>
+									))}
+								</div>
+							)
+						}
+					</div>
+				</div>
+			</div>
+		</section>
+
+		{/* ─── Add-ons, and Cloud's top-ups ───────────────────────────────────────────────────── */}
+		<section id="addons" class="addons">
+			<div class="main-div">
+				<SectionHeader title="Add-ons" subtitle={addOnsSubtitle} titleSize="title" subtitleMeasure="copy" />
+
+				<div data-deploy-panel="thingsboard-cloud">
+					{
+						CLOUD_REGIONS.map((r) => (
+							<div data-region-show={r.id}>
+								<PricingAddOns addOns={cloudExtras[r.id].addOns} contactHref={pricingClosing.secondary.href} />
+							</div>
+						))
+					}
+					<div class="addons__topups">
+						<SectionHeader
+							title="Top-ups"
+							subtitle="Packs that add to a plan's limits, billed monthly with it."
+							titleSize="section"
+							subtitleMeasure="copy"
+						/>
+						{
+							CLOUD_REGIONS.map((r) => (
+								<div data-region-show={r.id}>
+									<PricingTopUps groups={cloudExtras[r.id].topUps} />
+								</div>
+							))
+						}
+					</div>
+				</div>
+
+				<div data-deploy-panel="thingsboard-private-cloud">
+					<PricingAddOns addOns={tbPrivateCloudAddOns} contactHref={CONTACT_PRIVATE_CLOUD} />
+				</div>
+
+				<div data-deploy-panel="thingsboard-pe">
+					<div data-onprem-show="payg">
+						<PricingAddOns addOns={tbSelfManagedAddOns} contactHref={CONTACT_ON_PREM} />
+					</div>
+					<div data-onprem-show="perpetual">
+						<PricingAddOns addOns={tbPerpetualAddOns} contactHref={tbPerpetualHero.ctaHref} />
+					</div>
+				</div>
+			</div>
+		</section>
+
+		{/* ─── Private Cloud, plan by plan ────────────────────────────────────────────────────── */}
+		<section id="matrix" class="compare" data-deploy-panel="thingsboard-private-cloud">
+			<div class="main-div">
+				<SectionHeader
+					title="Private Cloud, plan by plan"
+					subtitle="Every plan runs on a dedicated cluster. These are the features that grow with it."
+					titleSize="title"
+					subtitleMeasure="copy"
+				/>
+				<div class="matrix-scroll">
+					<table class="matrix matrix--plans">
+						<caption class="sr-only">ThingsBoard Private Cloud: additional features by plan</caption>
+						<thead>
+							<tr>
+								<th scope="col">Feature</th>
+								{
+									pcFeatureHeaders.map((h) => (
+										<th scope="col">
+											<span class="matrix__col">{h}</span>
+										</th>
+									))
+								}
+							</tr>
+						</thead>
+						<tbody>
+							{
+								pcFeatureRows.map((row) => (
+									<tr>
+										<th scope="row">{row.feature}</th>
+										{row.values.map((value, i) => (
+											<td class:list={[value === false && 'matrix__none']}>
+												<span class="matrix__cell-label">{pcFeatureHeaders[i]}</span>
+												{value === true ? (
+													<span class="matrix__yes">
+														<Icon name="tabler:check" aria-hidden="true" />
+														<span class="sr-only">Included</span>
+													</span>
+												) : value === false ? (
+													<>
+														<span class="sr-only">Not included</span>
+														<span aria-hidden="true">—</span>
+													</>
+												) : (
+													<span>{value}</span>
+												)}
+											</td>
+										))}
+									</tr>
+								))
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+
+		{/* ─── The three, side by side ───────────────────────────────────────────────────────── */}
+		<section id="choose">
+			<PricingBackground contained />
+			<div class="choice__inner">
+				<h2 class="choice__title">{pricingChoice.title}</h2>
+				<p class="choice__lead">{pricingChoice.lead}</p>
+
+				<div class="choice-grid choice-grid--three">
+					{
+						DEPLOYMENTS.map((d) => (
+							<div class="choice-card">
+								<h3 class="choice-card__name">
+									<Icon name={d.icon} class="choice-card__mark" aria-hidden="true" />
+									{d.name}
+								</h3>
+								<p class="choice-card__price">
+									{d.choice.price}
+									<span class="choice-card__price-note">{d.choice.priceNote}</span>
+								</p>
+								<p class="choice-card__summary">{d.choice.summary}</p>
+								<ul class="choice-card__points">
+									{d.choice.points.map((point) => (
+										<li>
+											<Icon name="tabler:check" aria-hidden="true" />
+											{point}
+										</li>
+									))}
+								</ul>
+								<div class="choice-card__actions">
+									<a
+										class:list={['choice-card__cta', `choice-card__cta--${d.choice.cta.variant}`]}
+										href={d.choice.cta.href}
+										{...d.choice.cta.attrs}
+									>
+										<Icon name={d.choice.cta.icon} class="choice-card__cta-icon" aria-hidden="true" />
+										{d.choice.cta.text}
+										<span class="sr-only">— {d.name}</span>
+									</a>
+									<a class="choice-card__plans" href={`?product=${d.id}#plans`} data-deploy-go={d.id}>
+										See plans
+										<span class="sr-only">for {d.name}</span>
+										<Icon name="tabler:chevron-right" aria-hidden="true" />
+									</a>
+								</div>
+							</div>
+						))
+					}
+				</div>
+			</div>
+		</section>
+
+		{/* ─── FAQ, for the deployment on screen ─────────────────────────────────────────────── */}
+		<section id="faq">
+			<div class="main-div">
+				{
+					DEPLOYMENTS.map((d) => {
+						const faq = faqFor(d.id);
+						const prefix = faqPrefix(d.id);
+						return (
+							<div class="faq-block" data-deploy-panel={d.id}>
+								<SectionHeader title={d.faqTitle} titleSize="title" />
+								<div class="faq-layout">
+									<div class="faq-tabs" role="tablist" aria-orientation="vertical" aria-label={`${d.name} FAQ topics`}>
+										{faq.categories.map((category, i) => (
+											<button
+												type="button"
+												role="tab"
+												id={`${prefix}tab-${i}`}
+												class:list={['faq-tab', i === 0 && 'is-active']}
+												aria-controls={`${prefix}panel-${i}`}
+												aria-selected={i === 0 ? 'true' : 'false'}
+												tabindex={i === 0 ? 0 : -1}
+											>
+												{category.label}
+											</button>
+										))}
+									</div>
+									<div class="faq-panels">
+										{faq.categories.map((category, i) => (
+											<div
+												role="tabpanel"
+												id={`${prefix}panel-${i}`}
+												class="faq-panel"
+												aria-labelledby={`${prefix}tab-${i}`}
+												hidden={i !== 0}
+											>
+												{category.items.map((item, j) => (
+													<details
+														id={`${prefix}${item.id}`}
+														class:list={['faq-item', j >= FAQ_VISIBLE && 'faq-item--extra']}
+														open={item.defaultOpen}
+													>
+														<summary>
+															<span>{item.question}</span>
+															<Icon name="tabler:chevron-down" class="faq-item__chevron" aria-hidden="true" />
+														</summary>
+														<div class="faq-item__answer" set:html={item.answer} />
+													</details>
+												))}
+												{category.items.length > FAQ_VISIBLE && (
+													<button type="button" class="faq-more" aria-expanded="false">
+														<span class="faq-more__label">More questions</span>
+														<Icon name="tabler:chevron-down" class="faq-more__chevron" aria-hidden="true" />
+													</button>
+												)}
+											</div>
+										))}
+									</div>
+								</div>
+							</div>
+						);
+					})
+				}
+			</div>
+		</section>
+	</div>
+
+	{/* The bookend: the product pages', with the hero's tag closing the page as it opened. */}
+	<section class="page-closing">
+		<PricingBackground contained />
+		<div class="page-closing__inner">
+			<span class="hero-mark" aria-hidden="true">
+				<Icon name="tabler:tag" class="hero-mark__icon" />
+			</span>
+			<h2 class="page-closing__title">{pricingClosing.title}</h2>
+			<p class="page-closing__lead">{pricingClosing.lead}</p>
+			<div class="page-closing__actions">
+				<a class="page-closing__primary" href={pricingClosing.primary.href} {...pricingClosing.primary.attrs}>
+					<Icon name="tabler:cloud-filled" aria-hidden="true" />
+					{pricingClosing.primary.text}
+				</a>
+				<a class="page-closing__secondary" href={pricingClosing.secondary.href}>
+					<Icon name="tabler:message-circle" aria-hidden="true" />
+					{pricingClosing.secondary.text}
+				</a>
+			</div>
+			<p class="page-closing__note">
+				{FOOTER_LICENSE_PORTAL.caption}
+				<a href={FOOTER_LICENSE_PORTAL.href}>{FOOTER_LICENSE_PORTAL.label}</a>
+			</p>
+		</div>
+	</section>
+	{
+		/* TEMP-INTERNAL-NAV — remove before this branch reaches main, with the homepage's.
+	    The internal switcher, so this page can be reached from the sandbox and back. It is NOT
+	    production chrome: the page is shown as it ships, with only the island over it.
+
+	    To remove: `grep -rln TEMP-INTERNAL-NAV src/pages` and delete both hits in each file. */
+	}
+	<InternalNav />
+</BaseLayout>
+
+<script>
+	// The FAQ tab sets, one per deployment — see `util/faq-tabs.ts`.
+	import { mountFaqTabs } from '@util/faq-tabs';
+
+	mountFaqTabs();
+
+	const root = document.documentElement;
+	const onPage = () => !!document.querySelector('[data-pricing-draft]');
+	const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	/** Under the fixed bar, with the same air the FAQ sidebar keeps from it. */
+	function scrollToElement(el: Element) {
+		const bar = parseFloat(getComputedStyle(root).getPropertyValue('--home-header-h')) || 64;
+		const top = el.getBoundingClientRect().top + window.scrollY - bar - 24;
+		window.scrollTo({ top, behavior: reducedMotion() ? 'auto' : 'smooth' });
+	}
+
+	/** The address follows the view, so a link copied from here opens on what you were reading. */
+	function updateUrl(edit: (params: URLSearchParams) => void) {
+		const url = new URL(location.href);
+		edit(url.searchParams);
+		history.replaceState(history.state, '', url);
+	}
+
+	/** Every segmented control's pressed state, from the <html> attribute it writes. */
+	function syncSegments() {
+		document.querySelectorAll<HTMLElement>('[data-seg]').forEach((group) => {
+			const value = root.dataset[group.dataset.seg!];
+			group.querySelectorAll<HTMLButtonElement>('.seg__opt').forEach((opt) => {
+				opt.setAttribute('aria-pressed', String(opt.dataset.value === value));
+			});
+		});
+	}
+
+	function selectDeploy(id: string, { focus = false, scroll = false } = {}) {
+		root.dataset.deploy = id;
+		const caption = document.querySelector<HTMLElement>('[data-deploy-caption]');
+		document.querySelectorAll<HTMLButtonElement>('[data-deploy-tab]').forEach((tab) => {
+			const on = tab.dataset.deployTab === id;
+			tab.classList.toggle('is-active', on);
+			tab.setAttribute('aria-selected', String(on));
+			tab.tabIndex = on ? 0 : -1;
+			if (!on) return;
+			if (caption) caption.textContent = tab.dataset.caption ?? '';
+			if (focus) tab.focus();
+		});
+
+		// Main's `?section=` is dropped once read; `?solution=` only means anything on-prem.
+		updateUrl((params) => {
+			params.set('product', id);
+			params.delete('section');
+			if (id !== 'thingsboard-pe') params.delete('solution');
+		});
+
+		if (scroll) {
+			const plans = document.getElementById('plans');
+			if (plans) scrollToElement(plans);
+		}
+	}
+
+	// Delegated once, on the document: the site swaps the body between pages, and these keep working
+	// on whatever body is in.
+	document.addEventListener('click', (event) => {
+		const target = event.target as Element | null;
+		if (!target || !onPage()) return;
+
+		const tab = target.closest<HTMLButtonElement>('[data-deploy-tab]');
+		if (tab) {
+			selectDeploy(tab.dataset.deployTab!);
+			return;
+		}
+
+		const go = target.closest<HTMLAnchorElement>('[data-deploy-go]');
+		if (go) {
+			event.preventDefault();
+			selectDeploy(go.dataset.deployGo!, { scroll: true });
+			return;
+		}
+
+		const opt = target.closest<HTMLButtonElement>('[data-seg] .seg__opt');
+		if (opt) {
+			const key = opt.closest<HTMLElement>('[data-seg]')!.dataset.seg!;
+			root.dataset[key] = opt.dataset.value;
+			syncSegments();
+			if (key === 'onpremBilling') {
+				updateUrl((params) => {
+					if (opt.dataset.value === 'perpetual') params.set('solution', 'pe-perpetual');
+					else params.delete('solution');
+				});
+			}
+			return;
+		}
+
+		// A plan line that quotes an answer opens it: its topic selected, "More questions" opened
+		// if it is past the first six, the answer itself expanded, and scrolled to under the bar.
+		const term = target.closest<HTMLAnchorElement>('[data-faq-link]');
+		if (term) {
+			const answer = document.getElementById(term.hash.slice(1)) as HTMLDetailsElement | null;
+			if (!answer) return;
+			event.preventDefault();
+			const panel = answer.closest<HTMLElement>('.faq-panel');
+			if (panel?.hidden) document.getElementById(panel.getAttribute('aria-labelledby') ?? '')?.click();
+			if (panel && answer.classList.contains('faq-item--extra') && !panel.classList.contains('is-expanded')) {
+				panel.querySelector<HTMLButtonElement>('.faq-more')?.click();
+			}
+			answer.open = true;
+			scrollToElement(answer);
+			answer.querySelector('summary')?.focus({ preventScroll: true });
+		}
+	});
+
+	// The deployment switch is a tab set: arrows move along it, Home and End to its ends.
+	document.addEventListener('keydown', (event) => {
+		const tab = (event.target as Element | null)?.closest<HTMLButtonElement>('[data-deploy-tab]');
+		if (!tab) return;
+		const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-deploy-tab]'));
+		const i = tabs.indexOf(tab);
+		const moves: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+		let next = -1;
+		if (event.key === 'Home') next = 0;
+		else if (event.key === 'End') next = tabs.length - 1;
+		else if (moves[event.key]) next = (i + moves[event.key] + tabs.length) % tabs.length;
+		if (next < 0) return;
+		event.preventDefault();
+		selectDeploy(tabs[next].dataset.deployTab!, { focus: true });
+	});
+
+	// The controls are rendered on their defaults; the pre-paint script may have chosen otherwise.
+	function init() {
+		if (onPage()) syncSegments();
+	}
+
+	init();
+	document.addEventListener('astro:page-load', init);
+</script>
+
+<style is:global lang="scss">
+	@use '../../../styles/variables' as *;
+	// The Cloud and On-premises pages' every rule: the hero, the bands' rhythm, the comparison table,
+	// the decision band, the FAQ and the bookend. What follows is only what pricing adds to them.
+	@use '../../../styles/product-page';
+
+	// ---------------------------------------------------------------------------------------------
+	// WHICH BLOCKS SHOW. The state is on <html>, written before paint (see the hero's script); with
+	// no script at all the attributes never arrive and the defaults below hold: Cloud, North America,
+	// monthly, subscription.
+	// ---------------------------------------------------------------------------------------------
+	$deployments: thingsboard-cloud, thingsboard-private-cloud, thingsboard-pe;
+
+	[data-deploy-panel]:not([data-deploy-panel='thingsboard-cloud']),
+	[data-region-show='eu'],
+	[data-billing-show='annual'],
+	[data-onprem-show='perpetual'] {
+		display: none;
+	}
+
+	html[data-deploy] [data-deploy-panel] {
+		display: none;
+	}
+
+	@each $id in $deployments {
+		html[data-deploy='#{$id}'] [data-deploy-panel='#{$id}'] {
+			display: block;
+		}
+	}
+
+	html[data-cloud-region='eu'] {
+		[data-region-show='us'] {
+			display: none;
+		}
+
+		[data-region-show='eu'] {
+			display: block;
+		}
+	}
+
+	html[data-pc-billing='annual'] {
+		[data-billing-show='monthly'] {
+			display: none;
+		}
+
+		[data-billing-show='annual'] {
+			display: inline;
+		}
+	}
+
+	html[data-onprem-billing='perpetual'] {
+		[data-onprem-show='payg'] {
+			display: none;
+		}
+
+		[data-onprem-show='perpetual'] {
+			display: block;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE HERO: the page's mark, and the deployment switch where the product pages put two buttons.
+	// ---------------------------------------------------------------------------------------------
+	// A Tabler outline in the squircle rather than a product mark: Pricing is no product, and the
+	// tag is the glyph the footer and the menus already give it. 55% of the tile — the outline's
+	// own padding reads larger than the filled marks do at 82%.
+	.hero-mark__icon {
+		width: 55%;
+		height: 55%;
+		color: #fff;
+	}
+
+	// The switch: the segmented pill the plans' controls use below, in its dark dress. Slotted, so
+	// Hero's reveal never reaches it — restated after the subtitle, as `.hero-caption` does it.
+	.deploy-switch,
+	.deploy-caption {
+		opacity: 0;
+		transform: translate3d(0, 45px, 0);
+		animation: slideup-in 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 900ms forwards;
+
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
+			opacity: 1;
+			transform: none;
+		}
+	}
+
+	.deploy-switch {
+		display: inline-flex;
+		gap: $spacing-1;
+		margin-top: $spacing-8;
+		padding: $spacing-1;
+		border-radius: $radius-full;
+		background-color: rgba(255, 255, 255, 0.08);
+
+		@include media-down(md) {
+			display: flex;
+			align-self: stretch;
+			width: 100%;
+			max-width: 480px;
+			margin-inline: auto;
+		}
+	}
+
+	.deploy-switch__tab {
+		@include type-button;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: $spacing-2;
+		height: 44px;
+		padding: 0 $spacing-5;
+		border: 0;
+		border-radius: $radius-full;
+		background: none;
+		color: rgba(255, 255, 255, 0.72);
+		white-space: nowrap;
+		cursor: pointer;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		svg {
+			flex: none;
+			width: 20px;
+			height: 20px;
+		}
+
+		&:hover {
+			background-color: rgba(255, 255, 255, 0.08);
+			color: #fff;
+		}
+
+		&:focus-visible {
+			outline: 2px solid #fff;
+			outline-offset: 2px;
+		}
+
+		// The selected one turns over to white, its glyph in the primary: the one solid thing on the
+		// ground, which is what a selection on a dark field has to be.
+		&.is-active {
+			background-color: #fff;
+			color: var(--color-text, #17181c);
+
+			svg {
+				color: $color-brand;
+			}
+		}
+
+		// Three across a phone: the glyphs go, and the names share the width evenly.
+		@include media-down(md) {
+			flex: 1 1 0;
+			min-width: 0;
+			padding: 0 $spacing-2;
+			font-size: $font-size-sm;
+
+			svg {
+				display: none;
+			}
+		}
+	}
+
+	.deploy-caption {
+		@include type-small;
+		max-width: 52ch;
+		min-height: 44px;
+		margin: $spacing-4 auto 0;
+		color: rgba(255, 255, 255, 0.72);
+		text-wrap: balance;
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE PLANS
+	// ---------------------------------------------------------------------------------------------
+	.plans {
+		padding-top: $spacing-16;
+		padding-bottom: $spacing-20;
+
+		@include media-down(md) {
+			padding-top: $spacing-10;
+			padding-bottom: $spacing-12;
+		}
+
+		// The one band past the 960 measure: five plans across need the 1200 the homepage keeps for
+		// its two-column rows. The heading and the controls stay centred on it.
+		.main-div {
+			max-width: 1240px;
+		}
+
+		.section-header {
+			margin-bottom: $spacing-6;
+		}
+	}
+
+	.plans__controls {
+		display: flex;
+		justify-content: center;
+		margin-bottom: $spacing-10;
+	}
+
+	// THE SEGMENTED PILL. One control for region, billing period and licence model, where main has a
+	// different toggle for each. A group of pressed buttons rather than radios: each sets a view, and
+	// nothing is submitted.
+	.seg {
+		display: inline-flex;
+		gap: $spacing-1;
+		padding: $spacing-1;
+		border-radius: $radius-full;
+		background-color: rgba(15, 23, 42, 0.06);
+	}
+
+	.seg__opt {
+		@include type-small-strong;
+		display: inline-flex;
+		align-items: center;
+		gap: $spacing-2;
+		height: 36px;
+		padding: 0 $spacing-4;
+		border: 0;
+		border-radius: $radius-full;
+		background: none;
+		color: var(--color-text-secondary);
+		white-space: nowrap;
+		cursor: pointer;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		&:hover {
+			color: var(--color-text);
+		}
+
+		&:focus-visible {
+			outline: 2px solid $color-brand;
+			outline-offset: 2px;
+		}
+
+		&[aria-pressed='true'] {
+			background-color: #fff;
+			color: var(--color-text);
+			box-shadow:
+				0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.08),
+				0 2px 6px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.06);
+		}
+	}
+
+	.seg__save {
+		padding: 0 $spacing-2;
+		border-radius: $radius-full;
+		background-color: rgba(61, 80, 245, 0.1);
+		color: $color-brand;
+		font-size: 12px;
+		line-height: 20px;
+	}
+
+	// Each card spans five of the grid's rows and takes them as a SUBGRID, so the name, the
+	// description, the price, the button and the list sit on one line across a row of cards whatever
+	// the copy: Private Cloud's Growth describes itself in three lines where the others take two.
+	// Main's cards are subgridded for the same reason. No row gap: the cards' own margins space
+	// the rows inside them, and a card's bottom margin spaces one row of cards from the next.
+	.price-grid {
+		display: grid;
+		grid-template-columns: repeat(var(--price-cols, 4), minmax(0, 1fr));
+		column-gap: $spacing-5;
+		row-gap: 0;
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0;
+		list-style: none;
+
+		// Four plans stay near the measure the rest of the page reads on; only Cloud's five use the band.
+		&--4 {
+			max-width: 1040px;
+		}
+
+		@media (max-width: 1099px) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			max-width: 720px;
+
+			&--5 {
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+				max-width: none;
+			}
+		}
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+			max-width: 480px;
+
+			&--5 {
+				grid-template-columns: minmax(0, 1fr);
+				max-width: 480px;
+			}
+		}
+	}
+
+	// A card on the white, lifted on the homepage's UI shadow and no stroke — the contact page's cards.
+	.price-card {
+		position: relative;
+		display: grid;
+		grid-row: span 5;
+		grid-template-rows: subgrid;
+		row-gap: 0;
+		align-content: start;
+		margin: 0 0 $spacing-5;
+		padding: $spacing-6 $spacing-5;
+		border-radius: 16px;
+		background-color: #fff;
+		box-shadow:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.06),
+			0 18px 40px -18px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.22);
+
+		// The ring, not a raised card: a taller popular card pushes its row's prices out of line.
+		&--popular {
+			box-shadow:
+				0 0 0 2px $color-brand,
+				0 18px 40px -18px rgba(61, 80, 245, 0.35);
+		}
+
+		&__head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: $spacing-2;
+		}
+
+		&__name {
+			font-size: $font-size-xl;
+			font-weight: $font-weight-bold;
+			line-height: 1.3;
+			margin: 0;
+			color: var(--color-text);
+		}
+
+		&__flag {
+			@include type-small-strong;
+			padding: 0 $spacing-2;
+			border-radius: $radius-full;
+			background-color: rgba(61, 80, 245, 0.1);
+			color: $color-brand;
+			font-size: 12px;
+			line-height: 22px;
+		}
+
+		&__desc {
+			@include type-small;
+			margin: $spacing-1 0 0;
+			color: var(--color-text-secondary);
+			text-wrap: pretty;
+		}
+
+		&__price {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: baseline;
+			gap: 0 $spacing-2;
+			margin: $spacing-5 0 0;
+		}
+
+		&__amount {
+			font-size: 36px;
+			font-weight: $font-weight-bold;
+			line-height: 1.1;
+			letter-spacing: -0.01em;
+			color: var(--color-text);
+			font-variant-numeric: tabular-nums;
+		}
+
+		&__period {
+			@include type-small;
+			color: var(--color-text-secondary);
+		}
+
+		// ClosingCta's geometry, the hero pair's — so every button on the page is one button.
+		&__cta {
+			@include type-button;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: $spacing-2;
+			height: 44px;
+			margin-top: $spacing-5;
+			padding: 0 $spacing-4;
+			border-radius: $radius-md;
+			text-decoration: none;
+
+			svg {
+				flex: none;
+				width: 18px;
+				height: 18px;
+			}
+
+			&:focus-visible {
+				outline: 2px solid $color-brand;
+				outline-offset: 3px;
+			}
+
+			&.is-primary {
+				background-color: $color-brand;
+				color: #fff;
+
+				&:hover {
+					background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+				}
+			}
+
+			// The bookend's secondary: ink and a hairline, the other way without arguing for it.
+			&.is-secondary {
+				border: 1px solid rgba(15, 23, 42, 0.22);
+				color: var(--color-text);
+
+				&:hover {
+					background-color: rgba(15, 23, 42, 0.05);
+				}
+			}
+		}
+
+		&__features {
+			@include type-small;
+			display: flex;
+			flex-direction: column;
+			gap: $spacing-2;
+			margin: $spacing-6 0 0;
+			padding: 0;
+			list-style: none;
+			color: var(--color-text-secondary);
+
+			li {
+				display: flex;
+				align-items: flex-start;
+				gap: $spacing-2;
+				margin: 0;
+			}
+
+			svg {
+				flex: none;
+				width: 18px;
+				height: 18px;
+				margin-top: 2px;
+				color: $color-brand;
+			}
+
+			// White labeling and the per-device overage: what a plan ADDS, in the ink, not the grey.
+			.is-highlight {
+				color: var(--color-text);
+				font-weight: $font-weight-medium;
+			}
+		}
+
+		// A term with an answer: dotted, the convention for "defined elsewhere", and the primary on hover.
+		&__term {
+			color: inherit;
+			text-decoration: underline dotted rgba(15, 23, 42, 0.35);
+			text-underline-offset: 3px;
+
+			&:hover,
+			&:focus-visible {
+				color: $color-brand;
+				text-decoration-color: currentColor;
+			}
+
+			&:focus-visible {
+				outline: 2px solid $color-brand;
+				outline-offset: 2px;
+				border-radius: 2px;
+			}
+		}
+	}
+
+	// The light-ground twin of the decision band's `.choice-note`: one line, a glyph, a link out.
+	.plans__note {
+		@include type-body;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: $spacing-2;
+		margin: $spacing-10 0 0;
+		color: var(--color-text-secondary);
+		text-align: center;
+
+		&-mark {
+			flex: none;
+			width: 22px;
+			height: 22px;
+			color: var(--color-text);
+		}
+
+		a {
+			@include type-link;
+			color: $color-brand;
+			text-decoration: underline;
+			text-underline-offset: 3px;
+
+			&:focus-visible {
+				outline: 2px solid $color-brand;
+				outline-offset: 3px;
+			}
+		}
+	}
+
+	// ── Perpetual ────────────────────────────────────────────────────────────────────────────────
+	.perpetual__card {
+		display: grid;
+		grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+		gap: $spacing-10;
+		max-width: 960px;
+		margin: 0 auto;
+		padding: $spacing-10;
+		border-radius: 16px;
+		background-color: #fff;
+		box-shadow:
+			0 0 0 2px $color-brand,
+			0 18px 40px -18px rgba(61, 80, 245, 0.35);
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: $spacing-8;
+			padding: $spacing-6 $spacing-5;
+		}
+
+		.price-card__cta {
+			align-self: flex-start;
+			padding: 0 $spacing-5;
+		}
+	}
+
+	.perpetual__lead {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.perpetual__title {
+		@include type-card;
+		margin: 0;
+		color: var(--color-text);
+	}
+
+	.perpetual__sub {
+		@include type-body;
+		margin: $spacing-3 0 0;
+		color: var(--color-text-secondary);
+		text-wrap: pretty;
+	}
+
+	.perpetual__fit-title {
+		@include type-eyebrow;
+		margin: 0 0 $spacing-4;
+		color: var(--color-text-secondary);
+	}
+
+	.perpetual__points {
+		@include type-body;
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-3;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		color: var(--color-text);
+
+		li {
+			display: flex;
+			align-items: flex-start;
+			gap: $spacing-2;
+			margin: 0;
+		}
+
+		svg {
+			flex: none;
+			width: 20px;
+			height: 20px;
+			margin-top: 2px;
+			color: $color-brand;
+		}
+	}
+
+	// The product pages' benefit tiles, four across under the card: a rule over each, no box.
+	.benefit-grid--four {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		margin-top: $spacing-12;
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.benefit-card__icon {
+			color: $color-brand;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// ADD-ONS AND TOP-UPS, on the tint the product pages give their shared-features band.
+	// ---------------------------------------------------------------------------------------------
+	.addons {
+		padding-top: $spacing-16;
+		padding-bottom: $spacing-20;
+		background-color: #f5f6ff;
+
+		@include media-down(md) {
+			padding-top: $spacing-10;
+			padding-bottom: $spacing-12;
+		}
+
+		.section-header {
+			margin-bottom: $spacing-10;
+		}
+	}
+
+	.addons__topups {
+		margin-top: $spacing-16;
+	}
+
+	.addon-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: $spacing-5;
+		max-width: 960px;
+		margin: 0 auto;
+		padding: 0;
+		list-style: none;
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+			max-width: 560px;
+		}
+	}
+
+	.addon-tile {
+		display: flex;
+		align-items: flex-start;
+		gap: $spacing-4;
+		margin: 0;
+		padding: $spacing-6 $spacing-5;
+		border-radius: 16px;
+		background-color: #fff;
+		box-shadow:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.06),
+			0 6px 14px -6px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.18);
+
+		// The ecosystem card's filled badge, to its numbers: 32% radius, the product's accent under
+		// the cards' static sheen, the mark at 82% of the tile.
+		&__mark {
+			display: grid;
+			flex: none;
+			place-items: center;
+			width: 48px;
+			height: 48px;
+			border-radius: 32%;
+			background-color: var(--addon-accent);
+			background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
+			color: #fff;
+		}
+
+		&__glyph {
+			width: 82%;
+			height: auto;
+		}
+
+		&__icon {
+			width: 26px;
+			height: 26px;
+		}
+
+		&__body {
+			min-width: 0;
+		}
+
+		&__name {
+			@include type-tile;
+			margin: 2px 0 0;
+			color: var(--color-text);
+		}
+
+		&__desc {
+			@include type-small;
+			margin: $spacing-1 0 0;
+			color: var(--color-text-secondary);
+		}
+
+		&__price {
+			@include type-small-strong;
+			display: flex;
+			flex-direction: column;
+			margin: $spacing-3 0 0;
+			color: var(--color-text);
+
+			a {
+				color: $color-brand;
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+		}
+
+		&__fee {
+			@include type-small;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	.topup-groups {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-10 $spacing-12;
+		max-width: 960px;
+		margin: 0 auto;
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.topup-list {
+		margin: 0;
+	}
+
+	// The product pages' term-and-value row, with the price held to its own right-hand column.
+	.topup-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas:
+			'name price'
+			'adds price';
+		column-gap: $spacing-4;
+		padding: $spacing-3 0;
+		border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+
+		dt {
+			@include type-body;
+			grid-area: name;
+			font-weight: $font-weight-medium;
+			color: var(--color-text);
+		}
+
+		&__adds {
+			@include type-small;
+			grid-area: adds;
+			margin: 0;
+			color: var(--color-text-secondary);
+		}
+
+		&__price {
+			@include type-body;
+			grid-area: price;
+			align-self: center;
+			margin: 0;
+			font-weight: $font-weight-bold;
+			color: var(--color-text);
+			white-space: nowrap;
+			text-align: right;
+
+			span {
+				@include type-small;
+				font-weight: $font-weight-normal;
+				color: var(--color-text-secondary);
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// PRIVATE CLOUD, PLAN BY PLAN: the product pages' matrix, four plan columns in place of two.
+	// ---------------------------------------------------------------------------------------------
+	#matrix {
+		--matrix-band: #fff;
+	}
+
+	// Four value columns share what two had, so the label column gives some back.
+	.matrix--plans {
+		tbody th[scope='row'] {
+			width: 32%;
+		}
+
+		td {
+			text-align: center;
+		}
+
+		thead th:not(:first-child) .matrix__col {
+			justify-content: center;
+		}
+
+		@media (max-width: 879px) {
+			td {
+				text-align: left;
+			}
+		}
+	}
+
+	.matrix__yes {
+		display: inline-flex;
+
+		svg {
+			width: 20px;
+			height: 20px;
+			color: $color-brand;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE DECISION BAND, three cards where the product pages have two.
+	// ---------------------------------------------------------------------------------------------
+	.choice-grid--three {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+			max-width: 560px;
+		}
+
+		.choice-card {
+			padding: $spacing-6;
+		}
+
+		// A card's title at the card step: at the two-card band's 32, "Private Cloud" and its mark
+		// overrun a third of the measure.
+		.choice-card__name {
+			@include type-card;
+		}
+
+		// Stacked in all three. Side by side, a third of the measure fits "Contact us" and "See plans"
+		// on one line but not "Start for free" or "Install for free", so the three cards ended on
+		// three different shapes.
+		.choice-card__actions {
+			flex-direction: column;
+			align-items: stretch;
+			gap: $spacing-3;
+		}
+
+		.choice-card__cta {
+			justify-content: center;
+		}
+
+		.choice-card__plans {
+			align-self: center;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// FAQ: one block per deployment, only the one on screen shown.
+	// ---------------------------------------------------------------------------------------------
+	.faq-block .section-header {
+		margin-bottom: $spacing-10;
+	}
+
+	// The bookend's note is a caption and a link, as the footer has it.
+	.page-closing__note a {
+		margin-left: $spacing-1;
+	}
+</style>
