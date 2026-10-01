@@ -11,6 +11,9 @@ export interface CarouselItem {
 	description: string;
 	linkLabel: string;
 	href: string;
+	/** The case's live dashboard, opened in a new tab beside the link to its page. Not kept here:
+	 *  `UseCasesSection` reads it from the case's own page data, so the two cannot disagree. */
+	demoHref?: string;
 	width: string | number;
 	height: string | number;
 }

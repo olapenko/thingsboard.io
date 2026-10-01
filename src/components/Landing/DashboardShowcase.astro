@@ -3,6 +3,7 @@ import { Icon } from 'astro-icon/components';
 import SmartImage from '@components/SmartImage.astro';
 import ImageComparison from '@components/UseCase/ImageComparison.astro';
 import type { CarouselItem } from '@data/homeCarousel';
+import { externalLinkAttrs, newTabLinkLabel } from '@util/external-links';
 
 // One board on top, the case that produced it underneath. The named list is the
 // navigation — a reader picks the case that looks like theirs instead of
@@ -149,16 +150,32 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 						    deliberately specific rather than repeating the heading, so on its
 						    own it wouldn't say which case it belongs to. A label that already
 						    names the case (main's "Smart energy use case") needs none. */}
-						<a
-							href={item.href}
-							class="dashshow__link"
-							aria-label={
-								item.linkLabel?.includes(item.title) ? undefined : `${item.linkLabel || 'Learn more'} — ${item.title}`
-							}
-						>
-							{item.linkLabel || 'Learn more'}
-							<Icon name="tabler:chevron-right" class="dashshow__chevron" aria-hidden="true" />
-						</a>
+						<div class="dashshow__links">
+							<a
+								href={item.href}
+								class="dashshow__link"
+								aria-label={
+									item.linkLabel?.includes(item.title) ? undefined : `${item.linkLabel || 'Learn more'} — ${item.title}`
+								}
+							>
+								{item.linkLabel || 'Learn more'}
+								<Icon name="tabler:chevron-right" class="dashshow__chevron" aria-hidden="true" />
+							</a>
+							{/* The board itself, running: the case's public dashboard on the demo server. Second, so
+							    the case's own page stays the way on; the arrow says it leaves the site. */}
+							{item.demoHref && (
+								<a
+									href={item.demoHref}
+									class="dashshow__demo"
+									aria-label={newTabLinkLabel(`Live demo — ${item.title}`, item.demoHref)}
+									{...externalLinkAttrs(item.demoHref)}
+								>
+									<span class="dashshow__live" aria-hidden="true" />
+									Live demo
+									<Icon name="tabler:arrow-up-right" class="dashshow__ext" aria-hidden="true" />
+								</a>
+							)}
+						</div>
 					</div>
 				))
 			}
@@ -581,12 +598,17 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 	// the other two carry none, and a glyph on one of three reads as a different kind of link.
 	// A card's link, not the section's: it names one use case, so it takes the
 	// cards' `type-link` step and leaves `type-action` to "Browse all use cases".
+	//
+	// IN INK, as the Ecosystem cards' own links are (2026-10-01): the primary is the section's way out,
+	// "Browse all use cases" above the board, and the case list's marker; a case's links sit beside the
+	// black arrow discs, and the live demo beside this one is ink too. The chevron, the hover underline
+	// and the weight say it is a link.
 	.dashshow__link {
 		@include type-link;
 		display: inline-flex;
 		align-items: center;
 		gap: 0;
-		color: var(--color-primary, #{$color-brand});
+		color: var(--color-text);
 		text-decoration: none;
 
 		&:hover,
@@ -603,12 +625,78 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		margin-left: -1px;
 	}
 
+	// The case's page and its live board on one line, wrapping to two on a narrow column.
+	.dashshow__links {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-2 $spacing-6;
+	}
+
+	// The same step and ink as the link beside it; the live dot and the off-site arrow tell them apart.
+	.dashshow__demo {
+		@include type-link;
+		display: inline-flex;
+		align-items: center;
+		gap: $spacing-2;
+		color: var(--color-text);
+		text-decoration: none;
+
+		&:hover,
+		&:focus-visible {
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+	}
+
+	// "Live": the status green a device shows when it is active, with a ring that breathes out of it.
+	// 3.3:1 on white, over the 3:1 a mark that carries meaning needs.
+	.dashshow__live {
+		position: relative;
+		flex: none;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #16a34a;
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+			background: inherit;
+			animation: dashshow-live 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+		}
+	}
+
+	@keyframes dashshow-live {
+		from {
+			opacity: 0.5;
+			transform: scale(1);
+		}
+		to {
+			opacity: 0;
+			transform: scale(2.75);
+		}
+	}
+
+	// Off-site, said by the glyph: the footer's arrow for a link that leaves for another site.
+	.dashshow__ext {
+		width: 16px;
+		height: 16px;
+		margin-left: -$spacing-1;
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		.dashshow__case,
 		.dashshow__arrow,
 		.dashshow__glow,
 		.dashshow--handoff .dashshow__board {
 			transition: none;
+		}
+
+		.dashshow__live::after {
+			animation: none;
 		}
 	}
 </style>
