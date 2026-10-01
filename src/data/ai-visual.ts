@@ -7,6 +7,7 @@ import { NORMALIZE_COPY } from './normalize-visual';
 import { PLATFORM_COPY } from './platform-visual';
 import { SCALE_COPY } from './scale-visual';
 import { DASHBOARDS_BADGE } from './home-dashboards';
+import { CLOUD_SIGNUP } from './cta-destinations';
 
 /**
  * The AI section's copy, ported from the `tb-landing-prototype` repo (`src/sections/06-ai.html`).
@@ -69,7 +70,7 @@ export const AI_COPY = {
  * anywhere in this repo. Say it once it is.
  */
 export const AI_ACTIONS = {
-	assistant: { text: 'Try it on ThingsBoard Cloud', href: 'https://thingsboard.cloud/signup' },
+	assistant: { text: 'Try it on ThingsBoard Cloud', href: CLOUD_SIGNUP.href, attrs: CLOUD_SIGNUP.attrs },
 	cli: { text: 'Set up the ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
 };
 
@@ -92,14 +93,14 @@ export const AI_CTA_BAND = {
 	assistant: {
 		lead: 'Try it on a real tenant.',
 		line: 'Sign up for ThingsBoard Cloud and describe your first solution. There is nothing to install.',
-		primary: { text: 'Start for free', href: 'https://thingsboard.cloud/signup' },
+		primary: { text: 'Start for free', href: CLOUD_SIGNUP.href, attrs: CLOUD_SIGNUP.attrs },
 		secondary: { text: 'Or set up the CLI', href: '/docs/pe/user-guide/cli/' },
 	},
 	cli: {
 		lead: 'Work from your own terminal.',
 		line: 'Install the ThingsBoard CLI, open a project folder, and hand your agent the first change.',
 		primary: { text: 'Set up the CLI', href: '/docs/pe/user-guide/cli/' },
-		secondary: { text: 'Or try it on Cloud', href: 'https://thingsboard.cloud/signup' },
+		secondary: { text: 'Or try it on Cloud', href: CLOUD_SIGNUP.href, attrs: CLOUD_SIGNUP.attrs },
 	},
 };
 
@@ -120,7 +121,7 @@ export const AI_CTA_BAND = {
 export const AI_CTA = {
 	assistant: {
 		line: 'Sign up for ThingsBoard Cloud and describe your first solution — nothing to install.',
-		primary: { text: 'Try for free', href: 'https://thingsboard.cloud/signup', icon: 'tabler:cloud' },
+		primary: { text: 'Try for free', href: CLOUD_SIGNUP.href, attrs: CLOUD_SIGNUP.attrs, icon: 'tabler:cloud' },
 	},
 	cli: {
 		line: 'Install the CLI, open a project folder, and hand your agent the first change.',

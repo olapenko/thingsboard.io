@@ -9,6 +9,8 @@
  * commercial copy and the design it sits in — can be edited apart.
  */
 
+import { CLOUD_SIGNUP } from '@data/cta-destinations';
+
 // Link targets used from more than one place below. Declared up here because `paasChoice` reads
 // one of them and a `const` cannot be referenced before its own line has run.
 const CONTACT = '/contact-us/';
@@ -138,7 +140,8 @@ export const paasChoice = {
 			cta: {
 				text: 'Start for free',
 				icon: 'tabler:cloud-filled',
-				href: 'https://thingsboard.cloud/signup',
+				href: CLOUD_SIGNUP.href,
+				attrs: CLOUD_SIGNUP.attrs,
 				variant: 'primary' as const,
 			},
 			plansHref: '/pricing/?product=thingsboard-cloud',

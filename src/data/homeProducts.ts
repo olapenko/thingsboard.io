@@ -1,3 +1,5 @@
+import { CLOUD_SIGNUP, INSTALL_GUIDE_HREF } from '@data/cta-destinations';
+
 export interface ProductChoice {
 	name: string;
 	label: string;
@@ -15,7 +17,7 @@ export interface ProductChoice {
 	 * quiet link — the same button-then-link pair as the Cloud and On-premises pages'
 	 * choice cards, so the card is two actions rather than one click target.
 	 */
-	primary: { label: string; href: string };
+	primary: { label: string; href: string; attrs?: Record<string, string> };
 	/**
 	 * The bare step this side asks of you, under the filled button. The test the words passed:
 	 * nothing both sides could claim — "minutes", "free" and "no credit card" all failed it.
@@ -68,10 +70,11 @@ export const homeProducts: ProductChoice[] = [
 		//
 		// "Start for free", the Public Cloud card's own label on the Cloud page, so the button
 		// promises the same thing in both places. The href is `/signup`: the reader this card is
-		// written for has no account yet, and a returning user signs in from the header.
-		primary: { label: 'Start for free', href: 'https://thingsboard.cloud/signup' },
+		// written for has no account yet, and a returning user signs in from the header. The click
+		// opens the region dialog, as every Cloud button does; the href is the no-script fallback.
+		primary: { label: 'Start for free', href: CLOUD_SIGNUP.href, attrs: CLOUD_SIGNUP.attrs },
 		primaryNote: 'Sign up and build.',
-		accent: '#6e7481',
+		accent: '#63656c', // the muted grey every other eyebrow on the page takes (`#6e7481` before)
 	},
 	{
 		name: 'ThingsBoard On-premises',
@@ -121,7 +124,8 @@ export const homeProducts: ProductChoice[] = [
 		// self-hosting. Green because `badgeFill` is the On-premises page's own accent, so it is
 		// the button that page puts under its own choice. No download glyph: that page's choice
 		// card has none, and Cloud's button beside it carries none either.
-		primary: { label: 'Install for free', href: '/installations/' },
+		// Straight to the installation guide, not the installations hub (`cta-destinations`).
+		primary: { label: 'Install for free', href: INSTALL_GUIDE_HREF },
 		// "One command" is true of Docker alone (the guide's own `docker compose up -d`);
 		// Kubernetes is real but multi-step — CE ships Minikube/OpenShift/EKS/AKS/GKE
 		// guides — so it rides as readiness, not as a command claim.
@@ -144,6 +148,6 @@ export const homeProducts: ProductChoice[] = [
 		// So the marks were Private Cloud's infrastructure narrative pinned to the card that means
 		// the opposite, and they narrowed the claim besides: this card's argument is that YOU pick
 		// where it runs, which four logos contradict by implying the four are the list.
-		accent: '#6e7481',
+		accent: '#63656c',
 	},
 ];

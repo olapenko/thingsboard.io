@@ -14,6 +14,7 @@
 
 import type { FaqCategory } from '@data/pricing/types';
 import { tbSelfManagedFaq } from '@data/pricing/faq/tb-self-managed';
+import { INSTALL_GUIDE_HREF } from '@data/cta-destinations';
 
 /** Link targets used from more than one place below. Declared up here because `onPremChoice` reads
  *  one of them and a `const` cannot be referenced before its own line has run. */
@@ -51,7 +52,8 @@ export const onPremBenefits: OnPremBenefit[] = [
 		// FAQ, Security & Compliance: "Your data is stored on your own infrastructure, whether
 		// on-premise or in the cloud" and "you have full control over data storage location".
 		icon: 'tabler:shield-lock',
-		color: '#1f8b4d',
+		// `--brand-pe` since the 29 Sep contrast pass (#1f8b4d before).
+		color: '#178649',
 		title: 'Your infrastructure, your custody',
 		description: 'The data sits on hardware you control — your own data centre or your own cloud account — and you decide where.',
 	},
@@ -189,7 +191,7 @@ export const onPremChoice = {
 				'Change tier any time, prorated automatically',
 			],
 			// The glyph is the HERO pair's own — the action's mark, not the option's.
-			cta: { text: 'Install for free', icon: 'tabler:server', href: '/docs/pe/installation/', variant: 'primary' as const },
+			cta: { text: 'Install for free', icon: 'tabler:server', href: INSTALL_GUIDE_HREF, variant: 'primary' as const },
 			// ⚠ STALE, knowingly: this lands on the old ladder — Maker $10 through Business $499 —
 			// which the card above no longer describes. Left pointing there until `/pricing/`
 			// carries the current model; see the note on `onPremFaq` for the same problem.
@@ -595,7 +597,7 @@ export const onPremCtas = {
 	 * running it yourself, the first move is the install, and the licence question belongs lower,
 	 * once the reader knows what they would be installing.
 	 */
-	install: { text: 'Install for free', href: '/docs/pe/installation/' },
+	install: { text: 'Install for free', href: INSTALL_GUIDE_HREF },
 	primary: { text: 'See plans and pricing', href: PRICING_SUBSCRIPTION },
 	secondary: { text: 'Talk to an expert', href: CONTACT_SALES },
 	/** The exit to the managed alternative, as the Cloud page has one to On-premises. */

@@ -1,6 +1,7 @@
 import { installProducts, type InstallOption, type InstallRegion } from '@data/installationsHub';
 import { onPremCtas } from '@data/onPremPage';
 import { paasCtas } from '@data/paasPage';
+import { INSTALL_GUIDE_HREF } from '@data/cta-destinations';
 
 /**
  * The bookends: the band that closes a marketing page, over its footer. One shape on every page —
@@ -121,7 +122,7 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 			icon: 'tabler:cloud-filled',
 			attrs: { 'data-cloud-auth': 'signup' },
 		},
-		secondary: { text: 'Install On-premises', href: '/installations/', icon: 'tabler:download' },
+		secondary: { text: 'Install On-premises', href: INSTALL_GUIDE_HREF, icon: 'tabler:download' },
 		ask: { label: 'Evaluating for a large deployment?', action: TALK },
 		// Beside the regions (`ways: 'regions'`). The install line is the hub's On-premises one, cut to a
 		// clause; the expert card's line is the band's own question; the pricing line is drafted here.

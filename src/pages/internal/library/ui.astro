@@ -6,13 +6,13 @@ import '@fontsource/ubuntu/400-italic.css';
 import '@fontsource/ubuntu-mono/700.css';
 
 /**
- * The UI inventory: every button, link and reused piece of UI on the three new pages, harvested
+ * The UI inventory: every button, link and reused piece of UI on the new pages, harvested
  * live and grouped by what it actually renders as.
  *
  * HARVESTED, NOT LISTED — the same reason as the type page. A hand-kept list of "our buttons" is
  * already wrong by the time it is written: half the buttons on these pages are markup inside a page
  * file (`.choice-card__cta`, `.page-closing__primary`, the hero's `.button.brand`), not a component
- * anyone would think to list. So the three pages are loaded off-screen, every interactive element and
+ * anyone would think to list. So the pages are loaded off-screen, every interactive element and
  * every mark, label and card is measured, and elements that paint the same shape are folded into one
  * variant. Change a component and reload.
  *
@@ -40,10 +40,17 @@ import '@fontsource/ubuntu-mono/700.css';
  * against its original after layout, and any that came out different says so in its caption.
  */
 
+// Every page on the new bar (`HOME_NAV_ROUTES` in `starlight/Header.astro`), and the homepage's two
+// other running orders, which render sections the shipping one leaves out.
 const PAGES = [
 	{ key: 'home', label: 'Home', src: '/' },
+	{ key: 'live', label: 'Home · Live', src: '/internal/homepages/live/' },
+	{ key: 'b', label: 'Home · B', src: '/internal/homepages/b/' },
 	{ key: 'cloud', label: 'Cloud', src: '/products/paas/' },
 	{ key: 'onprem', label: 'On-premises', src: '/products/thingsboard-pe/' },
+	{ key: 'install', label: 'Install', src: '/installations/' },
+	{ key: 'contact', label: 'Contact us', src: '/contact-us/' },
+	{ key: 'thanks', label: 'Thank you', src: '/contact-us-thanks/' },
 ];
 
 const KINDS = [
@@ -92,7 +99,7 @@ const KINDS = [
 
 <PlaygroundLayout
 	title="UI inventory"
-	description="Every button, link and reused piece of UI on the three new pages — Home, Cloud and On-premises — harvested live and folded into variants by shape. Each specimen is the real element under its page's own CSS, so hover works, and each one names the file and line it came from."
+	description="Every button, link and reused piece of UI on the new pages — Home and its running orders, Cloud, On-premises, Install, Contact us and Thank you — harvested live and folded into variants by shape. Each specimen is the real element under its page's own CSS, so hover works, and each one names the file and line it came from."
 >
 	<div class="ui" data-ui data-page="all">
 		<p class="ui__status" data-status>Loading the pages…</p>
@@ -131,7 +138,7 @@ const KINDS = [
 				<p class="ui__kind-meta" data-meta />
 			</header>
 			<p class="ui__lede">
-				The header, the announcement bar and the footer. They are on every page of the site, not only these three,
+				The header, the announcement bar and the footer. They are on every page of the site, not only these,
 				so they are kept out of the counts above and listed here on their own.
 			</p>
 			<div data-variants />
@@ -157,7 +164,7 @@ const KINDS = [
 			   width — 1440, not the type page's 1200, because the header only shows its full menu above
 			   1280, and below that this would be an inventory of the burger. Not in a closed <details>:
 			   that skips layout and every rect comes back zero, which the type page learned the hard way.
-			   Loaded one at a time by the script: three dev-mode pages at once can stall the tab. */
+			   Loaded one at a time by the script: several dev-mode pages at once can stall the tab. */
 		}
 		{
 			PAGES.map((p) => (
@@ -1495,6 +1502,23 @@ const KINDS = [
 		// Two frames, so the specimens have laid out and their images have had a turn to size.
 		await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 		checkDrift();
+		// The same variants as data, for an audit to read back from the console: no elements, every
+		// source line rather than the three a card shows.
+		(window as unknown as { __uiInventory: unknown }).__uiInventory = group(items).map((v) => ({
+			kind: v.kind,
+			chrome: v.chrome,
+			nums: Object.fromEntries(v.nums),
+			count: v.items.length,
+			pages: Object.fromEntries(v.pages),
+			names: tally(v.items.map((i) => i.name)),
+			srcs: tally(v.items.map((i) => i.src).filter(Boolean)),
+			tones: [...v.tones.values()].map((list) => [list[0].toneLabel, list.length]),
+			texts: [...new Set(v.items.map((i) => i.text).filter(Boolean))].slice(0, 12),
+			hover: hoverOf(v.items[0])
+				.replace(/<[^>]+>/g, ' ')
+				.replace(/\s+/g, ' ')
+				.trim(),
+		}));
 		const drifted = ui.querySelectorAll('.ui-drift').length;
 		if (drifted) {
 			const one = drifted === 1;
