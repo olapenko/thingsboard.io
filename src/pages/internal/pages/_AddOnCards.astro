@@ -2,15 +2,16 @@
 /**
  * A deployment's add-ons for the conservative pricing draft (`./pricing.astro`): main's
  * `AddOnsSection` card — name with ⓘ, line and price — in the new styles, with the product's own
- * mark in place of main's generic line icon: Edge, Trendz and the Mobile App as the homepage's
- * ecosystem cards draw them, on a tint of the product's accent. Markup only.
+ * mark in place of main's generic line icon: knocked out white of a squircle filled with the
+ * product's accent, as the homepage's filled ecosystem badges draw them, and a Tabler glyph where
+ * an add-on is not a product with a mark of its own. Markup only.
  *
  * Underscore-prefixed so Astro does not make it a route.
  */
 import { Icon } from 'astro-icon/components';
 import EcosystemMark from '@components/Landing/EcosystemMark.astro';
 import InfoTip from './_InfoTip.astro';
-import { addonMark } from '@data/pricingPage';
+import { CONSERVATIVE_ADDON_MARKS, addonMark } from '@data/pricingPage';
 import type { AddOnItem } from '@data/pricing-live/types';
 
 interface Props {
@@ -21,12 +22,12 @@ interface Props {
 
 const { addOns, answers, faqPrefix } = Astro.props;
 
-/** Main's price line, in its words: "Starting from $9 /month", a priced note, or nothing. */
+/** Main's price line, in its words: "Starting from $9 /month" — the amount set apart from its lead
+ *  and its period, as the plan cards set theirs. */
 const price = (a: AddOnItem) => {
-	if (a.priceNote) return { lead: '', value: a.priceNote };
 	if (a.priceUsd == null) return null;
-	const value = typeof a.priceUsd === 'string' ? a.priceUsd : `$${a.priceUsd.toLocaleString('en-US')}`;
-	return { lead: a.startingFrom ? 'Starting from ' : '', value: `${value}${a.period ? ` ${a.period}` : ''}` };
+	const amount = typeof a.priceUsd === 'string' ? a.priceUsd : `$${a.priceUsd.toLocaleString('en-US')}`;
+	return { lead: a.startingFrom ? 'Starting from ' : '', amount, period: a.period ?? '' };
 };
 
 const setup = (a: AddOnItem) =>
@@ -38,12 +39,12 @@ const setup = (a: AddOnItem) =>
 		addOns.map((addon) => {
 			const p = price(addon);
 			const fee = setup(addon);
-			const mark = addonMark(addon.name);
+			const mark = addonMark(addon.name, CONSERVATIVE_ADDON_MARKS);
 			return (
 				<li class="addon-card">
 					<span class="addon-card__mark" style={`--addon-accent: ${mark.accent}`} aria-hidden="true">
 						{mark.src ? (
-							<EcosystemMark src={mark.src} class="addon-card__glyph" filled={!!mark.ink} ink={mark.ink} />
+							<EcosystemMark src={mark.src} class="addon-card__glyph" filled />
 						) : (
 							<Icon name={mark.icon!} class="addon-card__glyph addon-card__glyph--vector" />
 						)}
@@ -67,12 +68,17 @@ const setup = (a: AddOnItem) =>
 							)}
 						</h3>
 						{addon.description && <p class="addon-card__desc">{addon.description}</p>}
-						{p && (
-							<p class="addon-card__price">
-								{p.lead}
-								<strong>{p.value}</strong>
-								{fee && <span class="addon-card__fee">{fee}</span>}
-							</p>
+						{addon.priceNote ? (
+							<p class="addon-card__price addon-card__price-note">{addon.priceNote}</p>
+						) : (
+							p && (
+								<p class="addon-card__price">
+									{p.lead}
+									<strong>{p.amount}</strong>
+									{p.period && ` ${p.period}`}
+									{fee && <span class="addon-card__fee">{fee}</span>}
+								</p>
+							)
 						)}
 					</div>
 				</li>

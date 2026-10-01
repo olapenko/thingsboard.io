@@ -77,6 +77,8 @@ export interface Deployment {
 
 const CONTACT_PRIVATE_CLOUD =
 	'/contact-us/?subject=Private%20Cloud&pcorder&message=I%20am%20interested%20in%20Private%20Cloud';
+export const CONTACT_ON_PREM =
+	'/contact-us/?subject=ThingsBoard%20Products&message=I%20have%20a%20question%20about%20ThingsBoard%20On-premises';
 
 export const DEPLOYMENTS: Deployment[] = [
 	{
@@ -198,21 +200,35 @@ export const licenseSignup = (plan: PlanCard) =>
  * Keyed by main's add-on NAME, which is what the three deployments share; a name missing here fails
  * the build rather than rendering a blank tile.
  */
-export const ADDON_MARKS: Record<string, { src?: string; icon?: string; accent: string; ink?: string }> = {
+export interface AddOnMark {
+	/** An ecosystem mark, knocked out white of the accent; or a Tabler glyph, drawn white on it. */
+	src?: string;
+	icon?: string;
+	accent: string;
+}
+
+export const ADDON_MARKS: Record<string, AddOnMark> = {
 	'Edge Computing': { src: '/src/assets/images/landings/ce/thingsboard-e-icon.svg', accent: '#008478' },
 	'Trendz Analytics': { src: '/src/assets/images/landings/ce/trendz-icon.svg', accent: '#1976d2' },
-	// One-tone artwork: on a light tile it is recoloured to the app's own green, as the homepage's
-	// Mobile App card does (`homeEcosystem`, ink #166534). The long draft knocks it out white instead.
-	'White-labeled Mobile App': {
-		src: '/src/assets/images/landings/thingsboard-mark.svg',
-		accent: '#178649',
-		ink: '#166534',
-	},
+	'White-labeled Mobile App': { src: '/src/assets/images/landings/thingsboard-mark.svg', accent: '#178649' },
 	'Offline Mode': { icon: 'tabler:wifi-off', accent: '#17181c' },
 };
 
-export function addonMark(name: string) {
-	const mark = ADDON_MARKS[name];
+/**
+ * The conservative draft's marks, where they differ from the long one's. The Mobile App is a PHONE:
+ * the ThingsBoard mark there said "the platform" rather than "an app", and its green sat on the
+ * On-premises tab's own green. It takes the site's violet (`--color-accent-violet`, 5.6:1 under
+ * white), the one hue no other add-on or page accent uses. Offline Mode lifts from near-black to a
+ * slate, so a tile with no product behind it stops being the heaviest of the three.
+ */
+export const CONSERVATIVE_ADDON_MARKS: Record<string, AddOnMark> = {
+	...ADDON_MARKS,
+	'White-labeled Mobile App': { icon: 'tabler:device-mobile', accent: '#7b3fe4' },
+	'Offline Mode': { icon: 'tabler:wifi-off', accent: '#475467' },
+};
+
+export function addonMark(name: string, marks: Record<string, AddOnMark> = ADDON_MARKS) {
+	const mark = marks[name];
 	if (!mark) throw new Error(`pricingPage: no mark for the add-on "${name}"`);
 	return mark;
 }
@@ -263,6 +279,17 @@ export const mainCopy = {
 	// needs." → "Estimate your cost"). The calculators' arithmetic lives in main's page script, not
 	// in their components, so the draft sends the question to a person until it is ported.
 	upsellNotSure: { heading: 'Not sure which plan fits?', cta: 'Talk to an expert' },
+	// On-premises' licensing toggle: main's labels and the two tooltips it gives them.
+	licensing: {
+		payg: {
+			label: 'Subscription',
+			tip: 'A monthly subscription priced by the devices and assets you need — move up or down a tier as you grow.',
+		},
+		perpetual: {
+			label: 'Perpetual',
+			tip: 'Perpetual is a one-time license that turns your IoT platform into a long-term asset — predictable costs, full control of your roadmap, and a strong foundation for enterprise scale.',
+		},
+	},
 	pcBillingHint: 'Save 10% on annual plans',
 	onPremPayg: {
 		title: 'Subscription plans',

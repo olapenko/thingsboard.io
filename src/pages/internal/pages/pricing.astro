@@ -11,6 +11,7 @@ import { CLOUD_REGIONS, LAST_REGION } from '@util/cloud-regions';
 import PlanCards from './_PlanCards.astro';
 import AddOnCards from './_AddOnCards.astro';
 import TopUpList from './_TopUpList.astro';
+import PricingNote from './_PricingNote.astro';
 
 import { tbCloudData, tbCloudTopUps } from '@data/pricing-live/tb-cloud';
 import { tbPrivateCloudData, tbPrivateCloudAddOns } from '@data/pricing-live/tb-private-cloud';
@@ -24,6 +25,7 @@ import { cloudAddOns } from '@data/pricing-live/add-ons';
 import { pcFeatureHeaders, pcFeatureRows } from '@data/pricing-live/tb-private-cloud-features';
 import { pricingFaqData } from '@data/pricing-live/faq';
 import {
+	CONTACT_ON_PREM,
 	DEFAULT_DEPLOYMENT,
 	DEPLOYMENTS,
 	MAIN_TAB_ORDER,
@@ -55,7 +57,8 @@ import {
  *   - the product pages' comparison table (sticky pill header) and FAQ (topic sidebar);
  *   - On-premises in its own green, as its product page has it — the tab, the plans, the FAQ and
  *     the wave field all turn over with it — where Cloud and Private Cloud keep the primary;
- *   - the add-ons wearing their products' marks, and main's upsell cards as a line and a button.
+ *   - the add-ons wearing their products' marks (filled badges, the Mobile App as a phone), and
+ *     main's upsell cards as one centred line with a glyph and a link (`_PricingNote`).
  *
  * NOT PORTED, for a draft: main's two calculators — their arithmetic is in main's page script, not
  * in their components — so "Not sure which plan fits?" goes to a person; the GTM ids on every CTA;
@@ -93,8 +96,6 @@ const cloudRegion = {
 	eu: { plans: tbCloudData.eu.plans, addOns: cloudAddOns.eu, topUps: tbCloudTopUps.eu },
 };
 
-const CONTACT_ON_PREM =
-	'/contact-us/?subject=ThingsBoard%20Products&message=I%20have%20a%20question%20about%20ThingsBoard%20On-premises';
 const CONTACT_PRIVATE_CLOUD = byId('thingsboard-private-cloud').choice.cta.href;
 
 /** What the pre-paint script needs, and nothing else. */
@@ -202,8 +203,32 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 					</p>
 				</div>
 				<div class="seg" role="group" aria-label="Licensing" data-seg="onpremBilling">
-					<button type="button" class="seg__opt" data-value="payg" aria-pressed="true">Subscription</button>
-					<button type="button" class="seg__opt" data-value="perpetual" aria-pressed="false">Perpetual</button>
+					{
+						/* The ⓘ sits inside each option, after its label: a button cannot hold another
+					    button, so here it is a mark with the tooltip, tied to the option by
+					    `aria-describedby`, and shown on hover or while the option has focus. */
+					}
+					{
+						(['payg', 'perpetual'] as const).map((value) => (
+							<button
+								type="button"
+								class="seg__opt"
+								data-value={value}
+								aria-pressed={value === 'payg' ? 'true' : 'false'}
+								aria-describedby={`licensing-tip-${value}`}
+							>
+								{mainCopy.licensing[value].label}
+								<span class="tip tip--inline">
+									<span class="tip__btn" aria-hidden="true">
+										<Icon name="tabler:info-circle" />
+									</span>
+									<span class="tip__body" role="tooltip" id={`licensing-tip-${value}`}>
+										{mainCopy.licensing[value].tip}
+									</span>
+								</span>
+							</button>
+						))
+					}
 				</div>
 			</div>
 
@@ -214,13 +239,11 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 					answers={answers('thingsboard-pe')}
 					faqPrefix={faqPrefix('thingsboard-pe')}
 				/>
-				<div class="p2-bar">
-					<p class="p2-bar__title">{mainCopy.upsellNotSure.heading}</p>
-					<a class="p2-bar__link" href={CONTACT_ON_PREM}>
-						{mainCopy.upsellNotSure.cta}
-						<Icon name="tabler:chevron-right" aria-hidden="true" />
-					</a>
-				</div>
+				<PricingNote
+					icon="tabler:message-circle"
+					text={mainCopy.upsellNotSure.heading}
+					link={{ text: mainCopy.upsellNotSure.cta, href: CONTACT_ON_PREM }}
+				/>
 				<div class="p2-block">
 					<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
 					<p class="p2-sub">{mainCopy.addOns.subtitle}</p>
@@ -281,13 +304,12 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 						faqPrefix={faqPrefix('thingsboard-pe')}
 					/>
 				</div>
-				<div class="p2-bar p2-bar--block">
-					<p class="p2-bar__title">{mainCopy.perpetualHelp}</p>
-					<a class="p2-bar__link" href={tbPerpetualHero.ctaHref}>
-						{mainCopy.contactUs}
-						<Icon name="tabler:chevron-right" aria-hidden="true" />
-					</a>
-				</div>
+				<PricingNote
+					icon="tabler:message-circle"
+					text={mainCopy.perpetualHelp}
+					link={{ text: mainCopy.contactUs, href: tbPerpetualHero.ctaHref }}
+					spaced
+				/>
 			</div>
 		</section>
 
@@ -327,13 +349,12 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 					</div>
 				))
 			}
-			<div class="p2-bar">
-				<p class="p2-bar__title">{mainCopy.upsellPrivateCloud.heading}</p>
-				<a class="p2-bar__link" href="?product=thingsboard-private-cloud" data-deploy-go="thingsboard-private-cloud">
-					{mainCopy.upsellPrivateCloud.cta}
-					<Icon name="tabler:chevron-right" aria-hidden="true" />
-				</a>
-			</div>
+			<PricingNote
+				icon="tabler:cloud-lock"
+				text={mainCopy.upsellPrivateCloud.heading}
+				link={{ text: mainCopy.upsellPrivateCloud.cta, href: '?product=thingsboard-private-cloud' }}
+				go="thingsboard-private-cloud"
+			/>
 
 			<div class="p2-block">
 				<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
@@ -403,13 +424,11 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 				answers={answers('thingsboard-private-cloud')}
 				faqPrefix={faqPrefix('thingsboard-private-cloud')}
 			/>
-			<div class="p2-bar">
-				<p class="p2-bar__title">{mainCopy.upsellNotSure.heading}</p>
-				<a class="p2-bar__link" href={CONTACT_PRIVATE_CLOUD}>
-					{mainCopy.upsellNotSure.cta}
-					<Icon name="tabler:chevron-right" aria-hidden="true" />
-				</a>
-			</div>
+			<PricingNote
+				icon="tabler:message-circle"
+				text={mainCopy.upsellNotSure.heading}
+				link={{ text: mainCopy.upsellNotSure.cta, href: CONTACT_PRIVATE_CLOUD }}
+			/>
 
 			<div class="p2-block">
 				<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
@@ -939,6 +958,32 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		}
 	}
 
+	// An ⓘ inside an option, right after its label: the option's own 8px gap halved, so the mark
+	// reads as the label's rather than as a third item in the pill. Muted in both states — the
+	// pressed option's glyph rule would otherwise colour it, and an accent ⓘ reads as a second control.
+	// Its tooltip also opens while the option has focus.
+	.seg .tip--inline {
+		margin-left: -#{$spacing-1};
+
+		.tip__btn {
+			cursor: inherit;
+		}
+
+		.tip__btn svg {
+			color: inherit;
+		}
+	}
+
+	.seg__opt:focus-visible .tip--inline .tip__body {
+		opacity: 1;
+		visibility: visible;
+		transform: translate(-50%, 0);
+
+		@include media-down(md) {
+			transform: none;
+		}
+	}
+
 	.seg__save {
 		padding: 0 $spacing-2;
 		border-radius: $radius-full;
@@ -1138,36 +1183,42 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		}
 	}
 
-	// Main's upsell under the cards, as one line: the question, and a link out of it. It was a
-	// full-width card, then a line with an outline button; both weighed as much as a plan.
-	.p2-bar {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		justify-content: center;
-		gap: $spacing-1 $spacing-2;
-		margin-top: $spacing-4;
+	// Main's upsell under the cards, as one centred line: a glyph in the ink, the question in the
+	// secondary grey, and the product pages' outgoing link ("See plans") in the tab's accent. It was a
+	// card with a button, then a line with a button; both weighed as much as a plan. The glyph is
+	// the reason the line reads as a note rather than as a caption that lost its card.
+	// Inline rather than flex: on a phone it wraps as the sentence it is, the glyph staying with the
+	// first word and the link with its chevron, where a flex row dropped the glyph onto a line alone.
+	.p2-note {
+		@include type-body;
+		margin: $spacing-4 0 0;
+		color: var(--color-text-secondary);
 		text-align: center;
+		text-wrap: balance;
 
-		&__title {
-			@include type-body;
-			margin: 0;
-			color: var(--color-text-secondary);
-		}
-
-		&--block {
+		&--spaced {
 			margin-top: $spacing-12;
 		}
 
-		// The product pages' outgoing link ("See plans"): the accent's ink, a chevron, the underline
-		// on hover.
+		&__mark {
+			width: 20px;
+			height: 20px;
+			// With the space the markup leaves after it, 8px to the text.
+			margin-right: $spacing-1;
+			vertical-align: -4px;
+			color: var(--color-text);
+		}
+
 		&__link {
 			@include type-link;
 			display: inline-flex;
 			align-items: center;
 			gap: 2px;
+			margin-left: $spacing-1;
 			color: var(--p2-accent-ink);
 			text-decoration: none;
+			white-space: nowrap;
+			vertical-align: bottom;
 
 			svg {
 				flex: none;
@@ -1328,18 +1379,19 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		margin: 0;
 		padding: $spacing-5;
 
-		// The product's mark on a tint of its own accent: the homepage's ecosystem badge, to its
-		// numbers — 32% radius, artwork at 82% of the tile, a Tabler glyph at 64% — lighter than the
-		// filled squircle, so three of them do not outweigh the prices beside them.
+		// The homepage's FILLED ecosystem badge, to its numbers: the product's accent under the cards'
+		// static sheen, the mark knocked out white at 82% (a Tabler glyph at 64%), 32% radius. The
+		// tinted tile it replaced read too light beside the prices.
 		&__mark {
 			display: grid;
 			flex: none;
 			place-items: center;
-			width: 44px;
-			height: 44px;
+			width: 48px;
+			height: 48px;
 			border-radius: 32%;
-			background-color: color-mix(in srgb, var(--addon-accent) 10%, #fff);
-			color: var(--addon-accent);
+			background-color: var(--addon-accent);
+			background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
+			color: #fff;
 		}
 
 		&__glyph {
@@ -1377,6 +1429,12 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 				font-weight: $font-weight-bold;
 				color: var(--color-text);
 			}
+		}
+
+		// A priced note ("Pricing based on deployment scale") is a statement, not an amount.
+		&__price-note {
+			font-weight: $font-weight-medium;
+			color: var(--color-text);
 		}
 
 		&__fee {
