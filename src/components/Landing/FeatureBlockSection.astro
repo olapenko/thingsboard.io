@@ -2,6 +2,8 @@
 import SmartImage from '@components/SmartImage.astro';
 import { Icon } from 'astro-icon/components';
 import ReadMoreLink from './ReadMoreLink.astro';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
 
 interface LinkItem {
 	href: string;
@@ -69,6 +71,12 @@ interface Props {
 	 * Optional, so rows that have never had one are unchanged.
 	 */
 	badge?: { icon: string; color: string };
+	/**
+	 * The new pages' rows: the mark through `ui/Mark` (40, the rows' size) and the links through
+	 * `ui/Link` (lg, a section's own outgoing link, one still chevron). Defaults to on wherever a
+	 * `badge` is passed, which only the new pages do; the Edge page keeps the arrows.
+	 */
+	kit?: boolean;
 	id?: string;
 }
 
@@ -99,6 +107,7 @@ const {
 	imageWidths,
 	imageSizes,
 	badge,
+	kit = badge !== undefined,
 } = Astro.props;
 
 // Rendered to a string rather than placed as <slot />, because the media appears in one of two
@@ -162,13 +171,7 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				)
 			}
 			<div class="feature-des">
-				{
-					badge && (
-						<span class="feature-badge" style={`--badge-color: ${badge.color}`} aria-hidden="true">
-							<Icon name={badge.icon} />
-						</span>
-					)
-				}
+				{badge && <Mark size={40} icon={badge.icon} accent={badge.color} class="feature-badge" />}
 				<div class="heading-wrap">
 					<HeadingTag class="phrase-heading">{heading}</HeadingTag>
 					{peOnly && <span class="pe-badge">PE only</span>}
@@ -176,16 +179,28 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				<p>{description}</p>
 				<div class="links">
 					{
-						links.map((link) => (
-							<ReadMoreLink
-								href={link.href}
-								text={link.text}
-								ariaLabel={link.ariaLabel}
-								srOnlySuffix={link.srOnlySuffix}
-								variant={linkVariant}
-								target={link.target}
-							/>
-						))
+						links.map((link) =>
+							kit ? (
+								<Link
+									href={link.href}
+									size="lg"
+									srSuffix={link.srOnlySuffix}
+									external={link.target === '_blank'}
+									attrs={{ 'aria-label': link.ariaLabel }}
+								>
+									{link.text}
+								</Link>
+							) : (
+								<ReadMoreLink
+									href={link.href}
+									text={link.text}
+									ariaLabel={link.ariaLabel}
+									srOnlySuffix={link.srOnlySuffix}
+									variant={linkVariant}
+									target={link.target}
+								/>
+							)
+						)
 					}
 				</div>
 			</div>
@@ -326,26 +341,11 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 			}
 		}
 
-		// A squircle, at the 28% radius that is the closest a plain border-radius gets to the
-		// superellipse an app icon uses — the same construction the platform badge in the connect and
-		// deploy visuals uses, so the page has one idea of what a rounded tile is.
+		// The row's mark: `ui/Mark` at 40 (the ladder's row step), 16 over the heading, the "above a
+		// heading" recipe. A block, so no line box adds descender space under it.
 		.feature-badge {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 48px;
-			height: 48px;
-			margin-bottom: 20px;
-			border-radius: 32%;
-			background: var(--badge-color, #3d50f5);
-			color: #fff;
-
-			// The glyph takes about 58% of the tile. A mark on a tile is one object, and a small glyph
-			// floating in a large square reads as two — the tile and, separately, something in it.
-			:global([data-icon]) {
-				width: 28px;
-				height: 28px;
-			}
+			display: grid;
+			margin-bottom: $spacing-4;
 		}
 
 		.feature-des {

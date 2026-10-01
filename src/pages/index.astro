@@ -7,7 +7,7 @@ import CustomersLogo from '@components/Landing/CustomersLogo.astro';
 import Hero from '@components/Landing/Hero.astro';
 import { Products } from '@models/site.models';
 import HomeSections from '@components/Landing/HomeSections.astro';
-import ClosingCta from '@components/Landing/ClosingCta.astro';
+import Bookend from '@components/Landing/Bookend.astro';
 import { heroLcpPreload } from '@util/lcp-preload';
 import { shippingComposition, type HomeComposition } from '@data/home-compositions';
 import { LIVE_CLOSING, LIVE_HERO } from '@data/home-live';
@@ -146,7 +146,7 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 		<HomeSections composition={composition} />
 	</section>
 
-	<ClosingCta expertHref={live ? LIVE_CLOSING.expertHref : undefined} />
+	<Bookend id="home" expertHref={live ? LIVE_CLOSING.expertHref : undefined} />
 	{
 		/* TEMP-INTERNAL-NAV — remove before this branch reaches main.
 	    The key visuals are judged here now, and nothing links back to the sandbox they were built
@@ -183,8 +183,8 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 	// diagonal bands, card shadows and full-strength accents. See the file
 	// header in _sections-flat.scss for what it changes and why.
 	@use '../styles/sections-flat';
-
-	// --- Homepage facelift: menu height, primaries, secondaries, GitHub button ---
+	// The bar every new page shares: its height, logo box, cluster gap, star widget and Sign in.
+	@use '../styles/marketing-bar';
 
 	.hero-note {
 		@include type-small;
@@ -266,20 +266,8 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 		}
 	}
 
-	// `html:root` rather than `:root`: Starlight sets its accent on `:root` too,
-	// and at equal specificity the winner is whichever sheet lands last.
+	// The header height and the one purple are `_marketing-bar.scss`'s, `@use`d above.
 	html:root {
-		// Shorter menu. Hero reads it too, so the video panel and the text column
-		// stay clear of it without a second constant to keep in sync.
-		--home-header-h: 64px;
-
-		// One purple. `--color-primary` resolves through Starlight's accent, which
-		// was still the old #1a6fd4, and `--tb-main-color` was #2a7dec — while
-		// `--color-primary-rgb` had already moved to 61,80,245.
-		--sl-color-text-accent: #{$color-brand};
-		--color-primary: #{$color-brand};
-		--tb-main-color: #{$color-brand};
-
 		// Muted hero text. Full alpha and a stronger chroma: dropping the alpha
 		// mixes the colour toward the black column, which is what kept flattening
 		// the hue. Vividness has to come from the colour, not the opacity.
@@ -293,11 +281,6 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 	// and its marks 27, so 99 from 1440 up and 91 at 1280. Zero it if the strip moves.
 	#hero {
 		--hero-tail: 100px;
-	}
-
-	header.header {
-		height: var(--home-header-h);
-		transition-duration: 0.1s;
 	}
 
 	// THE BAR IS WHITE FROM THE TOP (`headerScrolledAtTop`): its scrolled state, held,
@@ -328,45 +311,9 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 		background-color: rgba(0, 0, 0, 0.8);
 	}
 
-	// `.logo--lg` in the header component resolves to `header .logo.logo--lg`,
-	// which ties with a plain `header.header .logo` — so match its class count
-	// and win on order rather than relying on it.
-	header.header .logo.logo--lg {
-		height: 50px;
-		width: 175px;
-
-		// 191, not 215: the art is 168x44, so 50px tall it is 191 wide. In a 215 box
-		// `contain` centred it 12px in, and the header's nudge for the art's own left
-		// padding (-3.571% of the box, `HeaderContent`) is only right when the box is
-		// the art's width. Together they left the mark 11px right of the headline.
-		@media screen and (min-width: 1025px) {
-			width: 191px;
-		}
-
-		@media screen and (min-width: 1281px) and (max-width: 1599px) {
-			width: 160px;
-		}
-
-		// Phones: 175px put the wordmark shoulder to shoulder with the Menu
-		// button on a 375px screen. Height follows so the mark keeps its ratio
-		// inside the box — width drives `contain` at every one of these sizes.
-		@media screen and (max-width: 767px) {
-			width: 168px;
-			height: 48px;
-		}
-
-		@media screen and (max-width: 480px) {
-			width: 152px;
-			height: 44px;
-		}
-	}
-
-	// Primary: one purple across the page — the header CTA, the hero, and the
-	// n-button primaries in the sections below. White on #3d50f5 is 5.73:1, which
-	// clears AA for body-sized text.
-	.n-button--filled,
-	#hero .button.brand,
-	.closing-cta__primary {
+	// The old filled n-button, which only the `live` order still renders (its footer is
+	// `Landing/Footer`): the brand purple, bold, the shimmer. White on #3d50f5 is 5.73:1.
+	.n-button--filled {
 		position: relative;
 		overflow: hidden;
 		isolation: isolate;
@@ -375,26 +322,10 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 		color: #fff;
 	}
 
-	// Install was in the rule above, so the bookend closed on two filled purples
-	// — two primaries reading as one choice made twice. It is the secondary, and
-	// `ClosingCta` already declares the hero's outline for it (same 0.35 white
-	// rule, same 0.14 hover tint), so it only needs the shimmer's scaffolding
-	// from that rule and not the fill.
-	.closing-cta__secondary {
-		position: relative;
-		overflow: hidden;
-		isolation: isolate;
-		font-weight: $font-weight-bold;
-	}
-
 	// Shimmer: a single skewed highlight crossing on hover. Transform-only, so it
 	// composites rather than repainting, and it runs once per hover instead of
 	// looping.
-	.n-button--filled::after,
-	#hero .button.brand::after,
-	#hero .learn-tb::after,
-	.closing-cta__primary::after,
-	.closing-cta__secondary::after {
+	.n-button--filled::after {
 		content: '';
 		position: absolute;
 		top: 0;
@@ -408,24 +339,8 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 	}
 
 	.n-button--filled:hover::after,
-	.n-button--filled:focus-visible::after,
-	#hero .button.brand:hover::after,
-	#hero .button.brand:focus-visible::after,
-	#hero .learn-tb:hover::after,
-	#hero .learn-tb:focus-visible::after,
-	.closing-cta__primary:hover::after,
-	.closing-cta__primary:focus-visible::after,
-	.closing-cta__secondary:hover::after,
-	.closing-cta__secondary:focus-visible::after {
+	.n-button--filled:focus-visible::after {
 		animation: btn-shimmer 0.75s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	// The bookend gets the hero's focus ring too. It had none — only a colour
-	// change on :focus-visible, which is not a focus indicator on a dark ground.
-	.closing-cta__primary:focus-visible,
-	.closing-cta__secondary:focus-visible {
-		outline: 2px solid #fff;
-		outline-offset: 3px;
 	}
 
 	@keyframes btn-shimmer {
@@ -439,124 +354,13 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 
 	// Secondary, dark-on-light: a tint on hover rather than a fill, so it never
 	// reads as a primary mid-interaction.
-	.n-button--filled:hover,
-	#hero .button.brand:hover {
+	.n-button--filled:hover {
 		background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
 	}
 
-	.n-button--filled:active,
-	#hero .button.brand:active {
+	.n-button--filled:active {
 		background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3));
 	}
-
-	// Primary trimmed to balance the shorter menu, floored at 40px so it stays a
-	// comfortable target alongside the Sign in secondary.
-	header.header .head-buttons .n-button.try {
-		width: auto;
-		height: 40px;
-		min-height: 40px;
-		padding: 0 18px;
-		font-size: 14px;
-	}
-
-	// Tighter than the 0.875rem default — four controls sit in this cluster. Set
-	// as the token so the bar and the open drawer cannot drift apart: the shared
-	// drawer rule used to restate the default, which widened every gap by 6px and
-	// made the cluster spread as it opened.
-	header.header .head-buttons {
-		--tb-cluster-gap: 8px;
-	}
-
-	// The widget was floating off the pair. Two things were doing it, and the
-	// larger one was not the margin.
-	//
-	// GitHubButton reserves a fixed 100px wrap (132 above 1600, where the "Star"
-	// label shows) so the star count arriving later cannot shift the nav. But the
-	// button itself is only 36px until that count loads — the count cell is
-	// `width: 0` and expands to 61px on `.is-loaded` — so the reservation renders
-	// as up to 64px of empty space, and it all sits on the RIGHT, between the star
-	// and Sign in. Measured 82px from the button's edge to Sign in against the 8px
-	// that separates Sign in from Try for free.
-	//
-	// Right-aligning the button inside its own wrap keeps the reservation exactly
-	// as it was — nothing shifts when the count lands, it just grows leftward into
-	// space that was already empty — and puts the star on the cluster's 8px gap in
-	// both states. The 10px margin on top of that gap goes with it.
-	// `text-align` rather than a flex context, because `display` on this wrap is
-	// the component's visibility switch — `none` by default, `block` at its own
-	// breakpoints and at the tablet one below. Setting it here would show the
-	// widget at every width.
-	header.header .head-buttons .gh-wrap {
-		text-align: right;
-		margin-right: 0;
-	}
-
-	// GitHubButton hides itself below 1120px, which suited a bar that dropped
-	// every control into the drawer at 1280. Now that the tablet bar keeps the
-	// account controls, the stars fit alongside them with room to spare, and on
-	// this page the count is part of the pitch. Scoped here rather than lowering
-	// the component's own breakpoint, which every other page shares.
-	@media screen and (min-width: 768px) and (max-width: 1119px) {
-		header.header .head-buttons .gh-wrap {
-			display: block;
-		}
-	}
-
-	// Only `.n-button.price` gets an explicit white on the transparent header, so
-	// the Sign in secondary inherited dark text and vanished over the hero.
-	header.header .region-signin {
-		font-size: 15px;
-	}
-
-	// White only while the bar is actually transparent over the hero. Both guards
-	// are load-bearing, and each one covers a surface this white would otherwise
-	// be invisible against:
-	//   :not(.opened-burger)        — the drawer is a light surface
-	//   :not([data-header-scrolled]) — the scrolled bar flips to solid white
-	//
-	// The three states are now mutually exclusive by condition rather than by
-	// source order, which is what went wrong before: the two guards each add
-	// specificity, and with only the first of them this selector outweighed the
-	// [data-header-scrolled] rule below that had been winning on order alone.
-	// Ordering is no longer what keeps them apart, so adding a fourth state
-	// can't silently break the other three.
-	// The star widget joins each of these: it takes its ink, border and hover from
-	// `currentColor`, so naming the colour here is the whole of its theming — the
-	// border and the Octicon follow without a rule of their own. Added as separate
-	// selectors rather than a `:is()` so each keeps the specificity the note above
-	// depends on.
-	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-variant='transparent']) .region-signin,
-	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-variant='transparent']) .gh-button {
-		color: #fff;
-	}
-
-	header.header[data-header-scrolled] .region-signin,
-	header.header[data-header-scrolled] .gh-button {
-		color: var(--color-text);
-	}
-
-	// No mark beside either region. A flag answers "whose country is this?" when the
-	// menu is asking where the data should live, and no set of flags settles it —
-	// one excludes Canada, two excludes Mexico, three is unreadable at this size. A
-	// neutral glyph avoided the claim but said nothing either: the same globe twice,
-	// told apart only by hue. The region names are short and unambiguous on their
-	// own, so they carry it, set larger than the rest of the menu.
-
-	.n-button--outlined:hover {
-		background-color: rgba(61, 80, 245, 0.08);
-	}
-
-	.n-button--outlined:active {
-		background-color: rgba(61, 80, 245, 0.14);
-	}
-
-	// The star widget needs nothing here any more. It used to be dressed in
-	// GitHub's own palette (#21262d / #30363d / #e6edf3), which is a near-black
-	// pill: invisible over the dark hero and a hole on the light scrolled bar, so
-	// this block repainted it per state. It now takes its border, ink and hover
-	// from `currentColor` — the same contract `.region-signin` keeps — so
-	// it follows the bar through transparent, scrolled and drawer on its own, and
-	// there is no second palette to keep in sync. See GitHubButton.astro.
 
 	// The old accent (#1a6fd4) is hardcoded inside the section components rather
 	// than read from a token, so it can't be retired by changing a variable.
@@ -564,66 +368,33 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 	// existing blue everywhere else on the site.
 	#overflow {
 		// Arrows and their SVGs take `currentColor`, so recolouring the link they
-		// sit in carries them along.
+		// sit in carries them along. Not the kit's links, buttons, chips and card titles: they take
+		// their colour from the accent schemes (`data-accent`), and are excluded inside `:where()`, so
+		// the rule's weight is what it was.
 		a.heading-1,
 		a.read-more-link,
 		a.product-card__link,
-		a.ecosystem-card__link,
 		a.dashboard-slide__link,
 		.dashboard-slide a,
-		p a,
-		li a,
-		h2 a,
-		h3 a {
+		p a:where(:not(.ui-link, .ui-btn, .ui-chip, .ui-card__link, .region-choice__row)),
+		li a:where(:not(.ui-link, .ui-btn, .ui-chip, .ui-card__link, .region-choice__row)),
+		h2 a:where(:not(.ui-link, .ui-btn, .ui-chip, .ui-card__link, .region-choice__row)),
+		h3 a:where(:not(.ui-link, .ui-btn, .ui-chip, .ui-card__link, .region-choice__row)) {
 			color: $color-brand;
 		}
 	}
 
-	// The section components pin their arrow colour with ID-scoped selectors —
-	// `#manage a.read-more-link .arrow` and friends, specificity (1,2,1) — which
-	// outranks a plain `#overflow a.read-more-link` (1,1,1). Repeating the id
-	// takes this to (2,2,1), covering every section without naming each one.
+	// The older section components pin their arrow colour with ID-scoped selectors, specificity
+	// (1,2,1), which outranks a plain `#overflow a.read-more-link` (1,1,1). Repeating the id takes
+	// this to (2,2,1), covering every section without naming each one.
 	#overflow#overflow {
 		a.read-more-link .arrow,
 		a.read-more-link .arrow-container,
 		.dashboard-slide a .arrow,
 		.view-all-link a,
 		a.rule-button,
-		.feature-des a {
+		.feature-des a:where(:not(.ui-link)) {
 			color: $color-brand;
-		}
-
-		// The tile title is the card, not a link to look at — it stays black and
-		// carries the stretched hit area.
-		.feature-tile__link {
-			color: var(--color-text);
-		}
-
-		.feature-tile__doc {
-			color: inherit;
-		}
-
-		// No underlines at rest — the card is quiet until you approach it.
-		.feature-tile__link,
-		.feature-tile__doc {
-			text-decoration: none;
-			text-underline-offset: 2px;
-		}
-
-		.feature-tile:hover .feature-tile__link,
-		.feature-tile:hover .feature-tile__doc,
-		.feature-tile:focus-within .feature-tile__link,
-		.feature-tile:focus-within .feature-tile__doc {
-			text-decoration: underline;
-			text-decoration-color: rgba(0, 0, 0, 0.35);
-		}
-
-		.feature-tile__title:hover .feature-tile__link,
-		.feature-tile__link:focus-visible,
-		.feature-tile__doc:hover,
-		.feature-tile__doc:focus-visible {
-			color: $color-brand;
-			text-decoration-color: currentColor;
 		}
 	}
 
@@ -650,25 +421,6 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 		padding-inline: $spacing-5;
 	}
 
-	// Intro section. The paragraph has auto side margins but no max-width, so it
-	// ran the full 1400px container — around 180 characters a line, well past a
-	// readable measure. 65ch is the conventional range; the title's 48px bottom
-	// margin also left the text reading as a separate block rather than as part
-	// of the same thought.
-	//
-	// The 960 container cap that used to live here is now the page default in
-	// _sections-flat.scss, so this section gets it without asking. The 65ch below
-	// is a TYPE measure and stays — it is doing a different job.
-	#overflow .intro-section {
-		&__title {
-			margin-bottom: $spacing-4;
-		}
-
-		&__text {
-			max-width: 65ch;
-		}
-	}
-
 	// THE `#overflow` HEADING RULES ARE GONE, and this note is what they leave behind.
 	//
 	// There were four: a blanket weight on every h2 and h3, a blanket 32px on every h2, a colour on
@@ -693,15 +445,7 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 
 	@media (prefers-reduced-motion: reduce) {
 		.n-button--filled:hover::after,
-		.n-button--filled:focus-visible::after,
-		#hero .button.brand:hover::after,
-		#hero .button.brand:focus-visible::after,
-		#hero .learn-tb:hover::after,
-		#hero .learn-tb:focus-visible::after,
-		.closing-cta__primary:hover::after,
-		.closing-cta__primary:focus-visible::after,
-		.closing-cta__secondary:hover::after,
-		.closing-cta__secondary:focus-visible::after {
+		.n-button--filled:focus-visible::after {
 			animation: none;
 		}
 	}
@@ -723,34 +467,21 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 	// Remove white section backgrounds on home page. The customer-logo strip is
 	// exempt: it carries a deliberate dark background so it reads as the closing
 	// band of the hero, and this rule outranks the component's own scoped style
-	// (Astro wraps that scope in :where(), which adds no specificity).
-	:root section:not(.customers-logo--dark):not(.closing-cta) {
+	// (Astro wraps that scope in :where(), which adds no specificity). So are the
+	// `ui/Band`s, which paint their own ground; the rule goes once every section is
+	// one. Its weight, (0,3,1), is what the rows' and the use cases' own grounds
+	// were written against: change the exemptions, keep the count of them.
+	:root section:not(.customers-logo--dark):not(.ui-band) {
 		background: none;
 	}
 
 	// Overflow container
 	#overflow {
 		overflow: hidden;
-
-		@include media-down(md) {
-			#react {
-				margin-top: $spacing-12;
-			}
-		}
 	}
 
-	// Products section
-	#products,
-	#product-ecosystem {
-		width: 100%;
-		padding-top: $spacing-24;
-		position: relative;
-
-		@include media-down(md) {
-			padding-top: 60px;
-			margin-bottom: 60px;
-		}
-	}
+	// Products and the ecosystem are `ui/Band`s (HomeSections): Products dark with the wave in
+	// `--band-wave`, the ecosystem flat, each 64 above and below (48 on a phone) on the 960 measure.
 
 	// Products gets a plain rectangular band instead of the skewed decorative
 	// wedges, with the pricing wave field animating inside it. `isolation` makes
@@ -774,50 +505,6 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 		}
 	}
 
-	// The two halves meet inside the band, so the gap between them is theirs to
-	// share — not two full section paddings stacked.
-	#products {
-		// Holds the wave field: without a stacking context here, its z-index:-1
-		// would drop behind the band's background and disappear.
-		isolation: isolate;
-		padding-top: $spacing-16;
-		// Was 24px, halved on the reasoning that the ecosystem's own 24 completed
-		// the gap between them. That held while the two shared one light band; now
-		// the section ends on a hard colour edge, so the 24 read as the cards
-		// being cropped by it. Matched to the top instead — the band is its own
-		// composition and sits its content centred in 64px.
-		padding-bottom: $spacing-16;
-
-		@include media-down(md) {
-			// Same reasoning against the shared rule's 60px top.
-			padding-bottom: 60px;
-			// The shared rule's margin would cut a white gap through the band.
-			margin-bottom: 0;
-		}
-	}
-
-	// ── The deployments half, inverted ───────────────────────────────────
-	// Products runs dark while the ecosystem under it stays light, so "who owns
-	// the infrastructure" reads as its own decision rather than the first row of
-	// a longer catalogue. The band's light fill still paints underneath — this
-	// covers it for the section's own bounds — and the `isolation` above keeps
-	// the wave field's z-index:-1 above this fill instead of behind it.
-	//
-	// Both values are the light band's recipe inverted: the same primary tinting
-	// a near-black, rather than a neutral grey.
-	//   band  color-mix(in srgb, #3d50f5 8%, #0e0f13)
-	//   card  color-mix(in srgb, #3d50f5 6%, #1e1f23)  ← the dark theme's surface
-	#products {
-		background: var(--band-indigo);
-
-		// The field paints at 3.5–5.5% ink, and the brand indigo simply isn't
-		// there at that opacity on a near-black. The wave lightens so the motion
-		// survives; the band keeps the brand.
-		.pricing-bg {
-			--pricing-wave-color: var(--band-wave);
-		}
-	}
-
 	// The cards stay WHITE on this band, so everything that used to re-point their
 	// colours here is gone: the surface, the ink, the hairline, the label and link
 	// greys, the lightened name tint and two restated shadows.
@@ -834,28 +521,6 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 	// That is what marks the section, and white cards separate from it further than
 	// dark cards on dark ever did.
 
-	// 24px was this section's half of a 48px gap it shared with Products while the
-	// two sat in one light band. Products is its own dark band now, so there is no
-	// shared gap — the heading was starting 24px under a hard colour edge, which
-	// read as squeezed against it rather than spaced from it. A section that opens
-	// a band takes the band's own opening measure.
-	#product-ecosystem {
-		padding-top: $spacing-16;
-		// Closes as it opens. It closed on $spacing-24 while opening on 16, and
-		// once the cards tightened, the fat foot read as leftover room rather
-		// than rhythm.
-		padding-bottom: $spacing-16;
-
-		@include media-down(md) {
-			padding-top: 60px;
-			padding-bottom: 60px;
-		}
-	}
-
-	#products .section-header {
-		margin-bottom: $spacing-12;
-	}
-
 	// Products leads the band at `titleSize="title"` (40px) and the ecosystem reads as a continuation
 	// rather than a peer, so it takes `titleSize="section"` (32px). Both are stated at the call sites
 	// above; they used to be `#products .section-header__title` and a nested rule under
@@ -865,63 +530,6 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 	// page is using it: a one-word heading over two cards was not carrying 48px, and the copy is
 	// likely to be rewritten anyway. One step down still leads the band and no longer shouts.
 	//
-	// The subtitle measure went the same way, as `subtitleMeasure="copy"`. It shipped at the
-	// component's 900px against the intro's 65ch (587px) and the rows' 46ch (415px) — one lede type
-	// at three measures, the widest running about 110 characters a line. `SectionHeader` turns out to
-	// have exactly one caller, this file, so the prop is the whole story rather than a homepage patch.
-
-	// The row headings and the dashboards tab titles used to come through at #353841, the body text
-	// colour, against #17181c everywhere else on the page. The rule that fixed it listed `#manage`
-	// and `#scada` — neither of which exists on this page, so two thirds of it never matched
-	// anything. `.dashshow__title` now sets the colour in `DashboardShowcase` itself, which is the
-	// only place it is used, and the row headings were already reaching #17181c on their own.
-
-	// Spacing only. The title size that used to be nested in here is `titleSize="section"` now.
-	#product-ecosystem .section-header {
-		margin-bottom: $spacing-8;
-	}
-
-	// Top-section actions read as labels, matching the cards'
-	// `.ecosystem-card__link`: medium weight, accent colour, no arrow, underline
-	// on hover. The shared ReadMoreLink stacks three chevrons at 0.2/0.5/1 opacity
-	// and slides them 10/20/30px on hover — that stays for the seven other pages
-	// using the component, so this is scoped to the three row sections.
-	#manage,
-	#scada,
-	#react {
-		.read-more-link .arrow-container {
-			display: none;
-		}
-
-		.read-more-link:hover,
-		.read-more-link:focus-visible {
-			text-decoration: underline;
-		}
-	}
-
-	// No hover treatment on this pair beyond what the component gives every card:
-	// the link underlining, the pointer, and the 2px lift, which is back now that
-	// there is no shared seam for it to tear open. The card's drop shadow stays
-	// invisible either way — black at 8% on a near-black band.
-
-	// Two cards, not one object. They used to sit flush, sharing a 1px seam with
-	// only the outer corners rounded, so the pair read as one panel split down the
-	// middle. Apart, each deployment is its own card at its own full radius, on the
-	// same gutter the ecosystem grid below already uses — so the two product
-	// sections sit on one rhythm instead of two.
-	.product-list {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: $spacing-5;
-		width: 100%;
-		max-width: 960px;
-		margin: 0 auto;
-
-		@include media-down(md) {
-			grid-template-columns: 1fr;
-		}
-	}
-
 	.product-ecosystem-list {
 		// Grid rather than flex: the app card spans two columns, which flex can
 		// only fake with hand-computed basis values that break at every new width.
@@ -929,13 +537,8 @@ const HERO_FOOTAGE_RATIO = '1920 / 924';
 		grid-template-columns: repeat(3, 1fr);
 		align-items: stretch;
 		gap: $spacing-5;
-		margin: 0 auto;
-
-		// Matches the intro section's 960px measure, so the two sections share a
-		// left and right edge down the page.
 		width: 100%;
 		min-width: 0;
-		max-width: 960px;
 
 		// Three singles plus three 2-spans is nine cells — three clean rows.
 		> .ecosystem-card--wide {

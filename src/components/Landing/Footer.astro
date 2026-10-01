@@ -109,69 +109,6 @@ const currentYear = new Date().getFullYear();
 	</div>
 </footer>
 
-<script>
-	const btn = document.getElementById('Footer_SignUpForNews');
-	btn?.addEventListener('click', (event) => {
-		event.stopPropagation();
-
-		const script = document.createElement('script');
-		script.setAttribute('type', 'text/javascript');
-		script.setAttribute('src', 'https://static.mailerlite.com/js/w/webforms.min.js?v28bf44f740701752bfc6767bc7e171d4');
-		document.getElementsByTagName('head')[0].appendChild(script);
-
-		btn.style.display = 'none';
-
-		const form = document.getElementById('mlb2-7341216');
-		if (form) {
-			form.style.display = 'block';
-		}
-
-		// Mailerlite's webforms.min.js shows .ml-block-success after submit
-		// but doesn't reset the form input, AND clicking anywhere
-		// in the form container causes Mailerlite's internal state to flip back
-		// to the populated form. Watch the success block; once it's revealed:
-		//   - clear the email input so the form is reset if it ever re-shows
-		//   - hide the form sibling permanently so the success state is sticky
-		//   - swallow click events on the success block so Mailerlite's
-		//     internal click handlers can't toggle back to the form
-		const successBlock = form?.querySelector<HTMLElement>('.ml-block-success');
-		const formBlock = form?.querySelector<HTMLFormElement>('form.ml-block-form');
-		const emailInput = form?.querySelector<HTMLInputElement>('input[type="email"]');
-		const loadingBtn = form?.querySelector<HTMLElement>('.loading');
-		if (successBlock && formBlock) {
-			const showSuccess = () => {
-				if (emailInput) emailInput.value = '';
-				formBlock.style.setProperty('display', 'none', 'important');
-				successBlock.style.setProperty('display', 'block', 'important');
-				if (loadingBtn) loadingBtn.style.display = 'none';
-			};
-			const observer = new MutationObserver(() => {
-				if (getComputedStyle(successBlock).display !== 'none') showSuccess();
-			});
-			observer.observe(successBlock, { attributes: true, attributeFilter: ['style', 'class'] });
-			successBlock.addEventListener('click', (e) => e.stopPropagation());
-
-			// Watchdog — Mailerlite's webforms.min.js sometimes never transitions
-			// out of the loading state when its AJAX submit fails (CORS / network
-			// quirks); the spinner stays up forever. Tail the loading button:
-			// once it's been visible for >12s, assume the POST went through and
-			// flip to success ourselves. The form action is a fire-and-forget
-			// endpoint that accepts cross-origin POSTs, so the email almost
-			// always lands even when the JS handshake is broken.
-			if (loadingBtn) {
-				const loadingObserver = new MutationObserver(() => {
-					if (getComputedStyle(loadingBtn).display === 'none') return;
-					setTimeout(() => {
-						if (getComputedStyle(loadingBtn).display === 'none') return;
-						if (getComputedStyle(successBlock).display !== 'none') return;
-						showSuccess();
-					}, 12000);
-				});
-				loadingObserver.observe(loadingBtn, { attributes: true, attributeFilter: ['style', 'class'] });
-			}
-		}
-	});
-</script>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
@@ -398,15 +335,7 @@ const currentYear = new Date().getFullYear();
 				}
 
 				.sr-only {
-					position: absolute;
-					width: 1px;
-					height: 1px;
-					padding: 0;
-					margin: -1px;
-					overflow: hidden;
-					clip: rect(0, 0, 0, 0);
-					white-space: nowrap;
-					border: 0;
+					@include visually-hidden;
 				}
 			}
 

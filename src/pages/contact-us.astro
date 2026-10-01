@@ -2,9 +2,11 @@
 // TEMP-INTERNAL-NAV
 import InternalNav from '@root/pages/internal/_InternalNav.astro';
 import BaseLayout from '@layouts/BaseLayout.astro';
-import { Icon } from 'astro-icon/components';
-import ContactForm from '../components/ContactForm.astro';
-import PricingBackground from '../components/Pricing/PricingBackground.astro';
+import ContactForm from '@components/ContactForm.astro';
+import PageIntro from '@components/Landing/PageIntro.astro';
+import PricingBackground from '@components/Pricing/PricingBackground.astro';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
 
 // The heading the page opens with, and the one that replaces it when a Private Cloud order lands
 // here (`?pcorder`, from the pricing plans). The swap runs inline before first paint, so the reader
@@ -58,9 +60,17 @@ const ELSEWHERE = [
 	<PricingBackground />
 	<div class="contact-page">
 		<header class="contact-intro">
-			<p class="contact-intro__eyebrow" data-intro="eyebrow">{INTRO.eyebrow}</p>
-			<h1 class="contact-intro__title" data-intro="title">{INTRO.title}</h1>
-			<p class="contact-intro__lede" data-intro="lede">{INTRO.lede}</p>
+			<PageIntro
+				eyebrow={INTRO.eyebrow}
+				title={INTRO.title}
+				lede={INTRO.lede}
+				ledeMeasure="narrow"
+				partAttrs={{
+					eyebrow: { 'data-intro': 'eyebrow' },
+					title: { 'data-intro': 'title' },
+					subtitle: { 'data-intro': 'lede' },
+				}}
+			/>
 		</header>
 		<script is:inline define:vars={{ INTENTS }}>
 			(() => {
@@ -86,22 +96,18 @@ const ELSEWHERE = [
 				{
 					ELSEWHERE.map((item) => (
 						<li class="contact-elsewhere__item">
-							<span class="contact-elsewhere__icon" aria-hidden="true">
-								<Icon name={item.icon} />
-							</span>
+							<Mark size={48} icon={item.icon} fill="white" accent="neutral" lift />
 							<span class="contact-elsewhere__text">
 								<span class="contact-elsewhere__lead">{item.lead}</span>
-								<a
+								<Link
 									class="contact-elsewhere__link"
 									href={item.href}
-									{...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+									tone="ink"
+									external={item.external}
+									dir={item.external ? undefined : 'none'}
 								>
 									{item.label}
-									{item.external && (
-										<Icon name="tabler:arrow-up-right" class="contact-elsewhere__ext" aria-hidden="true" />
-									)}
-									{item.external && <span class="contact-sr"> (opens in a new tab)</span>}
-								</a>
+								</Link>
 							</span>
 						</li>
 					))
@@ -160,7 +166,7 @@ const ELSEWHERE = [
 			padding-bottom: $spacing-16;
 		}
 
-		:where(p, h1, h2, ul) {
+		:where(p, h2, ul) {
 			margin: 0;
 		}
 	}
@@ -174,29 +180,12 @@ const ELSEWHERE = [
 			margin-bottom: $spacing-8;
 		}
 
-		&__eyebrow {
-			@include type-eyebrow;
-			margin-bottom: $spacing-3;
-			color: var(--color-primary);
-		}
-
-		&__title {
-			@include type-title;
-			color: var(--color-text);
+		// `PageIntro` sets the parts (the narrow lede: 46ch, the secondary grey, 16 on phones); the page
+		// keeps one thing beyond them: the title stays balanced, so wherever it breaks its lines come
+		// out even. Through the header's own classes, one level deeper than its rules, so it wins on
+		// weight rather than on stylesheet order.
+		:global(.section-header .section-header__title) {
 			text-wrap: balance;
-		}
-
-		&__lede {
-			@include type-body;
-			max-width: 44ch;
-			margin-top: $spacing-5;
-			font-size: $font-size-lg;
-			line-height: 1.55;
-			color: var(--color-text-secondary);
-
-			@include media-down(md) {
-				font-size: $font-size-base;
-			}
 		}
 	}
 
@@ -227,32 +216,14 @@ const ELSEWHERE = [
 			list-style: none;
 		}
 
+		// The marks are `Mark` 48, white with the lift, in the neutral scheme's ink (option B: colour on
+		// this page is kept for the action and the outcome). White, not the neutral grey the quiet tiles
+		// take elsewhere: these sit on the page's own ground rather than on a card, where a grey tile
+		// vanished.
 		&__item {
 			display: flex;
 			align-items: flex-start;
 			gap: 14px;
-		}
-
-		&__icon {
-			display: grid;
-			place-items: center;
-			flex: none;
-			width: 48px;
-			height: 48px;
-			border-radius: 32%;
-			// Neutral ink (option B): colour on this page is kept for the action and the outcome. White,
-			// not grey: these sit on the page's own ground rather than on a card, where a grey tile
-			// vanished. The cards' shadow ink lifts them, at a tile's scale.
-			color: var(--color-text);
-			background: var(--color-bg-surface);
-			box-shadow:
-				0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.06),
-				0 6px 14px -6px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.18);
-
-			:global(svg) {
-				width: 26px;
-				height: 26px;
-			}
 		}
 
 		&__text {
@@ -266,41 +237,13 @@ const ELSEWHERE = [
 			color: var(--color-text-secondary);
 		}
 
-		&__link {
-			@include type-link;
-			display: inline-flex;
-			align-items: center;
-			gap: 4px;
+		// `Link` (ink, md) holds its label on one line; a route's label wraps here instead, as the
+		// support portal's does on a phone, and the link is only as wide as its text, so the column
+		// beside it is not a target. Under the item, so it outweighs the kit's own rule.
+		&__item &__link {
 			width: fit-content;
-			color: var(--color-text);
-			text-decoration: none;
+			white-space: normal;
 			overflow-wrap: anywhere;
-
-			&:hover {
-				color: var(--color-primary);
-				text-decoration: underline;
-				text-underline-offset: 3px;
-			}
-
-			:global(.contact-elsewhere__ext) {
-				flex: none;
-				width: 16px;
-				height: 16px;
-				color: var(--color-text-secondary);
-			}
-
-			&:hover :global(.contact-elsewhere__ext) {
-				color: inherit;
-			}
 		}
-	}
-
-	.contact-sr {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0 0 0 0);
-		white-space: nowrap;
 	}
 </style>

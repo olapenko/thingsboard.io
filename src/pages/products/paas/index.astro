@@ -5,10 +5,15 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 import { Icon } from 'astro-icon/components';
 import { Products } from '@models/site.models';
 
+import Band from '@components/ui/Band.astro';
+import Mark from '@components/ui/Mark.astro';
 import Hero from '@components/Landing/Hero.astro';
-import EcosystemMark from '@components/Landing/EcosystemMark.astro';
+import Bookend from '@components/Landing/Bookend.astro';
+import BenefitGrid from '@components/Landing/BenefitGrid.astro';
+import ChoiceBand from '@components/Landing/ChoiceBand.astro';
+import ProductFaq from '@components/Landing/ProductFaq.astro';
+import ProductMatrix from '@components/Landing/ProductMatrix.astro';
 import SectionHeader from '@components/Landing/SectionHeader.astro';
-import PricingBackground from '@components/Pricing/PricingBackground.astro';
 import { buildFaqPageSchema } from '@util/faq-schema';
 
 import {
@@ -21,7 +26,7 @@ import {
 	paasFaq,
 	paasOnPremises,
 	paasShared,
-} from '~/data/paasPage';
+} from '@data/paasPage';
 
 /**
  * ThingsBoard Cloud.
@@ -51,24 +56,21 @@ import {
  *     Cloud-vs-PE table and answers a different question; develop's is Public vs Private.
  *   - The FAQ keeps develop's shape — a sidebar of topics, one panel, six answers behind "Load
  *     more" — with real tab semantics and keyboard support, and degrades to the first topic's
- *     answers as prose when the script does not run.
+ *     answers as prose when the script does not run (`ProductFaq`, shared with On-premises).
+ *   - Every section is a `ui/Band`, and the blocks are the ones the On-premises page renders:
+ *     `BenefitGrid`, `ProductMatrix`, `ChoiceBand`, `ProductFaq`.
  *   - The closing band is the bookend — the same #121425 ground and wave field as `ClosingCta`,
  *     with this page's CTAs instead of the homepage's.
  *
  * The background blobs (`#background` and its seven divs) are gone with the rest of that layer.
  */
 
-// The mark the candidate's deployments band gives ThingsBoard Cloud — `homeProducts` knocks this
-// same asset out white on a squircle filled with the primary, so the product is marked the same way
-// in both places.
-const TB_MARK = '/src/assets/images/landings/thingsboard-mark.svg';
-
 // `Hero` shows the "Top supplier retail 2024" badge for CE, PE and both PaaS products unless a page
 // opts out, and `null` is that opt-out — an omitted prop takes the default instead.
 const HERO_ACHIEVEMENT = null;
 
-// Answers shown per topic before "Load more", as develop shows six. The count is per panel, so
-// the four topics at or under it render no button at all.
+// Answers shown per topic before "More questions", as develop shows six. The count is per panel, so
+// a topic at or under it (Trials, today) renders no button at all.
 const FAQ_VISIBLE = 6;
 
 /**
@@ -76,24 +78,11 @@ const FAQ_VISIBLE = 6;
  *
  * The page shipped none — no schema of any kind — while `Pricing/FaqSection` in this same repo has
  * been emitting it from this builder all along. That matters more here than anywhere: six of the
- * seven topics are behind `hidden` panels and the answers past the sixth are `display: none`, so an
+ * seven topics are behind `hidden` panels and the answers past the sixth are `hidden` too, so an
  * extractor that skips hidden content sees a fraction of what the page actually says. The schema
  * states all of it outright, in a form that does not depend on the markup being crawled at all.
- *
- * `buildFaqPageSchema` wants `{id, label, items: [{id, question, answer}]}`; ours is keyed `q`/`a`,
- * so it is adapted here rather than reshaping the data, which the page itself reads.
  */
-const faqPageSchema = buildFaqPageSchema(
-	paasFaq.map((category, i) => ({
-		id: `paas-faq-${i}`,
-		label: category.title,
-		items: category.items.map((item, j) => ({
-			id: `paas-faq-${i}-${j}`,
-			question: item.q,
-			answer: item.a,
-		})),
-	}))
-);
+const faqPageSchema = buildFaqPageSchema(paasFaq);
 ---
 
 <BaseLayout
@@ -121,14 +110,13 @@ const faqPageSchema = buildFaqPageSchema(
 		]}
 		layout="split"
 		panel={false}
+		buttonsStackBelow={480}
 		showArrow={false}
 		anchorLink="#benefits"
 	>
-		{/* `kicker` is Hero's own slot, directly above the headline — the mark is an inlined SVG
-		    rather than a Tabler name, so it cannot ride on a prop the way a glyph would. */}
-		<span slot="kicker" class="hero-mark" aria-hidden="true">
-			<EcosystemMark src={TB_MARK} class="hero-mark__glyph" filled />
-		</span>
+		{/* `kicker` is Hero's own slot, directly above the headline: the product's app logo, the
+		    ThingsBoard mark knocked out of the page's accent, as the deployments band draws it. */}
+		<Mark slot="kicker" size={{ base: 64, md: 88 }} logo="thingsboard" class="hero-mark" />
 		<ul class="hero-caption" aria-label="Getting started with ThingsBoard Cloud">
 			{
 				paasHeroCaption.map((item) => (
@@ -142,318 +130,101 @@ const faqPageSchema = buildFaqPageSchema(
 	</Hero>
 
 	<section id="overflow">
-		<section id="benefits">
-			<div class="main-div">
-				<SectionHeader
-					title="Why ThingsBoard Cloud"
-					subtitle="For everyone who would like to use ThingsBoard but doesn't want to host their own instance of the platform."
-					titleSize="title"
-					subtitleMeasure="copy"
-				/>
-				<div class="benefit-grid">
-					{
-						paasBenefits.map((benefit) => (
-							<div class="benefit-card">
-								<Icon
-									name={benefit.icon}
-									class="benefit-card__icon"
-									style={`color: ${benefit.color}`}
-									aria-hidden="true"
-								/>
-								<h3 class="benefit-card__title">{benefit.title}</h3>
-								<p class="benefit-card__text">{benefit.description}</p>
-							</div>
-						))
-					}
-				</div>
+		<Band id="benefits" pad={{ top: 'md', bottom: 'lg' }}>
+			<SectionHeader
+				title="Why ThingsBoard Cloud"
+				subtitle="For everyone who would like to use ThingsBoard but doesn't want to host their own instance of the platform."
+				titleSize="title"
+				subtitleMeasure="copy"
+				spacing="md"
+			/>
+			<BenefitGrid items={paasBenefits} />
+		</Band>
+
+		<Band id="shared" ground="tint" pad={{ top: 'md', bottom: 'lg' }}>
+			<SectionHeader
+				title="Platform features"
+				subtitle="Every capability below is included in ThingsBoard Public Cloud and ThingsBoard Private Cloud alike."
+				titleSize="title"
+				subtitleMeasure="copy"
+				spacing="md"
+			/>
+			<div class="shared-groups">
+				{
+					paasShared.map((group) => (
+						<div class="shared-group">
+							{/* The scope rides on the heading, not on each of the seventeen rows. Develop repeats
+							    "Included in ThingsBoard Public Cloud and ThingsBoard Private Cloud" per row because a
+							    merged table cell is meaningless without it; a `<dl>` under a heading is not. Four
+							    headings is enough for the association to land in the same chunk as any row.
+
+							    `sr-only` rather than visible, and it costs nothing to do so: the clip-path technique
+							    leaves the element rendered, so `innerText` — what a headless-browser crawler reads —
+							    still returns it. `display: none` would NOT survive that; only raw `textContent`
+							    keeps it. Measured on this page against its own hidden FAQ panels.
+
+							    Nor is it cloaking. It is not text that exists only for machines: a screen reader
+							    navigating by headings hears "Connect and control devices, Public and Private Cloud",
+							    which is the same mid-section arrival the visible version was there to serve. */}
+							<h3 class="shared-group__title">
+								<Mark size={36} icon={group.icon} accent={group.color} />
+								{group.title}
+								<span class="sr-only">— Public and Private Cloud</span>
+							</h3>
+							<dl class="shared-group__list">
+								{group.rows.map((row) => (
+									<div class="shared-row">
+										<dt>{row.label}</dt>
+										<dd>{row.detail}</dd>
+									</div>
+								))}
+							</dl>
+						</div>
+					))
+				}
 			</div>
-		</section>
+		</Band>
 
-		<section id="shared">
-			<div class="main-div">
-				<SectionHeader
-					title="Platform features"
-					subtitle="Every capability below is included in ThingsBoard Public Cloud and ThingsBoard Private Cloud alike."
-					titleSize="title"
-					subtitleMeasure="copy"
-				/>
-				<div class="shared-groups">
-					{
-						paasShared.map((group) => (
-							<div class="shared-group">
-								{/* The scope rides on the heading, not on each of the seventeen rows. Develop repeats
-								    "Included in ThingsBoard Public Cloud and ThingsBoard Private Cloud" per row because a
-								    merged table cell is meaningless without it; a `<dl>` under a heading is not. Four
-								    headings is enough for the association to land in the same chunk as any row.
+		<Band id="matrix" pad="lg">
+			<SectionHeader
+				title="Public Cloud vs Private Cloud"
+				subtitle="Where the two differ — infrastructure and scale, reliability and operations, compliance, and what each one costs."
+				titleSize="title"
+				subtitleMeasure="copy"
+				spacing="md"
+			/>
+			{/* The column names and marks come from `paasChoice`, so the header pill and the cards below
+			    cannot drift — they are labelling the same two things. */}
+			<ProductMatrix
+				caption="ThingsBoard Public Cloud compared with ThingsBoard Private Cloud"
+				firstLabel="Feature"
+				columns={[paasChoice.options[0], paasChoice.options[1]]}
+				lead={paasCompareLead}
+				groups={paasCompare}
+			/>
+		</Band>
 
-								    `sr-only` rather than visible, and it costs nothing to do so: the clip-path technique
-								    leaves the element rendered, so `innerText` — what a headless-browser crawler reads —
-								    still returns it. `display: none` would NOT survive that; only raw `textContent`
-								    keeps it. Measured on this page against its own hidden FAQ panels.
+		{/* The choice, directly under the table that informs it, its ground the full width as the
+		    bookend's is. */}
+		<ChoiceBand
+			title={paasChoice.title}
+			lead={paasChoice.lead}
+			options={paasChoice.options}
+			productName="ThingsBoard"
+			note={{
+				icon: paasOnPremises.icon,
+				lead: paasOnPremises.lead,
+				link: { text: paasOnPremises.text, href: paasOnPremises.href },
+			}}
+		/>
 
-								    Nor is it cloaking. It is not text that exists only for machines: a screen reader
-								    navigating by headings hears "Connect and control devices, Public and Private Cloud",
-								    which is the same mid-section arrival the visible version was there to serve. */}
-								<h3 class="shared-group__title">
-									<span class="group-mark" style={`--group-mark-color: ${group.color}`} aria-hidden="true">
-										<Icon name={group.icon} />
-									</span>
-									{group.title}
-									<span class="sr-only">— Public and Private Cloud</span>
-								</h3>
-								<dl class="shared-group__list">
-									{group.rows.map((row) => (
-										<div class="shared-row">
-											<dt>{row.label}</dt>
-											<dd>{row.detail}</dd>
-										</div>
-									))}
-								</dl>
-							</div>
-						))
-					}
-				</div>
-			</div>
-		</section>
-
-		<section id="matrix">
-			<div class="main-div">
-				<SectionHeader
-					title="Public Cloud vs Private Cloud"
-					subtitle="Where the two differ — infrastructure and scale, reliability and operations, compliance, and what each one costs."
-					titleSize="title"
-					subtitleMeasure="copy"
-				/>
-
-				{/* `scope` on every header cell: the row labels are headers too, which is what lets a screen
-				    reader announce "Uptime SLA, Private Cloud, 99.9% – 99.99%" instead of the value alone. */}
-				<div class="matrix-scroll">
-					<table class="matrix">
-						<caption class="matrix__caption">
-							ThingsBoard Public Cloud compared with ThingsBoard Private Cloud
-						</caption>
-						<thead>
-							<tr>
-								<th scope="col">Feature</th>
-								{
-									/* Names and marks both come from `paasChoice`, so the pill and the cards below cannot
-									   drift — they are labelling the same two things. */
-									paasChoice.options.map((option) => (
-										<th scope="col">
-											<span class="matrix__col">
-												<Icon name={option.icon} class="matrix__col-mark" aria-hidden="true" />
-												{option.name}
-											</span>
-										</th>
-									))
-								}
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<th scope="row">{paasCompareLead.label}</th>
-								{
-									paasCompareLead.values.map((value, i) => (
-										<td>
-											<span class="matrix__cell-label">{paasChoice.options[i].name}</span>
-											<span>{value}</span>
-										</td>
-									))
-								}
-							</tr>
-							{
-								paasCompare.map((group) => (
-									<>
-										<tr class="matrix__group">
-											{/* A group heading spans the table, so it is a header for everything under it. */}
-											<th scope="colgroup" colspan="3">
-												<span>
-													<span class="group-mark" style={`--group-mark-color: ${group.color}`} aria-hidden="true">
-														<Icon name={group.icon} />
-													</span>
-													{group.title}
-												</span>
-											</th>
-										</tr>
-										{group.rows.map((row) => (
-											<tr>
-												<th scope="row">{row.label}</th>
-												{row.values.map((value, i) => (
-													<td class:list={[value === '—' && 'matrix__none']}>
-														{/* The column's name, in the cell. Hidden above 880 where the header row
-														    does the job; below it the table reflows to blocks and this is what
-														    keeps every value attached to its product. Real text rather than a
-														    `::before`, so it survives both a screen reader and an extractor. */}
-														<span class="matrix__cell-label">{paasChoice.options[i].name}</span>
-														{value === '—' ? <span class="sr-only">Not included</span> : null}
-														<span aria-hidden={value === '—' ? 'true' : undefined}>{value}</span>
-													</td>
-												))}
-											</tr>
-										))}
-									</>
-								))
-							}
-						</tbody>
-					</table>
-				</div>
-
-			</div>
-		</section>
-
-
-		{/* The choice, directly under the table that informs it — and outside that section's measure,
-		    so its ground runs the full width the way the bookend's does. */}
-		<section id="choose">
-			<PricingBackground contained />
-			{/* The choice, directly under the table that informs it. Each card is a plain <div>, not
-			    a link: it carries two actions, and an anchor cannot contain another one. */}
-			<div class="choice__inner">
-				<h3 class="choice__title">{paasChoice.title}</h3>
-				<p class="choice__lead">{paasChoice.lead}</p>
-
-				<div class="choice-grid">
-					{
-						paasChoice.options.map((option) => (
-							<div class="choice-card">
-								<h4 class="choice-card__name">
-									<Icon name={option.icon} class="choice-card__mark" aria-hidden="true" />
-									{option.name}
-								</h4>
-								<p class="choice-card__price">
-									{option.price}
-									<span class="choice-card__price-note">{option.priceNote}</span>
-								</p>
-								<p class="choice-card__summary">{option.summary}</p>
-								<ul class="choice-card__points">
-									{option.points.map((point) => (
-										<li>
-											<Icon name="tabler:check" aria-hidden="true" />
-											{point}
-										</li>
-									))}
-								</ul>
-								<div class="choice-card__actions">
-									<a
-										class:list={['choice-card__cta', `choice-card__cta--${option.cta.variant}`]}
-										href={option.cta.href}
-										{...option.cta.attrs}
-									>
-										<Icon name={option.cta.icon} class="choice-card__cta-icon" aria-hidden="true" />
-										{option.cta.text}
-										{/* Each card's actions read "Try Cloud for free" and "See plans" — fine beside
-										    their own heading, ambiguous in a list of every link on the page. */}
-										<span class="sr-only">— ThingsBoard {option.name}</span>
-									</a>
-									<a class="choice-card__plans" href={option.plansHref}>
-										See plans
-										<span class="sr-only">for ThingsBoard {option.name}</span>
-										<Icon name="tabler:chevron-right" aria-hidden="true" />
-									</a>
-								</div>
-							</div>
-						))
-					}
-				</div>
-
-				<p class="choice-note">
-					<Icon name={paasOnPremises.icon} class="choice-note__mark" aria-hidden="true" />
-					{paasOnPremises.lead}
-					<a href={paasOnPremises.href}>{paasOnPremises.text}</a>
-				</p>
-			</div>
-		</section>
-
-		<section id="faq">
-			<div class="main-div">
-				<SectionHeader
-					title="ThingsBoard Cloud FAQ"
-					titleSize="title"
-				/>
-				{/* Develop's arrangement: a sidebar of topics beside one panel, and each panel showing its
-				    first `FAQ_VISIBLE` answers behind a "Load more". The tabs are real `role="tab"`
-				    buttons with roving tabindex, so the set is operable from the keyboard — arrows to
-				    move, Home/End to the ends — which develop's own sidebar is not. */}
-				<div class="faq-layout">
-					<div class="faq-tabs" role="tablist" aria-orientation="vertical" aria-label="FAQ topics">
-						{
-							paasFaq.map((category, i) => (
-								<button
-									type="button"
-									role="tab"
-									id={`faq-tab-${i}`}
-									class:list={['faq-tab', i === 0 && 'is-active']}
-									aria-controls={`faq-panel-${i}`}
-									aria-selected={i === 0 ? 'true' : 'false'}
-									tabindex={i === 0 ? 0 : -1}
-								>
-									{category.title}
-								</button>
-							))
-						}
-					</div>
-
-					<div class="faq-panels">
-						{
-							paasFaq.map((category, i) => (
-								<div
-									role="tabpanel"
-									id={`faq-panel-${i}`}
-									class="faq-panel"
-									aria-labelledby={`faq-tab-${i}`}
-									hidden={i !== 0}
-								>
-									{category.items.map((item, j) => (
-										<details class:list={['faq-item', j >= FAQ_VISIBLE && 'faq-item--extra']}>
-											<summary>
-												<span>{item.q}</span>
-												<Icon name="tabler:chevron-down" class="faq-item__chevron" aria-hidden="true" />
-											</summary>
-											<div class="faq-item__answer" set:html={item.a} />
-										</details>
-									))}
-									{category.items.length > FAQ_VISIBLE && (
-										<button type="button" class="faq-more" aria-expanded="false">
-											<span class="faq-more__label">More questions</span>
-											<Icon name="tabler:chevron-down" class="faq-more__chevron" aria-hidden="true" />
-										</button>
-									)}
-								</div>
-							))
-						}
-					</div>
-				</div>
-			</div>
-		</section>
+		<Band id="faq" pad="lg">
+			<SectionHeader title="ThingsBoard Cloud FAQ" titleSize="title" spacing="md" />
+			<ProductFaq categories={paasFaq} visibleCount={FAQ_VISIBLE} />
+		</Band>
 	</section>
 
-	{/* The far half of the bookend: ClosingCta's ground and field, this page's calls to action. */}
-	<section class="page-closing">
-		<PricingBackground contained />
-		<div class="page-closing__inner">
-			{/* The hero's own mark, closing the page as it opened — the colour app logo. */}
-			<span class="hero-mark" aria-hidden="true">
-				<EcosystemMark src={TB_MARK} class="hero-mark__glyph" filled />
-			</span>
-			<h2 class="page-closing__title">Ready to build on ThingsBoard Cloud?</h2>
-			<p class="page-closing__lead">
-				Start free on Public Cloud in under five minutes, or talk to our team about a dedicated Private Cloud cluster.
-			</p>
-			<div class="page-closing__actions">
-				<a class="page-closing__primary" href={paasCtas.primary.href} {...paasCtas.primary.attrs}>
-					<Icon name="tabler:cloud-filled" aria-hidden="true" />
-					{paasCtas.primary.text}
-				</a>
-				<a class="page-closing__secondary" href={paasCtas.secondary.href}>
-					<Icon name="tabler:message-circle" aria-hidden="true" />
-					{paasCtas.secondary.text}
-				</a>
-			</div>
-			<p class="page-closing__note">
-				<a href={paasCtas.privacy.href}>{paasCtas.privacy.text}</a>
-			</p>
-		</div>
-	</section>
+	<Bookend id="cloud" ways="buttons" tone="light" links={false} cross={false} />
 	{
 		/* TEMP-INTERNAL-NAV — remove before this branch reaches main, with the homepage's.
 	    The internal switcher, so this page can be reached from the sandbox and back. It is NOT
@@ -464,29 +235,8 @@ const faqPageSchema = buildFaqPageSchema(
 	<InternalNav />
 </BaseLayout>
 
-
-<script>
-	// The FAQ tab set, shared with the On-premises page — see `util/faq-tabs.ts`.
-	import { mountFaqTabs } from '~/util/faq-tabs';
-
-	mountFaqTabs();
-</script>
-
 <style is:global lang="scss">
-	@use '../../../styles/variables' as *;
 	// Every rule this page used to declare inline now lives here, shared with the On-premises page.
 	// See the file header for what a page still sets for itself.
 	@use '../../../styles/product-page';
-
-	// This page's own: the brand indigo on the hero mark, and the white ground the comparison
-	// section sits on. `--matrix-band` has to be a property rather than a literal because the
-	// table's pinned cells repaint it — see the note in the partial.
-	#hero.split .hero-mark,
-	.page-closing .hero-mark {
-		--page-mark-color: #{$color-brand};
-	}
-
-	#matrix {
-		--matrix-band: #fff;
-	}
 </style>

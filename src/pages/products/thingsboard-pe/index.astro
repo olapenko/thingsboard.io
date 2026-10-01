@@ -5,10 +5,15 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 import { Icon } from 'astro-icon/components';
 import { Products } from '@models/site.models';
 
+import Band from '@components/ui/Band.astro';
+import Mark from '@components/ui/Mark.astro';
 import Hero from '@components/Landing/Hero.astro';
-import EcosystemMark from '@components/Landing/EcosystemMark.astro';
+import Bookend from '@components/Landing/Bookend.astro';
+import BenefitGrid from '@components/Landing/BenefitGrid.astro';
+import ChoiceBand from '@components/Landing/ChoiceBand.astro';
+import ProductFaq from '@components/Landing/ProductFaq.astro';
+import ProductMatrix from '@components/Landing/ProductMatrix.astro';
 import SectionHeader from '@components/Landing/SectionHeader.astro';
-import PricingBackground from '@components/Pricing/PricingBackground.astro';
 import { buildFaqPageSchema } from '@util/faq-schema';
 
 import {
@@ -18,15 +23,16 @@ import {
 	onPremCtas,
 	onPremFaq,
 	onPremHeroCaption,
-} from '~/data/onPremPage';
+} from '@data/onPremPage';
 
 /**
  * ThingsBoard On-premises.
  *
  * WIP. The Cloud page's pattern, with develop's on-premises content curated onto it — the copy,
  * prices, plan limits and link targets come from `develop.tbqa.cloud/products/thingsboard-pe/` and
- * live in `src/data/onPremPage.ts`. Everything visual is shared: `styles/_product-page.scss` and
- * `util/faq-tabs.ts` are the same files the Cloud page uses, so the two cannot drift.
+ * live in `src/data/onPremPage.ts`. Everything visual is shared: the blocks (`BenefitGrid`,
+ * `ProductMatrix`, `ChoiceBand`, `ProductFaq`) and `styles/_product-page.scss` are the ones the
+ * Cloud page renders, so the two cannot drift.
  *
  * WHAT THIS PAGE DOES DIFFERENTLY FROM THE CLOUD ONE, and why:
  *
@@ -38,7 +44,8 @@ import {
  *     right-hand column is not a product and the headings say so.
  *   - The decision band is subscription against perpetual licence, which is the actual commercial
  *     choice a self-hosting reader faces. Cloud's is Public against Private.
- *   - The mark is the green `homeProducts` gives On-premises, not the Cloud indigo.
+ *   - The mark is the green `homeProducts` gives On-premises, not the Cloud indigo: the page runs
+ *     the `onprem` accent scheme, on the hero and on the wrapper every band sits in.
  *
  * WHAT DEVELOP HAD THAT IS NOT CARRIED OVER YET — all noted rather than silently dropped.
  * Re-checked against develop section by section, 2026-09-22; the first two were missing from
@@ -68,9 +75,6 @@ import {
  *   - Title and subtitle. Develop's H1 is "ThingsBoard On-premises IoT Platform".
  */
 
-// The same asset the Cloud page knocks out on its squircle. `homeProducts` fills the On-premises
-// badge with #178649, so the two products are marked the same way and coloured differently.
-const TB_MARK = '/src/assets/images/landings/thingsboard-mark.svg';
 /**
  * The product name for RENDERED headings, carrying a non-breaking hyphen (U+2011) so it never
  * splits across two lines — the hero's H1 was breaking after "On-" at tablet widths. Written as an
@@ -155,18 +159,26 @@ const faqPageSchema = buildFaqPageSchema(onPremFaq);
 				// Hidden suffix, not an aria-label, so the name keeps the visible "Install for free".
 				srOnlySuffix: 'ThingsBoard On-premises installation guides',
 			},
-			{ text: onPremCtas.secondary.text, icon: 'tabler:message-circle', href: onPremCtas.secondary.href, variant: 'outline' },
+			{
+				text: onPremCtas.secondary.text,
+				icon: 'tabler:message-circle',
+				href: onPremCtas.secondary.href,
+				variant: 'outline',
+			},
 		]}
 		layout="split"
 		panel={false}
+		accent="onprem"
+		buttonsStackBelow={480}
 		showArrow={false}
 		anchorLink="#benefits"
 	>
-		{/* `kicker` is Hero's own slot, directly above the headline — the mark is an inlined SVG
-		    rather than a Tabler name, so it cannot ride on a prop the way a glyph would. */}
-		<span slot="kicker" class="hero-mark" aria-hidden="true">
-			<EcosystemMark src={TB_MARK} class="hero-mark__glyph" filled />
-		</span>
+		{
+			/* `kicker` is Hero's own slot, directly above the headline: the Cloud page's mark, in the
+		    green `homeProducts` gives On-premises (the hero's `accent`), so the two products are
+		    marked the same way and coloured differently. */
+		}
+		<Mark slot="kicker" size={{ base: 64, md: 88 }} logo="thingsboard" class="hero-mark" />
 		<ul class="hero-caption" aria-label="Getting started with ThingsBoard On-premises">
 			{
 				onPremHeroCaption.map((item) => (
@@ -179,247 +191,69 @@ const faqPageSchema = buildFaqPageSchema(onPremFaq);
 		</ul>
 	</Hero>
 
-	<section id="overflow">
-		<section id="benefits">
-			<div class="main-div">
-				<SectionHeader
-					title={`Why ${NAME}`}
-					subtitle="For teams whose data, network or compliance position means the platform has to live on their own infrastructure."
-					titleSize="title"
-					subtitleMeasure="copy"
-				/>
-				<div class="benefit-grid">
-					{
-						onPremBenefits.map((benefit) => (
-							<div class="benefit-card">
-								<Icon
-									name={benefit.icon}
-									class="benefit-card__icon"
-									style={`color: ${benefit.color}`}
-									aria-hidden="true"
-								/>
-								<h3 class="benefit-card__title">{benefit.title}</h3>
-								<p class="benefit-card__text">{benefit.description}</p>
-							</div>
-						))
-					}
-				</div>
-			</div>
-		</section>
+	{
+		/* The page's scheme for everything below the hero: the buttons, links, tabs and marks inside
+	    take the On-premises green where the Cloud page takes the brand purple. */
+	}
+	<section id="overflow" data-accent="onprem">
+		<Band id="benefits" pad={{ top: 'md', bottom: 'lg' }}>
+			<SectionHeader
+				title={`Why ${NAME}`}
+				subtitle="For teams whose data, network or compliance position means the platform has to live on their own infrastructure."
+				titleSize="title"
+				subtitleMeasure="copy"
+				spacing="md"
+			/>
+			<BenefitGrid items={onPremBenefits} />
+		</Band>
 
-		<section id="matrix">
-			<div class="main-div">
-				<SectionHeader
-					title="ThingsBoard vs a custom IoT stack"
-					subtitle="What the platform brings built in, against what the same solution costs to assemble from separate services."
-					titleSize="title"
-					subtitleMeasure="copy"
-				/>
+		<Band id="matrix" pad="lg">
+			<SectionHeader
+				title="ThingsBoard vs a custom IoT stack"
+				subtitle="What the platform brings built in, against what the same solution costs to assemble from separate services."
+				titleSize="title"
+				subtitleMeasure="copy"
+				spacing="md"
+			/>
+			{
+				/* The right-hand column is NOT a product — the caption says so outright, since a
+			    two-column table invites the reader to assume it is. */
+			}
+			<ProductMatrix
+				caption="ThingsBoard compared with an IoT stack assembled from separate services"
+				firstLabel="Capability"
+				columns={[onPremChoice.columns[0], onPremChoice.columns[1]]}
+				groups={onPremCompare}
+			/>
+		</Band>
 
-				{/* `scope` on every header cell: the row labels are headers too, which is what lets a screen
-				    reader announce "Monitoring, ThingsBoard, Prometheus and Grafana…" instead of the value
-				    alone. The right-hand column is NOT a product — the caption says so outright, since a
-				    two-column table invites the reader to assume it is. */}
-				<div class="matrix-scroll">
-					<table class="matrix">
-						<caption class="matrix__caption">
-							ThingsBoard compared with an IoT stack assembled from separate services
-						</caption>
-						<thead>
-							<tr>
-								<th scope="col">Capability</th>
-								{
-									onPremChoice.columns.map((column) => (
-										<th scope="col">
-											<span class="matrix__col">
-												<Icon name={column.icon} class="matrix__col-mark" aria-hidden="true" />
-												{column.name}
-											</span>
-										</th>
-									))
-								}
-							</tr>
-						</thead>
-						<tbody>
-							{
-								onPremCompare.map((group) => (
-									<>
-										<tr class="matrix__group">
-											{/* A group heading spans the table, so it is a header for everything under it. */}
-											<th scope="colgroup" colspan="3">
-												<span>
-													<span class="group-mark" style={`--group-mark-color: ${group.color}`} aria-hidden="true">
-														<Icon name={group.icon} />
-													</span>
-													{group.title}
-												</span>
-											</th>
-										</tr>
-										{group.rows.map((row) => (
-											<tr>
-												<th scope="row">{row.label}</th>
-												{row.values.map((value, i) => (
-													<td>
-														{/* The column's name, in the cell. Hidden above 880 where the header row
-														    does the job; below it the table reflows to blocks and this is what
-														    keeps every value attached to its column. */}
-														<span class="matrix__cell-label">{onPremChoice.columns[i].name}</span>
-														<span>{value}</span>
-													</td>
-												))}
-											</tr>
-										))}
-									</>
-								))
-							}
-						</tbody>
-					</table>
-				</div>
-			</div>
-		</section>
+		{
+			/* The choice, under the table that informs it, its ground the full width as the bookend's
+		    is. On this page the two options are the two ways to licence a self-hosted deployment,
+		    not two products, so the hidden suffixes name the option alone. The line under the cards
+		    is the mirror of the Cloud page's on-premises line: the exit to the managed alternative. */
+		}
+		<ChoiceBand
+			title={onPremChoice.title}
+			lead={onPremChoice.lead}
+			options={onPremChoice.options}
+			ground="var(--page-hero-ground)"
+			waveHue="var(--page-wave)"
+			note={{
+				icon: onPremCtas.cloud.icon,
+				lead: onPremCtas.cloud.lead,
+				link: { text: onPremCtas.cloud.text, href: onPremCtas.cloud.href },
+				tail: onPremCtas.cloud.tail,
+			}}
+		/>
 
-		{/* The choice, under the table that informs it — and outside that section's measure, so its
-		    ground runs the full width the way the bookend's does. On this page the two options are
-		    the two ways to licence a self-hosted deployment, not two products. */}
-		<section id="choose">
-			<PricingBackground contained />
-			<div class="choice__inner">
-				<h3 class="choice__title">{onPremChoice.title}</h3>
-				<p class="choice__lead">{onPremChoice.lead}</p>
-
-				<div class="choice-grid">
-					{
-						onPremChoice.options.map((option) => (
-							<div class="choice-card">
-								<h4 class="choice-card__name">
-									<Icon name={option.icon} class="choice-card__mark" aria-hidden="true" />
-									{option.name}
-								</h4>
-								<p class="choice-card__price">
-									{option.price}
-									<span class="choice-card__price-note">{option.priceNote}</span>
-								</p>
-								<p class="choice-card__summary">{option.summary}</p>
-								<ul class="choice-card__points">
-									{option.points.map((point) => (
-										<li>
-											<Icon name="tabler:check" aria-hidden="true" />
-											{point}
-										</li>
-									))}
-								</ul>
-								<div class="choice-card__actions">
-									<a
-										class:list={['choice-card__cta', `choice-card__cta--${option.cta.variant}`]}
-										href={option.cta.href}
-									>
-										<Icon name={option.cta.icon} class="choice-card__cta-icon" aria-hidden="true" />
-										{option.cta.text}
-										<span class="sr-only">— {option.name}</span>
-									</a>
-									<a class="choice-card__plans" href={option.plansHref}>
-										See plans
-										<span class="sr-only">for the {option.name}</span>
-										<Icon name="tabler:chevron-right" aria-hidden="true" />
-									</a>
-								</div>
-							</div>
-						))
-					}
-				</div>
-
-				{/* The mirror of the Cloud page's on-premises line: the exit to the managed alternative. */}
-				<p class="choice-note">
-					<Icon name={onPremCtas.cloud.icon} class="choice-note__mark" aria-hidden="true" />
-					{onPremCtas.cloud.lead}
-					<a href={onPremCtas.cloud.href}>{onPremCtas.cloud.text}</a>{onPremCtas.cloud.tail}
-				</p>
-			</div>
-		</section>
-
-		<section id="faq">
-			<div class="main-div">
-				<SectionHeader title={`${NAME} FAQ`} titleSize="title" />
-				<div class="faq-layout">
-					<div class="faq-tabs" role="tablist" aria-orientation="vertical" aria-label="FAQ topics">
-						{
-							onPremFaq.map((category, i) => (
-								<button
-									type="button"
-									role="tab"
-									id={`faq-tab-${i}`}
-									class:list={['faq-tab', i === 0 && 'is-active']}
-									aria-controls={`faq-panel-${i}`}
-									aria-selected={i === 0 ? 'true' : 'false'}
-									tabindex={i === 0 ? 0 : -1}
-								>
-									{category.label}
-								</button>
-							))
-						}
-					</div>
-
-					<div class="faq-panels">
-						{
-							onPremFaq.map((category, i) => (
-								<div
-									role="tabpanel"
-									id={`faq-panel-${i}`}
-									class="faq-panel"
-									aria-labelledby={`faq-tab-${i}`}
-									hidden={i !== 0}
-								>
-									{category.items.map((item, j) => (
-										<details class:list={['faq-item', j >= FAQ_VISIBLE && 'faq-item--extra']}>
-											<summary>
-												<span>{item.question}</span>
-												<Icon name="tabler:chevron-down" class="faq-item__chevron" aria-hidden="true" />
-											</summary>
-											<div class="faq-item__answer" set:html={item.answer} />
-										</details>
-									))}
-									{category.items.length > FAQ_VISIBLE && (
-										<button type="button" class="faq-more" aria-expanded="false">
-											<span class="faq-more__label">More questions</span>
-											<Icon name="tabler:chevron-down" class="faq-more__chevron" aria-hidden="true" />
-										</button>
-									)}
-								</div>
-							))
-						}
-					</div>
-				</div>
-			</div>
-		</section>
+		<Band id="faq" pad="lg">
+			<SectionHeader title={`${NAME} FAQ`} titleSize="title" spacing="md" />
+			<ProductFaq categories={onPremFaq} visibleCount={FAQ_VISIBLE} />
+		</Band>
 	</section>
 
-	<section class="page-closing">
-		<PricingBackground contained />
-		<div class="page-closing__inner">
-			{/* The hero's own mark, closing the page as it opened — the colour app logo. */}
-			<span class="hero-mark" aria-hidden="true">
-				<EcosystemMark src={TB_MARK} class="hero-mark__glyph" filled />
-			</span>
-			<h2 class="page-closing__title">Ready to deploy ThingsBoard?</h2>
-			<p class="page-closing__lead">
-				Start on the Free plan and run it on your own hardware, or talk to our team about a perpetual licence and
-				offline operation.
-			</p>
-			<div class="page-closing__actions">
-				<a class="page-closing__primary" href={onPremCtas.install.href}>
-					<Icon name="tabler:server" aria-hidden="true" />
-					{onPremCtas.install.text}
-				</a>
-				<a class="page-closing__secondary" href={onPremCtas.secondary.href}>
-					<Icon name="tabler:message-circle" aria-hidden="true" />
-					{onPremCtas.secondary.text}
-				</a>
-			</div>
-			<p class="page-closing__note">
-				<a href={onPremCtas.legal.href}>{onPremCtas.legal.text}</a>
-			</p>
-		</div>
-	</section>
+	<Bookend id="onprem" ways="buttons" tone="light" links={false} cross={false} />
 	{
 		/* TEMP-INTERNAL-NAV — remove before this branch reaches main, with the homepage's.
 	    The internal switcher, so this page can be reached from the sandbox and back. It is NOT
@@ -430,54 +264,25 @@ const faqPageSchema = buildFaqPageSchema(onPremFaq);
 	<InternalNav />
 </BaseLayout>
 
-<script>
-	// The FAQ tab set, shared with the Cloud page — see `util/faq-tabs.ts`.
-	import { mountFaqTabs } from '~/util/faq-tabs';
-
-	mountFaqTabs();
-</script>
-
 <style is:global lang="scss">
 	@use '../../../styles/variables' as *;
 	// Every visual rule on this page is the Cloud page's, shared rather than copied.
 	@use '../../../styles/product-page';
 
-	// This page's own, and most of it is one decision: On-premises is the green product, so the
-	// page's own primaries, the hero it opens on and the band it closes on take that green where
-	// the Cloud page takes the brand purple. Site chrome is deliberately NOT in this set — the
-	// header's "Try for free" and the footer's "Subscribe" are the same on every page, and the
-	// partial keeps them on `$color-brand` for that reason.
+	// This page's own grounds, and most of it is one decision: On-premises is the green product, so
+	// the hero it opens on and the band it chooses on take that green's near-black where the Cloud
+	// page takes the bookend indigo. The accent itself is the `onprem` scheme (`data-accent`, on the
+	// hero and on `#overflow`), not a property here. Site chrome is deliberately NOT in this set —
+	// the header's "Try for free" is the same on every page, so it sets `accent="brand"` itself.
 	:root {
-		--page-accent: #{$color-pe-dark};
 		// Near-black with the product's cast, as the Cloud page's `#121425` is near-black with the
-		// primary's. The page opens and closes on the same hue at two lightnesses.
+		// primary's. The page opens and chooses on the same hue at two lightnesses.
 		--page-hero-ground: #101a14;
 		--page-hero-wash: #{rgba($color-pe-dark, 0.32)};
-		--page-band: #f1f8f4;
 		// The field is drawn at 3.5–10% opacity, where `$color-pe-dark` all but vanishes — so the
 		// motion takes the lifted PE green, as the field's own blue is lifted off the brand purple.
 		--page-wave: #{$color-pe-hover};
-		// The chooser's prices sit on the dark band, where the accent itself is unreadable — this
-		// is the same lift `$color-brand-dark` is to `$color-brand`, in the product's hue.
-		--page-accent-light: #b4e7cd;
+		// The ground under the comparison's pinned header row, the green's own pale tint.
 		--page-sticky-band: #e7f4ec;
-		// 5.74:1 on the pinned row. `$color-pe-dark` would be 3.82:1 there — it clears AA as a
-		// fill under white, not as text.
-		--page-accent-ink: #{$color-pe-link};
 	}
-
-	// The comparison keeps a white ground: the two light bands either side of it — the pinned
-	// header and the bookend — are the tinted ones, so the table reads as the thing between them
-	// rather than a third tint.
-	#matrix {
-		--matrix-band: #fff;
-	}
-
-	// The badge takes the same green rather than a second literal of it.
-	#hero.split .hero-mark,
-	.page-closing .hero-mark {
-		--page-mark-color: var(--page-accent);
-	}
-
-
 </style>

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro';
+import RegionChoice from '@components/Landing/RegionChoice.astro';
 ---
 
 <BaseLayout
@@ -14,24 +15,11 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 		<div class="details">
 			<p class="margin">Pick a cluster for localized performance and regulatory compliance.</p>
 		</div>
-		<div class="region-button-section">
-			<a
-				id="TryItNow_Cloud_NorthAmerica"
-				data-region="north-america"
-				class="button gtm_button"
-				href="https://thingsboard.cloud/signup"
-			>
-				North America
-			</a>
-			<a
-				id="TryItNow_Cloud_Europe"
-				data-region="europe"
-				class="button gtm_button"
-				href="https://eu.thingsboard.cloud/signup"
-			>
-				Europe
-			</a>
-		</div>
+		{
+			/* The region dialog's rows, as everywhere else the region is asked. This page is on the old
+		    header, which does not mount the dialog, so the rows carry the analytics ids themselves. */
+		}
+		<RegionChoice layout="row" flow="signup" gtm class="regions" />
 	</section>
 
 	<section class="map-container">
@@ -40,24 +28,23 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 </BaseLayout>
 
 <script>
+	// The map lifts the continent a row leads to while the row is hovered. The map names its two
+	// regions for the continent; the rows carry the region's id.
+	const MAP_REGION: Record<string, string> = { us: 'north-america', eu: 'europe' };
+
 	document.getElementById('map')!.addEventListener('load', function (this: HTMLObjectElement) {
 		const svgDoc = this.contentDocument!;
-		const buttons = document.querySelector('.region-button-section')!.querySelectorAll<HTMLElement>('.button');
+		const rows = document.querySelectorAll<HTMLElement>('.regions .region-choice__row');
 
-		buttons.forEach((button) => {
-			button.addEventListener('mouseenter', () => {
-				svgDoc.querySelector('.' + button.dataset.region)?.classList.add('region-selected');
-			});
-			button.addEventListener('mouseleave', () => {
-				svgDoc.querySelector('.' + button.dataset.region)?.classList.remove('region-selected');
-			});
+		rows.forEach((row) => {
+			const region = () => svgDoc.querySelector('.' + MAP_REGION[row.dataset.region ?? '']);
+			row.addEventListener('mouseenter', () => region()?.classList.add('region-selected'));
+			row.addEventListener('mouseleave', () => region()?.classList.remove('region-selected'));
 		});
 	});
 </script>
 
 <style lang="scss">
-	@use '../../../styles/variables' as *;
-
 	.intro {
 		padding: 40px 30px 55px;
 		width: 830px;
@@ -112,57 +99,12 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 			}
 		}
 
-		.region-button-section {
-			display: flex;
-			gap: 24px;
-
-			@media (max-width: 959px) {
-				justify-content: center;
-				align-items: center;
-			}
-
-			@media (max-width: 599px) {
-				flex-direction: column;
-			}
-
-			// The new pages' primary: the brand fill, 44px, 6px corners, bold, a darker overlay on
-			// hover. This page now takes every old-bar "Try it now", and it still drew the legacy
-			// #2a7dec button (`--tb-main-color` is that blue on pages without the marketing bar).
-			.button {
-				flex: 1;
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				height: 44px;
-				padding: 0 16px;
-				border-radius: $radius-md;
-				color: #fff;
-				background-color: $color-brand;
-				text-decoration: none;
-				font-size: 16px;
-				font-weight: $font-weight-bold;
-				border: 1px solid $color-brand;
-				transition: background-image 0.18s ease;
-				text-align: center;
-
-				@media (max-width: 959px) {
-					width: 200px;
-					max-width: 200px;
-				}
-
-				&:hover {
-					background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
-				}
-
-				&:active {
-					background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3));
-				}
-
-				&:focus-visible {
-					outline: 2px solid $color-brand;
-					outline-offset: 3px;
-				}
-			}
+		// The rows on the measure the hub and the dialog give them, centred under the title; their
+		// own text reads from the start.
+		.regions {
+			max-width: 480px;
+			margin-inline: auto;
+			text-align: start;
 		}
 	}
 

@@ -1,5 +1,6 @@
 ---
-import { Icon } from 'astro-icon/components';
+import Band from '@components/ui/Band.astro';
+import Link from '@components/ui/Link.astro';
 import TrustVisual from '@components/Landing/TrustVisual.astro';
 import TrustVisualStages from '@components/Landing/TrustVisualStages.astro';
 import SectionHeader from '@components/Landing/SectionHeader.astro';
@@ -16,9 +17,10 @@ import { TRUST_COPY, TRUST_HEADING, TRUST_POINTS } from '@data/home-trust';
  * edge is the change of ground, so it needs no border. (They were three columns of text on the rows'
  * own tint, each under a black glyph, until 2026-09-26.)
  *
- * The band is an inner `div`, not the `section`. The homepage flattens every section's background
- * (`:root section:not(...) { background: none }` in `index.astro`, (0,3,1)), which a scoped rule
- * here cannot outrank without an id; a div is simply not in that rule's reach.
+ * The section is a `ui/Band` (a fade to 14% of the brand, 64 above and below, 48 on a phone), which
+ * paints its own ground: the homepage's rule that flattens section backgrounds leaves bands alone.
+ * The cards take the tile surface through the `surface()` mixin rather than `ui/Card`, because each
+ * is a row of the list's subgrid.
  */
 
 interface Props {
@@ -45,72 +47,63 @@ const { drawings = 'stages', heading = false, ground = 'rise' } = Astro.props;
 const Drawing = drawings === 'stages' ? TrustVisualStages : TrustVisual;
 ---
 
-<section
+<Band
 	id="trust"
 	class:list={['trust', drawings === 'stages' && 'trust--stages', `trust--${ground}`]}
-	aria-labelledby={heading ? undefined : 'trust-title'}
-	aria-label={heading ? TRUST_HEADING.title : undefined}
+	ground="fade"
+	strength={14}
+	hue="var(--color-brand, #3d50f5)"
+	attrs={{
+		'aria-labelledby': heading ? undefined : 'trust-title',
+		'aria-label': heading ? TRUST_HEADING.title : undefined,
+	}}
 >
-	<div class="trust__band">
-		<div class="main-div">
-			{
-				heading ? (
-					<SectionHeader
-						title={TRUST_HEADING.title}
-						subtitle={TRUST_HEADING.subtitle}
-						titleSize="section"
-						subtitleMeasure="copy"
-					/>
-				) : (
-					<h2 id="trust-title" class="trust__title">
-						{TRUST_COPY.title}
-					</h2>
-				)
-			}
-			<ul class="trust__list" role="list">
-				{
-					TRUST_POINTS.map((p) => (
-						<li class="trust__item">
-							<div class="trust__visual">
-								<Drawing kind={p.kind} />
-							</div>
-							<h3 class="trust__name">{p.title}</h3>
-							<p class="trust__text">{p.body}</p>
-							<a class="trust__link" href={p.link.href}>
-								{p.link.text}
-								<Icon name="tabler:chevron-right" aria-hidden="true" />
-							</a>
-						</li>
-					))
-				}
-			</ul>
-		</div>
-	</div>
-</section>
+	{
+		heading ? (
+			<SectionHeader
+				title={TRUST_HEADING.title}
+				subtitle={TRUST_HEADING.subtitle}
+				titleSize="section"
+				subtitleMeasure="copy"
+			/>
+		) : (
+			<h2 id="trust-title" class="trust__title">
+				{TRUST_COPY.title}
+			</h2>
+		)
+	}
+	<ul class="trust__list" role="list">
+		{
+			TRUST_POINTS.map((p) => (
+				<li class="trust__item">
+					<div class="trust__visual">
+						<Drawing kind={p.kind} />
+					</div>
+					<h3 class="trust__name">{p.title}</h3>
+					<p class="trust__text">{p.body}</p>
+					<Link href={p.link.href} class="trust__link">
+						{p.link.text}
+					</Link>
+				</li>
+			))
+		}
+	</ul>
+</Band>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
 
 	.trust {
 		scroll-margin-top: calc(#{$header-height} + var(--promo-h, 0px));
 	}
 
 	// THE BOOKENDS' INDIGO, top to bottom: white to 14% of the brand at the foot, the colour `#121425`
-	// — the Products ground — is mixed from, so this band reads as the approach to the dark one rather
-	// than as a step before it. The rows' construction, and the voices band's above the closing CTA.
-	// It was a flat cool grey (#e9ecf5) for a pass, then 6% to 14%.
-	.trust__band {
-		padding-block: $spacing-16;
-		background: linear-gradient(180deg, #fff 0%, color-mix(in srgb, var(--color-brand, #3d50f5) 14%, #fff) 100%);
-
-		@include media-down(md) {
-			padding-block: $spacing-12;
-		}
-	}
-
-	// Turned over: the indigo at the top, against the use cases' white, and white at the foot.
-	.trust--fall .trust__band {
-		background: linear-gradient(180deg, color-mix(in srgb, var(--color-brand, #3d50f5) 14%, #fff) 0%, #fff 100%);
+	// (the Products ground) is mixed from, so this band reads as the approach to the dark one rather
+	// than as a step before it. The Band paints it. Turned over for the sandbox's `fall`: the indigo at
+	// the top, against the use cases' white, and white at the foot.
+	.trust.trust--fall {
+		background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-brand, #3d50f5) 14%, #fff) 0%, #fff 100%);
 	}
 
 	.trust__title {
@@ -143,13 +136,11 @@ const Drawing = drawings === 'stages' ? TrustVisualStages : TrustVisual;
 		row-gap: 0;
 		justify-items: start;
 		margin: 0;
-		padding: $spacing-6;
-		// 8, the corner of every card in a grid on these pages (16 is for a card that stands alone).
-		border-radius: $radius-lg;
-		background: var(--color-bg-surface, #fff);
-		// No border, still: the ground starts at white now, so a card's top would dissolve into it. A
-		// soft shadow draws the edge the ground no longer does — the tile lift every card shares.
-		box-shadow: var(--elev-tile);
+		// The tile: r8, the tile lift, the tile's 20. No border: the ground starts at white, so a card's
+		// top would dissolve into it, and the lift draws the edge the ground no longer does.
+		@include surface(tile);
+
+		padding: $spacing-5;
 	}
 
 	.trust__visual {
@@ -164,11 +155,10 @@ const Drawing = drawings === 'stages' ? TrustVisualStages : TrustVisual;
 		text-wrap: balance;
 	}
 
-	// With the stages drawings, the titles a step down, at 20 — off the homepage's seven-size ladder,
-	// which has nothing between the card's 24 and the tile's 16. It shipped this way; the ladder still
-	// needs the size, or the titles take 16. The `cards` reference keeps `type-card`.
+	// With the stages drawings, the titles a step down, at `type-tile-lg`'s 20, the step the ladder
+	// gained for exactly this (decision 8). The `cards` reference keeps `type-card`.
 	.trust--stages .trust__name {
-		font-size: $font-size-xl;
+		@include type-tile-lg;
 	}
 
 	.trust__text {
@@ -177,30 +167,13 @@ const Drawing = drawings === 'stages' ? TrustVisualStages : TrustVisual;
 		color: var(--color-text);
 	}
 
-	// A card's link, one step under the rows' section link: `type-link`, the body size, where the rows
-	// take `type-action`. These three sit inside cards beside a drawing, and at the rows' size they
-	// read as three section headings' worth of links. One still chevron, underlined on hover and focus.
+	// A card's link, one step under the rows' section link: `ui/Link` at md, the body size, where the
+	// rows take lg. These three sit inside cards beside a drawing, and at the rows' size they read as
+	// three section headings' worth of links. Pushed to the foot of the card's row.
 	.trust__link {
-		@include type-link;
-		display: inline-flex;
-		align-items: center;
 		align-self: end;
-		padding-top: $spacing-4;
-		color: var(--color-primary, #{$color-brand});
-		text-decoration: none;
-
-		// 20 at 16px: the chevron link's 1.25em, as the ecosystem and dashboard links have it.
-		:global([data-icon]) {
-			width: 20px;
-			height: 20px;
-			margin-left: -1px;
-		}
-
-		&:hover,
-		&:focus-visible {
-			text-decoration: underline;
-			text-underline-offset: 3px;
-		}
+		justify-self: start;
+		margin-top: $spacing-4;
 	}
 
 	// One card to a row below the three-up grid. From md to lg the room is wide and short, so the

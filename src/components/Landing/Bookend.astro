@@ -1,47 +1,42 @@
 ---
-import { Icon } from 'astro-icon/components';
-import PricingBackground from '@components/Pricing/PricingBackground.astro';
-import SmartImage from '@components/SmartImage.astro';
-import tbMark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
-import { externalLinkAttrs } from '@util/external-links';
+import Band from '@components/ui/Band.astro';
+import Button from '@components/ui/Button.astro';
+import ButtonGroup from '@components/ui/ButtonGroup.astro';
+import InstallOptions from '@components/Landing/InstallOptions.astro';
+import Link from '@components/ui/Link.astro';
+import LinkCard from '@components/ui/LinkCard.astro';
+import Mark from '@components/ui/Mark.astro';
+import RegionChoice from '@components/Landing/RegionChoice.astro';
 import {
 	BOOKEND_ALL_OPTIONS,
 	BOOKEND_CLOUD_PLANS,
 	BOOKEND_PLATFORMS,
-	BOOKEND_REGIONS,
 	BOOKENDS,
 	type BookendAction,
 	type BookendId,
 } from '@data/bookends';
 
 /**
- * THE BOOKEND: the band that closes a marketing page, over its footer — the candidate for
- * `ClosingCta` (homepage) and the `.page-closing` bands of the Cloud and On-premises pages, which
- * are three copies of one shape. Judged at `/internal/sections/footer/`; not wired in.
+ * THE BOOKEND: the band that closes a marketing page, over its footer. The homepage and the Cloud
+ * and On-premises pages close on it (it replaced `ClosingCta` and the two `.page-closing` copies).
+ * Judged at `/internal/sections/footer/`.
+ *
+ * Built from the kit: the ground and the wave are a `Band`, the mark a `Mark`, the actions `Button`s
+ * in a `ButtonGroup`, the regions `RegionChoice`, the platforms `InstallOptions` (the hub's chips), the quiet links `Link`s
+ * (the chevron: they stay on the site) and the side cards `LinkCard`s. What is the bookend's own is
+ * the shape and the words.
  *
  * `id` picks the page's words (`data/bookends.ts`); `ways` picks what the way in is made of, and
  * with it the layout:
  *
- * - `buttons` — CENTRED, as all three pages ship today: the mark, the title, the lead, the primary
- *   and the secondary, then whatever the page adds under them (a question, a line across, a note).
+ * - `buttons`: CENTRED, the mark, the title, the lead, the primary and the secondary, then what the
+ *   page adds (a question, the quiet links, a line across, a legal note).
+ * - `regions`, `platforms`, `cards`: COLUMNS, an intro (a smaller title, the lead, the buttons)
+ *   beside the way in: Cloud's two regions, four On-premises guides, or two tall cards.
  *
- * The rest are COLUMNS (2026-09-30, after a Stripe-like example of the layout): an intro column —
- * a smaller title, the lead, the buttons — beside one or two columns that ARE the way in. Only what
- * the decision needs; the mark, the question, the line across and the legal note go, the footer
- * under the band carries the legal links and the pricing link.
- *
- * - `regions` — Cloud's two regions, each a sign-up on its host, in place of the primary: sign-up has
- *   to know the region, so the band asks it here rather than in a dialog.
- * - `platforms` — four of the On-premises guides and a link to the rest, beside the install pair.
- * - `cards` — the pair under the lede (Try for free, Install On-premises) and two tall cards beside
- *   it, pricing and contact: the homepage's form once sign-up sends each visitor to their region.
- *
- * The regions and guides are the installations hub's own data. The region cards are WHITE on either
- * ground, so on the dark one they are the brightest thing in the band — the thing to press.
- *
- * `tone` is the ground: `dark` (the homepage's, `#121425` with the wave in indigo) or `light` (the
- * product pages', their own tint with the wave in their accent). Set as `data-tone`, so the
- * sandbox's switch can flip every instance without a re-render.
+ * `tone` is the ground: `dark` (the bookend indigo, the wave in `--band-wave`) or `light` (the
+ * page's own tint, the wave in its accent). `links` and `cross` switch the quiet links and the line
+ * to the other platform, which a page that already says them (On-premises' choice note) leaves out.
  */
 
 interface Props {
@@ -50,41 +45,42 @@ interface Props {
 	tone?: 'dark' | 'light';
 	/** Where the homepage's "Talk to an expert" goes; the `live` order passes main's. */
 	expertHref?: string;
+	/** The quiet links ("See plans") beside the way in. */
+	links?: boolean;
+	/** The line to the other platform. */
+	cross?: boolean;
 }
 
 const DEFAULT_WAYS = { home: 'buttons', cloud: 'regions', onprem: 'platforms' } as const;
 const DEFAULT_TONE = { home: 'dark', cloud: 'light', onprem: 'light' } as const;
 
-const { id, ways = DEFAULT_WAYS[id], tone = DEFAULT_TONE[id], expertHref } = Astro.props;
+const {
+	id,
+	ways = DEFAULT_WAYS[id],
+	tone = DEFAULT_TONE[id],
+	expertHref,
+	links: showLinks = true,
+	cross: showCross = true,
+} = Astro.props;
 const b = BOOKENDS[id];
 const ask = b.ask && expertHref ? { ...b.ask, action: { ...b.ask.action, href: expertHref } } : b.ask;
 const columns = ways !== 'buttons';
-
-// The centred layout's mark, in both dresses; CSS shows the one the page and tone want, so the tone
-// can flip without a re-render. The TILE — a white squircle with the mark in near-black, as main's
-// homepage closes — is the homepage's on either ground, and a product page's on the dark one; the
-// ACCENT — the mark knocked out of the page's colour, the product pages' app logo — is a product
-// page's on the light one. One SVG, in `currentColor`, serves both.
-const mark = tbMark.replace(/<svg\b/, '<svg aria-hidden="true"');
+const dark = tone === 'dark';
 
 // With the regions and side cards (the homepage's): the regions are the path, under the lede, and
 // the other ways on are the side cards; no buttons.
 const side = ways === 'regions' ? b.side : undefined;
-
-// With the cards (the homepage's redirect form): the pair under the lede, and two tall cards beside
-// it — pricing and contact — in a row.
+// With the cards: the pair under the lede, and two tall cards beside it.
 const cards = ways === 'cards' ? b.cards : undefined;
-// The contact card goes where the page's "Talk to an expert" goes (the `live` order passes main's).
 const cardHref = (c: { href: string }) => (ask && c.href === b.ask?.action.href ? ask.action.href : c.href);
 
-type Button = { a: BookendAction; kind: 'primary' | 'secondary' };
-const primary = (a: BookendAction): Button => ({ a, kind: 'primary' });
-const secondary = (a: BookendAction): Button => ({ a, kind: 'secondary' });
+type Action = { a: BookendAction; kind: 'primary' | 'secondary' };
+const primary = (a: BookendAction): Action => ({ a, kind: 'primary' });
+const secondary = (a: BookendAction): Action => ({ a, kind: 'secondary' });
 
-// The intro's buttons. Where the regions are the way in, the buttons are the OTHER ways — outlines,
-// so the white cards stay the thing to press (and none at all when side cards carry them); with the
-// platforms, and centred, the pair.
-const buttons: Button[] = side
+// Where the regions are the way in, the buttons are the OTHER ways (outlines, so the white region
+// rows stay the thing to press; none at all when side cards carry them).
+const actions: Action[] = side
 	? []
 	: cards
 		? [primary(cards.primary), secondary(b.secondary)]
@@ -92,329 +88,185 @@ const buttons: Button[] = side
 			? [secondary(b.secondary), ...(ask ? [secondary(ask.action)] : [])]
 			: [primary(b.primary), secondary(b.secondary)];
 
-const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
+// The scheme the page's colour belongs to, so the buttons, links and marks inside take it.
+const accent = b.accent === '#178649' ? 'onprem' : 'brand';
 ---
 
-<section
+<Band
 	class:list={['bk', columns ? 'bk--cols' : 'bk--center']}
-	data-tone={tone}
-	data-ways={ways}
-	data-product={b.badge ? '' : undefined}
-	style={style}
+	ground={dark ? 'dark' : 'tint'}
+	groundColor={dark ? undefined : b.band}
+	wave
+	waveHue={dark ? 'var(--band-wave)' : b.accent}
+	pad="xl"
+	accent={accent}
+	innerClass="bk__inner"
+	attrs={{ 'data-tone': tone, 'data-ways': ways, 'data-product': b.badge ? '' : undefined }}
 >
-	<PricingBackground contained />
-
-	<div class="bk__inner">
-		<div class="bk__intro">
-			{
-				!columns && (
-					<Fragment>
-						<span class="bk__mark bk__mark--tile" aria-hidden="true" set:html={mark} />
-						<span class="bk__mark bk__mark--accent" aria-hidden="true" set:html={mark} />
-					</Fragment>
-				)
-			}
-			{columns && b.badge && <span class="bk__badge" aria-hidden="true" set:html={mark} />}
-			<h2 class="bk__title">{b.title}</h2>
-			<p class="bk__lead">{b.lead}</p>
-			{
-				side && (
-					<Fragment>
-						<p class="bk__caption">{b.primary.text}</p>
-						<ul class="bk__regions">
-							{BOOKEND_REGIONS.map((r) => (
-								<li class="bk__region" data-region={r.id}>
-									<a href={r.signup} {...externalLinkAttrs(r.signup)}>
-										<span class="bk__globe">
-											<Icon name="tabler:world" aria-hidden="true" />
-										</span>
-										<span class="bk__region-name">
-											{r.name}
-											<small>{r.note}</small>
-										</span>
-										<span class="bk__region-cta">
-											Sign up
-											<span class="bk__sr"> for ThingsBoard Cloud in {r.name}</span>
-											<Icon name="tabler:chevron-right" aria-hidden="true" />
-										</span>
-									</a>
-								</li>
-							))}
-						</ul>
-					</Fragment>
-				)
-			}
-			<div class="bk__actions">
-				{
-					buttons.map(({ a, kind }) => (
-						<a class:list={['bk__btn', `bk__btn--${kind}`]} href={a.href} {...a.attrs}>
-							<Icon name={a.icon} aria-hidden="true" />
-							{a.text}
-						</a>
-					))
-				}
-			</div>
-
-			{
-				!columns && ask && (
-					<div class="bk__ask">
-						<p class="bk__ask-label">{ask.label}</p>
-						<a class="bk__btn bk__btn--secondary" href={ask.action.href}>
-							<Icon name={ask.action.icon} aria-hidden="true" />
-							{ask.action.text}
-						</a>
-					</div>
-				)
-			}
-			{
-				!columns && b.links && (
-					<p class="bk__links">
-						{b.links.map((l) => (
-							<a class="bk__more" href={l.href}>
-								{l.text}
-								<Icon name="tabler:arrow-right" aria-hidden="true" />
-							</a>
-						))}
-					</p>
-				)
-			}
-			{
-				!columns && b.cross && (
-					<p class="bk__cross">
-						{b.cross.lead} <a href={b.cross.link.href}>{b.cross.link.text}</a>
-						{b.cross.tail}
-					</p>
-				)
-			}
-			{
-				!columns && b.note && (
-					<p class="bk__note">
-						<a href={b.note.href}>{b.note.text}</a>
-					</p>
-				)
-			}
-		</div>
-
+	<div class="bk__intro">
+		{
+			/* The centred layout's mark: the homepage's white tile with the logo in ink (on either
+			   ground, as main's homepage closes), a product page's app logo knocked out of its colour
+			   on the light ground. The column layout's badge is the product's, a step smaller. */
+			!columns &&
+				(b.badge && !dark ? (
+					<Mark size={80} logo="thingsboard" class="bk__mark" />
+				) : (
+					<Mark size={80} logo="thingsboard" fill="white" lift={!dark} class="bk__mark" />
+				))
+		}
+		{columns && b.badge && <Mark size={48} logo="thingsboard" class="bk__badge" />}
+		<h2 class="bk__title">{b.title}</h2>
+		<p class="bk__lead">{b.lead}</p>
 		{
 			side && (
-				<ul class="bk__side">
-					{side.map((c) => (
-						<li>
-							<a class="bk__card" href={c.title === ask?.action.text ? ask.action.href : c.href}>
-								<span class="bk__card-icon">
-									<Icon name={c.icon} aria-hidden="true" />
-								</span>
-								<span class="bk__card-text">
-									<span class="bk__card-title">{c.title}</span>
-									<span class="bk__card-line">{c.line}</span>
-								</span>
-								<Icon name="tabler:chevron-right" class="bk__card-go" aria-hidden="true" />
-							</a>
-						</li>
-					))}
-				</ul>
-			)
-		}
-
-		{
-			cards && (
-				<ul class="bk__side bk__side--row">
-					{cards.items.map((c) => (
-						<li>
-							<a class="bk__card bk__card--tall" href={cardHref(c)}>
-								<span class="bk__card-icon">
-									<Icon name={c.icon} aria-hidden="true" />
-								</span>
-								<span class="bk__card-title">{c.title}</span>
-								<span class="bk__card-line">{c.line}</span>
-							</a>
-						</li>
-					))}
-				</ul>
-			)
-		}
-
-		{
-			ways === 'regions' && !side && (
-				<div class="bk__col">
+				<>
 					<p class="bk__caption">{b.primary.text}</p>
-					<ul class="bk__regions">
-						{BOOKEND_REGIONS.map((r) => (
-							<li class="bk__region" data-region={r.id}>
-								<a href={r.signup} {...externalLinkAttrs(r.signup)}>
-									<span class="bk__globe">
-										<Icon name="tabler:world" aria-hidden="true" />
-									</span>
-									<span class="bk__region-name">
-										{r.name}
-										<small>{r.note}</small>
-									</span>
-									<span class="bk__region-cta">
-										Sign up
-										<span class="bk__sr"> for ThingsBoard Cloud in {r.name}</span>
-										<Icon name="tabler:chevron-right" aria-hidden="true" />
-									</span>
-								</a>
-							</li>
-						))}
-					</ul>
-					{id === 'cloud' && (
-						<a class="bk__more" href={BOOKEND_CLOUD_PLANS.href}>
-							{BOOKEND_CLOUD_PLANS.text}
-							<Icon name="tabler:arrow-right" aria-hidden="true" />
-						</a>
-					)}
-				</div>
+					<RegionChoice layout="row" srSuffix="for ThingsBoard Cloud" class="bk__regions" />
+				</>
+			)
+		}
+		{
+			actions.length > 0 && (
+				<ButtonGroup align={columns ? 'start' : 'center'} class="bk__actions">
+					{actions.map(({ a, kind }) => (
+						<Button variant={kind} icon={a.icon} href={a.href} attrs={a.attrs}>
+							{a.text}
+						</Button>
+					))}
+				</ButtonGroup>
 			)
 		}
 
 		{
-			ways === 'platforms' && (
-				<div class="bk__col">
-					<p class="bk__caption">On your servers</p>
-					<ul class="bk__chips">
-						{BOOKEND_PLATFORMS.map((o) => (
-							<li>
-								<a class="bk__chip" href={o.href}>
-									<SmartImage src={o.logo} alt="" width="90" height="18" loading="lazy" />
-									{o.label}
-									{o.note && <span class="bk__chip-note">{o.note}</span>}
-								</a>
-							</li>
-						))}
-					</ul>
-					<a class="bk__more" href={BOOKEND_ALL_OPTIONS.href}>
-						{BOOKEND_ALL_OPTIONS.text}
-						<Icon name="tabler:arrow-right" aria-hidden="true" />
-					</a>
+			!columns && ask && (
+				<div class="bk__ask">
+					<p class="bk__ask-label">{ask.label}</p>
+					<Button variant="secondary" icon={ask.action.icon} href={ask.action.href}>
+						{ask.action.text}
+					</Button>
 				</div>
+			)
+		}
+		{
+			!columns && showLinks && b.links && (
+				<p class="bk__links">
+					{b.links.map((l) => (
+						<Link href={l.href} tone="ink">
+							{l.text}
+						</Link>
+					))}
+				</p>
+			)
+		}
+		{
+			!columns && showCross && b.cross && (
+				<p class="bk__cross">
+					{b.cross.lead}{' '}
+					<Link variant="inline" href={b.cross.link.href}>
+						{b.cross.link.text}
+					</Link>
+					{b.cross.tail}
+				</p>
+			)
+		}
+		{
+			!columns && b.note && (
+				<p class="bk__note">
+					<Link variant="inline" tone="muted" href={b.note.href}>
+						{b.note.text}
+					</Link>
+				</p>
 			)
 		}
 	</div>
-</section>
+
+	{
+		side && (
+			<ul class="bk__side">
+				{side.map((c) => (
+					<LinkCard
+						as="li"
+						tone={dark ? 'ghost' : 'surface'}
+						href={c.title === ask?.action.text ? ask.action.href : c.href}
+						title={c.title}
+						line={c.line}
+						icon={c.icon}
+					/>
+				))}
+			</ul>
+		)
+	}
+
+	{
+		cards && (
+			<ul class="bk__side bk__side--row">
+				{cards.items.map((c) => (
+					<LinkCard
+						as="li"
+						layout="tall"
+						tone={dark ? 'ghost' : 'surface'}
+						href={cardHref(c)}
+						title={c.title}
+						line={c.line}
+						icon={c.icon}
+					/>
+				))}
+			</ul>
+		)
+	}
+
+	{
+		ways === 'regions' && !side && (
+			<div class="bk__col">
+				<p class="bk__caption">{b.primary.text}</p>
+				<RegionChoice layout="row" srSuffix="for ThingsBoard Cloud" class="bk__regions" />
+				{id === 'cloud' && showLinks && (
+					<Link href={BOOKEND_CLOUD_PLANS.href} class="bk__more">
+						{BOOKEND_CLOUD_PLANS.text}
+					</Link>
+				)}
+			</div>
+		)
+	}
+
+	{
+		ways === 'platforms' && (
+			<div class="bk__col">
+				<InstallOptions groups={[{ title: 'On your servers', items: BOOKEND_PLATFORMS }]} class="bk__chips" />
+				<Link href={BOOKEND_ALL_OPTIONS.href} class="bk__more">
+					{BOOKEND_ALL_OPTIONS.text}
+				</Link>
+			</div>
+		)
+	}
+</Band>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
-	// ---- The two grounds ----------------------------------------------------------------------
-	//
-	// Everything below reads these, so a tone is one block. DARK is `ClosingCta`'s: `#121425`, white
-	// type at the lede's 0.72, the wave in indigo. LIGHT is the product pages' `.page-closing`: the
-	// page's own tint, the site's text colours, the wave in the page's accent.
+	// The ground, the wave, the padding steps and the measure are the Band's; the type and the
+	// layout are the bookend's. Light first, then the dark ground's whites.
 	.bk {
-		--bk-ground: var(--band-indigo);
+		--bk-text: var(--color-text, #17181c);
+		--bk-soft: var(--color-text-secondary, #{$color-text-secondary});
+
+		color: var(--bk-text);
+	}
+
+	.bk[data-tone='dark'] {
 		--bk-text: #fff;
 		--bk-soft: rgba(255, 255, 255, 0.72);
-		--bk-muted: rgba(255, 255, 255, 0.6);
-		--bk-outline: rgba(255, 255, 255, 0.35);
-		--bk-outline-strong: rgba(255, 255, 255, 0.55);
-		--bk-outline-hover: rgba(255, 255, 255, 0.14);
-		--bk-outline-active: rgba(255, 255, 255, 0.22);
-		--bk-wave: var(--band-wave);
-		--bk-focus: #fff;
-		--bk-link: #fff;
-		--bk-side: rgba(255, 255, 255, 0.06);
-		--bk-side-hover: rgba(255, 255, 255, 0.1);
-		--bk-side-icon: rgba(255, 255, 255, 0.08);
-
-		position: relative;
-		overflow: hidden;
-		// A stacking context, so the field's `z-index: -1` lands above this ground rather than behind it.
-		isolation: isolate;
-		padding: 96px 0;
-		background-color: var(--bk-ground);
-		color: var(--bk-text);
-
-		@include media-down(md) {
-			padding: 64px 0;
-		}
-
-		// The field is another component's markup, which a scoped rule cannot reach.
-		:global(.pricing-bg) {
-			--pricing-wave-color: var(--bk-wave);
-		}
-	}
-
-	.bk[data-tone='light'] {
-		--bk-ground: var(--bk-band);
-		--bk-text: var(--color-text, #17181c);
-		--bk-soft: var(--color-text-secondary, #5b616e);
-		--bk-muted: var(--color-text-secondary, #5b616e);
-		// The page ink, as every outlined button on a light ground.
-		--bk-outline: rgba(23, 24, 28, 0.18);
-		--bk-outline-strong: rgba(23, 24, 28, 0.18);
-		--bk-outline-hover: rgba(23, 24, 28, 0.05);
-		--bk-outline-active: rgba(23, 24, 28, 0.1);
-		--bk-wave: var(--bk-accent);
-		--bk-focus: var(--bk-accent);
-		--bk-link: var(--bk-accent);
-		--bk-side: rgba(255, 255, 255, 0.72);
-		--bk-side-hover: #fff;
-		--bk-side-icon: rgba(15, 23, 42, 0.06);
-	}
-
-	a {
-		text-decoration: none;
-	}
-
-	// The 960 measure inside 20px of padding — `ClosingCta`'s and every card grid's.
-	.bk__inner {
-		position: relative;
-		z-index: 1;
-		max-width: calc(960px + #{$spacing-5} * 2);
-		margin-inline: auto;
-		padding-inline: $spacing-5;
 	}
 
 	// ---- Centred (buttons) ---------------------------------------------------------------------
-
-	.bk--center .bk__inner {
+	.bk--center :global(.bk__inner) {
 		text-align: center;
 	}
 
-	.bk__mark {
-		display: none;
-		align-items: center;
-		justify-content: center;
-		width: 80px;
-		height: 80px;
-		margin: 0 auto 14px;
-		padding: 12px;
-		border-radius: 32%;
-
-		:global(svg) {
-			display: block;
-			width: 100%;
-			height: 100%;
-		}
-	}
-
-	// Main's homepage close, to the value: the white squircle washed 5% toward the primary at its foot,
-	// the mark flat in #111318, 12px in. On the light ground a hairline shadow gives the tile its edge.
-	.bk__mark--tile {
-		display: flex;
-		color: #111318;
-		background: linear-gradient(155deg, #fff 35%, color-mix(in srgb, #3d50f5 5%, #fff) 100%);
-	}
-
-	.bk[data-tone='light'] .bk__mark--tile {
-		box-shadow:
-			0 1px 2px rgba(23, 24, 28, 0.06),
-			0 6px 18px rgba(23, 24, 28, 0.08);
-	}
-
-	// A product page on the light ground: its app logo instead, the tile hidden.
-	.bk[data-tone='light'][data-product] {
-		.bk__mark--tile {
-			display: none;
-		}
-
-		.bk__mark--accent {
-			display: flex;
-			padding: 14px;
-			color: #fff;
-			background: var(--bk-accent);
-		}
+	.bk__intro :global(.bk__mark) {
+		display: grid;
+		margin: 0 auto $spacing-4;
 	}
 
 	.bk__title {
@@ -429,25 +281,52 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 
 	.bk__lead {
 		@include type-body;
+
 		margin: 0 auto $spacing-8;
 		max-width: 52ch;
 		color: var(--bk-soft);
 		text-wrap: pretty;
 	}
 
-	.bk__actions {
+	.bk__ask {
+		display: grid;
+		justify-items: center;
+		margin-top: $spacing-8;
+	}
+
+	.bk__ask-label {
+		@include type-body;
+
+		margin: 0 0 $spacing-3;
+		color: var(--bk-soft);
+	}
+
+	.bk__links {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
-		gap: $spacing-3;
+		gap: $spacing-2 $spacing-5;
+		margin: $spacing-6 0 0;
+	}
+
+	.bk__cross {
+		@include type-body;
+
+		margin: $spacing-6 0 0;
+		color: var(--bk-soft);
+	}
+
+	.bk__note {
+		@include type-small;
+
+		margin: $spacing-8 0 0;
+		color: var(--bk-soft);
 	}
 
 	// ---- Columns -------------------------------------------------------------------------------
-	//
-	// The intro left, the way in beside it, the two columns sharing the measure evenly. The title is a
-	// step down from the centred one's 40 — 32 at most — so a two-line title fits the half.
-
-	.bk--cols .bk__inner {
+	// The intro left, the way in beside it, the two columns sharing the measure evenly. The title a
+	// step down from the centred one's 40, so a two-line title fits the half.
+	.bk--cols :global(.bk__inner) {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: $spacing-10 $spacing-12;
@@ -459,24 +338,13 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		}
 	}
 
-	// The product's badge over the title, left with it: the mark knocked out of the page's accent, the
-	// product pages' app logo at 56 — under the centred mark's 64, over a smaller title.
-	.bk__badge {
-		display: grid;
-		place-items: center;
-		width: 56px;
-		height: 56px;
-		margin-bottom: $spacing-5;
-		padding: 11px;
-		border-radius: 32%;
-		background: var(--bk-accent);
-		color: #fff;
+	.bk--cols:has(.bk__side) :global(.bk__inner) {
+		align-items: center;
+	}
 
-		:global(svg) {
-			display: block;
-			width: 100%;
-			height: 100%;
-		}
+	.bk__intro :global(.bk__badge) {
+		display: grid;
+		margin-bottom: $spacing-5;
 	}
 
 	.bk--cols .bk__title {
@@ -490,25 +358,31 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		max-width: 44ch;
 	}
 
-	.bk--cols .bk__actions {
-		justify-content: flex-start;
-	}
-
 	.bk__col {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
+		gap: $spacing-4;
 		min-width: 0;
 	}
 
-	// The homepage's regions-first form: the regions under the lede, full width of the intro, and the
-	// side cards in the second column, centred against it.
-	.bk--cols .bk__intro .bk__regions {
-		margin-bottom: 0;
+	.bk__intro :global(.bk__regions) {
+		margin-bottom: $spacing-6;
 	}
 
-	.bk--cols:has(.bk__side) .bk__inner {
-		align-items: center;
+	.bk__col :global(.bk__regions) {
+		width: 100%;
+	}
+
+	.bk__caption {
+		@include type-eyebrow;
+
+		margin: 0 0 $spacing-3;
+		color: var(--bk-soft);
+	}
+
+	.bk__col .bk__caption {
+		margin: 0;
 	}
 
 	.bk__side {
@@ -519,71 +393,6 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		list-style: none;
 	}
 
-	// A side door: an icon on a neutral tile, a name over one line, a chevron — no accent anywhere, so
-	// the white region cards stay the path. The ground's own white at low alpha, a step up on hover.
-	.bk__card {
-		display: flex;
-		align-items: center;
-		gap: $spacing-4;
-		padding: $spacing-4;
-		border-radius: $radius-lg;
-		background: var(--bk-side);
-		color: var(--bk-text);
-		transition: background-color 0.15s;
-
-		&:hover {
-			background: var(--bk-side-hover);
-
-			.bk__card-title {
-				text-decoration: underline;
-				text-underline-offset: 3px;
-			}
-		}
-
-		&:focus-visible {
-			outline: 2px solid var(--bk-focus);
-			outline-offset: 3px;
-		}
-	}
-
-	.bk__card-icon {
-		display: grid;
-		flex: none;
-		place-items: center;
-		width: 40px;
-		height: 40px;
-		// The site's squircle corner, as every other mark.
-		border-radius: 32%;
-		background: var(--bk-side-icon);
-		color: var(--bk-text);
-
-		:global(svg) {
-			width: 20px;
-			height: 20px;
-		}
-	}
-
-	.bk__card-text {
-		display: flex;
-		flex: 1 1 auto;
-		flex-direction: column;
-		min-width: 0;
-	}
-
-	.bk__card-title {
-		font-size: $font-size-base;
-		font-weight: $font-weight-bold;
-		line-height: 1.35;
-	}
-
-	.bk__card-line {
-		font-size: $font-size-sm;
-		line-height: 1.5;
-		color: var(--bk-soft);
-	}
-
-	// The tall card (the redirect form's): the icon over the title over the line, two across. Two
-	// across down to the smallest phones, where they stack.
 	.bk__side--row {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: $spacing-4;
@@ -591,389 +400,5 @@ const style = `--bk-accent: ${b.accent}; --bk-band: ${b.band}`;
 		@include media-down(sm) {
 			grid-template-columns: minmax(0, 1fr);
 		}
-	}
-
-	.bk__card--tall {
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0;
-		height: 100%;
-		padding: $spacing-5;
-
-		.bk__card-icon {
-			margin-bottom: $spacing-4;
-		}
-
-		.bk__card-line {
-			margin-top: $spacing-1;
-		}
-	}
-
-	.bk__card :global(.bk__card-go) {
-		flex: none;
-		width: 18px;
-		height: 18px;
-		color: var(--bk-muted);
-	}
-
-	// What the column is: the primary's own words ("Start free on Cloud"), or the hub's group name.
-	.bk__caption {
-		margin: 0 0 $spacing-3;
-		font-size: $font-size-sm;
-		font-weight: $font-weight-bold;
-		line-height: 1.5;
-		color: var(--bk-text);
-	}
-
-	// ---- Buttons -------------------------------------------------------------------------------
-	//
-	// `ClosingCta`'s geometry, which is the hero pair's: 44 high, 16 across, an 18px glyph.
-
-	.bk__btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		height: 44px;
-		padding: 0 16px;
-		border-radius: $radius-md;
-		font-size: 16px;
-		font-weight: $font-weight-bold;
-		transition:
-			background-color 0.15s,
-			border-color 0.15s,
-			background-image 0.15s;
-
-		:global(svg) {
-			width: 20px;
-			height: 20px;
-			flex: 0 0 auto;
-		}
-
-		&:focus-visible {
-			outline: 2px solid var(--bk-focus);
-			outline-offset: 3px;
-		}
-	}
-
-	// The site's primary, as `index.astro` and `_product-page.scss` dress the hero's, the header's and
-	// the closing band's: the fill darkened by a 20% black overlay on hover and 30% pressed (a
-	// background-image, so the type stays crisp), and one skewed highlight swept across on hover.
-	.bk__btn--primary {
-		border: 1px solid var(--bk-accent);
-		background-color: var(--bk-accent);
-		color: #fff;
-
-		&:hover {
-			background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
-		}
-
-		&:active {
-			background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3));
-		}
-	}
-
-	// The shimmer, the pages' own — transform-only, once per hover. Both buttons carry it on the dark
-	// ground, as the homepage's closing band has it; on the light one the outlined secondary does
-	// not, where the white sweep would cross it as a smear (the product pages' rule).
-	.bk__btn--primary,
-	.bk[data-tone='dark'] .bk__btn--secondary {
-		position: relative;
-		overflow: hidden;
-		isolation: isolate;
-
-		&::after {
-			content: '';
-			position: absolute;
-			top: 0;
-			bottom: 0;
-			left: 0;
-			width: 45%;
-			z-index: -1;
-			pointer-events: none;
-			background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.38), transparent);
-			transform: translateX(-160%) skewX(-18deg);
-		}
-
-		&:hover::after,
-		&:focus-visible::after {
-			animation: bk-shimmer 0.75s cubic-bezier(0.4, 0, 0.2, 1);
-		}
-	}
-
-	@keyframes bk-shimmer {
-		from {
-			transform: translateX(-160%) skewX(-18deg);
-		}
-		to {
-			transform: translateX(320%) skewX(-18deg);
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.bk__btn::after {
-			animation: none !important;
-		}
-	}
-
-	.bk__btn--secondary {
-		border: 1px solid var(--bk-outline);
-		color: var(--bk-text);
-
-		// The rule brightens with the tint, as on the hero's and the homepage closing band's.
-		&:hover {
-			background-color: var(--bk-outline-hover);
-			border-color: var(--bk-outline-strong);
-		}
-
-		// Pressed, a step past hover: the hero's own outline button goes 0.14 → 0.22 white.
-		&:active {
-			background-color: var(--bk-outline-active);
-		}
-	}
-
-	// ---- Regions -------------------------------------------------------------------------------
-	//
-	// The installations hub's rows: a globe in the region's hue, the region over where its data stays,
-	// "Sign up" at the end. WHITE on both grounds: on the dark one they pop, and the hues and text are
-	// the light ones throughout. Stacked in their column.
-
-	.bk__regions {
-		display: grid;
-		gap: $spacing-3;
-		width: 100%;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	.bk__region {
-		--region-hue: #3d50f5;
-
-		&[data-region='eu'] {
-			--region-hue: var(--region-eu);
-		}
-
-		a {
-			display: flex;
-			align-items: center;
-			gap: $spacing-3;
-			padding: $spacing-3 $spacing-4;
-			border-radius: $radius-lg;
-			background: var(--color-bg-surface, #fff);
-			color: var(--color-text, #17181c);
-			box-shadow: var(--elev-tile);
-			transition: box-shadow 0.18s ease;
-
-			// The hub's rows, which this draws again: a wider shadow, no lift.
-			&:hover {
-				box-shadow: var(--elev-tile-hover);
-			}
-
-			&:focus-visible {
-				outline: 2px solid var(--bk-focus);
-				outline-offset: 3px;
-			}
-		}
-	}
-
-	.bk__globe {
-		display: grid;
-		flex: none;
-		place-items: center;
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
-		background: color-mix(in srgb, var(--region-hue) 12%, #fff);
-		color: var(--region-hue);
-
-		:global(svg) {
-			width: 22px;
-			height: 22px;
-		}
-	}
-
-	.bk__region-name {
-		display: flex;
-		flex: 1 1 auto;
-		flex-direction: column;
-		min-width: 0;
-		font-weight: $font-weight-bold;
-		line-height: 1.3;
-
-		small {
-			@include type-small;
-
-			font-weight: $font-weight-normal;
-			color: var(--color-text-secondary, #{$color-text-secondary});
-		}
-	}
-
-	// In the brand, as on the hub: the Europe teal is a graphics colour and fails as 14px text.
-	.bk__region-cta {
-		@include type-small-strong;
-
-		display: inline-flex;
-		flex: none;
-		align-items: center;
-		gap: $spacing-1;
-		color: $color-brand;
-		white-space: nowrap;
-
-		:global(svg) {
-			width: 18px;
-			height: 18px;
-		}
-	}
-
-	// ---- Platforms -----------------------------------------------------------------------------
-	//
-	// The hub's chips: a wordmark and the name, each to its guide. White in both tones — the
-	// wordmarks are drawn for a light ground, and Docker's penguin and apple are black.
-
-	.bk__chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: $spacing-2;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	// The hub's chip (`installations/index.astro`), to the value: its type, tokens and hover.
-	.bk__chip {
-		@include type-body;
-
-		display: inline-flex;
-		align-items: center;
-		gap: $spacing-2;
-		height: 40px;
-		padding: 0 $spacing-4;
-		border: 1px solid rgba(23, 24, 28, 0.12);
-		border-radius: $radius-full;
-		background: var(--color-bg-surface, #fff);
-		color: var(--color-text, #17181c);
-		font-weight: $font-weight-medium;
-		white-space: nowrap;
-		transition:
-			border-color 0.15s,
-			background-color 0.15s;
-
-		:global(img) {
-			width: auto;
-			height: 20px;
-		}
-
-		&:hover {
-			border-color: rgba(23, 24, 28, 0.3);
-			background-color: rgba(23, 24, 28, 0.03);
-		}
-
-		&:focus-visible {
-			outline: 2px solid var(--bk-focus);
-			outline-offset: 3px;
-		}
-	}
-
-	.bk[data-tone='dark'] .bk__chip {
-		border-color: transparent;
-
-		&:hover {
-			border-color: rgba(255, 255, 255, 0.6);
-		}
-	}
-
-	.bk__chip-note {
-		color: var(--color-text-secondary, #{$color-text-secondary});
-		font-weight: $font-weight-normal;
-	}
-
-	// ---- Links, the ask, the line across, the note ---------------------------------------------
-
-	.bk__more {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		margin-top: $spacing-4;
-		font-size: $font-size-sm;
-		font-weight: $font-weight-medium;
-		line-height: 1.5;
-		color: var(--bk-link);
-
-		:global(svg) {
-			width: 16px;
-			height: 16px;
-			transition: transform 0.15s;
-		}
-
-		&:hover {
-			text-decoration: underline;
-			text-underline-offset: 3px;
-
-			:global(svg) {
-				transform: translateX(2px);
-			}
-		}
-	}
-
-	.bk__links {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: 0 $spacing-6;
-		margin: $spacing-2 0 0;
-	}
-
-	.bk__ask {
-		margin-top: $spacing-8;
-	}
-
-	.bk__ask-label {
-		@include type-body;
-		margin: 0 0 $spacing-3;
-		color: var(--bk-soft);
-	}
-
-	.bk__cross {
-		margin: $spacing-6 0 0;
-		font-size: $font-size-sm;
-		line-height: 1.5;
-		color: var(--bk-muted);
-
-		a {
-			font-weight: $font-weight-medium;
-			color: var(--bk-text);
-			text-decoration: underline;
-			text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
-			text-underline-offset: 3px;
-
-			&:hover {
-				text-decoration-color: currentColor;
-			}
-		}
-	}
-
-	.bk__note {
-		margin: $spacing-6 0 0;
-		font-size: $font-size-sm;
-		line-height: 1.5;
-
-		a {
-			color: var(--bk-muted);
-			text-decoration: underline;
-			text-underline-offset: 3px;
-
-			&:hover {
-				color: var(--bk-text);
-			}
-		}
-	}
-
-	.bk__sr {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0 0 0 0);
-		white-space: nowrap;
 	}
 </style>

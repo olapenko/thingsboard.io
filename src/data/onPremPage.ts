@@ -13,6 +13,7 @@
  */
 
 import type { FaqCategory } from '@data/pricing/types';
+import type { Benefit, ChoiceOption, CompareColumn, CompareGroup } from '@data/product-blocks';
 import { tbSelfManagedFaq } from '@data/pricing/faq/tb-self-managed';
 import { INSTALL_GUIDE_HREF } from '@data/cta-destinations';
 
@@ -22,15 +23,6 @@ const CONTACT = '/contact-us/';
 const CONTACT_SALES = '/contact-us/?subject=ThingsBoard%20Products&message=I%20have%20a%20question%20about%20ThingsBoard%20On-premises';
 const PRICING_SUBSCRIPTION = '/pricing/?section=thingsboard-pe-options&product=thingsboard-pe';
 const PRICING_PERPETUAL = '/pricing/?section=thingsboard-pe-options&product=thingsboard-pe&solution=pe-perpetual';
-
-export interface OnPremBenefit {
-	/** Tabler name, rendered as a bare coloured glyph — `FeatureTile`'s treatment. */
-	icon: string;
-	/** The glyph's hue. Every value is one already used on the Cloud page. */
-	color: string;
-	title: string;
-	description: string;
-}
 
 /**
  * The six tiles.
@@ -47,7 +39,7 @@ export interface OnPremBenefit {
  * file justifies its six on the grounds that every value already appears on that page; none of them
  * appears on this one.
  */
-export const onPremBenefits: OnPremBenefit[] = [
+export const onPremBenefits: Benefit[] = [
 	{
 		// FAQ, Security & Compliance: "Your data is stored on your own infrastructure, whether
 		// on-premise or in the cloud" and "you have full control over data storage location".
@@ -146,7 +138,7 @@ export const onPremBenefits: OnPremBenefit[] = [
  * published SLA covers Public and Private Cloud only, and its migration path moves the reader off
  * their own infrastructure — so it cannot be a card on a page whose premise is that they stay on it.
  */
-export const onPremChoice = {
+export const onPremChoice: { title: string; lead: string; columns: CompareColumn[]; options: ChoiceOption[] } = {
 	title: 'Pay monthly, or once',
 	lead: 'Both run on infrastructure you control. The monthly route starts free and charges once you outgrow it; the perpetual one is bought once and does not expire.',
 	/** The comparison table's two column headings, so the table and the band cannot drift. */
@@ -191,7 +183,7 @@ export const onPremChoice = {
 				'Change tier any time, prorated automatically',
 			],
 			// The glyph is the HERO pair's own — the action's mark, not the option's.
-			cta: { text: 'Install for free', icon: 'tabler:server', href: INSTALL_GUIDE_HREF, variant: 'primary' as const },
+			cta: { text: 'Install for free', icon: 'tabler:server', href: INSTALL_GUIDE_HREF, variant: 'primary' },
 			// ⚠ STALE, knowingly: this lands on the old ladder — Maker $10 through Business $499 —
 			// which the card above no longer describes. Left pointing there until `/pricing/`
 			// carries the current model; see the note on `onPremFaq` for the same problem.
@@ -228,34 +220,20 @@ export const onPremChoice = {
 				text: 'Talk to sales',
 				icon: 'tabler:message-circle',
 				href: '/contact-us/?subject=ThingsBoard%20Products&message=I%20am%20interested%20in%20Self-managed%20perpetual%20license',
-				variant: 'secondary' as const,
+				variant: 'secondary',
 			},
 			plansHref: PRICING_PERPETUAL,
 		},
 	],
 };
 
-export interface CompareRow {
-	label: string;
-	/** ThingsBoard, then a custom-assembled stack. */
-	values: [string, string];
-}
-
-export interface CompareGroup {
-	title: string;
-	/** Tabler name for the group's mark. */
-	icon: string;
-	/** The mark's hue — one rotation through the table. */
-	color: string;
-	rows: CompareRow[];
-}
-
 /**
  * "ThingsBoard vs Custom IoT stack", all 35 rows.
  *
  * Note this is a DIFFERENT comparison from the Cloud page's. There the two columns are two ways to
  * buy the same product; here they are "use this platform" against "assemble one yourself", so the
- * right-hand column is not a product at all. The column headings say so.
+ * right-hand column is not a product at all. The column headings say so. Each row's values read
+ * ThingsBoard, then a custom-assembled stack — the order of `onPremChoice.columns`.
  */
 export const onPremCompare: CompareGroup[] = [
 	{

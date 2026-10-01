@@ -2,6 +2,8 @@
 import { Products } from '@models/site.models';
 import { Icon } from 'astro-icon/components';
 import SmartImage from '@components/SmartImage.astro';
+import Button from '@components/ui/Button.astro';
+import ButtonGroup from '@components/ui/ButtonGroup.astro';
 import { relForTarget } from '@util/external-links';
 
 interface HeroButton {
@@ -112,6 +114,17 @@ interface Props {
 	 */
 	panel?: boolean;
 	/**
+	 * `split` only: the accent scheme the hero's buttons take (`data-accent`), the On-premises
+	 * page's green where it is not the brand.
+	 */
+	accent?: 'brand' | 'onprem';
+	/**
+	 * `split` only: the width of the buttons' row under which the pair stacks full width
+	 * (`ButtonGroup`'s `stackBelow`). The product pages stack on a phone; the homepage keeps its
+	 * pair side by side.
+	 */
+	buttonsStackBelow?: 400 | 480;
+	/**
 	 * Additional CSS class for hero section
 	 */
 	className?: string;
@@ -131,6 +144,8 @@ const {
 	achievement,
 	layout = 'center',
 	panel = true,
+	accent,
+	buttonsStackBelow,
 	className = '',
 } = Astro.props;
 
@@ -199,7 +214,12 @@ const MEASURE_COPY = `(() => {
 })();`;
 ---
 
-<section id="hero" class:list={['light-text', layout === 'split' && 'split', hasPanel && 'split--panel', className]}>
+<section
+	id="hero"
+	class:list={['light-text', layout === 'split' && 'split', hasPanel && 'split--panel', className]}
+	data-surface={layout === 'split' ? 'dark' : undefined}
+	data-accent={layout === 'split' ? accent : undefined}
+>
 	<!-- arrow-hidden sentinel: IntersectionObserver-driven, replaces a forced-reflow scroll listener -->
 	<div class="hero-scroll-sentinel" aria-hidden="true"></div>
 	{
@@ -240,7 +260,31 @@ const MEASURE_COPY = `(() => {
 		<h2 class="header-animation tb-sub-title">{subtitle}</h2>
 
 		{
-			buttons.length > 0 && (
+			/* The split hero (every new page) draws its pair with `ui/Button`: the primary carries the
+			   shimmer, the one place besides the header's "Try for free" that keeps it. The centred
+			   layout, which only the older pages use, keeps its own buttons until they move. */
+			buttons.length > 0 && layout === 'split' && (
+				<ButtonGroup class="header-animation hero-buttons" gap="sm" stackBelow={buttonsStackBelow}>
+					{buttons.map((button) => (
+						<Button
+							href={button.href}
+							variant={button.variant === 'outline' || button.variant === 'white' ? 'secondary' : 'primary'}
+							icon={button.icon}
+							iconEnd={button.trailingIcon}
+							shimmer={button.variant === 'brand' || button.variant === 'primary'}
+							srSuffix={button.srOnlySuffix}
+							external={button.target === '_blank'}
+							attrs={{ 'aria-label': button.ariaLabel, ...button.attrs }}
+						>
+							{button.text}
+							{button.suffix && <span class="btn-suffix">{button.suffix}</span>}
+						</Button>
+					))}
+				</ButtonGroup>
+			)
+		}
+		{
+			buttons.length > 0 && layout !== 'split' && (
 				<div class="header-animation hero-buttons">
 					{buttons.map((button) => (
 						<a
@@ -751,104 +795,24 @@ const MEASURE_COPY = `(() => {
 					text-shadow: none;
 				}
 
+				// The pair is `ui/Button` in a `ButtonGroup` (8 apart); the geometry, the overlays, the
+				// shimmer and the ring are the component's. What stays here is where the row sits.
+				// `align-self: stretch` because a stacking group is a size container, which a centred
+				// flex column would otherwise shrink to nothing.
 				.hero-buttons {
+					display: block;
+					align-self: stretch;
+				}
+
+				.hero-buttons :global(.ui-btn-group__row) {
 					justify-content: flex-start;
 				}
 
-				.button,
-				.learn-tb {
-					display: inline-flex;
-					align-items: center;
-					gap: 8px;
-					height: 44px;
-					line-height: 1;
-					font-size: 16px;
-					padding: 0 16px;
-					// Both carry a shimmer, so both need a clipping stacking context.
-					position: relative;
-					overflow: hidden;
-					isolation: isolate;
-					border-width: 1px;
-					text-shadow: none;
-					// The new pages' one button corner: the closing bands, cards and chooser buttons
-					// all use 6px, and these two were the 4px exception from the old hero.
-					border-radius: $radius-md;
-				}
-
-				// The deployment target reads as a qualifier, not part of the action —
-				// icon and label share one weight and sit as a pair, set tighter than
-				// the row gap so they read as "Cloud" rather than two elements.
-				.btn-suffix {
+				// The deployment target reads as a qualifier, not part of the action: the secondary's
+				// weight and the muted white, set tighter than the row gap.
+				:global(.btn-suffix) {
 					color: var(--hero-muted, rgba(255, 255, 255, 0.65));
-					// Matches the secondary rather than the primary's bold label, so the two
-					// deployment targets carry the same weight across both buttons.
 					font-weight: $font-weight-medium;
-				}
-
-				.btn-chevron {
-					color: var(--hero-muted, rgba(255, 255, 255, 0.65));
-					// Heavier than the 2px tabler default so it holds against bold type.
-					stroke-width: 3;
-					margin-left: -2px;
-				}
-
-				.btn-suffix-icon {
-					color: var(--hero-muted, rgba(255, 255, 255, 0.65));
-				}
-
-				.btn-suffix-icon + .btn-suffix {
-					margin-left: -4px;
-				}
-
-				.hero-buttons {
-					gap: 8px;
-				}
-
-				// A full-strength white rule competes with the primary's fill; this
-				// still reads as an edge without shouting.
-				// Bold like the primary beside it and every other outlined button on these pages; the
-				// old hero's 500 made the pair read as two different kinds of control.
-				.learn-tb {
-					border-color: rgba(255, 255, 255, 0.35);
-					font-weight: $font-weight-bold;
-				}
-
-				.learn-tb:hover,
-				.learn-tb:focus-visible {
-					border-color: rgba(255, 255, 255, 0.55);
-				}
-
-				// Primary: brand purple, matching the header CTA and the n-button
-				// primaries further down the page. White on #3d50f5 measures 5.73:1,
-				// so it clears AA. The shimmer itself lives in index.astro, applied to
-				// every primary on the page at once.
-				.button.brand {
-					background-color: $color-brand;
-					border: 1px solid $color-brand;
-					color: #fff;
-					font-weight: $font-weight-bold;
-				}
-
-				// The hero CTAs had no focus styling at all — keyboard users got only
-				// the UA outline, which is near-invisible on the black column.
-				.button:focus-visible,
-				.learn-tb:focus-visible {
-					outline: 2px solid #fff;
-					outline-offset: 3px;
-				}
-
-				// Secondary, light-on-dark. The shared rule fills it solid white on
-				// hover, which turns it into the primary's resting state; a tint keeps
-				// the two roles legible.
-				.learn-tb:hover,
-				.learn-tb:focus-visible {
-					background-color: rgba(255, 255, 255, 0.14);
-					color: #fff;
-					text-shadow: none;
-				}
-
-				.learn-tb:active {
-					background-color: rgba(255, 255, 255, 0.22);
 				}
 			}
 
@@ -925,7 +889,7 @@ const MEASURE_COPY = `(() => {
 							margin-inline: auto;
 						}
 
-						.hero-buttons {
+						.hero-buttons :global(.ui-btn-group__row) {
 							justify-content: center;
 						}
 

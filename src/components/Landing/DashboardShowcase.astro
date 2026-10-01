@@ -1,5 +1,8 @@
 ---
 import { Icon } from 'astro-icon/components';
+import Link from '@components/ui/Link.astro';
+import Tabs from '@components/ui/Tabs.astro';
+import TabPanel from '@components/ui/TabPanel.astro';
 import SmartImage from '@components/SmartImage.astro';
 import ImageComparison from '@components/UseCase/ImageComparison.astro';
 import type { CarouselItem } from '@data/homeCarousel';
@@ -11,7 +14,9 @@ import type { CarouselItem } from '@data/homeCarousel';
 // Built as a tab set rather than a carousel: the cases are not a strip that
 // scrolls, one of several views is chosen (`motion` decides how it arrives), and
 // the shared Carousel component is used by the blog and use-case pages, so it
-// stays as it is.
+// stays as it is. The list is `ui/Tabs` (`look="list"`, the product FAQ's), so
+// its keys, roles and focus are the shared tab script's; this one drives the
+// board, the copy, the arrows and the autoplay from the `tabs:change` it fires.
 //
 // Every case is server-rendered and inactive ones are `hidden`, so the section
 // is correct before its script runs and needs no layout measurement.
@@ -53,6 +58,9 @@ const { items, id = 'dashboards', interval = 12000, motion = 'cut', glow = false
 // Each shot's own aspect ratio, handed to the board so the card can take the
 // shape of whatever it is showing. See `--item-ratio` in the styles.
 const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height);
+
+// Each case's copy is the panel its tab names; the tab's own id is `<panel>-tab`.
+const panelId = (i: number) => `${id}-panel-${i}`;
 ---
 
 <div
@@ -98,31 +106,14 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		}
 	</div>
 
-	<div class="dashshow__body">
-		<div
+	<div class="dashshow__body" style={`--nav-rows: ${Math.ceil(items.length / 2)}`}>
+		<Tabs
+			look="list"
+			size="sm"
+			label="Use cases"
 			class="dashshow__nav"
-			role="tablist"
-			aria-orientation="vertical"
-			aria-label="Use cases"
-			style={`--nav-rows: ${Math.ceil(items.length / 2)}`}
-		>
-			{
-				items.map((item, i) => (
-					<button
-						type="button"
-						role="tab"
-						class="dashshow__case"
-						id={`${id}-tab-${i}`}
-						aria-controls={`${id}-panel-${i}`}
-						aria-selected={i === 0 ? 'true' : 'false'}
-						tabindex={i === 0 ? 0 : -1}
-					>
-						{item.icon && <Icon name={item.icon} class="dashshow__case-icon" aria-hidden="true" />}
-						<span>{item.title}</span>
-					</button>
-				))
-			}
-		</div>
+			items={items.map((item, i) => ({ label: item.title, icon: item.icon, panel: panelId(i) }))}
+		/>
 
 		<div class="dashshow__detail">
 			<div class="dashshow__arrows">
@@ -136,30 +127,27 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 
 			{
 				items.map((item, i) => (
-					<div
-						role="tabpanel"
-						class="dashshow__panel"
-						id={`${id}-panel-${i}`}
-						aria-labelledby={`${id}-tab-${i}`}
-						hidden={i !== 0}
-					>
+					<TabPanel id={panelId(i)} selected={i === 0} class="dashshow__panel">
 						<h3 class="dashshow__title">{item.title}</h3>
 						<p class="dashshow__desc">{item.description}</p>
 						{/* Case name folded into the accessible name: the visible label is
 						    deliberately specific rather than repeating the heading, so on its
 						    own it wouldn't say which case it belongs to. A label that already
-						    names the case (main's "Smart energy use case") needs none. */}
-						<a
+						    names the case (main's "Smart energy use case") needs none. A card's
+						    link, not the section's: it names one use case, so it takes the
+						    standalone link's base size and leaves the larger step to "Browse all
+						    use cases" above it. */}
+						<Link
 							href={item.href}
-							class="dashshow__link"
-							aria-label={
-								item.linkLabel?.includes(item.title) ? undefined : `${item.linkLabel || 'Learn more'} — ${item.title}`
-							}
+							attrs={{
+								'aria-label': item.linkLabel?.includes(item.title)
+									? undefined
+									: `${item.linkLabel || 'Learn more'} — ${item.title}`,
+							}}
 						>
 							{item.linkLabel || 'Learn more'}
-							<Icon name="tabler:chevron-right" class="dashshow__chevron" aria-hidden="true" />
-						</a>
-					</div>
+						</Link>
+					</TabPanel>
 				))
 			}
 		</div>
@@ -461,97 +449,37 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 	// Two columns, filled down then across: eight names in one column stood twice
 	// as tall as the copy beside them. Kept as a list rather than a grid of cards
 	// — three card grids already sit above this section, and this is navigation,
-	// not content.
-	.dashshow__nav {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		grid-template-rows: repeat(var(--nav-rows, 4), auto);
-		grid-auto-flow: column;
-		column-gap: $spacing-4;
+	// not content. The items are `ui/Tabs`' list at its small size, as they are on
+	// a phone: a tint when chosen, never a weight change, so a name never shifts
+	// its neighbours. `--nav-rows` comes from the body, since Tabs takes no style.
+	//
+	// Under `.dashshow` (0,2,0), so the layout outranks the list's own column
+	// (0,1,0) whichever stylesheet loads last; from 750 only, where the list is a
+	// column, so the phone keeps the list's own row and its 8px gap.
+	.dashshow .dashshow__nav {
+		@include media-up(md) {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			grid-template-rows: repeat(var(--nav-rows, 4), auto);
+			grid-auto-flow: column;
+			column-gap: $spacing-4;
+		}
 
 		// Ten names stacked is 360px of wall on a phone. As a rail it is one row:
-		// the set is 1686px wide, so about three names show at a time and the rest
-		// are a swipe away — the same trade every category rail on a phone makes.
+		// the set is about 1600px wide, so two or three names show at a time and the
+		// rest are a swipe away — the same trade every category rail on a phone makes.
 		@include media-down(md) {
-			display: flex;
-			gap: $spacing-2;
-			overflow-x: auto;
 			overscroll-behavior-x: contain;
-			// Runs to the screen edge: a chip cut off by the page gutter reads as a
+			// Runs to the screen edge: a name cut off by the page gutter reads as a
 			// layout fault, one cut off by the screen reads as "there is more".
 			margin-inline: -$spacing-5;
 			// Block padding keeps the focus ring off the scroll container's edge —
 			// `overflow-x: auto` clips the block axis too.
 			padding: $spacing-1 $spacing-5;
 			// A mouse drags the rail (see the script); without this the drag also
-			// selects the chip labels it passes over.
+			// selects the labels it passes over.
 			user-select: none;
-			scrollbar-width: none;
-
-			&::-webkit-scrollbar {
-				display: none;
-			}
 		}
-	}
-
-	// A row of names, not buttons that look like buttons: the selected one is
-	// marked by weight and a rule, so eight of them stay a list.
-	.dashshow__case {
-		@include type-small;
-		display: flex;
-		align-items: center;
-		gap: $spacing-3;
-		padding: 7px 0 7px $spacing-4;
-		border: 0;
-		border-left: 2px solid var(--sl-color-hairline-light);
-		background: none;
-		color: var(--color-text-secondary, #5b616e);
-		text-align: left;
-		cursor: pointer;
-		transition:
-			color 0.15s ease,
-			border-color 0.15s ease;
-
-		&:hover {
-			color: var(--color-text);
-			border-left-color: rgba(0, 0, 0, 0.3);
-		}
-
-		&[aria-selected='true'] {
-			border-left-color: var(--color-primary, #{$color-brand});
-			color: var(--color-text);
-			font-weight: $font-weight-bold;
-		}
-
-		// On the rail the marker is a filled pill rather than a rule and a weight
-		// change: weight is held at medium for every chip, because a chip that
-		// widens when picked shifts every chip after it along the row.
-		@include media-down(md) {
-			flex: none;
-			padding: $spacing-2 $spacing-4;
-			border: 1px solid var(--sl-color-hairline-light);
-			border-radius: $radius-full;
-			font-weight: $font-weight-medium;
-
-			&:hover {
-				border-color: rgba(0, 0, 0, 0.3);
-			}
-
-			&[aria-selected='true'] {
-				background: var(--color-primary, #{$color-brand});
-				border-color: var(--color-primary, #{$color-brand});
-				color: #fff;
-				font-weight: $font-weight-medium;
-			}
-		}
-	}
-
-	// Inherits the row's colour, so it brightens with the label rather than
-	// competing for its own attention.
-	.dashshow__case-icon {
-		flex: none;
-		width: 18px;
-		height: 18px;
 	}
 
 	.dashshow__title {
@@ -576,35 +504,7 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		text-wrap: pretty;
 	}
 
-	// `type-action`, matching the section's own "Browse all use cases" above it and the rows'
-	// read-more links: one outgoing-link treatment per page. The chevron went with the alignment —
-	// the other two carry none, and a glyph on one of three reads as a different kind of link.
-	// A card's link, not the section's: it names one use case, so it takes the
-	// cards' `type-link` step and leaves `type-action` to "Browse all use cases".
-	.dashshow__link {
-		@include type-link;
-		display: inline-flex;
-		align-items: center;
-		gap: 0;
-		color: var(--color-primary, #{$color-brand});
-		text-decoration: none;
-
-		&:hover,
-		&:focus-visible {
-			text-decoration: underline;
-			text-underline-offset: 3px;
-		}
-	}
-
-	// Pulled in: the glyph's own side bearing is the gap.
-	.dashshow__chevron {
-		width: 20px;
-		height: 20px;
-		margin-left: -1px;
-	}
-
 	@media (prefers-reduced-motion: reduce) {
-		.dashshow__case,
 		.dashshow__arrow,
 		.dashshow__glow,
 		.dashshow--handoff .dashshow__board {
@@ -803,15 +703,17 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 			settleIn.finished.then(settle, () => {});
 		};
 
-		const show = (next: number, focus = false, dir?: number) => {
+		const show = (next: number, dir?: number) => {
 			const previous = active;
 			active = (next + tabs.length) % tabs.length;
 
+			// The list's state as the shared tab script keeps it, for a change it did not make (an arrow,
+			// the ticker, a swipe); for one it did, this repeats what is already there.
 			tabs.forEach((tab, i) => {
 				const on = i === active;
 				tab.setAttribute('aria-selected', String(on));
-				// Roving tabindex: the list is one stop, arrow keys move within it.
 				tab.tabIndex = on ? 0 : -1;
+				tab.classList.toggle('is-active', on);
 			});
 
 			if (handoff) {
@@ -838,13 +740,6 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 			}
 
 			warmAround(active);
-
-			// `focus()` scrolls the chip into view itself, by the shortest hop and
-			// instantly, which cancels the centring below part-way through. Where we
-			// own the scrolling we ask it not to; where we don't — the desktop grid —
-			// its own scroll is the only one, so it keeps it.
-			if (focus) tabs[active].focus({ preventScroll: railScrolls() });
-
 			keepInView(tabs[active]);
 		};
 
@@ -878,24 +773,48 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 			if (!onScreen || document.hidden) return;
 			if (root.matches(':hover') || root.contains(document.activeElement)) return;
 
-			show(active + 1, false, 1);
+			show(active + 1, 1);
 		}, interval);
 
 		const stop = () => (stopped = true);
 
-		tabs.forEach((tab, i) =>
-			tab.addEventListener('click', () => {
-				show(i);
-				stop();
-			})
+		// ── Choosing from the list ────────────────────────────
+		// The shared tab script moves the list (selection, roving tabindex, focus) on a click or a key
+		// and fires `tabs:change`; the panels it would swap are cancelled here and shown with the board,
+		// which with the hand-off arrives later than the list does.
+		//
+		// An arrow key says which way the hand-off goes — ArrowRight on the last case wraps to the first
+		// and is still "next" — so the key is noted on the way down (capture, before the shared script's
+		// own listener) and forgotten once that has run. Home and End go the way the list runs.
+		const KEY_WAY: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+		let keyWay: number | undefined;
+
+		rail?.addEventListener(
+			'keydown',
+			(event) => {
+				keyWay = KEY_WAY[event.key];
+				window.setTimeout(() => (keyWay = undefined));
+			},
+			{ capture: true }
 		);
 
+		rail?.addEventListener('tabs:change', (event) => {
+			event.preventDefault();
+			show((event as CustomEvent<{ index: number }>).detail.index, keyWay);
+		});
+
+		// A click on a name stops the ticker, the showing one included; moving along the list with the
+		// keys does not, since focus inside the section holds it anyway.
+		rail?.addEventListener('click', (event) => {
+			if (event.target instanceof Element && event.target.closest('[role="tab"]')) stop();
+		});
+
 		root.querySelector('[data-dashshow-prev]')?.addEventListener('click', () => {
-			show(active - 1, false, -1);
+			show(active - 1, -1);
 			stop();
 		});
 		root.querySelector('[data-dashshow-next]')?.addEventListener('click', () => {
-			show(active + 1, false, 1);
+			show(active + 1, 1);
 			stop();
 		});
 
@@ -933,7 +852,7 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 			// diagonal both fall through.
 			if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy)) return;
 
-			show(active + (dx < 0 ? 1 : -1), false, dx < 0 ? 1 : -1);
+			show(active + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
 			stop();
 		});
 
@@ -942,11 +861,11 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 		// scrollbar is hidden, the wheel is vertical, and a drag did nothing — so on
 		// a narrow desktop window, or a phone preview driven by a mouse, the names
 		// past the third looked like they did not exist. Dragging the rail now
-		// scrolls it, and a drag is never also a click on the chip it started on.
+		// scrolls it, and a drag is never also a click on the name it started on.
 		//
 		// Any hand on the rail stops autoplay as well. Browsing the names is not a
 		// choice, so nothing else stopped it, and the next tick's `keepInView`
-		// pulled the rail back to the active chip from wherever the reader had
+		// pulled the rail back to the active name from wherever the reader had
 		// scrolled to.
 		const DRAG_MIN = 5;
 		let drag: { x: number; left: number; moved: boolean } | null = null;
@@ -973,13 +892,13 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 
 			// Captured only once it is a drag: captured from `pointerdown`, the
 			// click that a plain press should produce would land on the rail
-			// instead of the chip.
+			// instead of the name.
 			if (!drag.moved) rail.setPointerCapture(event.pointerId);
 			drag.moved = true;
 			rail.scrollLeft = drag.left - dx;
 		});
 
-		// The click that follows a drag belongs to no chip. Swallowed in the capture
+		// The click that follows a drag belongs to no name. Swallowed in the capture
 		// phase so the tab's own handler never sees it — and taken down again on the
 		// next tick, because a drag that ends off the rail produces no click, and a
 		// listener left waiting would eat the reader's next real one.
@@ -998,18 +917,5 @@ const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height)
 
 		rail?.addEventListener('pointerup', endDrag);
 		rail?.addEventListener('pointercancel', () => (drag = null));
-
-		root.querySelector('[role="tablist"]')?.addEventListener('keydown', (event) => {
-			const key = (event as KeyboardEvent).key;
-			const step = key === 'ArrowDown' || key === 'ArrowRight' ? 1 : key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 0;
-
-			if (step) {
-				event.preventDefault();
-				show(active + step, true, step);
-			} else if (key === 'Home' || key === 'End') {
-				event.preventDefault();
-				show(key === 'Home' ? 0 : tabs.length - 1, true);
-			}
-		});
 	});
 </script>

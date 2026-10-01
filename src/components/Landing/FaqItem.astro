@@ -1,0 +1,165 @@
+---
+import { Icon } from 'astro-icon/components';
+
+/**
+ * One question of a product page's FAQ (`ProductFaq`), as a native `<details>`: it opens without a
+ * script, and the browser's find-in-page opens the one a match is in.
+ *
+ * The states are the standalone link's: the accent with a 1px underline on hover, 2px pressed, the
+ * site's ring on focus. The chevron is inside the click target and lights with the words, since
+ * lighting half a row reads as a bug rather than as a state.
+ *
+ * NOT Pricing's `FaqItem`, which is a button with `aria-expanded` and its own unguarded transition;
+ * that one waits for the Pricing page to move.
+ */
+interface Props {
+	question: string;
+	/** Answer markup, from the page's own data files; rendered with `set:html`. */
+	answer: string;
+	/** Held back behind its panel's "More questions" (`hidden` until then). */
+	extra?: boolean;
+}
+
+const { question, answer, extra = false } = Astro.props;
+---
+
+<details class="faq-q" hidden={extra} data-faq-extra={extra ? '' : undefined}>
+	<summary class="faq-q__summary">
+		<span class="faq-q__question">{question}</span>
+		<Icon name="tabler:chevron-down" class="faq-q__chevron" aria-hidden="true" />
+	</summary>
+	<div class="faq-q__answer" set:html={answer} />
+</details>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.faq-q {
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	// `hidden` is a presentation hint that any author `display` beats; stated, so a later rule on
+	// `details` cannot silently show the held-back answers.
+	.faq-q[hidden] {
+		display: none;
+	}
+
+	.faq-q__summary {
+		// The tables' step. The FAQ is the page's other long read, and at 14 beside a 16px table it
+		// looked like small print rather than a second section.
+		@include type-body;
+
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: $spacing-4;
+		padding: $spacing-4 0;
+		font-weight: $font-weight-medium;
+		color: var(--color-text);
+		cursor: pointer;
+		// Safari draws its own triangle from the default `list-item` display; both properties are
+		// needed to retire it, and the chevron replaces it.
+		list-style: none;
+
+		&::-webkit-details-marker {
+			display: none;
+		}
+
+		@media (hover: hover) {
+			&:hover {
+				color: var(--accent-ink);
+
+				.faq-q__question {
+					text-decoration-line: underline;
+				}
+			}
+		}
+
+		&:active .faq-q__question {
+			text-decoration-line: underline;
+			text-decoration-thickness: 2px;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+
+		@media (forced-colors: active) {
+			color: CanvasText;
+		}
+	}
+
+	// The underline rides the words, not the row: on the summary itself it would run under the gap
+	// and the chevron too.
+	.faq-q__question {
+		text-decoration-thickness: 1px;
+		text-underline-offset: 3px;
+	}
+
+	.faq-q__chevron {
+		flex: none;
+		width: 20px;
+		height: 20px;
+		margin-top: 1px;
+		color: var(--color-text-secondary);
+		transition: transform 0.15s ease;
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+		}
+
+		@media (forced-colors: active) {
+			color: CanvasText;
+		}
+	}
+
+	@media (hover: hover) {
+		.faq-q__summary:hover .faq-q__chevron {
+			color: var(--accent-ink);
+		}
+	}
+
+	.faq-q[open] .faq-q__chevron {
+		transform: rotate(180deg);
+	}
+
+	.faq-q__answer {
+		@include type-body;
+
+		padding: 0 0 $spacing-4;
+		color: var(--color-text-secondary);
+
+		// SIZE STATED ON THE CHILDREN, not just here. The site sets `<p>` at 18px/1.6 globally, and
+		// these answers arrive through `set:html` with no classes on them, so they would be the only
+		// paragraphs on the page still inheriting it, running 18px beside a 16px table.
+		:global(p),
+		:global(li) {
+			@include type-body;
+		}
+
+		:global(p) {
+			margin: 0 0 $spacing-3;
+		}
+
+		:global(ul) {
+			margin: 0 0 $spacing-3;
+			padding-left: $spacing-5;
+		}
+
+		:global(p:last-child),
+		:global(ul:last-child) {
+			margin-bottom: 0;
+		}
+
+		:global(li) {
+			margin-bottom: $spacing-1;
+		}
+
+		:global(a) {
+			color: var(--accent-ink);
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+	}
+</style>

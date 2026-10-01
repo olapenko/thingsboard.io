@@ -1,7 +1,10 @@
 ---
 import SmartImage from '@components/SmartImage.astro';
 import { Icon } from 'astro-icon/components';
-import EcosystemMark from '@components/Landing/EcosystemMark.astro';
+import Button from '@components/ui/Button.astro';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
+import { markBySrc } from '@data/marks';
 
 // DISABLED — hover clusters. Marked for removal or repair; do not re-enable as-is.
 //
@@ -76,11 +79,8 @@ interface Props {
 	videoWebm?: string;
 	videoMp4?: string;
 	/**
-	 * `icon` renders a Tabler glyph before the label; `region` renders the sign-in
-	 * menu's own cloud mark there instead, in that region's hue. A store has one or
-	 * the other, or neither.
-	 */
-	stores?: { label: string; href: string; region?: 'us' | 'eu'; icon?: string }[];
+	/** A Tabler glyph before the label, optionally. */
+	stores?: { label: string; href: string; icon?: string }[];
 	/**
 	 * A filled button in `badgeFill`, with `action`/`href` beside it as the quiet
 	 * link — the product pages' choice-card pair. Takes the place of `stores`, and
@@ -157,6 +157,17 @@ const trial = filled === true ? {} : filled || null;
 const markSrc = trial?.icon ?? icon;
 const markInk = trial?.ink ?? '#ffffff';
 
+// The badge through `ui/Mark` at 72, lifted: what it holds decides how it is sized (an icon's box,
+// or a logo's artwork), and its fill decides the tone. A product card (`badgeFill`) and a filled
+// trial knock the artwork out of the colour; the rest are the white tile with the artwork in its
+// own colours, or a line icon in the card's accent.
+const vector = markSrc.startsWith('tabler:');
+const markName = vector ? undefined : markBySrc(markSrc);
+const markFill = badgeFill || (trial && (trial.bg ?? accent) !== '#ffffff') ? 'solid' : 'white';
+const markAccent = badgeFill ?? trial?.bg ?? accent;
+// A filled trial on a white tile (the mobile card) inks the mark rather than knocking it out.
+const inked = trial && markFill === 'white';
+
 // Split the name so the distinguishing word can carry its badge's colour.
 // Throws rather than silently rendering a flat title if the copy changes.
 type NamePart = { text: string; tint?: boolean };
@@ -196,21 +207,32 @@ if (nameHighlight) {
 		trial && !badgeFill && 'ecosystem-card--filled',
 		className,
 	]}
+	data-surface={dark ? 'dark' : 'light'}
 	style={`--accent: ${accent}${badgeFill ? `; --badge-fill: ${badgeFill}` : ''}${
 		trial?.bg ? `; --filled-bg: ${trial.bg}` : ''
-	}`}
+	}${inked ? `; --filled-ink: ${markInk}` : ''}`}
 >
-	<span class="ecosystem-card__badge" aria-hidden="true">
-		{
-			icon.startsWith('tabler:') ? (
-				<Icon name={icon} class="ecosystem-card__icon ecosystem-card__icon--vector" />
-			) : trial ? (
-				<EcosystemMark src={markSrc} class="ecosystem-card__icon" ink={markInk} filled />
-			) : (
+	{
+		vector ? (
+			<Mark size={72} icon={markSrc} fill={markFill} accent={markAccent} lift class="ecosystem-card__badge" />
+		) : markName === 'thingsboard' ? (
+			<Mark
+				size={72}
+				logo="thingsboard"
+				fill={markFill}
+				accent={markAccent}
+				tone={inked ? 'knockout' : undefined}
+				lift
+				class:list={['ecosystem-card__badge', inked && 'ecosystem-card__badge--inked']}
+			/>
+		) : markName ? (
+			<Mark size={72} product={markName} fill={markFill} accent={markAccent} lift class="ecosystem-card__badge" />
+		) : (
+			<span class="ecosystem-card__badge ecosystem-card__badge--image" aria-hidden="true">
 				<SmartImage src={icon} alt="" class="ecosystem-card__icon" loading="lazy" width="96" height="96" />
-			)
-		}
-	</span>
+			</span>
+		)
+	}
 
 	<div class="ecosystem-card__body">
 		<p class="ecosystem-card__label">
@@ -250,17 +272,26 @@ if (nameHighlight) {
 		{
 			primary ? (
 				<div class="ecosystem-card__actions ecosystem-card__actions--pair">
-					<a class="ecosystem-card__cta" href={primary.href} {...externalLinkAttrs(primary.href)} {...primary.attrs}>
-						{cornerIcon && <Icon name={cornerIcon} class="ecosystem-card__cta-icon" aria-hidden="true" />}
+					<Button
+						href={primary.href}
+						accent={badgeFill}
+						icon={cornerIcon}
+						srSuffix={`— ${name}`}
+						class="ecosystem-card__cta"
+						attrs={{ ...externalLinkAttrs(primary.href), ...primary.attrs }}
+					>
 						{primary.label}
-						<span class="sr-only">— {name}</span>
-					</a>
+					</Button>
 					{primaryNote && <p class="ecosystem-card__cta-note">{primaryNote}</p>}
-					<a href={href} class="ecosystem-card__more" {...externalLinkAttrs(href)}>
+					<Link
+						href={href}
+						tone="ink"
+						srSuffix={`— ${name}`}
+						class="ecosystem-card__more"
+						attrs={externalLinkAttrs(href)}
+					>
 						{action}
-						<span class="sr-only">— {name}</span>
-						<Icon name="tabler:chevron-right" aria-hidden="true" />
-					</a>
+					</Link>
 				</div>
 			) : (
 				<div class="ecosystem-card__actions">
@@ -268,13 +299,6 @@ if (nameHighlight) {
 						<div class="ecosystem-card__stores">
 							{stores?.map((store) => (
 								<a class="ecosystem-card__store" href={store.href} {...externalLinkAttrs(store.href)}>
-									{store.region && (
-										<Icon
-											name="tabler:cloud-filled"
-											class={`region-cloud region-cloud--${store.region}`}
-											aria-hidden="true"
-										/>
-									)}
 									{store.icon && <Icon name={store.icon} class="ecosystem-card__store-icon" aria-hidden="true" />}
 									{store.label}
 								</a>
@@ -293,11 +317,9 @@ if (nameHighlight) {
 						</div>
 					)}
 
-					<a href={href} class="ecosystem-card__link" {...externalLinkAttrs(href)}>
+					<Link href={href} srSuffix={`— ${name}`} class="ecosystem-card__link" attrs={externalLinkAttrs(href)}>
 						{action}
-						<span class="sr-only">— {name}</span>
-						<Icon name="tabler:chevron-right" aria-hidden="true" />
-					</a>
+					</Link>
 				</div>
 			)
 		}
@@ -321,7 +343,12 @@ if (nameHighlight) {
 		tiles && (
 			<div class="ecosystem-card__tiles">
 				{tiles.map((tile) => (
-					<a class="ecosystem-card__tile" data-cat={tile.slug} href={tile.href} style={`--tile: ${tile.color}; --tile-strong: ${tile.colorDark}`}>
+					<a
+						class="ecosystem-card__tile"
+						data-cat={tile.slug}
+						href={tile.href}
+						style={`--tile: ${tile.color}; --tile-strong: ${tile.colorDark}`}
+					>
 						<Icon name={tile.icon} class="ecosystem-card__tile-icon" aria-hidden="true" />
 						<span>{tile.label}</span>
 					</a>
@@ -444,115 +471,28 @@ if (nameHighlight) {
 		}
 	}
 
-	// App-style squircle straddling the top edge. `border-radius` in percent is
-	// the practical approximation — a true superellipse needs an SVG path or
-	// `corner-shape`, which isn't broadly supported yet.
+	// The badge straddling the top edge: a `ui/Mark` (72, lifted), placed here and nowhere else.
 	.ecosystem-card__badge {
 		position: absolute;
 		top: 0;
 		left: 50%;
 		transform: translate(-50%, -50%);
+	}
+
+	// The mobile card's trial: the logo inked in the app's own green on the white tile.
+	.ecosystem-card .ecosystem-card__badge--inked {
+		color: var(--filled-ink);
+	}
+
+	// A badge whose artwork the mark registry does not know: the old white tile, the image at 82%.
+	.ecosystem-card__badge--image {
 		display: grid;
 		place-items: center;
 		width: $badge;
 		height: $badge;
 		border-radius: 32%;
 		background-color: var(--color-bg-surface);
-		// The page's 155deg run on every badge: light held to the top-left, a
-		// whisper of the card's own accent at the tail — the same treatment the
-		// filled badge and the visuals' light tiles carry. The product and filled
-		// variants override this with their own fills below.
-		background-image: linear-gradient(
-			155deg,
-			var(--color-bg-surface) 40%,
-			color-mix(in srgb, var(--accent) 8%, var(--color-bg-surface)) 100%
-		);
-		// Shadow alone lifts the badge off the card; a stroke as well read as two
-		// competing edges where the squircle overlaps the card's own border.
-		box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-	}
-
-	// Trial: the ecosystem marks knocked out on a filled squircle, as the two
-	// product cards have always been. The mark is inlined by `EcosystemMark` so
-	// its two tones survive as white and transparent white — the product cards'
-	// flat `brightness(0) invert(1)` would collapse both to one opaque white.
-	.ecosystem-card--filled {
-		.ecosystem-card__badge {
-			background-color: var(--filled-bg, var(--accent));
-			// The page's 155deg run, faint: light at the top-left, a whisper of the
-			// card's accent at the tail — the treatment every light tile on the
-			// page gets, and on a dark fill it reads as the same trace of light.
-			background-image: linear-gradient(
-				155deg,
-				color-mix(in srgb, #fff 14%, var(--filled-bg, var(--accent))) 0%,
-				color-mix(in srgb, var(--accent) 8%, var(--filled-bg, var(--accent))) 100%
-			);
-		}
-
-		// Single-tone glyphs have no second tone to soften; they just knock out.
-		.ecosystem-card__icon--vector {
-			color: #fff;
-		}
-	}
-
-	// Held short of the squircle's corner radius (32% of 72px ≈ 23px) so nothing
-	// pokes past the rounded edge — the badge deliberately doesn't clip, since
-	// clipping would cost the artwork rather than reveal the problem.
-	// Filled squircle: the mark is knocked out white so one asset serves both
-	// cards, with the corner icon carrying the difference.
-	.ecosystem-card--product {
-		// Roomier than the ecosystem cards, on desktop alone: these two are the
-		// page's conversion point, and the full-bleed button wants air around it,
-		// not a frame it touches. 32px against the others' 20, top included beyond
-		// the badge's headroom. Phones keep the tighter measure — air is what a
-		// 375 viewport does not have.
-		@include media-up(md) {
-			padding: calc($badge / 2 + #{$spacing-8}) $spacing-8 $spacing-8;
-		}
-
-		// The two-wide ecosystem cards' glow, same recipe: the badge's own hue
-		// falling from where the badge sits (centre, on these). Ties the pair to
-		// the ecosystem set one section down.
-		background-image: radial-gradient(
-			95% 105% at 50% 0%,
-			color-mix(in srgb, var(--badge-fill) 17%, transparent),
-			color-mix(in srgb, var(--badge-fill) 7%, transparent) 42%,
-			transparent 84%
-		);
-
-		.ecosystem-card__badge {
-			background-color: var(--badge-fill);
-			// A static sheen off the top-left. The hover sweep that used to cross it
-			// went with the card-wide link: with two actions in the card, the card
-			// itself no longer reacts — the sweep now lives on the button.
-			background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
-			// Mark to the bottom-left, deployment icon to the top-right: the two
-			// sit on a diagonal so neither crowds the other in a 72px square.
-			// The glyph has moved to the button, so the mark has the square to itself.
-			// No padding override: it then centres and sizes exactly as every other
-			// card's icon does, which is the point.
-		}
-
-		// Smaller than the ecosystem marks: this one shares the squircle with a
-		// corner icon, so it needs the room rather than filling the tile.
-		// The mark leads; the deployment glyph is a qualifier, so it stays small
-		// enough not to compete for the same 72px.
-		// The mark asset is a true 44x44 square, so it fills its box rather than
-		// carrying the favicon's internal padding — it can run larger at the same
-		// optical size. Clearance to the corner glyph is checked below.
-		// Only the knockout differs from the base icon now.
-		.ecosystem-card__icon {
-			filter: brightness(0) invert(1);
-		}
-	}
-
-	.ecosystem-card__corner {
-		position: absolute;
-		top: 6px;
-		right: 6px;
-		width: 22px;
-		height: 22px;
-		color: #fff;
+		box-shadow: var(--elev-mark);
 	}
 
 	.ecosystem-card__icon {
@@ -560,12 +500,20 @@ if (nameHighlight) {
 		height: auto;
 	}
 
-	// Tabler glyphs carry their own padding inside a 24x24 viewBox, so they need a
-	// smaller box to land at the same optical size as the artwork icons.
-	.ecosystem-card__icon--vector {
-		width: 64%;
-		height: auto;
-		color: var(--accent);
+	// The product cards: the glow of the two-wide ecosystem cards, the badge's own hue falling from
+	// where the badge sits. Roomier than the ecosystem cards on desktop alone: these two are the
+	// page's conversion point, and the full-bleed button wants air around it.
+	.ecosystem-card--product {
+		@include media-up(md) {
+			padding: calc($badge / 2 + #{$spacing-8}) $spacing-8 $spacing-8;
+		}
+
+		background-image: radial-gradient(
+			95% 105% at 50% 0%,
+			color-mix(in srgb, var(--badge-fill) 17%, transparent),
+			color-mix(in srgb, var(--badge-fill) 7%, transparent) 42%,
+			transparent 84%
+		);
 	}
 
 	// The word that tells the two deployments apart, tinted to its own badge. No
@@ -679,35 +627,13 @@ if (nameHighlight) {
 		margin-bottom: $spacing-1;
 	}
 
-	// Pinned to the bottom so the links line up across cards of unequal height.
-	.ecosystem-card__link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0;
-		font-weight: $font-weight-medium;
-		color: var(--accent);
-		text-decoration: none;
-
-		// The product pair's `__more` chevron, at its size.
-		// Pulled in: the glyph's own side bearing is the gap.
-		:global([data-icon]) {
-			width: 20px;
-			height: 20px;
-			margin-left: -1px;
-		}
-
-		&:hover,
-		&:focus-visible {
-			text-decoration: underline;
-			text-underline-offset: 3px;
-		}
-	}
+	// The card's link: `ui/Link` (md, the one brand colour every ecosystem card shares, decided
+	// 1 Oct). Pinned to the foot by the actions column, so links line up across a row.
 
 	// ── Product pair: button + link ─────────────────────────────────
-	// The Cloud and On-premises pages' `.choice-card__actions`, carried onto a white
-	// card: the same 44px button in the product's own hue (the page accent there,
-	// `badgeFill` here — the same two colours), then a link in plain ink so the
-	// colour stays on the one thing to do.
+	// The product pages' choice actions on a white card: a 44px `ui/Button` in the
+	// product's own hue (`badgeFill`, the colour those pages take as their accent),
+	// then a link in plain ink so the colour stays on the one thing to do.
 	.ecosystem-card__actions--pair {
 		// Full-bleed CTA: the filled button runs the card's whole measure, the
 		// quiet link centred beneath it. The row version packed both onto one
@@ -766,94 +692,8 @@ if (nameHighlight) {
 		mix-blend-mode: multiply;
 	}
 
-	// The deployment's glyph rides the button: the button is where the
-	// deployment's own colour lives, so the mark that names it sits there.
-	// 20 and an 8px gap, the button glyph on every new page.
-	.ecosystem-card__cta-icon {
-		flex: none;
-		width: 20px;
-		height: 20px;
-	}
-
-	.ecosystem-card__cta {
-		@include type-button;
-		display: inline-flex;
-		align-items: center;
-		gap: $spacing-2;
-		height: 44px;
-		padding: 0 $spacing-4;
-		border-radius: $radius-md;
-		// The fill's own colour as a 1px rule, as the hero's and the closing bands' primaries carry.
-		border: 1px solid var(--badge-fill);
-		background-color: var(--badge-fill);
-		color: #fff;
-		text-decoration: none;
-		// The shimmer's scaffolding: a clipping stacking context for the sweep.
-		position: relative;
-		overflow: hidden;
-		isolation: isolate;
-
-		&:hover {
-			background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
-		}
-
-		&:active {
-			background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3));
-		}
-
-		&:focus-visible {
-			outline: 2px solid var(--badge-fill);
-			outline-offset: 3px;
-		}
-
-		// The product pages' sweep: one skewed highlight, once per hover,
-		// transform-only so it composites.
-		&::after {
-			content: '';
-			position: absolute;
-			top: 0;
-			bottom: 0;
-			left: 0;
-			width: 45%;
-			z-index: -1;
-			pointer-events: none;
-			background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.38), transparent);
-			transform: translateX(-160%) skewX(-18deg);
-		}
-
-		&:hover::after,
-		&:focus-visible::after {
-			animation: cta-shimmer 0.75s cubic-bezier(0.4, 0, 0.2, 1);
-		}
-	}
-
-	@keyframes cta-shimmer {
-		to {
-			transform: translateX(320%) skewX(-18deg);
-		}
-	}
-
-	.ecosystem-card__more {
-		@include type-link;
-		display: inline-flex;
-		align-items: center;
-		gap: 0;
-		color: var(--color-text);
-		text-decoration: none;
-
-		// Pulled in: the glyph's own side bearing is the gap.
-		:global([data-icon]) {
-			width: 20px;
-			height: 20px;
-			margin-left: -1px;
-		}
-
-		&:hover,
-		&:focus-visible {
-			text-decoration: underline;
-			text-underline-offset: 3px;
-		}
-	}
+	// The button is `ui/Button` in the product's colour (`accent={badgeFill}`), the deployment's glyph
+	// on it; the quiet link beside it `ui/Link` in the ink, so the colour stays on the one thing to do.
 
 	// ── Double-wide variant: the section's key visual ──────────────
 	// Two columns at desktop; the phone is anchored to the bottom and clipped by
@@ -1068,14 +908,6 @@ if (nameHighlight) {
 		pointer-events: auto;
 	}
 
-	@media (prefers-reduced-motion: reduce) {
-		.ecosystem-card__cta:hover::after,
-		.ecosystem-card__cta:focus-visible::after {
-			animation: none;
-		}
-
-	}
-
 	// The flip: visual left, copy right. The DOM keeps reading order — copy
 	// before the visual — while `order` swaps the columns; the default is the
 	// mirror, visual right. ONE definition, applied per grid tier below, so
@@ -1147,8 +979,7 @@ if (nameHighlight) {
 
 			@each $cat in devices, solution-templates, widgets, calculated-fields, alarm-rules, rule-chains {
 				&:has(.ecosystem-card__tile[data-cat='#{$cat}']:hover) .ecosystem-card__cluster[data-cat='#{$cat}'],
-				&:has(.ecosystem-card__tile[data-cat='#{$cat}']:focus-visible)
-					.ecosystem-card__cluster[data-cat='#{$cat}'] {
+				&:has(.ecosystem-card__tile[data-cat='#{$cat}']:focus-visible) .ecosystem-card__cluster[data-cat='#{$cat}'] {
 					opacity: 0.22;
 				}
 			}
@@ -1349,12 +1180,6 @@ if (nameHighlight) {
 	}
 
 	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
+		@include visually-hidden;
 	}
 </style>

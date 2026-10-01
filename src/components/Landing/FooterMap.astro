@@ -1,9 +1,12 @@
 ---
 import { Icon } from 'astro-icon/components';
-import NavIcon from '@components/Landing/NavIcon.astro';
+import Button from '@components/ui/Button.astro';
+import Field from '@components/ui/Field.astro';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
 import SmartImage from '@components/SmartImage.astro';
 import logo from '@root/assets/images/landings/thingsboard-logo.svg?raw';
-import tbMark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+import { markBySrc, type MarkName } from '@data/marks';
 import { socialNetworks } from '@data/socialNetworks';
 import {
 	FOOTER_COLUMNS,
@@ -73,6 +76,15 @@ const social = FOOTER_SOCIAL.map(({ icon, name }) => {
 
 const isTabler = (p: FooterProduct) => p.icon.startsWith('tabler:');
 
+// What an ecosystem tile holds, for `ui/Mark`: the ThingsBoard logo (the Mobile App's), a tabler icon,
+// or the product's logo, found by the file the data names.
+const markOf = (p: FooterProduct) =>
+	p.icon === 'mark'
+		? { logo: 'thingsboard' as const }
+		: isTabler(p)
+			? { icon: p.icon }
+			: { product: markBySrc(p.icon) as Exclude<MarkName, 'thingsboard'> };
+
 // `focus`: the ecosystem as the first link column, and no column repeats a page the panel shows.
 const focus = layout === 'focus';
 const highlighted = new Set(FOOTER_HIGHLIGHTS.map((h) => h.href));
@@ -92,7 +104,7 @@ const columns = focus
 const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopener noreferrer' } : {});
 ---
 
-<footer id={id} class:list={['fm', `fm--${layout}`]}>
+<footer id={id} class:list={['fm', `fm--${layout}`]} data-surface="dark">
 	<div class="fm__inner">
 		<div class="fm__top">
 			<div class="fm__brand">
@@ -107,23 +119,24 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 			    branch removed, so MailerLite's own script never loads there either. */
 				}
 				<form class="fm__news" action={FOOTER_NEWSLETTER.action} method="POST" target="_blank">
-					<label class="fm__news-label" for={`${uid}-email`}>{FOOTER_NEWSLETTER.label}</label>
-					<p class="fm__news-lede" id={`${uid}-lede`}>{FOOTER_NEWSLETTER.lede}</p>
-					<div class="fm__field">
-						<input
-							id={`${uid}-email`}
-							type="email"
-							name="fields[email]"
-							required
-							placeholder="you@company.com"
-							autocomplete="email"
-							spellcheck="false"
-							autocapitalize="off"
-							aria-describedby={`${uid}-lede`}
-						/>
-						<input type="hidden" name="ml-submit" value="1" />
-						<button type="submit">Subscribe</button>
-					</div>
+					{
+						/* The lede is the field's hint, so it is what the field is described by. The browser's
+						   own check stands for the field's error: nothing scripts this form. */
+					}
+					<Field
+						name="fields[email]"
+						id={`${uid}-email`}
+						type="email"
+						size="md"
+						label={FOOTER_NEWSLETTER.label}
+						hint={FOOTER_NEWSLETTER.lede}
+						placeholder="you@company.com"
+						autocomplete="email"
+						attrs={{ spellcheck: 'false', autocapitalize: 'off' }}
+					>
+						<Button slot="end" type="submit" attached="start">Subscribe</Button>
+					</Field>
+					<input type="hidden" name="ml-submit" value="1" />
 					<p class="fm__consent">{FOOTER_NEWSLETTER.consent}</p>
 				</form>
 				{
@@ -157,10 +170,8 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 					{
 						FOOTER_PLATFORMS.map((p) => (
 							<li>
-								<a class="fm__product fm__product--platform" href={p.href} style={`--hue: ${p.hue}`}>
-									<span class="fm__mark fm__mark--badge">
-										<NavIcon src={p.icon} size={36} />
-									</span>
+								<a class="fm__product fm__product--platform" href={p.href}>
+									<Mark size={40} logo="thingsboard" accent={p.hue} class="fm__mark" />
 									<span class="fm__pname">{p.name}</span>
 									{!focus && <span class="fm__pline">{p.line}</span>}
 								</a>
@@ -171,10 +182,8 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 						focus &&
 							FOOTER_HIGHLIGHTS.map((l) => (
 								<li>
-									<a class="fm__product" href={l.href} style="--hue: #8b9bff">
-										<span class="fm__mark">
-											<Icon name={l.icon} aria-hidden="true" />
-										</span>
+									<a class="fm__product" href={l.href}>
+										<Mark size={40} fill="wash" icon={l.icon} accent="#8b9bff" class="fm__mark" />
 										<span class="fm__pname">{l.label}</span>
 									</a>
 								</li>
@@ -191,16 +200,8 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 							<ul class="fm__products">
 								{FOOTER_ECOSYSTEM.map((p) => (
 									<li>
-										<a class="fm__product" href={p.href} style={`--hue: ${p.hue}`} {...ext(p.external)}>
-											<span class="fm__mark">
-												{p.icon === 'mark' ? (
-													<span class="fm__tbmark" set:html={tbMark} />
-												) : isTabler(p) ? (
-													<Icon name={p.icon} aria-hidden="true" />
-												) : (
-													<NavIcon src={p.icon} size={26} />
-												)}
-											</span>
+										<a class="fm__product" href={p.href} {...ext(p.external)}>
+											<Mark size={40} fill="wash" accent={p.hue} class="fm__mark" {...markOf(p)} />
 											<span class="fm__pname">
 												{p.name}
 												{p.external && (
@@ -216,24 +217,21 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 						{/* Across the whole map, under both groups: the platform's next steps on the left, set as
 					    the columns' "All use cases →"; the License Portal at the right end, captioned, for the
 					    customer who is past choosing. */}
-						<div class="fm__next">
+						<div class="fm__next" data-accent="neutral">
 							<ul class="fm__plinks">
 								{FOOTER_PLATFORM_LINKS.map((l) => (
 									<li>
-										<a href={l.href}>
+										<Link href={l.href} size="sm" tone="ink">
 											{l.label}
-											<Icon name="tabler:arrow-right" aria-hidden="true" />
-										</a>
+										</Link>
 									</li>
 								))}
 							</ul>
 							<p class="fm__portal">
 								<span>{FOOTER_LICENSE_PORTAL.caption}</span>
-								<a href={FOOTER_LICENSE_PORTAL.href} target="_blank" rel="noopener noreferrer">
+								<Link href={FOOTER_LICENSE_PORTAL.href} size="sm" tone="ink" external>
 									{FOOTER_LICENSE_PORTAL.label}
-									<Icon name="tabler:arrow-up-right" aria-hidden="true" />
-									<span class="fm__sr">(opens a new site)</span>
-								</a>
+								</Link>
 							</p>
 						</div>
 					</Fragment>
@@ -241,7 +239,7 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 			}
 		</nav>
 
-		<nav class="fm__cols" aria-label="Site">
+		<nav class="fm__cols" aria-label="Site" data-accent="neutral">
 			{
 				columns.map((col) => (
 					<div class="fm__col">
@@ -259,10 +257,9 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 							))}
 						</ul>
 						{col.more && (
-							<a class="fm__more" href={col.more.href}>
+							<Link href={col.more.href} size="sm" tone="ink">
 								{col.more.label}
-								<Icon name="tabler:arrow-right" aria-hidden="true" />
-							</a>
+							</Link>
 						)}
 						{col.sub && (
 							<>
@@ -275,10 +272,9 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 									))}
 								</ul>
 								{col.sub.more && (
-									<a class="fm__more" href={col.sub.more.href}>
+									<Link href={col.sub.more.href} size="sm" tone="ink">
 										{col.sub.more.label}
-										<Icon name="tabler:arrow-right" aria-hidden="true" />
-									</a>
+									</Link>
 								)}
 							</>
 						)}
@@ -335,6 +331,8 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 
 	// Every shade here is white at an alpha over the one ground, so the whole footer retunes from
 	// `--fm-ground`. Measured on black: 0.64 is 8.1:1, 0.5 is 5.3:1 — both clear AA for 14px type.
+	// `data-surface="dark"` on the root gives the kit inside (the field, its button, the marks, the
+	// standalone links) their dark tones and every control the yellow ring.
 	.fm {
 		--fm-ground: #000;
 		--fm-text: #fff;
@@ -345,8 +343,6 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		// 7% on black (#121212): at the 4% it had on #121425 the panel vanished once the ground went
 		// black, and without a rim the fill is the only thing that makes it a panel.
 		--fm-panel: rgba(255, 255, 255, 0.07);
-		--fm-hover: rgba(255, 255, 255, 0.06);
-		--fm-focus: #8b9bff;
 
 		// From the top: a trace of the closing band's indigo where the footer meets it, settling to
 		// black just past halfway. (Tried the other way, black at the top into indigo at the foot.)
@@ -354,15 +350,17 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		background: linear-gradient(180deg, #08091a 0%, var(--fm-ground) 55%);
 		color: var(--fm-text);
 
-		a {
+		// The footer's own links: the rows, the tiles, the logo. Not `ui/Link`, which carries its own
+		// colour and ring, and which this would outrank (Astro scopes the component's `<a>` too); the
+		// `:where` keeps the weight at `.fm a`, so each link's own colour below still beats it.
+		a:where(:not(.ui-link)) {
 			color: inherit;
 			text-decoration: none;
 		}
 
-		a:focus-visible,
-		button:focus-visible,
-		input:focus-visible {
-			outline: 2px solid var(--fm-focus);
+		// The site's ring for the ground: yellow, from `data-surface`.
+		a:where(:not(.ui-link)):focus-visible {
+			outline: 2px solid var(--focus-ring);
 			outline-offset: 2px;
 			border-radius: 4px;
 		}
@@ -465,78 +463,9 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		color: var(--fm-faint);
 	}
 
-	.fm__news-label {
-		display: block;
-		font-size: $font-size-base;
-		font-weight: $font-weight-bold;
-		line-height: 1.5;
-	}
-
-	.fm__news-lede {
-		margin: $spacing-1 0 $spacing-3;
-		font-size: $font-size-sm;
-		line-height: 1.5;
-		color: var(--fm-muted);
-	}
-
-	// Field and button as one control: the seam is the button's own left edge.
-	.fm__field {
-		display: flex;
-		height: 44px;
-
-		input[type='email'] {
-			flex: 1 1 auto;
-			min-width: 0;
-			height: 100%;
-			padding: 0 14px;
-			border: 1px solid rgba(255, 255, 255, 0.16);
-			border-right: 0;
-			border-radius: $radius-md 0 0 $radius-md;
-			background: rgba(255, 255, 255, 0.05);
-			color: #fff;
-			font: inherit;
-			font-size: $font-size-base;
-
-			&::placeholder {
-				color: var(--fm-faint);
-			}
-
-			&:hover {
-				border-color: rgba(255, 255, 255, 0.28);
-			}
-
-			&:focus-visible {
-				border-radius: $radius-md 0 0 $radius-md;
-				outline-offset: -1px;
-			}
-		}
-
-		button {
-			flex: 0 0 auto;
-			height: 100%;
-			padding: 0 18px;
-			border: 0;
-			border-radius: 0 $radius-md $radius-md 0;
-			background-color: var(--color-brand, #3d50f5);
-			color: #fff;
-			font: inherit;
-			font-size: $font-size-base;
-			font-weight: $font-weight-bold;
-			cursor: pointer;
-
-			// The site's primary hover, as "Try for free" in the header and the bookend have it: the fill
-			// darkened by a black overlay, 20% on hover and 30% pressed — it lightened toward white before,
-			// the one primary that went the other way. No shimmer: it is a form's submit, not a way on.
-			&:hover {
-				background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
-			}
-
-			&:active {
-				background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3));
-			}
-		}
-	}
-
+	// The form is `ui/Field` at 44 on the dark ground, the submit `ui/Button` attached to its end: the
+	// field's label, the lede as its hint, the box and the button as one control. No shimmer on the
+	// button: it is a form's submit, not a way on.
 	.fm__consent {
 		margin: $spacing-2 0 0;
 		font-size: $font-size-xs;
@@ -626,52 +555,11 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		}
 	}
 
+	// The tile is `ui/Mark` at 40, beside the name and its line. The platforms' are SOLID, the
+	// ThingsBoard logo knocked out of their fill; the ecosystem's sit on a WASH of their own hue, the
+	// Products section's badges in outline, so the six read as a family beside the two filled ones.
 	.fm__mark {
 		grid-row: 1 / span 2;
-		display: grid;
-		place-items: center;
-		width: 40px;
-		height: 40px;
-		// The site's squircle corner, as every other mark (12px was 30% of this tile).
-		border-radius: 32%;
-		color: var(--hue);
-		// The ecosystem's glyphs sit on a wash of their own hue: the Products section's badges in
-		// outline, so the six read as a family beside the two filled platform badges.
-		background: color-mix(in srgb, var(--hue) 14%, transparent);
-
-		// The nav glyphs are drawn inside a 54 box with ~5 of air on each side, so 26 here shows a
-		// ~22px glyph: the tile's 40 less 9 on each side, the proportion of the Products badges.
-		:global(svg) {
-			width: 26px;
-			height: 26px;
-			display: block;
-		}
-	}
-
-	// The ThingsBoard mark (the Mobile App's): drawn to its box edge, so it runs smaller than the
-	// nav glyphs, whose 54 box carries air — 20 here reads as their 26.
-	.fm__tbmark {
-		display: grid;
-		width: 20px;
-		height: 20px;
-	}
-
-	// Heavier than the marks' own svg size (26), so the mark fills its box.
-	.fm .fm__mark .fm__tbmark :global(svg) {
-		width: 100%;
-		height: 100%;
-	}
-
-	// The platforms' marks ARE badges — a filled squircle with the mark knocked out — so they get no
-	// tile of their own, and run 4px larger than the tiles beside them.
-	.fm__mark--badge {
-		background: none;
-		border-radius: 0;
-
-		:global(svg) {
-			width: 36px;
-			height: 36px;
-		}
 	}
 
 	.fm__pname {
@@ -692,8 +580,9 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		color: var(--fm-muted);
 	}
 
-	// The platform's next steps, one row across the map under the tiles: white, medium, an arrow —
-	// the columns' "All use cases →" — so they read as the way on rather than as small print.
+	// The platform's next steps, one row across the map under the tiles: standalone links in white
+	// (`ink` in the neutral scheme, so the hover keeps the white and adds the underline), the columns'
+	// "All use cases", so they read as the way on rather than as small print.
 	.fm__next {
 		grid-column: 1 / -1;
 		display: flex;
@@ -708,35 +597,10 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		flex-wrap: wrap;
 		gap: $spacing-2 $spacing-8;
 		// No rule over it: the map's own 32px gap sets it off the tiles.
-
-		a {
-			display: inline-flex;
-			align-items: center;
-			gap: 4px;
-			font-size: $font-size-sm;
-			font-weight: $font-weight-medium;
-			line-height: 1.5;
-			color: #fff;
-
-			:global(svg) {
-				width: 16px;
-				height: 16px;
-				transition: transform 0.15s;
-			}
-
-			&:hover {
-				text-decoration: underline;
-				text-underline-offset: 3px;
-
-				:global(svg) {
-					transform: translateX(2px);
-				}
-			}
-		}
 	}
 
 	// The caption muted, the link in the row's white: the caption says who it is for, the link is
-	// the same kind of thing as the two beside it.
+	// the same kind of thing as the two beside it, leaving the site (the up-right arrow).
 	.fm__portal {
 		display: flex;
 		flex-wrap: wrap;
@@ -746,34 +610,6 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		font-size: $font-size-sm;
 		line-height: 1.5;
 		color: var(--fm-muted);
-	}
-
-	.fm__portal a {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		font-weight: $font-weight-medium;
-		color: #fff;
-
-		:global(svg) {
-			width: 16px;
-			height: 16px;
-			transition: transform 0.15s;
-		}
-
-		&:hover {
-			text-decoration: underline;
-			text-underline-offset: 3px;
-		}
-	}
-
-	.fm__sr {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0 0 0 0);
-		white-space: nowrap;
 	}
 
 	.fm__ext {
@@ -812,12 +648,6 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 
 	.fm--focus .fm__pname {
 		align-self: center;
-	}
-
-	// The two pages' glyphs, a step under the ecosystem's 26 (tabler's are drawn to the box edge).
-	.fm--focus .fm__mark:not(.fm__mark--badge) :global(svg) {
-		width: 22px;
-		height: 22px;
 	}
 
 	// Five columns with the ecosystem in front: 172px each at 960, which the longest link —
@@ -887,31 +717,10 @@ const ext = (external?: boolean) => (external ? { target: '_blank', rel: 'noopen
 		}
 	}
 
-	.fm__more {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
+	// A column's own last word ("All use cases"): a standalone link in white, as the platform row's,
+	// a step under the list. Placed from here, since it is the column's child.
+	.fm__col > :global(.ui-link) {
 		margin-top: $spacing-2;
-		font-size: $font-size-sm;
-		font-weight: $font-weight-medium;
-		line-height: 1.5;
-		color: #fff !important;
-
-		:global(svg) {
-			width: 16px;
-			height: 16px;
-			transition: transform 0.15s;
-		}
-
-		// As every other link: underlined on hover, the arrow a step on — the platform row's links do both.
-		&:hover {
-			text-decoration: underline;
-			text-underline-offset: 3px;
-
-			:global(svg) {
-				transform: translateX(2px);
-			}
-		}
 	}
 
 	// ---- Bottom line -------------------------------------------------------------------------

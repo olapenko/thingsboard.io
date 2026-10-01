@@ -1,0 +1,139 @@
+---
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import Tabs from '@components/ui/Tabs.astro';
+import TabPanel from '@components/ui/TabPanel.astro';
+import FaqItem from '@components/Landing/FaqItem.astro';
+import type { FaqCategory } from '@data/pricing/types';
+
+/**
+ * The product pages' FAQ: a column of topics beside one panel of answers, each panel showing its
+ * first `visibleCount` and holding the rest behind "More questions". Develop's arrangement, with
+ * real tabs (`ui/Tabs`, `look="list"`): arrows move between topics, Home and End go to the ends,
+ * and the column sticks under the header while a panel of seventeen answers scrolls past it. On a
+ * phone the topics run as one scrolling row over the panel, since a column of seven would cost more
+ * height than the answers under it.
+ *
+ * With no script a reader gets the first topic's first answers, as prose that opens (`FaqItem` is a
+ * native `<details>`), rather than a column of dead buttons.
+ *
+ * Reads Pricing's `FaqCategory`, the shape `buildFaqPageSchema` takes, so a page that publishes the
+ * FAQ as structured data passes the same array to its layout's `jsonLd`. That stays the page's
+ * call: Cloud publishes it, On-premises deliberately does not (see the note there).
+ *
+ * NOT Pricing's `FaqSection` (buttons with `aria-current`, bordered cards, a 280px column, copy and
+ * deep links), nor Trendz's: different pages with different jobs, reconciled if Pricing moves.
+ */
+interface Props {
+	categories: FaqCategory[];
+	/** Answers shown per topic before "More questions"; a topic at or under it renders no button. */
+	visibleCount?: number;
+	/** Prefixes the panel ids (`<prefix>-<category id>`; each tab is `<panel>-tab`). */
+	idPrefix?: string;
+	/** The tablist's accessible name. */
+	label?: string;
+}
+
+const { categories, visibleCount = 6, idPrefix = 'faq', label = 'FAQ topics' } = Astro.props;
+const panelId = (category: FaqCategory) => `${idPrefix}-${category.id}`;
+---
+
+<div class="product-faq">
+	<Tabs
+		look="list"
+		sticky
+		label={label}
+		items={categories.map((category) => ({ label: category.label, panel: panelId(category) }))}
+		class="product-faq__tabs"
+	/>
+
+	<div class="product-faq__panels">
+		{
+			categories.map((category, i) => (
+				<TabPanel id={panelId(category)} selected={i === 0}>
+					{category.items.map((item, j) => (
+						<FaqItem question={item.question} answer={item.answer} extra={j >= visibleCount} />
+					))}
+					{category.items.length > visibleCount && (
+						<Button
+							variant="tertiary"
+							flush
+							class="product-faq__more"
+							attrs={{ 'aria-expanded': 'false', 'data-faq-more': '' }}
+						>
+							<span data-faq-more-label>More questions</span>
+							<Icon name="tabler:chevron-down" class="product-faq__more-chevron" aria-hidden="true" />
+						</Button>
+					)}
+				</TabPanel>
+			))
+		}
+	</div>
+</div>
+
+<script>
+	// "More questions": shows the panel's held-back answers and says so on the button, both in its
+	// label and in `aria-expanded`. Each answer keeps its own open or closed state either way.
+	document.querySelectorAll<HTMLButtonElement>('[data-faq-more]').forEach((more) => {
+		const panel = more.closest('[role="tabpanel"]');
+		const label = more.querySelector('[data-faq-more-label]');
+
+		more.addEventListener('click', () => {
+			const expanded = more.getAttribute('aria-expanded') !== 'true';
+			more.setAttribute('aria-expanded', String(expanded));
+			panel?.querySelectorAll<HTMLElement>('[data-faq-extra]').forEach((item) => {
+				item.hidden = !expanded;
+			});
+			if (label) label.textContent = expanded ? 'Fewer questions' : 'More questions';
+		});
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.product-faq {
+		display: grid;
+		// The column is a fixed 232 rather than a fraction: the topics are fixed strings, and a
+		// proportional column re-wraps "Trials, Cancellations & Refunds" at every width.
+		grid-template-columns: 232px minmax(0, 1fr);
+		gap: $spacing-12;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: $spacing-6;
+		}
+	}
+
+	// `start`, or the grid stretches the column to the panel's height and it has nowhere to stick.
+	// On a phone the row's 2px of padding (room for the focus ring inside its scroller) is taken
+	// back from the gutter, so the first topic stays on the text edge.
+	.product-faq__tabs {
+		align-self: start;
+
+		@include media-down(md) {
+			margin-inline: -2px;
+		}
+	}
+
+	.product-faq__more {
+		margin-top: $spacing-4;
+	}
+
+	// The chevron rides in the slot rather than `iconEnd`, so these rules can turn it with the state:
+	// it is a toggle beside its label, not a link's arrow. 20, the button glyph's own size.
+	.product-faq__more-chevron {
+		flex: none;
+		width: 20px;
+		height: 20px;
+		transition: transform 0.15s ease;
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+		}
+	}
+
+	.product-faq__more[aria-expanded='true'] .product-faq__more-chevron {
+		transform: rotate(180deg);
+	}
+</style>
