@@ -671,6 +671,29 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		}
 	});
 
+	/**
+	 * A shown tip, kept 12px inside the window: centred on its ⓘ it overruns the edge beside a row's
+	 * first or last card. Measured once it is displayed, which `:hover` and `:focus` have already
+	 * done by the time these events arrive. On a phone it docks to the screen instead and needs none.
+	 */
+	function placeTip(tip: Element | null | undefined) {
+		const body = tip?.querySelector<HTMLElement>('.tip__body');
+		if (!body) return;
+		body.style.removeProperty('--tip-dx');
+		const r = body.getBoundingClientRect();
+		if (!r.width || getComputedStyle(body).position === 'fixed') return;
+		const edge = document.documentElement.clientWidth - 12;
+		let dx = r.right > edge ? edge - r.right : 0;
+		if (r.left + dx < 12) dx = 12 - r.left;
+		if (dx) body.style.setProperty('--tip-dx', `${Math.round(dx)}px`);
+	}
+
+	document.addEventListener('mouseover', (event) => placeTip((event.target as Element | null)?.closest?.('.tip')));
+	document.addEventListener('focusin', (event) => {
+		const target = event.target as Element | null;
+		placeTip(target?.closest('.tip') ?? target?.querySelector('.tip'));
+	});
+
 	document.addEventListener('keydown', (event) => {
 		// Escape closes a tooltip held open by focus.
 		if (event.key === 'Escape') {
@@ -773,7 +796,9 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 	}
 
 	// ---------------------------------------------------------------------------------------------
-	// THE PAGE: main's 1120 column, everything left-aligned under a centred title.
+	// THE PAGE: the footer's measure — 960 inside 20px of padding, the construction `FooterMap`,
+	// `ClosingCta` and the contact page share — so the page's left edge and the footer's are one line.
+	// Everything left-aligned under a centred title. Only Cloud's five plans leave it (see the grid).
 	// ---------------------------------------------------------------------------------------------
 	// THE ACCENT. The primary everywhere but On-premises, which takes the green its product page
 	// uses: `$color-pe-dark` fills under white (4.6:1), `$color-pe-link` is its readable ink on white
@@ -801,7 +826,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 
 	.p2 {
 		position: relative;
-		max-width: calc(1120px + #{$spacing-5} * 2);
+		max-width: calc(960px + #{$spacing-5} * 2);
 		margin: 0 auto;
 		padding: 0 $spacing-5 $spacing-20;
 	}
@@ -974,16 +999,6 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		}
 	}
 
-	.seg__opt:focus-visible .tip--inline .tip__body {
-		opacity: 1;
-		visibility: visible;
-		transform: translate(-50%, 0);
-
-		@include media-down(md) {
-			transform: none;
-		}
-	}
-
 	.seg__save {
 		padding: 0 $spacing-2;
 		border-radius: $radius-full;
@@ -1052,6 +1067,11 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 	// button and list sit level across a row whatever the copy. Main's cards do the same with six
 	// spacer-padded feature rows; these keep only the real lines.
 	// ---------------------------------------------------------------------------------------------
+	// FOUR PLANS FIT THE MEASURE: 228px a card at 960, and still 203 at a 900px window, below which
+	// they pair up. FIVE DO NOT: 179px at 960, where "100M data points/mo" and its ⓘ break over two
+	// lines in three cards of five. So Cloud's grid escapes the measure, centred on it, out to main's
+	// 1120 — or to the window, less the page's gutters and a scrollbar's width, when that is
+	// narrower. Under 1100 there is no room to escape into, and the five go three and two instead.
 	.plan-grid {
 		display: grid;
 		grid-template-columns: repeat(var(--plan-cols, 4), minmax(0, 1fr));
@@ -1061,12 +1081,22 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		padding: 0;
 		list-style: none;
 
-		@media (max-width: 1099px) {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
+		@media (min-width: 1100px) {
+			&--5 {
+				--plan-escape: min(1120px, calc(100vw - #{$spacing-5} * 2 - 16px));
+				width: var(--plan-escape);
+				margin-inline: calc((100% - var(--plan-escape)) / 2);
+			}
+		}
 
+		@media (max-width: 1099px) {
 			&--5 {
 				grid-template-columns: repeat(3, minmax(0, 1fr));
 			}
+		}
+
+		@media (max-width: 899px) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 
 		@include media-down(md) {
@@ -1296,13 +1326,12 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		font-weight: $font-weight-normal;
 		text-align: left;
 		white-space: normal;
-		opacity: 0;
-		visibility: hidden;
-		transform: translate(-50%, 4px);
-		transition:
-			opacity 0.12s ease,
-			transform 0.12s ease,
-			visibility 0.12s;
+		// HIDDEN BY `display`, not by visibility: a hidden tip still has a box, and the ones on a row's
+		// last card reached up to 80px past the window at tablet widths and scrolled the page sideways.
+		// Shown, it is centred on its ⓘ and nudged back inside the window by `--tip-dx` (the page
+		// script measures it); `translate` carries the placing so the reveal's `transform` stays free.
+		display: none;
+		translate: calc(-50% + var(--tip-dx, 0px)) 0;
 
 		// The bridge over the 8px gap, so the pointer can reach a link inside without the tip closing.
 		&::after {
@@ -1320,17 +1349,20 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			text-underline-offset: 2px;
 		}
 
-		@media (prefers-reduced-motion: reduce) {
-			transition: none;
-		}
-
 		@include media-down(md) {
 			position: fixed;
 			right: $spacing-4;
 			bottom: $spacing-4;
 			left: $spacing-4;
 			width: auto;
-			transform: none;
+			translate: none;
+		}
+	}
+
+	@keyframes tip-in {
+		from {
+			opacity: 0;
+			transform: translateY(4px);
 		}
 	}
 
@@ -1345,13 +1377,13 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 	}
 
 	.tip:hover .tip__body,
-	.tip:focus-within .tip__body {
-		opacity: 1;
-		visibility: visible;
-		transform: translate(-50%, 0);
+	.tip:focus-within .tip__body,
+	.seg__opt:focus-visible .tip--inline .tip__body {
+		display: block;
+		animation: tip-in 0.12s ease;
 
-		@include media-down(md) {
-			transform: none;
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
 		}
 	}
 
