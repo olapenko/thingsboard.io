@@ -301,6 +301,16 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: 'Cookie notice — the banner at the foot of every page',
 		badge: { icon: 'tabler:cookie', color: '#3d50f5' },
 	},
+	{
+		// The YourGPT chat in the corner of every page: its window in the site's colours and the AI
+		// mark's cycle, opened from a launcher of ours. Like the docs notice, a site piece outside the
+		// homepage's sections, so it lives with the flows.
+		id: 'chat-widget',
+		area: 'flows',
+		label: 'AI chat',
+		title: 'AI chat — the YourGPT widget in the site’s colours',
+		badge: { icon: 'tabler:sparkles-filled', color: '#3d50f5' },
+	},
 ];
 
 /**
