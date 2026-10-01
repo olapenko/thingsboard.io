@@ -11,9 +11,11 @@
  * — it only keeps those attributes true as the state changes.
  */
 export function initFaqTabs() {
-	const layout = document.querySelector<HTMLElement>('.faq-layout');
-	if (!layout) return;
+	// Every set on the page, each on its own: the pricing draft carries one per deployment.
+	document.querySelectorAll<HTMLElement>('.faq-layout').forEach(initFaqLayout);
+}
 
+function initFaqLayout(layout: HTMLElement) {
 	const tabs = Array.from(layout.querySelectorAll<HTMLButtonElement>('.faq-tab'));
 	const panels = Array.from(layout.querySelectorAll<HTMLElement>('.faq-panel'));
 	if (tabs.length === 0 || tabs.length !== panels.length) return;

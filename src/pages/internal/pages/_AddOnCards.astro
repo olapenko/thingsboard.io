@@ -1,0 +1,82 @@
+---
+/**
+ * A deployment's add-ons for the conservative pricing draft (`./pricing.astro`): main's
+ * `AddOnsSection` card — name with ⓘ, line and price — in the new styles, with the product's own
+ * mark in place of main's generic line icon: Edge, Trendz and the Mobile App as the homepage's
+ * ecosystem cards draw them, on a tint of the product's accent. Markup only.
+ *
+ * Underscore-prefixed so Astro does not make it a route.
+ */
+import { Icon } from 'astro-icon/components';
+import EcosystemMark from '@components/Landing/EcosystemMark.astro';
+import InfoTip from './_InfoTip.astro';
+import { addonMark } from '@data/pricingPage';
+import type { AddOnItem } from '@data/pricing-live/types';
+
+interface Props {
+	addOns: AddOnItem[];
+	answers: Set<string>;
+	faqPrefix: string;
+}
+
+const { addOns, answers, faqPrefix } = Astro.props;
+
+/** Main's price line, in its words: "Starting from $9 /month", a priced note, or nothing. */
+const price = (a: AddOnItem) => {
+	if (a.priceNote) return { lead: '', value: a.priceNote };
+	if (a.priceUsd == null) return null;
+	const value = typeof a.priceUsd === 'string' ? a.priceUsd : `$${a.priceUsd.toLocaleString('en-US')}`;
+	return { lead: a.startingFrom ? 'Starting from ' : '', value: `${value}${a.period ? ` ${a.period}` : ''}` };
+};
+
+const setup = (a: AddOnItem) =>
+	a.setupFee ? `+ ${a.setupFeeCurrency ?? '$'}${a.setupFee.toLocaleString('en-US')} one-time setup fee` : null;
+---
+
+<ul class="addon-cards">
+	{
+		addOns.map((addon) => {
+			const p = price(addon);
+			const fee = setup(addon);
+			const mark = addonMark(addon.name);
+			return (
+				<li class="addon-card">
+					<span class="addon-card__mark" style={`--addon-accent: ${mark.accent}`} aria-hidden="true">
+						{mark.src ? (
+							<EcosystemMark src={mark.src} class="addon-card__glyph" filled={!!mark.ink} ink={mark.ink} />
+						) : (
+							<Icon name={mark.icon!} class="addon-card__glyph addon-card__glyph--vector" />
+						)}
+					</span>
+					<div class="addon-card__body">
+						<h3 class="addon-card__name">
+							{addon.faqTooltip ? (
+								<>
+									{addon.name.slice(0, addon.name.lastIndexOf(' ') + 1)}
+									<span class="tip-anchor">
+										{addon.name.slice(addon.name.lastIndexOf(' ') + 1)}
+										<InfoTip
+											html={addon.faqTooltip}
+											label={addon.name}
+											more={addon.faqId && answers.has(addon.faqId) ? `#${faqPrefix}${addon.faqId}` : undefined}
+										/>
+									</span>
+								</>
+							) : (
+								addon.name
+							)}
+						</h3>
+						{addon.description && <p class="addon-card__desc">{addon.description}</p>}
+						{p && (
+							<p class="addon-card__price">
+								{p.lead}
+								<strong>{p.value}</strong>
+								{fee && <span class="addon-card__fee">{fee}</span>}
+							</p>
+						)}
+					</div>
+				</li>
+			);
+		})
+	}
+</ul>
