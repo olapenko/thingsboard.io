@@ -106,7 +106,21 @@ export type HomeSection =
 			 */
 			heading: 'why' | 'value' | 'live';
 	  }
-	| { id: Exclude<HomeSectionId, 'platform' | 'ai' | 'normalize' | 'features'> };
+	| {
+			id: 'trust';
+			/**
+			 * `hidden` — the band names itself to the outline only, its three card titles carrying it, as
+			 * A ships it. `visible` — "Safe to build on" over the cards (`TRUST_HEADING`, draft words).
+			 */
+			heading: 'hidden' | 'visible';
+			/**
+			 * `rise` — white into the bookends' indigo, the approach to the dark Products band, as A ships
+			 * it. `fall` — turned over, indigo at the top, so the band starts on its own edge under the use
+			 * cases' white.
+			 */
+			ground: 'rise' | 'fall';
+	  }
+	| { id: Exclude<HomeSectionId, 'platform' | 'ai' | 'normalize' | 'features' | 'trust'> };
 
 export interface HomeSectionMeta {
 	/** What the controls and the outline call it. Short: it sits in a pill over the section. */
@@ -143,7 +157,7 @@ export const HOME_SECTIONS: Record<HomeSectionId, HomeSectionMeta> = {
 export const ROW_SECTIONS: ReadonlySet<HomeSectionId> = new Set(['connect', 'twin', 'normalize', 'solution', 'scale']);
 
 export interface HomeComposition {
-	/** The address segment, `/internal/homepages/<id>/`. Never reused for a different order. */
+	/** The address segment, `/internal/homepages/<id>/`. Never reused for a different order — `c` once, on purpose (see it). */
 	id: string;
 	/** The switch's label. A letter or one word: three of them share a pill. */
 	label: string;
@@ -199,7 +213,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 			{ id: 'normalize', media: 'switch' },
 			{ id: 'solution' },
 			{ id: 'dashboards' },
-			{ id: 'trust' },
+			{ id: 'trust', heading: 'hidden', ground: 'rise' },
 			{ id: 'products' },
 			{ id: 'ecosystem' },
 			{ id: 'features', heading: 'value' },
@@ -253,7 +267,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 			{ id: 'normalize', media: 'switch' },
 			{ id: 'solution' },
 			{ id: 'dashboards' },
-			{ id: 'trust' },
+			{ id: 'trust', heading: 'hidden', ground: 'rise' },
 			{ id: 'products' },
 			{ id: 'ecosystem' },
 			{ id: 'features', heading: 'value' },
@@ -262,30 +276,38 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 	},
 	{
 		/*
-		 * A PROOF OF CONCEPT (2026-10-01): A with the platform drawn as a map the reader carries down
-		 * the page. Built on A because A is the order that already runs the four rows in the stages'
-		 * own order, straight after the platform; B puts the AI section between the two, and Live runs
-		 * the rows in another order with Scale among them.
+		 * A IN MAIN'S WORDS (2026-10-02): A's sections, order and colours, saying what main says
+		 * (`copy: 'live'`) — so the copy can be judged apart from the redesign, against the same layout
+		 * the shipping page has. The hero follows the copy: main's lines and its two buttons, Try for
+		 * free and Talk to an expert, with no note under them. The two headings with a `live` option
+		 * take it. What main has no words for keeps A's: the trust band, the customer voices, and the
+		 * Filter and Notify tabs of the normalize row. The trust band itself is the sandbox's "Heading,
+		 * ground turned over" (2026-10-02): a visible heading, its ground running indigo to white.
+		 *
+		 * THE ONE REUSED ID. `c` was "Map as you go" (2026-10-01), the platform as a step bar docked
+		 * under the header; it left the switch on 2026-10-02 as too raw for the homepage, and its
+		 * components stay (`PlatformSteps`, `PlatformStepsBar`, `diagram: 'steps'`). The letter was
+		 * given to this order on purpose, so the switch's third letter and its address agree.
 		 */
 		id: 'c',
 		label: 'C',
-		name: 'Map as you go',
+		name: 'Show, then explain, in main’s words',
 		hues: 'section',
-		copy: 'facelift',
+		copy: 'live',
 		footer: 'map',
-		note: 'A with the platform drawn as one flow, its four stages across the middle, and those stages docked under the header as you scroll past it: each one lights while its row is read, and the rows give up their marks to the bar.',
+		note: 'A as it stands — its sections, order, colours and footer — speaking main’s words: main’s hero with its two buttons, the platform and features headings, the rows, the use cases’ links and the cards. The trust band and the customer voices, which main does not have, keep A’s words; the trust band takes a visible heading and its ground turned over.',
 		sections: [
 			{ id: 'ai', layout: 'wide', cta: 'none', wash: 'cycle' },
-			{ id: 'platform', heading: 'loop', diagram: 'steps' },
+			{ id: 'platform', heading: 'live', diagram: 'loop' },
 			{ id: 'connect' },
 			{ id: 'twin' },
 			{ id: 'normalize', media: 'switch' },
 			{ id: 'solution' },
 			{ id: 'dashboards' },
-			{ id: 'trust' },
+			{ id: 'trust', heading: 'visible', ground: 'fall' },
 			{ id: 'products' },
 			{ id: 'ecosystem' },
-			{ id: 'features', heading: 'value' },
+			{ id: 'features', heading: 'live' },
 			{ id: 'voices' },
 		],
 	},
