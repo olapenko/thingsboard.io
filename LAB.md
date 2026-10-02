@@ -26,9 +26,10 @@ sync is `main` ← upstream, then `main` → `handoff`, then `handoff` → `lab`
 | 3 | UI kit | #12 | `src/components/ui/` (Button, Link, Mark, Chip, Tabs, Segmented, Field, Card, Band, Dialog), the type-role ladder, the accent and focus tokens. Read `src/components/ui/README.md` first. |
 | 4 | Footer | #13 | `Landing/FooterMap`, opt-in per page with `footer="map"` on `BaseLayout`; the Appearance row for theme-following pages. |
 | 5 | Site chrome | #14 | `CookieNotice` as the indigo bar in place of `CookieBanner`; the chat in the site's look with our own launcher. |
+| 6 | Contact us + Thanks | #15 | The two pages on the kit with the topic picker and device slider; FE's `SectionHeader` + `PageIntro`; main's header renamed `HomeSectionHeader` for the product pages. |
 
-Next, in order: the pages, each as `feat/page-<name>` — Contact us and Thanks, Installations,
-Cloud and On-premises, Home last. Each brings its sections, data and visuals; each takes
+Next, in order: the remaining pages, each as `feat/page-<name>` — Installations, Cloud and
+On-premises, Home last. Each brings its sections, data and visuals; each takes
 `footer="map"`. Then `FE-handoff` is renamed `facelift-archive` and kept as a frozen reference.
 
 Open, for a review: whether the bar takes FE-handoff's responsive logo (160px from 1281, 215 from
