@@ -10,7 +10,7 @@ and is never merged back. What a review decides is rebuilt as a `feat/` branch o
 | --- | --- | --- |
 | `main` | A read-only mirror of the live site (upstream `thingsboard/thingsboard.io`). Never commit. | `gh repo sync olapenko/thingsboard.io --source thingsboard/thingsboard.io --branch main`, then `git fetch` |
 | `handoff` | The deliverable: `main` plus the redesign, one commit per layer, shippable code only — no `/internal` pages, no sandbox hooks in shipped components. | `feat/<topic>` branches cut from it, merged back by PR with a rebase merge |
-| `lab` | `handoff` plus this sandbox. | Fast-forwarded to `handoff` after every merge (`git fetch origin handoff:lab`), then its own commits |
+| `lab` | `handoff` plus this sandbox. | Merges `handoff` after every layer (`git merge handoff` in the lab worktree), then its own commits |
 | `feat/<topic>` | One layer for `handoff`. Lowercase; deleted when merged. | PR into `handoff` |
 | `exp/<topic>` | An experiment for the sandbox. | PR into `lab`, or dropped |
 
@@ -27,9 +27,10 @@ sync is `main` ← upstream, then `main` → `handoff`, then `handoff` → `lab`
 | 4 | Footer | #13 | `Landing/FooterMap`, opt-in per page with `footer="map"` on `BaseLayout`; the Appearance row for theme-following pages. |
 | 5 | Site chrome | #14 | `CookieNotice` as the indigo bar in place of `CookieBanner`; the chat in the site's look with our own launcher. |
 | 6 | Contact us + Thanks | #15 | The two pages on the kit with the topic picker and device slider; FE's `SectionHeader` + `PageIntro`; main's header renamed `HomeSectionHeader` for the product pages. |
+| 7 | Installations | #16 | The hub as one section per product with `RegionChoice` and `InstallOptions`; choose-region on the region rows; `cloud-regions` gains the pickers' names. |
 
-Next, in order: the remaining pages, each as `feat/page-<name>` — Installations, Cloud and
-On-premises, Home last. Each brings its sections, data and visuals; each takes
+Next, in order: the remaining pages, each as `feat/page-<name>` — Cloud and On-premises, Home
+last. Each brings its sections, data and visuals; each takes
 `footer="map"`. Then `FE-handoff` is renamed `facelift-archive` and kept as a frozen reference.
 
 Open, for a review: whether the bar takes FE-handoff's responsive logo (160px from 1281, 215 from
