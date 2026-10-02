@@ -1,320 +1,445 @@
 ---
 import { Icon } from 'astro-icon/components';
+import Link from '@components/ui/Link.astro';
+import Tabs from '@components/ui/Tabs.astro';
+import TabPanel from '@components/ui/TabPanel.astro';
 import SmartImage from '@components/SmartImage.astro';
 import ImageComparison from '@components/UseCase/ImageComparison.astro';
-import { homeCarouselItems } from '@data/homeCarousel';
-import { DASHBOARDS_BADGE } from '@data/home-rows';
+import type { CarouselItem } from '@data/homeCarousel';
+import { newTabLinkLabel } from '@util/external-links';
 
-/** Dashboard showcase: one board on top, a tab list of the use cases below. */
+// One board on top, the case that produced it underneath. The named list is the
+// navigation — a reader picks the case that looks like theirs instead of
+// clicking blind dots — and the arrows step through the same set.
+//
+// Built as a tab set rather than a carousel: the cases are not a strip that
+// scrolls, one of several views is chosen (`motion` decides how it arrives), and
+// the shared Carousel component is used by the blog and use-case pages, so it
+// stays as it is. The list is `ui/Tabs` (`look="list"`, the product FAQ's), so
+// its keys, roles and focus are the shared tab script's; this one drives the
+// board, the copy, the arrows and the autoplay from the `tabs:change` it fires.
+//
+// Every case is server-rendered and inactive ones are `hidden`, so the section
+// is correct before its script runs and needs no layout measurement.
 
-// The prefix that pairs each tab with its panel through `aria-controls` / `aria-labelledby`.
-const ID = 'dashboards';
+interface Props {
+	items: CarouselItem[];
+	id?: string;
+	/** Milliseconds between automatic advances. Slow on purpose — a reader has to
+	 *  be able to finish a description before it moves. */
+	interval?: number;
+	/**
+	 * How one case gives way to the next.
+	 *
+	 *   cut      at once, as the handoff homepage shipped it.
+	 *   handoff  the page's own switch motion (the AI section's hand-off, the Automate switch's): the
+	 *            next shot fades in over the last from the side it comes from and settles to its
+	 *            size, the last holds under it until it is covered and then drifts the other way, the
+	 *            card morphs to the next shot's width with its edge sweeping across both, and the copy
+	 *            rises into place. 480ms for the board — long enough for a SCADA case's change of
+	 *            shape to read as one movement — against 260ms for the fade itself, all on the page's
+	 *            ease-out, so it moves from the press's first frame.
+	 */
+	motion?: 'cut' | 'handoff';
+	/**
+	 * A glow in the section's `--row-hue` UNDER the board, so the product is the lit thing on the
+	 * band: an ellipse centred on the board, a third wider and nearly twice as tall, which the board
+	 * covers everywhere but its edges.
+	 */
+	glow?: boolean;
+	/**
+	 * One colour per item for the glow, which then follows the case on the board and cross-fades as
+	 * it changes (`--dashshow-glow`). Without it the glow is the section's hue throughout.
+	 */
+	tones?: string[];
+}
 
-const ratioOf = (item: (typeof homeCarouselItems)[number]) => Number(item.width) / Number(item.height);
+const { items, id = 'dashboards', interval = 12000, motion = 'cut', glow = false, tones } = Astro.props;
 
-// The board is `100vw - 46px` wide, capped at 1158px; the srcset stops at the source's own width.
-const SLIDE_WIDTHS = [480, 800, 1160, 1600, 1920];
-const SLIDE_SIZES = '(max-width: 1204px) calc(100vw - 46px), 1158px';
-const widthsOf = (item: (typeof homeCarouselItems)[number]) => {
-	const max = Number(item.width);
-	return [...SLIDE_WIDTHS.filter((w) => w < max), max];
-};
+// Each shot's own aspect ratio, handed to the board so the card can take the
+// shape of whatever it is showing. See `--item-ratio` in the styles.
+const ratioOf = (item: CarouselItem) => Number(item.width) / Number(item.height);
+
+// Each case's copy is the panel its tab names; the tab's own id is `<panel>-tab`.
+const panelId = (i: number) => `${id}-panel-${i}`;
 ---
 
-<section id={ID} class="dashboards" style={`--glow-hue: ${DASHBOARDS_BADGE.color}`} data-dashshow>
-	<div class="main-div">
-		<header class="dashboards__head">
-			<span class="dashboards__badge" style={`--badge-color: ${DASHBOARDS_BADGE.color}`} aria-hidden="true">
-				<Icon name={DASHBOARDS_BADGE.icon} />
-			</span>
-			<h2 class="dashboards__title">Build real-time IoT dashboards</h2>
-			<p class="dashboards__lede">
-				Assemble the view your users need from 600+ widgets, and control devices from the same screen. No front-end code
-				required.
-			</p>
-			<a class="dashboards__all print:hidden" href="/use-cases/">
-				Browse all use cases
-				<Icon name="tabler:chevron-right" class="link-chevron" aria-hidden="true" />
-			</a>
-		</header>
+<div
+	class:list={['dashshow', glow && 'dashshow--glow', motion === 'handoff' && 'dashshow--handoff']}
+	data-dashshow
+	data-dashshow-interval={interval}
+	data-dashshow-motion={motion}
+	style={tones?.[0] ? `--dashshow-tone: ${tones[0]}` : undefined}
+>
+	{glow && <div class="dashshow__glow" aria-hidden="true" />}
+	<div class="dashshow__board" style={items.length ? `--item-ratio: ${ratioOf(items[0])}` : undefined}>
+		{items.map((item, i) => (
+			<div
+				class="dashshow__frame"
+				id={`${id}-board-${i}`}
+				hidden={i !== 0}
+				data-ratio={ratioOf(item)}
+				data-tone={tones?.[i]}
+				style={
+					`--frame-ratio: ${ratioOf(item)}` + (item.overlaySrc ? `; --cmp-ratio: ${item.width} / ${item.height}` : '')
+				}
+			>
+				{item.overlaySrc ? (
+					<ImageComparison
+						id={`${id}-compare-${i}`}
+						baseImage={item.src}
+						baseImageAlt={item.alt}
+						overlayImage={item.overlaySrc}
+						overlayImageAlt={item.overlayAlt ?? item.alt}
+					/>
+				) : (
+					<SmartImage
+						src={item.src}
+						alt={item.alt}
+						width={item.width}
+						height={item.height}
+						loading={i === 0 ? 'eager' : 'lazy'}
+					/>
+				)}
+			</div>
+		))}
+	</div>
 
-		<div class="dashshow__stage">
-			<div class="dashshow__glow print:hidden" aria-hidden="true"></div>
-			<div class="dashshow__board" style={`--item-ratio: ${ratioOf(homeCarouselItems[0])}`}>
-				{homeCarouselItems.map((item, i) => (
-					<div
-						class="dashshow__frame"
-						hidden={i !== 0}
-						data-ratio={ratioOf(item)}
-						style={item.overlaySrc ? `--cmp-ratio: ${item.width} / ${item.height}` : undefined}
-					>
-						{item.overlaySrc ? (
-							<ImageComparison
-								baseImage={item.src}
-								baseImageAlt={item.alt}
-								overlayImage={item.overlaySrc}
-								overlayImageAlt={item.overlayAlt ?? item.alt}
-							/>
-						) : (
-							<SmartImage
-								src={item.src}
-								alt={item.alt}
-								width={item.width}
-								height={item.height}
-								widths={widthsOf(item)}
-								sizes={SLIDE_SIZES}
-								loading={i === 0 ? 'eager' : 'lazy'}
-							/>
+	<div class="dashshow__body">
+		<Tabs
+			look="grid"
+			label="Use cases"
+			class="dashshow__nav"
+			items={items.map((item, i) => ({ label: item.title, icon: item.icon, panel: panelId(i) }))}
+		/>
+
+		<div class="dashshow__detail">
+			<div class="dashshow__arrows">
+				<button type="button" class="dashshow__arrow" data-dashshow-prev aria-label="Previous use case">
+					<Icon name="tabler:chevron-left" aria-hidden="true" />
+				</button>
+				<button type="button" class="dashshow__arrow" data-dashshow-next aria-label="Next use case">
+					<Icon name="tabler:chevron-right" aria-hidden="true" />
+				</button>
+			</div>
+
+			{items.map((item, i) => (
+				<TabPanel id={panelId(i)} selected={i === 0} class="dashshow__panel">
+					<h3 class="dashshow__title">{item.title}</h3>
+					<p class="dashshow__desc">{item.description}</p>
+					{/* Case name folded into the accessible name: the visible label is
+						    deliberately specific rather than repeating the heading, so on its
+						    own it wouldn't say which case it belongs to. A label that already
+						    names the case (main's "Smart energy use case") needs none. Both links are a card's,
+						    not the section's: they name one use case, so they take the standalone link's base
+						    size and leave the larger step to "Browse all use cases" above. In ink, as the
+						    ecosystem cards' links are (2026-10-01): the chevron, the hover and the weight say
+						    it is a link, and the live dot and the off-site arrow tell the two apart. */}
+					<div class="dashshow__links">
+						<Link
+							href={item.href}
+							tone="ink"
+							attrs={{
+								'aria-label': item.linkLabel?.includes(item.title)
+									? undefined
+									: `${item.linkLabel || 'Learn more'} — ${item.title}`,
+							}}
+						>
+							{item.linkLabel || 'Learn more'}
+						</Link>
+						{/* The board itself, running: the case's public dashboard on the demo server. Second, so
+							    the case's own page stays the way on. */}
+						{item.demoHref && (
+							<Link
+								href={item.demoHref}
+								tone="ink"
+								external
+								attrs={{ 'aria-label': newTabLinkLabel(`Live demo — ${item.title}`, item.demoHref) }}
+							>
+								<span class="dashshow__live" aria-hidden="true" />
+								Live demo
+							</Link>
 						)}
 					</div>
-				))}
-
-				<div class="dashshow__arrows print:hidden">
-					<button type="button" class="dashshow__arrow" data-dashshow-prev aria-label="Previous use case">
-						<Icon name="tabler:chevron-left" aria-hidden="true" />
-					</button>
-					<button type="button" class="dashshow__arrow" data-dashshow-next aria-label="Next use case">
-						<Icon name="tabler:chevron-right" aria-hidden="true" />
-					</button>
-				</div>
-			</div>
-
-			<div class="dashshow__body">
-				<div
-					class="dashshow__nav print:hidden"
-					role="tablist"
-					aria-orientation="vertical"
-					aria-label="Use cases"
-					style={`--nav-rows: ${Math.ceil(homeCarouselItems.length / 2)}`}
-				>
-					{homeCarouselItems.map((item, i) => (
-						<button
-							type="button"
-							role="tab"
-							class="dashshow__case"
-							id={`${ID}-tab-${i}`}
-							aria-controls={`${ID}-panel-${i}`}
-							aria-selected={i === 0 ? 'true' : 'false'}
-							tabindex={i === 0 ? 0 : -1}
-						>
-							<Icon name={item.icon} class="dashshow__case-icon" aria-hidden="true" />
-							{item.title}
-						</button>
-					))}
-				</div>
-
-				{homeCarouselItems.map((item, i) => (
-					<div role="tabpanel" id={`${ID}-panel-${i}`} aria-labelledby={`${ID}-tab-${i}`} hidden={i !== 0}>
-						<h3 class="dashshow__title">{item.title}</h3>
-						<p class="dashshow__desc">{item.description}</p>
-						<a href={item.href} class="dashshow__link print:hidden">
-							{item.title} use case
-							<Icon name="tabler:chevron-right" class="link-chevron" aria-hidden="true" />
-						</a>
-					</div>
-				))}
-			</div>
+				</TabPanel>
+			))}
 		</div>
 	</div>
-</section>
+</div>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
-	@use '../../styles/print-mixins' as *;
 
-	.dashboards {
-		// Shared by the board and the glow centred on it.
+	// The board's size lives here rather than on the board so the glow can centre on it. The values
+	// are the board's own and depend on nothing but the viewport, so moving them changed nothing.
+	.dashshow {
 		--board-w: min(1160px, calc(100vw - #{$spacing-10}));
+		// The height the eight 1920x866 shots produce at that width. Pinned, so
+		// nothing below the board can move when the tab changes.
 		--board-h: calc(var(--board-w) / (1920 / 866));
 
-		// The glow's -1 stays above the band; the clip keeps its overhang from widening the page.
-		isolation: isolate;
-		overflow: clip;
-		padding-block: $spacing-20;
-
-		.main-div {
-			max-width: $home-measure;
-		}
-
+		// On a phone the board is the smallest picture on the page, so it takes the width the page
+		// gutter would leave: 8px from each edge rather than 20.
 		@include media-down(md) {
-			padding-block: $spacing-10;
-		}
-	}
-
-	.dashboards__head {
-		margin-bottom: $spacing-8;
-		text-align: center;
-	}
-
-	.dashboards__badge {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 64px;
-		height: 64px;
-		margin: 0 auto 14px;
-		border-radius: 32%;
-		background-color: var(--badge-color);
-		color: $color-white;
-		@include mark-shade;
-
-		:global([data-icon]) {
-			width: 40px;
-			height: 40px;
-		}
-	}
-
-	.dashboards__title {
-		@include home-section-title;
-		margin: 0 0 $spacing-5;
-		color: var(--color-text);
-	}
-
-	.dashboards__lede {
-		@include text-m;
-		line-height: 1.5;
-		max-width: 65ch;
-		margin: 0 auto;
-	}
-
-	.dashboards__all {
-		@include action-link;
-		display: inline-flex;
-		align-items: center;
-		margin-top: $spacing-4;
-		color: var(--color-primary);
-		text-decoration: none;
-
-		:global(.link-chevron) {
-			@include link-chevron;
+			--board-w: calc(100vw - #{$spacing-4});
 		}
 
-		&:hover {
-			text-decoration: underline;
-		}
+		display: grid;
+		gap: $spacing-6;
 	}
 
-	// Zero-height, so it anchors the glow at the board's top without moving it.
-	.dashshow__glow {
+	// Under everything in the showcase, and over nothing outside it: `isolation` makes the showcase
+	// its own stacking context, so the glow's -1 is below the board and the copy but above the band.
+	.dashshow--glow {
 		position: relative;
-		z-index: -1;
-		height: 0;
-
-		&::before {
-			content: '';
-			position: absolute;
-			top: calc(var(--board-h) / 2);
-			left: 50%;
-			width: calc(var(--board-w) * 1.3);
-			height: calc(var(--board-h) * 1.9);
-			transform: translate(-50%, -50%);
-			background: radial-gradient(
-				closest-side,
-				color-mix(in srgb, var(--glow-hue) 24%, transparent) 0%,
-				color-mix(in srgb, var(--glow-hue) 13%, transparent) 50%,
-				color-mix(in srgb, var(--glow-hue) 4%, transparent) 78%,
-				transparent 100%
-			);
-			pointer-events: none;
-		}
+		isolation: isolate;
 	}
 
-	// Margins, not a transform, which would resample the screenshot. The height is fixed so nothing
-	// below moves between tabs; the width follows the current shot's ratio.
+	.dashshow__glow {
+		position: absolute;
+		z-index: -1;
+		top: calc(var(--board-h) / 2);
+		left: 50%;
+		width: calc(var(--board-w) * 1.3);
+		height: calc(var(--board-h) * 1.9);
+		transform: translate(-50%, -50%);
+		// Strong where the board covers it, so what shows past the board's edges is what counts: ~18%
+		// of the hue along its top and foot (half the ellipse's height out), ~7% at its sides. A notch
+		// over the 13% and 5% it had when it moved here from behind the heading, once it took each
+		// board's own colour: at that strength the change of colour between cases barely read.
+		//
+		// Its colour is the showing case's `--dashshow-tone` where the showcase has `tones`, and the
+		// section's hue where it has not. Resolved into a REGISTERED colour (below), so a change of case
+		// eases the light from one colour to the next rather than switching it.
+		--dashshow-glow: var(--dashshow-tone, var(--row-hue, var(--color-primary, #{$color-brand})));
+
+		background: radial-gradient(
+			closest-side,
+			color-mix(in srgb, var(--dashshow-glow) 32%, transparent) 0%,
+			color-mix(in srgb, var(--dashshow-glow) 18%, transparent) 50%,
+			color-mix(in srgb, var(--dashshow-glow) 6%, transparent) 78%,
+			transparent 100%
+		);
+		pointer-events: none;
+		// Slower than the board: the light drifts after the picture rather than flashing with it.
+		transition: --dashshow-glow 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	// A colour, so the browser can interpolate it. An unregistered custom property is a string and
+	// can only switch.
+	@property --dashshow-glow {
+		syntax: '<color>';
+		inherits: false;
+		initial-value: transparent;
+	}
+
+	// The board steps out of the 960 measure, but only as far as there is room.
+	//
+	// `min()` does the gating: the board wants the page's wide measure, and takes
+	// whatever the viewport can give minus a gutter, whichever is smaller. Above
+	// ~1240 that resolves to 1160 and the board breaks out 100px each side; below
+	// it the second term wins and the board is narrower than the container's own
+	// content box, so it simply stops breaking out — no media query, no width at
+	// which it clips or overruns the gutter.
+	//
+	// Centred with symmetric negative margins rather than the `left: 50%;
+	// translateX(-50%)` used for the full-bleed stripes: a transform on the
+	// element that holds the screenshot resamples it, and this is the largest
+	// image on the page. `100%` is the container's content box, so when the two
+	// are equal the margins are 0 and nothing moves.
+	//
+	// The nav and the copy under it stay on 960 — only the board leaves the line,
+	// which is what makes it read as deliberate rather than as a wider section.
 	.dashshow__board {
-		--fit-w: min(var(--board-w), calc(var(--board-h) * var(--item-ratio)));
+		// The width the CURRENT shot asks for at the board's height, never more
+		// than the full width. Set per item from `data-ratio`.
+		--fit-w: min(var(--board-w), calc(var(--board-h) * var(--item-ratio, (1920 / 866))));
+
+		width: var(--fit-w);
+		height: var(--board-h);
+		margin-inline: calc((100% - var(--fit-w)) / 2);
+		// Vertical pans stay the browser's, horizontal ones come to the swipe
+		// handler — so dragging across the board never leaves the page stuck.
+		touch-action: pan-y;
 
 		position: relative;
 		overflow: hidden;
-		width: var(--fit-w);
-		height: var(--board-h);
-		margin: 0 calc((100% - var(--fit-w)) / 2) $spacing-6;
-		// Horizontal pans are left to the swipe handler in the script.
-		touch-action: pan-y;
-		border: 1px solid var(--color-border);
 		border-radius: $radius-lg;
-		background: var(--color-bg-surface);
+		// FULL BLEED: the shots cover the card to its outer edge. A 1px border took the
+		// card's content box 2px narrower than the width each shot is sized to, so every
+		// shot, fitted with `contain`, painted 0.85–1.2px short of each side and the
+		// card showed through down both edges. The hairline is drawn OVER the shots
+		// instead (`::after`).
+		//
+		// The ground is the SCADA pool's own canvas, for whatever still shows — a
+		// sub-pixel at an edge, or the card's width opening ahead of a shot: its
+		// high-performance half on the left (#e0e0e0), the traditional one on the
+		// right (#efefef), which is where each half meets the card's edge.
+		background: linear-gradient(90deg, #e0e0e0 50%, #efefef 50%);
+		// The board is a screenshot of a product, and it sat flat on the section
+		// with only a hairline to say where it ended — on the near-white band that
+		// edge is most of what separates a dashboard from the page around it.
+		// `--shadow-card` rather than a new value: it is the token this site lifts
+		// cards with, and it tracks the dark theme on its own.
 		box-shadow: var(--shadow-card);
-		// Every shot in one cell, so the leaving one stays under the arriving one while it drifts out.
-		display: grid;
-		grid-template: minmax(0, 1fr) / minmax(0, 1fr);
-		// Must match HAND_OFF_MS and EASE in the script.
-		transition:
-			width 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
-			margin-inline 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
 
-		@media (prefers-reduced-motion: reduce) {
-			transition: none;
+		// Dark and translucent, so it firms up a pale shot's edge and disappears into a
+		// dark one — a light hairline around a dark dashboard read as the card's
+		// ground peeking out from behind it.
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			z-index: 3;
+			border-radius: inherit;
+			box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+			pointer-events: none;
 		}
 	}
 
+	// Ten shots at three aspect ratios: the eight original cases are 1920x866, the
+	// two SCADA ones 2238x1207 and 1286x660.
+	//
+	// Sizing the board by each shot's own height moved the copy under it by ~100px
+	// on every tab change. Pinning the board to the ratio the eight share instead
+	// left the squarer two sitting in 95px and 70px of blank card down each side —
+	// and since both SCADA canvases are a flat grey out to the pixel, that read as
+	// a grey slab on a white card with a hard seam, not as a board.
+	//
+	// So the height is what stays fixed and the WIDTH follows the shot: the card
+	// comes in to meet a squarer screenshot. Nothing is cropped, nothing below the
+	// board moves, and there are no margins to colour-match.
 	.dashshow__frame {
-		grid-area: 1 / 1;
-		z-index: 1;
 		height: 100%;
+	}
 
-		&.is-leaving {
-			z-index: 0;
+	// `cover`, not `contain`: the frame already has the shot's own ratio, so this
+	// crops nothing but the rounding — and rounding is what `contain` left as a
+	// sliver of card down each side.
+	.dashshow__frame :global(img) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	// ImageComparison is built for a use-case page, where it spaces itself off the
+	// prose around it. In the board it IS the board, so the margin comes off, and it
+	// fills the frame — which is sized to its shot's ratio, so the drag handle still
+	// travels only across picture.
+	.dashshow__frame :global(.uc-img-comparison) {
+		width: 100%;
+		height: 100%;
+		margin: 0;
+	}
+
+	// Both halves fill the SAME box, so they stay in register under the slider: the
+	// two shots differ by a pixel in width (2238 and 2237), which `cover` absorbs.
+	.dashshow__frame :global(.uc-img-comparison img),
+	.dashshow__frame :global(.uc-img-overlay img) {
+		height: 100%;
+		object-fit: cover;
+	}
+
+	// THE HAND-OFF'S STACK: every shot in the board's one cell, so the leaving one can stay under the
+	// arriving one while it drifts out. Only the ones in play are shown; the rest keep `hidden`. The
+	// card's width follows the shot, so a squarer shot is met rather than jumped to — on the page's
+	// ease-out, which moves on the click's first frame. (An in-out curve here hid the card's ground
+	// better, but barely moved for the first 100ms and read as a lag; the ground is the SCADA grey
+	// now, so there is nothing to hide.)
+	//
+	// `isolation` keeps the shots' z-indexes inside the card.
+	.dashshow--handoff .dashshow__board {
+		display: grid;
+		grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+		isolation: isolate;
+		transition:
+			width 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
+			margin-inline 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	// EACH SHOT AT ITS OWN SIZE, centred, whatever width the card is at. Sized by the card instead,
+	// both shots shrank and grew with it while it eased to a SCADA case's shape — the leaving one
+	// letterboxed, the arriving one swelling into place — which is most of what made that change read
+	// as a jolt. Now nothing inside the card scales: its edge sweeps across the shots like a mask.
+	// Centred by margins, as the board is, since the hand-off animates the shots' `transform`.
+	.dashshow--handoff .dashshow__frame {
+		--frame-w: min(var(--board-w), calc(var(--board-h) * var(--frame-ratio, (1920 / 866))));
+
+		grid-area: 1 / 1;
+		z-index: 2;
+		width: var(--frame-w);
+		margin-inline: calc((100% - var(--frame-w)) / 2);
+
+		&.is-leaving,
+		&.is-left {
+			z-index: 1;
 			pointer-events: none;
 		}
 
-		:global(img) {
-			display: block;
-			width: 100%;
-			height: 100%;
-			object-fit: contain;
+		// A shot left while it was still leaving, when a change lands mid-flight: under the one now
+		// leaving, which is under the one arriving.
+		&.is-left {
+			z-index: 0;
 		}
+	}
 
-		// The comparison keeps its own ratio, so the handle never runs over blank space.
-		:global(.uc-img-comparison) {
-			height: 100%;
-			margin: 0 auto;
-			aspect-ratio: var(--cmp-ratio);
-		}
-
-		// Both halves fit the same box, or the shots drift out of register.
-		:global(.uc-img-overlay img) {
-			object-fit: contain;
-		}
+	// Beside the case's title, not over the board. On the board's corner they moved with the card —
+	// 95px in on each SCADA case, whose squarer shot gives up that much width — and in the hand-off's
+	// stack the shots painted over them. Here nothing that changes with the case can move them.
+	.dashshow__detail {
+		position: relative;
 	}
 
 	.dashshow__arrows {
 		position: absolute;
-		// Above the frames, which stack at 1.
-		z-index: 2;
-		right: $spacing-3;
-		bottom: $spacing-3;
+		// Centred on the title's first line (`type-card`: 1.2 × the 2xl size).
+		top: calc((#{$font-size-2xl} * 1.2 - 40px) / 2);
+		right: 0;
 		display: flex;
 		gap: $spacing-2;
 
-		// Phones swipe the board instead (see the script).
+		// Below md the board is swiped and the rail under it names every case, so
+		// the arrows are a third control over the smallest picture on the page.
 		@include media-down(md) {
 			display: none;
 		}
 	}
 
-	// Solid, so they stay visible over dark screenshots.
+	// Solid black discs, flat. The press answers at once (`:active`), before the board has moved a
+	// pixel, so the click is felt on the button rather than waited for on the picture.
 	.dashshow__arrow {
 		display: grid;
 		place-items: center;
-		width: 44px;
-		height: 44px;
+		width: 40px;
+		height: 40px;
 		padding: 0;
 		border: 0;
 		border-radius: 50%;
 		background: var(--color-text);
-		color: $color-white;
+		color: #fff;
 		cursor: pointer;
-		transition: opacity $transition-fast;
+		transition:
+			opacity 0.15s ease,
+			transform 0.1s ease;
 
 		&:hover,
 		&:focus-visible {
 			opacity: 0.82;
 		}
 
+		&:focus-visible {
+			outline: 2px solid var(--color-text);
+			outline-offset: 2px;
+		}
+
+		&:active {
+			transform: scale(0.92);
+		}
+
 		svg {
-			width: 22px;
-			height: 22px;
+			width: 20px;
+			height: 20px;
 		}
 	}
 
@@ -324,301 +449,360 @@ const widthsOf = (item: (typeof homeCarouselItems)[number]) => {
 		gap: $spacing-8;
 		align-items: start;
 
+		// Stacked, this wrapper put 360px of names between the board and the copy
+		// that describes it — the picture, the name and the description of one case
+		// were spread over 1.3 screens and never visible together. `contents` drops
+		// the wrapper's box so its two children join `.dashshow`'s own grid, and the
+		// order becomes board, names, copy with the list as the hinge between them.
 		@include media-down(md) {
-			grid-template-columns: 1fr;
-			gap: $spacing-5;
+			display: contents;
 		}
 	}
 
-	.dashshow__nav {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		grid-template-rows: repeat(var(--nav-rows, 5), auto);
-		grid-auto-flow: column;
-		column-gap: $spacing-4;
-
+	// The names are `ui/Tabs`' grid: two columns filled down then across, since ten names in one
+	// column stood twice as tall as the copy beside them. Navigation, not content, so not a grid of
+	// cards — three card grids already sit above this section. Only the phone rail's bleed is here.
+	.dashshow .dashshow__nav {
+		// Ten names stacked is 360px of wall on a phone. As a rail it is one row:
+		// the set is about 1600px wide, so two or three names show at a time and the
+		// rest are a swipe away — the same trade every category rail on a phone makes.
 		@include media-down(md) {
-			display: flex;
-			gap: $spacing-2;
-			overflow-x: auto;
 			overscroll-behavior-x: contain;
+			// Runs to the screen edge: a name cut off by the page gutter reads as a
+			// layout fault, one cut off by the screen reads as "there is more".
 			margin-inline: -$spacing-5;
-			// Keeps the focus ring off the scroll container's clipped edge.
+			// Block padding keeps the focus ring off the scroll container's edge —
+			// `overflow-x: auto` clips the block axis too.
 			padding: $spacing-1 $spacing-5;
-			// A mouse drags the rail (see the script); this stops the drag selecting labels.
+			// A mouse drags the rail (see the script); without this the drag also
+			// selects the labels it passes over.
 			user-select: none;
-			scrollbar-width: none;
-
-			&::-webkit-scrollbar {
-				display: none;
-			}
 		}
-	}
-
-	.dashshow__case {
-		@include text-s;
-		line-height: 22px;
-		display: flex;
-		align-items: center;
-		gap: $spacing-3;
-		padding: 7px 0 7px $spacing-4;
-		border: 0;
-		border-left: 2px solid var(--color-border);
-		background: none;
-		color: var(--color-text-secondary);
-		text-align: left;
-		cursor: pointer;
-		transition:
-			color $transition-fast,
-			border-color $transition-fast;
-
-		&:hover {
-			border-left-color: rgba(0, 0, 0, 0.3);
-			color: var(--color-text);
-		}
-
-		&[aria-selected='true'] {
-			border-left-color: var(--color-primary);
-			color: var(--color-text);
-			font-weight: $font-weight-bold;
-		}
-
-		@include media-down(md) {
-			flex: none;
-			padding: $spacing-2 $spacing-4;
-			border: 1px solid var(--color-border);
-			border-radius: $radius-full;
-			font-weight: $font-weight-medium;
-
-			&:hover {
-				border-color: rgba(0, 0, 0, 0.3);
-			}
-
-			// Not bold: it would widen the chip and shift the rest of the rail.
-			&[aria-selected='true'] {
-				border-color: var(--color-primary);
-				background: var(--color-primary);
-				color: $color-white;
-				font-weight: $font-weight-medium;
-			}
-		}
-	}
-
-	.dashshow__case-icon {
-		flex: none;
-		width: 18px;
-		height: 18px;
 	}
 
 	.dashshow__title {
-		@include card-title;
-		font-weight: $font-weight-bold;
+		@include type-card;
 		margin: 0 0 $spacing-3;
+		// Stated here rather than inherited: without it these came through at the body colour while
+		// every other heading on the page sat at `--color-text`. The homepage was correcting it from
+		// an ID-keyed rule; this component has one caller, so the correction belongs here.
 		color: var(--color-text);
+		// The arrows' room: two 40px discs, their gap, and a step of air before them.
+		padding-inline-end: calc(80px + #{$spacing-2} + #{$spacing-4});
+
+		@include media-down(md) {
+			padding-inline-end: 0;
+		}
 	}
 
 	.dashshow__desc {
-		@include text-s;
-		line-height: 22px;
+		@include type-small;
 		margin: 0 0 $spacing-4;
-		color: var(--color-text-secondary);
+		color: var(--color-text-secondary, #5b616e);
 		text-wrap: pretty;
 	}
 
-	.dashshow__link {
-		display: inline-flex;
+	// The case's page and its live board on one line, wrapping to two on a narrow column.
+	.dashshow__links {
+		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		font-size: $font-size-base;
-		font-weight: $font-weight-medium;
-		line-height: 1.5;
-		color: var(--color-primary);
-		text-decoration: none;
+		gap: $spacing-2 $spacing-6;
+	}
 
-		:global(.link-chevron) {
-			@include link-chevron;
-		}
+	// "Live": the status green a device shows when it is active, with a ring that breathes out of it.
+	// 3.3:1 on white, over the 3:1 a mark that carries meaning needs.
+	.dashshow__live {
+		position: relative;
+		flex: none;
+		width: 8px;
+		height: 8px;
+		margin-inline-end: $spacing-2;
+		border-radius: 50%;
+		background: #16a34a;
 
-		&:hover,
-		&:focus-visible {
-			text-decoration: underline;
-			text-underline-offset: 3px;
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+			background: inherit;
+			animation: dashshow-live 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
 		}
 	}
 
-	@media print {
-		.dashboards {
-			overflow: visible;
-			margin-bottom: $spacing-8;
-			padding-block: $spacing-8 0;
+	@keyframes dashshow-live {
+		from {
+			opacity: 0.5;
+			transform: scale(1);
 		}
-
-		.dashshow__stage {
-			display: grid;
-			grid-template-columns: minmax(0, min(300px, 44%)) minmax(0, 1fr);
-			grid-auto-flow: row dense;
-			gap: $spacing-5 $spacing-6;
-			align-items: center;
-		}
-
-		.dashboards__head {
-			@include print-section-head;
-			margin-bottom: $spacing-6;
-		}
-
-		.dashboards__badge {
-			@include print-exact;
-			break-after: avoid;
-		}
-
-		.dashshow__board,
-		.dashshow__body {
-			display: contents;
-		}
-
-		.dashshow__frame {
-			display: block;
-			grid-area: auto / 1;
-			height: auto;
-			overflow: hidden;
-			border: 1px solid var(--color-border);
-			border-radius: $radius-md;
-			break-inside: avoid;
-
-			:global(img),
-			:global(.uc-img-comparison) {
-				height: auto;
-			}
-
-			:global(.uc-img-comparison) {
-				aspect-ratio: auto;
-			}
-
-			:global(.uc-img-caption) {
-				@include text-s;
-				margin: $spacing-2 $spacing-3;
-			}
-		}
-
-		.dashshow__body > [role='tabpanel'] {
-			display: block;
-			grid-column: 2;
-			break-inside: avoid;
-		}
-
-		.dashshow__desc {
-			margin-bottom: 0;
+		to {
+			opacity: 0;
+			transform: scale(2.75);
 		}
 	}
 
-	@media print and (min-width: 1000px) {
-		.dashboards {
-			padding-top: $spacing-4;
+	@media (prefers-reduced-motion: reduce) {
+		.dashshow__arrow,
+		.dashshow__glow,
+		.dashshow--handoff .dashshow__board {
+			transition: none;
 		}
 
-		.dashboards__head {
-			margin-bottom: $spacing-4;
-		}
-
-		.dashshow__stage {
-			grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+		.dashshow__live::after {
+			animation: none;
 		}
 	}
 </style>
 
 <script>
+	import { setTab, type TabsChange } from '@util/tabs';
+
+	// Tab-set behaviour: one active index drives the board, the panel and the
+	// list. Arrows step the same index and wrap, so they and the list can never
+	// disagree about what is showing.
 	document.querySelectorAll<HTMLElement>('[data-dashshow]').forEach((root) => {
+		// Runs once per element. Without this, anything that re-executes the module
+		// — a dev-server hot update, a view transition — stacks a second set of
+		// listeners and a second ticker on the same section, and it starts
+		// advancing several cases at a time.
+		if (root.dataset.dashshowReady) return;
+		root.dataset.dashshowReady = 'true';
+
 		const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
 		const panels = [...root.querySelectorAll<HTMLElement>('[role="tabpanel"]')];
 		const frames = [...root.querySelectorAll<HTMLElement>('.dashshow__frame')];
 		const board = root.querySelector<HTMLElement>('.dashshow__board');
 		const rail = root.querySelector<HTMLElement>('[role="tablist"]');
-		if (!tabs.length || !board || !rail) return;
+		if (!tabs.length) return;
 
 		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+		// What the list and the copy say is showing.
 		let active = 0;
 
-		const railScrolls = () => rail.scrollWidth > rail.clientWidth;
+		// Below md the list is a rail showing about three names at a time, so a
+		// selection the reader did not make with their thumb — an arrow, the ticker
+		// — can land off screen. Only the rail's own scroll is moved;
+		// `scrollIntoView` would take the page with it.
+		const railScrolls = () => !!rail && rail.scrollWidth > rail.clientWidth;
 
-		// Centres the selection on the phone rail. Scrolls only the rail: `scrollIntoView` would scroll
-		// the page too.
 		const keepInView = (el: HTMLElement) => {
-			if (!railScrolls()) return;
+			if (!rail || !railScrolls()) return;
 			const r = rail.getBoundingClientRect();
 			const t = el.getBoundingClientRect();
 			rail.scrollBy({ left: t.left - r.left - (r.width - t.width) / 2, behavior: reduced ? 'auto' : 'smooth' });
 		};
 
-		const HAND_OFF_MS = 420;
+		// ── Warming ───────────────────────────────────────────
+		// Every shot but the first is `loading="lazy"`, and a hidden lazy image is never fetched — so
+		// the first time a case came up, its shot was not there yet: the change ran over an empty card
+		// and the picture landed after it. The shots either side of the showing case are fetched and
+		// decoded ahead (so the ticker's next is always ready), and so is any the pointer or focus
+		// reaches in the list, which is a click's head start.
+		const warmed = new Map<number, Promise<unknown>>();
+
+		const warm = (i: number) => {
+			const at = (i + frames.length) % frames.length;
+			let done = warmed.get(at);
+			if (!done) {
+				done = Promise.all(
+					[...(frames[at]?.querySelectorAll('img') ?? [])].map((img) => {
+						img.loading = 'eager';
+						return img.decode().catch(() => {});
+					})
+				);
+				warmed.set(at, done);
+			}
+			return done;
+		};
+
+		const loaded = (i: number) =>
+			[...(frames[i]?.querySelectorAll('img') ?? [])].every((img) => img.complete && img.naturalWidth > 0);
+
+		const warmAround = (i: number) => {
+			warm(i + 1);
+			warm(i - 1);
+		};
+
+		tabs.forEach((tab, i) => {
+			tab.addEventListener('pointerenter', () => warm(i));
+			tab.addEventListener('focus', () => warm(i));
+		});
+
+		// ── The hand-off ──────────────────────────────────────
+		// `motion="handoff"`: the arriving shot fades in over the showing one from the side it comes
+		// from and settles to its size; the showing one holds, whole, under it until it is covered —
+		// fading earlier let the card's white through both, which read as a flash between a dark
+		// dashboard and a pale SCADA canvas — then fades and drifts the other way. The card morphs to
+		// the arriving shot's width (in the styles), and the copy rises with it.
+		//
+		// It waits for its shot, up to WAIT_MAX: a shot that is not decoded yet would otherwise fade
+		// in as an empty frame. The list says what was picked at once; only the board and the copy
+		// wait, and together.
+		//
+		// A change that lands mid-flight starts from wherever every shot on the board is, rather than
+		// snapping them back to full strength first — so a quick double press on an arrow is one
+		// continuous movement, not two with a flash between.
+		const handoff = root.dataset.dashshowMotion === 'handoff' && !reduced;
 		const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
-		const EASE_OUT = 'cubic-bezier(0.4, 0, 1, 1)';
+		// Short and front-loaded: every curve here moves most in its first frames, so the board answers
+		// the press rather than gathering itself for it.
+		const DURATION = 480;
+		const FADE_IN = 260;
+		const WAIT_MAX = 400;
 		let inFlight: Animation[] = [];
+
+		// The shot on the board. Behind `active` only while the next one is still loading.
+		let shown = 0;
+		let request = 0;
+
+		// The card takes the shape of the shot it is showing, and the glow under it (with `tones`) its
+		// colour.
+		const setShape = (i: number) => {
+			const ratio = frames[i]?.dataset.ratio;
+			if (board && ratio) board.style.setProperty('--item-ratio', ratio);
+			const tone = frames[i]?.dataset.tone;
+			if (tone) root.style.setProperty('--dashshow-tone', tone);
+		};
 
 		const settle = () => {
 			inFlight.forEach((a) => a.cancel());
 			inFlight = [];
 			frames.forEach((frame, i) => {
-				frame.classList.remove('is-leaving');
-				frame.hidden = i !== active;
+				frame.classList.remove('is-leaving', 'is-left');
+				frame.hidden = i !== shown;
 			});
 		};
 
-		// Runs on settled frames, so at most two boards are ever shown.
-		const handOff = (from: HTMLElement, to: HTMLElement, panel: HTMLElement, dir: number) => {
-			from.hidden = false;
-			from.classList.add('is-leaving');
-			const out = from.animate(
-				[
-					{ transform: 'none', opacity: 1 },
-					{ transform: `translateX(${-dir * 20}px)`, opacity: 0.4 },
-				],
-				{ duration: HAND_OFF_MS, easing: EASE_OUT, fill: 'forwards' }
+		const handOff = (to: number, dir: number) => {
+			const from = frames[shown];
+			const arriving = frames[to];
+
+			// Every shot on the board as it is painted right now, read before anything is cancelled.
+			const now = (frame: HTMLElement) => {
+				const { opacity, transform } = getComputedStyle(frame);
+				return { frame, opacity: Number(opacity), transform };
+			};
+			const onBoard = frames.filter((frame, i) => !frame.hidden && i !== to).map(now);
+			// A shot called back while it was still leaving comes in from where it had got to.
+			const start = arriving.hidden
+				? { opacity: 0, transform: `translateX(${dir * 20}px) scale(1.015)` }
+				: now(arriving);
+
+			inFlight.forEach((a) => a.cancel());
+			inFlight = [];
+			frames.forEach((frame) => frame.classList.remove('is-leaving', 'is-left'));
+
+			shown = to;
+			panels.forEach((panel, i) => (panel.hidden = i !== to));
+			setShape(to);
+			arriving.hidden = false;
+
+			onBoard.forEach(({ frame, opacity, transform }) => {
+				frame.classList.add(frame === from ? 'is-leaving' : 'is-left');
+				// Held at the strength it has until the arrival is whole over it, then gone as the card
+				// finishes its change of shape — the part of a wider shot the card has not yet closed
+				// over fades rather than being cut. A shot already on its way out holds too: letting it
+				// finish first uncovered the card's white under a half-arrived one.
+				inFlight.push(
+					frame.animate([{ opacity }, { opacity, offset: FADE_IN / DURATION }, { opacity: 0 }], {
+						duration: DURATION,
+						fill: 'forwards',
+					}),
+					frame.animate([{ transform }, { transform: `translateX(${-dir * 16}px) scale(0.985)` }], {
+						duration: DURATION,
+						easing: EASE,
+						fill: 'forwards',
+					})
+				);
+			});
+
+			// One keyframe with `offset: 0` is a START: the element animates from it to its own style.
+			const settleIn = arriving.animate([{ transform: start.transform, offset: 0 }], {
+				duration: DURATION,
+				easing: EASE,
+				fill: 'backwards',
+			});
+			inFlight.push(
+				settleIn,
+				arriving.animate([{ opacity: start.opacity, offset: 0 }], {
+					duration: FADE_IN,
+					easing: EASE,
+					fill: 'backwards',
+				})
 			);
-			// A single keyframe at `offset: 0` is a start: the element animates from it to its own style.
-			const arrive = to.animate([{ transform: `translateX(${dir * 28}px)`, opacity: 0, offset: 0 }], {
-				duration: HAND_OFF_MS,
-				easing: EASE,
-				fill: 'backwards',
-			});
-			const rise = panel.animate([{ transform: 'translateY(8px)', opacity: 0, offset: 0 }], {
-				duration: 300,
-				delay: 80,
-				easing: EASE,
-				fill: 'backwards',
-			});
-			inFlight = [out, arrive, rise];
-			arrive.finished.then(settle, () => {});
+
+			const panel = panels[to];
+			if (panel) {
+				inFlight.push(
+					panel.animate([{ transform: 'translateY(6px)', opacity: 0, offset: 0 }], {
+						duration: FADE_IN,
+						easing: EASE,
+						fill: 'backwards',
+					})
+				);
+			}
+
+			settleIn.finished.then(settle, () => {});
 		};
 
-		// The slide follows `next` before it wraps, so "next" from the last case still slides forward.
-		const show = (next: number, focus = false) => {
+		const show = (next: number, dir?: number) => {
 			const previous = active;
-			const dir = Math.sign(next - previous);
 			active = (next + tabs.length) % tabs.length;
 
-			tabs.forEach((tab, i) => {
-				const on = i === active;
-				tab.setAttribute('aria-selected', String(on));
-				// Roving tabindex: the list is one stop, arrow keys move within it.
-				tab.tabIndex = on ? 0 : -1;
-			});
-			panels.forEach((panel, i) => (panel.hidden = i !== active));
-			settle();
-			if (!reduced && dir) handOff(frames[previous], frames[active], panels[active], dir);
+			// The list's state as the shared tab script keeps it, for a change it did not make (an arrow,
+			// the ticker, a swipe); for one it did, this repeats what is already there.
+			if (rail) setTab(rail, active);
 
-			const ratio = frames[active].dataset.ratio;
-			if (ratio) board.style.setProperty('--item-ratio', ratio);
+			if (handoff) {
+				if (previous !== active) {
+					const to = active;
+					// The control says which way it went — next wraps from the last case to the first and
+					// is still "next" — and a pick from the list goes the way the list runs.
+					const way = dir ?? (active > previous ? 1 : -1);
+					// Only the latest request runs: one overtaken while its shot loaded is dropped.
+					const id = ++request;
+					// A shot that is already in starts in this same frame. Going through the promise even
+					// then cost a frame or two between the press and the first movement.
+					if (loaded(to)) handOff(to, way);
+					else
+						Promise.race([warm(to), new Promise((resolve) => window.setTimeout(resolve, WAIT_MAX))]).then(() => {
+							if (id === request && to !== shown) handOff(to, way);
+						});
+				}
+			} else {
+				panels.forEach((panel, i) => (panel.hidden = i !== active));
+				frames.forEach((frame, i) => (frame.hidden = i !== active));
+				// The card takes the shape (and the glow the colour) of the shot it is showing.
+				setShape(active);
+			}
 
-			// `focus()` would scroll the chip in by its own shortest hop and cancel the centring below.
-			if (focus) tabs[active].focus({ preventScroll: railScrolls() });
+			warmAround(active);
 			keepInView(tabs[active]);
 		};
 
-		// Each tick checks whether it may advance: not on hover, focus, off screen or in a background
-		// tab. Any choice by the reader stops it for good.
+		// ── Autoplay ──────────────────────────────────────────
+		// One interval that asks, each tick, whether it is allowed to advance —
+		// rather than a set of latched flags that pause and resume it. A latch
+		// that gets stuck leaves the section frozen with no way back; a question
+		// asked fresh every tick cannot.
+		//
+		// It holds while the pointer is over the section, while focus is inside
+		// it, while it is off screen, and while the tab is in the background.
+		// Choosing a case stops it for good: resuming would pull the reader off
+		// the very thing they just picked, which is the whole complaint about
+		// carousels.
+		const interval = Number(root.dataset.dashshowInterval) || 12000;
+
 		let stopped = reduced;
 		let onScreen = false;
 
-		new IntersectionObserver((entries) => (onScreen = entries[0].isIntersecting)).observe(root);
+		new IntersectionObserver((entries) => {
+			onScreen = entries[0].isIntersecting;
+			// The first look at the section is when the arrows and the ticker can first be used.
+			if (onScreen) warmAround(active);
+		}).observe(root);
 
 		const ticker = window.setInterval(() => {
 			if (stopped) {
@@ -628,99 +812,149 @@ const widthsOf = (item: (typeof homeCarouselItems)[number]) => {
 			if (!onScreen || document.hidden) return;
 			if (root.matches(':hover') || root.contains(document.activeElement)) return;
 
-			show(active + 1);
-		}, 12000);
+			show(active + 1, 1);
+		}, interval);
 
 		const stop = () => (stopped = true);
 
-		tabs.forEach((tab, i) =>
-			tab.addEventListener('click', () => {
-				show(i);
-				stop();
-			})
+		// ── Choosing from the list ────────────────────────────
+		// The shared tab script moves the list (selection, roving tabindex, focus) on a click or a key
+		// and fires `tabs:change`; the panels it would swap are cancelled here and shown with the board,
+		// which with the hand-off arrives later than the list does.
+		//
+		// An arrow key says which way the hand-off goes — ArrowRight on the last case wraps to the first
+		// and is still "next" — so the key is noted on the way down (capture, before the shared script's
+		// own listener) and forgotten once that has run. Home and End go the way the list runs.
+		const KEY_WAY: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+		let keyWay: number | undefined;
+
+		rail?.addEventListener(
+			'keydown',
+			(event) => {
+				keyWay = KEY_WAY[event.key];
+				window.setTimeout(() => (keyWay = undefined));
+			},
+			{ capture: true }
 		);
 
+		rail?.addEventListener('tabs:change', (event) => {
+			event.preventDefault();
+			show((event as CustomEvent<TabsChange>).detail.index, keyWay);
+		});
+
+		// A click on a name stops the ticker, the showing one included; moving along the list with the
+		// keys does not, since focus inside the section holds it anyway.
+		rail?.addEventListener('click', (event) => {
+			if (event.target instanceof Element && event.target.closest('[role="tab"]')) stop();
+		});
+
 		root.querySelector('[data-dashshow-prev]')?.addEventListener('click', () => {
-			show(active - 1);
+			show(active - 1, -1);
 			stop();
 		});
 		root.querySelector('[data-dashshow-next]')?.addEventListener('click', () => {
-			show(active + 1);
+			show(active + 1, 1);
 			stop();
 		});
 
-		// Touch swipe on the board steps cases; not on the comparison, whose handle drags horizontally.
+		// ── Swipe ─────────────────────────────────────────────
+		// What the arrows do on a phone, where they are hidden. Touch only: nobody
+		// drags a mouse across a screenshot to mean `next`, and a pointer drag is
+		// already the comparison's slider.
+		//
+		// The SCADA comparison is skipped outright rather than fought with — it
+		// captures the pointer on `pointerdown` and a horizontal drag there IS the
+		// gesture that moves its handle.
 		const SWIPE_MIN = 40;
+		const onComparison = (target: EventTarget | null) =>
+			target instanceof Element && !!target.closest('.uc-img-comparison');
+
 		let swipeFrom: { x: number; y: number } | null = null;
 
-		board.addEventListener('pointerdown', (event) => {
-			const onComparison = event.target instanceof Element && !!event.target.closest('.uc-img-comparison');
-			swipeFrom = event.pointerType === 'touch' && !onComparison ? { x: event.clientX, y: event.clientY } : null;
+		board?.addEventListener('pointerdown', (event) => {
+			swipeFrom =
+				event.pointerType === 'touch' && !onComparison(event.target) ? { x: event.clientX, y: event.clientY } : null;
 		});
-		// A vertical pan is the browser's and cancels the pointer, so a scroll cannot land as a swipe.
-		board.addEventListener('pointercancel', () => (swipeFrom = null));
-		board.addEventListener('pointerup', (event) => {
+
+		// A vertical pan is the browser's to scroll, and it cancels the pointer on
+		// the way — so a scroll that happens to start on the board cannot land here
+		// as a swipe.
+		board?.addEventListener('pointercancel', () => (swipeFrom = null));
+
+		board?.addEventListener('pointerup', (event) => {
 			if (!swipeFrom) return;
 			const dx = event.clientX - swipeFrom.x;
 			const dy = event.clientY - swipeFrom.y;
 			swipeFrom = null;
+
+			// Far enough to be meant, and more across than down: a tap and a
+			// diagonal both fall through.
 			if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy)) return;
-			show(active + (dx < 0 ? 1 : -1));
+
+			show(active + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
 			stop();
 		});
 
-		// A mouse cannot scroll the rail natively (hidden scrollbar, vertical wheel), so it drags it.
-		// Any interaction with the rail stops autoplay, or the next tick would pull it back.
+		// ── Rail scrolling ────────────────────────────────────
+		// Touch and trackpads scroll the rail natively. A MOUSE had no way to: the
+		// scrollbar is hidden, the wheel is vertical, and a drag did nothing — so on
+		// a narrow desktop window, or a phone preview driven by a mouse, the names
+		// past the third looked like they did not exist. Dragging the rail now
+		// scrolls it, and a drag is never also a click on the name it started on.
+		//
+		// Any hand on the rail stops autoplay as well. Browsing the names is not a
+		// choice, so nothing else stopped it, and the next tick's `keepInView`
+		// pulled the rail back to the active name from wherever the reader had
+		// scrolled to.
 		const DRAG_MIN = 5;
 		let drag: { x: number; left: number; moved: boolean } | null = null;
 
-		rail.addEventListener('pointerdown', (event) => {
+		rail?.addEventListener('pointerdown', (event) => {
 			stop();
 			if (event.pointerType !== 'mouse' || event.button !== 0 || !railScrolls()) return;
 			drag = { x: event.clientX, left: rail.scrollLeft, moved: false };
 		});
-		rail.addEventListener('wheel', stop, { passive: true });
-		rail.addEventListener('pointermove', (event) => {
+
+		rail?.addEventListener('wheel', stop, { passive: true });
+
+		rail?.addEventListener('pointermove', (event) => {
 			if (!drag) return;
-			// Released off the rail before the drag was captured: its pointerup went elsewhere.
+			// Released somewhere the rail never heard about: a press that moved under DRAG_MIN is not
+			// captured yet, so letting go off the rail sends its `pointerup` elsewhere. Without this the
+			// next hover across the rail, no button held, would scroll it.
 			if (!(event.buttons & 1)) {
 				drag = null;
 				return;
 			}
 			const dx = event.clientX - drag.x;
 			if (!drag.moved && Math.abs(dx) < DRAG_MIN) return;
-			// Captured only once it is a drag, so a plain press still clicks its chip.
+
+			// Captured only once it is a drag: captured from `pointerdown`, the
+			// click that a plain press should produce would land on the rail
+			// instead of the name.
 			if (!drag.moved) rail.setPointerCapture(event.pointerId);
 			drag.moved = true;
 			rail.scrollLeft = drag.left - dx;
 		});
 
-		// The click that ends a drag belongs to no chip. Removed on the next tick, since a drag ending off
-		// the rail produces no click and a waiting listener would eat the next real one.
+		// The click that follows a drag belongs to no name. Swallowed in the capture
+		// phase so the tab's own handler never sees it — and taken down again on the
+		// next tick, because a drag that ends off the rail produces no click, and a
+		// listener left waiting would eat the reader's next real one.
 		const swallowClick = (event: Event) => {
 			event.preventDefault();
 			event.stopPropagation();
 		};
-		rail.addEventListener('pointerup', () => {
-			if (drag?.moved) {
+
+		const endDrag = () => {
+			if (drag?.moved && rail) {
 				rail.addEventListener('click', swallowClick, { capture: true, once: true });
 				window.setTimeout(() => rail.removeEventListener('click', swallowClick, { capture: true }));
 			}
 			drag = null;
-		});
-		rail.addEventListener('pointercancel', () => (drag = null));
+		};
 
-		rail.addEventListener('keydown', (event) => {
-			const key = (event as KeyboardEvent).key;
-			const step = key === 'ArrowDown' || key === 'ArrowRight' ? 1 : key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 0;
-
-			if (step) {
-				event.preventDefault();
-				show(active + step, true);
-			} else if (key === 'Home' || key === 'End') {
-				event.preventDefault();
-				show(key === 'Home' ? 0 : tabs.length - 1, true);
-			}
-		});
+		rail?.addEventListener('pointerup', endDrag);
+		rail?.addEventListener('pointercancel', () => (drag = null));
 	});
 </script>

@@ -1,4 +1,10 @@
-/** Sparkline geometry, shared by the app shell's server render and its client frames. */
+/**
+ * Geometry for the app shell's sparkline, shared by the server's first paint and the client's
+ * later frames so the two are computed by one set of rules and cannot drift apart.
+ *
+ * Values are drawn against an explicit domain rather than their own min and max: an axis is a
+ * claim about what "low" means, and only the metric knows that.
+ */
 
 export type Domain = [number, number];
 
@@ -9,8 +15,9 @@ export interface SparkView {
 }
 
 /**
- * Spacing between points when `n` span the box. The window may hold one extra point past the
- * right edge, so spacing depends on the window size, not the array length.
+ * Horizontal distance between neighbouring points when `n` of them span the box. The window may
+ * carry one extra point past the right edge — the reading that is about to arrive — which is why
+ * the spacing is a function of the window size and not of the array length.
  */
 export function segmentWidth(n: number, view: SparkView): number {
 	return view.w / (n - 1);
@@ -21,8 +28,15 @@ export function sparkY(value: number, [lo, hi]: Domain, view: SparkView): number
 }
 
 /**
- * Smooth line and area path data (Catmull-Rom as cubic Béziers). `values` may hold one point more
- * than `window`, drawn past the right edge.
+ * Smooth line and its area as SVG path data.
+ *
+ * A Catmull-Rom spline through the points, converted to cubic Béziers. The box is stretched with
+ * `preserveAspectRatio="none"`, which is safe here: a cubic Bézier is affine-invariant, so the
+ * stretched curve is exactly the spline of the stretched points — no distortion of the shape,
+ * only of its aspect.
+ *
+ * `window` is how many points span the box; `values` may hold one more, drawn past the right
+ * edge so the line can slide left into place.
  */
 export function sparkPaths(
 	values: number[],
@@ -45,7 +59,8 @@ export function sparkPaths(
 		const p1 = pts[i];
 		const p2 = pts[i + 1];
 		const p3 = pts[Math.min(pts.length - 1, i + 2)];
-		// Catmull-Rom tangents (neighbour chord / 6) as Bézier control points.
+		// Uniform Catmull-Rom: tangent at each point is the chord between its neighbours, scaled
+		// by a sixth to land on the equivalent Bézier control points.
 		const c1x = p1[0] + (p2[0] - p0[0]) / 6;
 		const c1y = p1[1] + (p2[1] - p0[1]) / 6;
 		const c2x = p2[0] - (p3[0] - p1[0]) / 6;
@@ -56,6 +71,8 @@ export function sparkPaths(
 	const last = pts[pts.length - 1];
 	return {
 		line: d,
+		// Closed along the baseline so the area can carry a faint wash without a gradient — a
+		// gradient needs an id, and ids collide the moment the component is used twice on a page.
 		area: `${d} L${f(last[0])},${f(view.h)} L${f(pts[0][0])},${f(view.h)} Z`,
 	};
 }
