@@ -31,11 +31,21 @@ sync is `main` ← upstream, then `main` → `handoff`, then `handoff` → `lab`
 | 8 | Cloud + On-premises | #17 | The product pages on the kit: FE's `Hero` (main's → `HomeHero`), `Bookend`, `ProductMatrix`, FE's `BenefitGrid`/`ChoiceBand`/`ProductFaq`; `page-inset()`. |
 | 9 | Home | #18 | The redesigned homepage: FE's sections, data and visuals; main's homepage sections removed; `BaseLayout` preload variants; `ImageComparison` id. |
 
-Every page layer has landed. What remains on `lab`: the homepage areas of the sandbox (the running
-orders at `/internal/homepages/`, each section at `/internal/sections/<id>/`, the sign-up and
-sign-in flows), to be rebuilt on this branch's `_Workbench` from FE-handoff's `_VisualPage` /
-`_Variant` pages now that their components are on `handoff`. Each brings its sections, data and visuals; each takes
-`footer="map"`. Then `FE-handoff` is renamed `facelift-archive` and kept as a frozen reference.
+Every page layer has landed; `handoff` is `main` plus nine linear commits. `FE-handoff` is now
+`facelift-archive`, a frozen reference; `ui-reconcile` stays frozen too, as the source of the kit page
+and the pricing drafts the sandbox has yet to take. What remains on `lab`: the homepage areas of the
+sandbox (the running orders at `/internal/homepages/`, each section at `/internal/sections/<id>/`,
+the sign-up and sign-in flows, the pricing drafts), to be rebuilt on this branch's `_Workbench` from
+the archive's `_VisualPage` / `_Variant` pages now that their components are on `handoff`.
+
+## The other branches
+
+| Branch | What it holds | Do |
+| --- | --- | --- |
+| `facelift-archive` | The whole facelift as it grew, 491 commits of sandbox and shipped code mixed. | Read only. Copy from it; never merge it. |
+| `ui-reconcile` | The kit's birthplace: the kit page, the pricing drafts, the reconciled pages before they were rebuilt here. | Read only until the sandbox has taken the kit page and the pricing drafts. |
+| `dark-mode` | A WIP on the archive's base: the Appearance row (since rebuilt), PromoBanner dark tokens, IoT Hub hero and Cookie policy dark fixes. | Port the fixes to `handoff` as a `feat/` if dark pages are revisited; then delete. |
+| `header-search` | The docs-search sandbox on the archive's base (search itself shipped via docs chrome). | Rebuild `/internal/flows/main-menu/` as a Chrome direction on `lab` if wanted; then delete. |
 
 Open, for a review: whether the bar takes FE-handoff's responsive logo (160px from 1281, 215 from
 1600; `main` keeps a 180×60 box) and shows the GitHub star count below 1500; legal's sign-off on
