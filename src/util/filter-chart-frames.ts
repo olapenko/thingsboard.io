@@ -35,6 +35,11 @@ const START = 0.3;
 const FULL = 3.5;
 const HOLD = 1.4;
 const FADE = 0.35;
+/** The fade, for the chart's script: a let-go limit clears the held picture over the same time. */
+export const FILTER_CHART_FADE_S = FADE;
+
+/** The rule's output, as the chart's handle captions it: how many openings are over the limit. */
+export const alarmCount = (n: number) => (n === 1 ? '1 alarm' : n + ' alarms');
 /** The least the picture holds after the crossing: the alarm's rise and ring (`alarm` below) settle. */
 const SETTLE = 1.2;
 

@@ -1,7 +1,7 @@
 ---
 import AlarmEntry from '@components/Landing/AlarmEntry.astro';
 import { ALARM_FIRED_AT, clock, FILTER_CHART, FILTER_HISTORY, FREEZER_ALARM, openFor } from '@data/automate-visual';
-import { filterChartFrames } from '@util/filter-chart-frames';
+import { alarmCount, filterChartFrames } from '@util/filter-chart-frames';
 import { renderId } from '@util/render-id';
 
 /**
@@ -15,8 +15,11 @@ import { renderId } from '@util/render-id';
  * foot, ticking with it — the one time on the chart, and the one the alarm prints when it fires.
  * Everything else on the page is data. Each opening stands in a faint column up to the limit — how
  * much of its allowance it used — with its length over it, and the limit is a handle: drag it and
- * the rule re-applies (see the script). The chart stands on a white wash, solid along its top,
- * where the heading sits, and gone at the floor, which lifts it off the row's tint.
+ * the rule re-applies (see the script). The handle also counts what the rule yields — "1 alarm" —
+ * along with the loop (none until the live bar crosses) and with a drag; the count is kept and said
+ * in the slider's value text, but its caption is parked, unshown, until it has a place (see
+ * `.fch__count`). The chart stands on a white wash, solid along its top, where the heading sits,
+ * and gone at the floor, which lifts it off the row's tint.
  *
  * On the other tabs' frame, 574 × 256 units, so the switch's row holds its height. One SVG in the
  * frame's own units; the alarm is HTML over it in the same units. Type floor 18 units, R = 38.
@@ -36,7 +39,11 @@ const ALARM_W = 236;
 const BAR_W = 18;
 /** The least a bar stands, in units: a 3s opening is still a bar, not a line on the floor. */
 const BAR_MIN = 3;
-/** The limit's range when dragged: long enough to catch any past opening, up to 5:00. */
+/**
+ * The limit's range when dragged: long enough to catch any past opening, up to 5:00. `step` is what
+ * the keyboard moves it by and the grid a dragged limit settles on when let go; while the pointer
+ * moves it follows to the second.
+ */
 const LIMIT = { min: 30, max: 5 * 60, step: 5 };
 /**
  * The live bar climbs this far past the highest limit, so the rule fires wherever the limit is
@@ -72,6 +79,9 @@ const limitY = yOf(FILTER_CHART.limit);
 const uid = renderId('fch');
 const frames = filterChartFrames(uid, FILTER_CHART.limit, PEAK, { base: PLOT.base, top: PLOT.top, yMax: Y_MAX });
 const liveTop = yOf(PEAK);
+/** The rule's output at rest, for the handle's caption: the live bar at its peak is the one opening over the limit. */
+const restCount =
+	FILTER_HISTORY.filter((o) => o.open > FILTER_CHART.limit).length + (PEAK > FILTER_CHART.limit ? 1 : 0);
 
 // --- the alarm --------------------------------------------------------------------------------
 /** From the live bar's centre to the alarm's left edge: clear of the bar, with the lit limit between. */
@@ -194,11 +204,12 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 			aria-valuemin={LIMIT.min}
 			aria-valuemax={LIMIT.max}
 			aria-valuenow={FILTER_CHART.limit}
-			aria-valuetext={openFor(FILTER_CHART.limit)}
+			aria-valuetext={`${openFor(FILTER_CHART.limit)}, ${alarmCount(restCount)}`}
 			data-fch-handle
 		>
 			<span class="fch__grip" aria-hidden="true"></span>
 			<span data-fch-limit-text>{openFor(FILTER_CHART.limit)}</span>
+			<span class="fch__count" data-fch-count aria-hidden="true">{alarmCount(restCount)}</span>
 		</button>
 
 		<div class="fch__alarm-at fch__fade" aria-hidden="true">
@@ -221,8 +232,9 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 	// bar frozen at whatever the reading last had — and re-applies the rule at the new limit: every
 	// opening over it turns red, the live one included if it had got that far, each column's empty
 	// part shrinks or grows to it, and the alarm sits on the latest opening over it, its time the
-	// moment that opening crossed. Let go and the new limit is tested: the loop plays again against it.
-	import { filterChartFrames } from '@util/filter-chart-frames';
+	// moment that opening crossed. Let go and the held picture clears, the limit settles on its step,
+	// and the new limit is tested: the loop plays again against it.
+	import { alarmCount, FILTER_CHART_FADE_S, filterChartFrames } from '@util/filter-chart-frames';
 
 	interface Geo {
 		peak: number;
@@ -243,6 +255,7 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 		[Math.floor(s / 3600), Math.floor((s % 3600) / 60), Math.floor(s % 60)]
 			.map((n) => String(n).padStart(2, '0'))
 			.join(':');
+	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 	document.querySelectorAll<HTMLElement>('[data-fch]').forEach((root) => {
 		const svg = root.querySelector<SVGSVGElement>('.fch__chart');
@@ -262,7 +275,9 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 		const bars = [...root.querySelectorAll<SVGRectElement>('.fch__bar, .fch__live')];
 		const link = root.querySelector<SVGLineElement>('.fch__link');
 		const dot = root.querySelector<SVGCircleElement>('.fch__fired');
+		const alarmAt = root.querySelector<HTMLElement>('.fch__alarm-at');
 		const limitText = handle.querySelector<HTMLElement>('[data-fch-limit-text]');
+		const countEl = handle.querySelector<HTMLElement>('[data-fch-count]');
 		const time = root.querySelector<HTMLElement>('.alarm-entry__time');
 		const title = root.dataset.fchTitle ?? '';
 		const yOf = (s: number) => geo.base - (s / geo.yMax) * (geo.base - geo.top);
@@ -273,6 +288,19 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 		let climb = JSON.parse(root.dataset.fchClimb ?? '[]') as [number, number][];
 		let loop = Number(root.dataset.fchLoop) * 1000;
 		let limit = Number(handle.getAttribute('aria-valuenow'));
+
+		// ── The count ───────────────────────────────────────────────────────
+		// The rule's output, under the handle's value: how many openings are over the limit, the live
+		// one as it stands. Written only when it changes — it flips as the live bar crosses, and with
+		// a drag; the slider's value text carries it too, so a key press hears what the limit yields.
+		const alarmsOver = (liveOpen: number) =>
+			geo.bars.reduce((n, b) => n + ((b.live ? liveOpen : b.open) > limit ? 1 : 0), 0);
+		let shownCount = -1;
+		const showCount = (n: number) => {
+			if (n === shownCount) return;
+			shownCount = n;
+			if (countEl) countEl.textContent = alarmCount(n);
+		};
 
 		// ── The reading ─────────────────────────────────────────────────────
 		const valueAt = (pct: number) => {
@@ -295,6 +323,7 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 			const anim = liveBar.getAnimations()[0];
 			const pct = anim ? ((Number(anim.currentTime ?? 0) % loop) / loop) * 100 : 100;
 			value = valueAt(pct);
+			showCount(alarmsOver(value));
 			// The text changes once a second; nothing to write between.
 			const sec = Math.floor(value);
 			if (sec === lastSec) return;
@@ -309,8 +338,9 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 		}).observe(root);
 
 		// ── The drag ────────────────────────────────────────────────────────
-		// HOLD: the live bar's open time the moment the drag (or the first key) takes the picture, kept
-		// for the drag's length. The bar does not follow the limit.
+		// HOLD: the live bar's open time the moment the first change takes the picture (`apply`), kept
+		// for the drag's length. The bar does not follow the limit. Taken at the first change rather than
+		// at pointerdown: the bar climbs on between the two, and a hold from pointerdown snapped it back.
 		let held = geo.peak;
 		const hold = () => {
 			if (!root.classList.contains('is-manual')) held = value;
@@ -342,6 +372,19 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 		// above where the live bar stops, written to never fire — and every animation starts over. The
 		// alarm goes back on the live bar, where the replay raises it (the hold may have had it on a
 		// past opening, or on none).
+		// LET GO, and the held picture clears the way the loop's own end does — the live bar, its reading
+		// and whatever it raised fade over the loop's fade — before the new limit is tested. (A cut from
+		// the held bar to an empty chart read as a flicker.) Each part fades from where it is, so an
+		// alarm that was not up does not flash in; a new grab or key cancels the fade and holds on.
+		const clearing = [liveBar, reading, link, dot, alarmAt].filter((el): el is NonNullable<typeof el> => el !== null);
+		let fades: Animation[] = [];
+		let fadeGen = 0;
+		const cancelFade = () => {
+			fadeGen++;
+			fades.forEach((a) => a.cancel());
+			fades = [];
+		};
+
 		let testing = 0;
 		const test = () => {
 			if (!styleEl) return;
@@ -356,6 +399,12 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 			root.classList.toggle('no-alarm', !f.fires);
 			if (f.fires && live) placeAlarm(live, yOf(limit));
 			root.classList.remove('is-manual');
+			// The reading starts over with the bar: its first tick writes the empty foot, not the held number.
+			lastSec = -1;
+			// The clearing fade lets go last: the loop's keyframes are at their start by now, where nothing
+			// shows, so nothing flashes.
+			fades.forEach((a) => a.cancel());
+			fades = [];
 			requestAnimationFrame(() =>
 				root.getAnimations({ subtree: true }).forEach((a) => {
 					if (a instanceof CSSAnimation) a.currentTime = 0;
@@ -364,14 +413,37 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 		};
 		const testSoon = (ms: number) => {
 			clearTimeout(testing);
-			testing = window.setTimeout(test, ms);
+			testing = window.setTimeout(() => {
+				if (reduced) return test();
+				const gen = ++fadeGen;
+				fades = clearing.map((el) =>
+					el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], {
+						duration: FILTER_CHART_FADE_S * 1000,
+						easing: 'ease-out',
+						fill: 'forwards',
+					})
+				);
+				Promise.all(fades.map((a) => a.finished)).then(
+					() => {
+						if (gen === fadeGen) test();
+					},
+					() => {}
+				);
+			}, ms);
 		};
 
-		const apply = (seconds: number) => {
-			const { min, max, step } = geo.limit;
-			limit = Math.min(max, Math.max(min, Math.round(seconds / step) * step));
+		// `snap` is the grid the limit lands on: the rule's step from the keyboard and when let go; to the
+		// second while the pointer moves, so the line slides with it instead of clicking step to step.
+		const apply = (seconds: number, snap = geo.limit.step) => {
+			const { min, max } = geo.limit;
+			const next = Math.min(max, Math.max(min, Math.round(seconds / snap) * snap));
+			// A pointer sends far more moves than the limit has places: nothing to redraw while it stands.
+			if (next === limit && root.classList.contains('is-manual')) return;
+			limit = next;
+			hold();
 			const y = yOf(limit);
 			const overCount = geo.bars.filter((b) => openOf(b) > limit).length;
+			showCount(overCount);
 			svg.setAttribute(
 				'aria-label',
 				title +
@@ -399,7 +471,7 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 			const over = geo.bars.map((b) => openOf(b) > limit);
 			bars.forEach((el, i) => el.classList.toggle('is-over', over[i]));
 			handle.setAttribute('aria-valuenow', String(limit));
-			handle.setAttribute('aria-valuetext', openFor(limit));
+			handle.setAttribute('aria-valuetext', openFor(limit) + ', ' + alarmCount(overCount));
 			if (limitText) limitText.textContent = openFor(limit);
 
 			// The alarm: on the latest opening over the limit, if any.
@@ -412,17 +484,23 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 		};
 
 		// Where the pointer is, in the frame's units; the drag keeps the offset it grabbed at, so a tap
-		// anywhere on the handle leaves the limit where it was.
-		const pointerY = (e: PointerEvent) => {
-			const box = svg.getBoundingClientRect();
-			return ((e.clientY - box.top) / box.height) * geo.h;
+		// anywhere on the handle leaves the limit where it was. The frame is measured once per grab (and
+		// again if the page scrolls or resizes under it), not per move: measuring between one move's
+		// writes and the next forced a layout every move.
+		let box = svg.getBoundingClientRect();
+		const measure = () => {
+			box = svg.getBoundingClientRect();
 		};
+		const pointerY = (e: PointerEvent) => ((e.clientY - box.top) / box.height) * geo.h;
 		let grab = 0;
 		let moved = false;
 
 		handle.addEventListener('pointerdown', (e) => {
 			clearTimeout(testing);
-			hold();
+			cancelFade();
+			measure();
+			window.addEventListener('scroll', measure, { capture: true, passive: true });
+			window.addEventListener('resize', measure);
 			handle.setPointerCapture(e.pointerId);
 			grab = pointerY(e) - yOf(limit);
 			moved = false;
@@ -432,11 +510,17 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 			const y = pointerY(e) - grab;
 			if (!moved && Math.abs(y - yOf(limit)) < 1) return;
 			moved = true;
-			apply(((geo.base - y) / (geo.base - geo.top)) * geo.yMax);
+			apply(((geo.base - y) / (geo.base - geo.top)) * geo.yMax, 1);
 		});
-		// Let go (or have the touch cancelled), and a moved limit is tested: the loop plays against it.
+		// Let go (or have the touch cancelled), and a held picture is tested: the limit settles on its
+		// step and the loop plays against it. A tap that only caught a clearing fade is held too.
 		const release = () => {
-			if (moved) testSoon(150);
+			window.removeEventListener('scroll', measure, { capture: true });
+			window.removeEventListener('resize', measure);
+			if (root.classList.contains('is-manual')) {
+				apply(limit);
+				testSoon(150);
+			}
 			moved = false;
 		};
 		handle.addEventListener('pointerup', release);
@@ -453,7 +537,8 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 				PageDown: -step * 6,
 			};
 			if (!(e.key in by) && e.key !== 'Home' && e.key !== 'End') return;
-			hold();
+			clearTimeout(testing);
+			cancelFade();
 			if (e.key in by) apply(limit + by[e.key]);
 			else if (e.key === 'Home') apply(min);
 			else apply(max);
@@ -653,10 +738,39 @@ const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HIS
 		border-bottom: max(1px, #{u(1.5)}) solid var(--fch-grey);
 	}
 
+	// The rule's output under its value — "1 alarm" — in the body face and the chart's grey: a caption,
+	// not a reading. 16 units, the family's phone floor (~9.6px). Flush with the pill's left edge and
+	// at most 63 units wide at any count (tabular, so the numeral changes in place), which keeps it
+	// left of the first opening's column at 67 wherever the limit stands.
+	//
+	// PARKED (2026-10-02): under the pill it sat awkwardly, so it is not shown. It is still counted
+	// (the script keeps it current, and the slider's value text says it), so showing it again is this
+	// one line — once it has a place.
+	.fch__count {
+		display: none;
+		position: absolute;
+		top: calc(100% + #{u(4)});
+		left: u(2);
+		font-family: $font-family-base;
+		font-size: u(16);
+		font-weight: $font-weight-normal;
+		line-height: u(20);
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0;
+		white-space: nowrap;
+		text-align: left;
+		color: var(--fch-grey);
+	}
+
 	// Dragged: the loop stops and the picture holds, re-applied at the new limit.
 	.fch.is-manual {
 		:is(.fch__live, .fch__reading, .fch__readout, .fch__fade, .fch__fired, .fch__link, .fch__alarm-move) {
 			animation: none !important;
+		}
+
+		// The alarm, its line and its dot come and go as the limit crosses an opening: a short fade, not a pop.
+		:is(.fch__link, .fch__fired, .fch__alarm-at) {
+			transition: opacity 150ms ease-out;
 		}
 
 		.fch__live {
