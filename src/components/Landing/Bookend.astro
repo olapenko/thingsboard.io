@@ -1,0 +1,383 @@
+---
+import Band from '@components/ui/Band.astro';
+import Button from '@components/ui/Button.astro';
+import ButtonGroup from '@components/ui/ButtonGroup.astro';
+import InstallOptions from '@components/Landing/InstallOptions.astro';
+import Link from '@components/ui/Link.astro';
+import LinkCard from '@components/ui/LinkCard.astro';
+import Mark from '@components/ui/Mark.astro';
+import RegionChoice from '@components/Landing/RegionChoice.astro';
+import {
+	BOOKEND_ALL_OPTIONS,
+	BOOKEND_CLOUD_PLANS,
+	BOOKEND_PLATFORMS,
+	BOOKENDS,
+	type BookendAction,
+	type BookendId,
+} from '@data/bookends';
+
+/**
+ * THE BOOKEND: the band that closes a marketing page, over its footer. The homepage and the Cloud
+ * and On-premises pages close on it (it replaced `ClosingCta` and the two `.page-closing` copies).
+ * Judged at `/internal/sections/footer/`.
+ *
+ * Built from the kit: the ground and the wave are a `Band`, the mark a `Mark`, the actions `Button`s
+ * in a `ButtonGroup`, the regions `RegionChoice`, the platforms `InstallOptions` (the hub's chips), the quiet links `Link`s
+ * (the chevron: they stay on the site) and the side cards `LinkCard`s. What is the bookend's own is
+ * the shape and the words.
+ *
+ * `id` picks the page's words (`data/bookends.ts`); `ways` picks what the way in is made of, and
+ * with it the layout:
+ *
+ * - `buttons`: CENTRED, the mark, the title, the lead, the primary and the secondary, then what the
+ *   page adds (a question, the quiet links, a line across, a legal note).
+ * - `regions`, `platforms`, `cards`: COLUMNS, an intro (a smaller title, the lead, the buttons)
+ *   beside the way in: Cloud's two regions, four On-premises guides, or two tall cards.
+ *
+ * `tone` is the ground: `dark` (the bookend indigo, the wave in `--band-wave`) or `light` (the
+ * page's own tint, the wave in its accent). `links` and `cross` switch the quiet links and the line
+ * to the other platform, which a page that already says them (On-premises' choice note) leaves out.
+ */
+
+interface Props {
+	id: BookendId;
+	ways?: 'buttons' | 'regions' | 'platforms' | 'cards';
+	tone?: 'dark' | 'light';
+	/** Where the homepage's "Talk to an expert" goes; the `live` order passes main's. */
+	expertHref?: string;
+	/** The quiet links ("See plans") beside the way in. */
+	links?: boolean;
+	/** The line to the other platform. */
+	cross?: boolean;
+}
+
+const DEFAULT_WAYS = { home: 'buttons', cloud: 'regions', onprem: 'platforms', pricing: 'buttons' } as const;
+const DEFAULT_TONE = { home: 'dark', cloud: 'light', onprem: 'light', pricing: 'light' } as const;
+
+const {
+	id,
+	ways = DEFAULT_WAYS[id],
+	tone = DEFAULT_TONE[id],
+	expertHref,
+	links: showLinks = true,
+	cross: showCross = true,
+} = Astro.props;
+const b = BOOKENDS[id];
+const ask = b.ask && expertHref ? { ...b.ask, action: { ...b.ask.action, href: expertHref } } : b.ask;
+const columns = ways !== 'buttons';
+const dark = tone === 'dark';
+
+// With the regions and side cards (the homepage's): the regions are the path, under the lede, and
+// the other ways on are the side cards; no buttons.
+const side = ways === 'regions' ? b.side : undefined;
+// With the cards: the pair under the lede, and two tall cards beside it.
+const cards = ways === 'cards' ? b.cards : undefined;
+const cardHref = (c: { href: string }) => (ask && c.href === b.ask?.action.href ? ask.action.href : c.href);
+
+type Action = { a: BookendAction; kind: 'primary' | 'secondary' };
+const primary = (a: BookendAction): Action => ({ a, kind: 'primary' });
+const secondary = (a: BookendAction): Action => ({ a, kind: 'secondary' });
+
+// Where the regions are the way in, the buttons are the OTHER ways (outlines, so the white region
+// rows stay the thing to press; none at all when side cards carry them).
+const actions: Action[] = side
+	? []
+	: cards
+		? [primary(cards.primary), secondary(b.secondary)]
+		: ways === 'regions'
+			? [secondary(b.secondary), ...(ask ? [secondary(ask.action)] : [])]
+			: [primary(b.primary), secondary(b.secondary)];
+---
+
+<Band
+	class:list={['bk', columns ? 'bk--cols' : 'bk--center']}
+	ground={dark ? 'dark' : 'tint'}
+	groundColor={dark ? undefined : b.band}
+	wave
+	waveHue={dark ? 'var(--band-wave)' : b.accent}
+	pad="xl"
+	accent={b.scheme}
+	innerClass="bk__inner"
+	attrs={{ 'data-tone': tone }}
+>
+	<div class="bk__intro">
+		{
+			/* The centred layout's mark: the homepage's white tile with the logo in ink (on either
+			   ground, as main's homepage closes), a product page's app logo knocked out of its colour
+			   on the light ground. The column layout's badge is the product's, a step smaller. */
+			!columns &&
+				(b.icon ? (
+					<Mark size={80} icon={b.icon} lift={!dark} class="bk__mark" />
+				) : b.badge && !dark ? (
+					<Mark size={80} logo="thingsboard" class="bk__mark" />
+				) : (
+					<Mark size={80} logo="thingsboard" fill="white" lift={!dark} class="bk__mark" />
+				))
+		}
+		{columns && b.badge && <Mark size={48} logo="thingsboard" class="bk__badge" />}
+		<h2 class="bk__title">{b.title}</h2>
+		<p class="bk__lead">{b.lead}</p>
+		{side && (
+			<>
+				<p class="bk__caption">{b.primary.text}</p>
+				<RegionChoice layout="row" srSuffix="for ThingsBoard Cloud" class="bk__regions" />
+			</>
+		)}
+		{actions.length > 0 && (
+			<ButtonGroup align={columns ? 'start' : 'center'} class="bk__actions">
+				{actions.map(({ a, kind }) => (
+					<Button variant={kind} icon={a.icon} href={a.href} attrs={a.attrs}>
+						{a.text}
+					</Button>
+				))}
+			</ButtonGroup>
+		)}
+
+		{!columns && ask && (
+			<div class="bk__ask">
+				<p class="bk__ask-label">{ask.label}</p>
+				<Button variant="secondary" icon={ask.action.icon} href={ask.action.href}>
+					{ask.action.text}
+				</Button>
+			</div>
+		)}
+		{!columns && showLinks && b.links && (
+			<p class="bk__links">
+				{b.links.map((l) => (
+					<Link href={l.href} tone="ink">
+						{l.text}
+					</Link>
+				))}
+			</p>
+		)}
+		{!columns && showCross && b.cross && (
+			<p class="bk__cross">
+				{b.cross.lead}{' '}
+				<Link variant="inline" href={b.cross.link.href} external={b.cross.link.external}>
+					{b.cross.link.text}
+				</Link>
+				{b.cross.tail}
+			</p>
+		)}
+		{!columns && b.note && (
+			<p class="bk__note">
+				<Link variant="inline" tone="muted" href={b.note.href}>
+					{b.note.text}
+				</Link>
+			</p>
+		)}
+	</div>
+
+	{side && (
+		<ul class="bk__side">
+			{side.map((c) => (
+				<LinkCard
+					as="li"
+					tone={dark ? 'ghost' : 'surface'}
+					href={c.title === ask?.action.text ? ask.action.href : c.href}
+					title={c.title}
+					line={c.line}
+					icon={c.icon}
+				/>
+			))}
+		</ul>
+	)}
+
+	{cards && (
+		<ul class="bk__side bk__side--row">
+			{cards.items.map((c) => (
+				<LinkCard
+					as="li"
+					layout="tall"
+					tone={dark ? 'ghost' : 'surface'}
+					href={cardHref(c)}
+					title={c.title}
+					line={c.line}
+					icon={c.icon}
+				/>
+			))}
+		</ul>
+	)}
+
+	{ways === 'regions' && !side && (
+		<div class="bk__col">
+			<p class="bk__caption">{b.primary.text}</p>
+			<RegionChoice layout="row" srSuffix="for ThingsBoard Cloud" class="bk__regions" />
+			{id === 'cloud' && showLinks && (
+				<Link href={BOOKEND_CLOUD_PLANS.href} class="bk__more">
+					{BOOKEND_CLOUD_PLANS.text}
+				</Link>
+			)}
+		</div>
+	)}
+
+	{ways === 'platforms' && (
+		<div class="bk__col">
+			<InstallOptions groups={[{ title: 'On your servers', items: BOOKEND_PLATFORMS }]} class="bk__chips" />
+			<Link href={BOOKEND_ALL_OPTIONS.href} class="bk__more">
+				{BOOKEND_ALL_OPTIONS.text}
+			</Link>
+		</div>
+	)}
+</Band>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// The ground, the wave, the padding steps and the measure are the Band's; the type and the
+	// layout are the bookend's. Light first, then the dark ground's whites.
+	.bk {
+		--bk-text: var(--color-text, #17181c);
+		--bk-soft: var(--color-text-secondary, #{$color-text-secondary});
+
+		color: var(--bk-text);
+	}
+
+	.bk[data-tone='dark'] {
+		--bk-text: #fff;
+		--bk-soft: rgba(255, 255, 255, 0.72);
+	}
+
+	// ---- Centred (buttons) ---------------------------------------------------------------------
+	.bk--center :global(.bk__inner) {
+		text-align: center;
+	}
+
+	.bk__intro :global(.bk__mark) {
+		display: grid;
+		margin: 0 auto $spacing-4;
+	}
+
+	.bk__title {
+		margin: 0 auto $spacing-5;
+		max-width: 28ch;
+		font-size: clamp(30px, calc(0.5rem + 2.6vw), 40px);
+		font-weight: $font-weight-bold;
+		line-height: 1.2;
+		text-wrap: balance;
+		color: var(--bk-text);
+	}
+
+	.bk__lead {
+		@include type-body;
+
+		margin: 0 auto $spacing-8;
+		max-width: 52ch;
+		color: var(--bk-soft);
+		text-wrap: pretty;
+	}
+
+	.bk__ask {
+		display: grid;
+		justify-items: center;
+		margin-top: $spacing-8;
+	}
+
+	.bk__ask-label {
+		@include type-body;
+
+		margin: 0 0 $spacing-3;
+		color: var(--bk-soft);
+	}
+
+	.bk__links {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: $spacing-2 $spacing-5;
+		margin: $spacing-6 0 0;
+	}
+
+	.bk__cross {
+		@include type-body;
+
+		margin: $spacing-6 0 0;
+		color: var(--bk-soft);
+	}
+
+	.bk__note {
+		@include type-small;
+
+		margin: $spacing-8 0 0;
+		color: var(--bk-soft);
+	}
+
+	// ---- Columns -------------------------------------------------------------------------------
+	// The intro left, the way in beside it, the two columns sharing the measure evenly. The title a
+	// step down from the centred one's 40, so a two-line title fits the half.
+	.bk--cols :global(.bk__inner) {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-10 $spacing-12;
+		align-items: start;
+		text-align: left;
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.bk--cols:has(.bk__side) :global(.bk__inner) {
+		align-items: center;
+	}
+
+	.bk__intro :global(.bk__badge) {
+		display: grid;
+		margin-bottom: $spacing-5;
+	}
+
+	.bk--cols .bk__title {
+		margin: 0 0 $spacing-4;
+		max-width: none;
+		font-size: clamp(26px, calc(0.5rem + 1.8vw), 32px);
+	}
+
+	.bk--cols .bk__lead {
+		margin: 0 0 $spacing-6;
+		max-width: 44ch;
+	}
+
+	.bk__col {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: $spacing-4;
+		min-width: 0;
+	}
+
+	.bk__intro :global(.bk__regions) {
+		margin-bottom: $spacing-6;
+	}
+
+	.bk__col :global(.bk__regions) {
+		width: 100%;
+	}
+
+	.bk__caption {
+		@include type-eyebrow;
+
+		margin: 0 0 $spacing-3;
+		color: var(--bk-soft);
+	}
+
+	.bk__col .bk__caption {
+		margin: 0;
+	}
+
+	.bk__side {
+		display: grid;
+		gap: $spacing-3;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.bk__side--row {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-4;
+
+		@include media-down(sm) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+</style>

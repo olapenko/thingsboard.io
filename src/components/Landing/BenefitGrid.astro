@@ -1,100 +1,76 @@
 ---
 import { Icon } from 'astro-icon/components';
-import SectionHeader from '@components/Landing/HomeSectionHeader.astro';
-import type { Benefit } from '@models/benefit';
+import CardGrid from '@components/ui/CardGrid.astro';
+import type { Benefit } from '@data/product-blocks';
 
-/** A product page's "Why …" band: a section header over a grid of claims, three across. */
+/**
+ * The product pages' benefit tiles, under each page's "Why" header: three across (four for four
+ * tiles, so none is left alone on a row), two across from 750, one on a phone (`ui/CardGrid`'s
+ * steps), and no card behind them.
+ *
+ * No card and no squircle. `FeatureTile` on the homepage is the same kind of item — one glyph, one
+ * title, one line of copy — and it draws the glyph solid with no fill behind it. Six of these in a
+ * 3x2 is exactly the case that treatment was written for: a filled mark per tile would be an accent
+ * system with nothing to decode. What separates the tiles is a hairline over each one rather than a
+ * box around it, which gives the grid its columns without putting the cards back.
+ */
 interface Props {
-	title: string;
-	subtitle: string;
-	items: readonly Benefit[];
+	items: Benefit[];
 }
 
-const { title, subtitle, items } = Astro.props;
+const { items } = Astro.props;
+const cols = items.length === 4 ? 4 : 3;
 ---
 
-<section id="benefits" class="benefits">
-	<SectionHeader {title} {subtitle} />
-	<div class="benefit-grid">
-		{items.map((benefit) => (
-			<div class="benefit-card">
-				<Icon name={benefit.icon} class="benefit-card__icon" style={`color: ${benefit.color}`} aria-hidden="true" />
-				<h3 class="benefit-card__title">{benefit.title}</h3>
-				<p class="benefit-card__text">{benefit.description}</p>
-			</div>
-		))}
-	</div>
-</section>
+<CardGrid cols={cols} gap="lg" class="benefit-grid">
+	{items.map((item) => (
+		<div class="benefit-grid__item">
+			<Icon
+				name={item.icon}
+				class="benefit-grid__icon"
+				style={item.color ? `color: ${item.color}` : undefined}
+				aria-hidden="true"
+			/>
+			<h3 class="benefit-grid__title">{item.title}</h3>
+			<p class="benefit-grid__text">{item.description}</p>
+		</div>
+	))}
+</CardGrid>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
-	.benefits {
-		padding: $spacing-16 var(--band-gutter) $spacing-20;
-
-		@include media-down(md) {
-			padding-block: $spacing-10 $spacing-12;
-		}
-	}
-
-	.benefit-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: $spacing-8 $spacing-6;
-
-		@include media-down(lg) {
-			grid-template-columns: repeat(2, 1fr);
-		}
-
-		@include media-down(md) {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	.benefit-card {
+	.benefit-grid__item {
 		display: flex;
 		flex-direction: column;
 		gap: $spacing-2;
 		padding-top: $spacing-5;
-		border-top: 1px solid rgb(15 23 42 / 12%);
-
-		&__icon {
-			width: 36px;
-			height: 36px;
-		}
-
-		&__title {
-			font-size: $font-size-lg;
-			font-weight: $font-weight-bold;
-			line-height: 1.3;
-			margin: $spacing-1 0 0;
-			color: var(--color-text);
-		}
-
-		&__text {
-			@include text-m;
-			margin: 0;
-			line-height: 1.5;
-			color: var(--color-text-secondary);
-			text-wrap: pretty;
-		}
+		border-top: 1px solid var(--color-border);
 	}
 
-	@media print {
-		.benefits {
-			padding-block: $spacing-6;
-		}
+	// 36, from `FeatureTile`'s 28. That component runs sixteen tiles in a strip where 28 is already a
+	// lot of ink; six in a 3x2 have the room, and at 28 on a 304 column the glyph read as a bullet
+	// rather than as the tile's mark. The colour arrives inline, per tile.
+	.benefit-grid__icon {
+		width: 36px;
+		height: 36px;
+		color: var(--accent-fill);
+	}
 
-		.benefit-grid {
-			gap: $spacing-6;
+	// A step above `FeatureTile`'s 16: six in a 3x2 have the room, and at 304 a column the longer
+	// titles still hold two lines.
+	.benefit-grid__title {
+		@include type-tile-lg;
 
-			@include media-down(lg) {
-				grid-template-columns: repeat(2, 1fr);
-			}
-		}
+		margin: $spacing-1 0 0;
+		color: var(--color-text);
+	}
 
-		.benefit-card {
-			break-inside: avoid;
-		}
+	.benefit-grid__text {
+		@include type-body;
+
+		margin: 0;
+		color: var(--color-text-secondary);
+		text-wrap: pretty;
 	}
 </style>
