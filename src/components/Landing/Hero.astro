@@ -120,6 +120,12 @@ interface Props {
 	 */
 	ctaSpace?: 'standard' | 'roomy';
 	/**
+	 * `split` only: the lede's size. `body` — 16/24, as every lede on the site is set. `large` —
+	 * 18/28, the one lede above body size, under a 48px headline; the measure stays 34ch, so the
+	 * column widens with it. Chosen in the hero lab (2026-10-02) over 20/30, for homepage order C.
+	 */
+	ledeSize?: 'body' | 'large';
+	/**
 	 * Additional CSS class for hero section
 	 */
 	className?: string;
@@ -140,6 +146,7 @@ const {
 	layout = 'center',
 	panel = true,
 	ctaSpace = 'standard',
+	ledeSize = 'body',
 	className = '',
 } = Astro.props;
 
@@ -212,6 +219,7 @@ const MEASURE_COPY = `(() => {
 	id="hero"
 	class:list={['light-text', layout === 'split' && 'split', hasPanel && 'split--panel', className]}
 	data-cta-space={ctaSpace === 'roomy' ? 'roomy' : undefined}
+	data-lede={ledeSize === 'large' ? 'large' : undefined}
 >
 	<!-- arrow-hidden sentinel: IntersectionObserver-driven, replaces a forced-reflow scroll listener -->
 	<div class="hero-scroll-sentinel" aria-hidden="true"></div>
@@ -625,7 +633,12 @@ const MEASURE_COPY = `(() => {
 			// with nothing between them. Measured settled — mid-animation the hero is
 			// still 45px low from its own entrance transform, which reads as a gap that is
 			// not there.
-			--hero-top-gap: 28px;
+			//
+			// THE SAME GAP CLOSES THE COPY (2026-10-02): the padding under it is this token too, so
+			// the copy is centred in what the hero leaves it — 28 over it and 36 under it had every
+			// hero's text 4px high, and a centred block 8px off the panel's middle. 32 both ways keeps
+			// the total.
+			--hero-top-gap: 32px;
 
 			// A panel in normal flow, not a backdrop behind the section.
 			.video-cover {
@@ -700,11 +713,14 @@ const MEASURE_COPY = `(() => {
 				text-align: left;
 				align-items: flex-start;
 				justify-content: center;
-				// Clears the fixed bar, then breathes above the panel beneath it. The 36px
-				// bottom matters when the copy is the taller of the two side by side: it
-				// sets the row, and without it "Talk to an expert" sat flush on the hero's
-				// bottom edge with 6px of it under `overflow: hidden`.
-				padding: calc(var(--home-header-h, #{$header-height}) + var(--hero-top-gap)) var(--hero-pad-x) 36px;
+				// Clears the fixed bar, then breathes above the panel beneath it — and the same
+				// gap under the copy, so it is centred (see `--hero-top-gap`). The bottom matters
+				// when the copy is the taller of the two side by side: it sets the row, and
+				// without it "Talk to an expert" sat flush on the hero's bottom edge with 6px of
+				// it under `overflow: hidden`.
+				// `--hero-cta-room` is `ctaSpace="roomy"`'s, added at both ends alike.
+				padding: calc(var(--home-header-h, #{$header-height}) + var(--hero-top-gap) + var(--hero-cta-room, 0px))
+					var(--hero-pad-x) calc(var(--hero-top-gap) + var(--hero-cta-room, 0px));
 				// No background: the section's black is behind it, and the product pages paint
 				// their own. Said outright because the centred layout's 0.72 black above still
 				// applied here, invisible on black but not where the footage reaches under the
@@ -954,8 +970,6 @@ const MEASURE_COPY = `(() => {
 				@media #{$hero-stack-one} {
 					#hero-content {
 						--hero-top-gap: 24px;
-
-						padding-bottom: 24px;
 					}
 				}
 
@@ -1255,9 +1269,9 @@ const MEASURE_COPY = `(() => {
 				// element loses to that no matter which media query it sits in.
 				#hero-content {
 					// Half the gap, not none of it. Reclaiming height here is worth 12px;
-					// closing it entirely is what put the mark against the menu.
-					--hero-top-gap: 16px;
-					padding-bottom: 20px;
+					// closing it entirely is what put the mark against the menu. 18 both ways, the
+					// 16 over and 20 under it was, so the copy stays centred.
+					--hero-top-gap: 18px;
 
 					h1 {
 						margin-bottom: 12px;
@@ -1271,20 +1285,22 @@ const MEASURE_COPY = `(() => {
 		}
 	}
 
-	// `ctaSpace="roomy"` (see the prop): the same room at both ends of the copy, so its centre stays
-	// where the centring puts it — room under the buttons alone rode the text 40px high. Margins, so
-	// the copy's measured height (`--hero-copy-h`, `--hero-copy-rest`) takes them in and the panel and
-	// the headline's fit follow.
-	#hero.split[data-cta-space='roomy'] #hero-content {
+	// `ctaSpace="roomy"` (see the prop): the same room at both ends of the copy, in its padding (the
+	// split's `#hero-content` rule adds it), so its centre stays where the centring puts it — room
+	// under the buttons alone rode the text 40px high — and in the tablet's two columns both start
+	// level: as margins on the first and last child it pushed the headline down alone. Padding is in
+	// the copy's measured height (`--hero-copy-h`, `--hero-copy-rest`), so the panel and the
+	// headline's fit follow.
+	#hero.split[data-cta-space='roomy'] {
 		--hero-cta-room: 24px;
+	}
 
-		> :first-child {
-			margin-top: var(--hero-cta-room);
-		}
-
-		> :last-child {
-			margin-bottom: var(--hero-cta-room);
-		}
+	// `ledeSize="large"` (see the prop). An exception to the type ladder, which keeps ledes at base
+	// size (`type-body`): this is the only lede under a 48px headline. The copy is measured after it,
+	// so the headline's fit and the panel's floor follow.
+	#hero.split[data-lede='large'] #hero-content .tb-sub-title {
+		font-size: $font-size-lg;
+		line-height: 28px;
 	}
 
 	// The buttons' hidden suffix. Scoped here so a page without the product-page styles (the

@@ -160,7 +160,7 @@ export const SWITCHES: LabSwitch[] = [
 			{
 				value: '18',
 				label: '18 / 28',
-				note: 'Candidate, 2026-10-02: the one lede set above body size, under a 48px headline · the measure stays 34ch, so it widens with the type',
+				note: 'Chosen 2026-10-02 for order C only (`heroLede: large`): the one lede set above body size, under a 48px headline · the measure stays 34ch, so it widens with the type',
 			},
 			{
 				value: '20',
@@ -178,7 +178,7 @@ export const SWITCHES: LabSwitch[] = [
 			{
 				value: 'c',
 				label: 'C · main’s',
-				note: 'Order C at /internal/homepages/c/: A in main’s words — a three-line lede, no note, and the roomy spacing round the buttons',
+				note: 'Order C at /internal/homepages/c/: A in main’s words — a three-line lede, no note, and the roomy spacing round the copy · its lede ships at 18/28 (`heroLede`), so “16 / 24” shows it at 18 there',
 			},
 		],
 	},

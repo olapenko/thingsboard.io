@@ -190,6 +190,12 @@ export interface HomeComposition {
 	 */
 	heroCta: 'standard' | 'roomy';
 	/**
+	 * The hero lede's size (`Hero`'s `ledeSize`). `body` — 16/24, every lede's. `large` — 18/28, for
+	 * C's short three-line lede under the 48px headline, picked in the hero lab over 20/30
+	 * (2026-10-02). Set per order so the reference keeps main's.
+	 */
+	heroLede: 'body' | 'large';
+	/**
 	 * Which footer closes the page. `in-use` — `Landing/Footer`, the one every other marketing page
 	 * has and main ships. `map` — `Landing/FooterMap`, the footer that maps the platform, judged at
 	 * `/internal/sections/footer/`. Set per order so the reference keeps main's.
@@ -212,6 +218,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		hues: 'section',
 		copy: 'facelift',
 		heroCta: 'standard',
+		heroLede: 'body',
 		footer: 'map',
 		note: 'The AI demo straight under the hero, in the wide window with its call to action, then the platform loop and its four rows in the loop’s own order. A trust band, “Why choose” under a value heading, and customer quotes join; Scale leaves for the On-premises page. Every section takes its own colour.',
 		sections: [
@@ -245,6 +252,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		hues: 'primary',
 		copy: 'live',
 		heroCta: 'standard',
+		heroLede: 'body',
 		footer: 'in-use',
 		note: 'The homepage main ships today (ThingsBoard 4.4, on thingsboard.io), kept as the reference: the AI demo straight under the hero, then the platform loop, its five rows, the use cases, Products, Ecosystem and the features — in main’s words, on this branch’s sections.',
 		sections: [
@@ -268,6 +276,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		hues: 'section',
 		copy: 'facelift',
 		heroCta: 'standard',
+		heroLede: 'body',
 		footer: 'map',
 		note: 'A with its first two sections swapped: the platform loop orients first, then the AI demo. The smallest change from the handoff that still moves AI up.',
 		sections: [
@@ -306,6 +315,7 @@ export const HOME_COMPOSITIONS: HomeComposition[] = [
 		hues: 'section',
 		copy: 'live',
 		heroCta: 'roomy',
+		heroLede: 'large',
 		footer: 'map',
 		note: 'A as it stands — its sections, order, colours and footer — speaking main’s words: main’s hero with its two buttons, the platform and features headings, the rows, the use cases’ links and the cards. The trust band and the customer voices, which main does not have, keep A’s words; the trust band takes a visible heading and its ground turned over.',
 		sections: [
