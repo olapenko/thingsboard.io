@@ -1,0 +1,311 @@
+---
+import DataTable from '@components/DataTable.astro';
+import DataTableValue from '@components/DataTableValue.astro';
+import Mark from '@components/ui/Mark.astro';
+import type { DataTableColumn } from '@models/data-table';
+import type { CompareColumn, CompareGroup, CompareRow } from '@data/product-blocks';
+
+/**
+ * The marketing pages' comparison: columns of values against a column of row labels, in groups
+ * that each open on a heading spanning the table, or in one run with no headings. Cloud's Public
+ * against Private, On-premises' platform against a stack assembled from separate services, Private
+ * Cloud's four plans on Pricing. On `DataTable`, like every other
+ * marketing table, so the caption, the header scopes and the no-empty-cell contract that
+ * `pnpm lint:landmarks` checks are the shell's, not this file's.
+ *
+ * FROM 880 it is a table under a header pill that pins below the fixed bar while the rows scroll
+ * past it. BELOW 880 it is not a table at all: each row becomes a block — the label, then its
+ * values, each one labelled with its column — so the things being compared are on screen together
+ * instead of a scroll apart. The column names in the cells are real text rather than
+ * `::before` content: a reflowed table loses its table semantics the moment `display` stops being
+ * `table-*`, so every cell says what it is on its own, for a screen reader and for an extractor.
+ *
+ * Every header cell has a scope, row labels included, which is what lets a screen reader announce
+ * "Uptime SLA, Private Cloud, 99.9% – 99.99%" rather than the value alone. An em dash is a value
+ * here, "not included", and the cell says so in words for anyone who cannot see that it is a dash.
+ */
+interface Props {
+	/** The table's accessible name; hidden, since the section's own header says it on screen. */
+	caption: string;
+	/** The row labels' column heading. */
+	firstLabel: string;
+	/** The value columns, in the order of each row's `values`. */
+	columns: CompareColumn[];
+	/** Rows with no heading of their own, above the groups (a lead row, or the whole table). */
+	rows?: CompareRow[];
+	/** An unlabelled first row, above the group headings. */
+	lead?: CompareRow;
+	groups?: CompareGroup[];
+	/** The values' alignment: `center` for a ladder of plans, where each column is one step. */
+	align?: 'start' | 'center';
+}
+
+const { caption, firstLabel, columns, rows = [], lead, groups = [], align = 'start' } = Astro.props;
+
+const NOT_INCLUDED = '—';
+const included = (value: string | boolean) => value !== false && value !== NOT_INCLUDED;
+
+const tableColumns: DataTableColumn[] = [
+	{ label: firstLabel },
+	...columns.map((column) =>
+		column.icon
+			? { label: column.name, icon: column.icon, iconClass: 'product-matrix__glyph', thClass: 'product-matrix__marked' }
+			: { label: column.name }
+	),
+];
+
+// The lead row sits above the first group heading, as a run of rows with no heading of its own.
+const ungrouped = [...(lead ? [lead] : []), ...rows];
+const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
+	...(ungrouped.length ? [{ rows: ungrouped }] : []),
+	...groups.map((group) => ({ group, rows: group.rows })),
+];
+---
+
+<DataTable
+	caption={caption}
+	columns={tableColumns}
+	colgroup={false}
+	class:list={['product-matrix', align === 'center' && 'product-matrix--center']}
+>
+	{runs.map(({ group, rows }) => (
+		<>
+			{group && (
+				<tr class="product-matrix__group">
+					{/* A heading across the table. The table is one body, so it scopes nothing: each row
+						    header below carries the group's name for a screen reader instead. */}
+					<th colspan={columns.length + 1}>
+						<span class="product-matrix__group-title">
+							<Mark size={36} icon={group.icon} accent={group.color} />
+							{group.title}
+						</span>
+					</th>
+				</tr>
+			)}
+			{rows.map((row) => (
+				<tr>
+					<th scope="row">
+						{row.label}
+						{group && <span class="ui-sr">{`, ${group.title}`}</span>}
+					</th>
+					{row.values.map((value, i) => (
+						<td class:list={[!included(value) && 'product-matrix__none']}>
+							{/* The column's name, in the cell: hidden from 880, where the header row
+								    does the job, and what keeps every value attached to its column below. */}
+							<span class="product-matrix__cell-label">{columns[i].name}</span>
+							{!included(value) ? (
+								<>
+									<DataTableValue value={false} noText="Not included" />
+									<span aria-hidden="true">{NOT_INCLUDED}</span>
+								</>
+							) : (
+								<span class:list={[value === true && 'product-matrix__yes']}>
+									<DataTableValue value={value} yesText="Included" />
+								</span>
+							)}
+						</td>
+					))}
+				</tr>
+			))}
+		</>
+	))}
+</DataTable>
+
+<style lang="scss" is:global>
+	@use '../../styles/variables' as *;
+
+	// Global, nested under the table's own class: DataTable renders the shell, and Astro hashes every
+	// compound, so a scoped `thead th` here would never match it.
+	.product-matrix {
+		width: 100%;
+		// `separate`, not `collapse`: the header pill's round ends are the outer cells' own corners, and
+		// a collapsed table's borders belong to the table rather than to the cells. The rules sit on the
+		// cells instead, and `border-spacing: 0` keeps the grid as tight as `collapse` drew it.
+		border-collapse: separate;
+		border-spacing: 0;
+		text-align: left;
+
+		// THE HEADER PILL, pinned under the fixed bar. A row of three cells drawn as one rounded bar:
+		// the outer two take the round ends, the middle inherits the fill, and `border-spacing: 0`
+		// leaves no seam between them. It needs a ground of its own, since the rows pass under it.
+		thead th {
+			@include type-body;
+
+			position: sticky;
+			top: calc(var(--home-header-h, 64px) + #{$spacing-2});
+			// Over the rows scrolling under it, the group marks included.
+			z-index: 1;
+			padding: $spacing-3 $spacing-4;
+			background-color: var(--page-sticky-band, #eef0ff);
+			box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+			font-weight: $font-weight-medium;
+			color: var(--color-text);
+
+			// The first cell over its neighbours, as before the table moved: each cell casts the pill's
+			// shadow, and the second cell's would otherwise draw a seam down the first one's edge.
+			&:first-child {
+				z-index: 2;
+				border-top-left-radius: $radius-full;
+				border-bottom-left-radius: $radius-full;
+			}
+
+			&:last-child {
+				border-top-right-radius: $radius-full;
+				border-bottom-right-radius: $radius-full;
+			}
+
+			// The scheme's INK, not its fill: this is text on a light ground, and the On-premises fill
+			// is 3.82:1 on this row where its ink is 5.74:1.
+			&:not(:first-child) {
+				color: var(--accent-ink);
+			}
+		}
+
+		// The glyph the choice cards carry, on the column it labels, in the label's colour, from 880 (the
+		// only width the header row shows at). In the cell's own padding rather than in its line, so the
+		// label cannot wrap under it and the cell measures what the glyph-and-label row it replaced did.
+		// The cell is sticky, which already contains the absolutely placed glyph.
+		.product-matrix__marked {
+			padding-inline-start: calc(#{$spacing-4} + 24px + #{$spacing-2});
+		}
+
+		.product-matrix__glyph {
+			position: absolute;
+			top: 50%;
+			inset-inline-start: $spacing-4;
+			width: 24px;
+			height: 24px;
+			transform: translateY(-50%);
+		}
+
+		// THE ROW LABEL TAKES THE BODY'S INK, not the heading's. It is one half of a pair — the term and
+		// its value — rather than a heading over them, so weight carries the distinction on its own.
+		// 500, not 600: Ubuntu ships 300/400/500/700 here, and a 600 would render as the 700.
+		tbody th[scope='row'] {
+			@include type-body;
+
+			width: 30%;
+			padding: $spacing-3 $spacing-4;
+			font-weight: $font-weight-medium;
+			color: var(--color-text-secondary);
+			vertical-align: top;
+		}
+
+		td {
+			@include type-body;
+
+			padding: $spacing-3 $spacing-4;
+			color: var(--color-text-secondary);
+			vertical-align: top;
+		}
+
+		// On the cells rather than the row — see `border-collapse` above.
+		tbody tr:not(.product-matrix__group) > * {
+			border-bottom: 1px solid var(--color-border);
+		}
+
+		// A heading for the rows under it, a level above them in the type, with the one generous gap
+		// left in the table: this is the seam between two groups of rows, and nothing else marks it.
+		.product-matrix__group th {
+			@include type-tile-lg;
+
+			padding: $spacing-8 $spacing-4 $spacing-3;
+			color: var(--color-text);
+		}
+
+		.product-matrix__group-title {
+			display: inline-flex;
+			align-items: center;
+			gap: $spacing-3;
+		}
+
+		.product-matrix__cell-label {
+			display: none;
+		}
+
+		.product-matrix__none {
+			color: rgba(15, 23, 42, 0.4);
+		}
+
+		// A check, in the scheme's fill: it carries the meaning, so it reads at 3:1 like any mark.
+		.product-matrix__yes {
+			display: inline-flex;
+			color: var(--accent-fill);
+
+			svg {
+				width: 20px;
+				height: 20px;
+			}
+		}
+	}
+
+	// A ladder of plans: each column one step, its values under its name.
+	.product-matrix--center {
+		td,
+		thead th:not(:first-child) {
+			text-align: center;
+		}
+
+		@media (max-width: 879px) {
+			td {
+				text-align: start;
+			}
+		}
+	}
+
+	// THE TABLE BELOW 880: each row a block, each value labelled with its column.
+	@media (max-width: 879px) {
+		.product-matrix {
+			display: block;
+
+			// Every cell names its own column now, so the header row has nothing left to say.
+			thead {
+				display: none;
+			}
+
+			tbody,
+			tr,
+			th,
+			td {
+				display: block;
+				width: auto;
+			}
+
+			tbody th[scope='row'] {
+				padding: 0 0 $spacing-2;
+				font-weight: $font-weight-bold;
+				color: var(--color-text);
+			}
+
+			// The rule moves to the row, since the cells are stacked inside it now.
+			tbody tr:not(.product-matrix__group) {
+				padding: $spacing-4 0;
+				border-bottom: 1px solid var(--color-border);
+
+				> * {
+					border-bottom: 0;
+				}
+			}
+
+			// 7em is "Private Cloud" plus a little — the longest column name the pages use, measured,
+			// rather than a round number. Every pixel over that comes out of the value beside it, which
+			// is the column doing the actual work.
+			td {
+				display: grid;
+				grid-template-columns: 7em minmax(0, 1fr);
+				gap: $spacing-3;
+				padding: $spacing-1 0;
+			}
+
+			.product-matrix__cell-label {
+				display: block;
+				font-weight: $font-weight-medium;
+				color: var(--accent-ink);
+			}
+
+			.product-matrix__group th {
+				padding: $spacing-8 0 $spacing-2;
+			}
+		}
+	}
+</style>
