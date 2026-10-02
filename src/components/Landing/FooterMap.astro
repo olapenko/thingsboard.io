@@ -1,0 +1,797 @@
+---
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import Field from '@components/ui/Field.astro';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
+import SmartImage from '@components/SmartImage.astro';
+import ThemeChoice from '@components/ThemeChoice.astro';
+import { followsTheme } from '@util/page-theme';
+import logo from '@root/assets/images/landings/thingsboard-logo.svg?raw';
+import { markBySrc, type MarkName } from '@data/marks';
+import { newTabAttrs, NEW_TAB_NOTE } from '@util/external-links';
+import { socialNetworks } from '@data/socialNetworks';
+import {
+	FOOTER_COLUMNS,
+	FOOTER_ECOSYSTEM,
+	FOOTER_HIGHLIGHTS,
+	FOOTER_LEGAL,
+	FOOTER_NEWSLETTER,
+	FOOTER_LICENSE_PORTAL,
+	FOOTER_PLATFORM_LINKS,
+	FOOTER_PLATFORMS,
+	FOOTER_SOCIAL,
+	FOOTER_TAGLINE,
+	type FooterProduct,
+} from '@data/footer-map';
+
+/**
+ * A FOOTER THAT MAPS THE PLATFORM — the candidate for `Landing/Footer`, judged at
+ * `/internal/sections/footer/`. On every redesigned page: the homepage's orders that take it
+ * (`footer: 'map'` in `data/home-compositions.ts`) and every page that passes `footer="map"` to
+ * `BaseLayout`; the rest of the site keeps `Landing/Footer`.
+ *
+ * The one in use is a newsletter, four award badges, six links and the social row. It says nothing
+ * about what ThingsBoard is made of, which is the one thing a reader who has scrolled to the bottom
+ * of any page is still asking. This one answers it in three tiers, top to bottom:
+ *
+ * 1. THE BRAND ROW: the logo, one sentence on what it is, the three channels that are kept up; the newsletter beside it.
+ * 2. THE PLATFORM, as the Products menu groups it: the two ways to run it, then the six products
+ *    around it, each with its mark, its hue and one line. `layout` decides how much room that takes:
+ *    - `map`: a panel of tiles, name and line under each mark — the platform unpacked.
+ *    - `focus`: one "Platform" group of four peers — ThingsBoard Cloud, ThingsBoard, Pricing,
+ *      Installation options — a mark and a name each; the ecosystem moves to a link column, the
+ *      License Portal at its foot.
+ * 3. FOUR LINK COLUMNS: the solutions, the developer references, services and partners, the
+ *    company. Then the bottom line: copyright, the cookie policy, the badges.
+ *
+ * THE GROUND is black (2026-09-30). It was the bookends' `#121425` with a hairline under the closing
+ * band; black is a clear step down from the band's indigo rather than a continuation of it, so the
+ * seam needs no line. Not the `#0f161d` the footer in use has, which sat NEAR the band's ground
+ * without matching it — the near-miss the closing band's own note warns about.
+ *
+ * THE MEASURE is the page's: 960 inside 20px of padding, the construction `ClosingCta` and every
+ * card grid use, so the footer's left edge is the edge of everything above it.
+ */
+
+interface Props {
+	layout?: 'map' | 'focus';
+	/** The element's id. Only the page's own footer takes one (`footer`); the sandbox's several do not. */
+	id?: string;
+	/**
+	 * The Appearance control (`ThemeChoice`) in the base row. Defaults to whether the page follows
+	 * the theme: a page locked light has nothing to switch. The sandbox passes it outright.
+	 */
+	appearance?: boolean;
+}
+
+const { layout = 'map', id, appearance = followsTheme(Astro.locals) } = Astro.props;
+
+// Ids for the form's label and field, per render: the sandbox shows several footers on one page, and
+// a duplicated id points every label at the first field.
+const uid = `fm-${Math.random().toString(36).slice(2, 10)}`;
+
+// The logo in the ink of whatever it sits in, instead of the old footer's CSS `filter` that pushed a
+// dark background image to white.
+const logoSvg = logo.replace(/fill="#212529"/g, 'fill="currentColor"').replace(/<svg\b/, '<svg aria-hidden="true"');
+
+const year = new Date().getFullYear();
+
+// The kept-up channels, in `FOOTER_SOCIAL`'s order, with their links from the shared list.
+const social = FOOTER_SOCIAL.map(({ icon, name }) => {
+	const n = socialNetworks.find((x) => x.icon === icon);
+	return n && { ...n, name };
+}).filter((n) => n !== undefined);
+
+const isTabler = (p: FooterProduct) => p.icon.startsWith('tabler:');
+
+// What an ecosystem tile holds, for `ui/Mark`: the ThingsBoard logo (the Mobile App's), a tabler icon,
+// or the product's logo, found by the file the data names.
+const markOf = (p: FooterProduct) =>
+	p.icon === 'mark'
+		? { logo: 'thingsboard' as const }
+		: isTabler(p)
+			? { icon: p.icon }
+			: { product: markBySrc(p.icon) as Exclude<MarkName, 'thingsboard'> };
+
+// `focus`: the ecosystem as the first link column, and no column repeats a page the panel shows.
+const focus = layout === 'focus';
+const highlighted = new Set(FOOTER_HIGHLIGHTS.map((h) => h.href));
+const columns = focus
+	? [
+			{
+				// The License Portal last: the one thing in the column that is an account, not a product.
+				title: 'Ecosystem',
+				links: [
+					...FOOTER_ECOSYSTEM.map((p) => ({ label: p.name, href: p.href, external: p.external })),
+					{ label: FOOTER_LICENSE_PORTAL.label, href: FOOTER_LICENSE_PORTAL.href, external: true },
+				],
+			},
+			...FOOTER_COLUMNS.map((c) => ({ ...c, links: c.links.filter((l) => !highlighted.has(l.href)) })),
+		]
+	: FOOTER_COLUMNS;
+const ext = (external?: boolean) => newTabAttrs(external);
+---
+
+<footer id={id} class:list={['fm', `fm--${layout}`]} data-surface="dark">
+	<div class="fm__inner">
+		<div class="fm__top">
+			<div class="fm__brand">
+				<a href="/" class="fm__logo" aria-label="ThingsBoard home" set:html={logoSvg} />
+				<p class="fm__tagline">{FOOTER_TAGLINE}</p>
+			</div>
+
+			<div class="fm__keep">
+				{/* The same MailerLite endpoint and field names as the footer in use, posted natively. The
+			    footer in use does the same today: its script waits for a "Sign up for news" button this
+			    branch removed, so MailerLite's own script never loads there either. */}
+				<form class="fm__news" action={FOOTER_NEWSLETTER.action} method="POST" target="_blank">
+					{/* The lede is the field's hint, so it is what the field is described by. The browser's
+						   own check stands for the field's error: nothing scripts this form. */}
+					<Field
+						name="fields[email]"
+						id={`${uid}-email`}
+						type="email"
+						size="md"
+						label={FOOTER_NEWSLETTER.label}
+						hint={FOOTER_NEWSLETTER.lede}
+						placeholder="you@company.com"
+						autocomplete="email"
+						attrs={{ spellcheck: 'false', autocapitalize: 'off' }}
+					>
+						<Button slot="end" type="submit" attached="start">
+							Subscribe
+						</Button>
+					</Field>
+					<input type="hidden" name="ml-submit" value="1" />
+					<p class="fm__consent">{FOOTER_NEWSLETTER.consent}</p>
+				</form>
+				{/* The kept-up channels, as a quiet line under the form: the same "keep up" block, but links,
+				    not buttons. As bordered buttons behind a rule they outweighed the form they follow;
+				    under the tagline they split the two ways of keeping up across the row. */}
+				<p class="fm__follow">
+					<span class="fm__follow-label">Follow</span>
+					{social.map((n) => (
+						<a href={n.href} {...newTabAttrs()}>
+							{n.icon && <Icon name={n.icon} aria-hidden="true" />}
+							{n.name}
+							<span class="ui-sr">{NEW_TAB_NOTE}</span>
+						</a>
+					))}
+				</p>
+			</div>
+		</div>
+
+		<nav class="fm__map" aria-label="Products">
+			{/* `focus`: ONE group, "Platform" — the product in its two forms and the two pages that
+			    decide it, as four peers with a mark and a name each and no line. The other layouts:
+			    the two platforms with a line each, as the Products menu has them. */}
+			<div class="fm__group fm__group--run">
+				<h2 class="fm__kicker">{focus ? 'Platform' : 'IoT platforms'}</h2>
+				<ul class="fm__products">
+					{FOOTER_PLATFORMS.map((p) => (
+						<li>
+							<a class="fm__product fm__product--platform" href={p.href}>
+								<Mark size={40} logo="thingsboard" accent={p.hue} class="fm__mark" />
+								<span class="fm__pname">{p.name}</span>
+								{!focus && <span class="fm__pline">{p.line}</span>}
+							</a>
+						</li>
+					))}
+					{focus &&
+						FOOTER_HIGHLIGHTS.map((l) => (
+							<li>
+								<a class="fm__product" href={l.href}>
+									<Mark size={40} fill="wash" icon={l.icon} accent="#8b9bff" class="fm__mark" />
+									<span class="fm__pname">{l.label}</span>
+								</a>
+							</li>
+						))}
+				</ul>
+			</div>
+
+			{!focus && (
+				<Fragment>
+					<div class="fm__group fm__group--eco">
+						<h2 class="fm__kicker">Product ecosystem</h2>
+						<ul class="fm__products">
+							{FOOTER_ECOSYSTEM.map((p) => (
+								<li>
+									<a class="fm__product" href={p.href} {...ext(p.external)}>
+										<Mark size={40} fill="wash" accent={p.hue} class="fm__mark" {...markOf(p)} />
+										<span class="fm__pname">
+											{p.name}
+											{p.external && (
+												<>
+													<Icon name="tabler:arrow-up-right" class="fm__ext" aria-hidden="true" />
+													<span class="ui-sr">{NEW_TAB_NOTE}</span>
+												</>
+											)}
+										</span>
+										<span class="fm__pline">{p.line}</span>
+									</a>
+								</li>
+							))}
+						</ul>
+					</div>
+					{/* Across the whole map, under both groups: the platform's next steps on the left, set as
+					    the columns' "All use cases →"; the License Portal at the right end, captioned, for the
+					    customer who is past choosing. */}
+					<div class="fm__next" data-accent="neutral">
+						<ul class="fm__plinks">
+							{FOOTER_PLATFORM_LINKS.map((l) => (
+								<li>
+									<Link href={l.href} size="sm" tone="ink">
+										{l.label}
+									</Link>
+								</li>
+							))}
+						</ul>
+						<p class="fm__portal">
+							<span>{FOOTER_LICENSE_PORTAL.caption}</span>
+							<Link href={FOOTER_LICENSE_PORTAL.href} size="sm" tone="ink" external>
+								{FOOTER_LICENSE_PORTAL.label}
+							</Link>
+						</p>
+					</div>
+				</Fragment>
+			)}
+		</nav>
+
+		<nav class="fm__cols" aria-label="Site" data-accent="neutral">
+			{columns.map((col) => (
+				<div class="fm__col">
+					<h2 class="fm__col-title">{col.title}</h2>
+					<ul>
+						{col.links.map((l) => (
+							<li>
+								<a href={l.href} {...ext(l.external)}>
+									{l.label}
+									{l.external && (
+										<>
+											<Icon name="tabler:arrow-up-right" class="fm__ext" aria-hidden="true" />
+											<span class="ui-sr">{NEW_TAB_NOTE}</span>
+										</>
+									)}
+								</a>
+							</li>
+						))}
+					</ul>
+					{col.more && (
+						<Link href={col.more.href} size="sm" tone="ink">
+							{col.more.label}
+						</Link>
+					)}
+					{col.sub && (
+						<>
+							<h3 class="fm__col-title fm__col-title--sub">{col.sub.title}</h3>
+							<ul>
+								{col.sub.links.map((l) => (
+									<li>
+										<a href={l.href}>{l.label}</a>
+									</li>
+								))}
+							</ul>
+							{col.sub.more && (
+								<Link href={col.sub.more.href} size="sm" tone="ink">
+									{col.sub.more.label}
+								</Link>
+							)}
+						</>
+					)}
+				</div>
+			))}
+		</nav>
+
+		<div class="fm__base">
+			<div class="fm__legalblock">
+				<p class="fm__copy">&copy; {year} The ThingsBoard Authors</p>
+				<ul class="fm__legal" aria-label="Legal">
+					{FOOTER_LEGAL.map((l) => (
+						<li>
+							<a href={l.href}>{l.label}</a>
+						</li>
+					))}
+				</ul>
+				{
+					/* Fine print too, a setting of the site rather than a link out of it, so it joins the
+					   copyright and the legal links: a line of its own under them. As a third column between
+					   them and the badges it squeezed the links to 264px at 1440 and they wrapped. */
+					appearance && (
+						<div class="fm__appearance">
+							<ThemeChoice tone="footer" />
+						</div>
+					)
+				}
+			</div>
+			<div class="fm__badges">
+				<SmartImage
+					src="/src/assets/images/landings/footer/crozdesk-quality-choice-badge.png"
+					alt="Crozdesk Quality Choice"
+					height="64"
+					width="64"
+				/>
+				<SmartImage
+					src="/src/assets/images/landings/footer/crozdesk-trusted-vendor-badge.png"
+					alt="Crozdesk Trusted Vendor"
+					height="64"
+					width="64"
+				/>
+				<SmartImage
+					src="/src/assets/images/landings/footer/crozdesk-happiest-users-badge.png"
+					alt="Crozdesk Happiest Users"
+					height="64"
+					width="64"
+				/>
+				<SmartImage
+					src="/src/assets/images/landings/footer/supplier-retail.webp"
+					alt="Top Supplier in Retail 2024"
+					height="64"
+					width="44"
+				/>
+			</div>
+		</div>
+	</div>
+</footer>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Every shade here is white at an alpha over the one ground, so the whole footer retunes from
+	// `--fm-ground`. Measured on black: 0.64 is 8.1:1, 0.5 is 5.3:1 — both clear AA for 14px type.
+	// `data-surface="dark"` on the root gives the kit inside (the field, its button, the marks, the
+	// standalone links) their dark tones and every control the yellow ring.
+	.fm {
+		--fm-ground: #000;
+		--fm-text: #fff;
+		--fm-soft: rgba(255, 255, 255, 0.72);
+		--fm-muted: rgba(255, 255, 255, 0.64);
+		--fm-faint: rgba(255, 255, 255, 0.5);
+		--fm-rule: rgba(255, 255, 255, 0.09);
+		// 7% on black (#121212): at the 4% it had on #121425 the panel vanished once the ground went
+		// black, and without a rim the fill is the only thing that makes it a panel.
+		--fm-panel: rgba(255, 255, 255, 0.07);
+
+		// From the top: a trace of the closing band's indigo where the footer meets it, settling to
+		// black just past halfway. (Tried the other way, black at the top into indigo at the foot.)
+		// #08091a, half the lift of the #0d0f24 first tried: a hint under the band, not a band of its own.
+		background: linear-gradient(180deg, #08091a 0%, var(--fm-ground) 55%);
+		color: var(--fm-text);
+
+		// The footer's own links: the rows, the tiles, the logo. Not `ui/Link`, which carries its own
+		// colour and ring, and which this would outrank (Astro scopes the component's `<a>` too); the
+		// `:where` keeps the weight at `.fm a`, so each link's own colour below still beats it.
+		a:where(:not(.ui-link)) {
+			color: inherit;
+			text-decoration: none;
+		}
+
+		// The site's ring for the ground: yellow, from `data-surface`.
+		a:where(:not(.ui-link)):focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+			border-radius: 4px;
+		}
+
+		// Resets at a single class's weight (`:where` adds nothing), so each piece's own margin below
+		// beats them. As `.fm ul` / `.fm h2` they outranked every one: the column titles lost their
+		// 12px, the social row its rule and the platforms' links their 16px.
+		:where(ul) {
+			list-style: none;
+			margin: 0;
+			padding: 0;
+		}
+
+		:where(h2, h3) {
+			margin: 0;
+		}
+	}
+
+	.fm__inner {
+		max-width: calc(960px + #{$spacing-5} * 2);
+		margin-inline: auto;
+		padding: $spacing-16 $spacing-5 $spacing-8;
+
+		@include media-down(md) {
+			padding-top: $spacing-12;
+		}
+	}
+
+	// ---- 1. Brand row ------------------------------------------------------------------------
+
+	.fm__top {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+		gap: $spacing-10 $spacing-16;
+		align-items: start;
+		padding-bottom: $spacing-10;
+
+		// Side by side down to a tablet, the form narrowing first; stacked on a phone.
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+			column-gap: $spacing-10;
+		}
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.fm__logo {
+		display: inline-flex;
+		color: #fff;
+
+		:global(svg) {
+			display: block;
+			width: 168px;
+			height: auto;
+		}
+	}
+
+	.fm__tagline {
+		margin: $spacing-3 0 0;
+		max-width: 38ch;
+		@include type-body;
+		color: var(--fm-soft);
+		text-wrap: pretty;
+	}
+
+	// "Follow" and three named links on one line: 14px, the columns' link colour, no rims. The icon
+	// carries the channel at a glance, the name makes it a link you can read.
+	.fm__follow {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-2 $spacing-5;
+		margin: $spacing-5 0 0;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+
+		a {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			color: var(--fm-muted);
+			transition: color 0.15s;
+
+			&:hover {
+				color: #fff;
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+		}
+
+		:global(svg) {
+			width: 18px;
+			height: 18px;
+		}
+	}
+
+	.fm__follow-label {
+		color: var(--fm-faint);
+	}
+
+	// The form is `ui/Field` at 44 on the dark ground, the submit `ui/Button` attached to its end: the
+	// field's label, the lede as its hint, the box and the button as one control. No shimmer on the
+	// button: it is a form's submit, not a way on.
+	.fm__consent {
+		margin: $spacing-2 0 0;
+		font-size: $font-size-xs;
+		line-height: 1.5;
+		color: var(--fm-faint);
+	}
+
+	// ---- 2. The platform ---------------------------------------------------------------------
+
+	// The platforms' column is as wide as its longest line needs — "Deploy it inside your own
+	// network", 201px at 13px, beside the 40px mark and its 12px gap — and the ecosystem takes the
+	// rest. At 1fr/2fr the ecosystem's lines got 140px and "Dedicated MQTT broker" (142) broke; at
+	// 256 they get 153.
+	.fm__map {
+		display: grid;
+		grid-template-columns: 256px minmax(0, 1fr);
+		gap: $spacing-8;
+		padding: $spacing-6;
+		// A fill, no rim: the panel is one of five strokes in a footer that had too many, and the
+		// ground alone sets it apart.
+		border-radius: $radius-xl;
+		background: var(--fm-panel);
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: $spacing-6;
+		}
+
+		@include media-down(md) {
+			padding: $spacing-4;
+		}
+	}
+
+	.fm__kicker {
+		margin: 0 0 $spacing-3;
+		font-size: $font-size-xs;
+		font-weight: $font-weight-medium;
+		line-height: 1.5;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--fm-faint);
+	}
+
+	.fm__group--run {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.fm__group--run .fm__products {
+		display: grid;
+		gap: $spacing-1;
+
+		// Tablet: the map is one column there, so the two platforms go side by side rather than
+		// stacking over the ecosystem's grid.
+		@media (min-width: $breakpoint-md) and (max-width: #{$breakpoint-lg - 1px}) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	// Three across down to a tablet; one on a phone, where two across left the names 98px and
+	// "Trendz Analytics" and "Mobile Application" broke. One column there is the menu's own shape.
+	.fm__group--eco .fm__products {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: $spacing-1;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0;
+		}
+	}
+
+	// One product: its mark, its name, its line. The whole tile is the link.
+	.fm__product {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		grid-template-rows: auto auto;
+		column-gap: $spacing-3;
+		align-items: center;
+		padding: 10px 0;
+
+		// Hover is the name underlined and nothing else: no ground under the tile, no hue on the line.
+		// A lit tile read as a button in a panel that is a list of links.
+		&:hover .fm__pname {
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+	}
+
+	// The tile is `ui/Mark` at 40, beside the name and its line. The platforms' are SOLID, the
+	// ThingsBoard logo knocked out of their fill; the ecosystem's sit on a WASH of their own hue, the
+	// Products section's badges in outline, so the six read as a family beside the two filled ones.
+	.fm__mark {
+		grid-row: 1 / span 2;
+	}
+
+	.fm__pname {
+		align-self: end;
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		font-size: 15px;
+		font-weight: $font-weight-medium;
+		line-height: 1.35;
+		color: #fff;
+	}
+
+	.fm__pline {
+		align-self: start;
+		font-size: 13px;
+		line-height: 1.45;
+		color: var(--fm-muted);
+	}
+
+	// The platform's next steps, one row across the map under the tiles: standalone links in white
+	// (`ink` in the neutral scheme, so the hover keeps the white and adds the underline), the columns'
+	// "All use cases", so they read as the way on rather than as small print.
+	.fm__next {
+		grid-column: 1 / -1;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: $spacing-3 $spacing-8;
+	}
+
+	.fm__plinks {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-2 $spacing-8;
+		// No rule over it: the map's own 32px gap sets it off the tiles.
+	}
+
+	// The caption muted, the link in the row's white: the caption says who it is for, the link is
+	// the same kind of thing as the two beside it, leaving the site (the up-right arrow).
+	.fm__portal {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px $spacing-2;
+		margin: 0;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+		color: var(--fm-muted);
+	}
+
+	.fm__ext {
+		width: 14px;
+		height: 14px;
+		flex: 0 0 auto;
+		color: var(--fm-faint);
+	}
+
+	// ---- 2a. The focus layout --------------------------------------------------------------------
+	//
+	// One group of four peers: the two platforms and the two pages that decide them, each a mark and
+	// a name. Four across on a desktop (222px each at 960), two on a tablet, one on a phone.
+	.fm--focus .fm__map {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.fm--focus .fm__group--run .fm__products {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: $spacing-1 $spacing-6;
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0;
+		}
+	}
+
+	// No line under the name, so mark and name centre on one row instead of the tile's two.
+	.fm--focus .fm__mark {
+		grid-row: auto;
+	}
+
+	.fm--focus .fm__pname {
+		align-self: center;
+	}
+
+	// Five columns with the ecosystem in front: 172px each at 960, which the longest link —
+	// "Environment monitoring", 155px — still fits.
+	.fm--focus .fm__cols {
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+
+		@include media-down(md) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	// ---- 3. Link columns ---------------------------------------------------------------------
+
+	.fm__cols {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: $spacing-8 $spacing-6;
+		padding: $spacing-12 0;
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		@include media-down(md) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			padding: $spacing-10 0;
+		}
+	}
+
+	// A group under a column's list — Solutions' Customers — opens a step below the list's arrow link.
+	.fm__col-title--sub {
+		margin-top: $spacing-8;
+	}
+
+	.fm__col-title {
+		margin-bottom: $spacing-3;
+		font-size: $font-size-sm;
+		font-weight: $font-weight-bold;
+		line-height: 1.5;
+		color: #fff;
+	}
+
+	.fm__col ul {
+		display: grid;
+		gap: 2px;
+
+		a {
+			display: inline-flex;
+			align-items: center;
+			gap: 2px;
+			padding: 4px 0;
+			font-size: $font-size-sm;
+			line-height: 1.45;
+			color: var(--fm-muted);
+			transition: color 0.15s;
+
+			&:hover {
+				color: #fff;
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+		}
+	}
+
+	// A column's own last word ("All use cases"): a standalone link in white, as the platform row's,
+	// a step under the list. Placed from here, since it is the column's child.
+	.fm__col > :global(.ui-link) {
+		margin-top: $spacing-2;
+	}
+
+	// ---- Bottom line -------------------------------------------------------------------------
+
+	// Two columns rather than a wrapping row: with five legal links the text block is ~600px, and in
+	// a flex row it pushed the badges onto a line of their own. Here the badges keep the right edge
+	// and the links wrap under the copyright instead.
+	.fm__base {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+		gap: $spacing-5 $spacing-10;
+		// No rule over the foot: the columns' 48px below them is the break.
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+
+			.fm__badges {
+				order: -1;
+			}
+		}
+	}
+
+	.fm__copy {
+		margin: 0 0 $spacing-1;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+		color: var(--fm-faint);
+	}
+
+	.fm__legal {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0 $spacing-5;
+
+		a {
+			font-size: 13px;
+			line-height: 1.8;
+			color: var(--fm-muted);
+
+			&:hover {
+				color: #fff;
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+		}
+	}
+
+	.fm__appearance {
+		margin-top: $spacing-3;
+	}
+
+	.fm__badges {
+		display: flex;
+		align-items: center;
+		gap: $spacing-5;
+
+		// 64, up from 48: at 48 the seals' own lettering was unreadable, and they are the one proof
+		// the foot carries. The footer in use shows them at 80, in its top row.
+		:global(img) {
+			display: block;
+			height: 64px;
+			width: auto;
+		}
+	}
+</style>
