@@ -1,0 +1,180 @@
+---
+import SiteSearch from '@components/SiteSearch.astro';
+
+/**
+ * Search in the new bar: a CANDIDATE, judged on `/internal/flows/main-menu/` and not wired into any
+ * page. It opens the same dialog as today's icon (`SiteSearch`, Google Programmable Search); what is
+ * new is the trigger and the keys.
+ *
+ * - `field`: a labelled, field-shaped button from 1440px — the magnifier, "Search" and the key hint —
+ *   and a 40px icon below that. Measured on the bar at 16a7a3c85: the nav leaves 246px free at 1440
+ *   and 111px at 1300, so the 152px field fits from 1440 and only the icon fits between 1281 and 1439;
+ *   below 1281 the nav folds into Menu and the icon sits on its own beside it.
+ * - `icon`: the 40px icon at every width.
+ *
+ * The keys: ⌘K or Ctrl K anywhere, `/` when focus is not in a text field. The hint reads "Ctrl K"
+ * from the server (most readers) and becomes "⌘K" on Apple devices once the script runs; the field
+ * is a fixed width, so the swap moves nothing around it.
+ *
+ * Colour is `currentColor` throughout, so the control takes the bar's ink: white over the dark hero,
+ * the text colour on a solid bar, in light and dark. The outline and its hover are Sign in's
+ * (`.region-signin`): 35% of the ink, 12% fill and 55% on hover, 4px corners, 40px high.
+ */
+interface Props {
+	form?: 'field' | 'icon';
+}
+
+const { form = 'field' } = Astro.props;
+---
+
+<search-button class="hsearch" data-header-search data-form={form}>
+	<button type="button" class="hsearch__btn" aria-label="Search" aria-keyshortcuts="Control+K Meta+K /">
+		<svg class="hsearch__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+			<circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"></circle>
+			<path d="M20 20l-4.6-4.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+		</svg>
+		<span class="hsearch__label" aria-hidden="true">Search</span>
+		<kbd class="hsearch__kbd" aria-hidden="true" data-hsearch-kbd>Ctrl K</kbd>
+	</button>
+</search-button>
+
+<SiteSearch />
+
+<script>
+	// One listener for the page, however many triggers it renders.
+	if (!(window as any).__tbHeaderSearchKeys) {
+		(window as any).__tbHeaderSearchKeys = true;
+
+		const ua =
+			(navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ||
+			navigator.userAgent;
+		const apple = /mac|iphone|ipad|ipod/i.test(ua);
+		if (apple) document.querySelectorAll('[data-hsearch-kbd]').forEach((k) => (k.textContent = '⌘K'));
+
+		const typing = (t: EventTarget | null) =>
+			t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+
+		// The trigger on show, so the dialog opens from the one the reader can see.
+		const visibleTrigger = () => {
+			const all = [...document.querySelectorAll<HTMLButtonElement>('[data-header-search] button')];
+			return all.find((b) => b.offsetParent !== null) ?? all[0];
+		};
+
+		document.addEventListener('keydown', (e) => {
+			if (e.defaultPrevented || e.isComposing) return;
+			const combo = (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k';
+			const slash = e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !typing(e.target);
+			if (!combo && !slash) return;
+			// Inside the open dialog, ⌘K is a no-op rather than the browser's own shortcut.
+			if (document.documentElement.classList.contains('tb-search-open')) {
+				if (combo) e.preventDefault();
+				return;
+			}
+			const btn = visibleTrigger();
+			if (!btn) return;
+			e.preventDefault();
+			btn.click();
+		});
+	}
+</script>
+
+<style lang="scss">
+	.hsearch {
+		display: flex;
+		flex: none;
+	}
+
+	.hsearch__btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		width: 40px;
+		height: 40px;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		font-size: 14px;
+		line-height: 1;
+		white-space: nowrap;
+		cursor: pointer;
+		transition:
+			background-color 0.15s ease,
+			border-color 0.15s ease;
+
+		&:hover {
+			background-color: color-mix(in srgb, currentColor 12%, transparent);
+		}
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 3px;
+		}
+	}
+
+	.hsearch__icon {
+		width: 20px;
+		height: 20px;
+		flex: none;
+	}
+
+	.hsearch__label,
+	.hsearch__kbd {
+		display: none;
+	}
+
+	// A phone with the drawer open. Under 560 the bar's account controls drop into a row beneath it
+	// (`HeaderContent`), and the icon would go with them and push Try for free off the screen (at
+	// 390, measured). It stays in the bar instead, beside Close, where the reader just saw it:
+	// placed the way `HeaderContent` places Close — against the header, which is the containing
+	// block once open — one Close (93px) and one group gap to its left.
+	@media screen and (max-width: 559px) {
+		:global(header.header.opened-burger) .hsearch {
+			position: absolute;
+			top: calc((var(--home-header-h, 80px) - 40px) / 2); // Close's own fallback (`$header-height`)
+			right: calc(var(--tb-bar-inset) + 93px + var(--tb-cluster-gap, 0.875rem));
+		}
+	}
+
+	// The field, from 1440px. Below that the bar has room only for the icon.
+	@media screen and (min-width: 1440px) {
+		.hsearch[data-form='field'] {
+			.hsearch__btn {
+				width: 152px;
+				justify-content: flex-start;
+				padding: 0 8px 0 12px;
+				border-color: color-mix(in srgb, currentColor 35%, transparent);
+
+				&:hover {
+					border-color: color-mix(in srgb, currentColor 55%, transparent);
+				}
+			}
+
+			.hsearch__icon {
+				width: 16px;
+				height: 16px;
+				opacity: 0.8;
+			}
+
+			.hsearch__label {
+				display: inline;
+				opacity: 0.8;
+			}
+
+			.hsearch__kbd {
+				display: inline-flex;
+				margin-left: auto;
+				padding: 3px 5px;
+				border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+				border-radius: 3px;
+				font: inherit;
+				font-size: 11.5px;
+				line-height: 1;
+				opacity: 0.8;
+			}
+		}
+	}
+</style>

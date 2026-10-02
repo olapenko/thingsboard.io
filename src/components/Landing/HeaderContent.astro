@@ -2,6 +2,9 @@
 import Navigation from '@components/Landing/Navigation.astro';
 import HeaderScrollWatch from '@components/Landing/HeaderScrollWatch.astro';
 import HeaderIcons from '@components/Landing/HeaderIcons.astro';
+import HeaderSearch from '@components/Landing/HeaderSearch.astro';
+import SearchButton from '@components/SearchButton.astro';
+import ThemeToggle from '@components/ThemeToggle.astro';
 import GitHubButton from '@components/Landing/GitHubButton.astro';
 import NButton from '@components/Landing/NButton.astro';
 import CloudRegionDialog from '@components/Landing/CloudRegionDialog.astro';
@@ -16,9 +19,16 @@ interface Props {
 	headerConfig: HeaderConfig;
 	/** Homepage facelift: larger logo, Pricing moved into the nav. */
 	homeNav?: boolean;
+	/**
+	 * Sandbox only (`/internal/flows/main-menu/`), with `homeNav`: how the new bar carries search.
+	 * `live` is the docs bar thingsboard.io ships — the theme switch and the search icon before Sign
+	 * in, no GitHub star. `field` and `icon` are the candidate (`HeaderSearch`) first in the group,
+	 * before GitHub. No shipped page passes it.
+	 */
+	searchCandidate?: 'live' | 'field' | 'icon';
 }
 
-const { gitHubPlatform, headerConfig, homeNav = false } = Astro.props;
+const { gitHubPlatform, headerConfig, homeNav = false, searchCandidate } = Astro.props;
 const { variant, cta, showSearch, showThemeToggle, scrolledAtTop } = headerConfig;
 
 // Ship the scroll-flip script only on the variants that go transparent.
@@ -68,7 +78,17 @@ const needsScrollState = variant === 'transparent' || variant === 'transparent-h
      with `order` in the header layout below. -->
 <div class="head-buttons" data-header-variant={variant} data-header-cta={cta} data-home-nav={homeNav ? '' : undefined}>
 	<HeaderIcons showSearch={showSearch} showThemeToggle={showThemeToggle} />
-	{homeNav && <GitHubButton platform={gitHubPlatform} />}
+	{
+		searchCandidate === 'live' ? (
+			<div class="icon-buttons">
+				<ThemeToggle />
+				<SearchButton />
+			</div>
+		) : (
+			searchCandidate && <HeaderSearch form={searchCandidate} />
+		)
+	}
+	{homeNav && searchCandidate !== 'live' && <GitHubButton platform={gitHubPlatform} />}
 	{
 		!homeNav && (
 			<NButton id="Menu_Pricing" href="/pricing/" variant="text" class="price gtm_button">

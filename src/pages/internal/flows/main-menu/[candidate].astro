@@ -1,0 +1,40 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import Devices, { getHeadings } from '@includes/docs/user-guide/devices.mdx';
+import { Products } from '@models/site.models';
+
+/**
+ * One main-menu candidate on a real docs page: the PE "Devices" guide, its own include rendered
+ * through Starlight as `/docs/pe/user-guide/devices/` renders it, under the new bar carrying search
+ * the way the candidate says (`starlight/Header.astro` reads `bslMenuCandidate`). The sandbox page
+ * (`flows/main-menu.astro`) frames these at fixed widths, because the bar answers VIEWPORT queries —
+ * the nav folds at 1280, the field opens at 1440 — which a box on the sandbox page cannot fire.
+ *
+ * `noindex`, like every internal page, which also keeps it out of the sitemap.
+ */
+export function getStaticPaths() {
+	return ['live', 'field', 'icon'].map((candidate) => ({ params: { candidate } }));
+}
+
+const { candidate } = Astro.params;
+(Astro.locals as unknown as Record<string, unknown>).bslMenuCandidate = candidate;
+---
+
+<StarlightPage
+	frontmatter={{
+		title: 'Devices',
+		description: 'Main-menu candidate on a docs page (sandbox).',
+		tableOfContents: true,
+		head: [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' } }],
+	}}
+	headings={getHeadings()}
+>
+	<Devices product={Products.PE} />
+</StarlightPage>
+
+<style lang="scss" is:global>
+	// The new bar's own tokens (64px tall, the brand indigo), as every page that carries it loads
+	// them. Without them a docs page draws it 80px tall, the old bar's height — not the bar the
+	// candidates are for, and not the one thingsboard.io's docs show.
+	@use '../../../../styles/marketing-bar';
+</style>

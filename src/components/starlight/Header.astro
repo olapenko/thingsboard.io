@@ -25,6 +25,14 @@ const gitHubPlatform = override ?? getGitHubPlatform(pathname);
 // present → fall back to the default `docs` look.
 const headerConfig = (locals.bslHeaderConfig as HeaderConfig | undefined) ?? resolveHeaderConfig();
 
+// The main-menu sandbox (`/internal/flows/main-menu/<candidate>/`): a docs page under the new bar,
+// carrying search the way the candidate says. Its own icons come from `searchCandidate`, so the
+// docs config's search and theme icons are switched off here rather than drawn twice.
+const menuCandidate = locals.bslMenuCandidate as 'live' | 'field' | 'icon' | undefined;
+const barConfig = menuCandidate
+	? resolveHeaderConfig({ variant: 'docs', showSearch: false, showThemeToggle: false })
+	: headerConfig;
+
 // Homepage facelift. Gated on the route so the other ~630 pages — docs
 // included — keep the header and promo banner they have today.
 //
@@ -54,7 +62,7 @@ const HOME_NAV_ROUTES = new Set([
 	'/internal/pages/pricing-long/',
 	...HOME_COMPOSITIONS.map((c) => `/internal/homepages/${c.id}/`),
 ]);
-const isHome = HOME_NAV_ROUTES.has(pathname);
+const isHome = HOME_NAV_ROUTES.has(pathname) || menuCandidate !== undefined;
 ---
 
 {
@@ -65,4 +73,9 @@ const isHome = HOME_NAV_ROUTES.has(pathname);
 		<PromoBanner plain={isHome} />
 	)
 }
-<HeaderContent gitHubPlatform={gitHubPlatform} headerConfig={headerConfig} homeNav={isHome} />
+<HeaderContent
+	gitHubPlatform={gitHubPlatform}
+	headerConfig={barConfig}
+	homeNav={isHome}
+	searchCandidate={menuCandidate}
+/>

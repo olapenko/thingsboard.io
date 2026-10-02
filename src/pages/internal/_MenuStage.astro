@@ -1,0 +1,174 @@
+---
+/**
+ * One main-menu candidate at the widths where the bar changes shape, each a real docs page in an
+ * iframe (`flows/main-menu/[candidate].astro`) drawn at its true size and scaled down to fit.
+ *
+ * Frames rather than the bar itself, because the bar answers VIEWPORT queries: the nav folds into
+ * Menu at 1280, the search field opens at 1440, the account controls leave the bar under 560. A box
+ * on this page would fire none of them. And one bar per document: `HeaderContent`'s script finds
+ * "the" header with `querySelector`, so two on a page would open each other's drawers.
+ *
+ * The widths are the measured ones: 1440 (the field fits, 246px free beside the nav), 1300 (only the
+ * icon fits, 111px free), 1024 (the nav in Menu). The phone view, `phone`, is one 375 frame at the
+ * phone screen's 667px. A frame loads when it scrolls near, so the tabs that are closed cost nothing.
+ *
+ * Everything in a frame works: the search dialog opens, the keys open it, Menu opens the drawer.
+ */
+type Candidate = 'live' | 'field' | 'icon';
+
+interface Props {
+	candidate: Candidate;
+	phone?: boolean;
+}
+
+const { candidate, phone = false } = Astro.props;
+const src = `/internal/flows/main-menu/${candidate}/`;
+
+/** What the bar does with search at each width, per candidate. */
+const SAYS: Record<Candidate, Record<number, string>> = {
+	live: {
+		1440: 'Theme switch, then the search icon, before Sign in. No GitHub star.',
+		1300: 'The same two icons; the nav keeps its place.',
+		1024: 'The two icons stay in the bar, beside Menu.',
+		375: 'Theme switch first, then search, then Menu.',
+	},
+	field: {
+		1440: 'Search as a field with its key hint, first in the group, before GitHub.',
+		1300: 'An icon: the field does not fit beside the nav here.',
+		1024: 'An icon, beside Sign in; the nav is in Menu.',
+		375: 'An icon beside Menu. With the drawer open it stays in the bar, beside Close.',
+	},
+	icon: {
+		1440: 'An icon at this width too: the bar keeps the room the field would take.',
+		1300: 'An icon, as in the field candidate.',
+		1024: 'An icon, beside Sign in; the nav is in Menu.',
+		375: 'An icon beside Menu. With the drawer open it stays in the bar, beside Close.',
+	},
+};
+
+const FRAMES = phone
+	? [{ w: 375, h: 667 }]
+	: [
+			{ w: 1440, h: 480 },
+			{ w: 1300, h: 480 },
+			{ w: 1024, h: 600 },
+		];
+---
+
+<div class="ms" data-ms data-phone={phone ? '' : undefined}>
+	{
+		FRAMES.map((f) => (
+			<figure class="ms__frame">
+				{!phone && (
+					<figcaption class="ms__cap">
+						<b>{f.w}px</b> {SAYS[candidate][f.w]}
+					</figcaption>
+				)}
+				<div class="ms__fit" style={`--w: ${f.w}px; --h: ${f.h}px`} data-ms-fit>
+					<iframe
+						class="ms__iframe"
+						data-ms-src={src}
+						width={f.w}
+						height={f.h}
+						title={`Main menu, ${candidate}, at ${f.w}px`}
+					/>
+				</div>
+				{phone && <figcaption class="ms__cap ms__cap--phone">{SAYS[candidate][375]}</figcaption>}
+			</figure>
+		))
+	}
+</div>
+
+<script>
+	// Every frame in a set at ONE scale, the widest frame's: the 1300 frame then reads narrower than
+	// the 1440 one, which is the point — the room in the bar is what is being compared. A `src` only
+	// once a frame is near the screen: the closed tabs' frames are `display: none`, so they never
+	// intersect and never load.
+	const fit = (set: HTMLElement) => {
+		const boxes = [...set.querySelectorAll<HTMLElement>('[data-ms-fit]')];
+		const size = (b: HTMLElement) => {
+			const f = b.querySelector('iframe')!;
+			return { w: Number(f.getAttribute('width')), h: Number(f.getAttribute('height')) };
+		};
+		const widest = Math.max(...boxes.map((b) => size(b).w));
+		const s = Math.min(1, set.clientWidth / widest);
+		boxes.forEach((b) => {
+			const { w, h } = size(b);
+			b.querySelector('iframe')!.style.transform = `scale(${s})`;
+			b.style.width = `${Math.floor(w * s)}px`;
+			b.style.height = `${Math.ceil(h * s)}px`;
+		});
+	};
+
+	const resize = new ResizeObserver((entries) => entries.forEach((e) => fit(e.target as HTMLElement)));
+	const near = new IntersectionObserver(
+		(entries) =>
+			entries.forEach((e) => {
+				if (!e.isIntersecting) return;
+				const frame = e.target.querySelector<HTMLIFrameElement>('iframe[data-ms-src]');
+				if (frame && !frame.src) frame.src = frame.dataset.msSrc!;
+				near.unobserve(e.target);
+			}),
+		{ rootMargin: '400px 0px' }
+	);
+
+	document.querySelectorAll<HTMLElement>('[data-ms]').forEach((set) => {
+		fit(set);
+		resize.observe(set);
+		set.querySelectorAll('[data-ms-fit]').forEach((box) => near.observe(box));
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.ms {
+		display: grid;
+		gap: $spacing-8;
+	}
+
+	.ms__frame {
+		margin: 0;
+		display: grid;
+		gap: $spacing-3;
+	}
+
+	.ms__cap {
+		@include type-small;
+		color: var(--color-text-secondary, #63656c);
+
+		b {
+			font-weight: $font-weight-medium;
+			color: var(--color-text, #17181c);
+			margin-right: $spacing-2;
+		}
+	}
+
+	.ms__cap--phone {
+		max-width: 375px;
+	}
+
+	.ms__fit {
+		position: relative;
+		// Until the script sizes it: the frame at full size, clipped to the column.
+		width: min(100%, var(--w));
+		height: var(--h);
+		overflow: hidden;
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: $radius-sm;
+		background: #fff;
+	}
+
+	.ms__iframe {
+		position: absolute;
+		top: 0;
+		left: 0;
+		border: 0;
+		transform-origin: 0 0;
+	}
+
+	.ms[data-phone] .ms__fit {
+		border: 0;
+		border-radius: 0;
+	}
+</style>

@@ -311,6 +311,16 @@ export const KEY_VISUALS: KeyVisual[] = [
 		title: 'AI chat — the YourGPT widget in the site’s colours',
 		badge: { icon: 'tabler:sparkles-filled', color: '#3d50f5' },
 	},
+	{
+		// Search in the new bar, on docs pages: today's live docs bar against the candidates, each on a
+		// real docs page framed at the widths where the bar changes shape. A site piece outside the
+		// homepage's sections, so it lives with the flows.
+		id: 'main-menu',
+		area: 'flows',
+		label: 'Main menu',
+		title: 'Main menu — search in the bar on docs pages',
+		badge: { icon: 'tabler:search', color: '#3d50f5' },
+	},
 ];
 
 /**
