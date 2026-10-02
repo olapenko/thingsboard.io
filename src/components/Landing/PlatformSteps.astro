@@ -1,0 +1,374 @@
+---
+import { Icon } from 'astro-icon/components';
+import { PLATFORM_CORE, PLATFORM_STAGES, PLATFORM_ZONES } from '@data/platform-visual';
+import { inkedMark } from '@util/tb-mark';
+
+/**
+ * The platform overview as ONE FLOW, top to bottom: your equipment, the platform's four stages,
+ * your people. A candidate beside `PlatformClear`, for the running order that docks the stages
+ * (`diagram: 'steps'` in `data/home-compositions.ts`). No order runs it since 2026-10-02, when "Map as
+ * you go" (order C) left the switch; it is kept, with the bar, for an order that brings it back.
+ *
+ * WHAT IT IS FOR. The four stages are the contents of the four rows under this section, and this
+ * drawing hands them over: `PlatformStepsBar` docks the same four steps under the header as the
+ * track scrolls up to it, at the same x, the same size and in the same colours, so the bar reads as
+ * this track pinned rather than as a second menu arriving. That is the whole reason for the layout:
+ *
+ * - THE TRACK RUNS THE CARD'S FULL WIDTH in four equal columns, and the bar copies its columns at
+ *   run time rather than restating them, so the two grids cannot drift.
+ * - THE HEAD OF EACH STEP IS THE BAR'S ITEM — a 28px tile, the verb beside it, a 2px rule 9px under
+ *   them. The rule is the bar's meter at rest: tinted, waiting to fill.
+ * - THE FLOW GOES DOWN, not across. Equipment above and people below leave the middle row to the
+ *   four stages alone, which is what lets the track take the full measure.
+ *
+ * WHAT IT DROPS FROM `PlatformClear`, deliberately:
+ *
+ * - THE FOUR RUNS (telemetry in, views out, actions back, commands back). The flow goes one way
+ *   here, in at the top and out at the bottom. The loop was that drawing's argument; this one's is
+ *   the ORDER of the four stages, which the rows under it then walk.
+ * - THE ZONE CARDS, their icons and their notes. A zone is a kicker and three names.
+ * - THE BADGE straddling the platform card. The mark sits in the card's title instead.
+ *
+ * NOT ON THE DESIGN UNIT, unlike the drawings beside it (see `CLAUDE.md`), and on purpose: this is
+ * a layout of text, not a picture, so it REFLOWS rather than scales. Its smallest type is 14px at
+ * every width, where `PlatformClear`, scaled as one drawing, measures 11.9px in a 900px window. The
+ * room it is handed still decides the form — container queries, never the viewport: the four stages
+ * across from a 560px container, a vertical track under it.
+ */
+
+/**
+ * Per instance, as `PlatformClear` does it: the sandbox renders more than one of these, and a
+ * duplicated id would send every `aria-labelledby` on the page to the first copy.
+ */
+const uid = `psteps-${crypto.randomUUID().slice(0, 8)}`;
+
+const [equipment, people] = PLATFORM_ZONES;
+
+/**
+ * Each zone in the colour of the stage it meets — equipment as Connect, people as Operate — read off
+ * the stages by position, the pairing `PlatformClear` makes, so neither copy can go stale alone.
+ */
+const ZONE_HUE = {
+	equipment: PLATFORM_STAGES[0].accent,
+	people: PLATFORM_STAGES[PLATFORM_STAGES.length - 1].accent,
+};
+
+/** The arrow between a zone and the card. Its box carries half a stroke under the point, which an `svg` would otherwise clip flat. */
+const ARROW = { w: 14, h: 30, wing: 5, stroke: 2 };
+const ARROW_LINE = `M ${ARROW.w / 2},1 V ${ARROW.h - 1}`;
+const ARROW_HEAD = `M ${ARROW.w / 2 - ARROW.wing},${ARROW.h - 1 - ARROW.wing} L ${ARROW.w / 2},${ARROW.h - 1} L ${ARROW.w / 2 + ARROW.wing},${ARROW.h - 1 - ARROW.wing}`;
+---
+
+<div class="psteps-fit">
+	<div class="psteps">
+		{
+			/* `div role="group"`, never `section`, for the reason `PlatformClear` records: the homepage
+			   strips every `section`'s background at (0,3,1), and a landmark per zone would put three
+			   regions inside one diagram. */
+		}
+		<div class="psteps__zone" role="group" aria-labelledby={`${uid}-in`} style={`--zone: ${ZONE_HUE.equipment}`}>
+			<p class="psteps__zone-title" id={`${uid}-in`}>{equipment.title}</p>
+			<ul class="psteps__names" role="list">
+				{equipment.items.map((it) => <li>{it.name}</li>)}
+			</ul>
+		</div>
+
+		<svg
+			class="psteps__arrow"
+			style={`--zone: ${ZONE_HUE.equipment}`}
+			viewBox={`0 0 ${ARROW.w} ${ARROW.h}`}
+			width={ARROW.w}
+			height={ARROW.h}
+			aria-hidden="true"
+		>
+			<path d={ARROW_LINE}></path>
+			<path d={ARROW_HEAD}></path>
+		</svg>
+
+		<div class="psteps__core" role="group" aria-labelledby={`${uid}-core`}>
+			<p class="psteps__core-title" id={`${uid}-core`}>
+				<span class="psteps__mark" aria-hidden="true" set:html={inkedMark()} />
+				<span>{`${PLATFORM_CORE.brand} ${PLATFORM_CORE.product}`}</span>
+			</p>
+
+			{/* `data-steps-track` is what the bar docks from: it reads this list's box and its gap. */}
+			<ol class="psteps__track" role="list" data-steps-track>
+				{
+					PLATFORM_STAGES.map((st, i) => (
+						<li class="psteps__step" style={`--stage: ${st.accent}; --next: ${(PLATFORM_STAGES[i + 1] ?? st).accent}`}>
+							<p class="psteps__head">
+								<span class="psteps__tile" aria-hidden="true">
+									<Icon name={st.icon} />
+								</span>
+								<span class="psteps__name">{st.name}</span>
+							</p>
+							<ul class="psteps__items" role="list">
+								{st.items.map((it) => (
+									<li>{it}</li>
+								))}
+							</ul>
+						</li>
+					))
+				}
+			</ol>
+		</div>
+
+		<svg
+			class="psteps__arrow"
+			style={`--zone: ${ZONE_HUE.people}`}
+			viewBox={`0 0 ${ARROW.w} ${ARROW.h}`}
+			width={ARROW.w}
+			height={ARROW.h}
+			aria-hidden="true"
+		>
+			<path d={ARROW_LINE}></path>
+			<path d={ARROW_HEAD}></path>
+		</svg>
+
+		<div class="psteps__zone" role="group" aria-labelledby={`${uid}-out`} style={`--zone: ${ZONE_HUE.people}`}>
+			<p class="psteps__zone-title" id={`${uid}-out`}>{people.title}</p>
+			<ul class="psteps__names" role="list">
+				{people.items.map((it) => <li>{it.name}</li>)}
+			</ul>
+		</div>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.psteps-fit {
+		container-type: inline-size;
+	}
+
+	.psteps {
+		// The tint every stage's quiet parts take: the tile's ground and the rule under the head. The
+		// bar reads the same 10% and 22%, so a step docked there is the colour it was here.
+		--psteps-wash: 10%;
+		--psteps-rule: 22%;
+		--psteps-ink: var(--color-text, #17181c);
+		--psteps-muted: var(--color-text-secondary, #5b616e);
+
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		// The rows' measure, and the bar's: the track has to sit on the same grid as the bar it
+		// docks into, so this drawing does not take the 60px bleed `PlatformClear` is given.
+		max-width: 960px;
+		margin: 0 auto;
+	}
+
+	// --- the two zones ---------------------------------------------------------------------------
+
+	.psteps__zone {
+		max-width: 100%;
+		text-align: center;
+	}
+
+	.psteps__zone-title {
+		@include type-eyebrow;
+		margin: 0 0 10px;
+		color: var(--zone);
+	}
+
+	// Three names on one line where they fit, wrapping as whole names where they do not. A dot in the
+	// zone's colour leads each, including the first, so a wrapped line starts the same way the first
+	// one does — a separator BETWEEN them would open the second line on a stray mark.
+	.psteps__names {
+		@include type-body;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 4px 24px;
+		margin: 0;
+		padding: 0;
+		color: var(--psteps-ink);
+		list-style: none;
+
+		li {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+
+			&::before {
+				content: '';
+				flex: none;
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--zone);
+			}
+		}
+	}
+
+	.psteps__arrow {
+		display: block;
+		flex: none;
+		margin: 14px 0;
+		overflow: visible;
+		fill: none;
+		stroke: var(--zone);
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	// --- the platform ---------------------------------------------------------------------------
+
+	// White and lifted, on the page's shadow recipe (`PlatformClear`'s, unscaled): a 1px contact
+	// shadow under an ambient one. No border — a hairline as well as a shadow reads as an outline
+	// drawn on a card.
+	.psteps__core {
+		align-self: stretch;
+		padding: 20px 24px 24px;
+		border-radius: 16px;
+		background: var(--color-bg-surface, #fff);
+		box-shadow:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb), 0.04),
+			0 12px 28px -8px rgba(var(--color-shadow-ui-rgb), 0.12);
+	}
+
+	.psteps__core-title {
+		@include type-tile;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		margin: 0 0 20px;
+		color: var(--psteps-ink);
+	}
+
+	.psteps__mark {
+		display: inline-flex;
+		width: 24px;
+		height: 24px;
+
+		:global(svg) {
+			width: 100%;
+			height: 100%;
+		}
+	}
+
+	// FOUR ACROSS, in equal columns. The bar takes these columns and this gap from the browser, so
+	// changing either here moves both.
+	.psteps__track {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		column-gap: 16px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.psteps__step {
+		position: relative;
+		min-width: 0;
+	}
+
+	// The bar's item, at rest. 28 of tile, 9 of air, 2 of rule — the same 39px the docked item spends
+	// between its tile's top and its meter's bottom.
+	.psteps__head {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin: 0;
+		padding-bottom: 9px;
+		border-bottom: 2px solid color-mix(in srgb, var(--stage) var(--psteps-rule), #fff);
+	}
+
+	// The page's squircle (32%), the glyph in its stage's hue on a wash of the same — the stage icon
+	// `PlatformClear` draws, at the size the bar can hold.
+	.psteps__tile {
+		display: flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 32%;
+		background: color-mix(in srgb, var(--stage) var(--psteps-wash), #fff);
+		color: var(--stage);
+
+		:global([data-icon]) {
+			width: 18px;
+			height: 18px;
+		}
+	}
+
+	.psteps__name {
+		@include type-tile;
+		color: var(--psteps-ink);
+		white-space: nowrap;
+	}
+
+	.psteps__items {
+		@include type-small;
+		display: grid;
+		margin: 12px 0 0;
+		padding: 0;
+		color: var(--psteps-muted);
+		list-style: none;
+	}
+
+	// --- the narrow form: a vertical track ------------------------------------------------------
+	//
+	// Under 560px of container four columns cannot hold "Calculated fields" on a line, and two by two
+	// would make the middle a block of tiles rather than a sequence. So the track turns: the stages
+	// run down the card, each tile joined to the next by a line in the two stages' colours, and each
+	// stage's three items follow its verb on one line, wrapping as whole items.
+	@container (max-width: 559px) {
+		.psteps__core {
+			padding: 18px 20px 20px;
+		}
+
+		.psteps__core-title {
+			margin-bottom: 18px;
+		}
+
+		.psteps__track {
+			grid-template-columns: minmax(0, 1fr);
+			row-gap: 18px;
+		}
+
+		.psteps__head {
+			padding-bottom: 0;
+			border-bottom: 0;
+		}
+
+		// From under this tile to just above the next: 6px clear of each, through the gap between
+		// the two stages.
+		.psteps__step:not(:last-child)::before {
+			content: '';
+			position: absolute;
+			top: 34px;
+			bottom: -14px;
+			left: 13px;
+			width: 2px;
+			border-radius: 1px;
+			background: linear-gradient(
+				color-mix(in srgb, var(--stage) var(--psteps-rule), #fff),
+				color-mix(in srgb, var(--next) var(--psteps-rule), #fff)
+			);
+		}
+
+		// Under the verb, not under the tile: 28 of tile and 10 of gap.
+		.psteps__items {
+			display: flex;
+			flex-wrap: wrap;
+			margin: 2px 0 0 38px;
+
+			// The separator ends the item it follows, so a wrapped line starts on a name.
+			li:not(:last-child)::after {
+				content: '·';
+				margin: 0 6px;
+			}
+		}
+	}
+
+	// FORCED COLOURS drops the shadow, which is all that sets the card off; give it the edge back.
+	@media (forced-colors: active) {
+		.psteps__core {
+			border: 1px solid CanvasText;
+		}
+	}
+</style>

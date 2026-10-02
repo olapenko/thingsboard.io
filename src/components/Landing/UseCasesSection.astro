@@ -11,6 +11,7 @@ import {
 	type DashboardTones,
 } from '@data/home-dashboards';
 import { liveUseCaseLink } from '@data/home-live';
+import { useCaseBySlug } from '@data/use-cases';
 
 /**
  * The use cases: the dashboards heading over `DashboardShowcase`, the board and the named cases.
@@ -43,10 +44,15 @@ const { hued = false, copy = 'facelift', tones = hued ? 'shot' : 'section' } = A
 // they shipped with in the handoff (see `@data/home-dashboards`).
 const badge = hued ? DASHBOARDS_BADGE : DASHBOARDS_BADGE_HANDOFF;
 
-const items =
-	copy === 'live'
-		? homeCarouselItems.map((item) => ({ ...item, linkLabel: liveUseCaseLink(item.title) }))
-		: homeCarouselItems;
+// Each case's live dashboard: the "View live demo" its own page opens (`about.demoUrl`), looked up
+// by the page's slug, so a case without a page or a demo simply has no second link.
+const demoOf = (href: string) => useCaseBySlug[href.replace(/^\/use-cases\//, '').replace(/\/$/, '')]?.about.demoUrl;
+
+const items = homeCarouselItems.map((item) => ({
+	...item,
+	demoHref: demoOf(item.href),
+	...(copy === 'live' && { linkLabel: liveUseCaseLink(item.title) }),
+}));
 ---
 
 <section id="dashboard_description" class:list={[hued && 'home-hued']} style={`--row-hue: ${badge.color}`}>

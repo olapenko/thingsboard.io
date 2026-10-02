@@ -6,6 +6,7 @@ import TabPanel from '@components/ui/TabPanel.astro';
 import SmartImage from '@components/SmartImage.astro';
 import ImageComparison from '@components/UseCase/ImageComparison.astro';
 import type { CarouselItem } from '@data/homeCarousel';
+import { newTabLinkLabel } from '@util/external-links';
 
 // One board on top, the case that produced it underneath. The named list is the
 // navigation — a reader picks the case that looks like theirs instead of
@@ -132,20 +133,37 @@ const panelId = (i: number) => `${id}-panel-${i}`;
 						{/* Case name folded into the accessible name: the visible label is
 						    deliberately specific rather than repeating the heading, so on its
 						    own it wouldn't say which case it belongs to. A label that already
-						    names the case (main's "Smart energy use case") needs none. A card's
-						    link, not the section's: it names one use case, so it takes the
-						    standalone link's base size and leaves the larger step to "Browse all
-						    use cases" above it. */}
-						<Link
-							href={item.href}
-							attrs={{
-								'aria-label': item.linkLabel?.includes(item.title)
-									? undefined
-									: `${item.linkLabel || 'Learn more'} — ${item.title}`,
-							}}
-						>
-							{item.linkLabel || 'Learn more'}
-						</Link>
+						    names the case (main's "Smart energy use case") needs none. Both links are a card's,
+						    not the section's: they name one use case, so they take the standalone link's base
+						    size and leave the larger step to "Browse all use cases" above. In ink, as the
+						    ecosystem cards' links are (2026-10-01): the chevron, the hover and the weight say
+						    it is a link, and the live dot and the off-site arrow tell the two apart. */}
+						<div class="dashshow__links">
+							<Link
+								href={item.href}
+								tone="ink"
+								attrs={{
+									'aria-label': item.linkLabel?.includes(item.title)
+										? undefined
+										: `${item.linkLabel || 'Learn more'} — ${item.title}`,
+								}}
+							>
+								{item.linkLabel || 'Learn more'}
+							</Link>
+							{/* The board itself, running: the case's public dashboard on the demo server. Second, so
+							    the case's own page stays the way on. */}
+							{item.demoHref && (
+								<Link
+									href={item.demoHref}
+									tone="ink"
+									external
+									attrs={{ 'aria-label': newTabLinkLabel(`Live demo — ${item.title}`, item.demoHref) }}
+								>
+									<span class="dashshow__live" aria-hidden="true" />
+									Live demo
+								</Link>
+							)}
+						</div>
 					</TabPanel>
 				))
 			}
@@ -488,11 +506,55 @@ const panelId = (i: number) => `${id}-panel-${i}`;
 		text-wrap: pretty;
 	}
 
+	// The case's page and its live board on one line, wrapping to two on a narrow column.
+	.dashshow__links {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-2 $spacing-6;
+	}
+
+	// "Live": the status green a device shows when it is active, with a ring that breathes out of it.
+	// 3.3:1 on white, over the 3:1 a mark that carries meaning needs.
+	.dashshow__live {
+		position: relative;
+		flex: none;
+		width: 8px;
+		height: 8px;
+		margin-inline-end: $spacing-2;
+		border-radius: 50%;
+		background: #16a34a;
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+			background: inherit;
+			animation: dashshow-live 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+		}
+	}
+
+	@keyframes dashshow-live {
+		from {
+			opacity: 0.5;
+			transform: scale(1);
+		}
+		to {
+			opacity: 0;
+			transform: scale(2.75);
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		.dashshow__arrow,
 		.dashshow__glow,
 		.dashshow--handoff .dashshow__board {
 			transition: none;
+		}
+
+		.dashshow__live::after {
+			animation: none;
 		}
 	}
 </style>

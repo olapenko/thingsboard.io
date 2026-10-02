@@ -73,6 +73,14 @@ interface RealPage {
 	icon: string;
 	/** Other paths that count as this page: the step a flow takes after it. */
 	also?: string[];
+	/**
+	 * Not the page that ships but a draft of its redesign, at an internal address of its own: the
+	 * shipped page keeps its route until the draft replaces it. Tagged in the menu so nobody reviews
+	 * it as the live page.
+	 */
+	draft?: boolean;
+	/** Other versions of the same draft, listed under it in the menu and counted as it. */
+	versions?: { href: string; label: string }[];
 }
 
 const PAGES: RealPage[] = [
@@ -80,13 +88,22 @@ const PAGES: RealPage[] = [
 	{ href: '/products/thingsboard-pe/', label: 'On-premises', icon: 'tabler:server' },
 	{ href: '/installations/', label: 'Installations', icon: 'tabler:download' },
 	{ href: '/contact-us/', label: 'Contact us', icon: 'tabler:message-circle', also: ['/contact-us-thanks/'] },
+	{
+		href: '/internal/pages/pricing/',
+		label: 'Pricing',
+		icon: 'tabler:tag',
+		draft: true,
+		versions: [{ href: '/internal/pages/pricing-long/', label: 'Long version' }],
+	},
 ];
 
 /** Trailing slash either way, so `/internal/launch-home` and `/internal/launch-home/` both match. */
 const here = Astro.url.pathname.replace(/\/?$/, '/');
 const isHome = here === '/';
 const currentArea = areaFor(here).area;
-const isPage = (p: RealPage) => here === p.href || !!p.also?.includes(here);
+const isExactly = (p: RealPage) => here === p.href || !!p.also?.includes(here);
+const isPage = (p: RealPage) =>
+	here === p.href || !!p.also?.includes(here) || !!p.versions?.some((v) => v.href === here);
 const onAPage = PAGES.some(isPage);
 ---
 
@@ -195,12 +212,28 @@ const onAPage = PAGES.some(isPage);
 						<li>
 							<a
 								href={p.href}
-								aria-current={isPage(p) ? 'page' : undefined}
-								class:list={['inav-menu__link', isPage(p) && 'is-here']}
+								aria-current={isExactly(p) ? 'page' : undefined}
+								class:list={['inav-menu__link', isExactly(p) && 'is-here']}
 							>
 								<Icon name={p.icon} aria-hidden="true" />
 								{p.label}
+								{p.draft && <span class="inav-menu__tag">Draft</span>}
 							</a>
+							{p.versions && (
+								<ul class="inav-menu__versions">
+									{p.versions.map((v) => (
+										<li>
+											<a
+												href={v.href}
+												aria-current={here === v.href ? 'page' : undefined}
+												class:list={['inav-menu__link', 'inav-menu__link--version', here === v.href && 'is-here']}
+											>
+												{v.label}
+											</a>
+										</li>
+									))}
+								</ul>
+							)}
 						</li>
 					))
 				}
@@ -789,6 +822,36 @@ const onAPage = PAGES.some(isPage);
 		&:focus-visible {
 			outline: 2px solid var(--inav-accent);
 			outline-offset: -2px;
+		}
+	}
+
+	/* A draft's other versions, under it and indented to its label, so they read as its children. */
+	.inav-menu__versions {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.inav-menu__link--version {
+		height: 30px;
+		padding-left: 36px;
+		font-size: 12px;
+		color: var(--inav-muted);
+	}
+
+	/* A draft's tag, pushed to the row's end so the labels keep one left edge. */
+	.inav-menu__tag {
+		margin-left: auto;
+		padding: 1px 7px;
+		border-radius: 999px;
+		background: var(--inav-hover);
+		color: var(--inav-muted);
+		font-size: 11px;
+		line-height: 16px;
+
+		.is-here & {
+			background: rgba(255, 255, 255, 0.2);
+			color: inherit;
 		}
 	}
 

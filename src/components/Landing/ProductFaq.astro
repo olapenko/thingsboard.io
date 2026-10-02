@@ -4,7 +4,6 @@ import Button from '@components/ui/Button.astro';
 import Tabs from '@components/ui/Tabs.astro';
 import TabPanel from '@components/ui/TabPanel.astro';
 import FaqItem from '@components/Landing/FaqItem.astro';
-import type { FaqCategory } from '@data/pricing/types';
 
 /**
  * The product pages' FAQ: a column of topics beside one panel of answers, each panel showing its
@@ -24,18 +23,27 @@ import type { FaqCategory } from '@data/pricing/types';
  * NOT Pricing's `FaqSection` (buttons with `aria-current`, bordered cards, a 280px column, copy and
  * deep links), nor Trendz's: different pages with different jobs, reconciled if Pricing moves.
  */
+/** Pricing's `FaqCategory`, with the pricing draft's optional `defaultOpen` per answer. */
+interface Category {
+	id: string;
+	label: string;
+	items: { id: string; question: string; answer: string; defaultOpen?: boolean }[];
+}
+
 interface Props {
-	categories: FaqCategory[];
+	categories: Category[];
 	/** Answers shown per topic before "More questions"; a topic at or under it renders no button. */
 	visibleCount?: number;
 	/** Prefixes the panel ids (`<prefix>-<category id>`; each tab is `<panel>-tab`). */
 	idPrefix?: string;
 	/** The tablist's accessible name. */
 	label?: string;
+	/** Gives every answer the id `<itemIdPrefix><answer id>`, for links straight to one answer. */
+	itemIdPrefix?: string;
 }
 
-const { categories, visibleCount = 6, idPrefix = 'faq', label = 'FAQ topics' } = Astro.props;
-const panelId = (category: FaqCategory) => `${idPrefix}-${category.id}`;
+const { categories, visibleCount = 6, idPrefix = 'faq', label = 'FAQ topics', itemIdPrefix } = Astro.props;
+const panelId = (category: Category) => `${idPrefix}-${category.id}`;
 ---
 
 <div class="product-faq">
@@ -52,7 +60,13 @@ const panelId = (category: FaqCategory) => `${idPrefix}-${category.id}`;
 			categories.map((category, i) => (
 				<TabPanel id={panelId(category)} selected={i === 0}>
 					{category.items.map((item, j) => (
-						<FaqItem question={item.question} answer={item.answer} extra={j >= visibleCount} />
+						<FaqItem
+							question={item.question}
+							answer={item.answer}
+							extra={j >= visibleCount}
+							open={item.defaultOpen}
+							id={itemIdPrefix === undefined ? undefined : `${itemIdPrefix}${item.id}`}
+						/>
 					))}
 					{category.items.length > visibleCount && (
 						<Button

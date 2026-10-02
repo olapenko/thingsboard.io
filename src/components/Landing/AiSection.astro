@@ -752,7 +752,8 @@ const sectionStyle = [badgeHues, cycleVars, washCycle && `--ai-hue-0: ${AI_COPY.
 		animation-play-state: paused;
 	}
 
-	.ai :global(.section-header__badge.is-cycling) {
+	// The SECTION's class, not the badge's: the one switch the wash reads too (see the script).
+	.ai.is-cycling :global(.section-header__badge) {
 		animation-play-state: running;
 	}
 
@@ -764,16 +765,21 @@ const sectionStyle = [badgeHues, cycleVars, washCycle && `--ai-hue-0: ${AI_COPY.
 	// moment the tile does.
 	//
 	// IN LOCKSTEP BY CONSTRUCTION: both animations are applied at first paint, both held paused, and
-	// the observer that resumes the tile flips `is-cycling` on the section in the same callback, so
-	// both clocks start, stop and start again in the same frame.
+	// both run on the section's one `is-cycling`, so both clocks start, stop and start again in the
+	// same frame.
+	//
+	// WHEN they run is each one's own business: the section cycles while the mark OR the band is on
+	// screen. Gated on the mark alone, the band froze on a phone as soon as the heading scrolled away;
+	// the mark runs on unseen while only the band shows, which keeps the two in step for the way back.
 	//
 	// An animation outranks the inline `--ai-wash` the hand-off sets on a switch, so the route no
 	// longer colours the band here; its transition simply has nothing to do.
-	// SLOWER HERE, 3s a colour against the mark's usual 1.5. At 1.5s a leg a tile is a small thing
+	// SLOWER HERE, 2.5s a colour against the mark's usual 1.5. At 1.5s a leg a tile is a small thing
 	// changing briskly; a full-bleed band doing the same is the whole screen flickering through its
-	// colours. The tile slows with it (`--ai-cycle` feeds both), or the two would part.
+	// colours. The tile slows with it (`--ai-cycle` feeds both), or the two would part. 3s until
+	// 2026-10-01, as `AiWide`'s.
 	.ai--wash-cycle {
-		--ai-leg: 3s;
+		--ai-leg: 2.5s;
 	}
 
 	.ai--wash-cycle .ai__bands {
@@ -1715,32 +1721,46 @@ const sectionStyle = [badgeHues, cycleVars, washCycle && `--ai-hue-0: ${AI_COPY.
 <script>
 	// The section mark cycles colour while it is on screen.
 	//
-	// Its own observer rather than a shared one: the chat and the terminal each carry theirs, this is
+	// Its own observers rather than shared ones: the chat and the terminal each carry theirs, this is
 	// the same gate, and a section-wide observer would have to know what all three want.
 	//
 	// Every instance, not `#ai`: the homepage has one, but the sandbox's AI page stacks several
 	// directions, and a lookup by id reached only the first — every other mark sat still on indigo.
+	//
+	// One switch per section, `is-cycling`, which the mark and a cycling wash (`wash="cycle"`) both
+	// read, so the two share one clock. It only switches `animation-play-state`, so this is a pause and
+	// a resume rather than a stop and a start: the cycle picks up on the hue it was on rather than
+	// snapping back to indigo every time the section is scrolled past and returned to.
 	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-	const cycling = new IntersectionObserver(
-		(entries) => {
-			for (const entry of entries) {
-				// The class only switches `animation-play-state`, so this is a pause and a resume rather
-				// than a stop and a start: the cycle picks up on the hue it was on rather than snapping
-				// back to indigo every time the mark is scrolled past and returned to.
-				entry.target.classList.toggle('is-cycling', entry.isIntersecting);
-				// And on the section, in the same callback, for a wash that follows the mark
-				// (`wash="cycle"`) — the same frame, so the two clocks never part.
-				entry.target.closest('section.ai')?.classList.toggle('is-cycling', entry.isIntersecting);
-			}
-		},
-		// Half of it, so the cycle runs while the mark is properly on screen rather than from the
-		// moment its first pixel clears the fold.
-		{ threshold: 0.5 }
-	);
+	const seen = new Map<HTMLElement, { mark: boolean; band: boolean }>();
+
+	const watch = (part: 'mark' | 'band', threshold: number) =>
+		new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					const section = entry.target.closest<HTMLElement>('section.ai');
+					const state = section ? seen.get(section) : undefined;
+					if (!section || !state) continue;
+					state[part] = entry.isIntersecting;
+					section.classList.toggle('is-cycling', state.mark || state.band);
+				}
+			},
+			{ threshold }
+		);
+
+	// The mark at half of it, so it runs while the mark is properly on screen rather than from the
+	// moment its first pixel clears the fold. The band at any of it: taller than a phone's screen,
+	// it is never half on one.
+	const marks = watch('mark', 0.5);
+	const bands = watch('band', 0);
 
 	// Typed, because `dataset` is on `HTMLElement` and a bare `querySelectorAll` gives back `Element`.
 	document.querySelectorAll<HTMLElement>('section.ai').forEach((section) => {
 		const badge = section.querySelector('.section-header__badge');
-		if (badge && section.dataset.animate === 'on' && !reduced) cycling.observe(badge);
+		if (!badge || section.dataset.animate !== 'on' || reduced) return;
+		seen.set(section, { mark: false, band: false });
+		marks.observe(badge);
+		const band = section.classList.contains('ai--wash-cycle') && section.querySelector('.ai__bands');
+		if (band) bands.observe(band);
 	});
 </script>
