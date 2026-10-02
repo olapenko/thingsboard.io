@@ -1,6 +1,18 @@
 ---
 import { Products, productDocsPrefix } from '@models/site.models.ts';
 
+interface Props {
+	/**
+	 * `icon` (default): the 40px magnifier. `field`: on the docs bar, where search is the tool readers
+	 * reach for most, a labelled field — the magnifier, "Search" and the key hint, outlined like Sign
+	 * in beside it — from 1440px, where the bar has room for it, and the icon below. A `field` on the
+	 * page also turns on the keys: ⌘K or Ctrl K anywhere, `/` outside a text field.
+	 */
+	form?: 'icon' | 'field';
+}
+
+const { form = 'icon' } = Astro.props;
+
 // TBMQ docs moved off-site, so no `/docs/mqtt-broker/**` pages — and no search page —
 // exist here any more. The prefixes stay in `productDocsPrefix` for the links that still
 // point at the broker, but they must not produce a search route to a page we don't build.
@@ -24,8 +36,13 @@ const searchRoutes: [string, string][] = [
 ];
 ---
 
-<search-button data-search-routes={JSON.stringify(searchRoutes)}>
-	<button type="button" class="search-toggle-btn" aria-label="Search">
+<search-button data-search-routes={JSON.stringify(searchRoutes)} data-form={form}>
+	<button
+		type="button"
+		class="search-toggle-btn"
+		aria-label="Search"
+		aria-keyshortcuts={form === 'field' ? 'Control+K Meta+K /' : undefined}
+	>
 		<svg
 			width="20"
 			height="20"
@@ -40,6 +57,19 @@ const searchRoutes: [string, string][] = [
 				d="M14.386 14.386l4.0877 4.0877-4.0877-4.0877c-2.9418 2.9419-7.7115 2.9419-10.6533 0-2.9419-2.9418-2.9419-7.7115 0-10.6533 2.9418-2.9419 7.7115-2.9419 10.6533 0 2.9419 2.9418 2.9419 7.7115 0 10.6533z"
 			></path>
 		</svg>
+		{
+			form === 'field' && (
+				<>
+					<span class="search-toggle-btn__label" aria-hidden="true">
+						Search
+					</span>
+					{/* "Ctrl K" from the server, most readers; Apple devices get "⌘K" once the script runs. */}
+					<kbd class="search-toggle-btn__kbd" aria-hidden="true">
+						Ctrl K
+					</kbd>
+				</>
+			)
+		}
 	</button>
 </search-button>
 
@@ -253,6 +283,37 @@ const searchRoutes: [string, string][] = [
 		document.addEventListener('click', (e) => {
 			if ((e.target as Element).closest('search-button')) open();
 		});
+
+		// The keys, where a page carries the field form (the docs bar): ⌘K or Ctrl K anywhere, `/`
+		// when focus is not in a text field. They open the dialog from the trigger on show.
+		if (document.querySelector('search-button[data-form="field"]')) {
+			const ua =
+				(navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ||
+				navigator.userAgent;
+			if (/mac|iphone|ipad|ipod/i.test(ua)) {
+				document.querySelectorAll('.search-toggle-btn__kbd').forEach((k) => (k.textContent = '⌘K'));
+			}
+
+			const typing = (t: EventTarget | null) =>
+				t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+
+			document.addEventListener('keydown', (e) => {
+				if (e.defaultPrevented || e.isComposing) return;
+				const combo = (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k';
+				const slash = e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !typing(e.target);
+				if (!combo && !slash) return;
+				// Open already: ⌘K stays ours rather than the browser's, and does nothing.
+				if (document.documentElement.classList.contains('tb-search-open')) {
+					if (combo) e.preventDefault();
+					return;
+				}
+				const all = [...document.querySelectorAll<HTMLButtonElement>('search-button[data-form="field"] button')];
+				const btn = all.find((b) => b.offsetParent !== null) ?? all[0];
+				if (!btn) return;
+				e.preventDefault();
+				btn.click();
+			});
+		}
 	}
 </script>
 
@@ -277,6 +338,69 @@ const searchRoutes: [string, string][] = [
 		&:focus { outline: none; }
 
 		svg { width: 20px; height: 20px; }
+	}
+
+	.search-toggle-btn__label,
+	.search-toggle-btn__kbd {
+		display: none;
+	}
+
+	// The field form. Every value is Sign in's (`.region-signin__trigger` in HeaderContent), so the
+	// two read as one row: 40px, 4px corners, the ink at 35% for the outline, 12% fill and 55% on hover.
+	search-button[data-form='field'] .search-toggle-btn {
+		color: inherit;
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 3px;
+		}
+	}
+
+	@media screen and (min-width: 1440px) {
+		search-button[data-form='field'] .search-toggle-btn {
+			width: 152px;
+			justify-content: flex-start;
+			gap: 8px;
+			padding: 0 8px 0 12px;
+			border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+			border-radius: 4px;
+			font: inherit;
+			font-size: 14px;
+			line-height: 1;
+			white-space: nowrap;
+			transition:
+				background-color 0.15s ease,
+				border-color 0.15s ease;
+
+			&:hover {
+				opacity: 1;
+				background-color: color-mix(in srgb, currentColor 12%, transparent);
+				border-color: color-mix(in srgb, currentColor 55%, transparent);
+			}
+
+			svg {
+				width: 16px;
+				height: 16px;
+				opacity: 0.8;
+			}
+		}
+
+		search-button[data-form='field'] .search-toggle-btn__label {
+			display: inline;
+			opacity: 0.8;
+		}
+
+		search-button[data-form='field'] .search-toggle-btn__kbd {
+			display: inline-flex;
+			margin-left: auto;
+			padding: 3px 5px;
+			border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+			border-radius: 3px;
+			font: inherit;
+			font-size: 11.5px;
+			line-height: 1;
+			opacity: 0.8;
+		}
 	}
 </style>
 
