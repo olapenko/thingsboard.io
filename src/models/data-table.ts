@@ -5,8 +5,9 @@ export interface DataTableColumn {
 	label?: string;
 	/** Visually-hidden header text used when `label` is absent. Defaults to `'Feature'`. */
 	srLabel?: string;
-	/** Decorative Tabler icon before the label; both are wrapped in `.dt-col`. */
+	/** A decorative glyph (a tabler name) before the label, `aria-hidden`; sized by `iconClass`. */
 	icon?: string;
+	iconClass?: string;
 	/**
 	 * Width for the matching `<col>`, emitted inline. Inline is the only form that
 	 * survives a scoped-style hash change, so prefer it over CSS where the width is
