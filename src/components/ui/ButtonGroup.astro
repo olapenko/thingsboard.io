@@ -1,0 +1,89 @@
+---
+/**
+ * The row buttons sit in. It decides by its own width, not the screen's: below `stackBelow` the
+ * buttons stack and widen to the row, as the homepage Products card keeps its pair on one line
+ * only from 400px. Replaces the page CSS that forced hero buttons full width on phones.
+ */
+interface Props {
+	/**
+	 * A container width, 400 (a pair in a card) or 480 (a hero's or a band's). Omit to never stack.
+	 * A step is added here, not as a page's media query.
+	 */
+	stackBelow?: 400 | 480;
+	align?: 'start' | 'center' | 'end';
+	/** Buttons share one width when side by side. */
+	equal?: boolean;
+	/** 8 or 12 between buttons; 12 by default, the closing bands' and the cards'. */
+	gap?: 'sm' | 'md';
+	class?: string;
+	attrs?: Record<string, string | undefined>;
+}
+
+const { stackBelow, align = 'start', equal = false, gap = 'md', class: className, attrs = {} } = Astro.props;
+---
+
+<div class:list={['ui-btn-group', stackBelow && 'ui-btn-group--contained', className]} {...attrs}>
+	<div
+		class:list={[
+			'ui-btn-group__row',
+			`ui-btn-group__row--${align}`,
+			`ui-btn-group__row--gap-${gap}`,
+			equal && 'ui-btn-group__row--equal',
+			stackBelow && `ui-btn-group__row--stack-${stackBelow}`,
+		]}
+	>
+		<slot />
+	</div>
+</div>
+
+<style is:global lang="scss">
+	.ui-btn-group--contained {
+		container-type: inline-size;
+	}
+
+	.ui-btn-group__row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+	}
+
+	.ui-btn-group__row--gap-sm {
+		gap: 8px;
+	}
+
+	.ui-btn-group__row--gap-md {
+		gap: 12px;
+	}
+
+	.ui-btn-group__row--start {
+		justify-content: flex-start;
+	}
+
+	.ui-btn-group__row--center {
+		justify-content: center;
+	}
+
+	.ui-btn-group__row--end {
+		justify-content: flex-end;
+	}
+
+	.ui-btn-group__row--equal > * {
+		flex: 1 1 0;
+	}
+
+	@each $w in (400, 480) {
+		@container (max-width: #{$w - 1}px) {
+			.ui-btn-group__row--stack-#{$w} {
+				flex-direction: column;
+				align-items: stretch;
+
+				// `flex: none` undoes `equal`'s `1 1 0`: in a column its zero basis is a HEIGHT, and the
+				// buttons collapsed to their text.
+				> * {
+					flex: none;
+					width: 100%;
+				}
+			}
+		}
+	}
+</style>

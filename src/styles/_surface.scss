@@ -1,0 +1,69 @@
+// ============================================
+// Grounds and surfaces.
+//
+// GROUNDS: what a control sits on, from `data-surface` on any ancestor (a Band sets it). A component
+// states its light look as its own rules and its dark look inside `on-dark`, and nothing else: a
+// white card on a dark band sets `data-surface="light"`, `on-dark` skips everything inside it, and
+// the light rules apply again by themselves. One light box inside one dark ground is resolved,
+// which is every case the pages have.
+//
+// SURFACES: the white box a card is, by role. `ui/Card.astro` renders it; this mixin is for markup
+// the component cannot render. The lifts are the four elevation tokens in `_theme.scss`, all in the
+// one UI ink.
+//
+//   tile:  r8,  a card in a grid, lifts on hover when it is a link
+//   row:   r8,  one line of a list (a region row)
+//   panel: r16, a card that stands alone; never lifts
+// ============================================
+@use 'variables' as *;
+
+// A white box inside a dark ground, and everything in it.
+$in-light-box: "[data-surface='dark'] [data-surface='light'], [data-surface='dark'] [data-surface='light'] *";
+
+// Inside a dark ground but not in a white box within it, or a dark ground itself. Adds no
+// specificity: the dark rule outranks the light one by source order alone.
+@mixin on-dark {
+	:where([data-surface='dark']) &:not(:where(#{$in-light-box})),
+	&:where([data-surface='dark']) {
+		@content;
+	}
+}
+
+// A tile that is a link: the lift deepens on hover and drops back on the press. A panel never lifts.
+@mixin surface-lift {
+	transition: box-shadow 0.2s ease;
+
+	@media (hover: hover) {
+		&:hover {
+			box-shadow: var(--elev-tile-hover);
+		}
+	}
+
+	&:active {
+		box-shadow: var(--elev-tile);
+	}
+}
+
+@mixin surface($role: tile, $interactive: false) {
+	position: relative;
+	box-sizing: border-box;
+	background-color: var(--color-bg-surface, #fff);
+	color: var(--color-text, #17181c);
+
+	@if $role == panel {
+		border-radius: $radius-xl;
+		box-shadow: var(--elev-panel);
+	} @else {
+		border-radius: $radius-lg;
+		box-shadow: var(--elev-tile);
+	}
+
+	@if $interactive and $role != panel {
+		@include surface-lift;
+	}
+
+	// Windows high contrast drops shadows: a border keeps the card's edge.
+	@media (forced-colors: active) {
+		border: 1px solid CanvasText;
+	}
+}

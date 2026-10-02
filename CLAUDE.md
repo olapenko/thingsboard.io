@@ -179,6 +179,13 @@ Key rule: **Never hardcode font values** — use mixins. **Never use compile-tim
 
 The face is Ubuntu, self-hosted via `@fontsource/ubuntu` and loaded through Starlight's `customCss` in `astro.config.ts`, so it reaches the docs and every `BaseLayout` page (the legal layout keeps its own system stack). **There is no Ubuntu 600**, and nothing synthesises one: a `600` declaration paints the 700 face, so `$font-weight-semibold` is an alias of `$font-weight-bold` and the declared weight is the painted one. If you want a weight between normal and bold, `$font-weight-medium` (500) is the only one that exists — say so explicitly rather than reaching for the alias.
 
+### UI kit
+
+The redesigned marketing pages are built from `src/components/ui/` (Button, Link, Mark, Chip, Tabs,
+Segmented, Field, Card, Band, Dialog). **Read `src/components/ui/README.md` before building or restyling a page**: it
+holds the rules (no page CSS for what a component owns, sizes are steps, colour from `data-accent`,
+the ground from `data-surface`). Every component renders live on the `lab` branch at `/internal/library/kit/`.
+
 ### Use-Case Pages
 
 Data-driven pages at `/use-cases/{slug}`. Use the `use-case-pages` skill for data types, page composition, layout, and section components.
