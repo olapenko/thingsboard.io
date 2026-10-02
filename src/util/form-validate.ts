@@ -8,7 +8,9 @@
  *   appears once the reader leaves a field they typed in, or on submit.
  * - On submit, focus moves to the first invalid field, which then reads its own error.
  *
- * Each form keeps its own `check`: what is required, what a valid value is, and the words.
+ * Each form keeps its own `check`: what is required, what a valid value is, and the words. The form
+ * carries `novalidate`: a `Field` is `required` unless `optional`, and the browser's own check would
+ * otherwise stop the submit, in its own words, before `validateAll` runs.
  */
 export type FieldControl = HTMLInputElement | HTMLTextAreaElement;
 export type Problem = { kind: 'required' | 'format'; message: string } | null;
@@ -16,9 +18,14 @@ export type Check = (el: FieldControl) => Problem;
 
 const errorOf = (el: FieldControl) => document.getElementById(`${el.id}-error`);
 
-// The hint, when the field has one, and the error while it shows.
+// Whatever else describes the field, then the hint when it has one, and the error while it shows.
 function describe(el: FieldControl, withError: boolean): void {
-	const ids = [`${el.id}-hint`, withError ? `${el.id}-error` : ''].filter((id) => id && document.getElementById(id));
+	const own = (el.getAttribute('aria-describedby') ?? '')
+		.split(/\s+/)
+		.filter((id) => id && id !== `${el.id}-hint` && id !== `${el.id}-error`);
+	const ids = [...own, `${el.id}-hint`, withError ? `${el.id}-error` : ''].filter(
+		(id) => id && document.getElementById(id)
+	);
 	if (ids.length) el.setAttribute('aria-describedby', ids.join(' '));
 	else el.removeAttribute('aria-describedby');
 }

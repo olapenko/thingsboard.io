@@ -1,0 +1,75 @@
+---
+/**
+ * The pricing drafts' state before paint, written to <html> where `_pricing-state.scss` reads it:
+ * the deployment from `?product=` (main's ids, and its legacy `?section=`), On-premises' licence
+ * from `?solution=`, and Cloud's region from the one the visitor last signed up or in with, else
+ * the nearest by timezone (`util/cloud-regions`, restated, since an inline script cannot import
+ * it). Then the deployment tab set beside it: the chosen tab, its tab stop and the thumb; and its
+ * caption (`data-deploy-caption`, the captions as JSON in `data-captions`), where there is one.
+ *
+ * Place it right after the tab set, in the same parent. The toggles paint their own state
+ * (`ui/Segmented`'s `initialFromRoot`).
+ *
+ * Underscore-prefixed so Astro does not make it a route.
+ */
+import { DEFAULT_DEPLOYMENT } from '@data/pricingPage';
+import { LAST_REGION } from '@util/cloud-regions';
+
+interface Props {
+	/** The tab set's class. */
+	tabs: string;
+	/** The deployments a `?product=` may name. */
+	ids: readonly string[];
+}
+
+const prepaint = {
+	tabs: `.${Astro.props.tabs}`,
+	ids: Astro.props.ids,
+	fallback: DEFAULT_DEPLOYMENT,
+	regionKey: LAST_REGION.key,
+};
+---
+
+<script is:inline define:vars={{ prepaint }}>
+	(() => {
+		const root = document.documentElement;
+		const p = new URLSearchParams(location.search);
+		let deploy = p.get('product');
+		if (prepaint.ids.indexOf(deploy) === -1) {
+			deploy = p.get('section') === 'thingsboard-pe-options' ? 'thingsboard-pe' : prepaint.fallback;
+		}
+		let region = null;
+		try {
+			region = localStorage.getItem(prepaint.regionKey);
+		} catch {
+			// No storage: fall through to the timezone.
+		}
+		if (region !== 'us' && region !== 'eu') {
+			let tz = '';
+			try {
+				tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+			} catch {
+				// No Intl: North America, where the site sent everyone before it asked.
+			}
+			region = /^(Europe|Africa|Atlantic)\//.test(tz) ? 'eu' : 'us';
+		}
+		root.dataset.deploy = deploy;
+		root.dataset.cloudRegion = region;
+		root.dataset.pcBilling = 'monthly';
+		root.dataset.onpremBilling =
+			deploy === 'thingsboard-pe' && (p.get('solution') || '').replace(/^pe-/, '') === 'perpetual'
+				? 'perpetual'
+				: 'payg';
+
+		const here = document.currentScript.parentElement;
+		const list = here.querySelector(prepaint.tabs);
+		list.querySelectorAll('[role="tab"]').forEach((tab, i) => {
+			const on = tab.id === 'plans-' + deploy + '-tab';
+			tab.setAttribute('aria-selected', on ? 'true' : 'false');
+			tab.tabIndex = on ? 0 : -1;
+			if (on) list.style.setProperty('--seg-index', i);
+		});
+		const caption = here.querySelector('[data-deploy-caption]');
+		if (caption) caption.textContent = JSON.parse(caption.dataset.captions)[deploy];
+	})();
+</script>

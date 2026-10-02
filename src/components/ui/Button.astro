@@ -30,16 +30,16 @@ interface Props {
 	/** Leaves the site: the up-right arrow, a new tab, and "opens in a new tab" for screen readers. */
 	external?: boolean;
 	type?: 'button' | 'submit' | 'reset';
-	block?: boolean | 'below-sm' | 'below-md';
-	/** A long or translated label may take two lines, at a minimum height. */
-	wrap?: boolean;
 	/** Tertiary: no inline padding, so the label lines up with the text above it. */
 	flush?: boolean;
 	/** Secondary: the label in the accent rather than the ink. */
 	tinted?: boolean;
 	/** Joined to a field on this side. */
 	attached?: 'start' | 'end';
-	/** Busy: the spinner and `loadingLabel` in the label's place, the width held. */
+	/**
+	 * Busy: the spinner and `loadingLabel` in the label's place, the width held. A button a script
+	 * sets busy (`aria-busy="true"`) passes `loadingLabel` alone, and the busy line is there to show.
+	 */
 	loading?: boolean;
 	loadingLabel?: string;
 	disabled?: boolean;
@@ -64,8 +64,6 @@ const {
 	to,
 	external = false,
 	type = 'button',
-	block = false,
-	wrap = false,
 	flush = false,
 	tinted = false,
 	attached,
@@ -80,9 +78,14 @@ const {
 } = Astro.props;
 
 if (iconOnly && !label) throw new Error('ui/Button: an iconOnly button needs a label.');
+if (loading && loadingLabel === undefined) throw new Error('ui/Button: a loading button needs a loadingLabel.');
 
 const destination = to ? DESTINATIONS[to] : undefined;
 const href = Astro.props.href ?? destination?.href;
+// A copy: Astro writes into an object it spreads, and the destination's is shared by every button.
+const destinationAttrs = { ...destination?.attrs };
+// Whatever opens the new tab, `external` or a `target` passed through, a screen reader hears it.
+const newTab = external || attrs.target === '_blank';
 
 // An `<a>` with an href, a `<button>` without. A disabled link keeps its element and loses its href,
 // so it is announced as a link that cannot be followed rather than turning into a button.
@@ -98,8 +101,6 @@ const classes = [
 	'ui-btn',
 	`ui-btn--${variant}`,
 	...sizeClasses('ui-btn', size),
-	block && (block === true ? 'ui-btn--block' : `ui-btn--block-${block}`),
-	wrap && 'ui-btn--wrap',
 	flush && 'ui-btn--flush',
 	tinted && 'ui-btn--tinted',
 	attached && `ui-btn--attached-${attached}`,
@@ -124,7 +125,7 @@ const style = [accentStyle, callerStyle].filter(Boolean).join('; ') || undefined
 	style={style}
 	{...accentData}
 	{...element}
-	{...destination?.attrs}
+	{...destinationAttrs}
 	{...passed}
 >
 	{
@@ -139,7 +140,7 @@ const style = [accentStyle, callerStyle].filter(Boolean).join('; ') || undefined
 					{icon && <Icon name={icon} class="ui-btn__icon" aria-hidden="true" />}
 					{!iconOnly && <slot />}
 				</span>
-				<span class="ui-btn__busy" aria-hidden="true">
+				<span class="ui-btn__busy">
 					<span class="ui-btn__spin" />
 					{loadingLabel}
 				</span>
@@ -149,7 +150,7 @@ const style = [accentStyle, callerStyle].filter(Boolean).join('; ') || undefined
 	{srSuffix && <span class="ui-sr"> {srSuffix}</span>}
 	{iconEnd && <Icon name={iconEnd} class="ui-btn__icon" aria-hidden="true" />}
 	{external && <Icon name="tabler:arrow-up-right" class="ui-btn__icon" aria-hidden="true" />}
-	{external && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
+	{newTab && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
 </Tag>
 
 <style is:global lang="scss">
@@ -195,38 +196,14 @@ const style = [accentStyle, callerStyle].filter(Boolean).join('; ') || undefined
 		}
 	}
 
-	// xs is under the 44px touch target: on a coarse pointer an invisible extension grows the tap
-	// area to 44 without changing the look.
+	// xs and sm are under the 44px touch target: on a coarse pointer an invisible extension grows the
+	// tap area to 44 without changing the look (none from md up, where the box is already 44).
 	@media (pointer: coarse) {
-		.ui-btn--xs::before {
+		.ui-btn::before {
 			content: '';
 			position: absolute;
-			inset: -6px 0;
+			inset: min(0px, (var(--btn-h) - 44px) / 2) 0;
 		}
-	}
-
-	.ui-btn--block {
-		width: 100%;
-	}
-
-	@include media-down(sm) {
-		.ui-btn--block-below-sm {
-			width: 100%;
-		}
-	}
-
-	@include media-down(md) {
-		.ui-btn--block-below-md {
-			width: 100%;
-		}
-	}
-
-	.ui-btn--wrap {
-		height: auto;
-		min-height: var(--btn-h);
-		padding-block: 8px;
-		white-space: normal;
-		text-align: center;
 	}
 
 	.ui-btn--tertiary.ui-btn--flush {
@@ -259,7 +236,9 @@ const style = [accentStyle, callerStyle].filter(Boolean).join('; ') || undefined
 		transform: scaleX(-1);
 	}
 
-	// Loading: the label and the busy line share one cell, so the width holds while it swaps.
+	// Loading: the label and the busy line share one cell, so the width holds while it swaps. The
+	// hidden one is `visibility: hidden`, out of the accessibility tree too, so the button is named by
+	// whichever shows.
 	.ui-btn__stack {
 		display: inline-grid;
 

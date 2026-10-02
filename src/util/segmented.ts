@@ -14,7 +14,7 @@ export interface SegmentedSelect {
 
 /** Presses the option with this value and moves the thumb under it, without firing the event. */
 export function setSegmented(group: HTMLElement, value: string): void {
-	const options = Array.from(group.querySelectorAll<HTMLButtonElement>('.seg__opt'));
+	const options = Array.from(group.querySelectorAll<HTMLButtonElement>('.ui-seg__opt'));
 	const index = options.findIndex((o) => o.dataset.value === value);
 	if (index < 0) return;
 	options.forEach((o, i) => o.setAttribute('aria-pressed', String(i === index)));
@@ -25,7 +25,7 @@ export function mountSegmented(group: HTMLElement): void {
 	if (group.dataset.segMounted !== undefined) return;
 	group.dataset.segMounted = '';
 	group.addEventListener('click', (event) => {
-		const option = (event.target as Element).closest<HTMLButtonElement>('.seg__opt');
+		const option = (event.target as Element).closest<HTMLButtonElement>('.ui-seg__opt');
 		const value = option?.dataset.value;
 		if (!option || value === undefined || option.getAttribute('aria-pressed') === 'true') return;
 		setSegmented(group, value);
@@ -34,6 +34,6 @@ export function mountSegmented(group: HTMLElement): void {
 	});
 }
 
-export function mountAllSegmented(root: ParentNode = document): void {
-	root.querySelectorAll<HTMLElement>('[data-segmented-toggle]').forEach(mountSegmented);
+export function mountAllSegmented(): void {
+	document.querySelectorAll<HTMLElement>('[data-segmented-toggle]').forEach(mountSegmented);
 }

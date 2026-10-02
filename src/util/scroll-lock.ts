@@ -5,9 +5,10 @@ import './scroll-lock.css';
 // scrollbar width on the document, the fixed promo banner, the fixed site
 // header, the chat widget and its launcher so none of them jump wider.
 //
-// Idempotent + single-flag: repeated lock/unlock calls are no-ops. One overlay
-// is expected open at a time; if two ever overlap, the first close unlocks
-// (same limitation the inlined copies had).
+// Held by owners: the page unlocks when the last owner lets go, so a dialog
+// opened from the open phone menu and closed again leaves the menu's lock in
+// place. A caller that passes no owner shares the default one, and repeated
+// lock/unlock calls by the same owner are no-ops.
 
 const HTML_LOCK_CLASS = 'tb-scroll-locked';
 // Full-width fixed bars padded from the inside to absorb the freed scrollbar
@@ -18,7 +19,7 @@ const CHAT_POSITION_VAR = '--yourgptChatbotPositionX';
 // Our launcher for that widget (`ChatLauncher floating`): pinned by `right`, so it moves by `right`.
 const LAUNCHER_SELECTOR = '[data-chat-floating]';
 
-let locked = false;
+const owners = new Set<unknown>();
 let htmlOriginalPadding = '';
 let chatOriginalX = '';
 let chatCompensated = false;
@@ -58,9 +59,10 @@ function restoreBar(selector: string, original: string): void {
 	if (el) setPaddingInstant(el, original);
 }
 
-export function lockScroll(): void {
-	if (locked) return;
-	locked = true;
+export function lockScroll(owner: unknown = 'default'): void {
+	const first = owners.size === 0;
+	owners.add(owner);
+	if (!first) return;
 
 	const html = document.documentElement;
 	const sw = window.innerWidth - html.clientWidth;
@@ -97,9 +99,8 @@ export function lockScroll(): void {
 	html.classList.add(HTML_LOCK_CLASS);
 }
 
-export function unlockScroll(): void {
-	if (!locked) return;
-	locked = false;
+export function unlockScroll(owner: unknown = 'default'): void {
+	if (!owners.delete(owner) || owners.size > 0) return;
 
 	const html = document.documentElement;
 	html.classList.remove(HTML_LOCK_CLASS);

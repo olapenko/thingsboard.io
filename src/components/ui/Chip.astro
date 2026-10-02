@@ -11,7 +11,7 @@
  */
 import { Icon } from 'astro-icon/components';
 import SmartImage from '@components/SmartImage.astro';
-import { newTabAttrs, NEW_TAB_NOTE } from '@util/external-links';
+import { NEW_TAB_NOTE } from '@util/external-links';
 
 interface Props {
 	/** Default: link with an href, tag without. */
@@ -19,7 +19,6 @@ interface Props {
 	/** 32 · 40; a tag is always 22. */
 	size?: 'sm' | 'md';
 	href?: string;
-	external?: boolean;
 	/** Toggle: on or off. */
 	pressed?: boolean;
 	/** A tabler name, before the label. */
@@ -39,7 +38,6 @@ interface Props {
 const {
 	size = 'md',
 	href,
-	external = false,
 	pressed = false,
 	icon,
 	logo,
@@ -55,11 +53,13 @@ const kind = Astro.props.kind ?? (href ? 'link' : 'tag');
 const Tag = kind === 'link' ? 'a' : kind === 'toggle' ? 'button' : 'span';
 const element =
 	kind === 'link'
-		? { href, ...newTabAttrs(external) }
+		? { href }
 		: kind === 'toggle'
 			? { type: 'button' as const, 'aria-pressed': pressed ? ('true' as const) : ('false' as const) }
 			: {};
 const interactive = kind !== 'tag';
+// A link chip that a `target` sends to a new tab says so to a screen reader.
+const newTab = kind === 'link' && attrs.target === '_blank';
 ---
 
 <Tag
@@ -80,7 +80,7 @@ const interactive = kind !== 'tag';
 	}
 	<slot />
 	{interactive && note && <span class="ui-chip__note">{note}</span>}
-	{external && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
+	{newTab && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
 </Tag>
 
 <style is:global lang="scss">
@@ -106,10 +106,11 @@ const interactive = kind !== 'tag';
 		--_press: rgba(23, 24, 28, 0.07);
 		--_label: var(--color-text, #17181c);
 		--_note: var(--color-text-secondary, #{$color-text-secondary});
+		--_h: 40px;
 
 		position: relative;
 		gap: $spacing-2;
-		height: 40px;
+		height: var(--_h);
 		margin: 0;
 		padding: 0 $spacing-4;
 		border: 1px solid var(--_line);
@@ -157,19 +158,20 @@ const interactive = kind !== 'tag';
 		}
 	}
 
-	// 40 is under the 44 touch target: a coarse pointer gets an invisible extension.
+	// Both sizes are under the 44 touch target: a coarse pointer gets an invisible extension to 44.
 	@media (pointer: coarse) {
 		.ui-chip--link::before,
 		.ui-chip--toggle::before {
 			content: '';
 			position: absolute;
-			inset: -3px 0;
+			inset: calc((var(--_h) - 44px) / 2) 0;
 		}
 	}
 
 	.ui-chip--sm {
+		--_h: 32px;
+
 		gap: 6px;
-		height: 32px;
 		padding: 0 $spacing-3;
 		font-size: 14px;
 		line-height: 22px;

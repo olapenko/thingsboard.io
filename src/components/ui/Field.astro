@@ -64,7 +64,11 @@ const {
 	attrs = {},
 } = Astro.props;
 const id = Astro.props.id ?? name;
-const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(' ') || undefined;
+const counted = counter && maxLength !== undefined;
+// The hint and the error, after any description the caller points at itself (`attrs`).
+const { 'aria-describedby': ownDescription, ...passed } = attrs;
+const describedBy =
+	[ownDescription, hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(' ') || undefined;
 
 const control = {
 	id,
@@ -77,8 +81,8 @@ const control = {
 	inputmode,
 	'aria-invalid': error ? ('true' as const) : ('false' as const),
 	'aria-describedby': describedBy,
-	'data-ui-counter': counter && maxLength ? '' : undefined,
-	...attrs,
+	'data-ui-counter': counted ? '' : undefined,
+	...passed,
 };
 ---
 
@@ -106,7 +110,7 @@ const control = {
 	</div>
 	<div class="ui-field__foot">
 		<p class="ui-field__error" id={`${id}-error`} hidden={!error}>{error}</p>
-		{counter && <p class="ui-field__count" id={`${id}-count`} hidden />}
+		{counted && <p class="ui-field__count" id={`${id}-count`} hidden />}
 	</div>
 </div>
 
@@ -247,8 +251,13 @@ const control = {
 			cursor: not-allowed;
 		}
 
+		// High contrast paints even a transparent outline, which would ring every field at rest.
 		@media (forced-colors: active) {
 			border-color: FieldText;
+
+			&:not(:focus) {
+				outline: none;
+			}
 		}
 	}
 

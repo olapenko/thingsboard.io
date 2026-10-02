@@ -11,9 +11,11 @@
  * every state and the card stays still.
  *
  * Tones: `surface` (white with the role's lift), `ghost` (translucent on a dark or tinted ground,
- * no lift), `inverse` (the bookend indigo, and a dark ground for what is inside).
+ * no lift, and r16 whatever the role: a box with no edge but its fill reads square at 8), `inverse`
+ * (the bookend indigo, and a dark ground for what is inside).
  */
 import { newTabAttrs, NEW_TAB_NOTE } from '@util/external-links';
+import type { Scheme } from '@util/ui-kit';
 
 interface Props {
 	role?: 'tile' | 'row' | 'panel';
@@ -33,7 +35,7 @@ interface Props {
 	titleSize?: 'tile' | 'card';
 	as?: 'div' | 'li' | 'article' | 'section' | 'form';
 	/** A scheme name for everything inside. */
-	accent?: 'brand' | 'onprem' | 'neutral';
+	accent?: Scheme;
 	class?: string;
 	attrs?: Record<string, string | undefined>;
 }
@@ -55,6 +57,9 @@ const {
 const pad = Astro.props.pad ?? (role === 'row' ? 'sm' : role === 'panel' ? 'lg' : 'md');
 const Heading = `h${level}` as 'h2';
 const hasTitle = title !== undefined || Astro.slots.has('title');
+if (href && !hasTitle) throw new Error('ui/Card: a link card needs a title, the link is on it.');
+// Whatever opens the new tab, `external` or a `target` passed through, a screen reader hears it.
+const newTab = external || linkAttrs.target === '_blank';
 ---
 
 <Tag
@@ -79,7 +84,7 @@ const hasTitle = title !== undefined || Astro.slots.has('title');
 					<a class="ui-card__link" href={href} {...newTabAttrs(external)} {...linkAttrs}>
 						{title}
 						<slot name="title" />
-						{external && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
+						{newTab && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
 					</a>
 				) : (
 					<>
@@ -138,7 +143,6 @@ const hasTitle = title !== undefined || Astro.slots.has('title');
 	}
 
 	.ui-card--inverse {
-		border-radius: $radius-lg;
 		background-color: var(--band-indigo);
 		color: #fff;
 	}
@@ -215,8 +219,13 @@ const hasTitle = title !== undefined || Astro.slots.has('title');
 		}
 	}
 
+	// Hover turns the title to the accent: its ink on light, its light tone on a dark ground.
 	.ui-card--link {
-		transition: box-shadow 0.2s ease;
+		--_title-hover: var(--accent-ink);
+
+		@include on-dark {
+			--_title-hover: var(--accent-light);
+		}
 
 		:where(a:not(.ui-card__link), button) {
 			position: relative;
@@ -224,18 +233,12 @@ const hasTitle = title !== undefined || Astro.slots.has('title');
 		}
 
 		@media (hover: hover) {
-			&:hover {
-				box-shadow: var(--elev-tile-hover);
-
-				.ui-card__title {
-					color: var(--accent-ink);
-				}
+			&:hover .ui-card__title {
+				color: var(--_title-hover);
 			}
 		}
 
 		&:active {
-			box-shadow: var(--elev-tile);
-
 			.ui-card__link {
 				text-decoration-line: underline;
 				text-decoration-thickness: 2px;
@@ -249,12 +252,8 @@ const hasTitle = title !== undefined || Astro.slots.has('title');
 		}
 	}
 
-	.ui-card--panel.ui-card--link:hover {
-		box-shadow: var(--elev-panel);
-	}
-
-	.ui-card--ghost.ui-card--link:hover,
-	.ui-card--inverse.ui-card--link:hover {
-		box-shadow: none;
+	// Only a white tile or row lifts; a panel, a ghost and an inverse card stay still.
+	.ui-card--surface.ui-card--link:not(.ui-card--panel) {
+		@include surface-lift;
 	}
 </style>

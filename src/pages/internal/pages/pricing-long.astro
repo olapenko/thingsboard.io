@@ -19,8 +19,9 @@ import ProductFaq from '@components/Landing/ProductFaq.astro';
 import Hero from '@components/Landing/Hero.astro';
 import SectionHeader from '@components/Landing/SectionHeader.astro';
 import { buildFaqPageSchema } from '@util/faq-schema';
-import { CLOUD_REGIONS, LAST_REGION } from '@util/cloud-regions';
+import { CLOUD_REGIONS } from '@util/cloud-regions';
 
+import PricingPrepaint from './_PricingPrepaint.astro';
 import PricingPlans from './_PricingPlans.astro';
 import PricingAddOns from './_PricingAddOns.astro';
 import PricingTopUps from './_PricingTopUps.astro';
@@ -115,13 +116,6 @@ const CONTACT_PRIVATE_CLOUD = privateCloud.choice.cta.href;
 const CONTACT_ON_PREM =
 	'/contact-us/?subject=ThingsBoard%20Products&message=I%20have%20a%20question%20about%20ThingsBoard%20On-premises';
 
-/** What the pre-paint script needs, and nothing else. */
-const prepaint = {
-	ids: DEPLOYMENTS.map((d) => d.id),
-	fallback: DEFAULT_DEPLOYMENT,
-	regionKey: LAST_REGION.key,
-};
-
 const addOnsSubtitle = 'Customize your deployment with optional features to suit your business needs.';
 ---
 
@@ -162,55 +156,7 @@ const addOnsSubtitle = 'Customize your deployment with optional features to suit
 			{DEPLOYMENTS.find((d) => d.id === DEFAULT_DEPLOYMENT)!.caption}
 		</p>
 
-		{
-			/* Before paint: the deployment from `?product=` (main's ids, and its legacy `?section=`),
-		    On-premises' billing from `?solution=`, and Cloud's region from the one the visitor last
-		    signed up or in with, else the nearest by timezone — `util/cloud-regions`, restated, since an
-		    inline script cannot import it. The state lives on <html>, and the CSS shows the matching
-		    blocks, so the page never paints Cloud first and then swaps. */
-		}
-		<script is:inline define:vars={{ prepaint }}>
-			(function () {
-				var root = document.documentElement;
-				var p = new URLSearchParams(location.search);
-				var deploy = p.get('product');
-				if (prepaint.ids.indexOf(deploy) === -1) {
-					deploy = p.get('section') === 'thingsboard-pe-options' ? 'thingsboard-pe' : prepaint.fallback;
-				}
-				var solution = (p.get('solution') || '').replace(/^pe-/, '');
-				var region = null;
-				try {
-					region = localStorage.getItem(prepaint.regionKey);
-				} catch (e) {
-					// No storage: fall through to the timezone.
-				}
-				if (region !== 'us' && region !== 'eu') {
-					var tz = '';
-					try {
-						tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-					} catch (e) {
-						// No Intl: North America, where the site sent everyone before it asked.
-					}
-					region = /^(Europe|Africa|Atlantic)\//.test(tz) ? 'eu' : 'us';
-				}
-				root.dataset.deploy = deploy;
-				root.dataset.cloudRegion = region;
-				root.dataset.pcBilling = 'monthly';
-				root.dataset.onpremBilling = solution === 'perpetual' ? 'perpetual' : 'payg';
-
-				// The tab set (`ui/Tabs`): the chosen tab, its tab stop and the thumb; and its caption.
-				var here = document.currentScript.parentElement;
-				var list = here.querySelector('.deploy-switch');
-				var caption = here.querySelector('[data-deploy-caption]');
-				list.querySelectorAll('[role="tab"]').forEach(function (tab, i) {
-					var on = tab.id === 'plans-' + deploy + '-tab';
-					tab.setAttribute('aria-selected', on ? 'true' : 'false');
-					tab.tabIndex = on ? 0 : -1;
-					if (on) list.style.setProperty('--seg-index', i);
-				});
-				if (caption) caption.textContent = JSON.parse(caption.dataset.captions)[deploy];
-			})();
-		</script>
+		<PricingPrepaint tabs="deploy-switch" ids={DEPLOYMENTS.map((d) => d.id)} />
 	</Hero>
 
 	<div class="pricing-draft" data-pricing-draft>
@@ -235,6 +181,7 @@ const addOnsSubtitle = 'Customize your deployment with optional features to suit
 						size="sm"
 						label="Cloud region"
 						name="cloudRegion"
+						initialFromRoot
 						options={CLOUD_REGIONS.map((r) => ({ label: r.name, value: r.id }))}
 					/>
 				</div>
@@ -281,6 +228,7 @@ const addOnsSubtitle = 'Customize your deployment with optional features to suit
 						size="sm"
 						label="Billing period"
 						name="pcBilling"
+						initialFromRoot
 						options={[
 							{ label: tbPrivateCloudData.billingOptions.monthly, value: 'monthly' },
 							{
@@ -334,6 +282,7 @@ const addOnsSubtitle = 'Customize your deployment with optional features to suit
 						size="sm"
 						label="Licensing"
 						name="onpremBilling"
+						initialFromRoot
 						options={[
 							{ label: 'Subscription', value: 'payg' },
 							{ label: 'Perpetual', value: 'perpetual' },
@@ -355,7 +304,7 @@ const addOnsSubtitle = 'Customize your deployment with optional features to suit
 				</div>
 
 				<div data-onprem-show="perpetual" class="perpetual">
-					<Card role="panel">
+					<Card role="panel" class="perpetual__panel">
 						<div class="perpetual__card">
 							<div class="perpetual__lead">
 								<h3 class="perpetual__title">{tbPerpetualHero.title}</h3>
@@ -424,7 +373,7 @@ const addOnsSubtitle = 'Customize your deployment with optional features to suit
 				<PricingAddOns addOns={tbPrivateCloudAddOns} contactHref={CONTACT_PRIVATE_CLOUD} />
 			</div>
 
-			<div data-deploy-panel="thingsboard-pe">
+			<div data-deploy-panel="thingsboard-pe" data-accent="onprem">
 				<div data-onprem-show="payg">
 					<PricingAddOns addOns={tbSelfManagedAddOns} contactHref={CONTACT_ON_PREM} />
 				</div>
@@ -509,111 +458,19 @@ const addOnsSubtitle = 'Customize your deployment with optional features to suit
 </BaseLayout>
 
 <script>
-	import { setSegmented, type SegmentedSelect } from '@util/segmented';
+	import { mountPricingState } from './_pricing-state';
 
-	const root = document.documentElement;
-	const onPage = () => !!document.querySelector('[data-pricing-draft]');
-	const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	// The caption under the switch names the deployment.
+	const caption = document.querySelector<HTMLElement>('[data-deploy-caption]');
+	const captions: Record<string, string> = JSON.parse(caption?.dataset.captions ?? '{}');
 
-	/** Under the fixed bar, with the same air the FAQ sidebar keeps from it. */
-	function scrollToElement(el: Element) {
-		const bar = parseFloat(getComputedStyle(root).getPropertyValue('--home-header-h')) || 64;
-		const top = el.getBoundingClientRect().top + window.scrollY - bar - 24;
-		window.scrollTo({ top, behavior: reducedMotion() ? 'auto' : 'smooth' });
-	}
-
-	/** The address follows the view, so a link copied from here opens on what you were reading. */
-	function updateUrl(edit: (params: URLSearchParams) => void) {
-		const url = new URL(location.href);
-		edit(url.searchParams);
-		history.replaceState(history.state, '', url);
-	}
-
-	/** Every toggle's pressed state, from the <html> attribute it writes. */
-	function syncSegments() {
-		document.querySelectorAll<HTMLElement>('[data-segmented-name]').forEach((group) => {
-			const value = root.dataset[group.dataset.segmentedName!];
-			if (value) setSegmented(group, value);
-		});
-	}
-
-	function selectDeploy(id: string) {
-		root.dataset.deploy = id;
-		const caption = document.querySelector<HTMLElement>('[data-deploy-caption]');
-		if (caption) caption.textContent = JSON.parse(caption.dataset.captions ?? '{}')[id] ?? '';
-		// Main's `?section=` is dropped once read; `?solution=` only means anything on-prem.
-		updateUrl((params) => {
-			params.set('product', id);
-			params.delete('section');
-			if (id !== 'thingsboard-pe') params.delete('solution');
-		});
-	}
-
-	// The deployment switch is `ui/Tabs`: it moves the selection, the focus and the thumb, and asks
-	// first. The page shows its blocks from <html> rather than through `hidden`, so it takes over.
-	document.addEventListener('tabs:change', (event) => {
-		const list = event.target as Element;
-		if (!list.classList?.contains('deploy-switch')) return;
-		event.preventDefault();
-		const panel = (event as CustomEvent<{ panel: HTMLElement | null }>).detail.panel;
-		if (panel) selectDeploy(panel.id.replace(/^plans-/, ''));
+	mountPricingState({
+		tabs: 'deploy-switch',
+		plans: () => document.getElementById('plans'),
+		onDeploy: (id) => {
+			if (caption) caption.textContent = captions[id] ?? '';
+		},
 	});
-
-	// Every other choice is a `ui/Segmented` toggle: its value goes to <html>, where the CSS reads it.
-	document.addEventListener('segmented:select', (event) => {
-		if (!onPage()) return;
-		const { name, value } = (event as CustomEvent<SegmentedSelect>).detail;
-		if (!name) return;
-		root.dataset[name] = value;
-		syncSegments();
-		if (name === 'onpremBilling') {
-			updateUrl((params) => {
-				if (value === 'perpetual') params.set('solution', 'pe-perpetual');
-				else params.delete('solution');
-			});
-		}
-	});
-
-	// Delegated once, on the document: the site swaps the body between pages, and these keep working
-	// on whatever body is in.
-	document.addEventListener('click', (event) => {
-		const target = event.target as Element | null;
-		if (!target || !onPage()) return;
-
-		// "See plans" and "See Private Cloud plans": the deployment's tab, and back up to the plans.
-		const go = target.closest<HTMLAnchorElement>('[data-deploy-go]');
-		if (go) {
-			event.preventDefault();
-			document.getElementById(`plans-${go.dataset.deployGo}-tab`)?.click();
-			const plans = document.getElementById('plans');
-			if (plans) scrollToElement(plans);
-			return;
-		}
-
-		// A plan line that quotes an answer opens it: its topic selected, "More questions" opened
-		// if it is past the first six, the answer itself expanded, and scrolled to under the bar.
-		const term = target.closest<HTMLAnchorElement>('[data-faq-link]');
-		if (term) {
-			const answer = document.getElementById(term.hash.slice(1)) as HTMLDetailsElement | null;
-			if (!answer) return;
-			event.preventDefault();
-			const panel = answer.closest<HTMLElement>('[role="tabpanel"]');
-			if (panel?.hidden) document.getElementById(panel.getAttribute('aria-labelledby') ?? '')?.click();
-			// Past the first six: held back until "More questions" opens them.
-			if (panel && answer.hidden) panel.querySelector<HTMLButtonElement>('[data-faq-more]')?.click();
-			answer.open = true;
-			scrollToElement(answer);
-			answer.querySelector('summary')?.focus({ preventScroll: true });
-		}
-	});
-
-	// The controls are rendered on their defaults; the pre-paint script may have chosen otherwise.
-	function init() {
-		if (onPage()) syncSegments();
-	}
-
-	init();
-	document.addEventListener('astro:page-load', init);
 </script>
 
 <style is:global lang="scss">
@@ -624,59 +481,8 @@ const addOnsSubtitle = 'Customize your deployment with optional features to suit
 	// what this page adds.
 	@use '../../../styles/product-page';
 
-	// ---------------------------------------------------------------------------------------------
-	// WHICH BLOCKS SHOW. The state is on <html>, written before paint (see the hero's script); with
-	// no script at all the attributes never arrive and the defaults below hold: Cloud, North America,
-	// monthly, subscription.
-	// ---------------------------------------------------------------------------------------------
-	$deployments: thingsboard-cloud, thingsboard-private-cloud, thingsboard-pe;
-
-	[data-deploy-panel]:not([data-deploy-panel='thingsboard-cloud']),
-	[data-region-show='eu'],
-	[data-billing-show='annual'],
-	[data-onprem-show='perpetual'] {
-		display: none;
-	}
-
-	html[data-deploy] [data-deploy-panel] {
-		display: none;
-	}
-
-	@each $id in $deployments {
-		html[data-deploy='#{$id}'] [data-deploy-panel='#{$id}'] {
-			display: block;
-		}
-	}
-
-	html[data-cloud-region='eu'] {
-		[data-region-show='us'] {
-			display: none;
-		}
-
-		[data-region-show='eu'] {
-			display: block;
-		}
-	}
-
-	html[data-pc-billing='annual'] {
-		[data-billing-show='monthly'] {
-			display: none;
-		}
-
-		[data-billing-show='annual'] {
-			display: inline;
-		}
-	}
-
-	html[data-onprem-billing='perpetual'] {
-		[data-onprem-show='payg'] {
-			display: none;
-		}
-
-		[data-onprem-show='perpetual'] {
-			display: block;
-		}
-	}
+	// Which blocks show, by the state on <html>.
+	@use './pricing-state';
 
 	// The switch: the segmented pill the plans' controls use below, in its dark dress. Slotted, so
 	// Hero's reveal never reaches it — restated after the subtitle, as `.hero-caption` does it.
@@ -902,44 +708,28 @@ const addOnsSubtitle = 'Customize your deployment with optional features to suit
 			height: 22px;
 			color: var(--color-text);
 		}
-
-		a {
-			@include type-link;
-			color: var(--accent-fill);
-			text-decoration: underline;
-			text-underline-offset: 3px;
-
-			&:focus-visible {
-				outline: 2px solid var(--focus-ring);
-				outline-offset: 3px;
-			}
-		}
 	}
 
 	// ── Perpetual ────────────────────────────────────────────────────────────────────────────────
+	// The panel is `ui/Card`'s; this lays out what is in it, the offer beside what it fits.
+	.perpetual__panel {
+		max-width: 960px;
+		margin-inline: auto;
+	}
+
 	.perpetual__card {
 		display: grid;
 		grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
 		gap: $spacing-10;
-		max-width: 960px;
-		margin: 0 auto;
-		padding: $spacing-10;
-		border-radius: 16px;
-		background-color: #fff;
-		box-shadow:
-			0 0 0 2px $color-brand,
-			0 18px 40px -18px rgba(61, 80, 245, 0.35);
 
 		@include media-down(md) {
 			grid-template-columns: minmax(0, 1fr);
 			gap: $spacing-8;
-			padding: $spacing-6 $spacing-5;
 		}
+	}
 
-		.price-card__cta {
-			align-self: flex-start;
-			padding: 0 $spacing-5;
-		}
+	.perpetual__cta {
+		align-self: flex-start;
 	}
 
 	.perpetual__lead {
@@ -1045,12 +835,6 @@ const addOnsSubtitle = 'Customize your deployment with optional features to suit
 			flex-direction: column;
 			margin: $spacing-3 0 0;
 			color: var(--color-text);
-
-			a {
-				color: var(--accent-fill);
-				text-decoration: underline;
-				text-underline-offset: 3px;
-			}
 		}
 
 		&__fee {

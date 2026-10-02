@@ -4,8 +4,8 @@ import { lockScroll, unlockScroll } from '@util/scroll-lock';
  * The script behind `ui/Dialog`: a native `<dialog>` opened with `showModal()`, so the focus trap,
  * Escape and the inert page come from the browser. This adds what the browser leaves out:
  *
- * - the page's scroll lock, released only once no dialog is left open (one dialog handing off to
- *   another closes a task after the next one opened);
+ * - the page's scroll lock, held by each dialog while it is open, so the page unlocks once nothing
+ *   holding it (another dialog, the phone menu) is left open;
  * - focus returned to the opener on close, explicitly, rather than left to the browser;
  * - a click on the backdrop closes a dismissible dialog, but a drag that started inside the panel
  *   (selecting text, say) and ended outside does not;
@@ -18,24 +18,25 @@ export function openDialog(
 	options: { focus?: HTMLElement | null; opener?: HTMLElement | null } = {}
 ): void {
 	if (dlg.open) return;
-	openers.set(dlg, options.opener ?? (document.activeElement as HTMLElement | null));
+	let opener = options.opener ?? (document.activeElement as HTMLElement | null);
+	// An opener inside a dialog that has just closed (one dialog handing off to another) cannot take
+	// focus back: return it to whatever opened that dialog instead.
+	const within = opener?.closest('dialog');
+	if (within && within !== dlg && !within.open) opener = openers.get(within) ?? null;
+	openers.set(dlg, opener);
 	dlg.showModal();
-	lockScroll();
+	lockScroll(dlg);
 	// `showModal` lands on the first focusable, the close button. A caller that knows the likeliest
 	// answer focuses it instead, so Enter is the whole interaction.
 	options.focus?.focus();
 }
 
-export function closeDialog(dlg: HTMLDialogElement): void {
-	if (dlg.open) dlg.close();
-}
-
 export function mountDialog(dlg: HTMLDialogElement): void {
-	if (dlg.dataset.uiDialogMounted) return;
+	if (dlg.dataset.uiDialogMounted !== undefined) return;
 	dlg.dataset.uiDialogMounted = '';
 
 	dlg.addEventListener('close', () => {
-		if (!document.querySelector('dialog.ui-dialog[open]')) unlockScroll();
+		unlockScroll(dlg);
 		const opener = openers.get(dlg);
 		// Back to where the reader was, unless they have moved on to another dialog meanwhile.
 		if (opener && opener.isConnected && !document.querySelector('dialog.ui-dialog[open]')) opener.focus();
@@ -65,6 +66,6 @@ export function mountDialog(dlg: HTMLDialogElement): void {
 	}
 }
 
-export function mountAllDialogs(root: ParentNode = document): void {
-	root.querySelectorAll<HTMLDialogElement>('dialog.ui-dialog').forEach(mountDialog);
+export function mountAllDialogs(): void {
+	document.querySelectorAll<HTMLDialogElement>('dialog.ui-dialog').forEach(mountDialog);
 }

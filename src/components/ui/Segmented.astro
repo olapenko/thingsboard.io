@@ -51,6 +51,12 @@ interface Props {
 	selected?: number;
 	/** Toggle: names the value in `segmented:select`. */
 	name?: string;
+	/**
+	 * Toggle: the option comes from `<html data-<name>>` when a script set it before paint (a deep
+	 * link, a remembered region); `selected` otherwise. Pressed by an inline script right after the
+	 * group, so the pill never paints the default and then slides.
+	 */
+	initialFromRoot?: boolean;
 	/** md 40 · sm 36, or one per breakpoint: `{ base: 'sm', sm: 'md' }`. */
 	size?: Responsive<'sm' | 'md'>;
 	tone?: 'neutral' | 'accent';
@@ -64,11 +70,23 @@ const {
 	options,
 	selected = 0,
 	name,
+	initialFromRoot = false,
 	size = 'md',
 	tone = 'neutral',
 	tabs = false,
 	class: className,
 } = Astro.props;
+// `initialFromRoot`: the group is the script's previous sibling; its option from <html>'s dataset.
+const PRESS_FROM_ROOT = `(function (g) {
+	var v = document.documentElement.dataset[g.dataset.segmentedName];
+	var opts = g.querySelectorAll('.ui-seg__opt');
+	var at = -1;
+	opts.forEach(function (o, i) { if (o.dataset.value === v) at = i; });
+	if (at < 0) return;
+	opts.forEach(function (o, i) { o.setAttribute('aria-pressed', i === at ? 'true' : 'false'); });
+	g.style.setProperty('--seg-index', at);
+})(document.currentScript.previousElementSibling);`;
+
 // A slot per option, named by its value (or panel). `<slot name>` takes only a literal, so each is
 // rendered here by name.
 const extras = await Promise.all(
@@ -81,10 +99,10 @@ const extras = await Promise.all(
 
 <div
 	class:list={[
-		'seg',
-		...sizeClasses('seg', size),
-		tone === 'accent' && 'seg--accent',
-		options.length >= 3 && 'seg--three',
+		'ui-seg',
+		...sizeClasses('ui-seg', size),
+		tone === 'accent' && 'ui-seg--accent',
+		options.length >= 3 && 'ui-seg--three',
 		className,
 	]}
 	role={tabs ? 'tablist' : 'group'}
@@ -95,12 +113,12 @@ const extras = await Promise.all(
 	data-segmented-name={tabs ? undefined : name}
 	style={`--seg-count: ${options.length}; --seg-index: ${selected}`}
 >
-	<span class="seg__thumb" aria-hidden="true"></span>
+	<span class="ui-seg__thumb" aria-hidden="true"></span>
 	{
 		options.map((o, i) => (
 			<button
 				type="button"
-				class="seg__opt"
+				class="ui-seg__opt"
 				data-value={o.value}
 				title={o.title}
 				aria-describedby={o.describedBy}
@@ -115,15 +133,25 @@ const extras = await Promise.all(
 						}
 					: { 'aria-pressed': i === selected ? 'true' : 'false' })}
 			>
-				{o.icon && <Icon name={o.icon} class="seg__icon" aria-hidden="true" />}
-				<span class:list={['seg__label', o.shortLabel && 'seg__label--long']}>{o.label}</span>
-				{o.shortLabel && <span class="seg__label seg__label--short">{o.shortLabel}</span>}
+				{o.icon && <Icon name={o.icon} class="ui-seg__icon" aria-hidden="true" />}
+				<span class:list={['ui-seg__label', o.shortLabel && 'ui-seg__label--long']}>{o.label}</span>
+				{o.shortLabel && <span class="ui-seg__label ui-seg__label--short">{o.shortLabel}</span>}
 				{o.badge && <Chip kind="tag">{o.badge}</Chip>}
-				{extras[i] && <Fragment set:html={extras[i]} />}
+				{
+					/* Out of the option's name: a tooltip in it would be read twice, once in the name and
+					   again through `aria-describedby`, which still reaches it. */
+					extras[i] && (
+						<span class="ui-seg__extra" aria-hidden="true">
+							<Fragment set:html={extras[i]} />
+						</span>
+					)
+				}
 			</button>
 		))
 	}
 </div>
+
+{initialFromRoot && name && <script is:inline set:html={PRESS_FROM_ROOT} />}
 
 <script>
 	import { mountAllSegmented } from '@util/segmented';
@@ -140,7 +168,7 @@ const extras = await Promise.all(
 	// is translucent, so it takes the ground's hue (a tint band, the AI wash) instead of laying a
 	// grey of its own on it; the white thumb stays white. `fit-content`, so a grid or a flex column
 	// around it never stretches it to the row.
-	.seg {
+	.ui-seg {
 		--seg-pad: 3px;
 		--_track: rgba(23, 24, 28, 0.06);
 		--_label: var(--color-text-secondary, #{$color-text-secondary});
@@ -162,10 +190,15 @@ const extras = await Promise.all(
 			--_label: rgba(255, 255, 255, 0.72);
 			--_label-hover: #fff;
 		}
+
+		// Right to left the options run from the right, and the thumb moves with them.
+		&:dir(rtl) {
+			--_dir: -1;
+		}
 	}
 
 	// The scheme's wash: 10% of the fill, its light tone at 16% on dark.
-	.seg--accent {
+	.ui-seg--accent {
 		--_track: color-mix(in srgb, var(--accent-fill) 10%, transparent);
 
 		@include on-dark {
@@ -175,37 +208,31 @@ const extras = await Promise.all(
 
 	// The thumb: one segment wide, moved in whole segments through two custom properties rather
 	// than measured, so it cannot drift from the segment under it at any width or zoom.
-	.seg__thumb {
+	.ui-seg__thumb {
 		position: absolute;
 		z-index: -1;
 		top: var(--seg-pad);
 		bottom: var(--seg-pad);
-		left: var(--seg-pad);
+		inset-inline-start: var(--seg-pad);
 		width: calc((100% - 2 * var(--seg-pad)) / var(--seg-count));
 		border-radius: $radius-full;
 		background: #fff;
 		box-shadow:
 			0 1px 2px rgba(var(--color-shadow-ui-rgb), 0.1),
 			0 3px 10px rgba(var(--color-shadow-ui-rgb), 0.08);
-		transform: translateX(calc(var(--seg-index) * 100%));
+		transform: translateX(calc(var(--seg-index) * 100% * var(--_dir, 1)));
 		transition: transform var(--seg-duration, 280ms) var(--seg-ease, cubic-bezier(0.3, 0.7, 0.2, 1));
 	}
 
-	.seg__opt {
-		@include type-body;
-
+	.ui-seg__opt {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		gap: 6px;
-		min-height: 40px;
 		margin: 0;
-		padding: 0 $spacing-4;
 		border: 0;
 		border-radius: $radius-full;
 		background: none;
-		font-weight: $font-weight-medium;
-		line-height: 1;
 		white-space: nowrap;
 		color: var(--_label);
 		cursor: pointer;
@@ -238,10 +265,10 @@ const extras = await Promise.all(
 	}
 
 	// The sizes. md is the default above; sm, 36 tall at 14px, is for a toggle under a heading, where
-	// md would outweigh the heading's lede. Per breakpoint like Button's: `seg--sm-up-md`.
+	// md would outweigh the heading's lede. Per breakpoint like Button's: `ui-seg--sm-up-md`.
 	@mixin seg-size($size) {
 		@if $size == sm {
-			.seg__opt {
+			.ui-seg__opt {
 				@include type-small-strong;
 
 				min-height: 36px;
@@ -249,12 +276,12 @@ const extras = await Promise.all(
 				line-height: 1;
 			}
 
-			.seg__icon {
+			.ui-seg__icon {
 				width: 18px;
 				height: 18px;
 			}
 		} @else {
-			.seg__opt {
+			.ui-seg__opt {
 				@include type-body;
 
 				min-height: 40px;
@@ -263,38 +290,41 @@ const extras = await Promise.all(
 				line-height: 1;
 			}
 
-			.seg__icon {
+			// 20, the site's icon size beside 16px type.
+			.ui-seg__icon {
 				width: 20px;
 				height: 20px;
 			}
 		}
 	}
 
-	.seg--sm {
+	// md by default; a size class after it overrides it.
+	.ui-seg {
+		@include seg-size(md);
+	}
+
+	.ui-seg--sm {
 		@include seg-size(sm);
 	}
 
 	@each $bp in (sm, md, lg) {
 		@include media-up($bp) {
 			@each $size in (sm, md) {
-				.seg--#{$bp}-up-#{$size} {
+				.ui-seg--#{$bp}-up-#{$size} {
 					@include seg-size($size);
 				}
 			}
 		}
 	}
 
-	// 20, the site's icon size beside 16px type.
-	.seg__icon {
+	.ui-seg__icon {
 		flex: none;
-		width: 20px;
-		height: 20px;
 	}
 
 	// The last resort for a label with no `shortLabel` that still does not fit: cut with an
 	// ellipsis inside its own segment rather than widening it out from under the thumb. Its own
 	// line-height, because a clip at the button's 1 cuts the descenders.
-	.seg__label {
+	.ui-seg__label {
 		min-width: 0;
 		overflow: hidden;
 		line-height: 1.4;
@@ -302,46 +332,46 @@ const extras = await Promise.all(
 	}
 
 	// `display: none`, so the label not showing is out of the accessibility tree too.
-	.seg__label--short {
+	.ui-seg__label--short {
 		display: none;
 	}
 
 	// A phone holds the segments at full width, equal (`minmax(0, 1fr)`: a bare 1fr has a
 	// min-content floor and a long label grew its segment out from under the thumb), 44 tall for a
 	// thumb pressing it, and a `shortLabel` takes over.
-	@media (max-width: 480px) {
-		.seg {
+	@include media-down(sm) {
+		.ui-seg {
 			display: grid;
 			grid-auto-columns: minmax(0, 1fr);
 			width: 100%;
 		}
 
-		.seg__label--long {
+		.ui-seg__label--long {
 			display: none;
 		}
 
-		.seg__label--short {
+		.ui-seg__label--short {
 			display: inline;
 		}
 
-		.seg .seg__opt {
+		.ui-seg .ui-seg__opt {
 			min-height: 44px;
 			padding: 0 $spacing-3;
 		}
 
 		// Three segments share 343px: the icons go and the sides close to 8, so the words stay whole.
-		.seg--three .seg__icon {
+		.ui-seg--three .ui-seg__icon {
 			display: none;
 		}
 
-		.seg--three .seg__opt {
+		.ui-seg--three .ui-seg__opt {
 			padding-inline: $spacing-2;
 		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.seg__thumb,
-		.seg__opt {
+		.ui-seg__thumb,
+		.ui-seg__opt {
 			transition: none;
 		}
 	}

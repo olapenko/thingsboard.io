@@ -14,9 +14,9 @@ import type { CompareColumn, CompareGroup, CompareRow } from '@data/product-bloc
  * `pnpm lint:landmarks` checks are the shell's, not this file's.
  *
  * FROM 880 it is a table under a header pill that pins below the fixed bar while the rows scroll
- * past it. BELOW 880 it is not a table at all: each row becomes a block — the label, then its two
- * values, each one labelled with its column — so the two things being compared are on screen
- * together instead of a scroll apart. The column names in the cells are real text rather than
+ * past it. BELOW 880 it is not a table at all: each row becomes a block — the label, then its
+ * values, each one labelled with its column — so the things being compared are on screen together
+ * instead of a scroll apart. The column names in the cells are real text rather than
  * `::before` content: a reflowed table loses its table semantics the moment `display` stops being
  * `table-*`, so every cell says what it is on its own, for a screen reader and for an extractor.
  *
@@ -73,8 +73,9 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 			<>
 				{group && (
 					<tr class="product-matrix__group">
-						{/* A group heading spans the table, so it is a header for everything under it. */}
-						<th scope="colgroup" colspan={columns.length + 1}>
+						{/* A heading across the table. The table is one body, so it scopes nothing: each row
+						    header below carries the group's name for a screen reader instead. */}
+						<th colspan={columns.length + 1}>
 							<span class="product-matrix__group-title">
 								<Mark size={36} icon={group.icon} accent={group.color} />
 								{group.title}
@@ -84,7 +85,10 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 				)}
 				{rows.map((row) => (
 					<tr>
-						<th scope="row">{row.label}</th>
+						<th scope="row">
+							{row.label}
+							{group && <span class="ui-sr">{`, ${group.title}`}</span>}
+						</th>
 						{row.values.map((value, i) => (
 							<td class:list={[!included(value) && 'product-matrix__none']}>
 								{/* The column's name, in the cell: hidden from 880, where the header row
@@ -285,9 +289,9 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 				}
 			}
 
-			// 7em is "Private Cloud" plus a little — the longer of Cloud's two names, measured, rather
-			// than a round number. Every pixel over that comes out of the value beside it, which is the
-			// column doing the actual work.
+			// 7em is "Private Cloud" plus a little — the longest column name the pages use, measured,
+			// rather than a round number. Every pixel over that comes out of the value beside it, which
+			// is the column doing the actual work.
 			td {
 				display: grid;
 				grid-template-columns: 7em minmax(0, 1fr);

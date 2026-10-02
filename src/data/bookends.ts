@@ -1,7 +1,8 @@
-import { installProducts, type InstallOption, type InstallRegion } from '@data/installationsHub';
+import { installProducts, type InstallOption } from '@data/installationsHub';
 import { onPremCtas } from '@data/onPremPage';
 import { paasCtas } from '@data/paasPage';
-import { INSTALL_GUIDE_HREF } from '@data/cta-destinations';
+import { CLOUD_SIGNUP, INSTALL_GUIDE_HREF } from '@data/cta-destinations';
+import type { Scheme } from '@util/ui-kit';
 import { FOOTER_LICENSE_PORTAL } from '@data/footer-map';
 import { pricingClosing } from '@data/pricingPage';
 
@@ -40,7 +41,9 @@ export interface BookendLink {
 export interface Bookend {
 	title: string;
 	lead: string;
-	/** The mark's squircle on the light ground, where it is filled (the product pages' app logo). */
+	/** The scheme everything inside takes: its buttons, links and marks. */
+	scheme: Extract<Scheme, 'brand' | 'onprem'>;
+	/** The wave's colour on the light ground: the scheme's fill, as a colour the wave field takes. */
 	accent: string;
 	/**
 	 * The product's badge — the mark knocked out of `accent` — over the title in the column layout:
@@ -90,9 +93,6 @@ const cloud = installProducts.find((p) => p.id === 'cloud');
 if (!onPremises?.options || !cloud?.regions)
 	throw new Error('bookends: the installations hub lost its regions or guides');
 
-/** Cloud's two regions, as the hub lists them: North America, then Europe. */
-export const BOOKEND_REGIONS: InstallRegion[] = cloud.regions;
-
 /**
  * Four of the On-premises guides, not all seven: the ones most installs start from — the container,
  * the server OS, the cluster, the board — and a link to the rest. Picked by guide, so a relabel in the
@@ -123,13 +123,14 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 	home: {
 		title: 'Ready to build your IoT solution with ThingsBoard?',
 		lead: 'Start free in the cloud, install On-premises on your own infrastructure, or talk to our team about your specific use case.',
+		scheme: 'brand',
 		accent: '#3d50f5',
 		band: '#f5f6ff',
 		primary: {
 			text: 'Start free on Cloud',
-			href: 'https://thingsboard.cloud/signup',
+			href: CLOUD_SIGNUP.href,
 			icon: 'tabler:cloud-filled',
-			attrs: { 'data-cloud-auth': 'signup' },
+			attrs: { ...CLOUD_SIGNUP.attrs },
 		},
 		secondary: { text: 'Install On-premises', href: INSTALL_GUIDE_HREF, icon: 'tabler:download' },
 		ask: { label: 'Evaluating for a large deployment?', action: TALK },
@@ -150,9 +151,9 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 		cards: {
 			primary: {
 				text: 'Try for free',
-				href: 'https://thingsboard.cloud/signup',
+				href: CLOUD_SIGNUP.href,
 				icon: 'tabler:cloud-filled',
-				attrs: { 'data-cloud-auth': 'signup' },
+				attrs: { ...CLOUD_SIGNUP.attrs },
 			},
 			items: [
 				{ title: 'Pricing', line: 'Cloud plans and self-hosted licences.', href: '/pricing/', icon: 'tabler:tag' },
@@ -167,6 +168,7 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 		title: 'Ready to build on ThingsBoard Cloud?',
 		badge: true,
 		lead: 'Start free on Public Cloud in under five minutes, or talk to our team about a dedicated Private Cloud cluster.',
+		scheme: 'brand',
 		accent: '#3d50f5',
 		band: '#f5f6ff',
 		primary: {
@@ -189,6 +191,7 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 		title: pricingClosing.title,
 		lead: pricingClosing.lead,
 		icon: 'tabler:tag',
+		scheme: 'brand',
 		accent: '#3d50f5',
 		band: '#f5f6ff',
 		primary: {
@@ -213,6 +216,7 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 		title: 'Ready to deploy ThingsBoard?',
 		badge: true,
 		lead: 'Start on the Free plan and run it on your own hardware, or talk to our team about a perpetual licence and offline operation.',
+		scheme: 'onprem',
 		accent: '#178649',
 		band: '#f1f8f4',
 		primary: { text: onPremCtas.install.text, href: onPremCtas.install.href, icon: 'tabler:server' },

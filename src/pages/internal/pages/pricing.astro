@@ -14,8 +14,9 @@ import ProductFaq from '@components/Landing/ProductFaq.astro';
 
 import PricingBackground from '@components/Pricing/PricingBackground.astro';
 import { buildFaqPageSchema } from '@util/faq-schema';
-import { CLOUD_REGIONS, LAST_REGION } from '@util/cloud-regions';
+import { CLOUD_REGIONS } from '@util/cloud-regions';
 
+import PricingPrepaint from './_PricingPrepaint.astro';
 import PlanCards from './_PlanCards.astro';
 import AddOnCards from './_AddOnCards.astro';
 import TopUpList from './_TopUpList.astro';
@@ -106,9 +107,6 @@ const cloudRegion = {
 };
 
 const CONTACT_PRIVATE_CLOUD = byId('thingsboard-private-cloud').choice.cta.href;
-
-/** What the pre-paint script needs, and nothing else. */
-const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey: LAST_REGION.key };
 ---
 
 <BaseLayout
@@ -141,51 +139,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 				items={tabs.map((d) => ({ label: d.name, icon: d.icon, panel: `plans-${d.id}`, title: mainTabTooltips[d.id] }))}
 			/>
 
-			{
-				/* Before paint: the tab from `?product=` (main's ids, and its legacy `?section=`), the
-			    On-premises licence from `?solution=`, and Cloud's region from the one the visitor last
-			    signed up or in with, else the nearest by timezone — `util/cloud-regions`, restated, since
-			    an inline script cannot import it. The state lives on <html> and the CSS shows the
-			    matching blocks, so a deep link never paints Cloud first and then swaps. */
-			}
-			<script is:inline define:vars={{ prepaint }}>
-				(function () {
-					var root = document.documentElement;
-					var p = new URLSearchParams(location.search);
-					var deploy = p.get('product');
-					if (prepaint.ids.indexOf(deploy) === -1) {
-						deploy = p.get('section') === 'thingsboard-pe-options' ? 'thingsboard-pe' : prepaint.fallback;
-					}
-					var region = null;
-					try {
-						region = localStorage.getItem(prepaint.regionKey);
-					} catch (e) {
-						// No storage: fall through to the timezone.
-					}
-					if (region !== 'us' && region !== 'eu') {
-						var tz = '';
-						try {
-							tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-						} catch (e) {
-							// No Intl: North America, where the site sent everyone before it asked.
-						}
-						region = /^(Europe|Africa|Atlantic)\//.test(tz) ? 'eu' : 'us';
-					}
-					root.dataset.deploy = deploy;
-					root.dataset.cloudRegion = region;
-					root.dataset.pcBilling = 'monthly';
-					root.dataset.onpremBilling =
-						(p.get('solution') || '').replace(/^pe-/, '') === 'perpetual' ? 'perpetual' : 'payg';
-					// The tab set (`ui/Tabs`): the chosen tab, its tab stop, and the thumb under it.
-					var list = document.currentScript.parentElement.querySelector('.p2-deploy');
-					list.querySelectorAll('[role="tab"]').forEach(function (tab, i) {
-						var on = tab.id === 'plans-' + deploy + '-tab';
-						tab.setAttribute('aria-selected', on ? 'true' : 'false');
-						tab.tabIndex = on ? 0 : -1;
-						if (on) list.style.setProperty('--seg-index', i);
-					});
-				})();
-			</script>
+			<PricingPrepaint tabs="p2-deploy" ids={MAIN_TAB_ORDER} />
 		</header>
 
 		{/* ─── On-premises ──────────────────────────────────────────────────────────────────── */}
@@ -227,6 +181,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 					size="sm"
 					label="Licensing"
 					name="onpremBilling"
+					initialFromRoot
 					options={(['payg', 'perpetual'] as const).map((value) => ({
 						label: mainCopy.licensing[value].label,
 						value,
@@ -358,6 +313,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 					size="sm"
 					label="Cloud region"
 					name="cloudRegion"
+					initialFromRoot
 					options={CLOUD_REGIONS.map((r) => ({ label: r.name, value: r.id }))}
 				/>
 			</div>
@@ -434,6 +390,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 					size="sm"
 					label="Billing period"
 					name="pcBilling"
+					initialFromRoot
 					options={[
 						{ label: tbPrivateCloudData.billingOptions.monthly, value: 'monthly' },
 						{
@@ -526,101 +483,9 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 </BaseLayout>
 
 <script>
-	import { setSegmented, type SegmentedSelect } from '@util/segmented';
+	import { mountPricingState } from './_pricing-state';
 
-	const root = document.documentElement;
-	const onPage = () => !!document.querySelector('[data-pricing-draft]');
-	const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-	/** Under the fixed bar, with the same air the FAQ sidebar keeps from it. */
-	function scrollToElement(el: Element) {
-		const bar = parseFloat(getComputedStyle(root).getPropertyValue('--home-header-h')) || 64;
-		const top = el.getBoundingClientRect().top + window.scrollY - bar - 24;
-		window.scrollTo({ top, behavior: reducedMotion() ? 'auto' : 'smooth' });
-	}
-
-	/** The address follows the view, so a link copied from here opens on what you were reading. */
-	function updateUrl(edit: (params: URLSearchParams) => void) {
-		const url = new URL(location.href);
-		edit(url.searchParams);
-		history.replaceState(history.state, '', url);
-	}
-
-	/** Every toggle's pressed state, from the <html> attribute it writes. */
-	function syncSegments() {
-		document.querySelectorAll<HTMLElement>('[data-segmented-name]').forEach((group) => {
-			const value = root.dataset[group.dataset.segmentedName!];
-			if (value) setSegmented(group, value);
-		});
-	}
-
-	function selectDeploy(id: string) {
-		root.dataset.deploy = id;
-		// Main's `?section=` is dropped once read; `?solution=` only means anything on-prem.
-		updateUrl((params) => {
-			params.set('product', id);
-			params.delete('section');
-			if (id !== 'thingsboard-pe') params.delete('solution');
-		});
-	}
-
-	// The deployment tabs are `ui/Tabs`: it moves the selection, the focus and the thumb, and asks
-	// first. The page shows its blocks from <html> rather than through `hidden`, so it takes over.
-	document.addEventListener('tabs:change', (event) => {
-		const list = event.target as Element;
-		if (!list.classList?.contains('p2-deploy')) return;
-		event.preventDefault();
-		const panel = (event as CustomEvent<{ panel: HTMLElement | null }>).detail.panel;
-		if (panel) selectDeploy(panel.id.replace(/^plans-/, ''));
-	});
-
-	// Every other choice is a `ui/Segmented` toggle: its value goes to <html>, where the CSS reads it.
-	document.addEventListener('segmented:select', (event) => {
-		if (!onPage()) return;
-		const { name, value } = (event as CustomEvent<SegmentedSelect>).detail;
-		if (!name) return;
-		root.dataset[name] = value;
-		syncSegments();
-		if (name === 'onpremBilling') {
-			updateUrl((params) => {
-				if (value === 'perpetual') params.set('solution', 'pe-perpetual');
-				else params.delete('solution');
-			});
-		}
-	});
-
-	// Delegated once, on the document: the site swaps the body between pages, and these keep working
-	// on whatever body is in.
-	document.addEventListener('click', (event) => {
-		const target = event.target as Element | null;
-		if (!target || !onPage()) return;
-
-		// A link to another deployment's plans ("See Private Cloud plans") presses its tab.
-		const go = target.closest<HTMLAnchorElement>('[data-deploy-go]');
-		if (go) {
-			event.preventDefault();
-			document.getElementById(`plans-${go.dataset.deployGo}-tab`)?.click();
-			const tablist = document.querySelector('.p2-deploy');
-			if (tablist) scrollToElement(tablist);
-			return;
-		}
-
-		// A tooltip's "Read more": the answer it was cut from, with its topic selected, "More
-		// questions" opened if it is past the first six, and the answer itself expanded.
-		const more = target.closest<HTMLAnchorElement>('[data-faq-link]');
-		if (more) {
-			const answer = document.getElementById(more.hash.slice(1)) as HTMLDetailsElement | null;
-			if (!answer) return;
-			event.preventDefault();
-			const panel = answer.closest<HTMLElement>('[role="tabpanel"]');
-			if (panel?.hidden) document.getElementById(panel.getAttribute('aria-labelledby') ?? '')?.click();
-			// Past the first six: held back until "More questions" opens them.
-			if (panel && answer.hidden) panel.querySelector<HTMLButtonElement>('[data-faq-more]')?.click();
-			answer.open = true;
-			scrollToElement(answer);
-			answer.querySelector('summary')?.focus({ preventScroll: true });
-		}
-	});
+	mountPricingState({ tabs: 'p2-deploy', plans: () => document.querySelector('.p2-deploy') });
 
 	/**
 	 * A shown tip, kept 12px inside the window: centred on its ⓘ it overruns the edge beside a row's
@@ -652,14 +517,6 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			if (active?.classList.contains('tip__btn')) active.blur();
 		}
 	});
-
-	// The toggles render on their defaults; the pre-paint script may have chosen otherwise.
-	function init() {
-		if (onPage()) syncSegments();
-	}
-
-	init();
-	document.addEventListener('astro:page-load', init);
 </script>
 
 <style is:global lang="scss">
@@ -667,68 +524,13 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 	@use '../../../styles/surface' as *;
 	// The bar every new page shares. Everything else is the kit's or this page's own.
 	@use '../../../styles/marketing-bar';
+	// Which blocks show, by the state on <html>.
+	@use './pricing-state';
 
 	// Main's ground: the wave field is fixed behind the page, so the body lets it through in light
 	// mode, as the contact page does.
 	:root:not([data-theme='dark']) body:has(.p2) {
 		background-color: transparent;
-	}
-
-	// ---------------------------------------------------------------------------------------------
-	// WHICH BLOCKS SHOW. The state is on <html>, written before paint; with no script at all the
-	// defaults hold: Cloud, North America, monthly, subscription.
-	// ---------------------------------------------------------------------------------------------
-	$deployments: thingsboard-cloud, thingsboard-private-cloud, thingsboard-pe;
-
-	[data-deploy-panel]:not([data-deploy-panel='thingsboard-cloud']),
-	[data-region-show='eu'],
-	[data-billing-show='annual'],
-	[data-onprem-show='perpetual'] {
-		display: none;
-	}
-
-	html[data-deploy] [data-deploy-panel] {
-		display: none;
-	}
-
-	@each $id in $deployments {
-		html[data-deploy='#{$id}'] [data-deploy-panel='#{$id}'] {
-			display: block;
-		}
-	}
-
-	html[data-cloud-region='eu'] {
-		[data-region-show='us'] {
-			display: none;
-		}
-
-		[data-region-show='eu'] {
-			display: block;
-		}
-	}
-
-	html[data-pc-billing='annual'] {
-		[data-billing-show='monthly'] {
-			display: none;
-		}
-
-		[data-billing-show='annual'] {
-			display: inline;
-		}
-	}
-
-	html[data-onprem-billing='perpetual'] {
-		[data-onprem-show='payg'] {
-			display: none;
-		}
-
-		[data-onprem-show='perpetual'] {
-			display: block;
-		}
-
-		span[data-onprem-show='perpetual'] {
-			display: inline;
-		}
 	}
 
 	// THE ACCENT is the scheme: brand on the page, `data-accent="onprem"` on On-premises' blocks and
@@ -753,12 +555,6 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		@include media-down(md) {
 			padding-top: calc(var(--home-header-h, #{$header-height}) + #{$spacing-6});
 		}
-	}
-
-	// `:where(section)` paints every section the page colour; these sit on the waves.
-	.p2-panel,
-	.p2-faq {
-		background-color: transparent;
 	}
 
 	.p2-panel {
@@ -791,7 +587,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 	// reads as the label's rather than as a third item in the pill. Muted in both states — the
 	// pressed option's glyph rule would otherwise colour it, and an accent ⓘ reads as a second control.
 	// Its tooltip also opens while the option has focus.
-	.seg__opt .tip--inline {
+	.ui-seg__opt .tip--inline {
 		margin-left: -#{$spacing-1};
 
 		.tip__btn {
@@ -1086,7 +882,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 
 	.tip:hover .tip__body,
 	.tip:focus-within .tip__body,
-	.seg__opt:focus-visible .tip--inline .tip__body {
+	.ui-seg__opt:focus-visible .tip--inline .tip__body {
 		display: block;
 		animation: tip-in 0.12s ease;
 
@@ -1186,12 +982,9 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		gap: $spacing-2;
 	}
 
+	// A row of a list: the kit's surface, as a region row is.
 	.topup {
-		border-radius: $radius-lg;
-		background-color: #fff;
-		box-shadow:
-			0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.05),
-			0 2px 8px -4px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.08);
+		@include surface(row);
 
 		summary {
 			display: flex;
