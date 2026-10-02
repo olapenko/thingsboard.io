@@ -6,6 +6,7 @@ import { formatMarketingTitle, SITE_NAME } from '@root/consts.ts';
 import { getOgImageUrl } from '@util/getOgImageUrl';
 import { getSectionFromPath } from '@util/path-utils';
 import { resolveHeaderConfig, type HeaderVariant } from '@util/header-config';
+import { toLcpPreloadEntries, type LcpPreload } from '@util/lcp-preload';
 
 // BaseLayout — site-wide marketing layout backed by `<StarlightPage>`.
 // The body content is copied verbatim into the page's default slot
@@ -48,7 +49,7 @@ interface Props {
 	 * background — an <img> in the markup needs no entry. Pointing it at a
 	 * decorative image makes that image compete with the real target.
 	 */
-	preloadLcpImage?: string;
+	preloadLcpImage?: LcpPreload;
 	/**
 	 * The marketing footer to close the page with, forwarded to `starlight/Footer.astro` as
 	 * `Astro.locals.bslFooter`. `map` is `FooterMap`; omitted is `Landing/Footer`, every page's.
@@ -151,10 +152,14 @@ const head: HeadEntry[] = [
 	{ tag: 'meta', attrs: { name: 'twitter:site', content: '@thingsboard' } },
 ];
 if (preloadLcpImage) {
-	head.push({
-		tag: 'link',
-		attrs: { rel: 'preload', as: 'image', href: preloadLcpImage, fetchpriority: 'high' },
-	});
+	// One <link> per variant, each with its media query, so the phone never downloads the desktop
+	// footage and vice versa (`util/lcp-preload`); the string form stays one unconditional link.
+	for (const { href, media } of toLcpPreloadEntries(preloadLcpImage)) {
+		head.push({
+			tag: 'link',
+			attrs: { rel: 'preload', as: 'image', href, fetchpriority: 'high', ...(media ? { media } : {}) },
+		});
+	}
 }
 if (ogImageAlt) {
 	head.push({ tag: 'meta', attrs: { property: 'og:image:alt', content: ogImageAlt } });

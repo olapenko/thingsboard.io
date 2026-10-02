@@ -1,0 +1,883 @@
+---
+import { Icon } from 'astro-icon/components';
+import { TRUST_CERTS, TRUST_REPO, TRUST_SCALE_STAGES, TRUST_STAGES_LABELS, type TrustKind } from '@data/home-trust';
+import { GITHUB_STARS } from '@data/github-stars';
+import { SCALE_LOGOS, SCALE_MODES } from '@data/scale-visual';
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+
+/**
+ * The trust band's drawings, `TrustBand`'s default: drawn beside `TrustVisual` as a candidate and
+ * promoted over it on 2026-09-27, when that one became the sandbox's `cards` reference.
+ *
+ *   security  the shield back, in the brand's indigo, beside two white ISO seals; no SSO or 2FA
+ *   scale     ONE TOPOLOGY AT A TIME, growing: its nodes first, then its name and devices, then a
+ *             devices bar in 25 / 25 / 50 that fills left to right, each notch it crosses
+ *             selecting the next topology — monolith, hybrid storage, the cluster — and its stores lit
+ *   open      the repo as GitHub shows it: the ThingsBoard mark as the org's avatar, white on the
+ *             On-premises green, the repo's name as the link, and the star count under it
+ *
+ * THE SCALE LOOP is 9s, six beats of the nodes' 1.5s pulse, and every event lands on the grid. The
+ * bar fills at ONE pace over the first four beats, so time is the bar: the monolith one beat, hybrid
+ * one, the cluster two, each handover on a pulse. The cluster's nodes join as the fill passes their
+ * share of its section, one every half beat, so the growth is the bar's. Then two beats whole with
+ * the bar full, and the fold home.
+ *
+ * ONE STRIP OF NODES, NOT ONE PER STAGE, so the drawing grows rather than switching. The stage's hue
+ * is one animated colour (`--trs-node-hue`, registered so it can blend) that the nodes, their pale
+ * cells, their links and the bar all read: the monolith's node turns teal as hybrid takes over — the
+ * same instance, its storage changed — then violet, and the cluster's other four join it one by
+ * one, each popping in as its link draws out to it. At the end they shrink back into the first as
+ * the hue blends home to the monolith's, so the loop closes without a cut. Every lit node pulses.
+ * The names and devices still dissolve stage to stage. Without motion it rests on the cluster.
+ *
+ * 260 units wide and 136 tall, 24 more than `TrustVisual`'s box so the scale stages can
+ * breathe; the seals and the repo sit centred in it. Type floor 13 units (the repo's
+ * "Public" pill, as small as GitHub sets it), so R = 260 / 13 = 20: ~15px on a phone.
+ */
+
+interface Props {
+	kind: TrustKind;
+}
+
+const { kind } = Astro.props;
+
+const NATIVE = 260;
+const BODY_H = 136;
+
+// --- scale ------------------------------------------------------------------------------------
+const CELLS = 5;
+const S = 24;
+const G = S / 5;
+const STRIP_W = CELLS * S + (CELLS - 1) * G;
+const T = S / 3;
+const BLEED = S / 15;
+const r2 = (v: number) => +v.toFixed(2);
+const at = (n: number) => r2(n * (S + G));
+const STORES = SCALE_MODES[SCALE_MODES.length - 1].stack;
+/**
+ * The run of stages that lights each store, first to last — PostgreSQL stays lit from the monolith
+ * into hybrid, which adds Cassandra beside it. A store's stages must be consecutive.
+ */
+const storeRange = (store: string) => {
+	const lit = TRUST_SCALE_STAGES.flatMap((st, i) => (st.stores.includes(store) ? [i] : []));
+	return `${lit[0]}-${lit[lit.length - 1]}`;
+};
+/** Where each stage ends on the devices bar, 0–1: the running sum of the spans. */
+const spanTotal = TRUST_SCALE_STAGES.reduce((sum, st) => sum + st.span, 0);
+const meterAt = TRUST_SCALE_STAGES.map(
+	(_, i) => +(TRUST_SCALE_STAGES.slice(0, i + 1).reduce((sum, st) => sum + st.span, 0) / spanTotal).toFixed(4)
+);
+/** The stages' hues, for the one animated node hue. */
+const scaleVars = TRUST_SCALE_STAGES.map((st, i) => `--trs-hue-${i}: ${st.hue}`).join('; ');
+/** The most nodes any stage lights: the cluster's. */
+const NODES = Math.max(...TRUST_SCALE_STAGES.map((st) => st.cells));
+
+// --- openness ---------------------------------------------------------------------------------
+const stars = GITHUB_STARS[TRUST_REPO];
+const starsShort = stars === undefined ? undefined : `${Math.floor(stars / 100) / 10}k`;
+const repoHref = `https://github.com/${TRUST_REPO}`;
+const [owner, repo] = TRUST_REPO.split('/');
+---
+
+<div class="trs-fit">
+	{kind === 'open' ? (
+		<div
+			class="trs"
+			style={`--trs-u: min(1.15px, calc(100cqw / ${NATIVE})); --trs-native: ${NATIVE}; --trs-body-h: ${BODY_H}`}
+		>
+			{/* Named by its content, not an aria-label: the visible owner/name is the name, the hidden
+				    tail after the foot adds the host and the count. An aria-label had to repeat every
+				    visible word (axe label-content-name-mismatch) and did not. */}
+			<a class="trs__repo" href={repoHref}>
+				<span class="trs__repo-head">
+					<span class="trs__avatar" aria-hidden="true" set:html={mark} />
+					<span class="trs__repo-name">
+						<span class="trs__owner">{owner}</span>
+						<span class="trs__slash">/</span>
+						<strong class="trs__name">{repo}</strong>
+					</span>
+				</span>
+				<span class="trs__repo-foot" aria-hidden="true">
+					{starsShort && (
+						<span class="trs__star-btn">
+							<Icon name="tabler:star" class="trs__star" />
+							Star
+							<span class="trs__counter">{starsShort}</span>
+						</span>
+					)}
+					<span class="trs__public">Public</span>
+					<Icon name="simple-icons:github" class="trs__gh" />
+				</span>
+				<span class="trs__sr">on GitHub{starsShort ? `, ${starsShort} stars` : ''}</span>
+			</a>
+		</div>
+	) : (
+		<div
+			class:list={['trs', `trs--${kind}`]}
+			role="img"
+			aria-label={TRUST_STAGES_LABELS[kind]}
+			style={`--trs-u: min(1.15px, calc(100cqw / ${NATIVE})); --trs-native: ${NATIVE}; --trs-body-h: ${BODY_H}; --trs-strip-w: ${r2(STRIP_W)}`}
+		>
+			{kind === 'security' ? (
+				<div class="trs__pair" aria-hidden="true">
+					<span class="trs__shield">
+						<Icon name="tabler:shield-lock-filled" />
+					</span>
+					<ul class="trs__seals" role="list">
+						{TRUST_CERTS.map((number) => (
+							<li class="trs__seal">
+								<svg class="trs__ribbon" viewBox="0 0 44 40">
+									<path class="trs__ribbon-band" d="M0 0h44v40L22 31 0 40z" />
+									<path class="trs__ribbon-fold" d="M22 0h22v40L22 31z" />
+								</svg>
+								<span class="trs__seal-disc">
+									<span class="trs__seal-body">ISO</span>
+									<span class="trs__seal-number">{number}</span>
+								</span>
+							</li>
+						))}
+					</ul>
+				</div>
+			) : (
+				<div class="trs__scale" aria-hidden="true" style={scaleVars}>
+					<div class="trs__strips">
+						<svg class="trs__strip" viewBox={`0 0 ${r2(STRIP_W)} ${r2(S)}`}>
+							{Array.from({ length: CELLS }, (_, n) => (
+								<rect class="trs__cell" x={at(n)} y={0} width={r2(S)} height={r2(S)} rx={r2(S / 3)} />
+							))}
+							{Array.from({ length: NODES - 1 }, (_, n) => (
+								<rect
+									class={`trs__link trs__bridge-${n + 1}`}
+									x={r2(at(n) + S - BLEED)}
+									y={r2((S - T) / 2)}
+									width={r2(G + BLEED * 2)}
+									height={r2(T)}
+								/>
+							))}
+							{Array.from({ length: NODES }, (_, n) => (
+								<g class:list={['trs__node', n > 0 && `trs__join-${n}`]} style={`--trs-hop: ${n}`}>
+									<rect class="trs__ping" x={at(n)} y={0} width={r2(S)} height={r2(S)} rx={r2(S / 3)} />
+									<rect class="trs__lit" x={at(n)} y={0} width={r2(S)} height={r2(S)} rx={r2(S / 3)} />
+								</g>
+							))}
+						</svg>
+					</div>
+					<div class="trs__stack-cell trs__heads">
+						{TRUST_SCALE_STAGES.map((st, i) => (
+							<p class={`trs__layer trs__stage-${i} trs__head`} style={`--trs-hue: ${st.hue}`}>
+								<span class="trs__mode">{st.mode}</span>
+								<span class="trs__devices">{st.devices}</span>
+							</p>
+						))}
+					</div>
+					<div class="trs__meter">
+						<span class="trs__meter-fill" />
+						{meterAt.slice(0, -1).map((at) => (
+							<span class="trs__notch" style={`--at: ${at}`} />
+						))}
+					</div>
+					<ul class="trs__logos" role="list">
+						{STORES.map((store) => (
+							<li class:list={[`trs__logo--s${storeRange(store)}`, store === 'Cassandra' && 'is-lens']}>
+								<Icon name={SCALE_LOGOS[store]} />
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+		</div>
+	)}
+</div>
+
+<style lang="scss">
+	@use 'sass:math';
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.trs-fit {
+		container-type: inline-size;
+	}
+
+	.trs {
+		--u: var(--trs-u);
+		--trs-indigo: var(--color-primary, #3d50f5);
+		// The shield's and the seals' lift: subtle, a contact line and a soft fall under each.
+		--trs-tile-shadow:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb), 0.1),
+			0 #{u(6)} #{u(14)} #{u(-6)} rgba(var(--color-shadow-ui-rgb), 0.22);
+
+		width: 100%;
+		max-width: u(var(--trs-native));
+		height: u(var(--trs-body-h));
+	}
+
+	// The seals and the repo are shorter than the box the scale needs: centred in it.
+	.trs:not(.trs--scale) {
+		display: flex;
+		align-items: center;
+	}
+
+	// --- security: the shield, then two seals ------------------------------------------------
+
+	// 72 + 20 + 72 + 20 + 72 = 256 of the 260: spread across the box rather than huddled at its left.
+	.trs__pair {
+		display: flex;
+		align-items: center;
+		gap: u(20);
+		height: u(72);
+	}
+
+	// The bookends' navy (`#121425`, the closing CTA's ground), lit from the top with a touch of the
+	// brand's indigo: the page's darkest, so the shield is the one solid thing beside the white seals.
+	// The shield itself fills more of the square: 52 of 72.
+	.trs__shield {
+		display: flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		width: u(72);
+		height: u(72);
+		border-radius: 23%;
+		color: #fff;
+		// A soft sheen from the top edge and a hairline of light along it, so the navy reads as a lit
+		// tile rather than a hole in the card.
+		background:
+			radial-gradient(120% 70% at 50% 0%, rgba(255, 255, 255, 0.12) 0%, transparent 70%),
+			linear-gradient(180deg, color-mix(in srgb, var(--trs-indigo) 22%, #121425) 0%, #121425 100%);
+		box-shadow:
+			inset 0 #{u(1)} 0 rgba(255, 255, 255, 0.16),
+			var(--trs-tile-shadow);
+
+		:global([data-icon]) {
+			width: u(52);
+			height: u(52);
+		}
+	}
+
+	.trs__seals {
+		display: flex;
+		gap: u(20);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	// White seals the shield's own size, with a grey ring inside the edge, so the shield is the one
+	// solid thing and the certificates read as the badges pinned beside it. The accent is on "ISO",
+	// the standard's name; the number is plain text under it.
+	.trs__seal {
+		position: relative;
+		flex: none;
+		width: u(72);
+		height: u(72);
+		margin: 0;
+	}
+
+	// One wide ribbon hanging straight down from the seal's foot, symmetrical, in the accent "ISO"
+	// takes, with a notch cut up into its end. It starts behind the disc, so only its lower 18 show;
+	// its right half a shade darker, as a fold catches the light.
+	.trs__ribbon {
+		position: absolute;
+		top: u(50);
+		left: 50%;
+		display: block;
+		width: u(44);
+		max-width: none;
+		height: u(40);
+		transform: translateX(-50%);
+		overflow: visible;
+	}
+
+	.trs__ribbon-band {
+		fill: var(--trs-indigo);
+	}
+
+	.trs__ribbon-fold {
+		fill: color-mix(in srgb, var(--trs-indigo) 82%, #000);
+	}
+
+	.trs__seal-disc {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		background: var(--color-bg-surface, #fff);
+		box-shadow: var(--trs-tile-shadow);
+
+		&::before {
+			content: '';
+			position: absolute;
+			inset: u(4);
+			border: max(1px, #{u(1.5)}) solid color-mix(in srgb, var(--color-text, #17181c) 14%, transparent);
+			border-radius: 50%;
+		}
+	}
+
+	.trs__seal-body {
+		margin-right: -0.14em;
+		font-size: u(14);
+		font-weight: $font-weight-bold;
+		line-height: u(16);
+		letter-spacing: 0.14em;
+		color: var(--trs-indigo);
+	}
+
+	.trs__seal-number {
+		font-size: u(18);
+		font-weight: $font-weight-medium;
+		line-height: u(22);
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text, #17181c);
+	}
+
+	// --- openness: the repo as GitHub shows it --------------------------------------------------
+
+	// GitHub's own greys, 6px corner and system font stack, so it reads as their UI; its link blue is
+	// the brand's, so the card is ours.
+	// The page's `#overflow li a` makes every list link brand blue; each part names its own colour.
+	.trs__repo {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: u(10);
+		box-sizing: border-box;
+		width: 100%;
+		padding: u(12) u(14);
+		border: 1px solid #d0d7de;
+		border-radius: u(6);
+		background: #fff;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+		text-decoration: none;
+		// Lifted a little off the card, softer than the seals' tiles: it is GitHub's UI, not a mark.
+		box-shadow:
+			0 1px 2px rgba(31, 35, 40, 0.06),
+			0 #{u(6)} #{u(16)} #{u(-6)} rgba(31, 35, 40, 0.16);
+		transition: border-color 150ms ease-out;
+
+		&:hover {
+			border-color: #8c959f;
+
+			.trs__name {
+				text-decoration: underline;
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--trs-indigo);
+			outline-offset: 2px;
+		}
+	}
+
+	// The link's hidden tail, see the markup.
+	.trs__sr {
+		@include visually-hidden;
+	}
+
+	// The name alone on the first line: at 260 it and the "Public" pill do not fit one, so the pill
+	// goes under it, beside the star count.
+	.trs__repo-head,
+	.trs__repo-foot {
+		display: flex;
+		align-items: center;
+		gap: u(8);
+		min-width: 0;
+	}
+
+	// The org's avatar: GitHub squares an organisation's, where a person's is round. White on the
+	// On-premises green (`$color-pe-dark`), as the On-premises page marks the product.
+	.trs__avatar {
+		display: flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		width: u(28);
+		height: u(28);
+		border-radius: u(6);
+		color: #fff;
+		// Lit from the top as the shield's tile is: a quarter of the lifted green at the top edge into
+		// the product green, a hairline of light along that edge, and a soft fall under it.
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, #{$color-pe-hover} 28%, #{$color-pe-dark}) 0%,
+			#{$color-pe-dark} 100%
+		);
+		box-shadow:
+			inset 0 #{u(1)} 0 rgba(255, 255, 255, 0.18),
+			0 1px 2px rgba(16, 24, 40, 0.1),
+			0 #{u(3)} #{u(6)} #{u(-2)} rgba(16, 24, 40, 0.18);
+
+		:global(svg) {
+			width: u(18);
+			height: u(18);
+		}
+	}
+
+	.trs__repo-name {
+		overflow: hidden;
+		font-size: u(15);
+		line-height: u(22);
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		color: var(--trs-indigo);
+	}
+
+	.trs__slash {
+		margin-inline: u(3);
+		color: #59636e;
+	}
+
+	.trs__name {
+		font-weight: 600;
+	}
+
+	// GitHub's own mark closing the foot, in its black: part of the card rather than a row of its own,
+	// which would repeat what the avatar and the name already say. The foot runs the card's width.
+	.trs__repo-foot {
+		align-self: stretch;
+	}
+
+	.trs__gh {
+		flex: none;
+		margin-left: auto;
+		width: u(28);
+		height: u(28);
+		color: #1f2328;
+	}
+
+	.trs__public {
+		flex: none;
+		padding: 0 u(7);
+		border: 1px solid #d0d7de;
+		border-radius: 2em;
+		font-size: u(13);
+		font-weight: 500;
+		line-height: u(20);
+		color: #59636e;
+	}
+
+	.trs__star-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: u(6);
+		height: u(30);
+		padding: 0 u(8) 0 u(10);
+		border: 1px solid #d0d7de;
+		border-radius: u(6);
+		background: #f6f8fa;
+		font-size: u(14);
+		font-weight: 500;
+		color: #25292e;
+	}
+
+	.trs__star {
+		width: u(16);
+		height: u(16);
+		color: #59636e;
+	}
+
+	.trs__counter {
+		padding: 0 u(6);
+		border-radius: 2em;
+		background: rgba(129, 139, 152, 0.16);
+		font-size: u(13);
+		font-weight: 600;
+		line-height: u(18);
+	}
+
+	// --- scale: one topology at a time --------------------------------------------------------
+
+	.trs__scale {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		// The nodes, the stage's name and devices, the bar, the stores:
+		// 6 + 24 + 12 + 20 + 12 + 6 + 12 + 4 + 40 = 136, the box.
+		grid-template-rows: u(24) u(20) u(6) auto;
+		row-gap: u(12);
+		padding-top: u(6);
+	}
+
+	// The three stages' names share one cell and take turns in it.
+	.trs__stack-cell {
+		display: grid;
+		grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+		min-width: 0;
+	}
+
+	.trs__layer {
+		grid-area: 1 / 1;
+		opacity: 0;
+	}
+
+	// The stages' hue as one colour that can blend: registered, so the loop animates it on
+	// `.trs__scale` and everything inside inherits the frame's value. At rest, the cluster's.
+	@property --trs-node-hue {
+		syntax: '<color>';
+		inherits: true;
+		initial-value: #6d28d9;
+	}
+
+	.trs__scale {
+		--trs-node-hue: var(--trs-hue-2);
+	}
+
+	.trs__strips {
+		grid-area: 1 / 1;
+		min-width: 0;
+	}
+
+	.trs__heads {
+		grid-area: 2 / 1;
+	}
+
+	.trs__head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: u(10);
+		margin: 0;
+		white-space: nowrap;
+	}
+
+	.trs__mode {
+		font-size: u(16);
+		font-weight: $font-weight-medium;
+		line-height: u(20);
+		color: var(--trs-hue);
+	}
+
+	.trs__devices {
+		font-size: u(16);
+		line-height: u(20);
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.trs__strip {
+		display: block;
+		width: u(var(--trs-strip-w));
+		max-width: none;
+		height: auto;
+		overflow: visible;
+	}
+
+	.trs__cell {
+		fill: color-mix(in srgb, var(--trs-node-hue) 14%, #fff);
+	}
+
+	.trs__lit {
+		fill: var(--trs-node-hue);
+	}
+
+	// A joining node pops from its own centre; a link draws out from the node before it.
+	.trs__node,
+	.trs__link {
+		transform-box: fill-box;
+	}
+
+	.trs__node {
+		transform-origin: center;
+	}
+
+	// The server's pulse, as `TrustVisual` has it: a copy of the lit cell that swells and fades
+	// behind it. A cluster cell's pulse sits in its grow group, so it only beats once the cell has joined.
+	.trs__ping {
+		opacity: 0;
+		fill: var(--trs-node-hue);
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+
+	.trs__link {
+		transform-origin: left center;
+		fill: var(--trs-node-hue);
+		fill-opacity: 0.45;
+	}
+
+	// The devices bar: a neutral track cut where each stage ends, in the stages' spans — 25 / 25 / 50.
+	// The fill grows from the left.
+	.trs__meter {
+		grid-area: 3 / 1;
+		position: relative;
+		overflow: hidden;
+		border-radius: u(3);
+		background: color-mix(in srgb, var(--color-text, #17181c) 8%, #fff);
+	}
+
+	.trs__meter-fill {
+		position: absolute;
+		inset: 0;
+		background: var(--trs-node-hue);
+		transform-origin: left center;
+	}
+
+	// The notches cut the track and the fill alike, in the card's own white.
+	.trs__notch {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: calc(var(--at) * 100% - #{u(1)});
+		width: u(2);
+		background: var(--color-bg-surface, #fff);
+	}
+
+	.trs__logos {
+		grid-column: 1 / -1;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin: u(4) 0 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			display: flex;
+			margin: 0;
+			opacity: 0.25;
+		}
+
+		:global([data-icon]) {
+			width: u(40);
+			height: u(40);
+			color: var(--color-text, #17181c);
+		}
+
+		.is-lens :global([data-icon]) {
+			transform: scale(1.18);
+		}
+	}
+
+	// AT REST, AND WITHOUT MOTION: the cluster — the last stage, the whole picture.
+	.trs__layer.trs__stage-2,
+	.trs__logos li:is(.trs__logo--s0-2, .trs__logo--s1-2, .trs__logo--s2-2) {
+		opacity: 1;
+	}
+
+	// ── The loop ──────────────────────────────────────────────────────────
+	// 9s = six beats of the 1.5s pulse. The bar fills at one pace over the first four beats (66.7%), so
+	// each stage's time is its section's width (`span`, 25 / 25 / 50): the monolith 1.5s, hybrid 1.5s,
+	// the cluster 3s of fill and 3s whole with the bar full, folding home in its last half-second.
+	//
+	// EVERY HANDOVER IS CENTRED ON ITS BOUNDARY: the names, the stores and the hue all cross-fade over
+	// the moment the fill crosses the notch, rather than one stage leaving before the next arrives.
+	// The loop's own seam, cluster to monolith, is a boundary like the others — at 100% and 0% both are
+	// halfway — so it wraps without a cut.
+	$fill: math.div(200%, 3);
+	$bounds: (0%, $fill * 0.25, $fill * 0.5, 100%);
+	$cluster: nth($bounds, 3);
+	// Half a cross-fade: ±1.5%, about 0.27s in all.
+	$xf: 1.5%;
+	$snap: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+	// One element lit over a run of stages, from stage $from's start to stage $to's end: $lo outside
+	// it, $hi inside, cross-faded at both ends. A run touching the seam (starting at the monolith or
+	// ending on the cluster) is halfway at 0% and 100%, so the fade continues across the wrap.
+	@mixin run($name, $from, $to, $lo, $hi) {
+		$s: nth($bounds, $from + 1);
+		$e: nth($bounds, $to + 2);
+		$mid: math.div($lo + $hi, 2);
+
+		@keyframes #{$name} {
+			@if $from == 0 and $to == 2 {
+				0%,
+				100% {
+					opacity: $hi;
+				}
+			} @else if $from == 0 {
+				0% {
+					opacity: $mid;
+				}
+				#{$xf},
+				#{$e - $xf} {
+					opacity: $hi;
+				}
+				#{$e + $xf},
+				#{100% - $xf} {
+					opacity: $lo;
+				}
+				100% {
+					opacity: $mid;
+				}
+			} @else if $to == 2 {
+				0% {
+					opacity: $mid;
+				}
+				#{$xf},
+				#{$s - $xf} {
+					opacity: $lo;
+				}
+				#{$s + $xf},
+				#{100% - $xf} {
+					opacity: $hi;
+				}
+				100% {
+					opacity: $mid;
+				}
+			} @else {
+				0%,
+				#{$s - $xf} {
+					opacity: $lo;
+				}
+				#{$s + $xf},
+				#{$e - $xf} {
+					opacity: $hi;
+				}
+				#{$e + $xf},
+				100% {
+					opacity: $lo;
+				}
+			}
+		}
+	}
+
+	// The names and devices, one stage each.
+	@for $i from 0 through 2 {
+		@include run(trs-stage-#{$i}, $i, $i, 0, 1);
+	}
+
+	// A store lights over its run of stages: PostgreSQL through the monolith and hybrid.
+	@for $i from 0 through 2 {
+		@for $j from $i through 2 {
+			@include run(trs-logo-#{$i}-#{$j}, $i, $j, 0.25, 1);
+		}
+	}
+
+	// One pace, so it crosses each notch on a beat as its stage hands over; holds full, and fades as the
+	// loop turns. Its hue is the nodes' one hue.
+	@keyframes trs-meter-fill {
+		0% {
+			transform: scaleX(0);
+		}
+		#{$fill},
+		97% {
+			transform: scaleX(1);
+			opacity: 1;
+		}
+		100% {
+			transform: scaleX(1);
+			opacity: 0;
+		}
+	}
+
+	// The one hue, blended over 4% centred on each boundary; the cluster's back to the monolith's over
+	// the last 5%, while its nodes fold home.
+	@keyframes trs-node-hue {
+		0%,
+		#{nth($bounds, 2) - 2%} {
+			--trs-node-hue: var(--trs-hue-0);
+		}
+		#{nth($bounds, 2) + 2%},
+		#{$cluster - 2%} {
+			--trs-node-hue: var(--trs-hue-1);
+		}
+		#{$cluster + 2%},
+		95% {
+			--trs-node-hue: var(--trs-hue-2);
+		}
+		100% {
+			--trs-node-hue: var(--trs-hue-0);
+		}
+	}
+
+	@keyframes trs-ping {
+		0% {
+			opacity: 0.5;
+			transform: scale(1);
+		}
+		22%,
+		100% {
+			opacity: 0;
+			transform: scale(1.45);
+		}
+	}
+
+	// The cluster scaling out and back. Node k joins as the fill passes k quarters of the cluster's
+	// section — every half beat, the last as the bar fills — its link drawing out to it just ahead, then
+	// it pops in past full size and settles. The whole cluster holds from 72% (1.6s), then folds home in
+	// reverse, the newest first, 1.5% apart, each link drawing back into the node before it.
+	@for $k from 1 through 4 {
+		$join: $cluster + ($fill - $cluster) * math.div($k, 4);
+		$leave: 90% + (4 - $k) * 1.5%;
+
+		@keyframes trs-join-#{$k} {
+			0%,
+			#{$join} {
+				opacity: 0;
+				transform: scale(0.4);
+			}
+			#{$join + 3%} {
+				opacity: 1;
+				transform: scale(1.08);
+			}
+			#{$join + 5%},
+			#{$leave} {
+				opacity: 1;
+				transform: scale(1);
+			}
+			#{$leave + 3%},
+			100% {
+				opacity: 0;
+				transform: scale(0.4);
+			}
+		}
+
+		@keyframes trs-bridge-#{$k} {
+			0%,
+			#{$join - 1%} {
+				transform: scaleX(0);
+			}
+			#{$join + 2%},
+			#{$leave} {
+				transform: scaleX(1);
+			}
+			#{$leave + 2.5%},
+			100% {
+				transform: scaleX(0);
+			}
+		}
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		@for $i from 0 through 2 {
+			.trs__layer.trs__stage-#{$i} {
+				animation: trs-stage-#{$i} 9s linear infinite;
+			}
+		}
+
+		@for $i from 0 through 2 {
+			@for $j from $i through 2 {
+				.trs__logos li.trs__logo--s#{$i}-#{$j} {
+					animation: trs-logo-#{$i}-#{$j} 9s linear infinite;
+				}
+			}
+		}
+
+		.trs__scale {
+			animation: trs-node-hue 9s linear infinite;
+		}
+
+		@for $k from 1 through 4 {
+			.trs__join-#{$k} {
+				animation: trs-join-#{$k} 9s $snap infinite;
+			}
+
+			.trs__bridge-#{$k} {
+				animation: trs-bridge-#{$k} 9s $snap infinite;
+			}
+		}
+
+		.trs__ping {
+			animation: trs-ping 1.5s ease-out infinite;
+			animation-delay: calc(var(--trs-hop, 0) * 100ms);
+		}
+
+		.trs__meter-fill {
+			animation: trs-meter-fill 9s linear infinite;
+		}
+	}
+</style>

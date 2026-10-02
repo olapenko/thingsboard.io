@@ -186,6 +186,15 @@ Segmented, Field, Card, Band, Dialog). **Read `src/components/ui/README.md` befo
 holds the rules (no page CSS for what a component owns, sizes are steps, colour from `data-accent`,
 the ground from `data-surface`). Every component renders live on the `lab` branch at `/internal/library/kit/`.
 
+### Key Visuals (the homepage)
+
+The homepage's illustrations in `src/components/Landing/` are drawn in CSS and SVG against a derived
+design unit, not exported as images. **Read `src/components/Landing/CLAUDE.md` before touching one** —
+it holds the unit pattern, the rule that predicts whether a visual survives a phone, and a list of
+gotchas that each cost an hour to find. What runs between the hero and the bookend is a running order
+in `src/data/home-compositions.ts`, rendered by `HomeSections`; `/` renders the first entry. The other
+orders, and every visual on its own, are judged on the `lab` branch (`LAB.md`).
+
 ### Use-Case Pages
 
 Data-driven pages at `/use-cases/{slug}`. Use the `use-case-pages` skill for data types, page composition, layout, and section components.
