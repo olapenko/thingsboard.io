@@ -112,6 +112,14 @@ interface Props {
 	 */
 	panel?: boolean;
 	/**
+	 * `split` only: the room round the copy. `standard` — the copy's own padding, which a note under
+	 * the buttons (the homepage's "Evaluating for a large deployment?") rounds out. `roomy` — for a
+	 * copy that ends on its buttons: 24 more above the headline and 24 more under the buttons, the
+	 * buttons still 32 from the lede, so a short lede and no note do not leave the copy a stub beside
+	 * the footage, and the block stays centred rather than riding high.
+	 */
+	ctaSpace?: 'standard' | 'roomy';
+	/**
 	 * Additional CSS class for hero section
 	 */
 	className?: string;
@@ -131,6 +139,7 @@ const {
 	achievement,
 	layout = 'center',
 	panel = true,
+	ctaSpace = 'standard',
 	className = '',
 } = Astro.props;
 
@@ -199,7 +208,11 @@ const MEASURE_COPY = `(() => {
 })();`;
 ---
 
-<section id="hero" class:list={['light-text', layout === 'split' && 'split', hasPanel && 'split--panel', className]}>
+<section
+	id="hero"
+	class:list={['light-text', layout === 'split' && 'split', hasPanel && 'split--panel', className]}
+	data-cta-space={ctaSpace === 'roomy' ? 'roomy' : undefined}
+>
 	<!-- arrow-hidden sentinel: IntersectionObserver-driven, replaces a forced-reflow scroll listener -->
 	<div class="hero-scroll-sentinel" aria-hidden="true"></div>
 	{
@@ -1255,6 +1268,22 @@ const MEASURE_COPY = `(() => {
 					}
 				}
 			}
+		}
+	}
+
+	// `ctaSpace="roomy"` (see the prop): the same room at both ends of the copy, so its centre stays
+	// where the centring puts it — room under the buttons alone rode the text 40px high. Margins, so
+	// the copy's measured height (`--hero-copy-h`, `--hero-copy-rest`) takes them in and the panel and
+	// the headline's fit follow.
+	#hero.split[data-cta-space='roomy'] #hero-content {
+		--hero-cta-room: 24px;
+
+		> :first-child {
+			margin-top: var(--hero-cta-room);
+		}
+
+		> :last-child {
+			margin-bottom: var(--hero-cta-room);
 		}
 	}
 
