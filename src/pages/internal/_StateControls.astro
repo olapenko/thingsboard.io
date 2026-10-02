@@ -1,0 +1,87 @@
+---
+/**
+ * The state every frame on a workbench page is judged in (`_chrome-state`): the theme, the bar at
+ * the top or scrolled, the Menu drawer closed or open. A press writes the state and every frame
+ * re-sources itself with it (`_Frames`). Which groups show is the page's call: the footer has no
+ * drawer to open.
+ */
+interface Props {
+	theme?: boolean;
+	scrolled?: boolean;
+	drawer?: boolean;
+}
+
+const { theme = true, scrolled = true, drawer = true } = Astro.props;
+---
+
+<div class="sc" data-state-controls>
+	{theme && (
+		<div class="page-ctl" role="group" aria-label="Theme">
+			<span class="page-ctl__name">Theme</span>
+			<button type="button" data-sc="theme" data-v="auto" aria-pressed="true">
+				System
+			</button>
+			<button type="button" data-sc="theme" data-v="light" aria-pressed="false">
+				Light
+			</button>
+			<button type="button" data-sc="theme" data-v="dark" aria-pressed="false">
+				Dark
+			</button>
+		</div>
+	)}
+	{scrolled && (
+		<div class="page-ctl" role="group" aria-label="Page position">
+			<span class="page-ctl__name">Page</span>
+			<button type="button" data-sc="scrolled" data-v="false" aria-pressed="true">
+				At the top
+			</button>
+			<button type="button" data-sc="scrolled" data-v="true" aria-pressed="false">
+				Scrolled
+			</button>
+		</div>
+	)}
+	{drawer && (
+		<div class="page-ctl" role="group" aria-label="Menu drawer">
+			<span class="page-ctl__name">Menu</span>
+			<button type="button" data-sc="drawer" data-v="false" aria-pressed="true">
+				Closed
+			</button>
+			<button type="button" data-sc="drawer" data-v="true" aria-pressed="false">
+				Open
+			</button>
+		</div>
+	)}
+</div>
+
+<script>
+	import { readState, writeState, type ChromeState } from '@root/pages/internal/_chrome-state';
+
+	const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-state-controls] [data-sc]')];
+
+	const paint = (state: ChromeState) => {
+		buttons.forEach((b) => {
+			const key = b.dataset.sc as keyof ChromeState;
+			b.setAttribute('aria-pressed', String(String(state[key]) === b.dataset.v));
+		});
+	};
+
+	buttons.forEach((b) =>
+		b.addEventListener('click', () => {
+			const key = b.dataset.sc as keyof ChromeState;
+			const v = b.dataset.v!;
+			paint(writeState({ [key]: key === 'theme' ? v : v === 'true' } as Partial<ChromeState>));
+		})
+	);
+
+	paint(readState());
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.sc {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-3;
+	}
+</style>

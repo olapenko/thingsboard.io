@@ -186,6 +186,14 @@ Segmented, Field, Card, Band, Dialog). **Read `src/components/ui/README.md` befo
 holds the rules (no page CSS for what a component owns, sizes are steps, colour from `data-accent`,
 the ground from `data-surface`). Every component renders live on the `lab` branch at `/internal/library/kit/`.
 
+### Internal pages (the `lab` branch)
+
+Everything under `src/pages/internal/` is review tooling, `noindex`, and exists only on `lab`: the
+Chrome workbench (header, footer, cookie notice, chat — every variation as a tab, the real page in
+frames) and the kit page. **Read `LAB.md`** for the branch model, the areas, how a direction or a
+part is added, and the gotchas. Never change a shipped component to try an idea — add a direction
+beside the one in use.
+
 ### Use-Case Pages
 
 Data-driven pages at `/use-cases/{slug}`. Use the `use-case-pages` skill for data types, page composition, layout, and section components.

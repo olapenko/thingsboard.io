@@ -1,0 +1,144 @@
+---
+import Workbench from '@root/pages/internal/_Workbench.astro';
+import Direction from '@root/pages/internal/_Direction.astro';
+import Frames from '@root/pages/internal/_Frames.astro';
+import StateControls from '@root/pages/internal/_StateControls.astro';
+import { chrome } from '@root/pages/internal/_chrome';
+
+/**
+ * THE HEADER: one bar for the whole site (`Landing/HeaderContent`), in each variant
+ * `util/header-config` defines and each state it takes. Every tab is the real bar on a real page,
+ * framed at the widths where it changes shape — 1440 (the search field fits), 1300 (the icon only),
+ * 1024 (the nav folds into Menu) — and on a 375 phone. The controls above the tabs set the state
+ * every frame is judged in: the theme, the bar at the top or scrolled into its solid state, the
+ * Menu drawer closed or open.
+ *
+ * Which variant a page gets is its layout's call (`BaseLayout`'s `headerVariant`; docs pages take
+ * `docs` through Starlight). A variant's two icons — search and the theme switch — come from
+ * `VARIANT_DEFAULTS` there, and a page can override either.
+ */
+const part = chrome('header');
+const stage = (variant: string) => `/internal/chrome/stage/header/${variant}/`;
+
+const DOCS_SAYS = {
+	1440: 'Search as a labelled field with its key hint, first in the group, before GitHub. No theme switch: Appearance is in the footer and the drawer.',
+	1300: 'The field does not fit beside the nav: a 40px icon instead.',
+	1024: 'The nav is in Menu; the icon stays in the bar beside Sign in.',
+	375: 'The icon beside Menu; with the drawer open it stays in the bar, beside Close. Appearance is the drawer’s last row.',
+};
+
+const MARKETING_SAYS = {
+	1440: 'The nav inline; GitHub, Sign in, Try for free at the end.',
+	1300: 'The nav still inline, the room beside it narrower.',
+	1024: 'The nav folds into Menu.',
+	375: 'Logo and Menu; the account buttons move into the drawer.',
+};
+---
+
+<Workbench title={part.label} description={part.blurb}>
+	<aside class="brief" slot="brief">
+		<p class="brief__kicker">The bar</p>
+		<dl class="brief__facts">
+			<div>
+				<dt>In use</dt>
+				<dd>
+					One header component on every route. <em>Docs</em> on the documentation (search as a field from 1440, no
+					theme switch in the bar); <em>transparent</em> on the homepage, over its hero, turning solid on scroll;
+					<em>solid-shadow</em> on fourteen pages and <em>solid-border</em> on eleven (the use cases among them),
+					<em>transparent-hover</em> on two; <em>common</em> for a page that sets nothing. Nothing uses <em>base</em>.
+				</dd>
+			</div>
+			<div>
+				<dt>Variants</dt>
+				<dd>
+					<code>util/header-config.ts</code> — <code>docs · common · transparent · transparent-hover · solid-border ·
+					solid-shadow · base</code>, each with its own defaults for the search and theme icons. A page sets
+					<code>headerVariant</code> on <code>BaseLayout</code> and may override <code>showSearch</code> and
+					<code>showThemeToggle</code>; <code>forceLightTheme</code> always drops the theme switch.
+				</dd>
+			</div>
+			<div>
+				<dt>Try</dt>
+				<dd>
+					Click into a frame and press <code>/</code> or Ctrl K on the docs tab. Set <em>Scrolled</em> to see the solid
+					state, <em>Open</em> to see the drawer at 1024 and on the phone, <em>Dark</em> for the pages that follow the
+					theme.
+				</dd>
+			</div>
+			<div>
+				<dt>Open</dt>
+				<dd>
+					Whether the bar should take FE-handoff’s responsive logo (160px from 1281, 215 from 1600, against the
+					180×60 box main keeps) and show the GitHub star count below 1500. Both are visual calls, not wiring.
+				</dd>
+			</div>
+		</dl>
+	</aside>
+
+	<StateControls slot="controls" />
+
+	<Direction
+		name="Docs"
+		shipping
+		source="headerVariant: docs (Starlight pages by default) · searchForm: field"
+		note="the documentation's bar: search as a 152×40 field with ⌘K from 1440 and a 40px icon below that; the theme switch out of the bar, replaced by Appearance in the docs footer and as the Menu drawer's last row"
+	>
+		<Frames route={stage('docs')} says={DOCS_SAYS} />
+		<Frames route={stage('docs')} says={DOCS_SAYS} phone />
+	</Direction>
+
+	<Direction
+		name="Transparent"
+		shipping
+		source="headerVariant: transparent (the homepage)"
+		note="over the homepage's dark hero: no search, no theme switch, the wordmark white; scrolled, it turns solid with a shadow and the wordmark dark"
+	>
+		<Frames route={stage('transparent')} says={MARKETING_SAYS} />
+		<Frames route={stage('transparent')} says={MARKETING_SAYS} phone />
+	</Direction>
+
+	<Direction
+		name="Solid border"
+		shipping
+		source="headerVariant: solid-border (the use-case pages)"
+		note="white with a hairline under it, search and the theme switch on"
+	>
+		<Frames route={stage('solid-border')} says={MARKETING_SAYS} />
+		<Frames route={stage('solid-border')} says={MARKETING_SAYS} phone />
+	</Direction>
+
+	<Direction
+		name="Common"
+		shipping
+		source="headerVariant: common (BaseLayout's default)"
+		note="the docs chrome without search: what a marketing page gets when it sets nothing"
+	>
+		<Frames route={stage('common')} says={MARKETING_SAYS} />
+		<Frames route={stage('common')} says={MARKETING_SAYS} phone />
+	</Direction>
+
+	<Direction
+		name="Transparent hover"
+		shipping
+		source="headerVariant: transparent-hover (two pages)"
+		note="transparent at rest, solid under the pointer and once scrolled; both icons on"
+	>
+		<Frames route={stage('transparent-hover')} says={MARKETING_SAYS} />
+		<Frames route={stage('transparent-hover')} says={MARKETING_SAYS} phone />
+	</Direction>
+
+	<Direction
+		name="Solid shadow"
+		shipping
+		source="headerVariant: solid-shadow (fourteen pages)"
+		note="white with a shadow instead of a hairline; no icons"
+	>
+		<Frames route={stage('solid-shadow')} says={MARKETING_SAYS} />
+		<Frames route={stage('solid-shadow')} says={MARKETING_SAYS} phone />
+	</Direction>
+
+	<Direction name="Base" source="headerVariant: base" note="the plain bar with both icons on; the variant the others derive from — no page sets it today">
+		<Frames route={stage('base')} says={MARKETING_SAYS} />
+		<Frames route={stage('base')} says={MARKETING_SAYS} phone />
+	</Direction>
+</Workbench>

@@ -1,0 +1,151 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import StageState from '@root/pages/internal/chrome/stage/_StageState.astro';
+import Devices, { getHeadings } from '@includes/docs/user-guide/devices.mdx';
+import { Products } from '@models/site.models';
+import type { HeaderVariant } from '@util/header-config';
+
+/**
+ * ONE HEADER VARIANT on a real page, for the header workbench's frames (`chrome/header.astro`).
+ *
+ * `docs` is a docs page proper: the PE "Devices" guide rendered through Starlight, which gives the
+ * bar the `docs` look by default (`starlight/Header.astro`). Every other variant is a marketing page
+ * through `BaseLayout` with that `headerVariant`: a dark hero first, so the transparent variants
+ * have something to be transparent over and a solid state to scroll into, then light copy. The real
+ * cookie notice, chat launcher and footer come with the layout, so a frame shows the whole corner.
+ *
+ * The frame's state (theme, scrolled, Menu open) arrives on the query; `_StageState` applies it.
+ * `noindex`, like every internal page.
+ */
+// Astro runs `getStaticPaths` on its own, before the rest of the frontmatter, so the list lives
+// inside it: a module-level constant is not defined when it runs.
+export function getStaticPaths() {
+	const variants = ['docs', 'transparent', 'transparent-hover', 'solid-border', 'solid-shadow', 'common', 'base'];
+	return variants.map((variant) => ({ params: { variant } }));
+}
+
+const variant = Astro.params.variant as 'docs' | HeaderVariant;
+const dark = variant === 'transparent' || variant === 'transparent-hover';
+---
+
+{
+	variant === 'docs' ? (
+		<StarlightPage
+			frontmatter={{
+				title: 'Devices',
+				description: 'Header stage: the docs bar on a docs page (internal).',
+				tableOfContents: true,
+				head: [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' } }],
+			}}
+			headings={getHeadings()}
+		>
+			<StageState />
+			<Devices product={Products.PE} />
+		</StarlightPage>
+	) : (
+		<BaseLayout
+			title={`Header stage · ${variant}`}
+			description="Header stage: one header variant on a marketing page (internal)."
+			headerVariant={variant}
+			noIndex
+		>
+			<StageState />
+			<main class:list={['st', dark && 'st--dark']}>
+				<section class="st__hero">
+					<div class="st__in">
+						<p class="st__eyebrow">Header stage · {variant}</p>
+						<h1 class="st__title">A page under the bar, in its {variant} variant</h1>
+						<p class="st__lede">
+							The bar above is the real one, with the real nav, Sign in, Try for free and the GitHub button. Scroll, open
+							Menu, press / — everything works as it does on the site.
+						</p>
+					</div>
+				</section>
+				{
+					[1, 2, 3].map((n) => (
+						<section class="st__band">
+							<div class="st__in">
+								<h2 class="st__h2">Section {n}</h2>
+								<p class="st__copy">
+									Running copy, so the page has a length to scroll through and the bar has a solid state to settle into.
+									Device management, data processing and visualisation for teams who build IoT for clients, with
+									white-labelled apps, multi-tenant isolation and any-device connectivity.
+								</p>
+							</div>
+						</section>
+					))
+				}
+			</main>
+		</BaseLayout>
+	)
+}
+
+<style lang="scss">
+	@use '../../../../../styles/variables' as *;
+
+	.st__in {
+		max-width: 1000px;
+		margin: 0 auto;
+		padding: 0 $spacing-6;
+	}
+
+	.st__hero {
+		padding: 96px 0 72px;
+		background: var(--band-tint, #f5f6ff);
+
+		.st--dark & {
+			padding-top: 128px;
+			background: radial-gradient(60% 120% at 85% 20%, rgba(61, 80, 245, 0.28), transparent 70%), #000;
+			color: #fff;
+		}
+	}
+
+	.st__eyebrow {
+		@include type-eyebrow;
+		margin: 0 0 $spacing-3;
+		font-family: $font-family-mono;
+		color: var(--color-text-secondary, #5b616e);
+
+		.st--dark & {
+			color: rgba(255, 255, 255, 0.6);
+		}
+	}
+
+	.st__title {
+		@include type-display;
+		margin: 0 0 $spacing-4;
+		text-wrap: balance;
+	}
+
+	.st__lede {
+		@include type-body;
+		max-width: 60ch;
+		margin: 0;
+		color: var(--color-text-secondary, #5b616e);
+
+		.st--dark & {
+			color: rgba(255, 255, 255, 0.8);
+		}
+	}
+
+	.st__band {
+		padding: $spacing-16 0;
+
+		&:nth-of-type(odd) {
+			background: var(--color-bg, #fff);
+		}
+	}
+
+	.st__h2 {
+		@include type-section;
+		margin: 0 0 $spacing-4;
+	}
+
+	.st__copy {
+		@include type-body;
+		max-width: 65ch;
+		margin: 0;
+		color: var(--color-text-secondary, #5b616e);
+	}
+</style>

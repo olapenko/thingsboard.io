@@ -1,0 +1,48 @@
+---
+/**
+ * Puts a stage page in the state its frame asked for, read from the query the workbench put on it
+ * (`_chrome-state`). Inline, so the theme lands before first paint; the rest waits for the page.
+ *
+ * - `theme=light|dark|auto`: the same storage Starlight's own picker and `ThemeChoice` use, so the
+ *   page paints in it exactly as a visitor's choice would, and `data-theme` right away; `auto`
+ *   clears the stored choice and follows the OS.
+ * - `scrolled=1`: scrolls the page a screen down once it has laid out, so the bar's own scroll
+ *   script flips it to its solid state — the real transition, not a class set by hand.
+ * - `drawer=1`: opens the Menu drawer through its own button, so the drawer's own script runs.
+ * - `scroll=bottom`: the foot of the page, for a footer stage.
+ */
+---
+
+<script is:inline>
+	(function () {
+		var q = new URLSearchParams(location.search);
+		var theme = q.get('theme');
+		if (theme === 'light' || theme === 'dark') {
+			try {
+				localStorage.setItem('starlight-theme', theme);
+			} catch (e) {
+				/* the attribute below still paints it */
+			}
+			document.documentElement.dataset.theme = theme;
+		} else if (q.has('theme')) {
+			// `auto`: System. Clear a stored choice and paint what the OS says, as Starlight's script would.
+			try {
+				localStorage.removeItem('starlight-theme');
+			} catch (e) {
+				/* nothing stored, nothing to clear */
+			}
+			document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+		}
+
+		var later = function () {
+			if (q.get('scroll') === 'bottom') window.scrollTo(0, document.documentElement.scrollHeight);
+			else if (q.get('scrolled') === '1') window.scrollTo(0, Math.min(480, document.documentElement.scrollHeight));
+			if (q.get('drawer') === '1') {
+				var burger = document.querySelector('header .burger');
+				if (burger && burger.getAttribute('aria-expanded') !== 'true') burger.click();
+			}
+		};
+		if (document.readyState === 'complete') setTimeout(later, 50);
+		else window.addEventListener('load', function () { setTimeout(later, 50); }, { once: true });
+	})();
+</script>

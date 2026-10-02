@@ -1,0 +1,345 @@
+---
+import ChatLauncher from '@components/ChatWidget/ChatLauncher.astro';
+import { CHAT_HUE_VARS } from '@data/chat-widget';
+import type { ChatSkinName, LauncherGlyph, LauncherShape, LauncherSize, LauncherTone } from '@data/chat-widget';
+
+/**
+ * A slice of a page with the AI chat in its corner: the REAL widget, mounted into this stage's window
+ * (`widget:mount`), under one skin, with a launcher beside it.
+ *
+ * One widget per page, so one stage holds it at a time — the open tab's. The script below mounts it
+ * into whichever stage is visible and moves it on a tab change; the others keep an empty window. In
+ * a phone preview the frame is its own page with its own widget.
+ *
+ * The page behind is restated, not rendered: the header, the dark hero and the white band under it,
+ * so the launcher and the window are judged over both grounds the homepage gives that corner. The
+ * window is where the floating one sits, at the floating one's size; below 769px it takes the whole
+ * stage, as the widget takes the whole screen on a phone.
+ */
+interface Props {
+	skin: ChatSkinName;
+	/** Ours, or `yourgpt` for their own disc (the dashboard's colour and their logo). */
+	launcher:
+		| { shape?: LauncherShape; tone?: LauncherTone; size?: LauncherSize; glyph?: LauncherGlyph; cycle?: boolean }
+		| 'yourgpt';
+}
+
+const { skin, launcher } = Astro.props;
+const theirs = launcher === 'yourgpt';
+const small = !theirs && launcher.size === 'small';
+---
+
+{/* The hues on the stage as well as the root: in a phone frame the stage is all that is left of the page. */}
+<div
+	class:list={['cs', theirs && 'cs--theirs', small && 'cs--small']}
+	style={CHAT_HUE_VARS}
+	data-chat-stage
+	data-open="true"
+>
+	<div class="cs__page" aria-hidden="true">
+		<div class="cs__header">
+			<span class="cs__logo">ThingsBoard</span>
+			<span class="cs__nav">
+				<span>Products</span>
+				<span>Docs</span>
+				<span>Pricing</span>
+			</span>
+			<span class="cs__cta">Try for free</span>
+		</div>
+		<div class="cs__hero">
+			<p class="cs__brand">ThingsBoard</p>
+			<p class="cs__title">
+				The all-in-one
+				<br />
+				IoT platform
+			</p>
+			<p class="cs__lede">
+				Device management, data processing &amp; visualization for teams who build IoT for clients.
+			</p>
+		</div>
+		<div class="cs__band">
+			<p class="cs__band-title">Build IoT solutions faster than ever</p>
+			<div class="cs__cards">
+				<span></span>
+				<span></span>
+				<span></span>
+			</div>
+		</div>
+	</div>
+
+	<div class="cs__window" data-chat-mount data-chat-skin={skin}></div>
+
+	{theirs ? (
+		<button type="button" class="cs__theirs" data-chat-launcher aria-label="Open chatbot widget" aria-expanded="true">
+			<img src="https://content.yourgpt.ai/chatbots/11836/1768323314.svg" alt="" width="50" height="50" />
+		</button>
+	) : (
+		<ChatLauncher {...launcher} class="cs__launcher" />
+	)}
+</div>
+
+<script>
+	import { whenChat, onChatPopup, syncHues } from '@util/chat-widget';
+
+	/**
+	 * One widget, many stages: it lives in the visible one. `widget:mount` moves it (the previous
+	 * stage's window empties), and it arrives OPEN, so a stage closed by its launcher is reopened by
+	 * mounting into it again. A close from inside the chat — its header's ✕ — comes back as
+	 * `widget:popup` false and closes the stage that holds it.
+	 */
+	const stages = Array.from(document.querySelectorAll<HTMLElement>('[data-chat-stage]'));
+	if (stages.length) {
+		let holder: HTMLElement | null = null;
+
+		const visible = () => stages.find((s) => s.checkVisibility?.() ?? s.offsetParent !== null) ?? null;
+
+		const setOpen = (stage: HTMLElement, open: boolean) => {
+			stage.dataset.open = String(open);
+			stage.querySelector('[data-chat-launcher]')?.setAttribute('aria-expanded', String(open));
+		};
+
+		const place = async () => {
+			const stage = visible();
+			if (!stage || stage === holder) return;
+			const api = await whenChat();
+			holder = stage;
+			setOpen(stage, true);
+			api.execute('widget:mount', stage.querySelector('[data-chat-mount]'));
+			syncHues();
+		};
+
+		stages.forEach((stage) =>
+			stage.querySelector('[data-chat-launcher]')?.addEventListener('click', async () => {
+				const open = stage.dataset.open !== 'true';
+				setOpen(stage, open);
+				if (open) {
+					(await whenChat()).execute('widget:mount', stage.querySelector('[data-chat-mount]'));
+					holder = stage;
+				}
+				syncHues();
+			})
+		);
+
+		// Only a CLOSE counts — open, then closed. The widget also reports its state once as it boots,
+		// and that first report is "closed" even when the boot was a mount into a stage, which shut the
+		// stage it had just been placed in.
+		let wasOpen = false;
+		void onChatPopup((open) => {
+			if (!open && wasOpen && holder) setOpen(holder, false);
+			wasOpen = open;
+		});
+
+		// The sandbox opens a direction by unhiding its section; a frame shows one stage from the start.
+		new MutationObserver(() => void place()).observe(document.body, {
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['hidden'],
+		});
+		// A tick after the page's own scripts: in a phone frame the sandbox lifts the stage out of the
+		// page first, and a widget mounted before that would go with the rest.
+		const start = () => setTimeout(() => void place(), 0);
+		if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+		else start();
+	}
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.cs {
+		position: relative;
+		height: 780px;
+		overflow: hidden;
+		font-family: var(--font-family, $font-family-base);
+		color: var(--color-text, #17181c);
+		background: #fff;
+		isolation: isolate;
+
+		@media (max-width: 768px) {
+			height: 720px;
+		}
+	}
+
+	// ── The page behind ────────────────────────────────────────────────
+	.cs__page {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.cs__header {
+		display: flex;
+		flex: none;
+		align-items: center;
+		gap: $spacing-8;
+		height: 64px;
+		padding: 0 $spacing-8;
+		border-bottom: 1px solid var(--color-border-light, #e0e1e2);
+		background: #fff;
+	}
+
+	.cs__logo {
+		@include card-title;
+		font-weight: $font-weight-medium;
+	}
+
+	.cs__nav {
+		@include text-s;
+		display: flex;
+		gap: $spacing-6;
+		color: var(--color-text-secondary, #5b616e);
+
+		@media (max-width: 768px) {
+			display: none;
+		}
+	}
+
+	.cs__cta {
+		@include text-s;
+		margin-left: auto;
+		padding: 8px 16px;
+		border-radius: $radius-sm;
+		background: var(--color-brand, #{$color-brand});
+		color: #fff;
+		font-weight: $font-weight-bold;
+	}
+
+	.cs__hero {
+		flex: none;
+		padding: 72px $spacing-8 64px;
+		background: radial-gradient(60% 120% at 85% 20%, rgba(61, 80, 245, 0.28), transparent 70%), #0b0d1a;
+		color: #fff;
+	}
+
+	.cs__brand {
+		@include card-title;
+		margin: 0 0 $spacing-2;
+		color: rgba(255, 255, 255, 0.55);
+		font-weight: $font-weight-bold;
+	}
+
+	.cs__title {
+		@include page-title;
+		margin: 0 0 $spacing-4;
+		color: #fff;
+	}
+
+	.cs__lede {
+		@include text-m;
+		max-width: 36ch;
+		margin: 0;
+		color: rgba(255, 255, 255, 0.8);
+	}
+
+	.cs__band {
+		flex: 1;
+		padding: $spacing-12 $spacing-8;
+		background: #fff;
+	}
+
+	.cs__band-title {
+		@include section-title;
+		margin: 0 0 $spacing-8;
+		text-align: center;
+	}
+
+	.cs__cards {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: $spacing-6;
+		max-width: 960px;
+		margin: 0 auto;
+
+		span {
+			height: 180px;
+			border-radius: $radius-lg;
+			background: var(--color-bg-light, #f5f6f8);
+		}
+	}
+
+	// ── The chat ───────────────────────────────────────────────────────
+	// Where the floating window sits over its launcher: 20 in from the corner, 16 clear of a 56px tile;
+	// their disc is 50 and its window 10 clear of it. The skin draws the frame on this element.
+	.cs__window {
+		position: absolute;
+		right: 20px;
+		bottom: 92px;
+		width: 400px;
+		height: 600px;
+		max-height: calc(100% - 64px - 24px - 92px);
+		transform-origin: right bottom;
+		transition:
+			opacity 0.2s ease,
+			transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+		// The mounted chat fills it; it is their root's child, so it has no size of its own.
+		> :global(*) {
+			height: 100%;
+		}
+	}
+
+	.cs--theirs .cs__window {
+		bottom: 80px;
+	}
+
+	// The 44px launcher, 16 in, its window 10 clear of it, as the floating one opens over it.
+	.cs--small .cs__window {
+		right: 16px;
+		bottom: 70px;
+		max-height: calc(100% - 64px - 24px - 70px);
+	}
+
+	.cs[data-open='false'] .cs__window {
+		opacity: 0;
+		transform: translateY(10px) scale(0.92);
+		pointer-events: none;
+	}
+
+	.cs__launcher,
+	.cs__theirs {
+		position: absolute;
+		right: 20px;
+		bottom: 20px;
+		z-index: 1;
+	}
+
+	.cs--small .cs__launcher {
+		right: 16px;
+		bottom: 16px;
+	}
+
+	.cs__theirs {
+		width: 50px;
+		height: 50px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: #6354ee;
+		cursor: pointer;
+
+		// Measured off theirs: a 50px disc, the logo at 46, round.
+		display: grid;
+		place-items: center;
+
+		img {
+			display: block;
+			width: 46px;
+			height: 46px;
+			border-radius: 50%;
+		}
+	}
+
+	// A phone: the window is the whole stage, as the widget is the whole screen, and covers the
+	// launcher until it is closed.
+	@media (max-width: 768px) {
+		.cs__window,
+		.cs--theirs .cs__window {
+			inset: 0;
+			width: auto;
+			height: auto;
+			max-height: none;
+			z-index: 2;
+		}
+	}
+</style>

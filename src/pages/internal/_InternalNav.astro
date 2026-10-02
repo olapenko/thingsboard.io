@@ -1,0 +1,760 @@
+---
+/**
+ * Switcher between the internal review pages.
+ *
+ * The pages under `src/pages/internal/` each answer a different question about the same visuals —
+ * one on its own, and all five in the real page — and the only way to compare those answers is to
+ * go back and forth between them. Nothing links them, so that meant retyping URLs; this is that,
+ * as a control.
+ *
+ * Fixed rather than in flow, because two of these pages ARE a layout under review and a strip
+ * across the top of one would be the first thing you judged. Bottom-left is the one corner nothing
+ * else claims: Astro's dev toolbar sits bottom-centre/right, the cookie banner spans the bottom
+ * edge only until it is dismissed, and the site header owns the top.
+ *
+ * Two states. Open, it is a floating island. Hidden, it folds into the left edge and leaves a
+ * narrow tab docked to that edge — the same corner, so the control that brings it back is where
+ * the island was. Remembered in `sessionStorage`, and applied before paint by the inline script
+ * below, so a hidden island does not flash open on every navigation.
+ *
+ * Underscore-prefixed so Astro does not make it a route.
+ *
+ * The running-order switch the FE-handoff island grew on homepages returns with the Home layer
+ * (`data/home-compositions.ts`); until then this is the island alone.
+ */
+import { Icon } from 'astro-icon/components';
+import { AREAS, areaFor } from '@root/pages/internal/_areas';
+
+/**
+ * The real pages first: Home as its icon, then the pages the chrome is judged on, in the Pages menu.
+ * They are the site as this branch ships it, with this island over them and nothing else; the
+ * redesigned versions take these addresses as each page layer lands. A menu and not an area: the pages are the site itself, so
+ * there is no overview to open on and no top bar to switch between them.
+ *
+ * Then one link per area (Homepages, Components, Flows, Design system), each opening the area on
+ * its overview. Switching between an area's pages is the top bar's job, not the island's. The areas
+ * are defined once, in `_areas.ts`.
+ *
+ * A page listed here carries the island itself: search `TEMP-INTERNAL-NAV`.
+ */
+interface RealPage {
+	href: string;
+	label: string;
+	icon: string;
+	/** Other paths that count as this page: the step a flow takes after it. */
+	also?: string[];
+	/**
+	 * Not the page that ships but a draft of its redesign, at an internal address of its own: the
+	 * shipped page keeps its route until the draft replaces it. Tagged in the menu so nobody reviews
+	 * it as the live page.
+	 */
+	draft?: boolean;
+	/** Other versions of the same draft, listed under it in the menu and counted as it. */
+	versions?: { href: string; label: string }[];
+}
+
+const PAGES: RealPage[] = [
+	{ href: '/docs/user-guide/devices/', label: 'Docs', icon: 'tabler:book', also: ['/docs/'] },
+	{ href: '/products/paas/', label: 'Cloud', icon: 'tabler:cloud' },
+	{ href: '/products/thingsboard-pe/', label: 'On-premises', icon: 'tabler:server' },
+	{ href: '/installations/', label: 'Installations', icon: 'tabler:download' },
+	{ href: '/contact-us/', label: 'Contact us', icon: 'tabler:message-circle', also: ['/contact-us-thanks/'] },
+	{ href: '/pricing/', label: 'Pricing', icon: 'tabler:tag' },
+];
+
+/** Trailing slash either way, so `/internal/launch-home` and `/internal/launch-home/` both match. */
+const here = Astro.url.pathname.replace(/\/?$/, '/');
+const isHome = here === '/';
+const currentArea = areaFor(here).area;
+const isExactly = (p: RealPage) => here === p.href || !!p.also?.includes(here);
+const isPage = (p: RealPage) =>
+	here === p.href || !!p.also?.includes(here) || !!p.versions?.some((v) => v.href === here);
+const onAPage = PAGES.some(isPage);
+---
+
+<div class="inav-root" data-internal-nav data-open="true">
+	<script is:inline>
+		(function (root) {
+			try {
+				if (sessionStorage.getItem('internal-nav:open') === 'false') root.dataset.open = 'false';
+			} catch {
+				// No session storage: the island opens, which is the default anyway.
+			}
+
+			// Held invisible, not collapsed, until Ubuntu 500 is in, so the island is never painted in
+			// the fallback and re-set a moment later — measured at 306px, then 275. `check` is true when
+			// the face is already loaded or not declared at all, so this only ever waits on a real load,
+			// and the timeout means a failed font costs the island nothing but its face.
+			if (document.fonts && !document.fonts.check('500 12.5px Ubuntu')) {
+				root.dataset.fontPending = '';
+				const ready = function () {
+					delete root.dataset.fontPending;
+				};
+				document.fonts.load('500 12.5px Ubuntu').then(ready, ready);
+				setTimeout(ready, 1500);
+			}
+		})(document.currentScript.parentElement);
+	</script>
+	<nav class="inav" aria-label="Internal review pages" id="internal-nav">
+		<a
+			href="/"
+			title="Homepage"
+			aria-label="Homepage"
+			aria-current={isHome ? 'page' : undefined}
+			class:list={['inav__link', 'inav__link--icon', isHome && 'is-here']}
+		>
+			<Icon name="tabler:home" aria-hidden="true" />
+		</a>
+		{/* A popover, so the menu opens in the top layer: over the running-order pill, and unclipped by
+		   the island, which scrolls sideways on a narrow phone. The script below places it over its
+		   button, since it no longer sits in the island's box. */}
+		<button
+			class:list={['inav__link', 'inav__pick', onAPage && 'is-here']}
+			type="button"
+			popovertarget="inav-pages"
+			aria-controls="inav-pages"
+			aria-expanded="false"
+			title="The redesigned pages"
+			data-inav-pick
+		>
+			Pages
+			<Icon name="tabler:chevron-up" class="inav__caret" aria-hidden="true" />
+		</button>
+		<div class="inav-menu" id="inav-pages" popover data-inav-menu>
+			<ul class="inav-menu__list" aria-label="Redesigned pages">
+				{PAGES.map((p) => (
+					<li>
+						<a
+							href={p.href}
+							aria-current={isExactly(p) ? 'page' : undefined}
+							class:list={['inav-menu__link', isExactly(p) && 'is-here']}
+						>
+							<Icon name={p.icon} aria-hidden="true" />
+							{p.label}
+							{p.draft && <span class="inav-menu__tag">Draft</span>}
+						</a>
+						{p.versions && (
+							<ul class="inav-menu__versions">
+								{p.versions.map((v) => (
+									<li>
+										<a
+											href={v.href}
+											aria-current={here === v.href ? 'page' : undefined}
+											class:list={['inav-menu__link', 'inav-menu__link--version', here === v.href && 'is-here']}
+										>
+											{v.label}
+										</a>
+									</li>
+								))}
+							</ul>
+						)}
+					</li>
+				))}
+			</ul>
+		</div>
+		<span class="inav__sep" aria-hidden="true"></span>
+		<ul class="inav__list">
+			{AREAS.map((area) => (
+				<li>
+					<a
+						href={area.pages[0].href}
+						title={area.label}
+						aria-current={currentArea === area ? 'true' : undefined}
+						class:list={['inav__link', currentArea === area && 'is-here']}
+					>
+						{area.label}
+					</a>
+				</li>
+			))}
+		</ul>
+		<span class="inav__sep" aria-hidden="true"></span>
+		<button
+			class="inav__btn"
+			type="button"
+			data-inav-hide
+			title="Hide the internal nav"
+			aria-label="Hide the internal nav"
+			aria-controls="internal-nav"
+			aria-expanded="true"
+		>
+			<Icon name="tabler:chevron-left" aria-hidden="true" />
+		</button>
+	</nav>
+
+	<button
+		class="inav-tab"
+		type="button"
+		data-inav-show
+		title="Show the internal nav"
+		aria-label="Show the internal nav"
+		aria-controls="internal-nav"
+		aria-expanded="false"
+	>
+		<Icon name="tabler:chevron-right" aria-hidden="true" />
+	</button>
+</div>
+
+<script>
+	const KEY = 'internal-nav:open';
+	const root = document.querySelector<HTMLElement>('[data-internal-nav]');
+	const hide = root?.querySelector<HTMLButtonElement>('[data-inav-hide]');
+	const show = root?.querySelector<HTMLButtonElement>('[data-inav-show]');
+
+	if (root && hide && show) {
+		const apply = (open: boolean) => {
+			root.dataset.open = String(open);
+			hide.setAttribute('aria-expanded', String(open));
+			show.setAttribute('aria-expanded', String(open));
+		};
+
+		// The inline script has already set the state before paint; read it back rather than
+		// sessionStorage, so the two cannot disagree.
+		apply(root.dataset.open !== 'false');
+		// Transitions only after the first frame, or a hidden island animates out on every load.
+		requestAnimationFrame(() => root.classList.add('is-ready'));
+
+		// sessionStorage, not local: the hidden state should follow this review session across the
+		// internal pages and then be forgotten, rather than surprising the next one.
+		const set = (open: boolean) => {
+			apply(open);
+			// Focus follows the control, which the click just made invisible.
+			(open ? hide : show).focus({ preventScroll: true });
+			try {
+				sessionStorage.setItem(KEY, String(open));
+			} catch {
+				/* nothing to remember it with; the control still works for this page */
+			}
+		};
+
+		hide.addEventListener('click', () => set(false));
+		show.addEventListener('click', () => set(true));
+	}
+
+	// --- the Pages menu --------------------------------------------------------------------------
+
+	const pick = root?.querySelector<HTMLButtonElement>('[data-inav-pick]');
+	const menu = root?.querySelector<HTMLElement>('[data-inav-menu]');
+
+	if (root && pick && menu) {
+		const isOpen = () => menu.matches(':popover-open');
+		// Over its button, opening upwards: the island sits on the bottom edge. Fixed to the viewport,
+		// as the island is, so it only needs placing again when the window changes size.
+		const place = () => {
+			const r = pick.getBoundingClientRect();
+			menu.style.left = `${r.left}px`;
+			menu.style.bottom = `${document.documentElement.clientHeight - r.top + 8}px`;
+		};
+
+		menu.addEventListener('beforetoggle', (e) => {
+			const open = (e as ToggleEvent).newState === 'open';
+			if (open) place();
+			pick.setAttribute('aria-expanded', String(open));
+		});
+		window.addEventListener('resize', () => isOpen() && place());
+
+		// Hiding the island by keyboard does not light-dismiss the menu; close it with the island.
+		root.querySelector('[data-inav-hide]')?.addEventListener('click', () => isOpen() && menu.hidePopover());
+
+		// From the button, up or down opens the menu on its first page.
+		pick.addEventListener('keydown', (e) => {
+			if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+			e.preventDefault();
+			// Through the button, so the menu knows its invoker and Escape hands focus back to it.
+			if (!isOpen()) pick.click();
+			menu.querySelector<HTMLAnchorElement>('a')?.focus();
+		});
+
+		// Up and down step through the pages, wrapping; Escape is the popover's own.
+		menu.addEventListener('keydown', (e) => {
+			if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+			const links = [...menu.querySelectorAll<HTMLAnchorElement>('a')];
+			const i = links.indexOf(document.activeElement as HTMLAnchorElement);
+			const n = links.length;
+			const down = e.key === 'ArrowDown' || e.key === 'Home';
+			const next = e.key === 'Home' || e.key === 'End' || i < 0 ? (down ? 0 : n - 1) : (i + (down ? 1 : n - 1)) % n;
+			e.preventDefault();
+			links[next]?.focus();
+		});
+	}
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.inav-root {
+		--inav-ink: var(--color-text, #171c22);
+		--inav-muted: var(--color-text-secondary, #5b616e);
+		--inav-accent: var(--color-primary, #3d50f5);
+		--inav-hover: rgba(23, 28, 34, 0.06);
+		--inav-ease: cubic-bezier(0.3, 0.7, 0.2, 1);
+		--inav-dur: 0.22s;
+		--inav-h: 36px; // The island's height, and so the tab's: the two are one control in two states.
+
+		// Ubuntu, the page's own face, so the chrome reads as part of the site it sits on rather than
+		// as the operating system's. It was a system face for a while, to dodge a width jump: a web
+		// font lands after first paint on a revalidated load, and the island re-set itself when it
+		// did. That jump is now handled where it happens — the inline script above holds the island
+		// invisible until Ubuntu 500 is in — so the chrome no longer has to give up the site's face.
+		font-family: $font-family-base;
+		font-size: 12.5px;
+		font-weight: 500;
+		line-height: 1;
+		letter-spacing: 0;
+	}
+
+	// See the inline script: the island waits out its web font rather than jumping when it lands.
+	.inav-root[data-font-pending] :is(.inav, .inav-tab) {
+		visibility: hidden;
+	}
+
+	/* The island and the tab share one surface. */
+	.inav,
+	.inav-tab {
+		position: fixed;
+		z-index: 10000; // Over the cookie banner's 9999, which spans this edge until dismissed.
+		bottom: $spacing-3;
+		box-sizing: border-box;
+		height: var(--inav-h);
+		margin: 0;
+		border: 1px solid rgba(23, 28, 34, 0.1);
+		background: rgba(255, 255, 255, 0.94);
+		box-shadow:
+			0 1px 2px rgba(23, 28, 34, 0.06),
+			0 6px 20px rgba(23, 28, 34, 0.1);
+		backdrop-filter: blur(8px);
+	}
+
+	.inav {
+		left: $spacing-3;
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		max-width: calc(100vw - #{$spacing-3} * 2);
+		padding: 0 3px;
+		border-radius: 999px;
+	}
+
+	// Every page this sits on brings its own `ul`, `li`, `a` and `svg` rules — Starlight's on the
+	// homepage, the playground's reset on the internal pages — and each one it inherited was a way
+	// for the island to measure differently from one page to the next. Pinned here instead.
+	.inav__list {
+		display: flex;
+		gap: 2px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			margin: 0;
+			padding: 0;
+		}
+	}
+
+	.inav__link,
+	.inav__btn,
+	.inav-tab {
+		:global(svg) {
+			display: block;
+			flex: none;
+			width: 16px;
+			height: 16px;
+		}
+	}
+
+	.inav__link,
+	.inav__btn {
+		box-sizing: border-box;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 28px;
+		margin: 0;
+		border: 0;
+		border-radius: 999px;
+		font: inherit;
+		text-decoration: none;
+		white-space: nowrap;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+	}
+
+	.inav__link {
+		padding: 0 11px;
+		color: var(--inav-ink);
+
+		&:hover {
+			background: var(--inav-hover);
+			color: var(--inav-ink);
+		}
+
+		&.is-here {
+			background: var(--inav-accent);
+			color: #fff;
+		}
+	}
+
+	.inav__link--icon,
+	.inav__btn {
+		width: 28px;
+		padding: 0;
+	}
+
+	.inav__btn {
+		background: none;
+		color: var(--inav-muted);
+		cursor: pointer;
+
+		&:hover {
+			background: var(--inav-hover);
+			color: var(--inav-ink);
+		}
+	}
+
+	/* The Pages button: a label like the areas', with a caret that points the way the menu opens. */
+	.inav__pick {
+		gap: 3px;
+		padding: 0 8px 0 11px;
+		background: none;
+		cursor: pointer;
+
+		:global(.inav__caret) {
+			width: 14px;
+			height: 14px;
+			color: var(--inav-muted);
+			transition: transform 0.15s ease;
+		}
+
+		&.is-here :global(.inav__caret) {
+			color: inherit;
+		}
+
+		&[aria-expanded='true'] :global(.inav__caret) {
+			transform: rotate(180deg);
+		}
+	}
+
+	/* The menu: the island's surface, opened over its button. A popover, so the UA's own box — centred,
+	   bordered, `Canvas` — is undone here. Never `display` on it: that would override the UA rule
+	   that hides a closed popover. */
+	.inav-menu {
+		position: fixed;
+		inset: auto;
+		box-sizing: border-box;
+		min-width: 176px;
+		margin: 0;
+		padding: 4px;
+		overflow: visible;
+		border: 1px solid rgba(23, 28, 34, 0.1);
+		border-radius: 16px;
+		background: rgba(255, 255, 255, 0.97);
+		box-shadow:
+			0 1px 2px rgba(23, 28, 34, 0.06),
+			0 10px 28px rgba(23, 28, 34, 0.14);
+		backdrop-filter: blur(8px);
+		color: var(--inav-ink);
+		opacity: 1;
+		transform: none;
+		transform-origin: left bottom;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s var(--inav-ease),
+			overlay 0.15s allow-discrete,
+			display 0.15s allow-discrete;
+
+		&:not(:popover-open) {
+			opacity: 0;
+			transform: translateY(4px);
+		}
+
+		@starting-style {
+			&:popover-open {
+				opacity: 0;
+				transform: translateY(4px);
+			}
+		}
+	}
+
+	.inav-menu__list {
+		display: grid;
+		gap: 2px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			margin: 0;
+			padding: 0;
+		}
+	}
+
+	.inav-menu__link {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		height: 34px;
+		padding: 0 14px 0 10px;
+		border-radius: 12px;
+		color: var(--inav-ink);
+		font: inherit;
+		text-decoration: none;
+		white-space: nowrap;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		:global(svg) {
+			display: block;
+			flex: none;
+			width: 16px;
+			height: 16px;
+			color: var(--inav-muted);
+		}
+
+		&:hover {
+			background: var(--inav-hover);
+			color: var(--inav-ink);
+		}
+
+		&.is-here {
+			background: var(--inav-accent);
+			color: #fff;
+
+			:global(svg) {
+				color: inherit;
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--inav-accent);
+			outline-offset: -2px;
+		}
+	}
+
+	/* A draft's other versions, under it and indented to its label, so they read as its children. */
+	.inav-menu__versions {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.inav-menu__link--version {
+		height: 30px;
+		padding-left: 36px;
+		font-size: 12px;
+		color: var(--inav-muted);
+	}
+
+	/* A draft's tag, pushed to the row's end so the labels keep one left edge. */
+	.inav-menu__tag {
+		margin-left: auto;
+		padding: 1px 7px;
+		border-radius: 999px;
+		background: var(--inav-hover);
+		color: var(--inav-muted);
+		font-size: 11px;
+		line-height: 16px;
+
+		.is-here & {
+			background: rgba(255, 255, 255, 0.2);
+			color: inherit;
+		}
+	}
+
+	.inav__sep {
+		flex: none;
+		width: 1px;
+		height: 14px;
+		margin: 0 3px;
+		background: rgba(23, 28, 34, 0.12);
+	}
+
+	/* The running-order switch: the island's own surface, one island-height plus a gap above it, so the
+	   two read as a stack in the one corner and fold away together (it is an `.inav` too). */
+	.inav--proto {
+		bottom: calc(#{$spacing-3} + var(--inav-h) + #{$spacing-2});
+	}
+
+	.inav__caption {
+		flex: none;
+		padding: 0 6px 0 9px;
+		color: var(--inav-muted);
+	}
+
+	// The shipping order's check, in the green the sandbox marks its shipping direction with. White on
+	// the current order's accent, where green on indigo would not read.
+	.inav__link :global(.inav__ships) {
+		width: 14px;
+		height: 14px;
+		margin-right: 4px;
+		color: #0d7a5f;
+	}
+
+	.inav__link.is-here :global(.inav__ships) {
+		color: #fff;
+	}
+
+	.inav__sr {
+		@include visually-hidden;
+	}
+
+	.inav__btn[aria-pressed='true'] {
+		background: var(--inav-accent);
+		color: #fff;
+	}
+
+	/* Hidden: a tab docked flush to the left edge, square on that side, at the island's height and
+	   bottom, so the control that brings the island back sits where the island's own edge was. It
+	   never changes size — hover is colour only, because a tab that grows under the pointer is the
+	   same jump the font was. */
+	.inav-tab {
+		left: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 26px;
+		padding: 0;
+		border-left: 0;
+		border-radius: 0 10px 10px 0;
+		color: var(--inav-muted);
+		cursor: pointer;
+		transition:
+			color 0.15s ease,
+			background-color 0.15s ease;
+
+		&:hover {
+			background: #fff;
+			color: var(--inav-ink);
+		}
+	}
+
+	:is(.inav__link, .inav__btn, .inav-tab):focus-visible {
+		outline: 2px solid var(--inav-accent);
+		outline-offset: 2px;
+	}
+
+	/* The two states. The one going away fades and slides a short way towards the edge; the one
+	   arriving does the reverse, starting as the other is half gone, so the hand-off reads as one
+	   motion into the corner rather than two things crossing. Short travel on purpose: sliding the
+	   whole island off-screen was the other half of the jumpiness. `visibility` flips at the end of a
+	   fade-out, so the hidden state is out of the tab order and out of a screenshot. */
+	.inav,
+	.inav-tab {
+		opacity: 1;
+		transform: none;
+		transform-origin: left center;
+		visibility: visible;
+	}
+
+	.inav-tab,
+	.inav-root[data-open='false'] .inav {
+		opacity: 0;
+		visibility: hidden;
+		pointer-events: none;
+	}
+
+	.inav-tab {
+		transform: translateX(-100%);
+	}
+
+	.inav-root[data-open='false'] {
+		.inav {
+			transform: translateX(-12px) scale(0.96);
+		}
+
+		.inav-tab {
+			opacity: 1;
+			transform: none;
+			visibility: visible;
+			pointer-events: auto;
+		}
+	}
+
+	.inav-root.is-ready {
+		.inav,
+		.inav-tab {
+			transition:
+				opacity var(--inav-dur) ease,
+				transform var(--inav-dur) var(--inav-ease),
+				visibility 0s linear var(--inav-dur),
+				color 0.15s ease,
+				background-color 0.15s ease;
+		}
+
+		// The arriving surface: visible at once, and it waits for the other to be half out.
+		&[data-open='true'] .inav,
+		&[data-open='false'] .inav-tab {
+			transition-delay: calc(var(--inav-dur) / 2), calc(var(--inav-dur) / 2), 0s, 0s, 0s;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.inav-root.is-ready :is(.inav, .inav-tab),
+		.inav-menu,
+		.inav__pick :global(.inav__caret) {
+			transition: none;
+		}
+	}
+
+	/* Home, Pages, four area labels and the hide control come to ~490px, and ~456 at phone width, where
+	   the labels lose a little padding. Narrower than that the island scrolls sideways rather than
+	   wrapping, because a two-line island no longer reads as one control; the Pages menu is a popover,
+	   so the scrolling box does not clip it. Not at every width: a scrolling box clips the focus ring. */
+	@media (max-width: 480px) {
+		.inav__link:not(.inav__link--icon) {
+			padding: 0 8px;
+		}
+
+		.inav__link.inav__pick {
+			padding-right: 6px;
+		}
+	}
+
+	@media (max-width: 540px) {
+		.inav {
+			overflow-x: auto;
+			scrollbar-width: none;
+		}
+	}
+</style>
+
+{/* The outline the switch draws. Global, because its boxes are made by the script at runtime and
+    never carry this component's scope. Prefixed `home-outline` so nothing else can match it. */}
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	.home-outline {
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: 9990; // Under the island's 10000, over every section.
+		width: 0;
+		height: 0;
+		pointer-events: none;
+	}
+
+	.home-outline__box {
+		position: absolute;
+		box-sizing: border-box;
+		outline: 2px dashed color-mix(in srgb, var(--hue, #5b616e) 75%, transparent);
+		outline-offset: -2px;
+	}
+
+	// Sticky inside its box, so a tall section keeps its name in view under the header while it scrolls.
+	.home-outline__tag {
+		position: sticky;
+		top: calc(var(--home-header-h, 64px) + var(--promo-h, 0px) + 8px);
+		display: inline-block;
+		margin: 8px 0 0 8px;
+		padding: 4px 10px;
+		border-radius: 999px;
+		font-family: $font-family-base;
+		font-size: 12.5px;
+		font-weight: $font-weight-medium;
+		line-height: 1.2;
+		letter-spacing: 0;
+		color: #fff;
+		background: var(--hue, #5b616e);
+		box-shadow: 0 2px 8px rgba(23, 28, 34, 0.18);
+	}
+</style>

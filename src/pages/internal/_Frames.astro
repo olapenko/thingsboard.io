@@ -1,0 +1,188 @@
+---
+/**
+ * A real page in frames, at the widths where the chrome changes shape.
+ *
+ * Frames rather than the component itself, because the chrome answers VIEWPORT queries: the nav
+ * folds into Menu at 1280, the search field opens at 1440, the footer's columns stack under 768. A
+ * box on this page would fire none of them. And one header per document: `HeaderContent`'s script
+ * finds "the" header with `querySelector`, so two on one page would open each other's drawers.
+ *
+ * Every frame in a set is drawn at ONE scale, the widest frame's, so the 1300 frame reads narrower
+ * than the 1440 one — the room in the bar is what is being compared. A frame gets its `src` only
+ * once it scrolls near, so the directions that are closed cost nothing. The shared state (theme,
+ * scrolled, menu) rides on the query (`_chrome-state`), and a change re-sources every loaded frame.
+ *
+ * Everything in a frame works: the search dialog opens, the keys open it, Menu opens the drawer.
+ */
+interface Frame {
+	w: number;
+	h: number;
+}
+
+interface Props {
+	/** The stage route, with its own query if it has one. */
+	route: string;
+	/** Desktop frames; the measured widths by default. */
+	frames?: Frame[];
+	/** One 375 frame at the phone screen's height instead. */
+	phone?: boolean;
+	/** What the chrome does at each width, under its frame. */
+	says?: Record<number, string>;
+	/** Carry the shared state on the frames' query. On by default; off for a part that has none. */
+	state?: boolean;
+}
+
+const { route, phone = false, says = {}, state = true } = Astro.props;
+const frames: Frame[] = phone
+	? [{ w: 375, h: 667 }]
+	: (Astro.props.frames ?? [
+			{ w: 1440, h: 480 },
+			{ w: 1300, h: 480 },
+			{ w: 1024, h: 600 },
+		]);
+---
+
+<div class="fr" data-frames data-phone={phone ? '' : undefined} data-state={state ? '' : undefined}>
+	{frames.map((f) => (
+		<figure class="fr__frame">
+			{!phone && says[f.w] && (
+				<figcaption class="fr__cap">
+					<b>{f.w}px</b> {says[f.w]}
+				</figcaption>
+			)}
+			<div class="fr__fit" style={`--w: ${f.w}px; --h: ${f.h}px`} data-fr-fit>
+				<iframe
+					class="fr__iframe"
+					data-fr-route={route}
+					width={f.w}
+					height={f.h}
+					title={`${route} at ${f.w}px`}
+				></iframe>
+			</div>
+			{phone && says[375] && <figcaption class="fr__cap fr__cap--phone">{says[375]}</figcaption>}
+		</figure>
+	))}
+</div>
+
+<script>
+	import { withState } from '@root/pages/internal/_chrome-state';
+
+	const src = (frame: HTMLIFrameElement, carries: boolean) => {
+		const route = frame.dataset.frRoute!;
+		return carries ? withState(route) : route;
+	};
+
+	const fit = (set: HTMLElement) => {
+		const boxes = [...set.querySelectorAll<HTMLElement>('[data-fr-fit]')];
+		const size = (b: HTMLElement) => {
+			const f = b.querySelector('iframe')!;
+			return { w: Number(f.getAttribute('width')), h: Number(f.getAttribute('height')) };
+		};
+		const widest = Math.max(...boxes.map((b) => size(b).w));
+		const s = Math.min(1, set.clientWidth / widest);
+		boxes.forEach((b) => {
+			const { w, h } = size(b);
+			b.querySelector('iframe')!.style.transform = `scale(${s})`;
+			b.style.width = `${Math.floor(w * s)}px`;
+			b.style.height = `${Math.ceil(h * s)}px`;
+		});
+	};
+
+	const resize = new ResizeObserver((entries) => entries.forEach((e) => fit(e.target as HTMLElement)));
+	const near = new IntersectionObserver(
+		(entries) =>
+			entries.forEach((e) => {
+				if (!e.isIntersecting) return;
+				const box = e.target as HTMLElement;
+				const frame = box.querySelector<HTMLIFrameElement>('iframe[data-fr-route]');
+				const set = box.closest<HTMLElement>('[data-frames]')!;
+				if (frame && !frame.src) frame.src = src(frame, 'state' in set.dataset);
+				near.unobserve(box);
+			}),
+		{ rootMargin: '400px 0px' }
+	);
+
+	const sets = [...document.querySelectorAll<HTMLElement>('[data-frames]')];
+	sets.forEach((set) => {
+		fit(set);
+		resize.observe(set);
+		set.querySelectorAll('[data-fr-fit]').forEach((box) => near.observe(box));
+	});
+
+	// A tab opening loads its frames at once: the observer above only sees what is on screen, and a
+	// frame in a tab that was hidden when the page loaded would otherwise wait for a scroll.
+	document.addEventListener('direction-open', (e) => {
+		const slug = (e as CustomEvent<string>).detail;
+		const dir = document.querySelector<HTMLElement>(`[data-direction="${slug}"]`);
+		dir?.querySelectorAll<HTMLElement>('[data-frames]').forEach((set) => {
+			fit(set);
+			set.querySelectorAll<HTMLIFrameElement>('iframe[data-fr-route]').forEach((frame) => {
+				if (!frame.src) frame.src = src(frame, 'state' in set.dataset);
+			});
+		});
+	});
+
+	// A state change re-sources every frame that has loaded; the rest pick the state up when they do.
+	document.addEventListener('chrome-state', () => {
+		sets.forEach((set) => {
+			if (!('state' in set.dataset)) return;
+			set.querySelectorAll<HTMLIFrameElement>('iframe[data-fr-route]').forEach((frame) => {
+				if (frame.src) frame.src = src(frame, true);
+			});
+		});
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.fr {
+		display: grid;
+		gap: $spacing-8;
+	}
+
+	.fr__frame {
+		display: grid;
+		gap: $spacing-3;
+		margin: 0;
+	}
+
+	.fr__cap {
+		@include type-small;
+		color: var(--color-text-secondary, #63656c);
+
+		b {
+			margin-right: $spacing-2;
+			font-weight: $font-weight-medium;
+			color: var(--color-text, #17181c);
+		}
+	}
+
+	.fr__cap--phone {
+		max-width: 375px;
+	}
+
+	.fr__fit {
+		position: relative;
+		// Until the script sizes it: the frame at full size, clipped to the column.
+		width: min(100%, var(--w));
+		height: var(--h);
+		overflow: hidden;
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: $radius-sm;
+		background: #fff;
+	}
+
+	.fr__iframe {
+		position: absolute;
+		top: 0;
+		left: 0;
+		border: 0;
+		transform-origin: 0 0;
+	}
+
+	.fr[data-phone] .fr__fit {
+		border: 0;
+		border-radius: 0;
+	}
+</style>

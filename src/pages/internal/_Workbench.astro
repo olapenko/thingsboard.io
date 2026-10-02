@@ -1,0 +1,297 @@
+---
+import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
+import { Icon } from 'astro-icon/components';
+
+/**
+ * THE WORKBENCH: one chrome part per page, every variation of it as a tab.
+ *
+ * Three rows under the area's bar. The brief — what is in use, what was asked, where it is set —
+ * from the `brief` slot. The controls — the state every frame on the page is judged in, from the
+ * `controls` slot (`_StateControls`), plus any control the page adds. Then the tabs: one per
+ * `_Direction` in the default slot, the one in use first with its check, the open one in the URL
+ * (`#tab=<slug>`) so a tab can be linked. Below them, the open direction.
+ *
+ * Without script every direction stacks under its own heading, so the page still reads.
+ */
+interface Props {
+	title: string;
+	description?: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<PlaygroundLayout {title} {description}>
+	<div class="wb">
+		<slot name="brief" />
+		<div class="wb__controls">
+			<slot name="controls" />
+		</div>
+		<div class="wb__tabs" role="tablist" aria-label="Directions" data-wb-tabs hidden></div>
+		<div class="wb__dirs" data-wb-dirs>
+			<slot />
+		</div>
+	</div>
+</PlaygroundLayout>
+
+<template id="wb-tab">
+	<button class="wb__tab" type="button" role="tab" aria-selected="false">
+		<span class="wb__tab-check" aria-hidden="true"></span>
+		<span class="wb__tab-name"></span>
+	</button>
+</template>
+
+<span class="wb__check-src" hidden>
+	<Icon name="tabler:circle-check-filled" />
+</span>
+
+<script>
+	const tabs = document.querySelector<HTMLElement>('[data-wb-tabs]');
+	const dirs = [...document.querySelectorAll<HTMLElement>('[data-direction]')];
+	const tpl = document.getElementById('wb-tab') as HTMLTemplateElement | null;
+	const check = document.querySelector('.wb__check-src svg');
+
+	if (tabs && tpl && dirs.length > 1) {
+		// The one in use first: it is the reference the others are judged against.
+		dirs.sort((a, b) => Number('dirShipping' in b.dataset) - Number('dirShipping' in a.dataset));
+		const parent = dirs[0].parentElement!;
+		dirs.forEach((d) => parent.append(d));
+
+		const open = (slug: string, push: boolean) => {
+			dirs.forEach((d) => {
+				d.hidden = d.dataset.direction !== slug;
+			});
+			tabs.querySelectorAll<HTMLButtonElement>('[role=tab]').forEach((t) => {
+				const on = t.dataset.for === slug;
+				t.setAttribute('aria-selected', String(on));
+				t.tabIndex = on ? 0 : -1;
+			});
+			if (push) history.replaceState(null, '', `#tab=${slug}`);
+			// The frames in it load now (`_Frames`): a frame in a hidden tab never intersects anything.
+			document.dispatchEvent(new CustomEvent('direction-open', { detail: slug }));
+		};
+
+		dirs.forEach((d) => {
+			const tab = (tpl.content.cloneNode(true) as DocumentFragment).firstElementChild as HTMLButtonElement;
+			tab.dataset.for = d.dataset.direction;
+			tab.querySelector('.wb__tab-name')!.textContent = d.dataset.dirName ?? d.dataset.direction!;
+			if ('dirShipping' in d.dataset && check) tab.querySelector('.wb__tab-check')!.append(check.cloneNode(true));
+			tab.addEventListener('click', () => open(d.dataset.direction!, true));
+			tabs.append(tab);
+		});
+
+		// Arrow keys move between tabs, as a tablist's do.
+		tabs.addEventListener('keydown', (e) => {
+			if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Home' && e.key !== 'End') return;
+			const list = [...tabs.querySelectorAll<HTMLButtonElement>('[role=tab]')];
+			const i = list.findIndex((t) => t.getAttribute('aria-selected') === 'true');
+			const n = list.length;
+			const next = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : (i + (e.key === 'ArrowRight' ? 1 : n - 1)) % n;
+			e.preventDefault();
+			list[next].focus();
+			list[next].click();
+		});
+
+		tabs.hidden = false;
+		const wanted = new URLSearchParams(location.hash.slice(1)).get('tab');
+		const first = dirs.find((d) => d.dataset.direction === wanted) ?? dirs[0];
+		open(first.dataset.direction!, false);
+	}
+</script>
+
+<style lang="scss" is:global>
+	@use '../../styles/variables' as *;
+
+	.wb {
+		display: grid;
+		gap: $spacing-8;
+	}
+
+	.wb__controls {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-3 $spacing-6;
+		max-width: 1200px;
+		margin: 0 auto;
+		width: 100%;
+
+		&:empty {
+			display: none;
+		}
+	}
+
+	.wb__tabs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+		max-width: 1200px;
+		width: 100%;
+		margin: 0 auto;
+		padding-bottom: $spacing-3;
+		border-bottom: 1px solid var(--color-border, #ebebeb);
+	}
+
+	.wb__tab {
+		@include type-small-strong;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		height: 36px;
+		padding: 0 $spacing-3;
+		border: 0;
+		border-radius: $radius-md;
+		background: transparent;
+		color: var(--color-text-secondary, #5b616e);
+		cursor: pointer;
+
+		&:hover {
+			background: var(--sl-color-gray-6, #f2f3f7);
+			color: var(--color-text, #17181c);
+		}
+
+		&:focus-visible {
+			outline: 2px solid $color-brand;
+			outline-offset: 1px;
+		}
+
+		&[aria-selected='true'] {
+			background: var(--color-text, #17181c);
+			color: #fff;
+		}
+	}
+
+	.wb__tab-check {
+		display: inline-flex;
+
+		&:empty {
+			display: none;
+		}
+
+		svg {
+			width: 16px;
+			height: 16px;
+			color: var(--color-accent-green, #008741);
+		}
+	}
+
+	.wb__tab[aria-selected='true'] .wb__tab-check svg {
+		color: #6ee7a0;
+	}
+
+	// ---- The brief every workbench page opens with ---------------------------------------------
+	.brief {
+		max-width: 1200px;
+		width: 100%;
+		margin: 0 auto;
+		padding: $spacing-6;
+		border-radius: $radius-lg;
+		background: var(--band-tint, #f5f6ff);
+	}
+
+	.brief__kicker {
+		@include type-eyebrow;
+		margin: 0 0 $spacing-4;
+		font-family: $font-family-mono;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.brief__facts {
+		display: grid;
+		gap: $spacing-3;
+		margin: 0;
+
+		> div {
+			display: grid;
+			grid-template-columns: 110px minmax(0, 1fr);
+			gap: $spacing-4;
+
+			@media (max-width: 599px) {
+				grid-template-columns: 1fr;
+				gap: $spacing-1;
+			}
+		}
+
+		dt {
+			@include type-small;
+			font-family: $font-family-mono;
+			color: var(--color-text-secondary, #5b616e);
+		}
+
+		dd {
+			@include type-small;
+			max-width: 80ch;
+			margin: 0;
+		}
+
+		code {
+			font-family: $font-family-mono;
+			font-size: 0.92em;
+		}
+
+		em {
+			font-style: normal;
+			font-weight: $font-weight-medium;
+		}
+	}
+
+	.brief__acts {
+		margin: $spacing-4 0 0;
+	}
+
+	.brief__btn {
+		@include type-small;
+		padding: 6px 12px;
+		border: 1px solid var(--color-border-light, #e0e1e2);
+		border-radius: $radius-md;
+		background: #fff;
+		cursor: pointer;
+
+		&:hover {
+			border-color: var(--color-text-secondary, #63656c);
+		}
+	}
+
+	// ---- A control: a named group of pressed buttons ----------------------------------------------
+	.page-ctl {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		padding: 2px;
+		border: 1px solid var(--color-border, #ebebeb);
+		border-radius: $radius-md;
+		background: #fff;
+
+		button {
+			@include type-small-strong;
+			height: 30px;
+			padding: 0 10px;
+			border: 0;
+			border-radius: $radius-sm;
+			background: transparent;
+			color: var(--color-text-secondary, #5b616e);
+			cursor: pointer;
+
+			&:hover {
+				background: var(--sl-color-gray-6, #f2f3f7);
+				color: var(--color-text, #17181c);
+			}
+
+			&[aria-pressed='true'] {
+				background: var(--color-text, #17181c);
+				color: #fff;
+			}
+
+			&:focus-visible {
+				outline: 2px solid $color-brand;
+				outline-offset: 1px;
+			}
+		}
+	}
+
+	.page-ctl__name {
+		@include type-small;
+		padding: 0 $spacing-2 0 $spacing-3;
+		font-family: $font-family-mono;
+		color: var(--color-text-secondary, #5b616e);
+	}
+</style>
