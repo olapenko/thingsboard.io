@@ -1,6 +1,9 @@
 ---
 import SmartImage from '@components/SmartImage.astro';
+import { Icon } from 'astro-icon/components';
 import ReadMoreLink from './ReadMoreLink.astro';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
 
 interface LinkItem {
 	href: string;
@@ -15,9 +18,23 @@ interface Props {
 	/** Heading level for the feature heading (3 = h3 default, 4 = h4) */
 	headingLevel?: 3 | 4;
 	description: string;
+	/**
+	 * The same description with markup in it, when a row needs some of its words to carry meaning
+	 * the plain string cannot — the connect row names its four routes in the four colours its visual
+	 * codes by, which is what lets that visual drop its legend.
+	 *
+	 * Ours, not a user's: it comes from a data file in this repo and is rendered with `set:html`.
+	 * `description` stays required and stays the plain-text source of truth, so a row that passes
+	 * both cannot end up with two different sentences.
+	 */
 	links: LinkItem[];
-	imageSrc: string;
-	imageAlt: string;
+	/**
+	 * The media, when it is an image. Optional because a row can be given a COMPONENT instead, by
+	 * passing it as the default slot — which is how the new key visuals sit in this row without
+	 * being exported to PNG first.
+	 */
+	imageSrc?: string;
+	imageAlt?: string;
 	imageWidth?: number;
 	imageHeight?: number;
 	/** If true, image is placed before the text (image on left) */
@@ -49,6 +66,17 @@ interface Props {
 	listIconLeft?: number;
 	/** Vertical offset in px from section top */
 	listIconTop?: number;
+	/**
+	 * A squircle mark above the heading: a Tabler icon on a filled tile in the section's own colour.
+	 * Optional, so rows that have never had one are unchanged.
+	 */
+	badge?: { icon: string; color: string };
+	/**
+	 * The new pages' rows: the mark through `ui/Mark` (40, the rows' size) and the links through
+	 * `ui/Link` (lg, a section's own outgoing link, one still chevron). Defaults to on wherever a
+	 * `badge` is passed, which only the new pages do; the Edge page keeps the arrows.
+	 */
+	kit?: boolean;
 	id?: string;
 }
 
@@ -78,37 +106,54 @@ const {
 	imageEqual = false,
 	imageWidths,
 	imageSizes,
+	badge,
+	kit = badge !== undefined,
 } = Astro.props;
+
+// Rendered to a string rather than placed as <slot />, because the media appears in one of two
+// branches depending on `imageFirst` and a slot can only be consumed once. Existing callers pass no
+// slot, so `hasMedia` is false for them and nothing about this component changes.
+const hasMedia = Astro.slots.has('default');
+
+// A row must have media of one kind or the other. Stated as a guard rather than left to a missing
+// <img>, which renders as a stray alt string and is easy to miss on a long page.
+if (!hasMedia && !(imageSrc && imageAlt)) {
+	throw new Error(
+		'FeatureBlockSection needs either an image (imageSrc and imageAlt) or a component in its default slot.'
+	);
+}
 
 const linkVariant = variant !== 'default' ? variant : dark ? 'light' : 'default';
 const hasPseudoBg = dark && !bgId;
 const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 ---
 
-<section class:list={['feature-block-section', { dark, 'has-pseudo-bg': hasPseudoBg }]} {id}>
+{/* `--row-hue` is the badge's colour, handed to the section so a page can colour the row's ground
+	   and its drawing's lines from it (the homepage's `hues: 'section'` orders do). Unused otherwise. */}
+<section
+	class:list={['feature-block-section', { dark, 'has-pseudo-bg': hasPseudoBg }]}
+	{id}
+	style={badge ? `--row-hue: ${badge.color}` : undefined}
+>
 	{listIconSrc && (
 		<div class="list-icon" style={`--icon-left:${listIconLeft}px;--icon-top:${listIconTop}px;`}>
-			<SmartImage
-				src={listIconSrc}
-				alt={listIconAlt}
-				width={listIconWidth}
-				height={listIconHeight}
-				loading="lazy"
-			/>
+			<SmartImage src={listIconSrc} alt={listIconAlt} width={listIconWidth} height={listIconHeight} loading="lazy" />
 		</div>
 	)}
 	<div class="main-div">
 		{bgId && (
-			<div id={bgId} class="print:hidden" aria-hidden="true">
-				{bgDivs?.map((cls) => <div class={cls} />)}
+			<div id={bgId} aria-hidden="true">
+				{bgDivs?.map((cls) => (
+					<div class={cls} />
+				))}
 			</div>
 		)}
-		<div class:list={['block', { 'image-first': imageFirst }]}>
-			{imageFirst && (
+		<div class:list={['block', { 'image-first': imageFirst && !hasMedia }]}>
+			{imageFirst && !hasMedia && (
 				<SmartImage
-					class:list={["preview", imageShadow && "shadow", imageEqual && "equal"]}
-					src={imageSrc}
-					alt={imageAlt}
+					class:list={['preview', imageShadow && 'shadow', imageEqual && 'equal']}
+					src={imageSrc!}
+					alt={imageAlt!}
 					width={imageWidth}
 					height={imageHeight}
 					widths={imageWidths}
@@ -118,22 +163,42 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				/>
 			)}
 			<div class="feature-des">
+				{badge && <Mark size={40} icon={badge.icon} accent={badge.color} class="feature-badge" />}
 				<div class="heading-wrap">
 					<HeadingTag class="phrase-heading">{heading}</HeadingTag>
 					{peOnly && <span class="pe-badge">PE only</span>}
 				</div>
 				<p>{description}</p>
 				<div class="links">
-					{links.map((link) => (
-						<ReadMoreLink href={link.href} text={link.text} ariaLabel={link.ariaLabel} srOnlySuffix={link.srOnlySuffix} variant={linkVariant} target={link.target} />
-					))}
+					{links.map((link) =>
+						kit ? (
+							<Link
+								href={link.href}
+								size="lg"
+								srSuffix={link.srOnlySuffix}
+								external={link.target === '_blank'}
+								attrs={{ 'aria-label': link.ariaLabel }}
+							>
+								{link.text}
+							</Link>
+						) : (
+							<ReadMoreLink
+								href={link.href}
+								text={link.text}
+								ariaLabel={link.ariaLabel}
+								srOnlySuffix={link.srOnlySuffix}
+								variant={linkVariant}
+								target={link.target}
+							/>
+						)
+					)}
 				</div>
 			</div>
-			{!imageFirst && (
+			{!imageFirst && !hasMedia && (
 				<SmartImage
-					class:list={["preview", imageShadow && "shadow", imageEqual && "equal"]}
-					src={imageSrc}
-					alt={imageAlt}
+					class:list={['preview', imageShadow && 'shadow', imageEqual && 'equal']}
+					src={imageSrc!}
+					alt={imageAlt!}
 					width={imageWidth}
 					height={imageHeight}
 					widths={imageWidths}
@@ -142,6 +207,15 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 					loading="lazy"
 				/>
 			)}
+			{
+				/* Rendered once and placed by CSS, because a slot can only be consumed once and this
+				    has to serve both orders. */
+				hasMedia && (
+					<div class:list={['preview', 'has-slot', imageEqual && 'equal', imageFirst && 'media-first']}>
+						<slot />
+					</div>
+				)
+			}
 		</div>
 	</div>
 </section>
@@ -178,7 +252,7 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				padding: 5rem 6.25rem;
 			}
 
-			@media (max-width: 768px) {
+			@media screen and (max-width: 768px) {
 				padding: 3rem 1.25rem;
 			}
 		}
@@ -197,6 +271,12 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				height: auto;
 			}
 
+			// Slotted media leads the row without leading the markup, so the copy stays first for a
+			// screen reader whichever side it is drawn on.
+			:global(.preview.media-first) {
+				order: -1;
+			}
+
 			:global(.preview.equal) {
 				flex: 1;
 			}
@@ -206,14 +286,54 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.12);
 			}
 
-			@media (max-width: 768px) {
+			@media screen and (max-width: 768px) {
 				flex-direction: column;
 				gap: 32px;
 
+				:global(.preview.media-first) {
+					order: 0;
+				}
+
+				// Slotted media only, and it has to come after the rule above: both selectors score the
+				// same, so on a row that is both, source order is what decides.
+				//
+				// `align-self`: `align-items: center` on this row makes the cross axis — width, once the
+				// row stacks — shrink-to-fit, and a slotted component sized `width: 100%` resolves that
+				// percentage against a parent that is itself sizing to its content. The two agree on
+				// zero, and the visual disappears with no error.
+				//
+				// `order`: the visual follows the copy. It used to lead — the argument was that the
+				// diagram tells you which section you have reached before the heading says it in
+				// words. Stacked, that puts a picture between the reader and the sentence explaining
+				// it, and every row opens the same way, so the page reads as a column of diagrams
+				// with prose between them rather than as sections. The heading names the section
+				// perfectly well on its own; the visual is the evidence, and evidence goes after the
+				// claim. `order` is dropped rather than set to 0 so the DOM order simply stands —
+				// the markup already puts the copy first for a screen reader.
+				//
+				// An <img> has an intrinsic width and never hits the `align-self` problem below, and
+				// its rows were authored to alternate — so this stays scoped to the slot.
+				:global(.preview.has-slot) {
+					align-self: stretch;
+					// Stretch resolves against max-width, and `.preview` carries `max-width: 100%` — the
+					// container's own width. With that in place a page can pull the box out past the
+					// gutter with negative margins and it slides rather than widens.
+					max-width: none;
+				}
+
+				// Image rows only — see the class list. A slotted row leads with its media through
+				// `order` above, and reversing the column as well would just put it back at the bottom.
 				&.image-first {
 					flex-direction: column-reverse;
 				}
 			}
+		}
+
+		// The row's mark: `ui/Mark` at 40 (the ladder's row step), 16 over the heading, the "above a
+		// heading" recipe. A block, so no line box adds descender space under it.
+		.feature-badge {
+			display: grid;
+			margin-bottom: $spacing-4;
 		}
 
 		.feature-des {
@@ -249,7 +369,7 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 				margin: 0;
 				line-height: 1.3;
 
-				@media (max-width: 768px) {
+				@media screen and (max-width: 768px) {
 					font-size: $font-size-3xl;
 				}
 			}
@@ -293,29 +413,8 @@ const HeadingTag = `h${headingLevel}` as 'h3' | 'h4';
 					0 0 30px 0 rgba(0, 0, 0, 0.1);
 			}
 
-			@media (max-width: 1280px) {
+			@media screen and (max-width: 1280px) {
 				display: none;
-			}
-		}
-	}
-
-	@media print {
-		.feature-block-section {
-			&.has-pseudo-bg::before {
-				display: none;
-			}
-
-			&.dark .feature-des :is(.phrase-heading, p) {
-				color: var(--color-text);
-			}
-
-			.block {
-				break-inside: avoid;
-
-				.preview {
-					max-height: 30vh;
-					object-fit: contain;
-				}
 			}
 		}
 	}

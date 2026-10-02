@@ -1,122 +1,94 @@
 ---
 import { Icon } from 'astro-icon/components';
-import { externalLinkAttrs } from '@util/external-links';
-import type { FeatureItem } from '@data/homeFeatures';
+import Card from '@components/ui/Card.astro';
+import Link from '@components/ui/Link.astro';
 
-/** One capability: a glyph, a name that is the whole tile's link, and what it gets you. */
-type Props = FeatureItem;
+interface DocLink {
+	term: string;
+	href: string;
+}
 
-const { tablerIcon, title, description, href } = Astro.props;
+interface Props {
+	icon: string;
+	title: string;
+	description: string;
+	href: string;
+	links?: DocLink[];
+}
+
+const { icon, title, description, href, links = [] } = Astro.props;
+
+// Split the description around each linked term. Throws rather than silently
+// dropping a link when a term no longer appears in the copy.
+type Segment = { text: string; href?: string };
+
+let segments: Segment[] = [{ text: description }];
+
+for (const link of links) {
+	const next: Segment[] = [];
+	let matched = false;
+
+	for (const segment of segments) {
+		const at = segment.href ? -1 : segment.text.indexOf(link.term);
+
+		if (at === -1 || matched) {
+			next.push(segment);
+			continue;
+		}
+
+		if (at > 0) next.push({ text: segment.text.slice(0, at) });
+		next.push({ text: link.term, href: link.href });
+		const rest = segment.text.slice(at + link.term.length);
+		if (rest) next.push({ text: rest });
+		matched = true;
+	}
+
+	if (!matched) {
+		throw new Error(`FeatureTile "${title}": no "${link.term}" in the description to link.`);
+	}
+
+	segments = next;
+}
 ---
 
-<div class="tile">
-	<Icon name={tablerIcon} class="tile__icon" aria-hidden="true" />
-	<h3 class="tile__title">
-		<a class="tile__link" href={href} {...externalLinkAttrs(href)}>
-			{title}
-		</a>
-	</h3>
-	<p class="tile__description" set:html={description} />
-</div>
+{/* A link card (`ui/Card` tile, `href`): the title is the one anchor, stretched over the tile, so
+	   the card is one big target without the accessible name swallowing the description; the doc
+	   links in the description sit above it. Hover deepens the lift and turns the title to the
+	   accent; nothing moves. */}
+<Card href={href} title={title} level={3} class="feature-tile">
+	<Icon slot="mark" name={icon} class="feature-tile__icon" aria-hidden="true" />
+	<p class="feature-tile__description">
+		{
+			// prettier-ignore
+			segments.map((segment) => segment.href ? <Link variant="inline" tone="muted" href={segment.href}>{segment.text}</Link> : segment.text)
+		}
+	</p>
+</Card>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
-	.tile {
-		position: relative;
-		display: flex;
-		flex-direction: column;
+	// Between the hub's category tiles and the ecosystem cards: enough room for a line of
+	// explanation, not enough to compete with the products above. The surface, the 20 padding and
+	// the lift are the Card tile's.
+	.feature-tile {
 		gap: $spacing-2;
-		padding: $spacing-5;
-		border-radius: $radius-lg;
-		box-shadow:
-			0 1px 2px rgba(0, 0, 0, 0.04),
-			0 8px 16px -8px rgba(0, 0, 0, 0.06);
-		background-color: var(--color-bg-surface);
-		color: var(--color-text);
-		transition: box-shadow 0.18s ease;
-
-		@include media-up(md) {
-			@include media-down(lg) {
-				padding: $spacing-8;
-			}
-		}
-
-		&:hover,
-		&:focus-within {
-			box-shadow: 0 12px 28px rgba(0, 0, 0, 0.07);
-		}
 	}
 
-	.tile__icon {
+	// Black and solid: the identification is the icon's job here, since there is no room for an
+	// accent colour system across a grid of ten.
+	.feature-tile__icon {
 		width: 28px;
 		height: 28px;
+		margin-bottom: $spacing-1;
 		color: var(--color-text);
 	}
 
-	.tile__title {
-		font-size: $font-size-base;
-		font-weight: $font-weight-bold;
-		line-height: 1.25;
-		margin: $spacing-1 0 0;
-	}
+	.feature-tile__description {
+		@include type-small;
 
-	// Stretched over the tile, so the whole card is the target while the accessible name stays the title.
-	.tile__link {
-		color: inherit;
-		text-decoration: none;
-		text-underline-offset: 2px;
-		transition: color $transition-fast;
-
-		&::after {
-			content: '';
-			position: absolute;
-			inset: 0;
-		}
-	}
-
-	.tile:hover .tile__link,
-	.tile:focus-within .tile__link {
-		text-decoration: underline;
-		text-decoration-color: rgba(0, 0, 0, 0.35);
-	}
-
-	.tile__title:hover .tile__link,
-	.tile__link:focus-visible {
-		color: var(--color-primary);
-		text-decoration-color: currentColor;
-	}
-
-	.tile__description {
-		@include text-s;
 		margin: 0;
-		line-height: 22px;
-		color: var(--color-text-secondary);
+		color: var(--color-text-secondary, #5b616e);
 		text-wrap: pretty;
-
-		// Above the title's stretched link, so links in the description stay clickable.
-		:global(a) {
-			position: relative;
-			z-index: 1;
-			color: inherit;
-			text-decoration: underline;
-			text-decoration-color: rgba(0, 0, 0, 0.35);
-			text-underline-offset: 2px;
-			transition: color $transition-fast;
-
-			&:hover,
-			&:focus-visible {
-				color: var(--color-primary);
-				text-decoration-color: currentColor;
-			}
-		}
-	}
-
-	@media print {
-		.tile {
-			border: 1px solid var(--color-border);
-			box-shadow: none;
-			break-inside: avoid;
-		}
 	}
 </style>

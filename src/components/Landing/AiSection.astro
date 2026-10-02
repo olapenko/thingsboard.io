@@ -1,621 +1,1757 @@
 ---
+import SectionHeader from './SectionHeader.astro';
+import AiAssistant from './AiAssistant.astro';
+import CliTerminal from './CliTerminal.astro';
+import AgentTerminal from './AgentTerminal.astro';
+import Tabs from '@components/ui/Tabs.astro';
+import AiHandoff from './AiHandoff.astro';
+import NButton from '@components/Landing/NButton.astro';
 import { Icon } from 'astro-icon/components';
-import AiAssistant from '@components/Landing/AiAssistant.astro';
-import AgentTerminal from '@components/Landing/AgentTerminal.astro';
-import SegmentedToggle from '@components/Landing/SegmentedToggle.astro';
-import AiHandoff from '@components/Landing/AiHandoff.astro';
 import {
-	AI_AGENT_SESSION,
-	AI_AGENT_SESSION_WORDMARK,
-	AI_BADGE_CYCLE,
-	AI_COLUMNS,
+	AI_ACTIONS,
+	AI_CTA_BAND,
 	AI_COPY,
-	AI_CTA,
+	AI_COLUMNS,
+	AI_COLUMNS_VALUE,
+	AI_AGENT_SESSION,
+	AI_AGENT_LABEL,
+	AI_BADGE_CYCLE,
+	AI_CLI_SESSION,
+	AI_CLI_LABEL,
 } from '@data/ai-visual';
+import type { AiColumn, AiChatScenario } from '@data/ai-visual';
 
 /**
- * The homepage AI section: a switch between the Assistant chat and the coding-agent terminal, each beside
- * its copy and call to action. Each window is rendered twice, whole and phone-cropped, one shown per width.
+ * PROMOTED 2026-09-26, later: one call to action under the row (`cta="block"`), whose line, button
+ * and link follow the switch, and the wash that follows the mark (`wash="cycle"`), until then the
+ * sandbox's experiment. The morning's action at the end of each route's copy is `cta="route"`.
+ *
+ * PROMOTED 2026-09-26, with running order A: an action under each route's copy (`cta`), the handoff's
+ * section without them kept as `cta="none"`.
+ *
+ * PROMOTED 2026-09-24, later the same day: the freezer-door chat (`chat`, the dew-point one kept as
+ * `chat="dewPoint"`) and windows that fill their column like the key-visual rows (`fit`, the centred
+ * 500px windows kept as `fit="inset"`).
+ *
+ * PROMOTED 2026-09-24: the terminal runs a CODING AGENT (`AgentTerminal`) by default — judged as
+ * `AiSectionNext`, a full copy, at `/internal/sections/ai/` and folded back in here. The shell
+ * session it replaced stays reachable as `terminal="cli"`, the sandbox's reference and the way back.
+ *
+ * "Build IoT solutions faster than ever with AI inside ThingsBoard" — two routes into the platform,
+ * a prompt and a terminal, each shown as a working window.
+ *
+ * Ported from `tb-landing-prototype` (`src/sections/06-ai.html`). This is the section's SHELL; the
+ * two windows are `AiAssistant` and `CliTerminal`, and the copy is `@data/ai-visual`.
+ *
+ * ── ON THE HOMEPAGE: ONE ROUTE AT A TIME ──────────────────────────────────────────────────────
+ * The default, `layout="toggle"`, was judged against the alternatives at `/internal/sections/
+ * ai/` and promoted on 2026-09-23: a switch under the heading chooses the chat or the terminal,
+ * chat first, and only that route's row is on the page — which makes the section a band shorter and
+ * puts the chat ahead of the terminal rather than beside it. Switching is the hand-off in
+ * `AiHandoff`. The previous homepage, both routes stacked, is `layout="bands"`; everything below
+ * about rows, docking and the crop holds for both, because the toggle shows one of the same rows.
+ *
+ * ── THE LAYOUT: ALTERNATING ROWS ──────────────────────────────────────────────────────────────
+ * Not the prototype's two-up columns. Each route is a full-width row — window on one side, copy on
+ * the other — and the two rows swap sides, which is the pattern the five key visuals above already
+ * run in.
+ *
+ * The geometry is `_home-rows.scss`'s, so these read as a continuation of that sequence rather than
+ * as a different thing at a different size: a 56px gutter, a 350px floor, and the copy capped at a
+ * 40ch MEASURE with the media taking what is left. Those numbers were measured for those rows; they
+ * are matched here rather than re-derived.
+ *
+ * IT IS NOT `FeatureBlockSection`, which is the component those rows use, and the reason is its API
+ * rather than its look: it has no eyebrow, and these rows' eyebrows carry the section's whole
+ * argument — the same platform, reached two ways. It also requires a `links` array these rows have
+ * nothing to put in. Borrowing its geometry without borrowing the component is the smaller lie.
+ *
+ * The first row leads with the media, because the last of the five rows above (`ScaleDuo`) leads
+ * with its copy — so the alternation carries on down the page instead of restarting.
+ *
+ * ── THE WINDOWS ───────────────────────────────────────────────────────────────────────────────
+ * The treatment is the prototype's preview panel at **Wells: Crop · AI: In app · AI band: Light**,
+ * read off the prototype built and running in that config rather than from its source (its
+ * stylesheet is 73 files deep and attribute selectors outrank the plain rules written after them,
+ * so what a rule says and what the page computes are two different questions).
+ *
+ * - **Crop.** The panel is shorter than the window it holds, so the window is cut by it and reads
+ *   as a full-size screen rather than a toy. The chat is anchored to the BOTTOM and cut at the top,
+ *   keeping the composer and newest replies in frame; the terminal is anchored to the TOP and cut
+ *   at the bottom, so you watch the script being typed under the title bar. The prototype gets
+ *   there by blowing the windows up 1.35x; nothing is scaled here, so nothing is resampled.
+ * - **In app.** The chat keeps its slice of the product — the green app bar and the card cropped by
+ *   the left edge. "Bare" would drop the plate.
+ * - **Light.** The section takes the page ground, which is white.
+ *
+ * NOT ported: the prototype's dot field behind each window (asked for twice, removed twice), and
+ * the 1px rules that framed the two-up band — those existed to split a side-by-side comparison, and
+ * there is no longer one to split.
  */
 
-const PANELS = { assistant: 'ai-assistant', cli: 'ai-cli' };
+interface Props {
+	/** Play both windows. Off renders them as stills — used by the sandbox. */
+	animate?: boolean;
+	/**
+	 * `toggle` — THE HOMEPAGE, and the default. ONE route on the page at a time, chosen by a switch
+	 * under the heading, chat first. Against `bands` it:
+	 *
+	 * - drops the section lede — the switch is the argument now, so the paragraph restating it goes;
+	 * - turns the two kickers INTO the switch, so the rows lose their eyebrows;
+	 * - shows one band, whose hue changes with the route, so the section is one band shorter;
+	 * - keeps the alternation: chat on the left, terminal on the right, so each route keeps its own
+	 *   side and switching reads as going to the other one;
+	 * - pulls the window up under the switch once the rows stack, where nothing sits between them.
+	 *
+	 * Switching is ONE GESTURE on the thumb's own curve (`AiHandoff`): the view pans the way the thumb
+	 * slides — going right, to the terminal, the chat steps out left and the terminal arrives from the
+	 * right, overlapping so there is never an empty frame — the wash blends between the two hues, and
+	 * the terminal starts typing the moment it lands. Short travel and a fast-out curve, so it reads
+	 * as snappy rather than as a carousel.
+	 *
+	 * `bands` — the PREVIOUS homepage: both routes, one band each, stacked, with the lede and the
+	 * kickers. Kept as the sandbox's reference and the way back.
+	 *
+	 * Everything the bands are calibrated on — the dock, the crop, the log that fits without a scroll —
+	 * is shared between the two rather than copied, so it cannot drift.
+	 */
+	layout?: 'toggle' | 'bands';
+	/**
+	 * Which copy the rows carry. `shipping` is `AI_COLUMNS`, on the homepage. `value` is the CANDIDATE
+	 * `AI_COLUMNS_VALUE`: value-first headlines, and a kicker that names the tool — which brings the
+	 * kicker back in the toggle layout, where the route framing has moved into the switch.
+	 */
+	copy?: 'shipping' | 'value';
+	/**
+	 * Only with the toggle layout (where the wash is one gradient on the wrapper).
+	 *
+	 * `cycle` — THE HOMEPAGE since 2026-09-26, and the default: the wash follows the MARK, the same
+	 * colour sequence as the badge — every other section's colour on the page — on the same clock,
+	 * paused and resumed with it, so the tile and the band change colour as one. The route no longer
+	 * colours the band; the switch's label and the terminal's prompt still carry it.
+	 * `route` — the handoff's: the wash takes the showing route's hue, green for the chat and violet
+	 * for the terminal.
+	 *
+	 * Meant for the copy WITHOUT kickers: a kicker is set in its route's hue, derived to read against
+	 * that hue's wash, and a wash moving through five other colours would leave it on the wrong one.
+	 */
+	wash?: 'route' | 'cycle';
+	/**
+	 * What the second window is. `agent` — THE HOMEPAGE since 2026-09-24: a coding-agent console, the
+	 * transcript in `AI_AGENT_SESSION`, a whole window centred in a symmetric band. `cli` — the shell
+	 * session it replaced (`AI_CLI_SESSION` in `CliTerminal`), docked to the band's base and cut there;
+	 * every `cli` rule below is scoped under `:where(.ai--cli)` at the same specificity as the rule it
+	 * overrides, so the stacked-layout overrides still win over both.
+	 */
+	terminal?: 'agent' | 'cli';
+	/**
+	 * Which conversation the chat window plays (`AI_ASSISTANT_SCENARIOS`). `shipping` — THE HOMEPAGE, and
+	 * the default: the freezer-door scenario, promoted 2026-09-24. `dewPoint` — the chat it replaced,
+	 * kept as the sandbox's reference and the way back.
+	 */
+	chat?: AiChatScenario;
+	/**
+	 * How the windows sit in their column.
+	 *
+	 * `column` — THE HOMEPAGE, and the default, promoted 2026-09-24 from `/internal/sections/ai/`. Side by side the windows
+	 * FILL the media column — 544 = 400 native x 1.36, beside a 360px copy — so their outer edge stands
+	 * on the page's 960 grid and they sit the rows' 56px from the copy. The same 544 stacked, from 600. (They bled 40px past the grid like the key-visual rows until 2026-09-25;
+	 * see the note on the rules below.)
+	 * Stacked, the copy is capped to the window's width, so the two read as one column, as on a phone.
+	 *
+	 * `inset` — the PREVIOUS homepage: both windows 500 wide, centred in the 543px media column, so each
+	 * stops ~60px inside the edge the key-visual rows' visuals reach and 78px from its copy. Kept as the
+	 * sandbox's reference and the way back.
+	 */
+	fit?: 'inset' | 'column';
+	/**
+	 * What the section asks the reader to do. In running order A it sits straight under the hero, so
+	 * it is the first thing on the page to act on.
+	 *
+	 * `block` — THE HOMEPAGE, and the default since 2026-09-26: one call to action under the row, on the
+	 * wash, as the running-order proposal sketched it (`AI_CTA_BAND`). A line, a button and a link, and all
+	 * three follow the switch: the button is the showing route's way in (Cloud sign-up for the
+	 * Assistant, the CLI guide for the agent), the link the other route's. Toggle layout only, since
+	 * it follows the switch; `bands` shows both routes at once and falls back to `route`.
+	 *
+	 * `route` — a button at the end of each route's copy (`AI_ACTIONS`), inside the band, so it follows
+	 * the switch with no rule of its own. `none` — no action: the handoff's section, which the sandbox's
+	 * previous-homepage references pin rather than inherit.
+	 */
+	cta?: 'block' | 'route' | 'none';
+	/**
+	 * The colours the mark cycles through, after its own: the badge colours of the OTHER sections on
+	 * the page. Defaults to `AI_BADGE_CYCLE`, all five that have one, which is right for the sandbox.
+	 * A running order passes `aiBadgeCycleFor` its own sections, so a section the page does not run has
+	 * no stop in its cycle — the claim the mark makes, "these are the colours this page is built out
+	 * of", is only true of the page it is on. From one to six.
+	 */
+	hues?: string[];
+	/**
+	 * The section's id, when the caller needs a fixed one. A homepage running order renders exactly one
+	 * AI section and wants it at `#ai` whatever its options, so `HomeSections` passes `ai`. Left unset,
+	 * the id follows the configuration (see `sectionId`), which is what keeps the sandbox's directions
+	 * apart.
+	 */
+	id?: string;
+}
 
-const panel = (id: string, shown: boolean) => ({
-	id,
-	role: 'tabpanel' as const,
-	'aria-labelledby': `${id}-tab`,
-	hidden: !shown,
-});
+const {
+	animate = true,
+	layout = 'toggle',
+	copy = 'shipping',
+	wash = 'cycle',
+	terminal = 'agent',
+	chat = 'shipping',
+	fit = 'column',
+	cta = 'block',
+	hues = AI_BADGE_CYCLE,
+	id: fixedId,
+} = Astro.props;
+const toggle = layout === 'toggle';
+const washCycle = toggle && wash === 'cycle';
+const COLS = copy === 'value' ? AI_COLUMNS_VALUE : AI_COLUMNS;
+// The block follows the switch, so without one (`bands`) each route carries its own action instead.
+const ctaBlock = cta === 'block' && toggle;
+const ctaRoute = cta === 'route' || (cta === 'block' && !toggle);
 
-const sectionStyle = [AI_COPY.badge.color, ...AI_BADGE_CYCLE].map((hue, i) => `--ai-hue-${i}: ${hue}`).join('; ');
+/**
+ * The line over a row's title. In `bands` it is the route ("From a prompt"). In `toggle` the route
+ * IS the switch, so the row shows the tool's name if the copy has one, and nothing if it does not.
+ */
+const kicker = (col: AiColumn) => (toggle ? col.kicker : (col.kicker ?? col.eyebrow));
+
+/**
+ * Panel ids for the switch, unique per instance: the sandbox renders this section more than once on a
+ * page, and two panels answering to one id would each be shown by the other's switch. Built from the
+ * props rather than drawn at random, so a build is the same every time — no two directions on the
+ * sandbox page share all three.
+ */
+const uid = `${layout}-${copy}-${wash}${terminal === 'cli' ? '-cli' : ''}${chat === 'shipping' ? '' : `-${chat}`}${fit === 'column' ? '' : `-${fit}`}${cta === 'block' ? '' : `-cta-${cta}`}`;
+const PANELS = { assistant: `ai-${uid}-prompt`, cli: `ai-${uid}-cli` };
+
+/**
+ * The section's own id, by the same rule. The default configuration — the one the homepage renders —
+ * keeps `ai`, which the homepage's `/#ai` anchor and its scroll margin answer to; every other
+ * configuration is suffixed, so the sandbox's stack of directions is not several elements sharing one
+ * id, with `#ai` resolving to whichever came first. `id` overrides both, for a caller that knows it
+ * renders the only one on its page.
+ */
+const sectionId = fixedId ?? (uid === 'toggle-shipping-cycle' ? 'ai' : `ai-${uid}`);
+
+/** What a panel carries in toggle mode. Nothing at all in `bands`, so the homepage's markup is unchanged. */
+const panel = (id: string, shown: boolean) =>
+	toggle ? { id, role: 'tabpanel' as const, 'aria-labelledby': `${id}-tab`, hidden: !shown } : {};
+
+/**
+ * The mark's colour cycle, handed to CSS as numbered custom properties.
+ *
+ * Through the style attribute rather than written into the stylesheet, because the values belong to
+ * the other sections' data files and are imported from them — see `AI_BADGE_CYCLE`. A `@keyframes`
+ * block cannot import anything, so this is how the palette reaches it.
+ */
+const badgeHues = hues.map((hue, i) => `--ai-hue-${i + 1}: ${hue}`).join('; ');
+
+/**
+ * How many stops the cycle has, the mark's own included, and the keyframes written for that many
+ * (`ai-badge-hues-N` / `ai-wash-hues-N`, one pair per length, generated in the stylesheet). The
+ * count picks the pair, so every leg is the same length whatever the page's palette.
+ */
+const STOPS_MAX = 7;
+const stops = hues.length + 1;
+if (hues.length === 0 || stops > STOPS_MAX) {
+	throw new Error(`AiSection: the mark cycles through 1 to ${STOPS_MAX - 1} colours, not ${hues.length}`);
+}
+const cycleVars = `--ai-stops: ${stops}; --ai-badge-anim: ai-badge-hues-${stops}; --ai-wash-anim: ai-wash-hues-${stops}`;
+
+/**
+ * Stop 0 of the cycle — the mark's own colour, where it rests. The badge reads it as its own
+ * `--badge-color`; the wash has no badge to read it from, so `wash="cycle"` hands it over here.
+ */
+const sectionStyle = [badgeHues, cycleVars, washCycle && `--ai-hue-0: ${AI_COPY.badge.color}`]
+	.filter(Boolean)
+	.join('; ');
 ---
 
-<section id="ai" class="ai" style={sectionStyle}>
+<section
+	id={sectionId}
+	class:list={[
+		'ai',
+		toggle && 'ai--toggle',
+		washCycle && 'ai--wash-cycle',
+		terminal === 'cli' && 'ai--cli',
+		fit === 'column' && 'ai--fit-column',
+	]}
+	style={sectionStyle}
+	data-animate={animate ? 'on' : null}
+>
 	<div class="main-div">
-		<header class="ai__head">
-			<span class="ai__badge" aria-hidden="true">
-				<Icon name={AI_COPY.badge.icon} />
-			</span>
-			<h2 class="ai__title">{AI_COPY.title}</h2>
-			<div class="ai__switch print:hidden">
-				<SegmentedToggle
-					options={[
-						{
-							label: AI_COLUMNS.assistant.switchLabel,
-							shortLabel: AI_COLUMNS.assistant.switchShort,
-							icon: 'tabler:message-chatbot',
-							panel: PANELS.assistant,
-							color: AI_COLUMNS.assistant.accentText,
-						},
-						{
-							label: AI_COLUMNS.cli.switchLabel,
-							shortLabel: AI_COLUMNS.cli.switchShort,
-							icon: 'tabler:terminal-2',
-							panel: PANELS.cli,
-							color: AI_COLUMNS.cli.accentText,
-						},
-					]}
-				/>
-			</div>
-		</header>
+		<SectionHeader
+			title={AI_COPY.title}
+			subtitle={toggle ? undefined : AI_COPY.body}
+			titleSize="section"
+			titleMeasure="headline"
+			subtitleMeasure="copy"
+			badge={AI_COPY.badge}
+		>
+			{
+				/* The kickers, as the switch. Each segment takes its route's TEXT hue — the one derived to
+				   read as type — so the chosen label and the band below it are the same colour. */
+				toggle && (
+					<div class="ai__switch">
+						<Tabs
+							look="segmented"
+							label="Two ways to build with AI"
+							items={[
+								{
+									label: COLS.assistant.switchLabel ?? COLS.assistant.eyebrow,
+									shortLabel: COLS.assistant.switchShort ?? 'Prompt',
+									icon: 'tabler:message-chatbot',
+									panel: PANELS.assistant,
+									color: COLS.assistant.accentText,
+								},
+								{
+									label: COLS.cli.switchLabel ?? COLS.cli.eyebrow,
+									shortLabel: COLS.cli.switchShort ?? 'Terminal',
+									icon: 'tabler:terminal-2',
+									panel: PANELS.cli,
+									color: COLS.cli.accentText,
+								},
+							]}
+						/>
+					</div>
+				)
+			}
+		</SectionHeader>
 	</div>
 
-	<div class="ai__bands" style={`--ai-wash: ${AI_COLUMNS.assistant.accent}`}>
-		<div class="ai__band" style={`--accent: ${AI_COLUMNS.assistant.accent}`} {...panel(PANELS.assistant, true)}>
+	{/* One band per route. Each is full-bleed so the gradient is a BAND across the page rather than
+		   a patch under a window, and the content inside returns to `.main-div`'s measure. The wrapper
+		   is what holds the two to one height — see `.ai__bands`. */}
+	<div
+		class="ai__bands"
+		style={toggle ? `--ai-wash: color-mix(in oklab, ${COLS.assistant.accent}, ${COLS.assistant.accent})` : undefined}
+	>
+		<div
+			class="ai__band ai__band--dock-top"
+			style={`--accent: ${COLS.assistant.accent}; --accent-text: ${COLS.assistant.accentText}`}
+			{...panel(PANELS.assistant, true)}
+		>
 			<div class="main-div">
 				<div class="ai__row">
-					<div class="ai__window">
-						<div class="ai__chat ai__chat--whole">
-							<AiAssistant titled />
-							<span class="ai__mark" aria-hidden="true">
-								<Icon name="tabler:message-chatbot" />
-							</span>
-						</div>
-						<div class="ai__chat ai__chat--cut">
-							<AiAssistant />
-						</div>
+					<div class="ai__media">
+						<AiAssistant animate={animate} scenario={chat} />
 					</div>
 
 					<div class="ai__copy">
-						<h3 class="ai__row-title">{AI_COLUMNS.assistant.title}</h3>
-						<p class="ai__row-text">{AI_COLUMNS.assistant.body}</p>
-						<div class="ai__cta print:hidden">
-							<a
-								class="ai__cta-button"
-								href={AI_CTA.assistant.href}
-								data-cloud-auth="signup"
-							>
-								<Icon name={AI_CTA.assistant.icon} class="ai__cta-icon" aria-hidden="true" />
-								{AI_CTA.assistant.text}
-							</a>
-							<p class="ai__cta-line">{AI_CTA.assistant.line}</p>
-						</div>
+						{kicker(COLS.assistant) && <p class="ai__eyebrow">{kicker(COLS.assistant)}</p>}
+						<h3 class="ai__row-title">{COLS.assistant.title}</h3>
+						<p class="ai__row-text">{COLS.assistant.body}</p>
+						{ctaRoute && (
+							<div class="ai__action">
+								<NButton href={AI_ACTIONS.assistant.href} target="_self" {...AI_ACTIONS.assistant.attrs}>
+									{AI_ACTIONS.assistant.text}
+								</NButton>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<div class="ai__band" style={`--accent: ${AI_COLUMNS.cli.accent}`} {...panel(PANELS.cli, false)}>
+		<div
+			class="ai__band ai__band--dock-bottom"
+			style={`--accent: ${COLS.cli.accent}; --accent-text: ${COLS.cli.accentText}`}
+			{...panel(PANELS.cli, false)}
+		>
 			<div class="main-div">
 				<div class="ai__row ai__row--flip">
-					<div class="ai__window ai__window--cli">
-						<div class="ai__cli ai__cli--wordmark">
-							<AgentTerminal session={AI_AGENT_SESSION_WORDMARK} />
-						</div>
-						<div class="ai__cli ai__cli--mark">
-							<AgentTerminal session={AI_AGENT_SESSION} />
+					<div class="ai__media">
+						{/* `AgentTerminal` reads `--accent` for its prompt and its tool dot, so the row's hue reaches
+						   inside the terminal without this section knowing anything about its internals. */}
+						<div class="ai__cli">
+							{terminal === 'cli' ? (
+								<CliTerminal session={AI_CLI_SESSION} path="cold-chain" ariaLabel={AI_CLI_LABEL} />
+							) : (
+								<AgentTerminal session={AI_AGENT_SESSION} path="smart-retail" ariaLabel={AI_AGENT_LABEL} />
+							)}
 						</div>
 					</div>
 
 					<div class="ai__copy">
-						<h3 class="ai__row-title">{AI_COLUMNS.cli.title}</h3>
-						<p class="ai__row-text">{AI_COLUMNS.cli.body}</p>
-						<div class="ai__cta print:hidden">
-							<a class="ai__cta-button" href={AI_CTA.cli.href}>
-								{AI_CTA.cli.text}
-							</a>
-							<p class="ai__cta-line">{AI_CTA.cli.line}</p>
-						</div>
+						{kicker(COLS.cli) && <p class="ai__eyebrow">{kicker(COLS.cli)}</p>}
+						<h3 class="ai__row-title">{COLS.cli.title}</h3>
+						<p class="ai__row-text">{COLS.cli.body}</p>
+						{ctaRoute && (
+							<div class="ai__action">
+								<NButton href={AI_ACTIONS.cli.href}>{AI_ACTIONS.cli.text}</NButton>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
+	{toggle && <AiHandoff />}
 
-	<AiHandoff />
+	{
+		/* The call to action (`cta="block"`), a short band of its own under the moving wash. One line per
+		   route, stacked in one cell so the band is always the taller one's height and a switch never
+		   moves the page; which one shows is read off the bands (see `.ai__cta`), so it needs no script
+		   and holds before one runs. */
+		ctaBlock && (
+			<div class="ai__cta">
+				<div class="main-div">
+					<div class="ai__cta-stack">
+						{(['assistant', 'cli'] as const).map((route) => (
+							<div class={`ai__cta-route ai__cta-route--${route}`}>
+								<p class="ai__cta-line">
+									<strong>{AI_CTA_BAND[route].lead}</strong> {AI_CTA_BAND[route].line}
+								</p>
+								<div class="ai__cta-actions">
+									<NButton
+										href={AI_CTA_BAND[route].primary.href}
+										target="_self"
+										{...('attrs' in AI_CTA_BAND[route].primary ? AI_CTA_BAND[route].primary.attrs : {})}
+									>
+										{AI_CTA_BAND[route].primary.text}
+									</NButton>
+									<a class="ai__cta-link" href={AI_CTA_BAND[route].secondary.href}>
+										{AI_CTA_BAND[route].secondary.text}
+										<Icon name="tabler:chevron-right" class="ai__cta-chevron" aria-hidden="true" />
+									</a>
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		)
+	}
 </section>
 
 <style lang="scss">
 	@use 'sass:math';
 	@use '../../styles/variables' as *;
-	@use '../../styles/print-mixins' as *;
 
-	// `AI_BADGE_CYCLE`'s length: one keyframe stop each, after the mark's own colour at 0.
-	$hue-count: 5;
-	$cycle: 3s * ($hue-count + 1);
-
-	$window: 600px;
-	$window-cli: 560px;
-	// The terminal's bar (38.2) and composer (34.6) plus eighteen 18.2px log lines at 14px on 1.3.
-	$window-h: 418.6px;
-	$gap: 56px;
-	$chat-scale: 1.25;
+	// The band's padding on the side its window is NOT docked to. The copy's centring offset is half of
+	// it (see "Centring the copy"), and both are written from this one number so they cannot part.
+	$band-pad: $spacing-16;
 
 	.ai {
-		// Shared by the switch's thumb and the bands; `AiHandoff` reads these back.
-		--ai-handoff-duration: 300ms;
-		--ai-handoff-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-
-		// Top only: the band's wash runs into the next section.
+		// No background: the homepage strips them —
+		// `:root section:not(.customers-logo--dark):not(.closing-cta) { background: none }` in
+		// `index.astro` — so a fill here would be dead CSS. White was the brief, and white is the ground.
+		//
+		// TOP PADDING ONLY. Each band ends on full hue by design (see `.ai__bands`), so a bottom
+		// padding laid 64px of white under the CLI band's coloured edge and the section read as
+		// having run out rather than handed over. Nothing is lost by dropping it: the row below
+		// carries its own 80px in `.new-rows .main-div`, which is what spaces the seam.
 		padding: $spacing-16 0 0;
-
-		.main-div {
-			max-width: $home-measure;
-		}
-
-		:global(.seg) {
-			--seg-duration: var(--ai-handoff-duration);
-			--seg-ease: var(--ai-handoff-ease);
-		}
 	}
 
-	.ai__head {
-		text-align: center;
+	// ── The bands ─────────────────────────────────────────────────────
+	// One full-bleed gradient band per route, stacked flush, rather than a small wash under each
+	// window.
+	//
+	// The gradient is the ORIGINAL underlay's — white at the top, the hue at 20% at the bottom, run
+	// over the band's whole height instead of a 300px panel. An intermediate version faded out again
+	// at the base so the two bands would meet on white; this does not, which is the intended look.
+	// The consequence to know about: each band ENDS on full hue, so there is a colour change at the
+	// junction where band one's base meets band two's clear top, and another where band two's base
+	// meets the CTA. That edge is the design, not a bug — do not "fix" it by re-adding the fade-out.
+	//
+	// THE TWO BANDS ARE HELD TO ONE HEIGHT, at every width. Side by side they already matched — both
+	// are a 350px media row plus one 64px pad — but stacked they drift, and not consistently: at
+	// 900px the CLI band ran 15px TALLER (its window is 304 against the chat's 289), and at 375px it
+	// ran 33px SHORTER (its copy is two lines less). `grid-auto-rows: 1fr` resolves every row to the
+	// tallest, which is the only thing that holds when both the media and the copy differ.
+	.ai__bands {
+		display: grid;
+		grid-auto-rows: 1fr;
 	}
 
-	// Always applied and paused until in view, so scrolling past pauses the cycle rather than restarting it.
-	.ai__badge {
+	// A column, so the spare height a shorter band is given lands at the end it is NOT docked to.
+	// Without this the grid would stretch the box and leave the CLI's window floating above its own
+	// bottom edge, which is the one thing the dock exists to prevent.
+	// `section .main-div` ships a ~5px vertical margin from `landing.scss`, which is invisible in a
+	// normal section and not here: it sat between the window and the band edge it is docked to, so the
+	// CLI's terminal floated 5px above its own bottom line. Zeroed, so the dock is exactly the dock.
+	.ai__band .main-div {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	// 64px, and only on the side the window is NOT docked to — see the dock rules below, which take
+	// the other side to zero. A band is therefore its 350px row plus one 64px margin: 414.
+	//
+	// 64, down from 80, to shorten the band a notch — `$band-pad`, which the copy's offset halves.
+	.ai__band {
 		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 64px;
-		height: 64px;
-		margin: 0 auto 14px;
-		border-radius: 32%;
-		background-color: var(--ai-hue-0);
-		color: $color-white;
-		@include mark-shade;
-		animation: ai-badge-hues $cycle linear infinite;
-		animation-play-state: paused;
-
-		:global([data-icon]) {
-			width: 40px;
-			height: 40px;
-		}
+		flex-direction: column;
+		padding: $band-pad 0;
+		background-image: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--accent) 20%, transparent) 100%);
 	}
 
-	.ai__title {
-		@include home-section-title;
-		max-width: 720px;
-		margin: 0 auto;
-		color: var(--color-text);
-		text-wrap: balance;
+	.ai__bands {
+		margin-top: $spacing-12;
 	}
 
+	// ── Toggle layout (the homepage) ──────────────────────────────────
+	// See `layout` in the props. Everything here is additive: `bands` never matches any of it.
+
+	// Under the heading, in the header's own slot, so it is spaced as part of the header rather than
+	// as the first thing in the band.
 	.ai__switch {
 		display: flex;
 		justify-content: center;
 		margin-top: $spacing-8;
 	}
 
-	@media (min-width: 600px) {
-		.ai :global(.seg__icon) {
-			display: none;
+	// `.ai__band` sets `display: flex`, which outranks the UA's `[hidden] { display: none }` — so
+	// without this the switch would flip `hidden` and both bands would stay on the page.
+	.ai__band[hidden] {
+		display: none;
+	}
+
+	// The window is the switch's answer, so it sits closer under it than a band sits under a lede.
+	//
+	// The header's own 48px bottom margin has to go for any of this to show. It collapses through
+	// `.main-div` into the bands' margin, and a collapsed margin is the LARGER of the two, so a smaller
+	// margin on the bands alone changes nothing — which is exactly what happened on phones first.
+	.ai--toggle :global(.section-header) {
+		margin-bottom: 0;
+	}
+
+	// Desktop: 32, down a notch from 48. The chat is docked to the band's top edge, so this IS the
+	// gap to its (faded) top; the terminal adds the band's 64 of padding on top.
+	.ai--toggle .ai__bands {
+		margin-top: $spacing-8;
+	}
+
+	// Stacked, the window came in 96px under the switch — the bands' 48 margin plus the band's own 48
+	// of padding, both there to separate two bands from a lede and from each other. With one band and
+	// the switch directly above it: 24 + 16. Only the TOP gives; the band's foot keeps its 48 to the
+	// next section. (0,2,0), so it outranks the stacked padding reset below, which is (0,1,0) and later
+	// in the file.
+	@include media-down(lg) {
+		.ai--toggle .ai__bands {
+			margin-top: $spacing-6;
+		}
+
+		.ai--toggle .ai__band {
+			padding-top: $spacing-4;
 		}
 	}
 
-	// Registered so the keyframes interpolate it.
+	// ── The hand-off between routes ───────────────────────────────────
+	// See `layout` in the props; the moving parts are in `AiHandoff`.
+
+	// Registered as a <color> so it can be TRANSITIONED — an unregistered custom property is a
+	// string and flips at the halfway point. Its values are written as `color-mix(in oklab, …)`
+	// rather than bare hex: a hex colour is "legacy" and interpolates in sRGB, an Oklab one
+	// interpolates in Oklab, so the blend passes through the perceptual midpoint of the two hues.
+	//
+	// NOT inherited: only `.ai__bands` reads it, and an inherited property re-styles every descendant on
+	// every frame of the blend.
 	@property --ai-wash {
 		syntax: '<color>';
 		inherits: false;
 		initial-value: transparent;
 	}
 
-	// Both bands share one grid cell, so during the hand-off the incoming one arrives over the outgoing.
-	// `minmax(0, 1fr)`: a bare `1fr` floors at the pixel-wide window's min-content and overflows a phone.
-	.ai__bands {
-		display: grid;
-		grid-template: minmax(0, 1fr) / minmax(0, 1fr);
-		margin-top: $spacing-8;
+	// ONE WASH FOR BOTH ROUTES, on the wrapper, instead of one per band. Two bands each carrying a
+	// gradient can only cut from one to the other, or crossfade as two half-transparent layers. One
+	// gradient whose colour ANIMATES blends instead. The colour is a registered property, which is
+	// what lets a transition reach a value inside a gradient at all; the script sets it to the
+	// incoming band's `--accent`.
+	.ai--toggle .ai__bands {
+		// Both bands in ONE cell, so during the hand-off the outgoing one is still in place while the
+		// incoming one arrives over it. Outside a hand-off only one is displayed, so this is invisible.
+		grid-template: 1fr / 1fr;
 		background-image: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--ai-wash) 20%, transparent) 100%);
-		// The bands travel sideways, and a transform counts as scrollable overflow.
+		// The windows travel 32px sideways, and a transform counts as scrollable overflow — a band
+		// sliding in from the right would briefly push the page wider than the window.
 		overflow-x: clip;
-		// Outranks the route hue `AiHandoff` sets inline, which only shows under reduced motion.
-		animation: ai-wash-hues $cycle linear infinite;
+	}
+
+	.ai--toggle .ai__band {
+		grid-area: 1 / 1;
+		background-image: none;
+	}
+
+	// The band on its way out is still displayed, but it must not catch a click meant for the one
+	// arriving on top of it.
+	.ai--toggle .ai__band.is-leaving {
+		pointer-events: none;
+	}
+
+	// The one curve and duration everything shares: the thumb reads them through the switch's own
+	// custom properties, the wash through its transition, the bands through `AiHandoff` (which reads
+	// these back rather than hard-coding them, so there is one place to tune).
+	.ai--toggle {
+		--ai-handoff-duration: 300ms;
+		--ai-handoff-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	.ai--toggle :global(.ui-seg) {
+		--seg-duration: var(--ai-handoff-duration);
+		--seg-ease: var(--ai-handoff-ease);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.ai--toggle .ai__bands {
+			transition: --ai-wash var(--ai-handoff-duration) var(--ai-handoff-ease);
+		}
+	}
+
+	// ── Docking ───────────────────────────────────────────────────────
+	// Each window is cut on one side, so it is docked to the band edge it is cut ON: the cut and the
+	// band's boundary become the same line, and the window reads as running past the band rather than
+	// floating inside it with wash above or below the cut.
+	//
+	//   creator  cut at the TOP     → docked to the band's top edge
+	//   CLI      cut at the BOTTOM  → docked to the band's bottom edge
+	//
+	// `align-self` as well as the zeroed padding, so the dock holds even if a copy column ever grows
+	// taller than the 350px media and starts driving the row's height.
+	// ── Centring the copy ─────────────────────────────────────────────
+	// The copy is centred in its ROW, but a docked band's padding is all on one side, so centred-in-
+	// the-row sits half that padding off centre-in-the-BAND — high in the chat, low in the CLI, by
+	// 32px each at the 64px padding.
+	//
+	// The fix is a RELATIVE offset of half the padding, towards the padded side. Relative offsets do
+	// not affect layout, which is the whole reason for choosing one:
+	//
+	//   dock-top     row 0..R,     copy centre R/2       + P/2  =  (R + P) / 2  = band centre
+	//   dock-bottom  row P..P+R,   copy centre P + R/2   − P/2  =  (P + R) / 2  = band centre
+	//
+	// A margin was tried first and is subtly worse. `align-items: center` centres an item's MARGIN
+	// box, so it lands the copy in the same place — but it also grows the row past the media on the
+	// longer column, which made one band 10px taller, which made `grid-auto-rows` stretch the other,
+	// which put the copy 5px off centre again. An offset leaves both rows at the media's own height,
+	// so the bands match with nothing to stretch.
+	.ai__band--dock-top {
+		justify-content: flex-start;
+		padding-top: 0;
+
+		.ai__media {
+			align-self: flex-start;
+
+			// THE SHADOW FADES HERE, on the crop box, not on the window.
+			//
+			// A mask on the window itself cannot do it: `mask-clip` defaults to `border-box`, so the
+			// outer shadow falls outside the mask's painting area and is DELETED rather than faded. The
+			// usual answer is a wrapper padded by the shadow's reach — but this element already is that
+			// wrapper. `.ai__media` is the box that crops the window, it holds the window and every
+			// pixel of shadow that survives the crop, and it has no background of its own (the band
+			// carries the gradient), so masking it touches nothing else.
+			//
+			// One declaration therefore fades the three things that meet at the cut — the window's
+			// fill, its side shadows, and its content — and they fade together, which is what makes it
+			// read as the window dissolving rather than as three effects happening at once.
+			//
+			// 48px, against a shadow that reaches about 7px sideways: long enough that the side shadow
+			// thins out rather than stopping, short enough not to reach the greeting.
+			-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 48px);
+			mask-image: linear-gradient(to bottom, transparent 0, #000 48px);
+		}
+
+		.ai__copy {
+			position: relative;
+			top: math.div($band-pad, 2);
+		}
+	}
+
+	// THE TERMINAL NO LONGER DOCKS (2026-09-24). Its band kept the dock's one-sided padding after the
+	// window stopped running past the edge, so a whole window sat low in a band padded only above it.
+	// The band's 64 now splits 32/32, the window centres in the row, and the copy needs no offset — the
+	// band's height is unchanged (32 + 350 + 32 = 64 + 350), so the two routes still match and the
+	// hand-off never moves the page. The class name stays: it is what the hand-off and the stacked
+	// rules below select on.
+	.ai__band--dock-bottom {
+		justify-content: center;
+		padding-top: math.div($band-pad, 2);
+		padding-bottom: math.div($band-pad, 2);
+
+		.ai__media {
+			align-self: center;
+			// No crop any more: the box only places the window, and the shadow paints past it.
+			overflow: visible;
+		}
+
+		.ai__copy {
+			position: relative;
+			top: 0;
+		}
+	}
+
+	// `terminal="cli"`: the dock the shell window had — one-sided padding, the window flush with the
+	// band's base and cut by it, the copy offset to the band's centre. `:where()` keeps this at the
+	// symmetric rule's specificity, so the stacked overrides below still beat it.
+	:where(.ai--cli) .ai__band--dock-bottom {
+		justify-content: flex-end;
+		padding-top: $band-pad;
+		padding-bottom: 0;
+
+		.ai__media {
+			align-self: flex-end;
+			overflow: hidden;
+		}
+
+		.ai__copy {
+			top: -(math.div($band-pad, 2));
+		}
+	}
+
+	// ── The section's mark ──────────────────────────────────
+	// SIZE IS NOT SET HERE ANY MORE. This section used to force the tile to 56 against the component's
+	// 40, arguing that a centred mark opens a band of its own and has no row marks beside it to be
+	// compared against. `SectionHeader` now makes that same call itself, for the same reason and in the
+	// same numbers — arrived at independently on `FE-handoff` — so the override was saying twice what
+	// the component says once, and disagreeing by 2px on the glyph while it did. The component owns the
+	// size; this section only animates it.
+	//
+	// THE MARK CHANGES COLOUR, and that is the whole animation — the glyph itself holds still. It used
+	// to twinkle, which was motion for its own sake; a tile that cycles through the hues of every other
+	// section on this page is making a claim instead, and it is the claim the section is already making
+	// in words. The colours are the other sections' own badge colours, imported rather than retyped, so
+	// the cycle cannot drift out of step with the palette — see `AI_BADGE_CYCLE`.
+	//
+	// A second and a half a leg — six stops over 9s on a page with all five other colours — and
+	// `linear`, so no colour gets a longer turn than another. 3s a leg was the first pass and it was too slow to do its job: someone reading the
+	// header is there for a few seconds and saw one hue change, which is a tile that happens to be
+	// fading rather than a tile showing a palette. At 1.5s a leg they see four or five. That is about
+	// as fast as this should go — a colour crossfade under a second stops reading as a transition and
+	// starts reading as restlessness, on an element nobody is looking directly at.
+	//
+	// The first and last stops are `var(--badge-color)`, the section's own indigo, so the mark rests on
+	// its own colour and the cycle reads as a departure that comes home rather than as a loop that
+	// happens to be passing through.
+	//
+	// ALWAYS APPLIED, PAUSED BY DEFAULT, rather than added and removed with the class. Toggling the
+	// animation restarts it, so a mark scrolled past and returned to would jump back to indigo; pausing
+	// leaves it where it was. Paused at 0% is the badge's own colour, which is also exactly what a
+	// browser that never runs it shows.
+	.ai {
+		--ai-leg: 1.5s;
+		--ai-cycle: calc(var(--ai-leg) * var(--ai-stops, 6));
+	}
+
+	.ai :global(.section-header__badge) {
+		animation: var(--ai-badge-anim, none) var(--ai-cycle) linear infinite;
 		animation-play-state: paused;
 	}
 
-	.ai.is-cycling {
-		.ai__badge,
-		.ai__bands {
-			animation-play-state: running;
-		}
+	// The SECTION's class, not the badge's: the one switch the wash reads too (see the script).
+	.ai.is-cycling :global(.section-header__badge) {
+		animation-play-state: running;
 	}
 
-	@mixin hue-stops($prop) {
-		0%,
-		100% {
-			#{$prop}: var(--ai-hue-0);
+	// ── The wash follows the mark (`wash="cycle"`, the homepage's since 2026-09-26) ─────────────
+	// The SAME sequence as the tile, stop for stop — stop 0 is the mark's own colour, handed over as
+	// `--ai-hue-0` — driven into `--ai-wash`, the one gradient the hand-off layout paints. Same clock,
+	// same linear timing, same sRGB interpolation (the stops are hex, which interpolates in sRGB,
+	// exactly as the tile's `background-color` does), so the band passes through each colour at the
+	// moment the tile does.
+	//
+	// IN LOCKSTEP BY CONSTRUCTION: both animations are applied at first paint, both held paused, and
+	// both run on the section's one `is-cycling`, so both clocks start, stop and start again in the
+	// same frame.
+	//
+	// WHEN they run is each one's own business: the section cycles while the mark OR the band is on
+	// screen. Gated on the mark alone, the band froze on a phone as soon as the heading scrolled away;
+	// the mark runs on unseen while only the band shows, which keeps the two in step for the way back.
+	//
+	// An animation outranks the inline `--ai-wash` the hand-off sets on a switch, so the route no
+	// longer colours the band here; its transition simply has nothing to do.
+	// SLOWER HERE, 2.5s a colour against the mark's usual 1.5. At 1.5s a leg a tile is a small thing
+	// changing briskly; a full-bleed band doing the same is the whole screen flickering through its
+	// colours. The tile slows with it (`--ai-cycle` feeds both), or the two would part. 3s until
+	// 2026-10-01, as `AiWide`'s.
+	.ai--wash-cycle {
+		--ai-leg: 2.5s;
+	}
+
+	.ai--wash-cycle .ai__bands {
+		animation: var(--ai-wash-anim, none) var(--ai-cycle) linear infinite;
+		animation-play-state: paused;
+		// A GLOW, not the route layout's linear run: this is the centred section, lit where its row
+		// sits — the cycle's colour pooled behind the window and the copy, strongest low in the band
+		// and gone before the sides — rather than a floor of colour ending in a line on the call to
+		// action's band below.
+		background-image: radial-gradient(
+			ellipse 62% 78% at 50% 68%,
+			color-mix(in srgb, var(--ai-wash) 24%, transparent) 0%,
+			color-mix(in srgb, var(--ai-wash) 9%, transparent) 50%,
+			transparent 100%
+		);
+	}
+
+	.ai--wash-cycle.is-cycling .ai__bands {
+		animation-play-state: running;
+	}
+
+	// One pair of keyframes per cycle length, stops evenly spaced and the mark's own colour at 0 and
+	// 100%. Generated rather than written out, because the length is the page's: the sandbox's mark
+	// runs all five other colours (six stops), order A's four (five). `--ai-stops`, set on the section,
+	// picks the pair and sets the clock, so a leg is `--ai-leg` long however many there are.
+	@for $n from 2 through 7 {
+		@keyframes ai-badge-hues-#{$n} {
+			0%,
+			100% {
+				background-color: var(--badge-color);
+			}
+			@for $i from 1 through $n - 1 {
+				#{math.div($i * 100%, $n)} {
+					background-color: var(--ai-hue-#{$i});
+				}
+			}
 		}
-		@for $i from 1 through $hue-count {
-			#{math.div($i * 100%, $hue-count + 1)} {
-				#{$prop}: var(--ai-hue-#{$i});
+
+		@keyframes ai-wash-hues-#{$n} {
+			0%,
+			100% {
+				--ai-wash: var(--ai-hue-0);
+			}
+			@for $i from 1 through $n - 1 {
+				#{math.div($i * 100%, $n)} {
+					--ai-wash: var(--ai-hue-#{$i});
+				}
 			}
 		}
 	}
 
-	@keyframes ai-badge-hues {
-		@include hue-stops(background-color);
-	}
-
-	@keyframes ai-wash-hues {
-		@include hue-stops(--ai-wash);
-	}
-
+	// Belt and braces with the script, which does not attach the observer at all under reduced motion:
+	// this also covers the setting being turned on after the class has already landed.
 	@media (prefers-reduced-motion: reduce) {
-		.ai__badge,
-		.ai__bands {
+		.ai :global(.section-header__badge),
+		.ai--wash-cycle .ai__bands {
 			animation: none;
 		}
 	}
 
-	.ai__band {
-		grid-area: 1 / 1;
-		padding: $spacing-6 0 $spacing-16;
-
-		// The band on its way out must not catch a click meant for the one arriving over it.
-		&.is-leaving {
-			pointer-events: none;
-		}
-	}
-
-	// `row-reverse` rather than `order`, so the DOM keeps window before copy in both rows.
+	// `_home-rows.scss`'s gutter, so these sit in the same rhythm as the five visuals above.
+	//
+	// NO 350px FLOOR, though that file sets one. Its job there is to hold five rows of differing
+	// natural height to one height; here both rows are the same 350px media, so the floor was never
+	// equalising anything — it was 50px of air inside every band. The content sets the height.
 	.ai__row {
 		display: flex;
 		align-items: center;
-		gap: $gap;
+		gap: 56px;
 	}
 
+	// The second row swaps sides. `row-reverse` rather than `order`, so the DOM keeps media before
+	// copy in both rows and the reading order never depends on which way the row faces.
 	.ai__row--flip {
 		flex-direction: row-reverse;
 	}
 
-	.ai__window {
-		flex: none;
-		width: min(#{$window}, 100%);
-		height: $window-h;
-	}
-
-	.ai__window--cli {
-		width: min(#{$window-cli}, 100%);
-	}
-
+	// The copy is a MEASURE, not a fraction — the media takes what is left, exactly as the rows above.
 	.ai__copy {
+		display: flex;
+		flex: 0 1 40ch;
+		flex-direction: column;
+		max-width: 40ch;
+	}
+
+	// The crop: shorter than the window it holds, so the window is cut rather than shrunk. The wash
+	// rises to the base — clear where the window is, gathering under it.
+	.ai__media {
+		position: relative;
+		display: flex;
 		flex: 1 1 auto;
+		align-items: flex-end;
+		justify-content: center;
 		min-width: 0;
+		// 350. The crop box has to hold the chat's rendered height less the amount being cut, and the
+		// chat now renders 396 rather than 347 — so at 300 the cut grew to 110, which took 46 native
+		// pixels off the log and left less than the greeting needs. 350 puts the cut back to 60, where
+		// the log keeps 20px of slack over the intro. This is the cost of matching the two windows'
+		// type: the bands go from 380 to 430 (414 since the pad came down to 64).
+		//
+		// NO BACKGROUND of its own: this box is only the crop, and the colour behind it belongs to the
+		// band.
+		height: 350px;
+		overflow: hidden;
+	}
+
+	// The chat is AUTHORED at 400x289 and blown up here — see the note on `.assistant`. The section
+	// owns the factor because the section owns the column it has to fill: 400 x 1.2 = 480, the width
+	// the window occupies either way. Authoring wider and scaling less is how the magnification came
+	// down from 1.3333 without the window changing size on the page.
+	//
+	// The crop then follows from the scaled height, measured off the bottom edge the scale grows from:
+	//
+	//   289 x 1.37 = 396 (window) − (350 panel − 14 offset) = 60 cut from the top
+	//
+	// and 60 is comfortably more than the 47 the `New chat` bar occupies once scaled, so the bar goes
+	// with the cut. What survives is the live end — the composer, the chip and the latest replies.
+	.ai__media :global(.assistant) {
+		// 500 ÷ 365 — the common window width over the chat's native width, for `fit="inset"`, where both
+		// windows are 500 wide: same width, and the chat's body type lands at 16.4px against the
+		// terminal's 18px mono, which is parity once the mono's bigger x-height is accounted for. The
+		// homepage's `fit="column"` overrides this with 400 x 1.36 = 544 — see the rules at the end.
+		--ui-scale: 1.37;
+
+		// POSITIONED, like the terminal beside it, and for a reason that only shows on a phone: a
+		// transform does not shrink the LAYOUT box. The window is 365 wide whatever the scale renders
+		// it at, so in the flow it pushed its cell to 365, the cell pushed `.main-div` to 405, and the
+		// band went 30px wider than a 375px viewport — clipped by `#overflow`, so it hid as a slight
+		// horizontal shift rather than as a scrollbar.
+		//
+		// Out of the flow it contributes no width, and `left/right: 0` with `margin: 0 auto` centres it
+		// against the cell instead. Both windows are now placed the same way, which is the point.
+		position: absolute;
+		right: 0;
+		// 24, AND THE NUMBER IS THE SHADOW'S. The window's own shadow is authored `0 4px 12px` and gets
+		// multiplied by the scale like everything else, so it reaches 5.5 + 16.4 ≈ 22px below the frame
+		// here — against the 14 this used to leave, which ended it on the crop's straight edge. 24 clears
+		// it. The 10px comes off the top of the window instead, where the crop is already 60 deep and the
+		// log's mask holds transparent for 20 of its own: the cut moves from 9.7 to 17.1 into the log and
+		// stays inside that hold, so the seam is still invisible. Below 560 the scale is 1, the shadow is
+		// a third the size, and this comes back down — see the note there.
+		bottom: 24px;
+		left: 0;
+		margin: 0 auto;
+	}
+
+	// The terminal is the mirror image: pinned to the top, 56px down, and taller than the room left
+	// below that, so the frame is genuinely cut at the bottom.
+	//
+	//   350 (panel) − 20 (offset) + 24 (bleed) = 354
+	//
+	// `CliTerminal` is a plain block whose log carries its own cap, so all three parts have to be
+	// told to fill: the window, the scroll box, and the log inside it.
+	// POSITIONED, NOT ALIGNED. The window is deliberately taller than the box that crops it, and a
+	// flex item whose margin box overflows its line does not place predictably: with
+	// `align-self: flex-start; margin-top: 40px` this measured at 40px from the top in one reading and
+	// 16px in the next, so the visible log was sometimes 218px and sometimes 242px. That is what let
+	// an 18px log fit when it was checked and crop its last line when it was looked at.
+	//
+	// Absolute placement makes the crop arithmetic true by construction: top 20, height 354, so the
+	// window always overhangs the 350px box by 24 and the visible log is always
+	// 350 − 20 (offset) − 41 (title bar) = 289px tall.
+	.ai__cli {
+		position: absolute;
+		// Centred in the 350 box: (350 − 316) / 2. It was 20, the dock's offset for a window that ran
+		// past the box's far edge.
+		top: 17px;
+		right: 0;
+		left: 0;
+		margin: 0 auto;
+		width: 100%;
+		// 500, THE SAME WIDTH AS THE CHAT. It used to fill its 543px cell while the chat sat inset, and
+		// that 13% difference was the loudest thing separating them.
+		//
+		// It can give up the width because it was not using it: the longest line — `tb calculated-field
+		// save --name mean-cargo-temp`, 47 characters — is 453px, so 543 left 58px of empty console.
+		// At 500 it has 468px of content and 15px spare, which is the floor: `white-space: pre` cannot
+		// break that line, so any narrower and the whole span drops to a second row, and one wrapped
+		// row is the 23px that puts the log into a scroll.
+		max-width: 500px;
+	}
+
+	.ai__cli :global(.agent) {
+		display: flex;
+		flex-direction: column;
+		// 318, NOT 354 (2026-09-24). The CLI window overhung the 350 box by 24 and was CUT at the band's
+		// edge — its live end was the top. The agent console's live end is its BOTTOM: the docked input
+		// and the status line under it, which have to be seen. So the window now ends inside the crop,
+		// 12px above the box's edge, with its shadow: 350 − 20 (offset) − 12. The composition changes
+		// with it — a whole window standing on the band rather than one running past it — and that is
+		// the trade to judge.
+		//
+		// 316 (2026-09-24): sized so the log shows NINE WHOLE LINES when scrolled to its end. At 18px
+		// on a 1.3 leading a line is 23.4; the bar is 38.2 (its label's line box is pinned, see
+		// `.agent__path` below) and the composer 44.2 (9 + 23.4 + 10.8 + 1), so 316 leaves the log
+		// 233.6, and less the one-line foot that is 210.2 = 9 x 23.4 − 0.4. Re-derive if the leading,
+		// the type size, the composer's padding or the bar changes.
+		height: 316px;
+		// CUT TO FIT THE CROP. The component's own `0 12px 32px` is right for a terminal standing in a
+		// card, and wrong inside a box that clips it: a 32px blur paints 32px past the frame and the crop
+		// leaves 21, so the outer third of the shadow ended on a straight vertical line down both sides,
+		// and the 20px above the window was exactly the reach of the top edge. 18px of blur fits both
+		// with room to spare; the alpha comes up a little so it does not read as weaker for being
+		// tighter. The BOTTOM is cut either way — that cut is the composition.
+		box-shadow:
+			0 1px 0 rgba(255, 255, 255, 0.06) inset,
+			0 8px 18px rgba(0, 0, 0, 0.3);
+		// Matched to the chat's rendered corner rather than to its authored one: the chat is scaled
+		// 1.2, so its 8px becomes 9.6 on the page. Overridden here rather than in `CliTerminal`, whose
+		// own 6px is right for the cards it sits in elsewhere.
+		border-radius: 10px;
+	}
+
+	.ai__cli :global(.agent__scroll) {
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	// 18/1.3, against the component's 12.5/1.9. That ratio is built for a still being read at rest; a
+	// session being typed wants the lines closer together, so the log reads as one block of output
+	// rather than a list, and much larger so the command is legible across the row.
+	//
+	// THE SIZE IS DERIVED, NOT CHOSEN, because the session has to fit with NO SCROLL — a log that
+	// scrolls hides the command that opened it. Both bounds were measured in the browser rather than
+	// estimated:
+	//
+	//   down   16 top + 9 rows x 22.5 + 8 bottom = 227 against 288px of visible log   → 61px spare
+	//   across the longest line is `tb calculated-field save --name mean-cargo-temp` at 47 characters;
+	//          this mono font advances 0.5em per character, so with the 1.65em gutter that is 25.15em
+	//          = 453px against 468px of content width                                 → 15px spare
+	//
+	// 218 IS THE NUMBER THAT MATTERS and it is not the log's own height. The window is 284 tall and
+	// hangs 24px past the media box that crops it, so `body.clientHeight` reports 242 while only 218
+	// is ever seen. Sizing against 242 fit the log on paper and dropped its last line into the cut —
+	// `scrollHeight <= clientHeight` is not the test here; the media's bottom edge is.
+	//
+	//   visible log = 350 (media) − 20 (the window’s top offset) − 41 (title bar) = 289
+	//
+	// Height is the binding bound; the width has room to spare. Re-measure both if a command gets
+	// longer, a step is added, or the crop offsets change.
+	.ai__cli :global(.agent) {
+		// The log, the state line and the input inherit from the root — see `AgentTerminal`.
+		// 1.3 (2026-09-24), down from the CLI window's 1.4. That window needed the air because its output
+		// lines read as attached to the command above them; here the transcript's turns carry a blank
+		// line of their own, so the leading can close up and wrapped prose reads as a paragraph. Set as
+		// the window's grid variable, not `line-height`: every gap in the window is derived from it.
+		--agent-lead: 1.3;
+
+		// NOT a container query. `min(18px, calc((100cqw - 32px) / 25.15))` off a
+		// `container-type: inline-size` on the wrapper is the obvious way to tie the type to the
+		// terminal's own width, and it does not work here: inline-size containment on a flex item
+		// collapsed the width it was meant to measure, and all nine rows wrapped to three lines each.
+		// A breakpoint below.
+		//
+		// BACK AT 18 (2026-09-24, second pass). The agent transcript first came down to 15 to fit the
+		// crop with no scroll; the decision since is that the log SCROLLS — it is a transcript, and the
+		// newest turn is what matters — so the type returns to the CLI window's size, parity with the
+		// chat's body.
+		font-size: 18px;
+	}
+
+	// 15 under an 18px log (2026-09-24, from 14): the title is the window's name, not a caption. The
+	// LINE HEIGHT IS PINNED to the 14px label's line box (14 x 1.3), so the bar keeps its 38.2 and only
+	// the type grows — left to the leading, a bigger label made the bar taller, which was not wanted.
+	.ai__cli :global(.agent__path) {
+		font-size: 16px;
+		line-height: 18.2px;
+	}
+
+	// ── `terminal="cli"`: the shell window's own geometry ──────────────────
+	// The offset and the rules the CLI window shipped with, kept for the sandbox reference.
+	:where(.ai--cli) .ai__cli {
+		top: 20px;
+	}
+
+	:where(.ai--cli) .ai__cli :global(.cli) {
+		display: flex;
+		flex-direction: column;
+		height: 354px;
+		// CUT TO FIT THE CROP. The component's own `0 12px 32px` is right for a terminal standing in a
+		// card, and wrong inside a box that clips it: a 32px blur paints 32px past the frame and the crop
+		// leaves 21, so the outer third of the shadow ended on a straight vertical line down both sides,
+		// and the 20px above the window was exactly the reach of the top edge. 18px of blur fits both
+		// with room to spare; the alpha comes up a little so it does not read as weaker for being
+		// tighter. The BOTTOM is cut either way — that cut is the composition.
+		box-shadow:
+			0 1px 0 rgba(255, 255, 255, 0.06) inset,
+			0 8px 18px rgba(0, 0, 0, 0.3);
+		// Matched to the chat's rendered corner rather than to its authored one: the chat is scaled
+		// 1.2, so its 8px becomes 9.6 on the page. Overridden here rather than in `CliTerminal`, whose
+		// own 6px is right for the cards it sits in elsewhere.
+		border-radius: 10px;
+	}
+
+	:where(.ai--cli) .ai__cli :global(.cli__scroll) {
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	// 18/1.3, against the component's 12.5/1.9. That ratio is built for a still being read at rest; a
+	// session being typed wants the lines closer together, so the log reads as one block of output
+	// rather than a list, and much larger so the command is legible across the row.
+	//
+	// THE SIZE IS DERIVED, NOT CHOSEN, because the session has to fit with NO SCROLL — a log that
+	// scrolls hides the command that opened it. Both bounds were measured in the browser rather than
+	// estimated:
+	//
+	//   down   16 top + 9 rows x 22.5 + 8 bottom = 227 against 288px of visible log   → 61px spare
+	//   across the longest line is `tb calculated-field save --name mean-cargo-temp` at 47 characters;
+	//          this mono font advances 0.5em per character, so with the 1.65em gutter that is 25.15em
+	//          = 453px against 468px of content width                                 → 15px spare
+	//
+	// 218 IS THE NUMBER THAT MATTERS and it is not the log's own height. The window is 284 tall and
+	// hangs 24px past the media box that crops it, so `body.clientHeight` reports 242 while only 218
+	// is ever seen. Sizing against 242 fit the log on paper and dropped its last line into the cut —
+	// `scrollHeight <= clientHeight` is not the test here; the media's bottom edge is.
+	//
+	//   visible log = 350 (media) − 20 (the window’s top offset) − 41 (title bar) = 289
+	//
+	// Height is the binding bound; the width has room to spare. Re-measure both if a command gets
+	// longer, a step is added, or the crop offsets change.
+	:where(.ai--cli) .ai__cli :global(.cli__body) {
+		max-height: 100%;
+		height: 100%;
+		padding-bottom: 8px;
+		// 1.4, up from 1.25. Tight leading is right for a log you are meant to read as one block, but at
+		// 18px it had closed up enough that the output lines read as attached to the command above them.
+		// The budget pays for it easily: 9 rows at 25.2 plus the padding is 235 against the 288 the crop
+		// leaves, so this still lands 53px clear of the cut.
+		line-height: 1.4;
+
+		// NOT a container query. `min(18px, calc((100cqw - 32px) / 25.15))` off a
+		// `container-type: inline-size` on the wrapper is the obvious way to tie the type to the
+		// terminal's own width, and it does not work here: inline-size containment on a flex item
+		// collapsed the width it was meant to measure, and all nine rows wrapped to three lines each.
+		// A breakpoint below.
+		font-size: 18px;
+	}
+
+	// The title bar was left at the component's 11px and read as a caption under an 18px log.
+	:where(.ai--cli) .ai__cli :global(.cli__path) {
+		font-size: 14px;
+	}
+
+	// ── Typography, matched to the feature rows ───────────────────────
+	// Every value below is `_home-rows.scss`'s, so these rows and the five key visuals above are set
+	// in one voice rather than two that nearly agree:
+	//
+	//   heading   `type-subsection` + `text-wrap: balance`   (.new-rows .feature-des .phrase-heading)
+	//   gap       14px under the heading                     (.new-rows .feature-des .heading-wrap)
+	//   body      `type-body` in INK, not the muted grey     (.new-rows .feature-des p)
+	//
+	// The body was the real mismatch: 14px at `--color-text-secondary` against those rows' 16px at
+	// full ink. That file's own note explains the ink — the component's #6b6b72 is a product-page
+	// grey meant to recede beside a screenshot, and it reads washed out beside a quiet diagram.
+	//
+	// The eyebrow has no counterpart there; those rows carry a squircle badge instead. It is kept
+	// because it is the section's argument — the same platform, reached two ways — and set on the
+	// shared ladder so it is at least not a fourth voice.
+	// NOT `--accent`. The kicker is the one place this hue is set as type, and the band it is set on is
+	// washed with that same hue — so the accent is being read against a tint of itself, and both landed
+	// under what 14px needs (4.94:1 and 4.18:1, the purple failing outright). `--accent-text` is each
+	// accent darkened until it clears 5:1 against the deepest point of its own wash; the derivation and
+	// the numbers are in `@data/ai-visual`. The wash and the terminal's prompt keep `--accent`.
+	.ai__eyebrow {
+		@include type-eyebrow;
+
+		margin: 0 0 $spacing-3;
+		color: var(--accent-text, var(--accent));
 	}
 
 	.ai__row-title {
-		@include card-title;
-		margin: 0 0 12px;
-		font-weight: $font-weight-bold;
+		@include type-subsection;
+
+		margin: 0 0 14px;
 		color: var(--color-text);
 		text-wrap: balance;
 	}
 
 	.ai__row-text {
-		@include text-m;
+		@include type-body;
+
 		margin: 0;
-		line-height: 1.5;
+		color: var(--color-text, #17181c);
 	}
 
-	.ai__cta {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: $spacing-2;
+	// `cta`: the route's one action. A button rather than the rows' text link, because in the running
+	// orders that turn this on it is the first thing to act on after the hero. 24 under the copy, one
+	// step past the 20 a row's link sits at (`_home-rows.scss`), since a filled button is a heavier
+	// object than a line of text.
+	.ai__action {
 		margin-top: $spacing-6;
 	}
 
-	.ai__cta-line {
-		@include text-s;
-		margin: 0;
-		line-height: 22px;
-		color: var(--color-text-secondary);
+	// ── The call to action (`cta="block"`) ──────────────────────────────
+	// ITS OWN SHORT BAND, under the bands rather than on their wash. On the wash it was one more thing
+	// moving: the ground under the button changed colour every three seconds. Here the ground holds
+	// still — a subtle primary gradient, the mark's own indigo at rest and the button's colour, so
+	// the band reads as the section's action rather than as a new section. Not grey: grey is the trust
+	// band's ground further down, and the page keeps one meaning per ground.
+	//
+	// The bands above still end on full hue, so the seam between them is the design, as it always was.
+	.ai__cta {
+		padding-block: $spacing-10;
+		background: linear-gradient(
+			100deg,
+			color-mix(in srgb, var(--color-brand, #3d50f5) 10%, #fff) 0%,
+			color-mix(in srgb, var(--color-brand, #3d50f5) 3%, #fff) 100%
+		);
 	}
 
-	.ai__cta-button {
+	.ai__cta .main-div {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	// Both routes' lines in one cell: the cell is the taller one's height, so switching never moves
+	// the page, and the two crossfade on the hand-off's clock.
+	.ai__cta-stack {
+		display: grid;
+	}
+
+	// One line on a desktop: the sentence, then the two actions beside it — a short band, not a block.
+	.ai__cta-route {
+		grid-area: 1 / 1;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: $spacing-4 $spacing-8;
+		transition:
+			opacity var(--ai-handoff-duration, 300ms) var(--ai-handoff-ease, ease-out),
+			visibility 0s;
+	}
+
+	// WHICH LINE SHOWS is read off the bands: the one whose band is on the page and not on its way
+	// out. `AiHandoff` unhides the incoming band and marks the outgoing one `is-leaving` in the same
+	// frame, so the line changes the moment the switch does rather than once the old band has gone.
+	// Visibility as well as opacity, so the hidden route's button is neither focusable nor read.
+	.ai:has(> .ai__bands > .ai__band--dock-bottom:not([hidden]):not(.is-leaving)) .ai__cta-route--assistant,
+	.ai:has(> .ai__bands > .ai__band--dock-top:not([hidden]):not(.is-leaving)) .ai__cta-route--cli {
+		opacity: 0;
+		visibility: hidden;
+		transition:
+			opacity calc(var(--ai-handoff-duration, 300ms) * 0.47) cubic-bezier(0.4, 0, 1, 1),
+			visibility 0s linear calc(var(--ai-handoff-duration, 300ms) * 0.47);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ai__cta-route {
+			transition: none;
+		}
+	}
+
+	// The copy's own size, so the line reads as the section's last sentence rather than as a caption.
+	.ai__cta-line {
+		@include text-m;
+		max-width: 60ch;
+		margin: 0;
+		text-wrap: balance;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.ai__cta-line strong {
+		font-weight: $font-weight-bold;
+		color: var(--color-text, #17181c);
+	}
+
+	.ai__cta-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: $spacing-4 $spacing-6;
+	}
+
+	// The rows' link, as `_home-rows.scss` sets it: accent colour, medium weight, a chevron after.
+	.ai__cta-link {
+		@include type-link;
 		display: inline-flex;
 		align-items: center;
-		gap: $spacing-2;
-		height: 44px;
-		padding: 0 $spacing-4;
-		border: 1px solid rgb(23 24 28 / 18%);
-		border-radius: $radius-md;
-		font-size: $font-size-base;
-		font-weight: $font-weight-bold;
-		line-height: 1.5;
-		color: var(--color-text);
-
-		&:hover {
-			background-color: rgb(23 24 28 / 5%);
-		}
-
-		&:focus-visible {
-			outline: 2px solid var(--color-text);
-			outline-offset: 3px;
-		}
+		gap: $spacing-1;
 	}
 
-	.ai__cta-icon {
-		width: 20px;
-		height: 20px;
+	.ai__cta-chevron {
+		width: 1.1em;
+		height: 1.1em;
 	}
 
-	.ai__chat {
-		position: relative;
-	}
-
-	.ai__chat,
-	.ai__cli {
-		height: 100%;
-	}
-
-	.ai__chat--cut,
-	.ai__cli--mark {
-		display: none;
-	}
-
-	// Positioned, because a transform does not shrink the layout box.
-	.ai__chat :global(.assistant) {
-		position: absolute;
-		right: 0;
-		bottom: 0;
-		left: 0;
-		margin: 0 auto;
-	}
-
-	// The shadow is divided by the scale, so it renders at page size.
-	.ai__chat--whole :global(.assistant) {
-		--ui-scale: #{$chat-scale};
-
-		width: calc(100% / #{$chat-scale});
-		height: calc(#{$window-h} / #{$chat-scale});
-		box-shadow: 0 calc(8px / #{$chat-scale}) calc(18px / #{$chat-scale}) rgb(23 24 28 / 16%);
-	}
-
-	.ai__mark {
-		position: absolute;
-		top: -14px;
-		left: 50%;
-		display: grid;
-		place-items: center;
-		width: 72px;
-		height: 72px;
-		transform: translateX(-50%);
-		border-radius: 24%;
-		background-color: $color-white;
-		box-shadow:
-			inset 0 1px 0 rgb(255 255 255 / 60%),
-			0 1px 2px rgb(23 24 28 / 8%),
-			0 10px 24px -10px rgb(23 24 28 / 18%),
-			0 16px 36px -14px color-mix(in srgb, var(--accent) 35%, transparent);
-		color: var(--accent);
-
-		:global(svg) {
-			width: 40px;
-			height: 40px;
-		}
-	}
-
-	.ai__window--cli :global(.agent) {
-		height: 100%;
-		border-radius: $radius-lg;
-		font-size: 14px;
-	}
-
-	.ai__window--cli :global(.agent__path) {
-		font-size: 12px;
-	}
-
-	// Nothing prints beside the wordmark, so its status lines start at the margin.
-	.ai__cli--wordmark :global(.agent__banner-line) {
-		padding-left: 0;
-	}
-
-	// Horizontal: each row of the art is its own box, so a vertical ramp would restart on every row.
-	.ai__window--cli :global(.agent__art) {
-		background-image: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #fff));
-		-webkit-background-clip: text;
-		background-clip: text;
-		color: transparent;
-	}
-
+	// Stacked, the block joins the copy's column — the same cap, centred with it — and lines up on
+	// its left edge, so it reads as the paragraph's last line rather than as a centred sign-off under
+	// a left-aligned paragraph.
 	@include media-down(lg) {
-		.ai__row {
-			flex-direction: column;
-			align-items: center;
-			gap: $spacing-8;
-		}
-
-		.ai__copy {
+		.ai__cta-stack {
 			width: 100%;
-			max-width: $window;
-		}
-	}
-
-	// 298: the terminal's bar (26.3) and composer (29.75) plus fourteen 16.1px lines at 11.5px on 1.4.
-	@media (max-width: 599px) {
-		.ai__window {
-			height: 298px;
-		}
-
-		.ai__chat--whole,
-		.ai__cli--wordmark {
-			display: none;
-		}
-
-		.ai__cli--mark {
-			display: block;
-		}
-
-		// Taller than the box, so the bar is cut off the top. The box runs 20 into the gutter each side so
-		// the mask keeps the side shadows.
-		.ai__chat--cut {
-			display: block;
-			margin-inline: -20px;
-			overflow: hidden;
-			-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 32px);
-			mask-image: linear-gradient(to bottom, transparent 0, #000 32px);
-		}
-
-		.ai__chat--cut :global(.assistant) {
-			bottom: 16px;
-			width: calc(100% - 40px);
-			height: 340px;
-		}
-
-		.ai__window--cli :global(.agent) {
-			--agent-lead: 1.4;
-			--agent-chrome: 0.65;
-
-			font-size: 11.5px;
-		}
-
-		.ai__window--cli :global(.agent__path) {
-			font-size: 11.5px;
-			line-height: 13.3px;
-		}
-	}
-
-	@media (max-width: 374px) {
-		.ai__window--cli :global(.agent) {
-			font-size: 9.5px;
-		}
-
-		.ai__window--cli :global(.agent__path) {
-			font-size: 8.5px;
-		}
-	}
-
-	@include media-down(md) {
-		.ai {
-			padding-top: 60px;
-		}
-	}
-
-	@media print {
-		.ai {
-			padding-top: $spacing-8;
-		}
-
-		.ai__badge {
-			@include print-exact;
-			background-color: var(--ai-hue-0) !important;
-			break-after: avoid;
-		}
-
-		.ai__bands {
-			display: block;
-			margin-block: $spacing-6 $spacing-8;
-			background: none;
-		}
-
-		.ai__band {
-			display: block;
-			padding: 0;
-			break-inside: avoid;
-
-			& + & {
-				margin-top: $spacing-8;
-			}
-		}
-
-		.ai__chat--whole :global(.assistant) {
-			box-shadow: none;
-		}
-
-		.ai__mark {
-			border: 1px solid #e3e6eb;
-			box-shadow: none;
-		}
-	}
-
-	@media print and (min-width: 600px) {
-		.ai__row {
-			flex-direction: row;
-			gap: $spacing-6;
-		}
-
-		.ai__row--flip {
-			flex-direction: row-reverse;
-		}
-
-		.ai__window {
-			zoom: 0.65;
-		}
-
-		.ai__copy {
-			width: auto;
-			max-width: none;
-		}
-	}
-
-	@media print and (min-width: 1000px) {
-		.ai__bands {
-			display: grid;
-			grid-template: none / repeat(2, minmax(0, 1fr));
-			max-width: $home-measure;
+			max-width: var(--ai-fit-window, 544px);
 			margin-inline: auto;
 		}
 
-		.ai__band {
-			grid-area: auto;
-
-			& + & {
-				margin-top: 0;
-			}
+		.ai__cta-route {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: $spacing-4;
+			text-align: left;
 		}
 
+		.ai__cta-line {
+			text-wrap: pretty;
+		}
+
+		.ai__cta-actions {
+			justify-content: flex-start;
+		}
+	}
+
+	@media (max-width: 599px) {
+		.ai--fit-column .ai__cta-stack {
+			max-width: 365px;
+		}
+	}
+
+	// Stacked: the media on top in BOTH rows, so a phone reads picture-then-words twice rather than
+	// inheriting the desktop alternation as an inconsistency.
+	@include media-down(lg) {
 		.ai__row,
 		.ai__row--flip {
 			flex-direction: column;
 			align-items: stretch;
-			gap: $spacing-4;
-		}
-	}
-
-	@media print and (max-width: 599px) {
-		.ai__row {
-			gap: $spacing-6;
+			gap: $spacing-8;
+			min-height: 0;
 		}
 
 		.ai__copy {
-			order: -1;
+			flex: 1 1 auto;
+			max-width: 100%;
 		}
 
+		// The dock's `align-self` has to go once the row turns into a column: `align-self` works on
+		// the CROSS axis, so the same declaration that pins the media to the row's top or bottom side
+		// by side pushes it to the left or right edge stacked — which measured as the CLI band's
+		// media 15px in and 15px narrow. Docking is a horizontal-row idea; stacked, both windows just
+		// fill the column.
+		// Matched through the band, not just `.ai__media`: the dock rules score (0,2,0) and a media
+		// query adds nothing, so the shorter selector lost on specificity and the media stayed pinned.
+		.ai__band--dock-top .ai__media,
+		.ai__band--dock-bottom .ai__media {
+			align-self: stretch;
+		}
+
+		// NOTHING ABOUT SIZE BELONGS IN THIS BLOCK. Stacking is a question about DIRECTION — the row
+		// turns into a column, the dock has no side to reach for — and it starts at 1023px (`media-down(lg)`), where the
+		// column is still 700px wide and holds the full-size composition without complaint. The size
+		// reductions live under `max-width: 560px` below, at the width where the cell actually stops
+		// holding a 500px window.
+		//
+		// They were in here, and the seam showed: from 560 to 1023 the chat was pinned to 365 and drawn
+		// at native scale while the terminal beside it kept its 500 and its 18px log, so a tablet got
+		// the two windows at visibly different sizes with the chat's type half the terminal's — the
+		// exact mismatch the matched widths were meant to end.
+
+		// The BAND's padding goes symmetric and the copy stops compensating for it. Docking the media to
+		// a band edge is a side-by-side idea: stacked, the media is always first in the column with the
+		// copy under it, so there is no edge for the second window to reach.
+		//
+		// `justify-content` goes with it, for a reason that only shows up once the padding is even.
+		// `grid-auto-rows` holds both bands to one height, and stacked the CLI band's column comes out
+		// 48px shorter than the chat's — so `flex-end` collected every pixel of that slack ABOVE the
+		// terminal and started the second band's picture 96px down against the first band's 48. Centred,
+		// each band splits its own slack and both read as evenly padded, which is the only thing a band
+		// edge can still mean once there is no dock reaching for it.
+		.ai__band--dock-top,
+		.ai__band--dock-bottom {
+			justify-content: center;
+			padding-top: $spacing-12;
+			padding-bottom: $spacing-12;
+		}
+
+		// ...and this is the other half of that sentence, which the code was not keeping. The relative
+		// offset that centres the copy against one-sided padding survived into a layout that has none,
+		// so it moved the copy 40px for nothing — down into the band's bottom padding in the chat band,
+		// and UP OVER the terminal in the CLI one, where the copy's box crossed the media's by 8px and
+		// the eyebrow printed on the window.
+		//
+		// Matched through the band, like the `align-self` reset above and for the same reason: those
+		// rules score (0,2,0), a media query adds nothing, and a bare `.ai__copy` here loses.
+		.ai__band--dock-top .ai__copy,
+		.ai__band--dock-bottom .ai__copy {
+			top: 0;
+		}
+	}
+
+	// ── THE SAME COMPOSITION, SCALED DOWN ──────────────────────────
+	// Everything the full-size layout does — the crop, the flush edge, the fade — stays on here. What
+	// changes is ONE number, the scale, and the box heights that follow from it.
+	//
+	// 600 IS A WIDTH ABOUT THE WINDOWS, not about phones, which is why this is a bare media query
+	// rather than one of the shared breakpoints. Two things have to fit in the cell before the 500px
+	// composition can be used, and the wider of the two sets the number:
+	//
+	//   the log     `tb calculated-field save --name mean-cargo-temp` is 25.15em, so an 18px log needs
+	//               453px of content and 485px of window   →  cell 485, viewport 525
+	//   the shadows the crop box clips whatever the window does not leave it, and the terminal's
+	//               reaches 18px past the frame            →  cell 536, viewport 576
+	//
+	// This was 560, which cleared the first and not the second: from 561 to about 576 the cell had
+	// only 10px beside a 500px window and both shadows ended flat down their sides. 600 clears both
+	// with 30px of room. The log step matters more than it looks either way: `white-space: pre` cannot
+	// break that line, so it does not shrink — it drops to a second row, and one wrapped row is the
+	// 23px that puts the log into a scroll.
+	@media (max-width: 599px) {
+		// The chat is drawn AT the cell's width rather than drawn wider and scaled down to it. Scaling
+		// to 0.92 was the first attempt and it is worse on both counts: it renders the body at 11px
+		// where drawing at native renders 12, and a 365px layout box centred in a 335px cell is
+		// over-constrained — `width` with `left: 0` and `right: 0` — so the browser drops `right` and
+		// the window sits 30px off centre.
+		//
+		// Nothing about the COMPOSITION depends on the scale: the crop, the flush edge and the fade all
+		// come from the box, and they are all still here. The 40-character prompts were sized for the
+		// composer this leaves, so they still fit on one line.
+		.ai__media :global(.assistant) {
+			--ui-scale: 1;
+
+			width: calc(100% - 40px);
+			max-width: 365px;
+			// 16, not the 24 the full-size layout needs: at scale 1 the shadow is a third the size and
+			// reaches 16 below the frame, and every pixel spent here is spent twice — it comes off the top
+			// of the window, where the log's mask only holds transparent for 20 and the whole 289px window
+			// is being cropped by a 250px box. 16 is exactly the reach, and leaves the cut at 21 into the
+			// log: one pixel past the hold, which is 3% of the ramp and invisible.
+			bottom: 16px;
+		}
+
+		// 250: the chat renders 289 here, so the box cuts 55 of it — comfortably more than the 34 the
+		// `New chat` bar takes, so the bar goes with the cut exactly as it does at full size, and the
+		// log keeps its slack over the greeting.
+		//
+		// AND IT BLEEDS INTO THE GUTTER, which is the only place the shadows can go down here. The
+		// windows are drawn at the cell's own width on a phone, so the crop box was exactly as wide as
+		// what it held and both shadows ended flat against its sides — the terminal's especially, at
+		// 0.28 alpha. Pulling the box 20px wider each way costs nothing (it has no background, and the
+		// page gutter is exactly 20) and the windows keep the cell's width by taking 40 off their own,
+		// which is what `calc(100% - 40px)` is doing above and on `.ai__cli` below.
+		.ai__media {
+			height: 250px;
+			margin-inline: -20px;
+		}
+
+		// A shallower cut gets a shorter fade; there is less window above it to dissolve.
+		.ai__band--dock-top .ai__media {
+			-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 32px);
+			mask-image: linear-gradient(to bottom, transparent 0, #000 32px);
+		}
+
+		// The terminal's box is a notch shorter than the chat's: 234 against 250. At 250 the dark
+		// window was the heaviest thing on a phone screen and carried 37px of empty log under its last
+		// line; 234 leaves 21 at 375 (49 at 320), so the session still ends clear of the cut with no
+		// scroll. The chat keeps 250 — its crop is sized to take the `New chat` bar with it.
+		.ai__band--dock-bottom .ai__media {
+			// 240 (2026-09-24), from 234: room for a window that shows nine whole lines (217, below),
+			// centred. Still under the chat's 250. The box does not crop, so the shadow is not its concern.
+			height: 240px;
+		}
+
+		:where(.ai--cli) .ai__band--dock-bottom .ai__media {
+			height: 234px;
+		}
+
+		// The terminal keeps its offset and its bleed past the cut:
+		//
+		//   234 (panel) − 14 (offset) + 16 (bleed) = 236
+		//
+		// AND IT COMES DOWN TO THE CHAT'S WIDTH, which is the whole reason the two match here. The chat
+		// cannot pass 365 without going back to a scale, so 365 is what one width can be; left at 500
+		// the terminal simply took whatever the cell offered and ran 135px wider than the chat above it
+		// from about 405px of viewport up. 365 still holds the longest line at 11.5px with 44px spare.
+		.ai__cli {
+			// Centred in the 240 box: (240 − 217) / 2. The box no longer crops, so the shadow shows whole.
+			top: 11.5px;
+			width: calc(100% - 40px);
+			max-width: 365px;
+		}
+
+		.ai__cli :global(.agent) {
+			--agent-lead: 1.4;
+
+			font-size: 11.5px;
+		}
+
+		// The title bar comes down with the log, and it is the only part of the window that would not
+		// have. Everything else in here is sized off the log's font; the bar is drawn in absolute
+		// pixels, so at 11.5px type the stock 10px dots sat at 0.87 of the body where they sit at 0.56
+		// at full size — the window controls had become the largest objects in the terminal. 0.65 puts
+		// them back on that ratio, and the bar gives up 9px of height on the way, which the log takes.
+		.ai__cli :global(.agent) {
+			--agent-chrome: 0.65;
+
+			// NINE WHOLE LINES, as at full size: at 11.5px on a 1.4 leading a line is 16.1; the bar is
+			// 26.3 (label pinned) and the composer 29.75, so 217 leaves the log 161 = 9 lines + the
+			// one-line foot. Inside the 240 box with 8px for the shadow: 240 − 14 − 8 − 1.
+			height: 217px;
+		}
+
+		// 9.5px holds the bar's own ratio to the log (14:18 at full size) rather than nearly matching
+		// it at 11, which is what made the path read as a line of the session rather than as chrome.
+		// Pinned likewise to the 9.5px label's box (9.5 x 1.4), so the bar keeps its 26.3.
+		.ai__cli :global(.agent__path) {
+			font-size: 11.5px;
+			line-height: 13.3px;
+		}
+
+		// `terminal="cli"`, as it shipped.
+		:where(.ai--cli) .ai__cli {
+			top: 14px;
+			width: calc(100% - 40px);
+			max-width: 365px;
+		}
+
+		:where(.ai--cli) .ai__cli :global(.cli__body) {
+			font-size: 11.5px;
+			line-height: 1.5;
+		}
+
+		// The title bar comes down with the log, and it is the only part of the window that would not
+		// have. Everything else in here is sized off the log's font; the bar is drawn in absolute
+		// pixels, so at 11.5px type the stock 10px dots sat at 0.87 of the body where they sit at 0.56
+		// at full size — the window controls had become the largest objects in the terminal. 0.65 puts
+		// them back on that ratio, and the bar gives up 9px of height on the way, which the log takes.
+		:where(.ai--cli) .ai__cli :global(.cli) {
+			--cli-chrome: 0.65;
+
+			height: 236px;
+		}
+
+		// 9.5px holds the bar's own ratio to the log (14:18 at full size) rather than nearly matching
+		// it at 11, which is what made the path read as a line of the session rather than as chrome.
+		:where(.ai--cli) .ai__cli :global(.cli__path) {
+			font-size: 9.5px;
+		}
+	}
+
+	// One more step, for the narrowest width the page lays out for. At 320 the cell is 280 and the log
+	// has 248px of content against the 289 the longest line needs at 11.5px, so the command wraps —
+	// and a wrapped command is the one thing this window is here to show not happening. 9.5px needs
+	// 239, which clears it.
+	@media (max-width: 374px) {
+		.ai__cli :global(.agent) {
+			font-size: 9.5px;
+		}
+
+		.ai__cli :global(.agent__path) {
+			font-size: 8.5px;
+		}
+
+		:where(.ai--cli) .ai__cli :global(.cli__body) {
+			font-size: 9.5px;
+		}
+
+		:where(.ai--cli) .ai__cli :global(.cli__path) {
+			font-size: 8.5px;
+		}
+	}
+
+	// ── The windows fill the column (`fit="column"`, the homepage since 2026-09-24) ─────────────
+	// Every rule here is under `.ai--fit-column`, so `fit="inset"` — the previous homepage, kept on the
+	// sandbox — matches none of it and renders exactly as it shipped.
+	//
+	// ROUND NUMBERS, BY CONSTRUCTION (2026-09-25). Four numbers set the window, and each is now whole:
+	//
+	//   copy 360  +  gap 56  +  window 544  =  960, the page's content grid
+	//   window 544  =  400 native  x  1.36
+	//
+	// Before, the copy was 40ch (360.96px), which left a 543.04 column, a 396.4 native width and a
+	// 1.37 scale that was itself 500 ÷ 365 from the old window. 1.36 moves the chat's body type from
+	// 16.4 to 16.3px and its height from 396 to 393 — the crop still takes the whole 46px bar (the cut
+	// is 67) and still lands inside the log's 20px transparent hold. The copy gives up 0.96px against
+	// the key-visual rows' 40ch, which is not visible.
+	//
+	// ONE WIDTH FROM 600 UP. Stacked below 1024 the window used to drop to its old 500 while side by
+	// side it was 543, so the section changed width at the same moment it changed direction. It is 544
+	// everywhere the full-size composition is drawn now, and the phone (below 600) is untouched.
+	//
+	// THE CROP BOX IS WIDER THAN THE WINDOW, by the shadow's reach each side, and the window takes that
+	// back off its own width — the phone's method (see `max-width: 599px`), for the same reason. The
+	// chat's box masks its top fade, and a mask deletes whatever paints outside the box, so a window as
+	// wide as its box would lose both side shadows. 24 covers the terminal's 18px blur and the chat's
+	// 12px x 1.36. The box has no background, so the extra width is invisible: outward it is page
+	// margin (clipped by `.ai__bands`, never scrollable), inward it sits in the gap and never reaches
+	// the copy.
+	.ai--fit-column {
+		--ai-fit-room: 24px;
+		--ai-fit-bleed: 0px;
+		--ai-fit-window: 544px;
+	}
+
+	// NO BLEED (2026-09-25). The windows first took the rows' 40px outward bleed from 1120, to 583. A
+	// notch narrower was asked for, and 40 is the notch that lands on something: the window's outer
+	// edge IS the page's 960 grid — the edge the header and every copy column stand on — where 20 would
+	// have lined up with nothing. Measured cost: one line, the final reply going from three to four.
+	// `--ai-fit-bleed` stays, at 0, as the one number to change to bring the bleed back.
+
+	@media (min-width: 600px) {
+		.ai--fit-column .ai__row .ai__media {
+			margin-right: calc(-1 * var(--ai-fit-room));
+			margin-left: calc(-1 * var(--ai-fit-room));
+		}
+
+		// WIDER BY NATIVE WIDTH, NOT BY SCALE: 400 native at 1.36, against the old 365 at 1.37, so the
+		// extra width is line length — the composer holds ~50 characters rather than ~45 — and the type
+		// and the height barely move. `min()` holds it inside a narrow stacked cell.
+		.ai--fit-column .ai__media :global(.assistant) {
+			--ui-scale: 1.36;
+
+			width: calc(min(var(--ai-fit-window), 100% - 2 * var(--ai-fit-room)) / var(--ui-scale));
+		}
+
+		// The terminal's 500 cap goes; its height (nine whole lines) is unchanged.
+		.ai--fit-column .ai__cli {
+			width: min(var(--ai-fit-window), 100% - 2 * var(--ai-fit-room));
+			max-width: none;
+		}
+	}
+
+	@include media-up(lg) {
+		// TALLER, DOWNWARD (2026-09-25): the chat's crop goes 350 → 390 and the window grows by the same
+		// 40, so its top is cut exactly where it was (67px, the whole bar) and the extra height is all
+		// log — room for more of the conversation, which ran past the top of the old window. 318 native
+		// x 1.36 = 432.5 against the 393 before. Desktop only: stacked, the 350 composition holds.
+		//
+		// The terminal's box grows to match, and it has to be told: only ONE band is displayed at a time,
+		// the other is `display: none`, so the shared grid cell cannot hold them to one height — left at
+		// 350 the terminal's band stayed 414 against the chat's 454 and every switch moved the page 40px.
+		// Its 316px window re-centres in the taller box: (390 − 316) / 2 = 37, from the 17 it had in 350.
+		.ai--fit-column .ai__band .ai__media {
+			height: 390px;
+		}
+
+		.ai--fit-column .ai__cli {
+			top: 37px;
+		}
+
+		.ai--fit-column .ai__media :global(.assistant) {
+			height: 318px;
+		}
+
+		// The copy's measure, in pixels rather than 40ch, so the column it leaves is the round 544.
+		.ai--fit-column .ai__copy {
+			flex-basis: 360px;
+			max-width: 360px;
+		}
+
+		// Outward only, like the rows: left for the chat, whose media leads, right for the terminal,
+		// whose row is reversed. Zero while `--ai-fit-bleed` is.
+		.ai--fit-column .ai__row .ai__media {
+			margin-left: calc(-1 * (var(--ai-fit-room) + var(--ai-fit-bleed)));
+		}
+
+		.ai--fit-column .ai__row--flip .ai__media {
+			margin-right: calc(-1 * (var(--ai-fit-room) + var(--ai-fit-bleed)));
+			margin-left: calc(-1 * var(--ai-fit-room));
+		}
+	}
+
+	// Stacked, the COPY comes to the window: capped to its width and centred with it, so the text starts
+	// on the window's left edge and the band reads as one column — the phone's composition — rather
+	// than a window over a paragraph twice its width.
+	@include media-down(lg) {
+		.ai--fit-column .ai__band .ai__copy {
+			align-self: center;
+			width: 100%;
+			max-width: var(--ai-fit-window);
+		}
+	}
+
+	@media (max-width: 599px) {
+		.ai--fit-column .ai__band .ai__copy {
+			max-width: 365px;
+		}
+
+		// The terminal's box matches the chat's 250 (from 240), so the two bands differ only by their
+		// copy and the switch does not move the page by the box's 10px on top of it. Its 217px window
+		// re-centres: (250 − 217) / 2 = 16.5.
+		.ai--fit-column .ai__band--dock-bottom .ai__media {
+			height: 250px;
+		}
+
+		.ai--fit-column .ai__cli {
+			top: 16.5px;
+		}
+	}
+
+	@include media-down(md) {
+		// Top only, for the reason the full-width rule gives.
+		.ai {
+			padding: 60px 0 0;
+		}
+
+		// The bands carry the rhythm now, so they lose height rather than the rows gaining margin.
 		.ai__band {
-			break-inside: auto;
+			padding: $spacing-12 0;
+		}
+	}
+
+	// ── The toggle, tightened on a phone (2026-09-25) ──────────────────
+	// One window at a time under the switch, on a screen 667 tall, so every gap around the window is
+	// paid for in what shows before the reader scrolls. All vertical:
+	//
+	//   switch → window   24 + 16  →  16 + 8   the bands' margin and the band's top padding
+	//   window box        250  →  232          BOTH routes, so they stay one height and the switch
+	//                                          still moves nothing: the chat's crop takes 18px more
+	//                                          of the empty log above the greeting, and the terminal's
+	//                                          217 window sits 7.5 from the top rather than 16.5
+	//   window → copy     32  →  24            the stacked row's gap
+	//
+	// The band's foot keeps its 48 to the next section; that gap is between sections, not in this one.
+	// Last in the file, because the `fit="column"` rules above set the same boxes at (0,3,0).
+	@media (max-width: 599px) {
+		.ai--toggle .ai__bands {
+			margin-top: $spacing-4;
 		}
 
-		.ai__window {
-			break-inside: avoid;
+		.ai--toggle .ai__band {
+			padding-top: $spacing-2;
+		}
+
+		.ai--toggle .ai__row {
+			gap: $spacing-6;
+		}
+
+		.ai--toggle .ai__band .ai__media {
+			height: 232px;
+		}
+
+		.ai--toggle .ai__cli {
+			top: 7.5px;
 		}
 	}
 </style>
 
 <script>
+	// The section mark cycles colour while it is on screen.
+	//
+	// Its own observers rather than shared ones: the chat and the terminal each carry theirs, this is
+	// the same gate, and a section-wide observer would have to know what all three want.
+	//
+	// Every instance, not `#ai`: the homepage has one, but the sandbox's AI page stacks several
+	// directions, and a lookup by id reached only the first — every other mark sat still on indigo.
+	//
+	// One switch per section, `is-cycling`, which the mark and a cycling wash (`wash="cycle"`) both
+	// read, so the two share one clock. It only switches `animation-play-state`, so this is a pause and
+	// a resume rather than a stop and a start: the cycle picks up on the hue it was on rather than
+	// snapping back to indigo every time the section is scrolled past and returned to.
 	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-	const section = document.querySelector<HTMLElement>('#ai');
-	const badge = section?.querySelector<HTMLElement>('.ai__badge');
+	const seen = new Map<HTMLElement, { mark: boolean; band: boolean }>();
 
-	// On the section, so the mark and the wash run on one clock.
-	if (section && badge && !reduced) {
+	const watch = (part: 'mark' | 'band', threshold: number) =>
 		new IntersectionObserver(
 			(entries) => {
-				for (const entry of entries) section.classList.toggle('is-cycling', entry.isIntersecting);
+				for (const entry of entries) {
+					const section = entry.target.closest<HTMLElement>('section.ai');
+					const state = section ? seen.get(section) : undefined;
+					if (!section || !state) continue;
+					state[part] = entry.isIntersecting;
+					section.classList.toggle('is-cycling', state.mark || state.band);
+				}
 			},
-			{ threshold: 0.5 }
-		).observe(badge);
-	}
+			{ threshold }
+		);
+
+	// The mark at half of it, so it runs while the mark is properly on screen rather than from the
+	// moment its first pixel clears the fold. The band at any of it: taller than a phone's screen,
+	// it is never half on one.
+	const marks = watch('mark', 0.5);
+	const bands = watch('band', 0);
+
+	// Typed, because `dataset` is on `HTMLElement` and a bare `querySelectorAll` gives back `Element`.
+	document.querySelectorAll<HTMLElement>('section.ai').forEach((section) => {
+		const badge = section.querySelector('.section-header__badge');
+		if (!badge || section.dataset.animate !== 'on' || reduced) return;
+		seen.set(section, { mark: false, band: false });
+		marks.observe(badge);
+		const band = section.classList.contains('ai--wash-cycle') && section.querySelector('.ai__bands');
+		if (band) bands.observe(band);
+	});
 </script>
