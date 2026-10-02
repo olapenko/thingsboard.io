@@ -44,5 +44,6 @@ Built on them, in `Landing/`: `SectionHeader`, `PageIntro`, `RegionChoice`, `Ins
 5. **Behaviour passes through.** Tracking ids, `gtm_button`, `data-*` hooks go in `attrs` untouched;
    the two calls to action are `to="cloud-signup"` and `to="install-guide"` (`@data/cta-destinations`).
 6. **Shared bits live once.** Screen-reader text is `<span class="ui-sr">` (`_theme.scss`, every
-   route); a link off the site takes `EXTERNAL_ATTRS` and says `EXTERNAL_NOTE` (`@util/ui-kit`);
+   route); a link off the site takes `newTabAttrs()` and says `NEW_TAB_NOTE` (`@util/external-links`, a fresh
+   object per call: never spread a shared object onto an element, Astro writes its scope class into it);
    `hidden` hides any kit component whatever its own `display`.

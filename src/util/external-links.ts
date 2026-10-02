@@ -28,6 +28,18 @@ export const relForTarget = (target?: string): { rel?: string } =>
 	target === '_blank' ? { rel: 'noopener noreferrer' } : {};
 
 /**
+ * The pair for a link DECLARED off-site (a component's `external` prop) rather than derived from
+ * its href. A fresh object per call, as every helper here returns: Astro appends a scoped
+ * component's class onto the very object it spreads, so a shared constant would collect the class
+ * of every component that ever spread it and hand them all to the next one.
+ */
+export const newTabAttrs = (open = true): { target?: '_blank'; rel?: string } =>
+	open ? { target: '_blank', rel: 'noopener noreferrer' } : {};
+
+/** What a screen reader hears after a new-tab link's label, in a `ui-sr` span. */
+export const NEW_TAB_NOTE = ' (opens in a new tab)';
+
+/**
  * Accessible name for a link that opens in a new tab — screen readers don't
  * announce target="_blank". Names the destination host when the href is
  * off-site; internal hrefs (e.g. promo slides) get the plain suffix.

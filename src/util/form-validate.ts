@@ -79,8 +79,16 @@ export function wireValidation(fields: FieldControl[], check: Check): () => void
 	};
 }
 
-/** The quiet counter: hidden until the text is within 20% of the cap, red at the cap. */
+const counters = new WeakMap<FieldControl, () => void>();
+
+/**
+ * The quiet counter: hidden until the text is within 20% of the cap, red at the cap. `Field` wires
+ * every counter it renders; calling this again for the same field recounts (after a form restores
+ * a draft into it, say) instead of adding a second listener.
+ */
 export function wireCounter(el: FieldControl): void {
+	const known = counters.get(el);
+	if (known) return known();
 	const count = document.getElementById(`${el.id}-count`);
 	if (!count || !el.maxLength || el.maxLength < 0) return;
 	const update = () => {
@@ -90,6 +98,7 @@ export function wireCounter(el: FieldControl): void {
 		count.textContent = `${len.toLocaleString('en-US')} / ${max.toLocaleString('en-US')}`;
 		count.classList.toggle('is-full', len >= max);
 	};
+	counters.set(el, update);
 	update();
 	el.addEventListener('input', update);
 }
