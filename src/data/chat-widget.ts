@@ -59,11 +59,39 @@ export type LauncherShape = 'tile' | 'circle' | 'pill';
  * glyph in the hue.
  */
 export type LauncherTone = 'hue' | 'dark' | 'white';
+/**
+ * `large` — the AI tile's 56, 20px in from the corner. `small` — 44, the cookie bar's Accept, 16px
+ * in, which centres it on that button's row while the bar is up.
+ */
+export type LauncherSize = 'large' | 'small';
+/**
+ * Each size's tile and inset from the corner, in px: `ChatLauncher`'s `--tile` and `--inset`,
+ * restated for `ChatSkin`, which sets their window over the launcher in use.
+ */
+export const LAUNCHER_BOX: Record<LauncherSize, { tile: number; inset: number }> = {
+	large: { tile: 56, inset: 20 },
+	small: { tile: 44, inset: 16 },
+};
 
 /**
- * IN USE ON EVERY PAGE (promoted 2026-10-01, the sandbox's "Wash · white circle"): the window in the
- * `wash` skin, opened from a white disc with the sparkles and the glow in the cycling hue.
- * `YourGptWidget` reads both.
+ * The AI mark's sparkles, or a question mark — Ubuntu Bold's, the site's own face (`icons/question-bold`),
+ * chosen over Tabler's line at 2.5–3.5 and its filled help circle: help, not the AI section's mark.
+ */
+export type LauncherGlyph = 'sparkles' | 'question';
+
+export interface LauncherOptions {
+	shape: LauncherShape;
+	tone: LauncherTone;
+	size?: LauncherSize;
+	glyph?: LauncherGlyph;
+}
+
+/**
+ * IN USE ON EVERY PAGE: the window in the `wash` skin, opened from a white disc with the glyph and
+ * the glow in the cycling hue. `YourGptWidget` reads both. The disc was promoted 2026-10-01 at 56
+ * with the sparkles ("Wash · white circle"); since 2026-10-02 it is 44 with a question mark
+ * ("Wash · small question"): the sparkles are the AI section's mark, and the corner read as a
+ * second copy of it.
  */
 export const CHAT_SKIN: ChatSkinName = 'wash';
-export const CHAT_LAUNCHER: { shape: LauncherShape; tone: LauncherTone } = { shape: 'circle', tone: 'white' };
+export const CHAT_LAUNCHER: LauncherOptions = { shape: 'circle', tone: 'white', size: 'small', glyph: 'question' };

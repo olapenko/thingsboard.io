@@ -1,7 +1,7 @@
 ---
 import { Icon } from 'astro-icon/components';
 import { LAUNCHER_LABEL, LAUNCHER_PILL_LABEL } from '@data/chat-widget';
-import type { LauncherShape, LauncherTone } from '@data/chat-widget';
+import type { LauncherGlyph, LauncherShape, LauncherSize, LauncherTone } from '@data/chat-widget';
 
 /**
  * CANDIDATE (2026-10-01): our own button for the AI chat, in place of YourGPT's purple disc.
@@ -11,6 +11,9 @@ import type { LauncherShape, LauncherTone } from '@data/chat-widget';
  * the chat window runs (`syncHues` in `util/chat-widget`). Needs `ChatSkin` on the page, which holds
  * the hues and the keyframes.
  *
+ * `glyph="question"` swaps the sparkles for a question mark, and `size="small"` takes it to 44 — the
+ * pair in use since 2026-10-02 (`CHAT_LAUNCHER`), so the corner no longer repeats the AI section's mark.
+ *
  * `floating` pins it to the viewport's corner and wires it to the real widget (`wireFloatingLaunchers`):
  * a click loads the widget if it has not loaded yet — so the chat no longer has to load before
  * anyone asks for it — and toggles the window. Without it the button is inert here and its
@@ -19,13 +22,30 @@ import type { LauncherShape, LauncherTone } from '@data/chat-widget';
 interface Props {
 	shape?: LauncherShape;
 	tone?: LauncherTone;
+	/** The tile's size and its inset from the corner, `LauncherSize`'s two steps. */
+	size?: LauncherSize;
+	/** What the tile holds at rest; open, it is the chevron either way. */
+	glyph?: LauncherGlyph;
 	/** Run the colour cycle at rest. Off, the tile wears the mark's own colour until the chat is open. */
 	cycle?: boolean;
 	floating?: boolean;
 	class?: string;
 }
 
-const { shape = 'tile', tone = 'hue', cycle = true, floating = false, class: className } = Astro.props;
+const {
+	shape = 'tile',
+	tone = 'hue',
+	size = 'large',
+	glyph = 'sparkles',
+	cycle = true,
+	floating = false,
+	class: className,
+} = Astro.props;
+
+const GLYPH_ICONS: Record<LauncherGlyph, string> = {
+	sparkles: 'tabler:sparkles-filled',
+	question: 'question-bold',
+};
 ---
 
 <button
@@ -34,6 +54,8 @@ const { shape = 'tile', tone = 'hue', cycle = true, floating = false, class: cla
 		'chat-launcher',
 		`chat-launcher--${shape}`,
 		`chat-launcher--${tone}`,
+		`chat-launcher--${size}`,
+		`chat-launcher--${glyph}`,
 		floating && 'chat-launcher--floating',
 		className,
 	]}
@@ -44,7 +66,7 @@ const { shape = 'tile', tone = 'hue', cycle = true, floating = false, class: cla
 	aria-expanded="false"
 >
 	<span class="chat-launcher__tile">
-		<Icon name="tabler:sparkles-filled" class="chat-launcher__glyph chat-launcher__glyph--rest" aria-hidden="true" />
+		<Icon name={GLYPH_ICONS[glyph]} class="chat-launcher__glyph chat-launcher__glyph--rest" aria-hidden="true" />
 		<Icon name="tabler:chevron-down" class="chat-launcher__glyph chat-launcher__glyph--open" aria-hidden="true" />
 	</span>
 	{shape === 'pill' && <span class="chat-launcher__label">{LAUNCHER_PILL_LABEL}</span>}
@@ -62,6 +84,8 @@ const { shape = 'tile', tone = 'hue', cycle = true, floating = false, class: cla
 	.chat-launcher {
 		--chat-hue: var(--chat-hue-0, #{$color-brand});
 		--tile: 56px;
+		--glyph: 30px;
+		--inset: 20px;
 
 		display: inline-flex;
 		align-items: center;
@@ -102,10 +126,19 @@ const { shape = 'tile', tone = 'hue', cycle = true, floating = false, class: cla
 		}
 	}
 
+	// 44 and 16 in: the cookie bar's Accept is 44 high, centred in a bar of 16 + 44 + 16, so the tile's
+	// centre is on that button's row while the bar is up — on a phone too, where the bar stacks and
+	// the button is its last row. The glow comes down with it.
+	.chat-launcher--small {
+		--tile: 44px;
+		--glyph: 24px;
+		--inset: 16px;
+	}
+
 	.chat-launcher--floating {
 		position: fixed;
-		right: 20px;
-		bottom: 20px;
+		right: var(--inset);
+		bottom: var(--inset);
 		// One under their root's, which clamps to the 32-bit maximum: open on a phone, their window is
 		// the whole screen and covers this.
 		z-index: 2147483646;
@@ -142,8 +175,8 @@ const { shape = 'tile', tone = 'hue', cycle = true, floating = false, class: cla
 
 	.chat-launcher__glyph {
 		grid-area: 1 / 1;
-		width: 30px;
-		height: 30px;
+		width: var(--glyph);
+		height: var(--glyph);
 		transition:
 			opacity 0.2s ease,
 			transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -201,6 +234,22 @@ const { shape = 'tile', tone = 'hue', cycle = true, floating = false, class: cla
 			0 20px 44px -10px color-mix(in srgb, var(--chat-hue) 80%, transparent);
 	}
 
+	// The white disc's shadows at 44, scaled with the tile so the glow stays round it, not a pool
+	// under it.
+	.chat-launcher--white.chat-launcher--small .chat-launcher__tile {
+		box-shadow:
+			0 1px 3px rgba(23, 24, 28, 0.08),
+			0 6px 16px -6px rgba(23, 24, 28, 0.16),
+			0 12px 28px -8px color-mix(in srgb, var(--chat-hue) 60%, transparent);
+	}
+
+	.chat-launcher--white.chat-launcher--small:hover .chat-launcher__tile {
+		box-shadow:
+			0 1px 3px rgba(23, 24, 28, 0.08),
+			0 10px 20px -6px rgba(23, 24, 28, 0.18),
+			0 16px 34px -8px color-mix(in srgb, var(--chat-hue) 80%, transparent);
+	}
+
 	// The pill: the tile at 44 inside a white capsule 56 high, the label in the ink beside it. A word
 	// says what the glyph only suggests, at the cost of a wider corner.
 	.chat-launcher--pill {
@@ -224,6 +273,19 @@ const { shape = 'tile', tone = 'hue', cycle = true, floating = false, class: cla
 		.chat-launcher__glyph {
 			width: 24px;
 			height: 24px;
+		}
+	}
+
+	// The pill at 44 high, the tile at 32 in it.
+	.chat-launcher--pill.chat-launcher--small {
+		--tile: 32px;
+
+		height: 44px;
+		padding: 6px 18px 6px 6px;
+
+		.chat-launcher__glyph {
+			width: 20px;
+			height: 20px;
 		}
 	}
 
