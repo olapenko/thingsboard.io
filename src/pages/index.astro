@@ -1,88 +1,563 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro';
+// TEMP-INTERNAL-NAV
+import { Icon } from 'astro-icon/components';
 import CustomersLogo from '@components/Landing/CustomersLogo.astro';
-import Hero from '@components/Landing/HomeHero.astro';
-import IntroSection from '@components/Landing/IntroSection.astro';
-import PlatformOverview from '@components/Landing/PlatformOverview.astro';
-import FeaturesSection from '@components/Landing/FeaturesSection.astro';
-import ClosingCta from '@components/Landing/ClosingCta.astro';
-import CtaNote from '@components/Landing/CtaNote.astro';
-import ProductsSection from '@components/Landing/ProductsSection.astro';
-import EcosystemSection from '@components/Landing/EcosystemSection.astro';
-import FeatureRow from '@components/Landing/FeatureRow.astro';
-import DashboardShowcase from '@components/Landing/DashboardShowcase.astro';
-import ConnectHub from '@components/Landing/ConnectHub.astro';
-import SolutionFlow from '@components/Landing/SolutionFlow.astro';
-import TwinCorridor from '@components/Landing/TwinCorridor.astro';
-import NormalizeSeries from '@components/Landing/NormalizeSeries.astro';
-import ScaleDuo from '@components/Landing/ScaleDuo.astro';
-import AiSection from '@components/Landing/AiSection.astro';
-import { HOME_ROWS } from '@data/home-rows';
-import { homeClosingCtas, homeHeroCtas } from '@data/home-ctas';
+import Hero from '@components/Landing/Hero.astro';
+import { Products } from '@models/site.models';
+import HomeSections from '@components/Landing/HomeSections.astro';
+import Bookend from '@components/Landing/Bookend.astro';
+import { heroLcpPreload } from '@util/lcp-preload';
+import { shippingComposition, type HomeComposition } from '@data/home-compositions';
+import { LIVE_CLOSING, LIVE_HERO } from '@data/home-live';
+import { INSTALL_GUIDE_HREF } from '@data/cta-destinations';
 
-// Under src/assets so Astro can generate the srcset widths.
-const HERO_POSTER = '/src/assets/images/landings/hero/horizontal-slider-slides.webp';
+/**
+ * The homepage.
+ *
+ * The hero, the logo strip and the closing CTA are here. Everything between them is a RUNNING ORDER
+ * from `data/home-compositions.ts`, rendered by `HomeSections`: which sections run, in what order,
+ * with which options. `/` renders the shipping one.
+ *
+ * THIS PAGE IS ALSO A COMPONENT. `/internal/homepages/<id>/` imports it and passes another order as
+ * `composition`, with `preview` to keep that copy out of search. It is rendered from here rather than
+ * from a shared layout so that every order gets this page's own stylesheet below, which dresses the
+ * sections by their ids and classes, without that stylesheet moving.
+ *
+ * The key visuals run as `FeatureBlockSection` rows — the repo's own alternating row, given a
+ * component in its default slot instead of an image. Each draws itself from a design unit derived
+ * from the width its row gives it — see `src/components/Landing/CLAUDE.md` before changing one.
+ * They were built and judged at `/internal/sections/`, which is still the place to do that.
+ */
+interface Props {
+	composition?: HomeComposition;
+	/** A running order under `/internal/homepages/`, not the homepage: noindex, no canonical. */
+	preview?: boolean;
+}
 
-// The feature rows; the media side and the tint alternate by position.
-const ROWS = [
-	{ copy: HOME_ROWS[0], Visual: ConnectHub, bleed: false },
-	{ copy: HOME_ROWS[1], Visual: SolutionFlow },
-	{ copy: HOME_ROWS[2], Visual: TwinCorridor },
-	{ copy: HOME_ROWS[3], Visual: NormalizeSeries },
-	{ copy: HOME_ROWS[4], Visual: ScaleDuo },
-];
+const { composition = shippingComposition(), preview = false } = Astro.props;
+
+// THE WORDS FOLLOW THE ORDER. The `live` order says what main says (`data/home-live.ts`): the page's
+// title, the hero's lines and buttons with no note under them (main's second button IS "Talk to an
+// expert"), and where the closing note's link goes. Every other order says this branch's.
+const live = composition.copy === 'live';
+
+// Passed to both <Hero> and the preload, so the <link> can't name a file the CSS
+// won't paint — which is also why backgroundImage isn't left to Hero's default.
+// One asset at every width, and it is the video's exact first frame, so the
+// still does not jump when the footage takes over. tb-cover-mobile.webp is a
+// 700x1080 portrait crop, art-directed for the old full-bleed hero; the split
+// layout's panel is landscape everywhere, so that crop lost most of its height
+// to `cover` and read as a fragment of a dashboard.
+//
+// The dashboards tour is 1920x924, wider than 16:9. Stacked from 600 (portrait
+// tablets), the panel takes that shape (`HERO_FOOTAGE_RATIO`) and shows it
+// whole; on a phone it plays behind the copy, to the fold. Side by side the panel's shape is the
+// fold's less the strip and a look at the section after it, so `cover` trims its top and bottom
+// evenly: of its height, 100% shows at 1920x1080, 85% at 1920x960, 96% at 1440x780 and 82% at
+// 1536x730, never under 80% (the cap in Hero narrows the panel before that). Where the copy is
+// the taller column and the panel takes its height, the sides go instead: 87% of its width at
+// 1280x680.
+//
+// The slides cut (2026-09-28) is the same tour with slide transitions between the dashboards,
+// from a 60 fps master taken to 30 fps: 26.2 s, its fade-in and fade-out trimmed so the loop is
+// a hard cut and the still is its exact first frame. The cuts before it (smooth, the first) and
+// tb-cover2, the 16:9 video before them, are kept on /internal/sections/hero/.
+const HERO_BACKGROUND = '/images/hero/horizontal-slider-slides.webp';
+const HERO_FOOTAGE_RATIO = '1920 / 924';
 ---
 
 <BaseLayout
 	headerVariant="transparent"
 	forceLightTheme
-	title="ThingsBoard - All-in-one IoT Platform"
-	description="ThingsBoard is an all-in-one IoT platform that gives you everything you need to build, deploy, and scale IoT solutions."
+	title={live ? LIVE_HERO.pageTitle : 'ThingsBoard - The all-in-one IoT platform'}
+	description={
+		live
+			? LIVE_HERO.pageDescription
+			: 'ThingsBoard is an open-source IoT platform for device management, data collection, processing, and visualization for your IoT projects.'
+	}
 	customTitle={true}
+	preloadLcpImage={heroLcpPreload(HERO_BACKGROUND)}
+	noIndex={preview}
+	noCanonical={preview}
+	footer={composition.footer}
 >
+	<!-- HERO -->
 	<Hero
-		poster={HERO_POSTER}
-		title={['ThingsBoard', 'All-in-one IoT Platform']}
-		subtitle="Device management, data collection, processing and visualization for your IoT solution"
-		buttons={homeHeroCtas}
-		video={{
+		product={Products.CE}
+		backgroundImage={HERO_BACKGROUND}
+		title={live ? LIVE_HERO.title : ['ThingsBoard', 'The all-in-one IoT platform']}
+		subtitle={
+			live
+				? LIVE_HERO.subtitle
+				: 'Device management, data processing & visualization for teams who build IoT for clients — with fully white-labeled apps, multi-tenant isolation, and any-device connectivity.'
+		}
+		buttons={
+			live
+				? LIVE_HERO.buttons
+				: [
+						{
+							text: 'Try for free',
+							icon: 'tabler:cloud-filled',
+							// The region dialog the header renders takes the click; the href is the no-script fallback.
+							href: 'https://thingsboard.cloud/signup',
+							variant: 'brand',
+							// Hidden suffix, not an aria-label: the name must start with the visible "Try for free"
+							// (axe label-content-name-mismatch), and a suffix keeps it so by construction.
+							srOnlySuffix: 'on ThingsBoard Cloud',
+							attrs: { 'data-cloud-auth': 'signup' },
+						},
+						// The installation guide itself, not the installations hub (2026-09-27): the hero's second
+						// action is "put it on a machine", and the guide is the page that does that; the hub is the
+						// catalogue of every product, linked from the footer (`cta-destinations`).
+						{ text: 'Install', icon: 'tabler:download', href: INSTALL_GUIDE_HREF, variant: 'outline' },
+					]
+		}
+		layout="split"
+		ctaSpace={composition.heroCta}
+		ledeSize={composition.heroLede}
+		achievement={null}
+		showArrow={false}
+		anchorLink="#intro"
+		videoBackground={{
 			webm: '/videos/horizontal-slider-slides.webm',
 			mp4: '/videos/horizontal-slider-slides.mp4',
+			// 2.3 MB of VP9: small enough to play behind the phone copy too.
+			phones: true,
 		}}
-	/>
-
-	<CustomersLogo />
-
-	<AiSection />
-
-	<IntroSection>
-		<PlatformOverview />
-	</IntroSection>
-
-	{ROWS.map(({ copy, Visual, bleed }, i) => (
-		<FeatureRow {...copy} mediaFirst={i % 2 === 1} tinted={i % 2 === 0} bleed={bleed}>
-			<Visual />
-		</FeatureRow>
-	))}
-
-	<DashboardShowcase />
-
-	<ProductsSection />
-
-	<EcosystemSection />
-
-	<FeaturesSection />
-
-	<ClosingCta
-		title="Ready to build your IoT solution with ThingsBoard?"
-		lead="Start free in the cloud, install On-premises on your own infrastructure, or talk to our team about your specific use case."
-		buttons={homeClosingCtas}
+		footageRatio={HERO_FOOTAGE_RATIO}
 	>
-		<CtaNote />
-	</ClosingCta>
+		{!live && (
+			<p class="header-animation hero-note">
+				Evaluating for a large deployment?
+				<a href="/contact-us/">
+					Talk to an expert
+					<Icon name="tabler:chevron-right" aria-hidden="true" />
+				</a>
+			</p>
+		)}
+	</Hero>
+
+	<!-- Dark strip closing the hero, rather than opening the page content. -->
+	<CustomersLogo productTag="ce" onDark />
+
+	<section id="overflow">
+		{/* Everything between the hero and the closing CTA: one running order, from
+			   `data/home-compositions.ts`. The order decides which sections run and where; the sections'
+			   markup is in `HomeSections`, and the rules that dress them are this page's stylesheet below. */}
+		<HomeSections composition={composition} />
+	</section>
+
+	<Bookend id="home" expertHref={live ? LIVE_CLOSING.expertHref : undefined} />
 </BaseLayout>
+
+{/* Scoped to `.new-rows`, so none of it reaches the product pages that share this component. */}
+<style is:global lang="scss">
+	@use '../styles/variables' as *;
+	@use '../styles/home-rows';
+	@use '../styles/home-intro';
+
+	// The sections the internal hub links to (`/#connect`, `/#ai`…) land under the fixed header, not
+	// behind it. Every top-level section of a running order, so the island's outline can jump to any.
+	#intro,
+	#ai,
+	.new-rows > section[id],
+	#overflow > section[id],
+	.home-band > section[id] {
+		scroll-margin-top: calc(#{$header-height} + var(--promo-h, 0px));
+	}
+</style>
 
 <style is:global lang="scss">
 	@use '../styles/landing';
 	@use '../styles/variables' as *;
+	// FLAT SECTIONS TRIAL — delete this one line to revert the homepage to the
+	// diagonal bands, card shadows and full-strength accents. See the file
+	// header in _sections-flat.scss for what it changes and why.
+	@use '../styles/sections-flat';
+	// The bar every new page shares: its height, logo box, cluster gap, star widget and Sign in.
+
+	.hero-note {
+		@include type-small;
+		margin: 24px 0 0;
+		// Secondary: it sat at the same full white as .tb-sub-title, so a
+		// qualifying aside carried the weight of the hero's body copy. The link
+		// keeps its brighter 0.85 — it is the actionable half, and dimming an
+		// underlined link along with its label costs affordance rather than
+		// emphasis. Last in the reveal (nth-child(5) -> 1200ms), so it arrives
+		// after the buttons rather than alongside the headline.
+		color: rgba(255, 255, 255, 0.6);
+
+		// The `header-animation` class alone does nothing here: this paragraph is
+		// slotted into Hero, so it never receives Hero's scope hash and none of
+		// that component's `.header-animation` rules match it — measured as
+		// `animation-delay: 0s` and `opacity: 1` while the headline, subtitle and
+		// buttons all animated. The reveal is restated locally instead, picking up
+		// the stagger after the buttons' 900ms. `slideup-in` is emitted unscoped,
+		// so the keyframes themselves are shared rather than duplicated.
+		&.header-animation {
+			opacity: 0;
+			transform: translate3d(0, 45px, 0);
+			animation-name: slideup-in;
+			animation-duration: 600ms;
+			animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+			animation-fill-mode: forwards;
+			animation-delay: 1200ms;
+		}
+
+		// Authoring this reveal fresh, so it gets the guard the component's own
+		// sequence never had.
+		@media (prefers-reduced-motion: reduce) {
+			&.header-animation {
+				animation: none;
+				opacity: 1;
+				transform: none;
+			}
+		}
+
+		a {
+			// Always its own line. Side by side only ever fitted at the widest
+			// columns, and the 8px that set the link off from the question became a
+			// stray indent the moment the note wrapped — the link hung in from the
+			// paragraph's left edge with nothing above it. Stacking retires the
+			// margin instead of tuning it per breakpoint. `fit-content` keeps the
+			// underline on the words rather than running the paragraph's width.
+			display: flex;
+			width: fit-content;
+			align-items: center;
+			margin-top: 6px;
+
+			// ON A WIDE SCREEN (`$hero-ultrawide`, 2400 and up), ON THE CAPTION'S LINE. The band
+			// there is 528 wide and up and the lede runs 40 characters or more, so the question and
+			// the link fit side by side with room to spare, and stacked they read as two short lines
+			// under a wide one. The gap is the source's line break between them, which inline
+			// renders as a word space — and no margin, so should the link ever wrap it starts its
+			// line on the paragraph's edge, not indented (it did at 1920x800 while the query went
+			// by shape).
+			@media #{$hero-ultrawide} {
+				display: inline-flex;
+				margin-top: 0;
+			}
+			color: rgba(255, 255, 255, 0.85);
+			text-decoration: underline;
+			text-underline-offset: 3px;
+
+			// The page's link chevron at this size: ~1.25x the text, pulled in so the
+			// glyph's own side bearing is the gap — as the section and card links have it.
+			[data-icon] {
+				width: 18px;
+				height: 18px;
+				margin-left: -1px;
+			}
+
+			&:hover,
+			&:focus-visible {
+				color: #fff;
+			}
+		}
+	}
+
+	// The header height is `--home-header-h`, declared in `_theme.scss` for every page; the bar is main's.
+	html:root {
+		// Muted hero text. Full alpha and a stronger chroma: dropping the alpha
+		// mixes the colour toward the black column, which is what kept flattening
+		// the hue. Vividness has to come from the colour, not the opacity.
+		--hero-muted: rgba(150, 164, 255, 0.72);
+	}
+
+	// The logo strip under the hero is the hero's own dark tail — it closes the hero rather than
+	// opening the page (see the markup) — so the section the fold keeps on the first screen is the
+	// one after it, and the hero counts the strip's height as its own: `--hero-reveal` and
+	// `--hero-footage-reveal` add it. 100: the strip's padding is `clamp(24px, 2.5vw, 36px)` a side
+	// and its marks 27, so 99 from 1440 up and 91 at 1280. Zero it if the strip moves.
+	#hero {
+		--hero-tail: 100px;
+	}
+
+	// THE BAR IS WHITE FROM THE TOP (`headerScrolledAtTop`): its scrolled state, held,
+	// over a hero that still clears it as it would a transparent one. The rules for
+	// the transparent bar below stay for the hero sandbox's dark-menu candidate,
+	// which lets go of the hold; on this page as it ships none of them match.
+	//
+	// The page's edge inset, for the bar, is the hero copy's: `page-inset(20px)`
+	// where the header's own floor is 24. The two agree from 800 up, and below it
+	// the logo stood 4px right of the headline (at 600) and the Menu button 4px in
+	// from the copy's right edge.
+	:root header.header {
+		--tb-bar-inset: #{page-inset(20px)};
+	}
+
+	// The transparent bar gets a scrim rather than nothing. It spans both halves
+	// of the split hero — the black text column and the video panel — and over
+	// the footage the nav had no ground of its own, so its legibility changed
+	// with whatever frame was playing. 80% black reads as one continuous surface
+	// across both halves while the panel still shows through.
+	//
+	// Both guards match the Sign in and GitHub rules below: the scrolled bar has
+	// its own solid surface, and the open drawer is a light one, so neither wants
+	// black poured over it. Scoped to this page — the three product pages also
+	// use `transparent`, over a full-bleed image rather than a split panel, and
+	// changing their heroes was not asked for.
+	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-variant='transparent']) {
+		background-color: rgba(0, 0, 0, 0.8);
+	}
+
+	// The old filled n-button, which only the `live` order still renders (its footer is
+	// `Landing/Footer`): the brand purple, bold, the shimmer. White on #3d50f5 is 5.73:1.
+	.n-button--filled {
+		position: relative;
+		overflow: hidden;
+		isolation: isolate;
+		font-weight: $font-weight-bold;
+		background-color: $color-brand;
+		color: #fff;
+	}
+
+	// Shimmer: a single skewed highlight crossing on hover. Transform-only, so it
+	// composites rather than repainting, and it runs once per hover instead of
+	// looping.
+	.n-button--filled::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		width: 45%;
+		z-index: -1;
+		pointer-events: none;
+		background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+		transform: translateX(-160%) skewX(-18deg);
+	}
+
+	.n-button--filled:hover::after,
+	.n-button--filled:focus-visible::after {
+		animation: btn-shimmer 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	@keyframes btn-shimmer {
+		from {
+			transform: translateX(-160%) skewX(-18deg);
+		}
+		to {
+			transform: translateX(320%) skewX(-18deg);
+		}
+	}
+
+	// Secondary, dark-on-light: a tint on hover rather than a fill, so it never
+	// reads as a primary mid-interaction.
+	.n-button--filled:hover {
+		background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+	}
+
+	.n-button--filled:active {
+		background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3));
+	}
+
+	// The old accent (#1a6fd4) is hardcoded inside the section components rather
+	// than read from a token, so it can't be retired by changing a variable.
+	// These overrides are scoped to this page: the same components keep their
+	// existing blue everywhere else on the site.
+	#overflow {
+		// Arrows and their SVGs take `currentColor`, so recolouring the link they
+		// sit in carries them along. Not the kit's links, buttons, chips and card titles: they take
+		// their colour from the accent schemes (`data-accent`), and are excluded inside `:where()`, so
+		// the rule's weight is what it was.
+		a.heading-1,
+		a.read-more-link,
+		a.product-card__link,
+		a.dashboard-slide__link,
+		.dashboard-slide a,
+		p a:where(:not(.ui-link, .ui-btn, .ui-chip, .ui-card__link, .region-choice__row)),
+		li a:where(:not(.ui-link, .ui-btn, .ui-chip, .ui-card__link, .region-choice__row)),
+		h2 a:where(:not(.ui-link, .ui-btn, .ui-chip, .ui-card__link, .region-choice__row)),
+		h3 a:where(:not(.ui-link, .ui-btn, .ui-chip, .ui-card__link, .region-choice__row)) {
+			color: $color-brand;
+		}
+	}
+
+	// The older section components pin their arrow colour with ID-scoped selectors, specificity
+	// (1,2,1), which outranks a plain `#overflow a.read-more-link` (1,1,1). Repeating the id takes
+	// this to (2,2,1), covering every section without naming each one.
+	#overflow#overflow {
+		a.read-more-link .arrow,
+		a.read-more-link .arrow-container,
+		.dashboard-slide a .arrow,
+		.view-all-link a,
+		a.rule-button,
+		.feature-des a:where(:not(.ui-link)) {
+			color: $color-brand;
+		}
+	}
+
+	// The footer is the one place the declared number is the measure rather than
+	// the measure plus 40: the shared component replaces the container padding
+	// with `padding: 5.75rem 0`, so 960 puts its content on 240 with the grids.
+	//
+	// `!important` because the component carries its own `max-width: 1400px
+	// !important` above 1500px — nothing but an `!important` reaches past that,
+	// and without it the footer alone would widen on large monitors. `body` breaks
+	// the specificity tie with the component's own `footer .main-div`.
+	//
+	// `:not(.fm)`: the footer that maps the platform (A and B) carries its own 960 measure and gutter,
+	// and this padding on top of its own put its phone content on 40.
+	body footer:not(.fm) .main-div {
+		max-width: 960px !important;
+	}
+
+	// The gutter, for the same reason. `<footer>` carries `padding-inline: 30px`,
+	// which the 960 cap hides on desktop — the container is centred inside it
+	// either way — but below about 1020 it becomes the gutter, and the footer was
+	// the one block sitting on 30 while the whole page sat on 20.
+	body footer:not(.fm) {
+		padding-inline: $spacing-5;
+	}
+
+	// THE `#overflow` HEADING RULES ARE GONE, and this note is what they leave behind.
+	//
+	// There were four: a blanket weight on every h2 and h3, a blanket 32px on every h2, a colour on
+	// the h2s that were not SectionHeader's, and a colour on the wordmark link inside the intro
+	// title. Between them they decided the type of five section headings and five row headings from
+	// here, keyed to an ID — (1,0,1) and (1,1,0), which no class, no mixin and no custom property in
+	// any component can reach. The practical effect was that the shared type scale had no authority
+	// on this page: editing `section-title` in `_variables.scss` moved nothing, and a fix to
+	// `SectionHeader` for its own `theme="dark"` had already had to be rerouted through a custom
+	// property to get out from under one of them. The comment that shipped with that fix says so.
+	//
+	// Where each went, all of it checked against a computed-style snapshot of the whole page:
+	//
+	//   weight    Redundant. Every one of these headings reaches 700 through its own mixin now that
+	//             `$font-weight-semibold` is an alias of `$font-weight-bold` — which is what they
+	//             were painting all along, since Ubuntu has no 600.
+	//   size      `SectionHeader`'s new `titleSize` prop, whose three values are the three mixins.
+	//             The intro statement keeps its own 32px in `_home-intro.scss`, class-only, where it
+	//             was already stated and already documented as being shadowed by the ID rule.
+	//   colour    `IntroSection` already sets `color: var(--color-text)` on its own title, and the
+	//             wordmark link is already black from `_home-intro.scss`. Both were duplicates.
+
+	@media (prefers-reduced-motion: reduce) {
+		.n-button--filled:hover::after,
+		.n-button--filled:focus-visible::after {
+			animation: none;
+		}
+	}
+
+	// Even out ragged headings and keep single-word orphans off the last line of
+	// body copy. Both properties are ignored where unsupported, so the fallback
+	// is simply today's wrapping.
+	h1,
+	h2,
+	h3,
+	.tb-sub-title {
+		text-wrap: balance;
+	}
+
+	p {
+		text-wrap: pretty;
+	}
+
+	// Remove white section backgrounds on home page. The customer-logo strip is
+	// exempt: it carries a deliberate dark background so it reads as the closing
+	// band of the hero, and this rule outranks the component's own scoped style
+	// (Astro wraps that scope in :where(), which adds no specificity). So are the
+	// `ui/Band`s, which paint their own ground; the rule goes once every section is
+	// one. Its weight, (0,3,1), is what the rows' and the use cases' own grounds
+	// were written against: change the exemptions, keep the count of them.
+	:root section:not(.customers-logo--dark):not(.ui-band) {
+		background: none;
+	}
+
+	// Overflow container
+	#overflow {
+		overflow: hidden;
+	}
+
+	// Products and the ecosystem are `ui/Band`s (HomeSections): Products dark with the wave in
+	// `--band-wave`, the ecosystem flat, each 64 above and below (48 on a phone) on the 960 measure.
+
+	// Products gets a plain rectangular band instead of the skewed decorative
+	// wedges, with the pricing wave field animating inside it. `isolation` makes
+	// the section a stacking context, so the field's z-index:-1 lands above this
+	// background rather than behind it.
+	// Products and the ecosystem are one band with one wave field behind both.
+	// `isolation` makes this a stacking context, so the field's z-index:-1 lands
+	// above this background rather than behind it.
+	.home-band {
+		position: relative;
+		isolation: isolate;
+		// WHITE, no longer the 5% wash. Products covers itself dark, so this only
+		// ever showed behind the ecosystem — and with Why-choose washed below, the
+		// page alternates dark / white / wash instead of running two tints into
+		// each other. The ecosystem cards' ground moved into their resting shadow.
+		background: #fff;
+
+		// Match the homepage primary rather than the pricing page's blue.
+		.pricing-bg {
+			--pricing-wave-color: #{$color-brand};
+		}
+	}
+
+	// The cards stay WHITE on this band, so everything that used to re-point their
+	// colours here is gone: the surface, the ink, the hairline, the label and link
+	// greys, the lightened name tint and two restated shadows.
+	//
+	// They were inverted first and the result read subtle. The dark theme's own
+	// text pair is built for a page that is dark throughout, where the eye is
+	// adapted to it; dropped into one band on a light page the same ratios read a
+	// stop down, and the description — the longest text on the card — sat at the
+	// bottom of that range at 6.2:1. White puts it back to the component's own ink
+	// at ~13:1 and makes these two read as the same object as the seven ecosystem
+	// cards below: same component, same treatment, different ground.
+	//
+	// What is left of the inversion is the BAND — dark ground, dark section header.
+	// That is what marks the section, and white cards separate from it further than
+	// dark cards on dark ever did.
+
+	// Products leads the band at `titleSize="title"` (40px) and the ecosystem reads as a continuation
+	// rather than a peer, so it takes `titleSize="section"` (32px). Both are stated at the call sites
+	// above; they used to be `#products .section-header__title` and a nested rule under
+	// `#product-ecosystem`, which is why the mixins could not be edited.
+	//
+	// 40, not 48. `type-display` is still there and still the top of the ladder, but nothing on this
+	// page is using it: a one-word heading over two cards was not carrying 48px, and the copy is
+	// likely to be rewritten anyway. One step down still leads the band and no longer shouts.
+	//
+	.product-ecosystem-list {
+		// Grid rather than flex: the app card spans two columns, which flex can
+		// only fake with hand-computed basis values that break at every new width.
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		align-items: stretch;
+		gap: $spacing-5;
+		width: 100%;
+		min-width: 0;
+
+		// Three singles plus three 2-spans is nine cells — three clean rows.
+		> .ecosystem-card--wide {
+			grid-column: span 2;
+		}
+
+		// A card demoted to a single for the 2-column grid takes one track there.
+		@include media-down(lg) {
+			> .ecosystem-card--cols2-single {
+				grid-column: span 1;
+			}
+		}
+
+		// Three columns need roughly 300px each to hold the copy; below that the
+		// measure gets too tight, so drop to two, then to one.
+		@include media-down(lg) {
+			grid-template-columns: repeat(2, 1fr);
+		}
+
+		@include media-down(md) {
+			grid-template-columns: 1fr;
+
+			> .ecosystem-card--wide {
+				grid-column: span 1;
+			}
+		}
+	}
+
+	// The use cases' and "Why choose"'s own rules moved into `UseCasesSection` and `FeaturesSection`
+	// (2026-09-27), keyed to the same ids, so their sandbox pages render what this page does.
 </style>

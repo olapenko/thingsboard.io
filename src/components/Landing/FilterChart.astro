@@ -1,0 +1,811 @@
+---
+import AlarmEntry from '@components/Landing/AlarmEntry.astro';
+import { ALARM_FIRED_AT, clock, FILTER_CHART, FILTER_HISTORY, FREEZER_ALARM, openFor } from '@data/automate-visual';
+import { alarmCount, filterChartFrames } from '@util/filter-chart-frames';
+import { renderId } from '@util/render-id';
+
+/**
+ * Filter without the mark — the homepage's since 2026-09-27, over `FilterFlow` — as a chart with as little ink as it can carry.
+ *
+ * THE MORNING'S OPENINGS AS BARS, each at the time it happened (07:30 on) and as tall as the door
+ * stood open, against one dashed limit. All are short — some only seconds, a door checked and shut —
+ * which is the point: the rule leaves them alone. The one still open climbs past the limit, turns red,
+ * and the alarm (`AlarmEntry`) opens where it crossed. No grid, no axes: the limit is labelled where a
+ * value axis would sit, the live bar carries its own reading on top and the scenario's clock under its
+ * foot, ticking with it — the one time on the chart, and the one the alarm prints when it fires.
+ * Everything else on the page is data. Each opening stands in a faint column up to the limit — how
+ * much of its allowance it used — with its length over it, and the limit is a handle: drag it and
+ * the rule re-applies (see the script). The handle also counts what the rule yields — "1 alarm" —
+ * along with the loop (none until the live bar crosses) and with a drag; the count is kept and said
+ * in the slider's value text, but its caption is parked, unshown, until it has a place (see
+ * `.fch__count`). The chart stands on a white wash, solid along its top, where the heading sits,
+ * and gone at the floor, which lifts it off the row's tint.
+ *
+ * On the other tabs' frame, 574 × 256 units, so the switch's row holds its height. One SVG in the
+ * frame's own units; the alarm is HTML over it in the same units. Type floor 18 units, R = 38.
+ *
+ * MOTION, about 6s while the tab shows (`--flow-play`): the morning's bars stand still — a chart
+ * only grows forwards — and the live one climbs at one pace to the top of its range, crossing the
+ * limit (3:00 by default) on the way: it turns red there and the alarm rises in where it crossed,
+ * while the bar climbs on — the door is still open. It holds, then the live bar and what it raised
+ * let go quickly, and it climbs again. Without motion: the picture at rest, alarm up.
+ */
+
+// --- the frame --------------------------------------------------------------------------------
+const NATIVE = 574;
+const H = 256;
+const PLOT = { x0: 56, x1: 558, top: 64, base: 214 };
+const ALARM_W = 236;
+const BAR_W = 18;
+/** The least a bar stands, in units: a 3s opening is still a bar, not a line on the floor. */
+const BAR_MIN = 3;
+/**
+ * The limit's range when dragged: long enough to catch any past opening, up to 5:00. `step` is what
+ * the keyboard moves it by and the grid a dragged limit settles on when let go; while the pointer
+ * moves it follows to the second.
+ */
+const LIMIT = { min: 30, max: 5 * 60, step: 5 };
+/**
+ * The live bar climbs this far past the highest limit, so the rule fires wherever the limit is
+ * set, and the chart's top clears the bar by as much again.
+ */
+const OVER = 15;
+const PEAK = LIMIT.max + OVER;
+const Y_MAX = PEAK + OVER;
+/** The time the plot spans, in minutes after midnight: 07:30 to 10:00, the live opening a little left of middle. */
+const DAY = { from: 7 * 60 + 30, to: 10 * 60 };
+
+const r2 = (v: number) => +v.toFixed(2);
+const xOfMin = (minAfter6: number) =>
+	r2(PLOT.x0 + ((minAfter6 + 6 * 60 - DAY.from) / (DAY.to - DAY.from)) * (PLOT.x1 - PLOT.x0));
+const yOf = (s: number) => r2(PLOT.base - (s / Y_MAX) * (PLOT.base - PLOT.top));
+const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+
+// --- the bars ---------------------------------------------------------------------------------
+const bars = FILTER_HISTORY.map((o) => ({
+	cx: xOfMin(o.at),
+	x: r2(xOfMin(o.at) - BAR_W / 2),
+	y: Math.min(yOf(o.open), PLOT.base - BAR_MIN),
+	open: o.open,
+	start: 6 * 3600 + o.at * 60,
+}));
+const liveMin = FILTER_CHART.openedAt / 60 - 6 * 60;
+const liveX = xOfMin(liveMin);
+const limitY = yOf(FILTER_CHART.limit);
+
+// --- the live bar's climb ---------------------------------------------------------------------
+// One pace to its peak, past the highest limit, whatever the limit is; the limit only sets where
+// it turns red (`filterChartFrames`, shared with the drag's replay).
+const uid = renderId('fch');
+const frames = filterChartFrames(uid, FILTER_CHART.limit, PEAK, { base: PLOT.base, top: PLOT.top, yMax: Y_MAX });
+const liveTop = yOf(PEAK);
+/** The rule's output at rest, for the handle's caption: the live bar at its peak is the one opening over the limit. */
+const restCount =
+	FILTER_HISTORY.filter((o) => o.open > FILTER_CHART.limit).length + (PEAK > FILTER_CHART.limit ? 1 : 0);
+
+// --- the alarm --------------------------------------------------------------------------------
+/** From the live bar's centre to the alarm's left edge: clear of the bar, with the lit limit between. */
+const ALARM_GAP = BAR_W / 2 + 17;
+const alarmX = r2(liveX + ALARM_GAP);
+/**
+ * How far the alarm's centre may travel with a dragged limit: the card (about 128 units tall) keeps
+ * inside the frame at the top and clear of the clock under the live bar at the bottom.
+ */
+const ALARM_Y = { min: 66, max: H - 94 };
+if (alarmX + ALARM_W > PLOT.x1) {
+	throw new Error(`FilterChart: the alarm (${alarmX}–${alarmX + ALARM_W}) runs past the plot's edge at ${PLOT.x1}`);
+}
+
+// What the drag needs to redraw the rule: the plot, each opening's position, length and start. The
+// live one's length is whatever it had reached when the drag began (`live`), not a number here.
+const geo = {
+	peak: PEAK,
+	top: PLOT.top,
+	base: PLOT.base,
+	yMax: Y_MAX,
+	x1: PLOT.x1,
+	h: H,
+	alarmW: ALARM_W,
+	alarmGap: ALARM_GAP,
+	alarmY: ALARM_Y,
+	limit: LIMIT,
+	bars: [
+		...bars.map((b) => ({ x: b.cx, open: b.open, start: b.start })),
+		{ x: liveX, open: PEAK, start: FILTER_CHART.openedAt, live: true },
+	],
+};
+
+const chartLabel = `${FILTER_CHART.title}, since ${hhmm(DAY.from)}: ${FILTER_HISTORY.length} short openings, some only seconds, then one left open past the ${openFor(FILTER_CHART.limit)} limit, which raised a ${FREEZER_ALARM.severity.toLowerCase()} alarm, ${FREEZER_ALARM.name}, at ${ALARM_FIRED_AT}.`;
+---
+
+<style is:inline set:html={frames.css} data-fch-style={uid}></style>
+
+<div class="fch-fit">
+	<div
+		class="fch"
+		data-fch={uid}
+		data-fch-loop={frames.loop}
+		data-fch-climb={JSON.stringify(frames.climb)}
+		data-fch-opened={FILTER_CHART.openedAt}
+		data-fch-geo={JSON.stringify(geo)}
+		data-fch-title={FILTER_CHART.title}
+		data-flow="in"
+		style={[
+			`--fch-u: min(1.15px, calc(100cqw / ${NATIVE}))`,
+			`--fch-native: ${NATIVE}`,
+			`--fch-h: ${H}`,
+			`--fch-alarm-x: ${alarmX}`,
+			`--fch-alarm-w: ${ALARM_W}`,
+			`--fch-limit-y: ${limitY}`,
+			`--fch-loop: ${frames.loop}s`,
+		].join('; ')}
+	>
+		<svg class="fch__chart" viewBox={`0 0 ${NATIVE} ${H}`} role="img" aria-label={chartLabel}>
+			<defs>
+				<linearGradient id={`${uid}-wash`} x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0" stop-color="#fff" stop-opacity="1"></stop>
+					<stop offset="1" stop-color="#fff" stop-opacity="0"></stop>
+				</linearGradient>
+			</defs>
+
+			<rect class="fch__wash" x="0" y="0" width={NATIVE} height={PLOT.base} rx="8" fill={`url(#${uid}-wash)`}></rect>
+
+			<text class="fch__title" x="16" y="36">
+				{FILTER_CHART.title}
+			</text>
+
+			{[...bars.map((b) => b.x), r2(liveX - BAR_W / 2)].map((x) => (
+				<rect class="fch__track" x={x} y={limitY} width={BAR_W} height={r2(PLOT.base - limitY)} rx="1" />
+			))}
+
+			<line class="fch__limit" x1={PLOT.x0} y1={limitY} x2={PLOT.x1} y2={limitY}></line>
+
+			<line class="fch__base" x1={PLOT.x0} y1={PLOT.base} x2={PLOT.x1} y2={PLOT.base}></line>
+
+			{/* The scenario's clock, under the live bar: now, ticking with the door's open time. */}
+			<text class="fch__clock" x={liveX} y={H - 12} data-fch-clock>
+				{clock(FILTER_CHART.openedAt + PEAK)}
+			</text>
+
+			{bars.map((b) => (
+				<>
+					<rect class="fch__bar" x={b.x} y={b.y} width={BAR_W} height={r2(PLOT.base - b.y)} rx="1" />
+					<text class="fch__bar-label" x={b.cx} y={b.y - 8}>
+						{b.open}s
+					</text>
+				</>
+			))}
+
+			<rect
+				class="fch__live"
+				x={r2(liveX - BAR_W / 2)}
+				y={liveTop}
+				width={BAR_W}
+				height={r2(PLOT.base - liveTop)}
+				rx="1"
+			></rect>
+
+			<line class="fch__link fch__fade" x1={liveX} y1={limitY} x2={alarmX} y2={limitY}></line>
+			<circle class="fch__fired fch__fade" cx={liveX} cy={limitY} r="5"></circle>
+
+			<g class="fch__reading">
+				<text class="fch__readout" x={liveX} y={liveTop - 11} data-fch-readout>
+					{openFor(PEAK)}
+				</text>
+			</g>
+		</svg>
+
+		{/* The rule's limit, as a handle: drag it (or use the arrow keys) and the chart re-applies it. */}
+		<button
+			type="button"
+			class="fch__handle"
+			role="slider"
+			aria-orientation="vertical"
+			aria-label="Alarm when the door stays open longer than"
+			aria-valuemin={LIMIT.min}
+			aria-valuemax={LIMIT.max}
+			aria-valuenow={FILTER_CHART.limit}
+			aria-valuetext={`${openFor(FILTER_CHART.limit)}, ${alarmCount(restCount)}`}
+			data-fch-handle
+		>
+			<span class="fch__grip" aria-hidden="true"></span>
+			<span data-fch-limit-text>{openFor(FILTER_CHART.limit)}</span>
+			<span class="fch__count" data-fch-count aria-hidden="true">
+				{alarmCount(restCount)}
+			</span>
+		</button>
+
+		<div class="fch__alarm-at fch__fade" aria-hidden="true">
+			<div class="fch__alarm-move">
+				<AlarmEntry />
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	// ONE SCRIPT, TWO JOBS ON ONE CLOCK.
+	//
+	// THE READING: the door's open time, read off the live bar's own CSS animation with the same
+	// schedule its keyframes follow, so the number and the bar cannot drift apart, and it stops when
+	// the switch pauses the tab. Only while on screen. The scenario's clock under the bar is the same
+	// number added to the moment the door opened.
+	//
+	// THE LIMIT IS MOVABLE. Dragging the handle (or the arrow keys on it) holds the picture — the live
+	// bar frozen at whatever the reading last had — and re-applies the rule at the new limit: every
+	// opening over it turns red, the live one included if it had got that far, each column's empty
+	// part shrinks or grows to it, and the alarm sits on the latest opening over it, its time the
+	// moment that opening crossed. Let go and the held picture clears, the limit settles on its step,
+	// and the new limit is tested: the loop plays again against it.
+	import { alarmCount, FILTER_CHART_FADE_S, filterChartFrames } from '@util/filter-chart-frames';
+
+	interface Geo {
+		peak: number;
+		top: number;
+		base: number;
+		yMax: number;
+		x1: number;
+		h: number;
+		alarmW: number;
+		alarmGap: number;
+		alarmY: { min: number; max: number };
+		limit: { min: number; max: number; step: number };
+		bars: { x: number; open: number; start: number; live?: boolean }[];
+	}
+
+	const openFor = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+	const clock = (s: number) =>
+		[Math.floor(s / 3600), Math.floor((s % 3600) / 60), Math.floor(s % 60)]
+			.map((n) => String(n).padStart(2, '0'))
+			.join(':');
+	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	document.querySelectorAll<HTMLElement>('[data-fch]').forEach((root) => {
+		const svg = root.querySelector<SVGSVGElement>('.fch__chart');
+		const handle = root.querySelector<HTMLButtonElement>('[data-fch-handle]');
+		const liveBar = root.querySelector<SVGRectElement>('.fch__live');
+		const readout = root.querySelector<SVGTextElement>('[data-fch-readout]');
+		if (!svg || !handle || !liveBar || !readout) return;
+		const geo = JSON.parse(root.dataset.fchGeo ?? '{}') as Geo;
+		const opened = Number(root.dataset.fchOpened);
+		const uid = root.dataset.fch ?? '';
+		const styleEl = document.querySelector<HTMLStyleElement>(`style[data-fch-style="${uid}"]`);
+		const panel = root.closest<HTMLElement>('.auto__panel');
+		const clockEl = root.querySelector<SVGTextElement>('[data-fch-clock]');
+		const reading = root.querySelector<SVGGElement>('.fch__reading');
+		const limitLine = root.querySelector<SVGLineElement>('.fch__limit');
+		const tracks = [...root.querySelectorAll<SVGRectElement>('.fch__track')];
+		const bars = [...root.querySelectorAll<SVGRectElement>('.fch__bar, .fch__live')];
+		const link = root.querySelector<SVGLineElement>('.fch__link');
+		const dot = root.querySelector<SVGCircleElement>('.fch__fired');
+		const alarmAt = root.querySelector<HTMLElement>('.fch__alarm-at');
+		const limitText = handle.querySelector<HTMLElement>('[data-fch-limit-text]');
+		const countEl = handle.querySelector<HTMLElement>('[data-fch-count]');
+		const time = root.querySelector<HTMLElement>('.alarm-entry__time');
+		const title = root.dataset.fchTitle ?? '';
+		const yOf = (s: number) => geo.base - (s / geo.yMax) * (geo.base - geo.top);
+		const live = geo.bars.find((b) => b.live);
+
+		// The loop's schedule — the climb as [loop %, open seconds], ending at the peak, and the loop's
+		// length — rendered with the page for the default limit, rewritten by a drag (`test`).
+		let climb = JSON.parse(root.dataset.fchClimb ?? '[]') as [number, number][];
+		let loop = Number(root.dataset.fchLoop) * 1000;
+		let limit = Number(handle.getAttribute('aria-valuenow'));
+
+		// ── The count ───────────────────────────────────────────────────────
+		// The rule's output, under the handle's value: how many openings are over the limit, the live
+		// one as it stands. Written only when it changes — it flips as the live bar crosses, and with
+		// a drag; the slider's value text carries it too, so a key press hears what the limit yields.
+		const alarmsOver = (liveOpen: number) =>
+			geo.bars.reduce((n, b) => n + ((b.live ? liveOpen : b.open) > limit ? 1 : 0), 0);
+		let shownCount = -1;
+		const showCount = (n: number) => {
+			if (n === shownCount) return;
+			shownCount = n;
+			if (countEl) countEl.textContent = alarmCount(n);
+		};
+
+		// ── The reading ─────────────────────────────────────────────────────
+		const valueAt = (pct: number) => {
+			if (pct <= climb[0][0]) return 0;
+			for (let k = 1; k < climb.length; k++) {
+				const [p0, s0] = climb[k - 1];
+				const [p1, s1] = climb[k];
+				if (pct <= p1) return s0 + ((pct - p0) / (p1 - p0)) * (s1 - s0);
+			}
+			return geo.peak;
+		};
+		/** The live bar's open time as last read: what a drag freezes it at. */
+		let value = geo.peak;
+		let lastSec = -1;
+		let frame = 0;
+		const tick = () => {
+			frame = requestAnimationFrame(tick);
+			// Held by a drag, or on a tab not showing: nothing to read this frame.
+			if (root.classList.contains('is-manual') || (panel && !panel.classList.contains('is-active'))) return;
+			const anim = liveBar.getAnimations()[0];
+			const pct = anim ? ((Number(anim.currentTime ?? 0) % loop) / loop) * 100 : 100;
+			value = valueAt(pct);
+			showCount(alarmsOver(value));
+			// The text changes once a second; nothing to write between.
+			const sec = Math.floor(value);
+			if (sec === lastSec) return;
+			lastSec = sec;
+			// Nothing to read before the bar has started: no "0:00" on an empty foot.
+			readout.textContent = sec < 5 ? '' : openFor(sec);
+			if (clockEl) clockEl.textContent = clock(opened + sec);
+		};
+		new IntersectionObserver(([entry]) => {
+			cancelAnimationFrame(frame);
+			if (entry.isIntersecting) frame = requestAnimationFrame(tick);
+		}).observe(root);
+
+		// ── The drag ────────────────────────────────────────────────────────
+		// HOLD: the live bar's open time the moment the first change takes the picture (`apply`), kept
+		// for the drag's length. The bar does not follow the limit. Taken at the first change rather than
+		// at pointerdown: the bar climbs on between the two, and a hold from pointerdown snapped it back.
+		let held = geo.peak;
+		const hold = () => {
+			if (!root.classList.contains('is-manual')) held = value;
+		};
+		const openOf = (b: Geo['bars'][number]) => (b.live ? held : b.open);
+
+		// The alarm's place: on one opening, at the limit's height, to its right if it fits, else to its
+		// left, its time the moment that opening crossed. Notify prints the same alarm, so it is told.
+		const placeAlarm = (bar: Geo['bars'][number], y: number) => {
+			const right = bar.x + geo.alarmGap + geo.alarmW <= geo.x1;
+			const ax = right ? bar.x + geo.alarmGap : bar.x - geo.alarmGap - geo.alarmW;
+			root.style.setProperty('--fch-alarm-x', String(ax));
+			root.style.setProperty('--fch-alarm-y', String(Math.min(geo.alarmY.max, Math.max(geo.alarmY.min, y))));
+			link?.setAttribute('x1', String(bar.x));
+			link?.setAttribute('x2', String(right ? ax : ax + geo.alarmW));
+			link?.setAttribute('y1', String(y));
+			link?.setAttribute('y2', String(y));
+			dot?.setAttribute('cx', String(bar.x));
+			dot?.setAttribute('cy', String(y));
+			const firedAt = clock(bar.start + limit);
+			if (time) time.textContent = firedAt;
+			root
+				.closest('[data-automate]')
+				?.dispatchEvent(new CustomEvent('automate:limit', { detail: { limit: openFor(limit), firedAt } }));
+		};
+
+		// TEST: replay the loop against the new limit. The climb is the same; only the moment it crosses
+		// moves, so the keyframes that answer the crossing are rewritten from it — or, with the limit
+		// above where the live bar stops, written to never fire — and every animation starts over. The
+		// alarm goes back on the live bar, where the replay raises it (the hold may have had it on a
+		// past opening, or on none).
+		// LET GO, and the held picture clears the way the loop's own end does — the live bar, its reading
+		// and whatever it raised fade over the loop's fade — before the new limit is tested. (A cut from
+		// the held bar to an empty chart read as a flicker.) Each part fades from where it is, so an
+		// alarm that was not up does not flash in; a new grab or key cancels the fade and holds on.
+		const clearing = [liveBar, reading, link, dot, alarmAt].filter((el): el is NonNullable<typeof el> => el !== null);
+		let fades: Animation[] = [];
+		let fadeGen = 0;
+		const cancelFade = () => {
+			fadeGen++;
+			fades.forEach((a) => a.cancel());
+			fades = [];
+		};
+
+		let testing = 0;
+		const test = () => {
+			if (!styleEl) return;
+			const f = filterChartFrames(uid, limit, geo.peak, geo);
+			styleEl.textContent = f.css;
+			climb = f.climb;
+			loop = f.loop * 1000;
+			root.style.setProperty('--fch-loop', f.loop + 's');
+			liveBar.style.removeProperty('transform');
+			liveBar.classList.remove('is-over');
+			reading?.style.removeProperty('transform');
+			root.classList.toggle('no-alarm', !f.fires);
+			if (f.fires && live) placeAlarm(live, yOf(limit));
+			root.classList.remove('is-manual');
+			// The reading starts over with the bar: its first tick writes the empty foot, not the held number.
+			lastSec = -1;
+			// The clearing fade lets go last: the loop's keyframes are at their start by now, where nothing
+			// shows, so nothing flashes.
+			fades.forEach((a) => a.cancel());
+			fades = [];
+			requestAnimationFrame(() =>
+				root.getAnimations({ subtree: true }).forEach((a) => {
+					if (a instanceof CSSAnimation) a.currentTime = 0;
+				})
+			);
+		};
+		const testSoon = (ms: number) => {
+			clearTimeout(testing);
+			testing = window.setTimeout(() => {
+				if (reduced) return test();
+				const gen = ++fadeGen;
+				fades = clearing.map((el) =>
+					el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], {
+						duration: FILTER_CHART_FADE_S * 1000,
+						easing: 'ease-out',
+						fill: 'forwards',
+					})
+				);
+				Promise.all(fades.map((a) => a.finished)).then(
+					() => {
+						if (gen === fadeGen) test();
+					},
+					() => {}
+				);
+			}, ms);
+		};
+
+		// `snap` is the grid the limit lands on: the rule's step from the keyboard and when let go; to the
+		// second while the pointer moves, so the line slides with it instead of clicking step to step.
+		const apply = (seconds: number, snap = geo.limit.step) => {
+			const { min, max } = geo.limit;
+			const next = Math.min(max, Math.max(min, Math.round(seconds / snap) * snap));
+			// A pointer sends far more moves than the limit has places: nothing to redraw while it stands.
+			if (next === limit && root.classList.contains('is-manual')) return;
+			limit = next;
+			hold();
+			const y = yOf(limit);
+			const overCount = geo.bars.filter((b) => openOf(b) > limit).length;
+			showCount(overCount);
+			svg.setAttribute(
+				'aria-label',
+				title +
+					': the limit at ' +
+					openFor(limit) +
+					', ' +
+					(overCount
+						? overCount + (overCount > 1 ? ' openings' : ' opening') + ' over it, the latest raising the alarm.'
+						: 'no opening over it, so no alarm.')
+			);
+			root.classList.add('is-manual');
+			root.style.setProperty('--fch-limit-y', String(y));
+			limitLine?.setAttribute('y1', String(y));
+			limitLine?.setAttribute('y2', String(y));
+			tracks.forEach((t) => {
+				t.setAttribute('y', String(y));
+				t.setAttribute('height', String(Math.max(0, geo.base - y)));
+			});
+			// While held, the live bar stands where it was, its reading and the clock with it.
+			liveBar.style.setProperty('transform', 'scaleY(' + held / geo.peak + ')');
+			reading?.style.setProperty('transform', 'translateY(' + (yOf(held) - yOf(geo.peak)) + 'px)');
+			readout.textContent = held < 5 ? '' : openFor(held);
+			if (clockEl) clockEl.textContent = clock(opened + held);
+			lastSec = -1;
+			const over = geo.bars.map((b) => openOf(b) > limit);
+			bars.forEach((el, i) => el.classList.toggle('is-over', over[i]));
+			handle.setAttribute('aria-valuenow', String(limit));
+			handle.setAttribute('aria-valuetext', openFor(limit) + ', ' + alarmCount(overCount));
+			if (limitText) limitText.textContent = openFor(limit);
+
+			// The alarm: on the latest opening over the limit, if any.
+			const last = geo.bars
+				.map((b, i) => (over[i] ? b : null))
+				.filter((b) => b !== null)
+				.pop();
+			root.classList.toggle('no-alarm', !last);
+			if (last) placeAlarm(last, y);
+		};
+
+		// Where the pointer is, in the frame's units; the drag keeps the offset it grabbed at, so a tap
+		// anywhere on the handle leaves the limit where it was. The frame is measured once per grab (and
+		// again if the page scrolls or resizes under it), not per move: measuring between one move's
+		// writes and the next forced a layout every move.
+		let box = svg.getBoundingClientRect();
+		const measure = () => {
+			box = svg.getBoundingClientRect();
+		};
+		const pointerY = (e: PointerEvent) => ((e.clientY - box.top) / box.height) * geo.h;
+		let grab = 0;
+		let moved = false;
+
+		handle.addEventListener('pointerdown', (e) => {
+			clearTimeout(testing);
+			cancelFade();
+			measure();
+			window.addEventListener('scroll', measure, { capture: true, passive: true });
+			window.addEventListener('resize', measure);
+			handle.setPointerCapture(e.pointerId);
+			grab = pointerY(e) - yOf(limit);
+			moved = false;
+		});
+		handle.addEventListener('pointermove', (e) => {
+			if (!handle.hasPointerCapture(e.pointerId)) return;
+			const y = pointerY(e) - grab;
+			if (!moved && Math.abs(y - yOf(limit)) < 1) return;
+			moved = true;
+			apply(((geo.base - y) / (geo.base - geo.top)) * geo.yMax, 1);
+		});
+		// Let go (or have the touch cancelled), and a held picture is tested: the limit settles on its
+		// step and the loop plays against it. A tap that only caught a clearing fade is held too.
+		const release = () => {
+			window.removeEventListener('scroll', measure, { capture: true });
+			window.removeEventListener('resize', measure);
+			if (root.classList.contains('is-manual')) {
+				apply(limit);
+				testSoon(150);
+			}
+			moved = false;
+		};
+		handle.addEventListener('pointerup', release);
+		handle.addEventListener('pointercancel', release);
+		handle.addEventListener('lostpointercapture', release);
+		handle.addEventListener('keydown', (e) => {
+			const { min, max, step } = geo.limit;
+			const by: Record<string, number> = {
+				ArrowUp: step,
+				ArrowRight: step,
+				ArrowDown: -step,
+				ArrowLeft: -step,
+				PageUp: step * 6,
+				PageDown: -step * 6,
+			};
+			if (!(e.key in by) && e.key !== 'Home' && e.key !== 'End') return;
+			clearTimeout(testing);
+			cancelFade();
+			if (e.key in by) apply(limit + by[e.key]);
+			else if (e.key === 'Home') apply(min);
+			else apply(max);
+			e.preventDefault();
+			testSoon(600);
+		});
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	@function u($n) {
+		@return calc(#{$n} * var(--u));
+	}
+
+	.fch-fit {
+		container-type: inline-size;
+	}
+
+	// The chart sits on the row's own ground, no card of its own: the alarm is the one card, over it.
+	.fch {
+		--u: var(--fch-u);
+		--fch-grey: var(--color-text-secondary, #5b616e);
+		--fch-hue: var(--flow-rail, var(--color-primary, #3d50f5));
+		--fch-alarm: var(--color-accent-red, #b23c33);
+
+		position: relative;
+		width: 100%;
+		max-width: u(var(--fch-native));
+		height: u(var(--fch-h));
+		margin: 0 auto;
+	}
+
+	.fch__chart {
+		position: absolute;
+		inset: 0;
+		display: block;
+		width: 100%;
+		max-width: none;
+		height: 100%;
+		overflow: visible;
+	}
+
+	// The chart's ground: solid white along the top, gone at the floor.
+	.fch__wash {
+		pointer-events: none;
+	}
+
+	// The heading, on the wash's lightest band: a step over the labels, in ink, at the alarm's name's weight.
+	.fch__title {
+		font-size: 19px;
+		font-weight: $font-weight-medium;
+		fill: var(--color-text, #17181c);
+	}
+
+	// In the frame's own units, so 18 here is the family's 18: the scenario's clock, under the live bar.
+	.fch__clock {
+		font-family: $font-family-mono;
+		font-size: 18px;
+		font-variant-numeric: tabular-nums;
+		text-anchor: middle;
+		fill: var(--fch-grey);
+	}
+
+	.fch__base {
+		stroke: var(--color-text, #17181c);
+		stroke-opacity: 0.18;
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.fch__limit {
+		stroke: var(--fch-grey);
+		stroke-opacity: 0.55;
+		stroke-width: 1;
+		stroke-dasharray: 5 4;
+		vector-effect: non-scaling-stroke;
+	}
+
+	// The past openings: the line's hue, quiet, and still — the chart only ever grows forwards.
+	.fch__bar {
+		fill: var(--fch-hue);
+		opacity: 0.45;
+	}
+
+	// The one still open: full strength, red once it passes the limit. At rest it has, so red.
+	.fch__live {
+		fill: var(--fch-alarm);
+		transform-box: fill-box;
+		transform-origin: bottom center;
+	}
+
+	.fch__link {
+		fill: none;
+		stroke: var(--fch-alarm);
+		stroke-width: max(1px, #{u(2)});
+		stroke-linecap: round;
+		vector-effect: non-scaling-stroke;
+		transform-box: fill-box;
+		transform-origin: left center;
+	}
+
+	.fch__fired {
+		fill: var(--fch-alarm);
+		stroke: var(--color-bg-surface, #fff);
+		stroke-width: 2;
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+
+	// The live bar's reading, on its top: the only number in the plot.
+	.fch__readout {
+		font-family: $font-family-mono;
+		font-size: 18px;
+		font-weight: $font-weight-bold;
+		font-variant-numeric: tabular-nums;
+		text-anchor: middle;
+		fill: var(--fch-alarm);
+	}
+
+	// Placed in the frame's units, its left edge where the lit limit ends, centred on the limit (or,
+	// with the limit dragged near an edge, held inside the frame).
+	.fch__alarm-at {
+		position: absolute;
+		top: u(var(--fch-alarm-y, var(--fch-limit-y)));
+		left: u(var(--fch-alarm-x));
+		width: u(var(--fch-alarm-w));
+		transform: translateY(-50%);
+	}
+
+	// Each opening's column: the empty part is the time left before the rule, up to the limit, so the
+	// short openings read as bars (filled a little of the way) rather than as marks on the floor.
+	.fch__track {
+		fill: var(--fch-hue);
+		opacity: 0.08;
+	}
+
+	// Every past opening's length over it, in seconds: the column says how far, the label how long.
+	.fch__bar-label {
+		font-family: $font-family-mono;
+		font-size: 18px;
+		text-anchor: middle;
+		fill: var(--fch-grey);
+	}
+
+	// The limit's handle: a white pill with a grip at the value axis, where the limit is labelled.
+	.fch__handle {
+		position: absolute;
+		top: u(var(--fch-limit-y));
+		left: 0;
+		display: flex;
+		align-items: center;
+		gap: u(7);
+		height: u(38);
+		padding: 0 u(12) 0 u(10);
+		border: 0;
+		border-radius: u(19);
+		font-family: $font-family-mono;
+		font-size: u(18);
+		font-weight: $font-weight-bold;
+		line-height: u(22);
+		color: var(--color-text, #17181c);
+		background: var(--color-bg-surface, #fff);
+		box-shadow:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb), 0.12),
+			0 #{u(4)} #{u(10)} #{u(-4)} rgba(var(--color-shadow-ui-rgb), 0.3);
+		transform: translateY(-50%);
+		cursor: ns-resize;
+		touch-action: none;
+
+		// A larger target than it looks, for a finger.
+		&::before {
+			content: '';
+			position: absolute;
+			inset: u(-8) u(-6);
+		}
+
+		&:hover {
+			box-shadow:
+				0 1px 2px rgba(var(--color-shadow-ui-rgb), 0.14),
+				0 #{u(6)} #{u(14)} #{u(-4)} rgba(var(--color-shadow-ui-rgb), 0.36);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--color-primary, #3d50f5);
+			outline-offset: 2px;
+		}
+	}
+
+	// Three short rules, the drag's grip.
+	.fch__grip {
+		width: u(14);
+		height: u(11);
+		background: linear-gradient(var(--fch-grey), var(--fch-grey)) center / 100% max(1px, #{u(1.5)}) no-repeat;
+		border-top: max(1px, #{u(1.5)}) solid var(--fch-grey);
+		border-bottom: max(1px, #{u(1.5)}) solid var(--fch-grey);
+	}
+
+	// The rule's output under its value — "1 alarm" — in the body face and the chart's grey: a caption,
+	// not a reading. 16 units, the family's phone floor (~9.6px). Flush with the pill's left edge and
+	// at most 63 units wide at any count (tabular, so the numeral changes in place), which keeps it
+	// left of the first opening's column at 67 wherever the limit stands.
+	//
+	// PARKED (2026-10-02): under the pill it sat awkwardly, so it is not shown. It is still counted
+	// (the script keeps it current, and the slider's value text says it), so showing it again is this
+	// one line — once it has a place.
+	.fch__count {
+		display: none;
+		position: absolute;
+		top: calc(100% + #{u(4)});
+		left: u(2);
+		font-family: $font-family-base;
+		font-size: u(16);
+		font-weight: $font-weight-normal;
+		line-height: u(20);
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0;
+		white-space: nowrap;
+		text-align: left;
+		color: var(--fch-grey);
+	}
+
+	// Dragged: the loop stops and the picture holds, re-applied at the new limit.
+	.fch.is-manual {
+		:is(.fch__live, .fch__reading, .fch__readout, .fch__fade, .fch__fired, .fch__link, .fch__alarm-move) {
+			animation: none !important;
+		}
+
+		// The alarm, its line and its dot come and go as the limit crosses an opening: a short fade, not a pop.
+		:is(.fch__link, .fch__fired, .fch__alarm-at) {
+			transition: opacity 150ms ease-out;
+		}
+
+		.fch__live {
+			fill: var(--fch-hue);
+		}
+
+		.fch__live.is-over {
+			fill: var(--fch-alarm);
+			opacity: 1;
+		}
+
+		.fch__readout {
+			fill: var(--fch-hue);
+		}
+
+		.fch__live.is-over ~ .fch__reading .fch__readout {
+			fill: var(--fch-alarm);
+		}
+	}
+
+	// A past opening over the limit has already crossed it: red, whether held or testing.
+	.fch__bar.is-over {
+		fill: var(--fch-alarm);
+		opacity: 1;
+	}
+
+	.fch.no-alarm :is(.fch__link, .fch__fired, .fch__alarm-at) {
+		opacity: 0;
+	}
+
+	// The alarm rises in as one piece and answers once: a ring in its red, on its own corner.
+	.fch__alarm-move {
+		border-radius: u(8);
+	}
+</style>

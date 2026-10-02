@@ -1,111 +1,856 @@
 ---
-import { Icon } from 'astro-icon/components';
 import SmartImage from '@components/SmartImage.astro';
-import GifVideo from '@components/GifVideo.astro';
-import GatewayRelay from '@components/Landing/GatewayRelay.astro';
-import { externalLinkAttrs } from '@util/external-links';
-import type { EcosystemItem } from '@data/homeEcosystem';
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
+import { markBySrc } from '@data/marks';
 
-/**
- * An ecosystem product card; a wide one spans two columns and carries a visual beside the copy.
- * The whole card is one link; the Hub's tiles sit above it as links of their own.
- */
-type Props = EcosystemItem;
+// DISABLED — hover clusters. Marked for removal or repair; do not re-enable as-is.
+//
+// One cluster per category, reused from the IoT Hub's own hero artwork. The intent: hovering a
+// category tile throws that category's hero cluster across the card at 22% opacity.
+//
+// Why it is off. EVERY rule for this artwork — including the `position: absolute` and `opacity: 0`
+// that hide it — lives inside a single `@include media-up(lg)` block in the stylesheet below. Only
+// the hover REVEAL belongs behind that breakpoint; the hiding does not. So under 1024px none of it
+// applies and all six SVGs render as ordinary flow content. Measured at 1000px wide: six images at
+// 858px each, 1302px of stacked artwork, card height 1806px. It is the whole tablet range, not an
+// edge case.
+//
+// To repair: lift `.ecosystem-card__clusters` (absolute, inset 0, overflow hidden) and
+// `.ecosystem-card__cluster` (absolute, opacity 0) OUT of the `media-up(lg)` block, leaving only
+// the `:has()` hover rules inside it. Then restore the markup below and re-check at 375, 1000 and
+// 1440. To remove: delete this block, the markup below, and the `.ecosystem-card__clusters` /
+// `__cluster` rules; the six SVGs in `assets/iot-hub/` are the Hub hero's own and stay.
+//
+// import deviceCluster from '@root/assets/iot-hub/hero-device-cluster.svg';
+// import solutionCluster from '@root/assets/iot-hub/hero-solution-template-cluster.svg';
+// import widgetCluster from '@root/assets/iot-hub/hero-widget-cluster.svg';
+// import calcCluster from '@root/assets/iot-hub/hero-calculated-field-cluster.svg';
+// import alarmCluster from '@root/assets/iot-hub/hero-alarm-rule-cluster.svg';
+// import ruleChainCluster from '@root/assets/iot-hub/hero-rule-chain-cluster.svg';
+//
+// const clusterBySlug: Record<string, { src: string }> = {
+// 	devices: deviceCluster,
+// 	'solution-templates': solutionCluster,
+// 	widgets: widgetCluster,
+// 	'calculated-fields': calcCluster,
+// 	'alarm-rules': alarmCluster,
+// 	'rule-chains': ruleChainCluster,
+// };
+import { externalLinkAttrs } from '@util/external-links';
+import type { HubTile } from '@data/homeEcosystem';
+
+interface Props {
+	name: string;
+	/** Category line under the name. */
+	label: string;
+	/** One paragraph, or several (main's IoT Hub card, in the `live` running order). */
+	description: string | string[];
+	icon: string;
+	/**
+	 * Trial: knock the mark out on a squircle filled with `accent`. An object
+	 * overrides the asset, the ink the mark takes, or the squircle's fill.
+	 */
+	filled?: boolean | { icon?: string; ink?: string; bg?: string };
+	href: string;
+	/** Label colour, passed per product. */
+	accent: string;
+	/** Names the destination — replaces the generic "Read more". */
+	action: string;
+	/** Fills the squircle and knocks the mark out white on top of it. */
+	badgeFill?: string;
+	/** Substring of `name` tinted with `badgeFill`. */
+	nameHighlight?: string;
+	/** Small line icon pinned to the squircle's top-right corner. */
+	cornerIcon?: string;
+	/** Sold as an add-on rather than core platform. */
+	addOn?: boolean;
+	/** Spans two columns and carries the phone mockup. */
+	wide?: boolean;
+	/**
+	 * Opts a WIDE card into the whole-card hit area the singles get by default.
+	 * Only for a wide card whose extra destinations are gone (no stores, no
+	 * `primary`) — tiles are fine: they sit above the stretched link on their
+	 * own z-index and stay clickable.
+	 */
+	wholeCard?: boolean;
+	videoWebm?: string;
+	videoMp4?: string;
+	/**
+	/** A Tabler glyph before the label, optionally. */
+	stores?: { label: string; href: string; icon?: string }[];
+	/**
+	 * A filled button in `badgeFill`, with `action`/`href` beside it as the quiet
+	 * link — the product pages' choice-card pair. Takes the place of `stores`, and
+	 * the card stops being one click target.
+	 */
+	primary?: { label: string; href: string; attrs?: Record<string, string> };
+	/** Monochrome marks naming where the product can run. Decorative — the labels are
+	 *  carried as `title`/`aria-label` on each mark, and the copy above names them too. */
+	targets?: { label: string; icon: string }[];
+	/**
+	 * Per-tier adjustments, named for the grid's own states rather than for
+	 * devices: `cols3` is the 3-column grid (lg up), `cols2` the 2-column grid
+	 * (md to lg), `stack` the single column below md. The defaults at every
+	 * tier: a double shows its visual to the RIGHT of the copy, and shows it.
+	 * `flip` mirrors the two columns (visual left); `single` renders the card
+	 * one track wide and copy-only at that tier; `no-visual` keeps the stacked
+	 * card and drops the artwork. A single card takes none of these.
+	 */
+	at?: { cols3?: 'flip'; cols2?: 'flip' | 'single'; stack?: 'no-visual' };
+	/**
+	 * A muted line under the filled button — the bare step this side asks of you
+	 * ("Sign up and build."). Only meaningful with `primary`. Promoted from the
+	 * sandbox 2026-09-24, with the glyph-on-button and the bold name.
+	 */
+	primaryNote?: string;
+	/**
+	 * CANDIDATE, sandboxed on the products pair: the card as the Cloud and
+	 * On-premises pages draw their own choice cards — a glass panel ON the dark
+	 * ground rather than a white card cut out of it. Only judged on the dark
+	 * band; absent, the card is exactly what ships.
+	 */
+	dark?: boolean;
+	/**
+	 * The button and the quiet link side by side on one centred line once the
+	 * card is 400px wide, instead of the full-bleed button with the link beneath.
+	 * Narrower cards keep the stacked pair. The homepage's products pair since
+	 * 2026-09-25; opt-in, so the product pages' cards stay as they are.
+	 */
+	pairInline?: boolean;
+	tiles?: HubTile[];
+	class?: string;
+}
 
 const {
 	name,
 	label,
 	description,
 	icon,
+	filled = false,
 	href,
-	action,
 	accent,
+	action,
+	badgeFill,
+	nameHighlight,
+	cornerIcon,
 	addOn = false,
 	wide = false,
-	layout,
-	relay,
-	video,
+	wholeCard = false,
+	videoWebm,
+	videoMp4,
+	stores,
+	primary,
+	targets,
+	at = {},
+	primaryNote,
+	dark = false,
+	pairInline = false,
 	tiles,
+	class: className = '',
 } = Astro.props;
 
-// Iconify or local `src/icons/` names; anything else is an image path.
-const isGlyph = !icon.startsWith('/');
+// Trial settings, so every filled-badge decision is read in one place.
+const trial = filled === true ? {} : filled || null;
+const markSrc = trial?.icon ?? icon;
+const markInk = trial?.ink ?? '#ffffff';
+
+// The badge through `ui/Mark` at 72, lifted: what it holds decides how it is sized (an icon's box,
+// or a logo's artwork), and its fill decides the tone. A product card (`badgeFill`) and a filled
+// trial knock the artwork out of the colour; the rest are the white tile with the artwork in its
+// own colours, or a line icon in the card's accent.
+const vector = markSrc.startsWith('tabler:');
+const markName = vector ? undefined : markBySrc(markSrc);
+const markFill = badgeFill || (trial && (trial.bg ?? accent) !== '#ffffff') ? 'solid' : 'white';
+const markAccent = badgeFill ?? trial?.bg ?? accent;
+// A filled trial on a white tile (the mobile card) inks the mark rather than knocking it out.
+const inked = trial && markFill === 'white';
+
+// Split the name so the distinguishing word can carry its badge's colour.
+// Throws rather than silently rendering a flat title if the copy changes.
+type NamePart = { text: string; tint?: boolean };
+
+let nameParts: NamePart[] = [{ text: name }];
+
+if (nameHighlight) {
+	const at = name.indexOf(nameHighlight);
+
+	if (at === -1) {
+		throw new Error(`EcosystemCard "${name}": no "${nameHighlight}" in the name to tint.`);
+	}
+
+	const before = name.slice(0, at);
+	const after = name.slice(at + nameHighlight.length);
+
+	nameParts = [
+		...(before ? [{ text: before }] : []),
+		{ text: nameHighlight, tint: true },
+		...(after ? [{ text: after }] : []),
+	];
+}
 ---
 
 <div
 	class:list={[
-		'eco',
-		wide && 'eco--wide',
-		layout?.cols3 === 'flip' && 'eco--flip-3',
-		layout?.cols2 === 'flip' && 'eco--flip-2',
-		layout?.cols2 === 'single' && 'eco--single-2',
+		'ecosystem-card',
+		wide && 'ecosystem-card--wide',
+		dark && 'ecosystem-card--dark',
+		pairInline && 'ecosystem-card--pair-inline',
+		wholeCard && 'ecosystem-card--whole',
+		at.cols3 === 'flip' && 'ecosystem-card--cols3-flip',
+		at.cols2 === 'flip' && 'ecosystem-card--cols2-flip',
+		at.cols2 === 'single' && 'ecosystem-card--cols2-single',
+		at.stack === 'no-visual' && 'ecosystem-card--stack-novisual',
+		badgeFill && 'ecosystem-card--product',
+		trial && !badgeFill && 'ecosystem-card--filled',
+		className,
 	]}
-	style={`--accent: ${accent}`}
+	data-surface={dark ? 'dark' : 'light'}
+	style={`--accent: ${accent}${badgeFill ? `; --badge-fill: ${badgeFill}` : ''}${
+		trial?.bg ? `; --filled-bg: ${trial.bg}` : ''
+	}${inked ? `; --filled-ink: ${markInk}` : ''}`}
 >
-	<span class="eco__badge" aria-hidden="true">
-		{isGlyph ? (
-			<Icon name={icon} class="eco__icon eco__icon--glyph" />
-		) : (
-			<SmartImage src={icon} alt="" class="eco__icon" width="72" height="72" loading="lazy" />
-		)}
-	</span>
-
-	<div class="eco__body">
-		<p class="eco__label">
-			{label}
-			{addOn && <span class="eco__addon"> · Add-on</span>}
-		</p>
-		<h3 class="eco__title">{name}</h3>
-		{[description].flat().map((para) => (
-			<p class="eco__description">{para}</p>
-		))}
-
-		<a href={href} class="eco__link print:hidden" {...externalLinkAttrs(href)}>
-			{action}
-			<span class="sr-only">— {name}</span>
-			<Icon name="tabler:chevron-right" class="link-chevron" aria-hidden="true" />
-		</a>
-	</div>
-
-	{relay && (
-		<div class="eco__visual eco__relay">
-			<GatewayRelay />
-		</div>
+	{vector ? (
+		<Mark size={72} icon={markSrc} fill={markFill} accent={markAccent} lift class="ecosystem-card__badge" />
+	) : markName === 'thingsboard' ? (
+		<Mark
+			size={72}
+			logo="thingsboard"
+			fill={markFill}
+			accent={markAccent}
+			tone={inked ? 'knockout' : undefined}
+			lift
+			class:list={['ecosystem-card__badge', inked && 'ecosystem-card__badge--inked']}
+		/>
+	) : markName ? (
+		<Mark size={72} product={markName} fill={markFill} accent={markAccent} lift class="ecosystem-card__badge" />
+	) : (
+		<span class="ecosystem-card__badge ecosystem-card__badge--image" aria-hidden="true">
+			<SmartImage src={icon} alt="" class="ecosystem-card__icon" loading="lazy" width="96" height="96" />
+		</span>
 	)}
 
+	<div class="ecosystem-card__body">
+		<p class="ecosystem-card__label">
+			{label}
+			{addOn && <span class="ecosystem-card__addon"> · Add-on</span>}
+		</p>
+		<h3 class="ecosystem-card__title">
+			{nameParts.map((part) =>
+				part.tint ? (
+					<span class="ecosystem-card__name-group">
+						<span class="ecosystem-card__name-accent">{part.text}</span>
+					</span>
+				) : (
+					part.text
+				)
+			)}
+		</h3>
+		{[description].flat().map((paragraph) => (
+			<p class="ecosystem-card__description">{paragraph}</p>
+		))}
+
+		{/* Two action layouts.
+
+			   With `primary` (the two product cards): the product pages' choice-card pair,
+			   a filled button and a quiet link side by side. Two actions, so the card is NOT
+			   one click target — the product rule excludes it from the stretched link below,
+			   and nothing in this branch renders `__link`.
+
+			   Otherwise: buttons above the link, so the card ends on the lighter of the two.
+			   The buttons are the thing to do — installing, the store badges — and sit
+			   directly under the sentence that argues for it; the link is the "read more
+			   first" path and closes the card as a footnote. The card-wide click target is
+			   `__link::after` at `inset: 0`, positioned against the card rather than against
+			   its place in this column. */}
+		{primary ? (
+			<div class="ecosystem-card__actions ecosystem-card__actions--pair">
+				<Button
+					href={primary.href}
+					accent={badgeFill}
+					icon={cornerIcon}
+					srSuffix={`— ${name}`}
+					class="ecosystem-card__cta"
+					attrs={{ ...externalLinkAttrs(primary.href), ...primary.attrs }}
+				>
+					{primary.label}
+				</Button>
+				{primaryNote && <p class="ecosystem-card__cta-note">{primaryNote}</p>}
+				<Link
+					href={href}
+					tone="ink"
+					srSuffix={`— ${name}`}
+					class="ecosystem-card__more"
+					attrs={externalLinkAttrs(href)}
+				>
+					{action}
+				</Link>
+			</div>
+		) : (
+			<div class="ecosystem-card__actions">
+				{(stores || targets) && (
+					<div class="ecosystem-card__stores">
+						{stores?.map((store) => (
+							<a class="ecosystem-card__store" href={store.href} {...externalLinkAttrs(store.href)}>
+								{store.icon && <Icon name={store.icon} class="ecosystem-card__store-icon" aria-hidden="true" />}
+								{store.label}
+							</a>
+						))}
+
+						{targets && (
+							<ul class="ecosystem-card__targets">
+								{targets.map((t) => (
+									<li>
+										<Icon name={t.icon} aria-hidden="true" />
+										<span class="ui-sr">{t.label}</span>
+									</li>
+								))}
+							</ul>
+						)}
+					</div>
+				)}
+
+				<Link href={href} srSuffix={`— ${name}`} class="ecosystem-card__link" attrs={externalLinkAttrs(href)}>
+					{action}
+				</Link>
+			</div>
+		)}
+	</div>
+
+	{/* DISABLED — see the note in the frontmatter. Renders six full-size SVGs as flow content
+		   below 1024px, because the rules that hide them are inside a `media-up(lg)` block.
+
+		tiles && (
+			<div class="ecosystem-card__clusters" aria-hidden="true">
+				{tiles.map((tile) => (
+					<img class="ecosystem-card__cluster" data-cat={tile.slug} src={clusterBySlug[tile.slug].src} alt="" />
+				))}
+			</div>
+		)
+		*/}
+
 	{tiles && (
-		<div class="eco__visual eco__tiles">
+		<div class="ecosystem-card__tiles">
 			{tiles.map((tile) => (
-				<a class="eco__tile" href={tile.href} style={`--tile: ${tile.color}`}>
-					<Icon name={tile.icon} class="eco__tile-icon" aria-hidden="true" />
-					{tile.label}
+				<a
+					class="ecosystem-card__tile"
+					data-cat={tile.slug}
+					href={tile.href}
+					style={`--tile: ${tile.color}; --tile-strong: ${tile.colorDark}`}
+				>
+					<Icon name={tile.icon} class="ecosystem-card__tile-icon" aria-hidden="true" />
+					<span>{tile.label}</span>
 				</a>
 			))}
 		</div>
 	)}
 
-	{video && (
-		<div class="eco__visual eco__mockup" aria-hidden="true">
-			<div class="eco__phone">
-				<GifVideo srcWebm={video.webm} srcMp4={video.mp4} threshold={0} />
+	{wide && Astro.slots.has('default') && (
+		<div class="ecosystem-card__visual">
+			<slot />
+		</div>
+	)}
+
+	{wide && !Astro.slots.has('default') && !videoWebm && !tiles && (
+		<div class="ecosystem-card__slot" aria-hidden="true">
+			<span>Visual</span>
+		</div>
+	)}
+
+	{wide && videoWebm && (
+		<div class="ecosystem-card__mockup" aria-hidden="true">
+			<div class="ecosystem-card__phone">
+				{/* preload="none" + data-src: nothing is fetched until the card is
+					    near the viewport, which matters at 564 KB. */}
+				<video class="ecosystem-lazy-video" loop muted playsinline preload="none">
+					<source data-src={videoWebm} type="video/webm" />
+					<source data-src={videoMp4} type="video/mp4" />
+				</video>
 			</div>
 		</div>
 	)}
 </div>
 
+<script>
+	// Same deferral the mobile pages use: load on approach, once.
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const io = new IntersectionObserver(
+		(entries, obs) => {
+			entries.forEach((entry) => {
+				if (!entry.isIntersecting) return;
+				const video = entry.target as HTMLVideoElement;
+				video.querySelectorAll<HTMLSourceElement>('source[data-src]').forEach((s) => {
+					s.src = s.dataset.src!;
+				});
+				video.load();
+				if (!reduce) video.play().catch(() => {});
+				obs.unobserve(video);
+			});
+		},
+		{ rootMargin: '300px' }
+	);
+	document.querySelectorAll<HTMLVideoElement>('video.ecosystem-lazy-video').forEach((v) => io.observe(v));
+</script>
+
 <style lang="scss">
 	@use '../../styles/variables' as *;
-	@use '../../styles/home-card' as *;
-	@use '../../styles/print-mixins' as *;
 
-	.eco {
-		@include home-card;
-		padding-top: calc($home-card-badge / 2 + #{$spacing-3});
+	$badge: 72px;
+
+	.ecosystem-card {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		// Leaves room for the badge to hang over the top edge without the first
+		// line of text riding up under it.
+		margin-top: calc($badge / 2);
+		padding: calc($badge / 2 + #{$spacing-5}) $spacing-5 $spacing-5;
+		// No stroke, at rest or on hover. The card is defined by its fill against the
+		// band behind it; an outline on top of that was a second edge saying the same
+		// thing, and on the dark deployments band it was the weaker of the two.
+		border-radius: $radius-lg;
+		// The ecosystem's ground is WHITE now, so the fill draws no edge at all and
+		// the resting shadow carries the whole card. A step firmer than the band-era
+		// values (0.04 / 0.06) for that reason — still deliberately under the hover
+		// shadow (28px blur at 7%), so hover reads as a change rather than more of
+		// the same. It does nothing on the dark band, where the fill carries the card.
+		// The new pages' tile lift (`--elev-tile`, `_theme.scss`), one value and one ink for every card.
+		box-shadow: var(--elev-tile);
+		background-color: var(--color-bg-surface);
+		text-align: center;
+		color: var(--color-text);
+	}
+
+	// The tighter head, on singles and wides ALIKE: it started as a wide-only cut
+	// and put the wide cards' copy 8px above their row-mates' — same row, two
+	// baselines. The product cards keep the fuller head; they live in their own
+	// section and share no row with these.
+	.ecosystem-card:not(.ecosystem-card--product) {
+		padding-top: calc($badge / 2 + #{$spacing-3});
+	}
+
+	// WIDER WALLS WHILE THE GRID IS TWO ACROSS. 20 is the wall for a card at its
+	// design width — the ~307 the three-column grid hands it, which is the width
+	// the copy in here was fitted to. Two across is the odd tier: the grid still
+	// runs the page's 960 measure, so each card is 355 at 750 and 470 by 1023 —
+	// half again its design width, carrying a phone's inset. At 1023 the Products
+	// cards are 470 too, directly above these, and have taken 32 since `md`; two
+	// bands of identical cards with different walls is the kind of thing you read
+	// as the page being unfinished rather than see.
+	//
+	// Sides and foot only. The head is the badge's headroom and is already
+	// generous; growing it too would just push the copy down a card that is short
+	// of nothing. Capping the two-across grid at ~720 so the card kept its design
+	// width was the other way, and it breaks the edge this section shares with the
+	// Products band above — see the note on `.product-ecosystem-list`.
+	@include media-up(md) {
+		@include media-down(lg) {
+			.ecosystem-card:not(.ecosystem-card--product) {
+				padding-right: $spacing-8;
+				padding-bottom: $spacing-8;
+				padding-left: $spacing-8;
+			}
+		}
+	}
+
+	// The badge straddling the top edge: a `ui/Mark` (72, lifted), placed here and nowhere else.
+	.ecosystem-card__badge {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translate(-50%, -50%);
+	}
+
+	// The mobile card's trial: the logo inked in the app's own green on the white tile.
+	.ecosystem-card .ecosystem-card__badge--inked {
+		color: var(--filled-ink);
+	}
+
+	// A badge whose artwork the mark registry does not know: the old white tile, the image at 82%.
+	.ecosystem-card__badge--image {
+		display: grid;
+		place-items: center;
+		width: $badge;
+		height: $badge;
+		border-radius: 32%;
+		background-color: var(--color-bg-surface);
+		box-shadow: var(--elev-mark);
+	}
+
+	.ecosystem-card__icon {
+		width: 82%;
+		height: auto;
+	}
+
+	// The product cards: the glow of the two-wide ecosystem cards, the badge's own hue falling from
+	// where the badge sits. Roomier than the ecosystem cards on desktop alone: these two are the
+	// page's conversion point, and the full-bleed button wants air around it.
+	.ecosystem-card--product {
+		@include media-up(md) {
+			padding: calc($badge / 2 + #{$spacing-8}) $spacing-8 $spacing-8;
+		}
+
+		background-image: radial-gradient(
+			95% 105% at 50% 0%,
+			color-mix(in srgb, var(--badge-fill) 17%, transparent),
+			color-mix(in srgb, var(--badge-fill) 7%, transparent) 42%,
+			transparent 84%
+		);
+	}
+
+	// The word that tells the two deployments apart, tinted to its own badge. No
+	// fallback needed: on cards without --badge-fill this is invalid at
+	// computed-value time, which inherits the title's colour.
+	// BOLD, since the glyph left for the button (promoted 2026-09-24). The medium it wore before
+	// had two reasons — keeping "ThingsBoard" the anchor, and matching the glyph's 2-unit stroke
+	// beside it — and the second left with the glyph; colour still marks the qualifier.
+	.ecosystem-card__name-accent {
+		color: var(--badge-fill);
+		font-weight: $font-weight-bold;
+	}
+
+	// The glyph and the word it labels are one object, and `nowrap` on the group is what makes them
+	// one: no card width can put a line break between the mark and the name, and none can break
+	// "On-premises" at its own hyphen and strand the glyph above "premises".
+	//
+	// A PLAIN INLINE BOX, NOT A FLEX ONE. `inline-flex` was tried here to drop the whitespace nodes
+	// the template leaves between its children, and it cost more than it saved: a flex container
+	// takes its baseline from its first flex item, and it sizes itself to its tallest — so once the
+	// icon was the tallest thing in it, the WORD stopped sitting on the same baseline as
+	// "ThingsBoard" beside it. Measured before this went back: "Cloud" rode 8.2px high and
+	// "On-premises" 5.4px, the two disagreeing because the cloud's larger box inflated its container
+	// further. Inline, the word is ordinary text on the line's own baseline and cannot drift.
+	//
+	// The cost is the single collapsed space the template leaves before the word, which is the gap
+	// the pair had before any of this and reads as intended.
+	.ecosystem-card__name-group {
+		white-space: nowrap;
+	}
+
+	.ecosystem-card__title {
+		@include type-card;
+		margin: $spacing-1 0 $spacing-5;
+	}
+
+	// 14, not 12. The eyebrow is the card's classification and the first thing read in it; it was
+	// set below the page's floor for no reason other than that kickers are usually small. Measured
+	// before moving it: the longest on a 267px card is "Dedicated MQTT broker" at about 200px set
+	// at 14 uppercase, so nothing wraps.
+	.ecosystem-card__label {
+		@include type-eyebrow;
+		margin: 0;
+		color: var(--accent);
+	}
+
+	// Add-on status rides on the type line rather than arriving as a badge: it is
+	// classification, and the classification already lives here. Muted, so the
+	// accent still reads first and this is skippable.
+	.ecosystem-card__addon {
+		color: var(--color-text-secondary, #63656c);
+		font-weight: $font-weight-medium;
+	}
+
+	.ecosystem-card__body {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	// Where it runs, as marks rather than a second sentence — and in the button's
+	// own row, so the line reads "Install … on these". Monochrome and at the label's
+	// grey, so four vendor logos cost the card one ink instead of four brand colours
+	// — the point of `simple-icons`, which is single-path and takes `currentColor`.
+	// The names are already in the paragraph above, so these are decorative and
+	// carry their text for a screen reader only.
+	.ecosystem-card__targets {
+		display: flex;
+		align-items: center;
+		gap: $spacing-3;
+		// Centred against the 36px button rather than sitting on its baseline; the
+		// row's own gap is 8px, and a little more separates the marks from the
+		// control they qualify.
+		margin: 0 0 0 $spacing-1;
+		padding: 0;
+		list-style: none;
+		color: var(--color-text-secondary, #63656c);
+
+		li {
+			display: flex;
+		}
+
+		:global([data-icon]) {
+			width: 24px;
+			height: 24px;
+		}
+	}
+
+	// Pinned to the foot so links line up across a row of unequal text lengths.
+	.ecosystem-card__actions {
+		margin-top: auto;
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-3;
+		align-items: center;
+	}
+
+	.ecosystem-card__description {
+		@include type-small;
+		margin: 0 0 $spacing-5;
+		text-wrap: pretty;
+		// Keeps the measure readable even when a card is given a wide column.
+		max-width: 42ch;
+		margin-inline: auto;
+	}
+
+	// A paragraph with another after it: main's 4px between them, the card's 20px after the last.
+	.ecosystem-card__description:has(+ .ecosystem-card__description) {
+		margin-bottom: $spacing-1;
+	}
+
+	// The card's link: `ui/Link` (md, the one brand colour every ecosystem card shares, decided
+	// 1 Oct). Pinned to the foot by the actions column, so links line up across a row.
+
+	// ── Product pair: button + link ─────────────────────────────────
+	// The product pages' choice actions on a white card: a 44px `ui/Button` in the
+	// product's own hue (`badgeFill`, the colour those pages take as their accent),
+	// then a link in plain ink so the colour stays on the one thing to do.
+	.ecosystem-card__actions--pair {
+		// Full-bleed CTA: the filled button runs the card's whole measure, the
+		// quiet link centred beneath it. The row version packed both onto one
+		// centred line, and the button read as one option among two rather than
+		// as the thing to do.
+		flex-direction: column;
+		align-items: stretch;
+		gap: $spacing-3;
+
+		.ecosystem-card__cta {
+			justify-content: center;
+		}
+
+		.ecosystem-card__more {
+			align-self: center;
+		}
+	}
+
+	// Both actions on one centred line — the button at its own width, the link beside
+	// it — once the card is wide enough to hold them unbroken; narrower, the full-bleed
+	// stack above holds. Keyed to the card's own width, not the viewport's: the grid
+	// runs two columns from `md`, so the card is at its NARROWEST just above `md`
+	// (a viewport breakpoint put "Start for / free" on two lines there). The widest
+	// pair, "Install for free" + "Explore On-premises", needs ~365px; 400 leaves air.
+	// The body is stretched to the card by the column flex, so querying it costs
+	// nothing its width depended on.
+	.ecosystem-card--pair-inline .ecosystem-card__body {
+		container: pair / inline-size;
+	}
+
+	.ecosystem-card--pair-inline .ecosystem-card__actions--pair {
+		@container pair (min-width: 400px) {
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+			gap: $spacing-5;
+
+			.ecosystem-card__cta,
+			.ecosystem-card__more {
+				white-space: nowrap;
+			}
+		}
+	}
+
+	// The microcopy: tight under the button it qualifies — closer to it than the
+	// quiet link below, so the three read as button-with-footnote, then the link.
+	.ecosystem-card__cta-note {
+		// The description's own style, muted — the card speaks `type-*`, and a
+		// footnote in a foreign scale read as an import rather than a caption.
+		@include type-small;
+		align-self: center;
+		margin: calc(-1 * #{$spacing-1}) 0 0;
+		color: var(--color-text-secondary, #5b616e);
+		// The note sits on the card's glow wash; multiplied, the grey takes the
+		// wash's hue instead of floating flat on top of it.
+		mix-blend-mode: multiply;
+	}
+
+	// The button is `ui/Button` in the product's colour (`accent={badgeFill}`), the deployment's glyph
+	// on it; the quiet link beside it `ui/Link` in the ink, so the colour stays on the one thing to do.
+
+	// ── Double-wide variant: the section's key visual ──────────────
+	// Two columns at desktop; the phone is anchored to the bottom and clipped by
+	// the card, so it reads as continuing past the edge rather than being cut.
+	.ecosystem-card--wide {
+		// The glow belongs to the two-wide format: a one-wide card is too small to
+		// hold it without the colour reading as a fill. Centre tracks the badge,
+		// which sits at 50% until the card actually splits into two columns.
+		--card-glow: var(--badge-fill, var(--accent));
+		--card-glow-x: 50%;
+
+		background-image: radial-gradient(
+			95% 105% at var(--card-glow-x) 0%,
+			color-mix(in srgb, var(--card-glow) 17%, transparent),
+			color-mix(in srgb, var(--card-glow) 7%, transparent) 42%,
+			transparent 84%
+		);
+
+		// `md`, not `lg`, and the reason is that this card's width does not follow the
+		// viewport's. The grid around it is 3 columns from `lg` up and a wide card
+		// spans 2 of them; below `lg` the grid is 2 columns and the card spans BOTH,
+		// so it is the full 960 measure. Measured:
+		//
+		//   viewport 1151 -> grid 3 cols -> card 633px
+		//   viewport 1000 -> grid 2 cols -> card 960px
+		//
+		// The card gets 327px WIDER as the viewport narrows. Keyed to `lg` this split
+		// therefore turned itself off exactly where the card had the most room, and no
+		// viewport breakpoint can express it, because card width is not monotonic in
+		// viewport width. `md` is the point the grid itself collapses to one column,
+		// so the card is now two columns for precisely as long as the grid is
+		// multi-column — the two breakpoints describe the same thing and should be the
+		// same one. The narrowest two-column case stays 633px, which is what `lg`
+		// already shipped.
+		//
+		// The robust version is a container query on the card's own width, which would
+		// survive the grid being re-laid-out again; it needs a wrapper element to
+		// query, since an element cannot query itself.
+		@include media-up(md) {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			// `stretch` lets the body run the card's full height so its actions can
+			// reach the foot; the copy still starts at the top of that column.
+			align-items: stretch;
+			gap: $spacing-5;
+
+			// Badge centres over the text column, not the whole card — over the
+			// midpoint it would float between the copy and the phone, attached to
+			// neither. The glow follows it.
+			--card-glow-x: 25%;
+
+			.ecosystem-card__badge {
+				left: 25%;
+			}
+
+			// "Centred" should mean in the CARD. The paddings are asymmetric (badge
+			// headroom on top, $spacing-5 below), so a track-centred item sits low by
+			// half the difference; this margin cancels exactly that difference.
+			.ecosystem-card__visual,
+			.ecosystem-card__tiles {
+				margin-top: calc(#{$spacing-5} - #{$badge / 2} - #{$spacing-3});
+			}
+		}
+	}
+
+	// A visual passed in from the page rather than built into the card — the escape
+	// hatch for one-off artwork that isn't worth a prop.
+	//
+	// Centred in the `md` grid, STRETCHED below it — the same split `.ecosystem-card__mockup` makes,
+	// for the same reason. Below `md` the card is a column flex, where `center` shrink-wraps this box
+	// to its content's max-content width. The terminal and the gateway diagram happen to have one as
+	// wide as the card, so they never showed it; a visual sized by a container query has none —
+	// `container-type` zeroes it — and `GatewayHub` measured 0×0 at 375 until this was stretch.
+	.ecosystem-card__visual {
+		align-self: stretch;
+		min-width: 0;
+
+		@include media-up(md) {
+			align-self: center;
+		}
+	}
+
+	// Reserves the second column on a two-wide card that has no visual yet, so the
+	// format can be laid out before the artwork exists. Never appears on a card
+	// that carries a mockup or tiles.
+	.ecosystem-card__slot {
+		display: grid;
+		place-items: center;
+		min-height: 180px;
+		border: 1px dashed color-mix(in srgb, var(--card-glow) 45%, transparent);
+		border-radius: $radius-md;
+		background: color-mix(in srgb, var(--card-glow) 4%, transparent);
+		font-size: $font-size-sm;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: color-mix(in srgb, var(--card-glow) 70%, transparent);
+	}
+
+	// The clip belongs here, not on the card: `overflow: hidden` on the card was
+	// also cutting the badge that straddles its top edge. The fixed height decides
+	// how much phone shows, and therefore how tall the card is.
+	//
+	// `align-self` means different axes in the two layouts this card has, and that is what broke it
+	// below `md`. In the `md` grid it is the BLOCK axis, so `end` drops the phone to the foot of its
+	// column — which is the intent. Below `md` the card is a column flex and the same property is
+	// the INLINE axis, so `end` shrink-wrapped a box whose only child is absolutely positioned: it
+	// measured 0px wide, and the `overflow: hidden` directly above then erased the phone outright.
+	// The card still reserved the height, so the Mobile App card carried 171px of blank at every
+	// phone width. Stretch by default, `end` only where it means what it was written to mean.
+	.ecosystem-card__mockup {
+		position: relative;
+		align-self: stretch;
+		// The phone rises OUT of the card: anchored to the card's bottom edge (the
+		// negative bottom margin swallows the padding), with a window tall enough
+		// that its top clears the card's top edge by 16px — inside the grid's 20px
+		// row gap, the way the badge straddles its edge. The negative top margin
+		// hands the layout back everything the window takes, so the card's height
+		// never moves for it; on a 278px card the sums land the overhang at 16.
+		height: 294px;
+		overflow: hidden;
+		margin-bottom: calc(-1 * #{$spacing-5});
+
+		@include media-up(md) {
+			align-self: end;
+			margin-top: -64px;
+		}
+	}
+
+	// Frame art sets the aspect; the video sits in the screen cut-out. Percentages
+	// match the iPhone frame used on the mobile pages.
+	.ecosystem-card__phone {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		// 260, up from 240. The window above doesn't grow with it, so the extra
+		// height all comes out of the bottom crop — the phone reads a step closer
+		// at the same card size.
+		width: 260px;
+		// `aspect-ratio` resolves against this element; a percentage `padding-top`
+		// would resolve against the grid cell instead and skew the frame.
+		aspect-ratio: 480 / 1039;
+		background-image: url(/images/mobile/iphone12promax-frame.png);
+		background-size: 100% auto;
+		background-repeat: no-repeat;
+
+		// Fitted to the frame PNG's measured screen opening (top 11.3px, 233.5px wide at the
+		// 260px phone). The percentages resolve against the 480/1039 box, not the PNG's own
+		// 715/1452, so re-measure if either the box or the frame changes.
+		video {
+			position: absolute;
+			top: 2%;
+			left: 5.15%;
+			width: 89.8%;
+			border-radius: 4%;
+		}
+	}
+
+	// Whole-card hit area for the single-destination cards. The link keeps the
+	// accessible name — stretching a pseudo-element beats wrapping everything in
+	// an <a>, which would read the entire description aloud as the link text.
+	//
+	// The wide card is excluded BY DEFAULT: with store buttons or a `primary` a
+	// card-wide link would sit invisibly on top of visible ones. A wide card
+	// that is down to one destination opts back in with `wholeCard`; its tiles,
+	// if any, stay clickable above the stretched link on their own z-index. The
+	// product cards stay out — button AND link, the choice-card pattern.
+	.ecosystem-card:not(.ecosystem-card--wide, .ecosystem-card--product),
+	.ecosystem-card--whole {
 		cursor: pointer;
 		transition: box-shadow 0.18s ease;
 
-		// Covers the whole card, as long as `.eco__body` stays unpositioned.
-		.eco__link::after {
+		.ecosystem-card__link::after {
 			content: '';
 			position: absolute;
 			inset: 0;
@@ -113,154 +858,222 @@ const isGlyph = !icon.startsWith('/');
 
 		&:hover,
 		&:focus-within {
-			box-shadow: 0 12px 28px rgba(0, 0, 0, 0.07);
+			// The shadow and the underline carry it — no lift: the raise was retired
+			// across the homepage's cards so they all answer hover the same way.
+			// A touch lighter than the 8% it launched at, over a wider blur: the
+			// hover reads as light spreading, not paint darkening. 5% flat was mud.
+			box-shadow: var(--elev-tile-hover);
 
-			.eco__link {
+			.ecosystem-card__link {
 				text-decoration: underline;
 				text-underline-offset: 3px;
 			}
 		}
 	}
 
-	.eco__badge {
-		@include home-card-badge;
-		background-color: var(--color-bg-surface);
-		box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+	// The stretched link's `inset: 0` resolves against the nearest positioned
+	// ancestor, and on a wide card that was `__body` — relative only for a z-index
+	// the disabled clusters art wanted — which pinned the "card-wide" target to
+	// the copy column alone. The visual column carries no links of its own on a
+	// `wholeCard` card, so the body goes static here and the link reaches the card.
+	.ecosystem-card--whole .ecosystem-card__body {
+		position: static;
 	}
 
-	.eco__icon {
-		width: 82%;
-		height: auto;
+	// The tiles' wrapper sits above the stretched link (z-index 1), so without this
+	// the gaps BETWEEN tiles were dead: hover lifted the card but a click hit the
+	// wrapper and went nowhere. Let the wrapper pass clicks through to the card
+	// link; the tiles themselves take theirs back.
+	.ecosystem-card--whole .ecosystem-card__tiles {
+		pointer-events: none;
 	}
 
-	.eco__icon--glyph {
-		width: 64%;
-		height: auto;
-		color: var(--accent);
+	.ecosystem-card--whole .ecosystem-card__tile {
+		pointer-events: auto;
 	}
 
-	// The platform's own mark stays in ink rather than the product colour.
-	.eco__icon--glyph[data-icon='thingsboard-mark'] {
-		color: var(--color-text);
-	}
+	// The flip: visual left, copy right. The DOM keeps reading order — copy
+	// before the visual — while `order` swaps the columns; the default is the
+	// mirror, visual right. ONE definition, applied per grid tier below, so
+	// "flip" means the same thing wherever the card has two columns.
+	@mixin card-flip {
+		// Glow follows the badge to the copy column.
+		--card-glow-x: 75%;
 
-	.eco__body {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-	}
-
-	.eco__label {
-		@include home-card-eyebrow;
-		color: var(--accent);
-	}
-
-	.eco__addon {
-		color: var(--color-text-secondary);
-	}
-
-	.eco__title {
-		@include home-card-title;
-	}
-
-	.eco__description {
-		@include home-card-copy;
-
-		&:not(:last-of-type) {
-			margin-bottom: $spacing-1;
-		}
-	}
-
-	// Pinned to the bottom, so the links line up across a row of cards of different heights.
-	.eco__link {
-		@include home-card-link;
-		margin-top: auto;
-		color: var(--accent);
-	}
-
-	// Stacked, a wide card is a plain one.
-	.eco__visual {
-		display: none;
-	}
-
-	.eco--wide {
-		--glow-x: 50%;
-		@include home-card-glow(var(--accent), var(--glow-x));
-	}
-
-	@mixin wide-layout {
-		--glow-x: 25%;
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		align-items: stretch;
-		gap: $spacing-5;
-
-		.eco__badge {
-			left: 25%;
-		}
-
-		// No badge over the visual column, so it rises into the head's room.
-		.eco__visual {
-			display: grid;
-			margin-top: calc(#{$spacing-5} - $home-card-badge / 2 - #{$spacing-3});
-		}
-	}
-
-	@mixin wide-flip {
-		--glow-x: 75%;
-
-		.eco__body {
+		.ecosystem-card__body {
 			order: 2;
 		}
 
-		.eco__visual {
+		.ecosystem-card__tiles,
+		.ecosystem-card__visual,
+		.ecosystem-card__mockup {
 			order: 1;
 		}
 
-		.eco__badge {
+		// Badge follows the copy to the right-hand column.
+		.ecosystem-card__badge {
 			left: 75%;
 		}
 	}
 
-	.eco--wide:not(.eco--single-2) {
+	.ecosystem-card--cols3-flip {
+		@include media-up(lg) {
+			@include card-flip;
+		}
+	}
+
+	.ecosystem-card--cols2-flip {
 		@include media-up(md) {
-			@include wide-layout;
+			@include media-down(lg) {
+				@include card-flip;
+			}
 		}
 	}
 
-	.eco--wide.eco--single-2 {
-		@include media-up(lg) {
-			@include wide-layout;
+	// DISABLED — nothing renders with these class names right now; the markup is
+	// commented out in the frontmatter, which is also where the reason and the
+	// repair are written down. Kept rather than deleted so a fix is one block to
+	// restore rather than a reconstruction. Retargeted from the retired
+	// `--flipped` class to `--cols3-flip` when `flipped` became `at`.
+	//
+	// THE BUG WAS THE ORIGINAL NESTING. Only the `:has()` hover rules belong
+	// inside a media block; the two rules that HIDE the artwork were in there
+	// with them, so under 1024px the images had no `position` and no `opacity: 0`
+	// and laid themselves out as content.
+	.ecosystem-card--cols3-flip {
+		@include media-up(md) {
+			.ecosystem-card__clusters {
+				position: absolute;
+				inset: 0;
+				overflow: hidden;
+				border-radius: inherit;
+				pointer-events: none;
+				z-index: 0;
+			}
+
+			.ecosystem-card__cluster {
+				position: absolute;
+				right: 0;
+				bottom: 0;
+				width: 100%;
+				height: auto;
+				opacity: 0;
+				transition: opacity 0.28s ease;
+			}
+
+			@each $cat in devices, solution-templates, widgets, calculated-fields, alarm-rules, rule-chains {
+				&:has(.ecosystem-card__tile[data-cat='#{$cat}']:hover) .ecosystem-card__cluster[data-cat='#{$cat}'],
+				&:has(.ecosystem-card__tile[data-cat='#{$cat}']:focus-visible) .ecosystem-card__cluster[data-cat='#{$cat}'] {
+					opacity: 0.22;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.ecosystem-card__cluster {
+					transition: none;
+				}
+			}
 		}
 	}
 
-	// `.eco--wide` again so the flip outranks the wide layout it amends.
-	.eco--wide.eco--flip-3 {
-		@include media-up(lg) {
-			@include wide-flip;
+	// Demoted to a single for the 2-column grid: one track, copy only. The wide
+	// format's furniture goes with it — the internal split, the glow, the badge
+	// offset — so the card reads exactly like the singles it now sits beside.
+	.ecosystem-card--cols2-single {
+		@include media-up(md) {
+			@include media-down(lg) {
+				--card-glow-x: 50%;
+
+				display: flex;
+				flex-direction: column;
+				background-image: none;
+
+				.ecosystem-card__badge {
+					left: 50%;
+				}
+
+				.ecosystem-card__tiles,
+				.ecosystem-card__visual,
+				.ecosystem-card__mockup,
+				.ecosystem-card__slot {
+					display: none;
+				}
+			}
 		}
 	}
 
-	.eco--wide.eco--flip-2 {
-		@media (min-width: $breakpoint-md) and (max-width: #{$breakpoint-lg - 1px}) {
-			@include wide-flip;
+	// CANDIDATE: the glass panel the Cloud and On-premises pages use for their
+	// choice cards, on the same recipe — 6% white fill, 16% white hairline, 16px
+	// radius, a panel ON the ground (their note: a white card would hide the
+	// field it sits on). Text steps to the panels' own inks; the accents lighten
+	// toward white because the product-page note measured #3d50f5 at 2.1:1 here.
+	.ecosystem-card--dark {
+		// Hairline removed to test whether the 6% fill carries the edge alone.
+		border-radius: 16px;
+		background-color: rgba(255, 255, 255, 0.06);
+		background-image: none;
+		box-shadow: none;
+		color: #fff;
+
+		.ecosystem-card__title {
+			color: #fff;
+		}
+
+		.ecosystem-card__description {
+			color: rgba(255, 255, 255, 0.72);
+		}
+
+		.ecosystem-card__label {
+			color: rgba(255, 255, 255, 0.6);
+		}
+
+		.ecosystem-card__name-accent {
+			color: color-mix(in srgb, var(--badge-fill) 45%, #fff);
+		}
+
+		.ecosystem-card__cta-note {
+			color: rgba(255, 255, 255, 0.6);
+			// Multiply reads as black on a dark ground.
+			mix-blend-mode: normal;
+		}
+
+		.ecosystem-card__more {
+			color: #fff;
+		}
+
+		.ecosystem-card__targets {
+			color: rgba(255, 255, 255, 0.6);
 		}
 	}
 
-	.eco__relay {
-		align-self: center;
-		min-width: 0;
+	// The stacked card without its artwork. The visuals were composed for a
+	// column beside the copy, not under it, and the stacked page got long; a
+	// data flag rather than a blanket rule, so any card can change its mind.
+	.ecosystem-card--stack-novisual {
+		@include media-down(md) {
+			.ecosystem-card__tiles,
+			.ecosystem-card__visual,
+			.ecosystem-card__mockup,
+			.ecosystem-card__slot {
+				display: none;
+			}
+		}
 	}
 
-	.eco__tiles {
+	.ecosystem-card__tiles {
 		position: relative;
 		z-index: 1;
+		display: grid;
 		grid-template-columns: repeat(2, 1fr);
-		align-content: center;
 		gap: $spacing-2;
+		align-content: center;
 	}
 
-	.eco__tile {
+	// Colour is the stroke, not the fill, so the label carries the tile instead of
+	// competing with a block of pastel behind it.
+	// Icon over label, centred. On a gradient the tiles need their own ground or
+	// the colours behind them muddy the type.
+	.ecosystem-card__tile {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -270,95 +1083,83 @@ const isGlyph = !icon.startsWith('/');
 		padding: $spacing-3 $spacing-2;
 		border: 1px solid rgba(0, 0, 0, 0.14);
 		border-radius: $radius-md;
-		font-size: $font-size-sm;
-		font-weight: $font-weight-medium;
+		background-color: transparent;
+		color: var(--color-text);
+		@include type-small-strong;
 		text-align: center;
 		text-decoration: none;
-		color: var(--color-text);
+		// The category's strong colour, darkened to an ink that reads: the Hub's own
+		// `tileColorDark` is a background colour, and two of them (calculated fields,
+		// rule chains) are too light for text. 60% of it over black clears 4.5:1 on the
+		// category's tint and on white for all six (the hover ground is lighter still).
+		--tile-ink: color-mix(in srgb, var(--tile-strong, currentColor) 60%, #000);
 		transition:
-			background-color $transition-fast,
-			border-color $transition-fast;
+			background-color 0.15s ease,
+			border-color 0.15s ease,
+			color 0.15s ease;
+
+		// At rest the tiles stay neutral, so six of them in a grid don't read as six
+		// unrelated things; on hover each one takes its category's colour, so the tile says
+		// where it leads before the click. The colour is carried by the icon and the label;
+		// the ground and the border only whisper it — a full tint read as a filled button,
+		// and a lighter ground only raises the ink's contrast.
+		&:hover,
+		&:focus-visible {
+			border-color: color-mix(in srgb, var(--tile-ink) 35%, transparent);
+			background-color: color-mix(in srgb, var(--tile-strong, currentColor) 6%, #fff);
+			color: var(--tile-ink);
+		}
+	}
+
+	.ecosystem-card__tile-icon {
+		width: 28px;
+		height: 28px;
+		// Follows the tile, so it takes the category's ink on hover with the label.
+		color: inherit;
+	}
+
+	.ecosystem-card__stores {
+		display: flex;
+		flex-wrap: wrap;
+		// The row used to hold buttons only, all one height; it now also holds the
+		// target marks, so it has to say where they sit.
+		align-items: center;
+		justify-content: center;
+		gap: $spacing-2;
+	}
+
+	// The hero's Install button sizes its glyph at 18px beside 16px type; this row
+	// is 14px, so the glyph steps down with it rather than carrying the hero's
+	// number into a smaller button.
+	.ecosystem-card__store-icon {
+		width: 16px;
+		height: 16px;
+		margin-right: 6px;
+		flex: 0 0 auto;
+	}
+
+	.ecosystem-card__store {
+		// Lifted over the stretched card link — without this the regional sign-ups
+		// sit under it and can't be clicked.
+		position: relative;
+		z-index: 1;
+		display: inline-flex;
+		align-items: center;
+		height: 36px;
+		padding: 0 14px;
+		border: 1px solid var(--sl-color-hairline-light);
+		border-radius: $radius-md;
+		@include type-small-strong;
+		color: var(--accent);
+		text-decoration: none;
+		transition:
+			background-color 0.15s ease,
+			border-color 0.15s ease;
 
 		&:hover,
 		&:focus-visible {
-			border-color: rgba(0, 0, 0, 0.3);
-			background-color: var(--tile);
-		}
-	}
-
-	.eco__tile-icon {
-		width: 28px;
-		height: 28px;
-	}
-
-	// Stretched to the row and cut by the card's bottom edge, so the copy sets the card's height.
-	.eco__mockup {
-		position: relative;
-		align-self: stretch;
-		margin-bottom: calc(-1 * #{$spacing-5});
-		overflow: hidden;
-	}
-
-	.eco__phone {
-		position: absolute;
-		top: 0;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 260px;
-		aspect-ratio: 480 / 1039;
-		background-image: url(/images/mobile/iphone12promax-frame.png);
-		background-size: 100% auto;
-		background-repeat: no-repeat;
-
-		// The frame image's screen opening, as percentages of the 480/1039 box.
-		:global(video) {
-			position: absolute;
-			top: 2%;
-			left: 5.15%;
-			width: 89.8%;
-			border-radius: 4%;
-		}
-	}
-
-	.sr-only {
-		@include visually-hidden;
-	}
-
-	@media print {
-		.eco {
-			@include home-card-print;
-		}
-
-		.eco__badge {
-			border: 1px solid var(--color-border);
-			box-shadow: none;
-		}
-
-		.eco__description:last-of-type {
-			margin-bottom: 0;
-		}
-
-		.eco__relay,
-		.eco__phone {
-			@include print-exact;
-		}
-
-		.eco--wide:has(.eco__mockup):not(:has(source[src])) {
-			display: flex;
-
-			.eco__badge {
-				left: 50%;
-			}
-
-			.eco__mockup {
-				display: none;
-			}
-		}
-	}
-
-	@media print and (max-width: #{$breakpoint-md - 1px}) {
-		.eco--wide {
-			@include wide-layout;
+			border-color: var(--accent);
+			background-color: color-mix(in srgb, var(--accent) 8%, transparent);
 		}
 	}
 </style>

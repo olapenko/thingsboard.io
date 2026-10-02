@@ -1,0 +1,754 @@
+---
+import type { CliStep } from '@models/cli-terminal';
+
+// A still of a real ThingsBoard CLI session. Every command here is one the CLI
+// actually takes — install via uv, `tb init`, entity saves, `tb push` — so the
+// mock can't drift into a syntax that doesn't exist. Output lines are
+// illustrative rather than verbatim.
+
+interface Line {
+	/** Shell prompt line. */
+	cmd?: string;
+	/** Result of the command above it. */
+	out?: string;
+	/** Dimmed note, rendered as a shell comment. */
+	note?: string;
+	/** Marks an `out` line as a success. */
+	ok?: boolean;
+}
+
+interface Props {
+	lines?: Line[];
+	/**
+	 * A session to TYPE OUT, character by character, on a loop — spinner and all.
+	 *
+	 * The component's two modes. `lines` is a still that fades its finished rows in once; `session`
+	 * is a live console. They are exclusive: passing `session` ignores `lines`, because the player
+	 * owns the log and clears it at the top of every cycle.
+	 */
+	session?: CliStep[];
+	/** Shown in the title bar. */
+	path?: string;
+	/** What the session shows, for the `role="img"` label. */
+	ariaLabel?: string;
+}
+
+const DEFAULT_LINES: Line[] = [
+	{ note: 'Install once — uv handles the environment' },
+	{ cmd: 'uv tool install thingsboard-cli' },
+	{ out: 'Installed thingsboard (alias: tb)', ok: true },
+	{ cmd: 'tb init' },
+	{ out: 'Project created  smart-building/', ok: true },
+	{ cmd: 'tb device save thermostat-01 --profile hvac' },
+	{ out: 'device  thermostat-01', ok: true },
+	{ note: 'Review the diff, then ship it' },
+	{ cmd: 'tb push smart-building' },
+	{ out: '34 devices · 12 dashboards · 8 rule chains' },
+	{ out: 'Pushed to eu.thingsboard.cloud', ok: true },
+];
+
+const {
+	lines = DEFAULT_LINES,
+	session,
+	path = 'smart-building',
+	ariaLabel = 'ThingsBoard CLI session: installing the CLI, creating a project, saving a device, and pushing a solution to ThingsBoard Cloud.',
+} = Astro.props;
+
+// Resolved here rather than in the template for two reasons: `class:list` inside
+// a nested expression is parsed as JS, where `class` is reserved; and the rows
+// below are deliberately plain elements, not <pre>, so no formatter's
+// indentation can leak into what the reader sees.
+type Row = { kind: 'note' | 'cmd' | 'out'; text: string; ok?: boolean };
+
+const rows: Row[] = lines.map((line) => {
+	if (line.note) return { kind: 'note', text: `# ${line.note}` };
+	if (line.cmd) return { kind: 'cmd', text: line.cmd };
+	return { kind: 'out', text: line.out ?? '', ok: line.ok };
+});
+---
+
+<div
+	class:list={['cli', session && 'cli--session']}
+	role="img"
+	aria-label={ariaLabel}
+	data-cli-session={session ? JSON.stringify(session) : undefined}
+>
+	<div class="cli__bar" aria-hidden="true">
+		<span class="cli__dot cli__dot--close"></span>
+		<span class="cli__dot cli__dot--min"></span>
+		<span class="cli__dot cli__dot--max"></span>
+		<span class="cli__path">{path} — tb</span>
+	</div>
+
+	<div class="cli__scroll">
+		{/* In session mode the log is server-rendered in its FINISHED state and the player clears it
+			   the moment it starts typing. That makes the finished session the poster: it is what a
+			   reader sees before the terminal is scrolled to, what survives if the script never runs,
+			   and what reduced motion keeps. Rendering nothing instead left an empty black frame in all
+			   three cases. No flash, because the clear happens when the player starts — and the player
+			   does not start until the terminal is on screen. */}
+		<div class="cli__body" aria-hidden="true">
+			{/* The `.cli__text` spans are written on ONE line, with no break between the tag and its
+				   children, and that is load-bearing: session mode sets `white-space: pre` so the
+				   segments keep their own trailing spaces, and `pre` keeps the template's newlines too.
+				   Indented prettily, every poster row rendered three lines tall. */
+			session?.map((st) => (
+				<Fragment>
+					<span class="cli__row">
+						<span class="cli__prompt">$</span>
+						{/* prettier-ignore */}
+						<span class="cli__text">{st.cmd.map((sg) => (<span class={`cli__${sg.t}`}>{sg.v}</span>))}</span>
+					</span>
+					{(st.out ?? []).map((o) => (
+						<span class="cli__row">
+							<span class={o.tick ? 'cli__tick' : 'cli__mark'}>{o.tick ? '✓' : '·'}</span>
+							{/* prettier-ignore */}
+							<span class="cli__text"><span class={o.tone === 'ok' ? 'cli__ok' : 'cli__dim'}>{o.text}</span></span>
+						</span>
+					))}
+				</Fragment>
+			))}
+			{!session &&
+				rows.map((row, i) => (
+					<span class:list={['cli__row', `cli__row--${row.kind}`, row.ok && 'cli__row--ok']} style={`--i: ${i}`}>
+						{row.kind === 'cmd' && <span class="cli__prompt">$</span>}
+						{row.kind === 'out' && <span class="cli__mark">{row.ok ? '✓' : '·'}</span>}
+						<span class="cli__text">{row.text}</span>
+					</span>
+				))}
+			{!session && (
+				<span class="cli__row cli__row--caret" style={`--i: ${rows.length}`}>
+					<span class="cli__prompt">$</span>
+					<span class="cli__caret" />
+				</span>
+			)}
+		</div>
+
+		{/* Overlay bar: the native one is hidden outright, so nothing here can
+		    reserve layout width and reflow the session text. */}
+		<span class="cli__track" aria-hidden="true">
+			<span class="cli__thumb"></span>
+		</span>
+	</div>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Fixed dark surface: a terminal reads as a terminal because it is dark, so
+	// this one does not follow the page theme.
+	.cli {
+		// The title bar's scale, as a multiplier on its own metrics. The bar is the one part of this
+		// window drawn in absolute pixels — everything else follows the log's font size — so a consumer
+		// that renders the terminal small gets FULL-SIZE chrome over small type, and the three dots
+		// become the loudest thing in the frame. Stepping this down alongside the type holds the
+		// proportion. 1 is today's bar to the pixel, so leaving it alone changes nothing.
+		--cli-chrome: 1;
+
+		overflow: hidden;
+		border-radius: $radius-md;
+		background: #14161d;
+		box-shadow:
+			0 1px 0 rgba(255, 255, 255, 0.06) inset,
+			0 12px 32px rgba(0, 0, 0, 0.28);
+		text-align: left;
+	}
+
+	.cli__bar {
+		display: flex;
+		align-items: center;
+		gap: calc(6px * var(--cli-chrome));
+		padding: calc(10px * var(--cli-chrome)) calc(12px * var(--cli-chrome));
+		// No rule under the bar — a hairline on top of a tone step was one line too many in a window this
+		// small. The step carries the separation alone, so it is a notch wider to make up for it:
+		// #232733 over the log's #14161d, up from #1b1e27.
+		background: #232733;
+	}
+
+	.cli__dot {
+		width: calc(10px * var(--cli-chrome));
+		height: calc(10px * var(--cli-chrome));
+		border-radius: 50%;
+	}
+
+	.cli__dot--close {
+		background: #ec6a5e;
+	}
+
+	.cli__dot--min {
+		background: #f4bf4f;
+	}
+
+	.cli__dot--max {
+		background: #61c454;
+	}
+
+	.cli__path {
+		margin-left: calc(8px * var(--cli-chrome));
+		font-family: $font-family-mono;
+		font-size: 11px;
+		letter-spacing: 0.02em;
+		color: rgba(255, 255, 255, 0.4);
+	}
+
+	.cli__scroll {
+		position: relative;
+	}
+
+	.cli__body {
+		max-height: 212px;
+		padding: $spacing-4 $spacing-4 $spacing-5;
+		overflow-y: auto;
+		overflow-x: auto;
+		overscroll-behavior: contain;
+		font-family: $font-family-mono;
+		font-size: 12.5px;
+		line-height: 1.9;
+		color: #e6e8ef;
+
+		// Native bar removed entirely rather than restyled: a restyled bar still
+		// reserves width on platforms without overlay scrollbars, which would
+		// reflow the text every time the content became scrollable.
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+
+		&::-webkit-scrollbar {
+			width: 0;
+			height: 0;
+		}
+	}
+
+	// Block rows rather than newlines: nothing here depends on source whitespace.
+	.cli__row {
+		display: block;
+		white-space: nowrap;
+	}
+
+	.cli__prompt {
+		margin-right: 0.55em;
+		color: var(--accent, #4dabf7);
+	}
+
+	.cli__mark {
+		display: inline-block;
+		width: 1.1em;
+		margin-left: 1.1em;
+		color: rgba(230, 232, 239, 0.35);
+	}
+
+	.cli__row--cmd .cli__text {
+		color: #f2f4f8;
+	}
+
+	.cli__row--out .cli__text {
+		color: rgba(230, 232, 239, 0.55);
+	}
+
+	.cli__row--ok .cli__mark,
+	.cli__row--ok .cli__text {
+		color: #63d19e;
+	}
+
+	.cli__row--note {
+		margin-top: 0.5em;
+
+		.cli__text {
+			color: rgba(230, 232, 239, 0.3);
+		}
+	}
+
+	.cli__row--note:first-child {
+		margin-top: 0;
+	}
+
+	// ── Session mode ──────────────────────────────────────────
+	// EVERY rule in this block is `:global`, and that is not a style choice — it is the only thing
+	// that works. The player builds its rows with `createElement`, so they never carry the `astro-*`
+	// scope class, and a scoped selector simply does not match them. Written scoped, the
+	// server-rendered poster was styled correctly and the moment the session started typing the log
+	// lost its gutter, its colours and its `nowrap`: glyphs collapsed to 7px, lines wrapped, and the
+	// output stopped lining up under the command. `.cli--session` itself is server-rendered, so it
+	// keeps the scope and confines all of this to a terminal that asked for it.
+	.cli--session {
+		:global(.cli__row) {
+			display: block;
+		}
+
+		// Every leading glyph — prompt, tick, dot, spinner — gets one gutter, so the command and
+		// everything it prints line up down a single column. The still mode indents its output
+		// instead, which is right there and wrong here: in a live log a tick that does not sit under
+		// its own `$` reads as belonging to the line above.
+		:global(.cli__prompt),
+		:global(.cli__mark),
+		:global(.cli__tick),
+		:global(.cli__spin) {
+			display: inline-block;
+			width: 1.1em;
+			margin: 0 0.55em 0 0;
+			text-align: center;
+		}
+
+		// `pre`, because the segments carry their own trailing spaces — `tb push ` then `cold-chain `
+		// — and a collapsed space would run two coloured runs together.
+		:global(.cli__text) {
+			white-space: pre;
+		}
+
+		:global(.cli__prompt) {
+			color: var(--accent, #4dabf7);
+		}
+
+		:global(.cli__mark) {
+			color: rgba(230, 232, 239, 0.35);
+		}
+
+		:global(.cli__tick) {
+			color: #63d19e;
+		}
+
+		:global(.cli__spin) {
+			color: var(--accent, #4dabf7);
+		}
+
+		// The command's own syntax colouring, matched to the still mode's ink so the two modes are
+		// recognisably one terminal.
+		:global(.cli__cmd) {
+			color: #f2f4f8;
+		}
+
+		:global(.cli__flag) {
+			color: #8b96a2;
+		}
+
+		:global(.cli__arg) {
+			color: #d2a8ff;
+		}
+
+		:global(.cli__ok) {
+			color: #63d19e;
+		}
+
+		:global(.cli__dim) {
+			color: rgba(230, 232, 239, 0.55);
+		}
+
+		// The caret that trails the command being typed. Scoped, it only reached the still mode's
+		// server-rendered one and never the player's.
+		//
+		// NO BLINK, unlike the still mode's. A terminal cursor is solid while characters are arriving
+		// and blinks only when the shell is idle waiting for input — and this caret exists ONLY while
+		// the command is being typed; the player removes it the moment the line is finished. So a blink
+		// here was never the idle state it imitates, just a flicker under moving text.
+		:global(.cli__caret) {
+			display: inline-block;
+			// A BLOCK CURSOR IS ONE CHARACTER CELL, and both numbers are the font's, measured rather
+			// than eyeballed: this mono face advances 0.5em per character, and its em box is 1em —
+			// 15px of ascent over 3px of descent at 18px. The old 0.5 x 0.85em with a 0.1em nudge was
+			// neither: too short to fill the cell and sitting off the baseline, so it read as a stray
+			// mark beside the text instead of a cursor standing in the next cell.
+			width: 0.5em;
+			height: 1em;
+			// Dropped by the descender so the block spans descender to ascender. An inline-block's
+			// bottom sits ON the baseline by default, which is where the missing 3px went.
+			vertical-align: -0.167em;
+			// The foreground, as a terminal draws its cursor — not the prompt's accent. The `$` is
+			// coloured because it is chrome; the cursor is the text caret and takes the text's ink.
+			background: #f2f4f8;
+			animation: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cli--session :global(.cli__caret) {
+			animation: none;
+		}
+	}
+
+	// ── Playback ──────────────────────────────────────────────
+	// Rows are held back until the card is on screen, then land one after another
+	// so the session reads as it would have been typed.
+	.cli--animate .cli__row {
+		opacity: 0;
+	}
+
+	.cli--animate.cli--playing .cli__row {
+		animation: cli-row-in 0.26s ease-out both;
+		animation-delay: calc(var(--i) * 260ms);
+	}
+
+	@keyframes cli-row-in {
+		from {
+			opacity: 0;
+			transform: translateY(3px);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+
+	// Sits where the next command would be typed.
+	.cli__caret {
+		display: inline-block;
+		width: 7px;
+		height: 14px;
+		transform: translateY(2px);
+		background: var(--accent, #4dabf7);
+		animation: cli-blink 1.1s steps(1, end) infinite;
+	}
+
+	@keyframes cli-blink {
+		0%,
+		50% {
+			opacity: 1;
+		}
+		50.01%,
+		100% {
+			opacity: 0;
+		}
+	}
+
+	// ── Overlay scrollbar ─────────────────────────────────────
+	// Absolutely positioned, so it sits over the text and costs no layout width.
+	.cli__track {
+		position: absolute;
+		top: 8px;
+		right: 5px;
+		bottom: 8px;
+		width: 3px;
+		border-radius: 3px;
+		background: rgba(255, 255, 255, 0.05);
+		opacity: 0;
+		transition: opacity 0.18s ease;
+		pointer-events: none;
+	}
+
+	// Only once there is something to scroll, and only while the reader is near it.
+	.cli--scrollable:hover .cli__track,
+	.cli--scrollable.cli--scrolling .cli__track {
+		opacity: 1;
+	}
+
+	.cli__thumb {
+		position: absolute;
+		left: 0;
+		width: 100%;
+		min-height: 18px;
+		border-radius: 3px;
+		background: rgba(230, 232, 239, 0.28);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cli__caret {
+			animation: none;
+		}
+
+		// Everything is present immediately; nothing moves.
+		.cli--animate .cli__row,
+		.cli--animate.cli--playing .cli__row {
+			opacity: 1;
+			animation: none;
+		}
+	}
+
+	@include media-down(md) {
+		.cli__body {
+			max-height: 190px;
+			font-size: 11.5px;
+		}
+	}
+</style>
+
+<script>
+	import type { CliSeg, CliOut, CliStep } from '@models/cli-terminal';
+
+	// Three jobs now: drive the overlay scrollbar, fade a still session in once the card is on
+	// screen, and — in session mode — TYPE a session out on a loop. All per-instance, so several
+	// terminals can share a page.
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	// The same definitions the frontmatter uses. A `<script>` is its own module and cannot read the
+	// component's frontmatter, so it imports them rather than restating them — which is what let the
+	// two drift apart before.
+	type Seg = CliSeg;
+	type Out = CliOut;
+	type Step = CliStep;
+
+	/** The braille spinner the CLI itself uses while a push is in flight. */
+	const SPINNER = '\u280b\u2819\u2839\u2838\u283c\u2834\u2826\u2827\u2807\u280f';
+
+	/**
+	 * Types a session into the log and loops it: each command appears character by character with a
+	 * caret at the end, the CLI pauses, its output lands a line at a time, and a push holds a
+	 * spinner until it completes.
+	 *
+	 * Held to the viewport and to tab visibility, and only at CYCLE boundaries — a session that
+	 * stopped halfway would leave a half-typed command on screen, which reads as broken rather than
+	 * as paused.
+	 */
+	function playSession(cli: HTMLElement, body: HTMLElement, steps: Step[], sync: () => void, reduceMotion: boolean) {
+		const tone = (o: Out) => (o.tone === 'ok' ? 'cli__ok' : 'cli__dim');
+
+		/** Opens a row and returns its text host. `mark` is the glyph in the gutter. */
+		const line = (mark: string, markCls: string) => {
+			const row = document.createElement('span');
+			row.className = 'cli__row';
+			const g = document.createElement('span');
+			g.className = markCls;
+			g.textContent = mark;
+			const t = document.createElement('span');
+			t.className = 'cli__text';
+			row.append(g, t);
+			body.appendChild(row);
+			body.scrollTop = body.scrollHeight;
+			return { text: t, mark: g };
+		};
+
+		const fill = (host: HTMLElement, o: Out) => {
+			const span = document.createElement('span');
+			span.className = tone(o);
+			span.textContent = o.text;
+			host.appendChild(span);
+		};
+
+		// Reduced motion keeps the server-rendered session exactly as it is — it is already the
+		// finished log, so there is nothing to build and nothing to clear.
+		if (reduceMotion) {
+			sync();
+			return;
+		}
+
+		// Intervals and timeouts share this list, so clearing it has to do both — the spinner is an
+		// interval and would otherwise outlive the cycle that started it and keep writing into a row
+		// that has been removed.
+		let timers: number[] = [];
+		let run = 0;
+		let onScreen = false;
+		// The parked cycle's poll, 0 when none is pending. Kept so a reveal can cancel it — left
+		// running, it would fire up to 600ms into the fresh session and restart it a second time.
+		let parked = 0;
+		// Whether the observer last saw the terminal with no box at all — `display: none`, as the AI
+		// section's switch leaves the route that is not showing.
+		let undisplayed = false;
+
+		const at = (ms: number, fn: () => void) => {
+			const id = run;
+			timers.push(
+				window.setTimeout(() => {
+					if (id === run) fn();
+				}, ms)
+			);
+		};
+
+		const typeInto = (host: HTMLElement, segs: Seg[], done: () => void) => {
+			const caret = document.createElement('span');
+			caret.className = 'cli__caret';
+			const spans = segs.map((seg) => {
+				const el = document.createElement('span');
+				el.className = `cli__${seg.t}`;
+				host.appendChild(el);
+				return el;
+			});
+			host.appendChild(caret);
+
+			let si = 0;
+			let ci = 0;
+			const tick = () => {
+				if (document.hidden) {
+					at(300, tick);
+					return;
+				}
+				const seg = segs[si];
+				spans[si].textContent += seg.v.charAt(ci++);
+				body.scrollTop = body.scrollHeight;
+				sync();
+				if (ci >= seg.v.length) {
+					si++;
+					ci = 0;
+				}
+				if (si >= segs.length) {
+					at(260, () => {
+						caret.remove();
+						done();
+					});
+					return;
+				}
+				at(34 + Math.random() * 46, tick);
+			};
+			tick();
+		};
+
+		const emit = (outs: Out[], i: number, done: () => void) => {
+			if (i >= outs.length) {
+				done();
+				return;
+			}
+			const o = outs[i];
+
+			if (o.spin) {
+				const { text, mark } = line('', 'cli__spin');
+				fill(text, o);
+				let f = 0;
+				const spin = window.setInterval(() => {
+					mark.textContent = SPINNER.charAt(f++ % SPINNER.length);
+				}, 80);
+				timers.push(spin);
+				at(o.spin, () => {
+					window.clearInterval(spin);
+					mark.textContent = '\u00b7';
+					emit(outs, i + 1, done);
+				});
+				return;
+			}
+
+			fill(line(o.tick ? '\u2713' : '\u00b7', o.tick ? 'cli__tick' : 'cli__mark').text, o);
+			sync();
+			at(180, () => emit(outs, i + 1, done));
+		};
+
+		const step = (n: number) => {
+			if (n >= steps.length) {
+				at(3600, cycle);
+				return;
+			}
+			const st = steps[n];
+			const { text } = line('$', 'cli__prompt');
+			typeInto(text, st.cmd, () => {
+				at(st.wait ?? 500, () => emit(st.out ?? [], 0, () => at(420, () => step(n + 1))));
+			});
+		};
+
+		function cycle() {
+			// Taken out of the document — the sandbox's phone frames keep one section and drop the
+			// rest — so there is nothing left to play into, and no reason to keep polling.
+			if (!cli.isConnected) return;
+			if (!onScreen || document.hidden) {
+				if (parked) return;
+				parked = window.setTimeout(() => {
+					parked = 0;
+					cycle();
+				}, 600);
+				return;
+			}
+
+			begin();
+		}
+
+		function begin() {
+			run++;
+			timers.forEach((t) => {
+				window.clearTimeout(t);
+				window.clearInterval(t);
+			});
+			timers = [];
+			body.innerHTML = '';
+			step(0);
+		}
+
+		new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					onScreen = e.isIntersecting;
+
+					// REVEALED — it had no box, and now it is on screen: type the session from the top at
+					// once. Left to the loop, a terminal un-hidden by the AI section's switch showed the
+					// finished session it was hidden with until the next 600ms poll, then wiped it and
+					// started — a visible hiccup exactly where the switch's answer lands. The observer
+					// reports within a frame, inside the hand-off's 40ms entrance delay. A terminal that
+					// is only scrolled in was never box-less, so it keeps the ordinary path: the homepage
+					// never hides one, and plays exactly as before.
+					if (onScreen && undisplayed) {
+						window.clearTimeout(parked);
+						parked = 0;
+						begin();
+					}
+					undisplayed = !onScreen && e.boundingClientRect.height === 0;
+				});
+			},
+			{ threshold: 0.2 }
+		).observe(cli);
+
+		cycle();
+	}
+
+	document.querySelectorAll<HTMLElement>('.cli').forEach((cli) => {
+		const body = cli.querySelector<HTMLElement>('.cli__body');
+		const track = cli.querySelector<HTMLElement>('.cli__track');
+		const thumb = cli.querySelector<HTMLElement>('.cli__thumb');
+		if (!body || !track || !thumb) return;
+
+		// Maps scroll position onto the thumb. Runs on scroll, on resize, and once
+		// playback has changed the content height.
+		const sync = () => {
+			const ratio = body.clientHeight / body.scrollHeight;
+			const scrollable = body.scrollHeight - body.clientHeight > 1;
+
+			cli.classList.toggle('cli--scrollable', scrollable);
+			if (!scrollable) return;
+
+			const trackH = track.clientHeight;
+			const thumbH = Math.max(18, Math.round(trackH * ratio));
+			const max = body.scrollHeight - body.clientHeight;
+			const top = Math.round((body.scrollTop / max) * (trackH - thumbH));
+
+			thumb.style.height = `${thumbH}px`;
+			thumb.style.transform = `translateY(${top}px)`;
+		};
+
+		let hideTimer: number | undefined;
+		body.addEventListener(
+			'scroll',
+			() => {
+				sync();
+				cli.classList.add('cli--scrolling');
+				window.clearTimeout(hideTimer);
+				hideTimer = window.setTimeout(() => cli.classList.remove('cli--scrolling'), 700);
+			},
+			{ passive: true }
+		);
+
+		if ('ResizeObserver' in window) new ResizeObserver(sync).observe(body);
+		sync();
+
+		// ── Session mode: type the log out, on a loop ──────────────
+		const raw = cli.dataset.cliSession;
+		if (raw) {
+			playSession(cli, body, JSON.parse(raw) as Step[], sync, reduce);
+			return;
+		}
+
+		if (reduce) return;
+
+		// Held until the card is on screen: a session that has already finished
+		// playing by the time it is scrolled to may as well not have animated.
+		cli.classList.add('cli--animate');
+
+		const rows = cli.querySelectorAll<HTMLElement>('.cli__row');
+		const step = 260;
+
+		const io = new IntersectionObserver(
+			(entries, obs) => {
+				entries.forEach((entry) => {
+					if (!entry.isIntersecting) return;
+					obs.disconnect();
+					cli.classList.add('cli--playing');
+
+					// Follow the output down as it arrives, then leave the reader in
+					// control — no further scrolling once the session has played out.
+					rows.forEach((_, i) => {
+						window.setTimeout(
+							() => {
+								body.scrollTop = body.scrollHeight;
+								sync();
+							},
+							i * step + 200
+						);
+					});
+				});
+			},
+			{ threshold: 0.25 }
+		);
+
+		io.observe(cli);
+	});
+</script>
