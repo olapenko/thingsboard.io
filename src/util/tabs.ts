@@ -6,7 +6,7 @@
  *
  * It owns the panels' `hidden` attribute, found through each tab's `aria-controls`.
  *
- * Fires `tabs:change` on the tablist with `{ index, previous, panel, previousPanel }`. It is
+ * Fires `tabs:change` on the tablist, bubbling, with `{ index, previous, panel, previousPanel }`. It is
  * CANCELABLE: `preventDefault()` and the panels are left for the caller to swap (to animate a
  * hand-off). The tabs and the thumb have moved by then; only the panels wait.
  *
@@ -40,7 +40,7 @@ export function mountTabs(list: HTMLElement): void {
 			panel: panelOf(tabs[i]),
 			previousPanel: previous >= 0 ? panelOf(tabs[previous]) : null,
 		};
-		if (!list.dispatchEvent(new CustomEvent('tabs:change', { cancelable: true, detail }))) return;
+		if (!list.dispatchEvent(new CustomEvent('tabs:change', { bubbles: true, cancelable: true, detail }))) return;
 		tabs.forEach((tab, j) => {
 			const panel = panelOf(tab);
 			if (panel) panel.hidden = j !== i;

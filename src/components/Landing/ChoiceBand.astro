@@ -54,6 +54,11 @@ interface Props {
 
 const { title, lead, options, note, productName, id = 'choose', accent, ground, waveHue = '#3369ff' } = Astro.props;
 
+// Three options (Pricing's three deployments) take a third of the measure each: the names step down
+// to the card size, and the actions stack, since a third fits "Contact us" and "See plans" on one
+// line but not "Start for free", and the cards would end on three different shapes.
+const three = options.length === 3;
+
 // Each card's actions read "Start for free" and "See plans" — fine beside their own heading,
 // ambiguous in a list of every link on the page.
 const ctaSuffix = (option: ChoiceOption) => `— ${productName ? `${productName} ` : ''}${option.name}`;
@@ -63,7 +68,7 @@ const plansSuffix = (option: ChoiceOption) => `for ${productName ?? 'the'} ${opt
 <Band id={id} ground="dark" groundColor={ground} wave waveHue={waveHue} pad="lg" accent={accent}>
 	<SectionHeader title={title} subtitle={lead} subtitleMeasure="copy" spacing="md" />
 
-	<CardGrid cols={2} gap="lg">
+	<CardGrid cols={three ? 3 : 2} gap="lg" class:list={[three && 'choice-band--three']}>
 		{
 			options.map((option) => (
 				<Card tone="ghost" pad="lg" class="choice-band__card">
@@ -86,7 +91,7 @@ const plansSuffix = (option: ChoiceOption) => `for ${productName ?? 'the'} ${opt
 							</li>
 						))}
 					</ul>
-					<ButtonGroup slot="footer" class="choice-band__actions">
+					<ButtonGroup slot="footer" class="choice-band__actions" stackBelow={three ? 400 : undefined}>
 						<Button
 							variant={option.cta.variant}
 							icon={option.cta.icon}
@@ -97,7 +102,7 @@ const plansSuffix = (option: ChoiceOption) => `for ${productName ?? 'the'} ${opt
 							{option.cta.text}
 						</Button>
 						{option.plansHref && (
-							<Link href={option.plansHref} tone="ink" srSuffix={plansSuffix(option)}>
+							<Link href={option.plansHref} tone="ink" srSuffix={plansSuffix(option)} attrs={option.plansAttrs}>
 								See plans
 							</Link>
 						)}
@@ -126,6 +131,15 @@ const plansSuffix = (option: ChoiceOption) => `for ${productName ?? 'the'} ${opt
 
 	.choice-band__card {
 		gap: $spacing-3;
+	}
+
+	.choice-band--three .choice-band__name {
+		@include type-card;
+	}
+
+	// Stacked, the quiet link centres under the button it follows.
+	.choice-band--three .choice-band__actions :global(.ui-link) {
+		justify-content: center;
 	}
 
 	.choice-band__name {

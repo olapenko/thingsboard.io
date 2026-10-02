@@ -3,6 +3,13 @@
 import InternalNav from '@root/pages/internal/_InternalNav.astro';
 import BaseLayout from '@layouts/BaseLayout.astro';
 import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import Card from '@components/ui/Card.astro';
+import Segmented from '@components/ui/Segmented.astro';
+import Tabs from '@components/ui/Tabs.astro';
+import SectionHeader from '@components/Landing/SectionHeader.astro';
+import BenefitGrid from '@components/Landing/BenefitGrid.astro';
+import ProductMatrix from '@components/Landing/ProductMatrix.astro';
 import ProductFaq from '@components/Landing/ProductFaq.astro';
 
 import PricingBackground from '@components/Pricing/PricingBackground.astro';
@@ -50,12 +57,13 @@ import {
  * WHAT IS NEW IS ONLY THE STYLE:
  *   - the new bar, white from the top, as the contact page sets it, and the footer that maps the
  *     platform;
- *   - the type ladder (`type-*`), the 40px button with a 6px radius, bold, the primary filled once
- *     per row and every other action an ink outline;
- *   - cards on the homepage's UI shadow with no stroke, the popular one ringed in the primary, and
- *     the cards of a row on one subgrid so their prices and buttons line up;
- *   - one segmented pill for the tabs and every toggle, where main has a pill and two switches;
- *   - the product pages' comparison table (sticky pill header) and FAQ (topic sidebar);
+ *   - the UI kit throughout: `SectionHeader` for every heading, `ui/Button` (sm, the primary filled
+ *     once per row, every other action an outline), `ui/Tabs` for the deployments and
+ *     `ui/Segmented` for every toggle, where main has a pill and two switches;
+ *   - cards on the kit's tile surface, the popular one ringed in the scheme's fill, and the cards
+ *     of a row on one subgrid so their prices and buttons line up;
+ *   - the product pages' comparison table (`ProductMatrix`), benefit tiles (`BenefitGrid`) and FAQ
+ *     (`ProductFaq`);
  *   - On-premises in its own green, as its product page has it — the tab, the plans, the FAQ and
  *     the wave field all turn over with it — where Cloud and Private Cloud keep the primary;
  *   - the add-ons wearing their products' marks (filled badges, the Mobile App as a phone), and
@@ -117,27 +125,21 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 	<PricingBackground />
 	<div class="p2" data-pricing-draft>
 		<header class="p2-intro">
-			<h1 class="p2-title">{mainCopy.title}</h1>
-			<div class="seg seg--tabs" role="tablist" aria-label="Deployment" data-deploy-switch>
-				{
-					tabs.map((d) => (
-						<button
-							type="button"
-							role="tab"
-							id={`deploy-tab-${d.id}`}
-							class:list={['seg__opt', d.id === DEFAULT_DEPLOYMENT && 'is-active']}
-							aria-selected={d.id === DEFAULT_DEPLOYMENT ? 'true' : 'false'}
-							aria-controls={`plans-${d.id}`}
-							tabindex={d.id === DEFAULT_DEPLOYMENT ? 0 : -1}
-							title={mainTabTooltips[d.id]}
-							data-deploy-tab={d.id}
-						>
-							<Icon name={d.icon} aria-hidden="true" />
-							{d.name}
-						</button>
-					))
-				}
-			</div>
+			<SectionHeader
+				level={1}
+				title={mainCopy.title}
+				titleSize="display"
+				align="center"
+				titleMeasure="full"
+				spacing="none"
+			/>
+			<Tabs
+				label="Deployment"
+				class="p2-deploy"
+				size={{ base: 'sm', sm: 'md' }}
+				selected={tabs.findIndex((d) => d.id === DEFAULT_DEPLOYMENT)}
+				items={tabs.map((d) => ({ label: d.name, icon: d.icon, panel: `plans-${d.id}`, title: mainTabTooltips[d.id] }))}
+			/>
 
 			{
 				/* Before paint: the tab from `?product=` (main's ids, and its legacy `?section=`), the
@@ -174,11 +176,13 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 					root.dataset.pcBilling = 'monthly';
 					root.dataset.onpremBilling =
 						(p.get('solution') || '').replace(/^pe-/, '') === 'perpetual' ? 'perpetual' : 'payg';
-					document.currentScript.parentElement.querySelectorAll('[data-deploy-tab]').forEach(function (tab) {
-						var on = tab.dataset.deployTab === deploy;
-						tab.classList.toggle('is-active', on);
+					// The tab set (`ui/Tabs`): the chosen tab, its tab stop, and the thumb under it.
+					var list = document.currentScript.parentElement.querySelector('.p2-deploy');
+					list.querySelectorAll('[role="tab"]').forEach(function (tab, i) {
+						var on = tab.id === 'plans-' + deploy + '-tab';
 						tab.setAttribute('aria-selected', on ? 'true' : 'false');
 						tab.tabIndex = on ? 0 : -1;
+						if (on) list.style.setProperty('--seg-index', i);
 					});
 				})();
 			</script>
@@ -189,48 +193,64 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			id="plans-thingsboard-pe"
 			class="p2-panel"
 			role="tabpanel"
-			aria-labelledby="deploy-tab-thingsboard-pe"
+			aria-labelledby="plans-thingsboard-pe-tab"
 			data-deploy-panel="thingsboard-pe"
+			data-accent="onprem"
 		>
 			<div class="p2-head">
 				<div>
-					<h2 class="p2-h2">
-						<span data-onprem-show="payg">{mainCopy.onPremPayg.title}</span>
-						<span data-onprem-show="perpetual">{mainCopy.onPremPerpetual.title}</span>
-					</h2>
-					<p class="p2-sub">
-						<span data-onprem-show="payg">{mainCopy.onPremPayg.subtitle}</span>
-						<span data-onprem-show="perpetual">{mainCopy.onPremPerpetual.subtitle}</span>
-					</p>
+					<div data-onprem-show="payg">
+						<SectionHeader
+							title={mainCopy.onPremPayg.title}
+							subtitle={mainCopy.onPremPayg.subtitle}
+							ledeTone="muted"
+							align="left"
+							spacing="none"
+						/>
+					</div>
+					<div data-onprem-show="perpetual">
+						<SectionHeader
+							title={mainCopy.onPremPerpetual.title}
+							subtitle={mainCopy.onPremPerpetual.subtitle}
+							ledeTone="muted"
+							align="left"
+							spacing="none"
+						/>
+					</div>
 				</div>
-				<div class="seg" role="group" aria-label="Licensing" data-seg="onpremBilling">
-					{
-						/* The ⓘ sits inside each option, after its label: a button cannot hold another
-					    button, so here it is a mark with the tooltip, tied to the option by
-					    `aria-describedby`, and shown on hover or while the option has focus. */
-					}
-					{
-						(['payg', 'perpetual'] as const).map((value) => (
-							<button
-								type="button"
-								class="seg__opt"
-								data-value={value}
-								aria-pressed={value === 'payg' ? 'true' : 'false'}
-								aria-describedby={`licensing-tip-${value}`}
-							>
-								{mainCopy.licensing[value].label}
-								<span class="tip tip--inline">
-									<span class="tip__btn" aria-hidden="true">
-										<Icon name="tabler:info-circle" />
-									</span>
-									<span class="tip__body" role="tooltip" id={`licensing-tip-${value}`}>
-										{mainCopy.licensing[value].tip}
-									</span>
-								</span>
-							</button>
-						))
-					}
-				</div>
+				{
+					/* The ⓘ sits inside each option, after its label: a button cannot hold another
+				    button, so here it is a mark with the tooltip, tied to the option by
+				    `aria-describedby`, and shown on hover or while the option has focus. */
+				}
+				<Segmented
+					size="sm"
+					label="Licensing"
+					name="onpremBilling"
+					options={(['payg', 'perpetual'] as const).map((value) => ({
+						label: mainCopy.licensing[value].label,
+						value,
+						describedBy: `licensing-tip-${value}`,
+					}))}
+				>
+					{/* One slot per option, named by its value (a slot's name cannot come from a map). */}
+					<span slot="payg" class="tip tip--inline">
+						<span class="tip__btn" aria-hidden="true">
+							<Icon name="tabler:info-circle" />
+						</span>
+						<span class="tip__body" role="tooltip" id="licensing-tip-payg">
+							{mainCopy.licensing.payg.tip}
+						</span>
+					</span>
+					<span slot="perpetual" class="tip tip--inline">
+						<span class="tip__btn" aria-hidden="true">
+							<Icon name="tabler:info-circle" />
+						</span>
+						<span class="tip__body" role="tooltip" id="licensing-tip-perpetual">
+							{mainCopy.licensing.perpetual.tip}
+						</span>
+					</span>
+				</Segmented>
 			</div>
 
 			<div data-onprem-show="payg">
@@ -246,8 +266,13 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 					link={{ text: mainCopy.upsellNotSure.cta, href: CONTACT_ON_PREM }}
 				/>
 				<div class="p2-block">
-					<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
-					<p class="p2-sub">{mainCopy.addOns.subtitle}</p>
+					<SectionHeader
+						title={mainCopy.addOns.title}
+						subtitle={mainCopy.addOns.subtitle}
+						ledeTone="muted"
+						align="left"
+						spacing="sm"
+					/>
 					<AddOnCards
 						addOns={tbSelfManagedAddOns}
 						answers={answers('thingsboard-pe')}
@@ -257,48 +282,47 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			</div>
 
 			<div data-onprem-show="perpetual">
-				<div class="p2-promo">
-					<div class="p2-promo__lead">
-						<h3 class="p2-promo__title">{tbPerpetualHero.title}</h3>
-						{tbPerpetualHero.subtitle && <p class="p2-promo__subtitle">{tbPerpetualHero.subtitle}</p>}
-						{tbPerpetualHero.priceLabel && <p class="p2-promo__price">{tbPerpetualHero.priceLabel}</p>}
-						<a class="p2-btn p2-btn--primary" href={tbPerpetualHero.ctaHref}>
-							{tbPerpetualHero.ctaText.charAt(0) + tbPerpetualHero.ctaText.slice(1).toLowerCase()}
-						</a>
+				<Card role="panel">
+					<div class="p2-promo">
+						<div class="p2-promo__lead">
+							<h3 class="p2-promo__title">{tbPerpetualHero.title}</h3>
+							{tbPerpetualHero.subtitle && <p class="p2-promo__subtitle">{tbPerpetualHero.subtitle}</p>}
+							{tbPerpetualHero.priceLabel && <p class="p2-promo__price">{tbPerpetualHero.priceLabel}</p>}
+							<Button size="sm" href={tbPerpetualHero.ctaHref} class="p2-promo__cta">
+								{tbPerpetualHero.ctaText.charAt(0) + tbPerpetualHero.ctaText.slice(1).toLowerCase()}
+							</Button>
+						</div>
+						<div class="p2-promo__body">
+							<p class="p2-promo__desc">{tbPerpetualHero.description}</p>
+							<ul class="p2-checks">
+								{
+									tbPerpetualHero.features.map((f) => (
+										<li>
+											<Icon name="tabler:check" aria-hidden="true" />
+											{f}
+										</li>
+									))
+								}
+							</ul>
+						</div>
 					</div>
-					<div class="p2-promo__body">
-						<p class="p2-promo__desc">{tbPerpetualHero.description}</p>
-						<ul class="p2-checks">
-							{
-								tbPerpetualHero.features.map((f) => (
-									<li>
-										<Icon name="tabler:check" aria-hidden="true" />
-										{f}
-									</li>
-								))
-							}
-						</ul>
-					</div>
-				</div>
+				</Card>
 				{
 					tbSelfManagedData.perpetual.benefits && (
 						<div class="p2-block">
-							<h2 class="p2-h2">{mainCopy.perpetualBenefits}</h2>
-							<div class="benefit-grid p2-benefits">
-								{tbSelfManagedData.perpetual.benefits.map((b) => (
-									<div class="benefit-card">
-										<Icon name={b.icon} class="benefit-card__icon" aria-hidden="true" />
-										<h3 class="benefit-card__title">{b.title}</h3>
-										<p class="benefit-card__text">{b.description}</p>
-									</div>
-								))}
-							</div>
+							<SectionHeader title={mainCopy.perpetualBenefits} ledeTone="muted" align="left" spacing="sm" />
+							<BenefitGrid items={tbSelfManagedData.perpetual.benefits} />
 						</div>
 					)
 				}
 				<div class="p2-block">
-					<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
-					<p class="p2-sub">{mainCopy.addOns.subtitle}</p>
+					<SectionHeader
+						title={mainCopy.addOns.title}
+						subtitle={mainCopy.addOns.subtitle}
+						ledeTone="muted"
+						align="left"
+						spacing="sm"
+					/>
 					<AddOnCards
 						addOns={tbPerpetualAddOns}
 						answers={answers('thingsboard-pe')}
@@ -319,23 +343,23 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			id="plans-thingsboard-cloud"
 			class="p2-panel"
 			role="tabpanel"
-			aria-labelledby="deploy-tab-thingsboard-cloud"
+			aria-labelledby="plans-thingsboard-cloud-tab"
 			data-deploy-panel="thingsboard-cloud"
 		>
 			<div class="p2-head">
-				<div>
-					<h2 class="p2-h2">{tbCloudData.na.sectionTitle}</h2>
-					<p class="p2-sub">{tbCloudData.na.sectionSubtitle}</p>
-				</div>
-				<div class="seg" role="group" aria-label="Cloud region" data-seg="cloudRegion">
-					{
-						CLOUD_REGIONS.map((r) => (
-							<button type="button" class="seg__opt" data-value={r.id} aria-pressed={r.id === 'us' ? 'true' : 'false'}>
-								{r.name}
-							</button>
-						))
-					}
-				</div>
+				<SectionHeader
+					title={tbCloudData.na.sectionTitle}
+					subtitle={tbCloudData.na.sectionSubtitle}
+					ledeTone="muted"
+					align="left"
+					spacing="none"
+				/>
+				<Segmented
+					size="sm"
+					label="Cloud region"
+					name="cloudRegion"
+					options={CLOUD_REGIONS.map((r) => ({ label: r.name, value: r.id }))}
+				/>
 			</div>
 
 			{
@@ -358,8 +382,13 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			/>
 
 			<div class="p2-block">
-				<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
-				<p class="p2-sub">{mainCopy.addOns.subtitle}</p>
+				<SectionHeader
+					title={mainCopy.addOns.title}
+					subtitle={mainCopy.addOns.subtitle}
+					ledeTone="muted"
+					align="left"
+					spacing="sm"
+				/>
 				{
 					CLOUD_REGIONS.map((r) => (
 						<div data-region-show={r.id}>
@@ -374,7 +403,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			</div>
 
 			<div class="p2-block">
-				<h2 class="p2-h2">{mainCopy.topUps}</h2>
+				<SectionHeader title={mainCopy.topUps} ledeTone="muted" align="left" spacing="sm" />
 				{
 					CLOUD_REGIONS.map((r) => (
 						<div data-region-show={r.id}>
@@ -390,33 +419,31 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			id="plans-thingsboard-private-cloud"
 			class="p2-panel"
 			role="tabpanel"
-			aria-labelledby="deploy-tab-thingsboard-private-cloud"
+			aria-labelledby="plans-thingsboard-private-cloud-tab"
 			data-deploy-panel="thingsboard-private-cloud"
 		>
 			<div class="p2-head">
-				<div>
-					<h2 class="p2-h2">{tbPrivateCloudData.sectionTitle}</h2>
-					<p class="p2-sub">{tbPrivateCloudData.sectionSubtitle}</p>
-				</div>
-				<div class="seg" role="group" aria-label="Billing period" data-seg="pcBilling">
-					<button type="button" class="seg__opt" data-value="monthly" aria-pressed="true">
-						{tbPrivateCloudData.billingOptions.monthly}
-					</button>
-					<button
-						type="button"
-						class="seg__opt"
-						data-value="annual"
-						aria-pressed="false"
-						title={mainCopy.pcBillingHint}
-					>
-						{tbPrivateCloudData.billingOptions.annual}
+				<SectionHeader
+					title={tbPrivateCloudData.sectionTitle}
+					subtitle={tbPrivateCloudData.sectionSubtitle}
+					ledeTone="muted"
+					align="left"
+					spacing="none"
+				/>
+				<Segmented
+					size="sm"
+					label="Billing period"
+					name="pcBilling"
+					options={[
+						{ label: tbPrivateCloudData.billingOptions.monthly, value: 'monthly' },
 						{
-							tbPrivateCloudData.billingOptions.discount && (
-								<span class="seg__save">{tbPrivateCloudData.billingOptions.discount}</span>
-							)
-						}
-					</button>
-				</div>
+							label: tbPrivateCloudData.billingOptions.annual,
+							value: 'annual',
+							badge: tbPrivateCloudData.billingOptions.discount,
+							title: mainCopy.pcBillingHint,
+						},
+					]}
+				/>
 			</div>
 
 			<PlanCards
@@ -432,8 +459,13 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			/>
 
 			<div class="p2-block">
-				<h2 class="p2-h2">{mainCopy.addOns.title}</h2>
-				<p class="p2-sub">{mainCopy.addOns.subtitle}</p>
+				<SectionHeader
+					title={mainCopy.addOns.title}
+					subtitle={mainCopy.addOns.subtitle}
+					ledeTone="muted"
+					align="left"
+					spacing="sm"
+				/>
 				<AddOnCards
 					addOns={tbPrivateCloudAddOns}
 					answers={answers('thingsboard-private-cloud')}
@@ -442,54 +474,22 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			</div>
 
 			<div class="p2-block">
-				<h2 class="p2-h2">{mainCopy.comparison.title}</h2>
-				<p class="p2-sub">{mainCopy.comparison.subtitle}</p>
-				<div class="p2-table">
-					<div class="matrix-scroll">
-						<table class="matrix">
-							<caption class="sr-only">{mainCopy.comparison.caption}</caption>
-							<thead>
-								<tr>
-									<th scope="col">Feature</th>
-									{
-										pcFeatureHeaders.map((h) => (
-											<th scope="col">
-												<span class="matrix__col">{h}</span>
-											</th>
-										))
-									}
-								</tr>
-							</thead>
-							<tbody>
-								{
-									pcFeatureRows.map((row) => (
-										<tr>
-											<th scope="row">{row.feature}</th>
-											{row.values.map((value, i) => (
-												<td class:list={[value === false && 'matrix__none']}>
-													<span class="matrix__cell-label">{pcFeatureHeaders[i]}</span>
-													{value === true ? (
-														<span class="matrix__yes">
-															<Icon name="tabler:check" aria-hidden="true" />
-															<span class="sr-only">Included</span>
-														</span>
-													) : value === false ? (
-														<>
-															<span class="sr-only">Not included</span>
-															<span aria-hidden="true">—</span>
-														</>
-													) : (
-														<span>{value}</span>
-													)}
-												</td>
-											))}
-										</tr>
-									))
-								}
-							</tbody>
-						</table>
-					</div>
-				</div>
+				<SectionHeader
+					title={mainCopy.comparison.title}
+					subtitle={mainCopy.comparison.subtitle}
+					ledeTone="muted"
+					align="left"
+					spacing="sm"
+				/>
+				<Card role="panel" pad="sm">
+					<ProductMatrix
+						caption={mainCopy.comparison.caption}
+						firstLabel="Feature"
+						columns={pcFeatureHeaders.map((name) => ({ name }))}
+						rows={pcFeatureRows.map((row) => ({ label: row.feature, values: row.values }))}
+						align="center"
+					/>
+				</Card>
 			</div>
 		</section>
 
@@ -501,7 +501,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 					const prefix = faqPrefix(d.id);
 					return (
 						<div data-deploy-panel={d.id} data-accent={d.id === 'thingsboard-pe' ? 'onprem' : undefined}>
-							<h2 class="p2-h2">{faq.title}</h2>
+							<SectionHeader title={faq.title} align="left" spacing="sm" />
 							<ProductFaq
 								categories={faq.categories}
 								visibleCount={FAQ_VISIBLE}
@@ -526,6 +526,8 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 </BaseLayout>
 
 <script>
+	import { setSegmented, type SegmentedSelect } from '@util/segmented';
+
 	const root = document.documentElement;
 	const onPage = () => !!document.querySelector('[data-pricing-draft]');
 	const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -546,34 +548,46 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 
 	/** Every toggle's pressed state, from the <html> attribute it writes. */
 	function syncSegments() {
-		document.querySelectorAll<HTMLElement>('[data-seg]').forEach((group) => {
-			const value = root.dataset[group.dataset.seg!];
-			group.querySelectorAll<HTMLButtonElement>('.seg__opt').forEach((opt) => {
-				opt.setAttribute('aria-pressed', String(opt.dataset.value === value));
-			});
+		document.querySelectorAll<HTMLElement>('[data-segmented-name]').forEach((group) => {
+			const value = root.dataset[group.dataset.segmentedName!];
+			if (value) setSegmented(group, value);
 		});
 	}
 
-	function selectDeploy(id: string, { focus = false, scroll = false } = {}) {
+	function selectDeploy(id: string) {
 		root.dataset.deploy = id;
-		document.querySelectorAll<HTMLButtonElement>('[data-deploy-tab]').forEach((tab) => {
-			const on = tab.dataset.deployTab === id;
-			tab.classList.toggle('is-active', on);
-			tab.setAttribute('aria-selected', String(on));
-			tab.tabIndex = on ? 0 : -1;
-			if (on && focus) tab.focus();
-		});
 		// Main's `?section=` is dropped once read; `?solution=` only means anything on-prem.
 		updateUrl((params) => {
 			params.set('product', id);
 			params.delete('section');
 			if (id !== 'thingsboard-pe') params.delete('solution');
 		});
-		if (scroll) {
-			const tablist = document.querySelector('[data-deploy-switch]');
-			if (tablist) scrollToElement(tablist);
-		}
 	}
+
+	// The deployment tabs are `ui/Tabs`: it moves the selection, the focus and the thumb, and asks
+	// first. The page shows its blocks from <html> rather than through `hidden`, so it takes over.
+	document.addEventListener('tabs:change', (event) => {
+		const list = event.target as Element;
+		if (!list.classList?.contains('p2-deploy')) return;
+		event.preventDefault();
+		const panel = (event as CustomEvent<{ panel: HTMLElement | null }>).detail.panel;
+		if (panel) selectDeploy(panel.id.replace(/^plans-/, ''));
+	});
+
+	// Every other choice is a `ui/Segmented` toggle: its value goes to <html>, where the CSS reads it.
+	document.addEventListener('segmented:select', (event) => {
+		if (!onPage()) return;
+		const { name, value } = (event as CustomEvent<SegmentedSelect>).detail;
+		if (!name) return;
+		root.dataset[name] = value;
+		syncSegments();
+		if (name === 'onpremBilling') {
+			updateUrl((params) => {
+				if (value === 'perpetual') params.set('solution', 'pe-perpetual');
+				else params.delete('solution');
+			});
+		}
+	});
 
 	// Delegated once, on the document: the site swaps the body between pages, and these keep working
 	// on whatever body is in.
@@ -581,30 +595,13 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		const target = event.target as Element | null;
 		if (!target || !onPage()) return;
 
-		const tab = target.closest<HTMLButtonElement>('[data-deploy-tab]');
-		if (tab) {
-			selectDeploy(tab.dataset.deployTab!);
-			return;
-		}
-
+		// A link to another deployment's plans ("See Private Cloud plans") presses its tab.
 		const go = target.closest<HTMLAnchorElement>('[data-deploy-go]');
 		if (go) {
 			event.preventDefault();
-			selectDeploy(go.dataset.deployGo!, { scroll: true });
-			return;
-		}
-
-		const opt = target.closest<HTMLButtonElement>('[data-seg] .seg__opt');
-		if (opt) {
-			const key = opt.closest<HTMLElement>('[data-seg]')!.dataset.seg!;
-			root.dataset[key] = opt.dataset.value;
-			syncSegments();
-			if (key === 'onpremBilling') {
-				updateUrl((params) => {
-					if (opt.dataset.value === 'perpetual') params.set('solution', 'pe-perpetual');
-					else params.delete('solution');
-				});
-			}
+			document.getElementById(`plans-${go.dataset.deployGo}-tab`)?.click();
+			const tablist = document.querySelector('.p2-deploy');
+			if (tablist) scrollToElement(tablist);
 			return;
 		}
 
@@ -653,22 +650,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		if (event.key === 'Escape') {
 			const active = document.activeElement as HTMLElement | null;
 			if (active?.classList.contains('tip__btn')) active.blur();
-			return;
 		}
-
-		// The tabs are a tab set: arrows move along them, Home and End to their ends.
-		const tab = (event.target as Element | null)?.closest<HTMLButtonElement>('[data-deploy-tab]');
-		if (!tab) return;
-		const all = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-deploy-tab]'));
-		const i = all.indexOf(tab);
-		const moves: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
-		let next = -1;
-		if (event.key === 'Home') next = 0;
-		else if (event.key === 'End') next = all.length - 1;
-		else if (moves[event.key]) next = (i + moves[event.key] + all.length) % all.length;
-		if (next < 0) return;
-		event.preventDefault();
-		selectDeploy(all[next].dataset.deployTab!, { focus: true });
 	});
 
 	// The toggles render on their defaults; the pre-paint script may have chosen otherwise.
@@ -682,10 +664,9 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 
 <style is:global lang="scss">
 	@use '../../../styles/variables' as *;
-	// The product pages' rules as they were before the UI kit (see the partial's header): the marketing
-	// bar, the comparison table and the benefit tiles. This page takes only those; it has no hero, no
-	// bands and no bookend, and its FAQ is `ProductFaq`.
-	@use '../../../styles/pricing-draft-legacy';
+	@use '../../../styles/surface' as *;
+	// The bar every new page shares. Everything else is the kit's or this page's own.
+	@use '../../../styles/marketing-bar';
 
 	// Main's ground: the wave field is fixed behind the page, so the body lets it through in light
 	// mode, as the contact page does.
@@ -750,29 +731,8 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		}
 	}
 
-	// ---------------------------------------------------------------------------------------------
-	// THE PAGE: the footer's measure — 960 inside 20px of padding, the construction `FooterMap`,
-	// `ClosingCta` and the contact page share — so the page's left edge and the footer's are one line.
-	// Everything left-aligned under a centred title. Only Cloud's five plans leave it (see the grid).
-	// ---------------------------------------------------------------------------------------------
-	// THE ACCENT. The primary everywhere but On-premises, which takes the green its product page
-	// uses: `$color-pe-dark` fills under white (4.6:1), `$color-pe-link` is its readable ink on white
-	// (5.7:1 where the fill is 3.8), and the light tone carries links on the dark tooltip. Set on the
-	// page from the tab on <html>, so the tabs, the panels and the FAQ all read one value.
-	.p2 {
-		--p2-accent: #{$color-brand};
-		--p2-accent-ink: #{$color-brand};
-		--p2-accent-tint: rgba(61, 80, 245, 0.1);
-		--p2-accent-light: #{$color-brand-dark};
-	}
-
-	html[data-deploy='thingsboard-pe'] .p2 {
-		--p2-accent: #{$color-pe-dark};
-		--p2-accent-ink: #{$color-pe-link};
-		--p2-accent-tint: rgba(23, 134, 73, 0.1);
-		--p2-accent-light: #b4e7cd;
-	}
-
+	// THE ACCENT is the scheme: brand on the page, `data-accent="onprem"` on On-premises' blocks and
+	// its FAQ, so their buttons, marks, checks and tooltips take its green.
 	// The field turns over too: the lifted green the On-premises page draws its waves in, since the
 	// accent itself all but vanishes at the field's 3.5–10%.
 	html[data-deploy='thingsboard-pe'] body .pricing-bg {
@@ -793,12 +753,6 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		@include media-down(md) {
 			padding-top: calc(var(--home-header-h, #{$header-height}) + #{$spacing-6});
 		}
-	}
-
-	.p2-title {
-		@include type-display;
-		margin: 0 0 $spacing-5;
-		color: var(--color-text);
 	}
 
 	// `:where(section)` paints every section the page colour; these sit on the waves.
@@ -824,18 +778,6 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		}
 	}
 
-	.p2-h2 {
-		@include type-section;
-		margin: 0;
-		color: var(--color-text);
-	}
-
-	.p2-sub {
-		@include type-body;
-		margin: $spacing-1 0 0;
-		color: var(--color-text-secondary);
-	}
-
 	// A block after the plans: Add-ons, Top-ups, the comparison, the benefits.
 	.p2-block {
 		margin-top: $spacing-16;
@@ -843,109 +785,13 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		@include media-down(md) {
 			margin-top: $spacing-12;
 		}
-
-		.p2-sub {
-			margin-bottom: $spacing-6;
-		}
-
-		// A heading with no subtitle keeps the same air below it, on the heading itself. It sat on
-		// the next sibling, which under Top-ups is the North America list — so with Europe selected
-		// the shown list was the second sibling and "Entities" ran straight under "Top-ups".
-		> .p2-h2:not(:has(+ .p2-sub)) {
-			margin-bottom: $spacing-6;
-		}
-	}
-
-	// ---------------------------------------------------------------------------------------------
-	// THE PILL: the tabs and every toggle, one control. A group of pressed buttons for the toggles
-	// — each sets a view and nothing is submitted — and a real tab set for the deployments.
-	// ---------------------------------------------------------------------------------------------
-	.seg {
-		display: inline-flex;
-		flex: none;
-		gap: $spacing-1;
-		padding: $spacing-1;
-		border-radius: $radius-full;
-		background-color: rgba(15, 23, 42, 0.06);
-	}
-
-	.seg__opt {
-		@include type-small-strong;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: $spacing-2;
-		height: 36px;
-		padding: 0 $spacing-4;
-		border: 0;
-		border-radius: $radius-full;
-		background: none;
-		color: var(--color-text-secondary);
-		white-space: nowrap;
-		cursor: pointer;
-		transition:
-			background-color 0.15s ease,
-			color 0.15s ease;
-
-		svg {
-			flex: none;
-			width: 18px;
-			height: 18px;
-		}
-
-		&:hover {
-			color: var(--color-text);
-		}
-
-		&:focus-visible {
-			outline: 2px solid var(--p2-accent);
-			outline-offset: 2px;
-		}
-
-		&[aria-pressed='true'],
-		&.is-active {
-			background-color: #fff;
-			color: var(--color-text);
-			box-shadow:
-				0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.08),
-				0 2px 6px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.06);
-
-			svg {
-				color: var(--p2-accent);
-			}
-		}
-	}
-
-	// The tabs a step larger than the toggles: they choose the page, the toggles only a view of it.
-	.seg--tabs .seg__opt {
-		@include type-link;
-		height: 40px;
-		padding: 0 $spacing-5;
-
-		@include media-down(sm) {
-			flex: 1 1 0;
-			min-width: 0;
-			padding: 0 $spacing-2;
-			font-size: $font-size-sm;
-
-			svg {
-				display: none;
-			}
-		}
-	}
-
-	.seg--tabs {
-		@include media-down(sm) {
-			display: flex;
-			width: 100%;
-		}
 	}
 
 	// An ⓘ inside an option, right after its label: the option's own 8px gap halved, so the mark
 	// reads as the label's rather than as a third item in the pill. Muted in both states — the
 	// pressed option's glyph rule would otherwise colour it, and an accent ⓘ reads as a second control.
 	// Its tooltip also opens while the option has focus.
-	.seg .tip--inline {
+	.seg__opt .tip--inline {
 		margin-left: -#{$spacing-1};
 
 		.tip__btn {
@@ -955,69 +801,6 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		.tip__btn svg {
 			color: inherit;
 		}
-	}
-
-	.seg__save {
-		padding: 0 $spacing-2;
-		border-radius: $radius-full;
-		background-color: var(--p2-accent-tint);
-		color: var(--p2-accent-ink);
-		font-size: 12px;
-		line-height: 20px;
-	}
-
-	// ---------------------------------------------------------------------------------------------
-	// THE BUTTON: the new pages' geometry at the card size — 40 tall, 6 radius, bold.
-	// ---------------------------------------------------------------------------------------------
-	.p2-btn {
-		@include type-button;
-		display: inline-flex;
-		flex: none;
-		align-items: center;
-		justify-content: center;
-		gap: $spacing-2;
-		height: 40px;
-		padding: 0 $spacing-4;
-		border-radius: $radius-md;
-		text-decoration: none;
-		white-space: nowrap;
-
-		&:focus-visible {
-			outline: 2px solid var(--p2-accent);
-			outline-offset: 3px;
-		}
-
-		&--primary {
-			background-color: var(--p2-accent);
-			color: #fff;
-
-			&:hover {
-				background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
-				color: #fff;
-			}
-		}
-
-		&--secondary {
-			border: 1px solid rgba(15, 23, 42, 0.22);
-			background-color: #fff;
-			color: var(--color-text);
-
-			&:hover {
-				background-color: rgba(15, 23, 42, 0.04);
-				color: var(--color-text);
-			}
-		}
-	}
-
-	// The card ground every block here shares: white, no stroke, and a shadow that only lifts it —
-	// a contact line and a short soft fall, on the homepage's UI ink. It was the contact page's
-	// 18px-deep card shadow, which across five cards and a table read as a stack of panels.
-	%p2-card {
-		border-radius: 12px;
-		background-color: #fff;
-		box-shadow:
-			0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.05),
-			0 4px 14px -6px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.1);
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -1066,7 +849,8 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 	}
 
 	.plan {
-		@extend %p2-card;
+		@include surface(tile);
+
 		display: grid;
 		grid-row: span 5;
 		grid-template-rows: subgrid;
@@ -1078,8 +862,8 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		// The ring carries it; the shadow stays the cards' own, not a coloured glow.
 		&--popular {
 			box-shadow:
-				0 0 0 2px var(--p2-accent),
-				0 4px 14px -6px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.1);
+				0 0 0 2px var(--accent-fill),
+				var(--elev-tile);
 		}
 
 		&__head {
@@ -1095,16 +879,6 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			line-height: 1.3;
 			margin: 0;
 			color: var(--color-text);
-		}
-
-		&__flag {
-			padding: 0 $spacing-2;
-			border-radius: $radius-full;
-			background-color: var(--p2-accent-tint);
-			color: var(--p2-accent-ink);
-			font-size: 12px;
-			font-weight: $font-weight-medium;
-			line-height: 22px;
 		}
 
 		&__desc {
@@ -1134,7 +908,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			color: var(--color-text-secondary);
 		}
 
-		.p2-btn {
+		.plan__cta {
 			margin-top: $spacing-4;
 		}
 
@@ -1160,7 +934,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 				width: 16px;
 				height: 16px;
 				margin-top: 3px;
-				color: var(--p2-accent);
+				color: var(--accent-fill);
 			}
 
 			// White labeling and the per-device overage: what a plan adds, in the ink.
@@ -1198,35 +972,10 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			color: var(--color-text);
 		}
 
-		&__link {
-			@include type-link;
-			display: inline-flex;
-			align-items: center;
-			gap: 2px;
+		// `ui/Link`, set into the sentence: 4 after the question, on the line's own baseline.
+		.ui-link {
 			margin-left: $spacing-1;
-			color: var(--p2-accent-ink);
-			text-decoration: none;
-			white-space: nowrap;
 			vertical-align: bottom;
-
-			svg {
-				flex: none;
-				width: 18px;
-				height: 18px;
-			}
-
-			&:hover,
-			&:focus-visible {
-				color: var(--p2-accent-ink);
-				text-decoration: underline;
-				text-underline-offset: 3px;
-			}
-
-			&:focus-visible {
-				outline: 2px solid var(--p2-accent);
-				outline-offset: 3px;
-				border-radius: 2px;
-			}
 		}
 	}
 
@@ -1260,11 +1009,11 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 
 		&:hover,
 		&:focus-visible {
-			color: var(--p2-accent-ink);
+			color: var(--accent-ink);
 		}
 
 		&:focus-visible {
-			outline: 2px solid var(--p2-accent);
+			outline: 2px solid var(--focus-ring);
 			outline-offset: 2px;
 		}
 	}
@@ -1303,7 +1052,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		}
 
 		a {
-			color: var(--p2-accent-light);
+			color: var(--accent-light);
 			text-decoration: underline;
 			text-underline-offset: 2px;
 		}
@@ -1363,37 +1112,13 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 	}
 
 	.addon-card {
-		@extend %p2-card;
+		@include surface(tile);
+
 		display: flex;
 		align-items: flex-start;
 		gap: $spacing-4;
 		margin: 0;
 		padding: $spacing-5;
-
-		// The homepage's FILLED ecosystem badge, to its numbers: the product's accent under the cards'
-		// static sheen, the mark knocked out white at 82% (a Tabler glyph at 64%), 32% radius. The
-		// tinted tile it replaced read too light beside the prices.
-		&__mark {
-			display: grid;
-			flex: none;
-			place-items: center;
-			width: 48px;
-			height: 48px;
-			border-radius: 32%;
-			background-color: var(--addon-accent);
-			background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
-			color: #fff;
-		}
-
-		&__glyph {
-			width: 82%;
-			height: auto;
-
-			&--vector {
-				width: 64%;
-				height: 64%;
-			}
-		}
 
 		&__body {
 			min-width: 0;
@@ -1482,11 +1207,11 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			}
 
 			&:hover .topup__name {
-				color: var(--p2-accent-ink);
+				color: var(--accent-ink);
 			}
 
 			&:focus-visible {
-				outline: 2px solid var(--p2-accent);
+				outline: 2px solid var(--focus-ring);
 				outline-offset: 2px;
 				border-radius: $radius-lg;
 			}
@@ -1555,15 +1280,12 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 	// PERPETUAL: main's promo card, then its benefits.
 	// ---------------------------------------------------------------------------------------------
 	.p2-promo {
-		@extend %p2-card;
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
 		gap: $spacing-6 $spacing-10;
-		padding: $spacing-8;
 
 		@include media-down(md) {
 			grid-template-columns: minmax(0, 1fr);
-			padding: $spacing-6 $spacing-5;
 		}
 
 		&__lead {
@@ -1588,7 +1310,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 		&__price {
 			@include type-card;
 			margin: $spacing-5 0 $spacing-5;
-			color: var(--p2-accent-ink);
+			color: var(--accent-ink);
 		}
 
 		&__desc {
@@ -1620,69 +1342,7 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 			width: 20px;
 			height: 20px;
 			margin-top: 2px;
-			color: var(--p2-accent);
-		}
-	}
-
-	// The product pages' benefit tiles — a rule over each, no box — on main's full column.
-	.p2-benefits {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		max-width: none;
-		margin-top: $spacing-6;
-
-		@include media-down(lg) {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-
-		@include media-down(md) {
-			grid-template-columns: minmax(0, 1fr);
-		}
-
-		.benefit-card__icon {
-			width: 28px;
-			height: 28px;
-			color: var(--p2-accent);
-		}
-	}
-
-	// ---------------------------------------------------------------------------------------------
-	// THE COMPARISON: the product pages' table, in a card so its pinned cells have a ground to match.
-	// ---------------------------------------------------------------------------------------------
-	.p2-table {
-		@extend %p2-card;
-		--matrix-band: #fff;
-		padding: $spacing-2 $spacing-4 $spacing-4;
-
-		.matrix-scroll {
-			max-width: none;
-		}
-
-		.matrix tbody th[scope='row'] {
-			width: 32%;
-		}
-
-		.matrix td {
-			text-align: center;
-		}
-
-		.matrix thead th:not(:first-child) .matrix__col {
-			justify-content: center;
-		}
-
-		@media (max-width: 879px) {
-			.matrix td {
-				text-align: left;
-			}
-		}
-	}
-
-	.matrix__yes {
-		display: inline-flex;
-
-		svg {
-			width: 20px;
-			height: 20px;
-			color: var(--p2-accent);
+			color: var(--accent-fill);
 		}
 	}
 
@@ -1695,10 +1355,6 @@ const prepaint = { ids: MAIN_TAB_ORDER, fallback: DEFAULT_DEPLOYMENT, regionKey:
 
 		@include media-down(md) {
 			margin-top: $spacing-12;
-		}
-
-		.product-faq {
-			margin-top: $spacing-6;
 		}
 	}
 </style>

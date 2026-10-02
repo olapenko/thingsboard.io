@@ -9,13 +9,16 @@ the live reference is `/internal/library/kit/` (every component, variant, size a
 | `Link` | standalone (label + chevron) or inline (always underlined); tones accent · ink · muted |
 | `Mark` | the squircle tile: 36 · 40 · 48 · 64 · 72 · 80 · 88; one of `icon`, `logo`, `product` (`@data/marks`) |
 | `Chip`, `ChipGroup` | link · toggle · tag |
-| `Tabs`, `TabPanel` | segmented or list, one script (`@util/tabs`) |
+| `Tabs`, `TabPanel` | segmented · list · grid, one script (`@util/tabs`); `tabs:change` bubbles and can be cancelled |
+| `Segmented` | the pill as a toggle: it sets a value (`segmented:select`, `@util/segmented`); Tabs' segmented look is this |
 | `Field` | label, control, hint, error, counter; an attached button in the `end` slot (`@util/form-validate`) |
-| `Card`, `CardGrid`, `LinkCard` | tile · row · panel; surface · ghost · inverse; `href` makes the whole card the link |
+| `Card`, `CardGrid`, `LinkCard` | tile · row · panel; surface · ghost · inverse; `href` makes the whole card the link; grids of 2, 3 or 4 |
 | `Band` | a section's ground, padding step and measure; sets `data-surface` |
 | `Dialog` | the modal shell on a native `<dialog>` (`@util/dialog`) |
 
-Built on them, in `Landing/`: `SectionHeader`, `PageIntro`, `RegionChoice`, `InstallOptions`, `Bookend`.
+Built on them, in `Landing/`: `SectionHeader`, `PageIntro`, `RegionChoice`, `InstallOptions`, `Bookend`,
+and the product and pricing pages' blocks: `ProductMatrix` (any number of columns, `true` is a check),
+`BenefitGrid`, `ChoiceBand` (two or three options), `ProductFaq`.
 
 ## How colour and focus work
 

@@ -6,9 +6,10 @@ import type { DataTableColumn } from '@models/data-table';
 import type { CompareColumn, CompareGroup, CompareRow } from '@data/product-blocks';
 
 /**
- * The product pages' comparison: two columns of values against a column of row labels, in groups
- * that each open on a heading spanning the table. Cloud's Public against Private, On-premises'
- * platform against a stack assembled from separate services. On `DataTable`, like every other
+ * The marketing pages' comparison: columns of values against a column of row labels, in groups
+ * that each open on a heading spanning the table, or in one run with no headings. Cloud's Public
+ * against Private, On-premises' platform against a stack assembled from separate services, Private
+ * Cloud's four plans on Pricing. On `DataTable`, like every other
  * marketing table, so the caption, the header scopes and the no-empty-cell contract that
  * `pnpm lint:landmarks` checks are the shell's, not this file's.
  *
@@ -28,16 +29,21 @@ interface Props {
 	caption: string;
 	/** The row labels' column heading. */
 	firstLabel: string;
-	/** The two value columns, in the order of each row's `values`. */
-	columns: [CompareColumn, CompareColumn];
+	/** The value columns, in the order of each row's `values`. */
+	columns: CompareColumn[];
+	/** Rows with no heading of their own, above the groups (a lead row, or the whole table). */
+	rows?: CompareRow[];
 	/** An unlabelled first row, above the group headings. */
 	lead?: CompareRow;
-	groups: CompareGroup[];
+	groups?: CompareGroup[];
+	/** The values' alignment: `center` for a ladder of plans, where each column is one step. */
+	align?: 'start' | 'center';
 }
 
-const { caption, firstLabel, columns, lead, groups } = Astro.props;
+const { caption, firstLabel, columns, rows = [], lead, groups = [], align = 'start' } = Astro.props;
 
 const NOT_INCLUDED = '—';
+const included = (value: string | boolean) => value !== false && value !== NOT_INCLUDED;
 
 const tableColumns: DataTableColumn[] = [
 	{ label: firstLabel },
@@ -49,20 +55,26 @@ const tableColumns: DataTableColumn[] = [
 ];
 
 // The lead row sits above the first group heading, as a run of rows with no heading of its own.
+const ungrouped = [...(lead ? [lead] : []), ...rows];
 const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
-	...(lead ? [{ rows: [lead] }] : []),
+	...(ungrouped.length ? [{ rows: ungrouped }] : []),
 	...groups.map((group) => ({ group, rows: group.rows })),
 ];
 ---
 
-<DataTable caption={caption} columns={tableColumns} colgroup={false} class="product-matrix">
+<DataTable
+	caption={caption}
+	columns={tableColumns}
+	colgroup={false}
+	class:list={['product-matrix', align === 'center' && 'product-matrix--center']}
+>
 	{
 		runs.map(({ group, rows }) => (
 			<>
 				{group && (
 					<tr class="product-matrix__group">
 						{/* A group heading spans the table, so it is a header for everything under it. */}
-						<th scope="colgroup" colspan="3">
+						<th scope="colgroup" colspan={columns.length + 1}>
 							<span class="product-matrix__group-title">
 								<Mark size={36} icon={group.icon} accent={group.color} />
 								{group.title}
@@ -74,18 +86,18 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 					<tr>
 						<th scope="row">{row.label}</th>
 						{row.values.map((value, i) => (
-							<td class:list={[value === NOT_INCLUDED && 'product-matrix__none']}>
+							<td class:list={[!included(value) && 'product-matrix__none']}>
 								{/* The column's name, in the cell: hidden from 880, where the header row
 								    does the job, and what keeps every value attached to its column below. */}
 								<span class="product-matrix__cell-label">{columns[i].name}</span>
-								{value === NOT_INCLUDED ? (
+								{!included(value) ? (
 									<>
 										<DataTableValue value={false} noText="Not included" />
-										<span aria-hidden="true">{value}</span>
+										<span aria-hidden="true">{NOT_INCLUDED}</span>
 									</>
 								) : (
-									<span>
-										<DataTableValue value={value} />
+									<span class:list={[value === true && 'product-matrix__yes']}>
+										<DataTableValue value={value} yesText="Included" />
 									</span>
 								)}
 							</td>
@@ -211,6 +223,31 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 
 		.product-matrix__none {
 			color: rgba(15, 23, 42, 0.4);
+		}
+
+		// A check, in the scheme's fill: it carries the meaning, so it reads at 3:1 like any mark.
+		.product-matrix__yes {
+			display: inline-flex;
+			color: var(--accent-fill);
+
+			svg {
+				width: 20px;
+				height: 20px;
+			}
+		}
+	}
+
+	// A ladder of plans: each column one step, its values under its name.
+	.product-matrix--center {
+		td,
+		thead th:not(:first-child) {
+			text-align: center;
+		}
+
+		@media (max-width: 879px) {
+			td {
+				text-align: start;
+			}
 		}
 	}
 

@@ -168,8 +168,8 @@ Key rule: **Never hardcode font values** — use mixins. **Never use compile-tim
 
 ### UI kit
 
-The new marketing pages are built from `src/components/ui/` (Button, Link, Mark, Chip, Tabs, Field,
-Card, Band, Dialog). **Read `src/components/ui/README.md` before building or restyling a page**: it
+The new marketing pages are built from `src/components/ui/` (Button, Link, Mark, Chip, Tabs,
+Segmented, Field, Card, Band, Dialog). **Read `src/components/ui/README.md` before building or restyling a page**: it
 holds the rules (no page CSS for what a component owns, sizes are steps, colour from `data-accent`,
 the ground from `data-surface`). Every component renders live at `/internal/library/kit/`.
 

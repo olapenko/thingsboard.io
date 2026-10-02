@@ -5,9 +5,10 @@
  *
  * Underscore-prefixed so Astro does not make it a route.
  */
-import { Icon } from 'astro-icon/components';
-import EcosystemMark from '@components/Landing/EcosystemMark.astro';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
 import { addonMark } from '@data/pricingPage';
+import { markBySrc } from '@data/marks';
 import type { AddOnItem } from '@data/pricing-live/types';
 
 interface Props {
@@ -26,6 +27,15 @@ const price = (a: AddOnItem) => {
 	return `${a.startingFrom ? 'From ' : ''}${value}${a.period ? ` ${a.period.replace(/^\//, 'per ')}` : ''}`;
 };
 
+/** What the add-on's tile holds: the logo, a product's mark, or a glyph (`ui/Mark`). */
+const markOf = (a: AddOnItem) => {
+	const mark = addonMark(a.name);
+	const art = mark.src ? markBySrc(mark.src) : undefined;
+	if (mark.src && !art) throw new Error(`pricing draft: no mark for ${mark.src}`);
+	const content = art === 'thingsboard' ? { logo: art } : art ? { product: art } : { icon: mark.icon };
+	return { accent: mark.accent, ...content };
+};
+
 const setup = (a: AddOnItem) =>
 	a.setupFee ? `+ ${a.setupFeeCurrency ?? '$'}${a.setupFee.toLocaleString('en-US')} one-time setup` : null;
 ---
@@ -33,23 +43,20 @@ const setup = (a: AddOnItem) =>
 <ul class="addon-grid">
 	{
 		addOns.map((addon) => {
-			const mark = addonMark(addon.name);
 			const amount = price(addon);
 			const fee = setup(addon);
 			return (
 				<li class="addon-tile">
-					<span class="addon-tile__mark" style={`--addon-accent: ${mark.accent}`} aria-hidden="true">
-						{mark.src ? (
-							<EcosystemMark src={mark.src} class="addon-tile__glyph" filled />
-						) : (
-							<Icon name={mark.icon!} class="addon-tile__icon" />
-						)}
-					</span>
+					<Mark size={48} {...markOf(addon)} />
 					<div class="addon-tile__body">
 						<h3 class="addon-tile__name">{addon.name}</h3>
 						{addon.description && <p class="addon-tile__desc">{addon.description.replace(/\.$/, '')}</p>}
 						<p class="addon-tile__price">
-							{amount ?? <a href={contactHref}>Contact us for a quote</a>}
+							{amount ?? (
+								<Link variant="inline" href={contactHref}>
+									Contact us for a quote
+								</Link>
+							)}
 							{fee && <span class="addon-tile__fee">{fee}</span>}
 						</p>
 					</div>

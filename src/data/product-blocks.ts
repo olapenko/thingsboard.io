@@ -9,17 +9,20 @@
 export interface Benefit {
 	/** Tabler name, rendered as a bare glyph with no fill behind it. */
 	icon: string;
-	/** The glyph's hue. Each page explains where its own hues come from, above its list. */
-	color: string;
+	/** The glyph's hue. Each page explains where its own hues come from, above its list. Default: the scheme's fill. */
+	color?: string;
 	title: string;
 	description: string;
 }
 
-/** One row of a comparison: a label and the two columns' values, in column order. */
+/** One row of a comparison: a label and a value per column, in column order. */
 export interface CompareRow {
 	label: string;
-	/** An em dash (`—`) is a value: "not included", which the table says in words for a screen reader. */
-	values: [string, string];
+	/**
+	 * `true` is a check ("Included"); `false` and an em dash (`—`) are "not included", which the
+	 * table says in words for a screen reader; any other string is the value.
+	 */
+	values: (string | boolean)[];
 }
 
 /** A run of rows under a heading that spans the table, marked with a squircle in the group's hue. */
@@ -60,6 +63,8 @@ export interface ChoiceOption {
 	cta: ChoiceCta;
 	/** "See plans": a deep link into `/pricing/` on this option. */
 	plansHref?: string;
+	/** Attributes for that link, for a page script that handles it (Pricing switches its tab). */
+	plansAttrs?: Record<string, string>;
 }
 
 /** The line under the cards: the exit to the other deployment. */

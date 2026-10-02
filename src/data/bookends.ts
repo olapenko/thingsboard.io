@@ -2,6 +2,8 @@ import { installProducts, type InstallOption, type InstallRegion } from '@data/i
 import { onPremCtas } from '@data/onPremPage';
 import { paasCtas } from '@data/paasPage';
 import { INSTALL_GUIDE_HREF } from '@data/cta-destinations';
+import { FOOTER_LICENSE_PORTAL } from '@data/footer-map';
+import { pricingClosing } from '@data/pricingPage';
 
 /**
  * The bookends: the band that closes a marketing page, over its footer. One shape on every page —
@@ -18,7 +20,7 @@ import { INSTALL_GUIDE_HREF } from '@data/cta-destinations';
  * a region or a guide changed there changes here.
  */
 
-export type BookendId = 'home' | 'cloud' | 'onprem';
+export type BookendId = 'home' | 'cloud' | 'onprem' | 'pricing';
 
 /** A button: primary is filled in the page's accent, secondary is the outline beside it. */
 export interface BookendAction {
@@ -31,6 +33,8 @@ export interface BookendAction {
 export interface BookendLink {
 	text: string;
 	href: string;
+	/** Leaves the site: the up-right arrow, a new tab. */
+	external?: boolean;
 }
 
 export interface Bookend {
@@ -44,6 +48,11 @@ export interface Bookend {
 	 * has none.
 	 */
 	badge?: boolean;
+	/**
+	 * A tabler glyph for the centred mark in place of the logo, for a page that is not one product's:
+	 * Pricing opens and closes on its tag.
+	 */
+	icon?: string;
 	/** The light ground: the page's own tint. */
 	band: string;
 	/** The way in as buttons, when the bookend shows no regions or platforms. */
@@ -173,6 +182,30 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 			link: { text: 'ThingsBoard On-premises', href: '/products/thingsboard-pe/' },
 		},
 		note: paasCtas.privacy,
+	},
+
+	// The pricing drafts' closing (`pricingClosing`), the hero's tag over it, the license portal under.
+	pricing: {
+		title: pricingClosing.title,
+		lead: pricingClosing.lead,
+		icon: 'tabler:tag',
+		accent: '#3d50f5',
+		band: '#f5f6ff',
+		primary: {
+			text: pricingClosing.primary.text,
+			href: pricingClosing.primary.href,
+			icon: 'tabler:cloud-filled',
+			attrs: pricingClosing.primary.attrs,
+		},
+		secondary: {
+			text: pricingClosing.secondary.text,
+			href: pricingClosing.secondary.href,
+			icon: 'tabler:message-circle',
+		},
+		cross: {
+			lead: FOOTER_LICENSE_PORTAL.caption,
+			link: { text: FOOTER_LICENSE_PORTAL.label, href: FOOTER_LICENSE_PORTAL.href, external: true },
+		},
 	},
 
 	// The On-premises page's `.page-closing`, word for word, with the page's own line to Cloud.
