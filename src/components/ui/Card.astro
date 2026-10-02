@@ -1,0 +1,255 @@
+---
+/**
+ * One white box in three roles: a TILE sits in a grid (r8), a ROW is one line of a list (r8, 12 16),
+ * a PANEL stands alone (r16, 32). The role sets the corner, the padding and the lift; whether the
+ * card is a link sets its states.
+ *
+ * A LINK card (`href`) is one anchor, the title, stretched over the card; anything clickable inside
+ * sits above it. Hover deepens the lift and turns the title to the accent (nothing translates),
+ * the press drops the lift back with a 2px underline, and the focus ring goes round the card at
+ * its own radius. A card that HOLDS actions (two buttons, say) takes no `href`: its controls own
+ * every state and the card stays still.
+ *
+ * Tones: `surface` (white with the role's lift), `ghost` (translucent on a dark or tinted ground,
+ * no lift, and r16 whatever the role: a box with no edge but its fill reads square at 8), `inverse`
+ * (the bookend indigo, and a dark ground for what is inside).
+ */
+import { newTabAttrs, NEW_TAB_NOTE } from '@util/external-links';
+import type { Scheme } from '@util/ui-kit';
+
+interface Props {
+	role?: 'tile' | 'row' | 'panel';
+	tone?: 'surface' | 'ghost' | 'inverse';
+	/** 12 16 · 20 · 32 (24 20 on phones) · 48 40 (32 20). Default by role: row sm, tile md, panel lg. */
+	pad?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+	/** The whole card is the link. Needs `title`. */
+	href?: string;
+	/** Attributes for the card's own link (a `data-*` hook, an id), where `attrs` goes on the card. */
+	linkAttrs?: Record<string, string | undefined>;
+	/** The card's link leaves the site: a new tab, `rel`, and "opens in a new tab" for screen readers. */
+	external?: boolean;
+	title?: string;
+	/** The title's heading level. */
+	level?: 2 | 3 | 4 | 5;
+	/** 16 (type-tile) or 24 (type-card). */
+	titleSize?: 'tile' | 'card';
+	as?: 'div' | 'li' | 'article' | 'section' | 'form';
+	/** A scheme name for everything inside. */
+	accent?: Scheme;
+	class?: string;
+	attrs?: Record<string, string | undefined>;
+}
+
+const {
+	role = 'tile',
+	tone = 'surface',
+	href,
+	linkAttrs = {},
+	external = false,
+	title,
+	level = 3,
+	titleSize = 'tile',
+	as: Tag = 'div',
+	accent,
+	class: className,
+	attrs = {},
+} = Astro.props;
+const pad = Astro.props.pad ?? (role === 'row' ? 'sm' : role === 'panel' ? 'lg' : 'md');
+const Heading = `h${level}` as 'h2';
+const hasTitle = title !== undefined || Astro.slots.has('title');
+if (href && !hasTitle) throw new Error('ui/Card: a link card needs a title, the link is on it.');
+// Whatever opens the new tab, `external` or a `target` passed through, a screen reader hears it.
+const newTab = external || linkAttrs.target === '_blank';
+---
+
+<Tag
+	class:list={[
+		'ui-card',
+		`ui-card--${role}`,
+		`ui-card--${tone}`,
+		`ui-card--pad-${pad}`,
+		href && 'ui-card--link',
+		className,
+	]}
+	data-accent={accent}
+	data-surface={tone === 'inverse' ? 'dark' : tone === 'surface' ? 'light' : undefined}
+	{...attrs}
+>
+	<slot name="mark" />
+	<slot name="eyebrow" />
+	{hasTitle && (
+		<Heading class:list={['ui-card__title', `ui-card__title--${titleSize}`]}>
+			{href ? (
+				<a class="ui-card__link" href={href} {...newTabAttrs(external)} {...linkAttrs}>
+					{title}
+					<slot name="title" />
+					{newTab && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
+				</a>
+			) : (
+				<>
+					{title}
+					<slot name="title" />
+				</>
+			)}
+		</Heading>
+	)}
+	<slot />
+	<slot name="media" />
+	{Astro.slots.has('footer') && (
+		<div class="ui-card__footer">
+			<slot name="footer" />
+		</div>
+	)}
+</Tag>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
+
+	.ui-card {
+		position: relative;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.ui-card--surface.ui-card--tile,
+	.ui-card--surface.ui-card--row {
+		@include surface(tile);
+	}
+
+	.ui-card--surface.ui-card--panel {
+		@include surface(panel);
+	}
+
+	.ui-card--panel {
+		border-radius: $radius-xl;
+	}
+
+	.ui-card--tile,
+	.ui-card--row {
+		border-radius: $radius-lg;
+	}
+
+	.ui-card--ghost {
+		border-radius: $radius-xl;
+		background-color: rgba(255, 255, 255, 0.06);
+		color: inherit;
+	}
+
+	.ui-card--inverse {
+		background-color: var(--band-indigo);
+		color: #fff;
+	}
+
+	.ui-card--pad-none {
+		padding: 0;
+	}
+
+	.ui-card--pad-sm {
+		padding: $spacing-3 $spacing-4;
+	}
+
+	.ui-card--pad-md {
+		padding: $spacing-5;
+	}
+
+	.ui-card--pad-lg {
+		padding: $spacing-8;
+
+		@include media-down(md) {
+			padding: $spacing-6 $spacing-5;
+		}
+	}
+
+	.ui-card--pad-xl {
+		padding: $spacing-12 $spacing-10;
+
+		@include media-down(md) {
+			padding: $spacing-8 $spacing-5;
+		}
+	}
+
+	.ui-card__title {
+		margin: 0;
+		color: inherit;
+	}
+
+	.ui-card__title--tile {
+		@include type-tile;
+	}
+
+	.ui-card__title--card {
+		@include type-card;
+	}
+
+	.ui-card__footer {
+		margin-top: auto;
+	}
+
+	// ── LINK CARDS ──
+	.ui-card__link {
+		color: inherit;
+		text-decoration: none;
+		text-underline-offset: 3px;
+
+		// The anchor covers the card; controls inside sit above it (`position: relative; z-index: 1`).
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+		}
+
+		// The ring goes round the whole card (below); a browser without `:has` rings the title.
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+
+		@supports selector(:has(*)) {
+			&:focus-visible {
+				outline: none;
+			}
+		}
+	}
+
+	// Hover turns the title to the accent: its ink on light, its light tone on a dark ground.
+	.ui-card--link {
+		--_title-hover: var(--accent-ink);
+
+		@include on-dark {
+			--_title-hover: var(--accent-light);
+		}
+
+		:where(a:not(.ui-card__link), button) {
+			position: relative;
+			z-index: 1;
+		}
+
+		@media (hover: hover) {
+			&:hover .ui-card__title {
+				color: var(--_title-hover);
+			}
+		}
+
+		&:active {
+			.ui-card__link {
+				text-decoration-line: underline;
+				text-decoration-thickness: 2px;
+			}
+		}
+
+		// The ring round the whole card, at its own radius, 3px out.
+		&:has(.ui-card__link:focus-visible) {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+	}
+
+	// Only a white tile or row lifts; a panel, a ghost and an inverse card stay still.
+	.ui-card--surface.ui-card--link:not(.ui-card--panel) {
+		@include surface-lift;
+	}
+</style>

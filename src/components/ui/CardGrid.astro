@@ -1,0 +1,103 @@
+---
+/**
+ * The grid cards sit in: 3, 2 and 1 columns at 1024 and 750 (or 2 and 1, or 4, 2 and 1), a 20px
+ * gap, and no max-width of its own (the Band supplies the 960 measure).
+ *
+ * `layout="centred"` wraps the rows and centres a short last row, as the features grid does.
+ *
+ * A child spans two columns with the `ui-card-grid__wide` class.
+ */
+interface Props {
+	cols?: 2 | 3 | 4;
+	gap?: 'md' | 'lg';
+	layout?: 'grid' | 'centred';
+	class?: string;
+	attrs?: Record<string, string | undefined>;
+}
+
+const { cols = 3, gap = 'md', layout = 'grid', class: className, attrs = {} } = Astro.props;
+---
+
+<div
+	class:list={[
+		'ui-card-grid',
+		`ui-card-grid--${layout}`,
+		`ui-card-grid--cols-${cols}`,
+		`ui-card-grid--gap-${gap}`,
+		className,
+	]}
+	{...attrs}
+>
+	<slot />
+</div>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	.ui-card-grid {
+		--_gap: #{$spacing-5};
+	}
+
+	.ui-card-grid--gap-lg {
+		--_gap: #{$spacing-6};
+	}
+
+	.ui-card-grid--grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--_gap);
+
+		@include media-up(md) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		&.ui-card-grid--cols-3 {
+			@include media-up(lg) {
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+			}
+		}
+
+		&.ui-card-grid--cols-4 {
+			@include media-up(lg) {
+				grid-template-columns: repeat(4, minmax(0, 1fr));
+			}
+		}
+
+		> .ui-card-grid__wide {
+			@include media-up(md) {
+				grid-column: span 2;
+			}
+		}
+	}
+
+	// Centred rows: each item a column's width, the last row centred under the rest.
+	.ui-card-grid--centred {
+		--_n: 1;
+
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: var(--_gap);
+
+		> * {
+			flex: 0 0 calc((100% - (var(--_n) - 1) * var(--_gap)) / var(--_n));
+			min-width: 0;
+		}
+
+		@include media-up(md) {
+			--_n: 2;
+		}
+
+		&.ui-card-grid--cols-3 {
+			@include media-up(lg) {
+				--_n: 3;
+			}
+		}
+
+		&.ui-card-grid--cols-4 {
+			@include media-up(lg) {
+				--_n: 4;
+			}
+		}
+	}
+</style>

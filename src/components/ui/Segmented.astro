@@ -1,0 +1,376 @@
+---
+/**
+ * The segmented pill: two or three equal options on a track, a white thumb under the chosen one.
+ * One look, two jobs:
+ *
+ * - a TOGGLE (the default): it sets a value, a region or a billing period, and shows nothing of
+ *   its own. `role="group"`, each option a button with `aria-pressed`; choosing one fires
+ *   `segmented:select` with `{ name, value }` (`util/segmented.ts`) for the page to act on.
+ * - TABS: what changes is which panel is on the page. `ui/Tabs` renders this with `tabs` for its
+ *   segmented look, and `util/tabs.ts` drives it (the AI switch, Automate).
+ *
+ * Equal segments, sized by the widest label, so the thumb is one width and moves by whole steps
+ * (`--seg-count`, `--seg-index`) and cannot drift from the option under it. The track takes its
+ * ground: `neutral` is the ink at 6%, which darkens whatever band is under it; `accent` is the
+ * scheme's wash. md is 40 tall, sm 36; every pill is 44 and full width below 480, where three or
+ * more segments drop their icons so the words stay whole (a third of 343px holds a label, not both).
+ *
+ * An option can carry an icon, a phone label, a colour its chosen label takes, a `badge` (a tag
+ * such as "Save 10%"), and a slot named by its value for anything else (a tooltip's mark). Write
+ * each slot out with its literal name (`slot="perpetual"`): Astro hoists slotted children out of a
+ * `.map`, so a `slot={value}` inside one loses its variable.
+ */
+import { Icon } from 'astro-icon/components';
+import Chip from '@components/ui/Chip.astro';
+import { sizeClasses, type Responsive } from '@util/ui-kit';
+
+export interface SegmentedOption {
+	label: string;
+	/** Toggle: the value the option sets. */
+	value?: string;
+	/** Tabs: the id of the panel it shows; the option's own id is `<panel>-tab`. */
+	panel?: string;
+	/** Shown instead of `label` below 480, where the segments share ~330px. */
+	shortLabel?: string;
+	icon?: string;
+	/** The chosen label's colour. Dark enough to read on the white thumb. */
+	color?: string;
+	/** A short tag after the label. */
+	badge?: string;
+	/** A native tooltip. */
+	title?: string;
+	/** The id of what describes the option (a tooltip's body in its slot). */
+	describedBy?: string;
+}
+
+interface Props {
+	/** The group's accessible name: what is being chosen. */
+	label: string;
+	options: SegmentedOption[];
+	/** Index of the option chosen first. */
+	selected?: number;
+	/** Toggle: names the value in `segmented:select`. */
+	name?: string;
+	/**
+	 * Toggle: the option comes from `<html data-<name>>` when a script set it before paint (a deep
+	 * link, a remembered region); `selected` otherwise. Pressed by an inline script right after the
+	 * group, so the pill never paints the default and then slides.
+	 */
+	initialFromRoot?: boolean;
+	/** md 40 · sm 36, or one per breakpoint: `{ base: 'sm', sm: 'md' }`. */
+	size?: Responsive<'sm' | 'md'>;
+	tone?: 'neutral' | 'accent';
+	/** Render as a tab set; `ui/Tabs` passes it. */
+	tabs?: boolean;
+	class?: string;
+}
+
+const {
+	label,
+	options,
+	selected = 0,
+	name,
+	initialFromRoot = false,
+	size = 'md',
+	tone = 'neutral',
+	tabs = false,
+	class: className,
+} = Astro.props;
+// `initialFromRoot`: the group is the script's previous sibling; its option from <html>'s dataset.
+const PRESS_FROM_ROOT = `(function (g) {
+	var v = document.documentElement.dataset[g.dataset.segmentedName];
+	var opts = g.querySelectorAll('.ui-seg__opt');
+	var at = -1;
+	opts.forEach(function (o, i) { if (o.dataset.value === v) at = i; });
+	if (at < 0) return;
+	opts.forEach(function (o, i) { o.setAttribute('aria-pressed', i === at ? 'true' : 'false'); });
+	g.style.setProperty('--seg-index', at);
+})(document.currentScript.previousElementSibling);`;
+
+// A slot per option, named by its value (or panel). `<slot name>` takes only a literal, so each is
+// rendered here by name.
+const extras = await Promise.all(
+	options.map((o) => {
+		const name = o.value ?? o.panel ?? '';
+		return name && Astro.slots.has(name) ? Astro.slots.render(name) : Promise.resolve('');
+	})
+);
+---
+
+<div
+	class:list={[
+		'ui-seg',
+		...sizeClasses('ui-seg', size),
+		tone === 'accent' && 'ui-seg--accent',
+		options.length >= 3 && 'ui-seg--three',
+		className,
+	]}
+	role={tabs ? 'tablist' : 'group'}
+	aria-label={label}
+	data-tabs={tabs ? '' : undefined}
+	data-segmented={tabs ? '' : undefined}
+	data-segmented-toggle={tabs ? undefined : ''}
+	data-segmented-name={tabs ? undefined : name}
+	style={`--seg-count: ${options.length}; --seg-index: ${selected}`}
+>
+	<span class="ui-seg__thumb" aria-hidden="true"></span>
+	{options.map((o, i) => (
+		<button
+			type="button"
+			class="ui-seg__opt"
+			data-value={o.value}
+			title={o.title}
+			aria-describedby={o.describedBy}
+			style={o.color ? `--seg-color: ${o.color}` : undefined}
+			{...(tabs
+				? {
+						role: 'tab',
+						id: `${o.panel}-tab`,
+						'aria-controls': o.panel,
+						'aria-selected': i === selected ? 'true' : 'false',
+						tabindex: i === selected ? 0 : -1,
+					}
+				: { 'aria-pressed': i === selected ? 'true' : 'false' })}
+		>
+			{o.icon && <Icon name={o.icon} class="ui-seg__icon" aria-hidden="true" />}
+			<span class:list={['ui-seg__label', o.shortLabel && 'ui-seg__label--long']}>{o.label}</span>
+			{o.shortLabel && <span class="ui-seg__label ui-seg__label--short">{o.shortLabel}</span>}
+			{o.badge && <Chip kind="tag">{o.badge}</Chip>}
+			{
+				/* Out of the option's name: a tooltip in it would be read twice, once in the name and
+					   again through `aria-describedby`, which still reaches it. */
+				extras[i] && (
+					<span class="ui-seg__extra" aria-hidden="true">
+						<Fragment set:html={extras[i]} />
+					</span>
+				)
+			}
+		</button>
+	))}
+</div>
+
+{initialFromRoot && name && <script is:inline set:html={PRESS_FROM_ROOT}></script>}
+
+<script>
+	import { mountAllSegmented } from '@util/segmented';
+
+	mountAllSegmented();
+</script>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
+
+	// ── THE PILL ────────────────────────────────────────────────────────────
+	// The track: a pill with no stroke, so the fill alone makes it a slot the thumb sits IN. The fill
+	// is translucent, so it takes the ground's hue (a tint band, the AI wash) instead of laying a
+	// grey of its own on it; the white thumb stays white. `fit-content`, so a grid or a flex column
+	// around it never stretches it to the row.
+	.ui-seg {
+		--seg-pad: 3px;
+		--_track: rgba(23, 24, 28, 0.06);
+		--_label: var(--color-text-secondary, #{$color-text-secondary});
+		--_label-hover: var(--color-text, #{$color-text-primary});
+
+		position: relative;
+		display: inline-grid;
+		grid-auto-columns: 1fr;
+		grid-auto-flow: column;
+		width: fit-content;
+		max-width: 100%;
+		padding: var(--seg-pad);
+		border-radius: $radius-full;
+		background: var(--_track);
+		isolation: isolate;
+
+		@include on-dark {
+			--_track: rgba(255, 255, 255, 0.1);
+			--_label: rgba(255, 255, 255, 0.72);
+			--_label-hover: #fff;
+		}
+
+		// Right to left the options run from the right, and the thumb moves with them.
+		&:dir(rtl) {
+			--_dir: -1;
+		}
+	}
+
+	// The scheme's wash: 10% of the fill, its light tone at 16% on dark.
+	.ui-seg--accent {
+		--_track: color-mix(in srgb, var(--accent-fill) 10%, transparent);
+
+		@include on-dark {
+			--_track: color-mix(in srgb, var(--accent-light) 16%, transparent);
+		}
+	}
+
+	// The thumb: one segment wide, moved in whole segments through two custom properties rather
+	// than measured, so it cannot drift from the segment under it at any width or zoom.
+	.ui-seg__thumb {
+		position: absolute;
+		z-index: -1;
+		top: var(--seg-pad);
+		bottom: var(--seg-pad);
+		inset-inline-start: var(--seg-pad);
+		width: calc((100% - 2 * var(--seg-pad)) / var(--seg-count));
+		border-radius: $radius-full;
+		background: #fff;
+		box-shadow:
+			0 1px 2px rgba(var(--color-shadow-ui-rgb), 0.1),
+			0 3px 10px rgba(var(--color-shadow-ui-rgb), 0.08);
+		transform: translateX(calc(var(--seg-index) * 100% * var(--_dir, 1)));
+		transition: transform var(--seg-duration, 280ms) var(--seg-ease, cubic-bezier(0.3, 0.7, 0.2, 1));
+	}
+
+	.ui-seg__opt {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		margin: 0;
+		border: 0;
+		border-radius: $radius-full;
+		background: none;
+		white-space: nowrap;
+		color: var(--_label);
+		cursor: pointer;
+		transition: color 180ms ease;
+
+		@media (hover: hover) {
+			&:hover {
+				color: var(--_label-hover);
+			}
+		}
+
+		// On the white thumb, so always the light ground's ink, on any band.
+		&[aria-selected='true'],
+		&[aria-pressed='true'] {
+			color: var(--seg-color, var(--color-text, #{$color-text-primary}));
+			cursor: default;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+
+		@media (forced-colors: active) {
+			&[aria-selected='true'],
+			&[aria-pressed='true'] {
+				outline: 2px solid Highlight;
+			}
+		}
+	}
+
+	// The sizes. md is the default above; sm, 36 tall at 14px, is for a toggle under a heading, where
+	// md would outweigh the heading's lede. Per breakpoint like Button's: `ui-seg--sm-up-md`.
+	@mixin seg-size($size) {
+		@if $size == sm {
+			.ui-seg__opt {
+				@include type-small-strong;
+
+				min-height: 36px;
+				padding: 0 $spacing-3;
+				line-height: 1;
+			}
+
+			.ui-seg__icon {
+				width: 18px;
+				height: 18px;
+			}
+		} @else {
+			.ui-seg__opt {
+				@include type-body;
+
+				min-height: 40px;
+				padding: 0 $spacing-4;
+				font-weight: $font-weight-medium;
+				line-height: 1;
+			}
+
+			// 20, the site's icon size beside 16px type.
+			.ui-seg__icon {
+				width: 20px;
+				height: 20px;
+			}
+		}
+	}
+
+	// md by default; a size class after it overrides it.
+	.ui-seg {
+		@include seg-size(md);
+	}
+
+	.ui-seg--sm {
+		@include seg-size(sm);
+	}
+
+	@each $bp in (sm, md, lg) {
+		@include media-up($bp) {
+			@each $size in (sm, md) {
+				.ui-seg--#{$bp}-up-#{$size} {
+					@include seg-size($size);
+				}
+			}
+		}
+	}
+
+	.ui-seg__icon {
+		flex: none;
+	}
+
+	// The last resort for a label with no `shortLabel` that still does not fit: cut with an
+	// ellipsis inside its own segment rather than widening it out from under the thumb. Its own
+	// line-height, because a clip at the button's 1 cuts the descenders.
+	.ui-seg__label {
+		min-width: 0;
+		overflow: hidden;
+		line-height: 1.4;
+		text-overflow: ellipsis;
+	}
+
+	// `display: none`, so the label not showing is out of the accessibility tree too.
+	.ui-seg__label--short {
+		display: none;
+	}
+
+	// A phone holds the segments at full width, equal (`minmax(0, 1fr)`: a bare 1fr has a
+	// min-content floor and a long label grew its segment out from under the thumb), 44 tall for a
+	// thumb pressing it, and a `shortLabel` takes over.
+	@include media-down(sm) {
+		.ui-seg {
+			display: grid;
+			grid-auto-columns: minmax(0, 1fr);
+			width: 100%;
+		}
+
+		.ui-seg__label--long {
+			display: none;
+		}
+
+		.ui-seg__label--short {
+			display: inline;
+		}
+
+		.ui-seg .ui-seg__opt {
+			min-height: 44px;
+			padding: 0 $spacing-3;
+		}
+
+		// Three segments share 343px: the icons go and the sides close to 8, so the words stay whole.
+		.ui-seg--three .ui-seg__icon {
+			display: none;
+		}
+
+		.ui-seg--three .ui-seg__opt {
+			padding-inline: $spacing-2;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ui-seg__thumb,
+		.ui-seg__opt {
+			transition: none;
+		}
+	}
+</style>

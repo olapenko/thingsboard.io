@@ -1,0 +1,221 @@
+---
+/**
+ * Tabs: one behaviour, three looks, each with one job.
+ *
+ * - segmented: a pill track with a white thumb that slides to the chosen segment, for two or three
+ *   short options above a visual (the AI switch, Automate). The track takes its ground: `neutral`
+ *   is the ink at 6%, so it darkens whatever band is under it; `accent` is the scheme's wash.
+ * - list: a column of 16px items for four to eight categories beside their content (the product
+ *   FAQ).
+ * - grid: the compact 14px items in two columns, filled down then across, for eight or more
+ *   choices that drive one visual (the dashboards' use cases).
+ *
+ * List and grid share the item's states (6% of the accent on hover, 10% and the accent ink when
+ * chosen, never a weight change) and become one scrolling row below 750, so a choice never changes
+ * its look at a breakpoint.
+ *
+ * ARIA tabs, not a radio group: what changes is which PANEL is on the page. The script is
+ * `util/tabs.ts`, shared by every set. The caller renders the panels with `TabPanel`, the first
+ * shown and the rest `hidden`, so the page is right before the script runs. An on/off setting is a
+ * toggle `Chip`, not a tab.
+ *
+ * SEGMENTED is `ui/Segmented` as a tab set: the pill the homepage's AI section and Automate were
+ * built on, with its class names (`.ui-seg`, `.ui-seg__opt`, `data-segmented`) that those callers style
+ * and script against. Its thumb's slide reads `--seg-duration` and `--seg-ease`, so a caller
+ * animating its panels moves them on the same curve. A pill that sets a value rather than showing
+ * a panel is `ui/Segmented` itself.
+ */
+import { Icon } from 'astro-icon/components';
+import Segmented from '@components/ui/Segmented.astro';
+import type { Responsive } from '@util/ui-kit';
+
+export interface TabItem {
+	label: string;
+	/** Shown instead of `label` on a phone (segmented), where two segments share ~330px. */
+	shortLabel?: string;
+	icon?: string;
+	/** Id of the panel this tab shows; the tab's own id is `<panel>-tab`. */
+	panel: string;
+	/** Segmented: the chosen label's colour. Dark enough to read on the white thumb. */
+	color?: string;
+	/** Segmented: a native tooltip. */
+	title?: string;
+}
+
+interface Props {
+	look?: 'segmented' | 'list' | 'grid';
+	/** Segmented: the track, the ink blended into the ground (default) or the scheme's wash. */
+	tone?: 'neutral' | 'accent';
+	/** Segmented: the pill's size, md 40 · sm 36, or one per breakpoint. */
+	size?: Responsive<'sm' | 'md'>;
+	/** The tablist's accessible name: what is being chosen between. */
+	label: string;
+	items: TabItem[];
+	/** Index of the tab shown first. */
+	selected?: number;
+	/** List: the column sticks under the header while its panels scroll. */
+	sticky?: boolean;
+	class?: string;
+}
+
+const {
+	look = 'segmented',
+	tone = 'neutral',
+	size = 'md',
+	label,
+	items,
+	selected = 0,
+	sticky = false,
+	class: className,
+} = Astro.props;
+---
+
+{look === 'segmented' ? (
+	<Segmented tabs label={label} options={items} selected={selected} tone={tone} size={size} class={className} />
+) : (
+	<div
+		class:list={['ui-tabs', `ui-tabs--${look}`, sticky && 'ui-tabs--sticky', className]}
+		role="tablist"
+		aria-label={label}
+		aria-orientation="vertical"
+		data-tabs
+		data-tabs-orient="md"
+		style={look === 'grid' ? `--tabs-rows: ${Math.ceil(items.length / 2)}` : undefined}
+	>
+		{items.map((o, i) => (
+			<button
+				type="button"
+				class="ui-tabs__item"
+				role="tab"
+				id={`${o.panel}-tab`}
+				aria-controls={o.panel}
+				aria-selected={i === selected ? 'true' : 'false'}
+				tabindex={i === selected ? 0 : -1}
+			>
+				{o.icon && <Icon name={o.icon} class="ui-tabs__icon" aria-hidden="true" />}
+				{o.label}
+			</button>
+		))}
+	</div>
+)}
+
+<script>
+	import { mountAllTabs } from '@util/tabs';
+
+	mountAllTabs();
+</script>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	// ── LIST AND GRID ───────────────────────────────────────────────────────
+	// Items on a tint when chosen: 6% of the accent on hover, 10% and the accent ink when selected,
+	// never a weight change, so a label never shifts its neighbours. Below 750 the same items run as
+	// one scrolling row.
+	.ui-tabs {
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-1;
+	}
+
+	.ui-tabs--sticky {
+		@include media-up(md) {
+			position: sticky;
+			top: calc(var(--home-header-h, 64px) + #{$spacing-6});
+		}
+	}
+
+	.ui-tabs__item {
+		@include type-body;
+
+		display: flex;
+		align-items: center;
+		gap: $spacing-2;
+		width: 100%;
+		margin: 0;
+		padding: $spacing-3 $spacing-4;
+		border: 0;
+		border-radius: $radius-lg;
+		background: none;
+		font-weight: $font-weight-medium;
+		text-align: start;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+		cursor: pointer;
+
+		@media (hover: hover) {
+			&:hover {
+				background-color: color-mix(in srgb, var(--accent-ink) 6%, transparent);
+				color: var(--color-text, #{$color-text-primary});
+			}
+		}
+
+		&[aria-selected='true'] {
+			background-color: color-mix(in srgb, var(--accent-ink) 10%, transparent);
+			color: var(--accent-ink);
+			cursor: default;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+
+		@media (forced-colors: active) {
+			&[aria-selected='true'] {
+				outline: 2px solid Highlight;
+			}
+		}
+	}
+
+	.ui-tabs__icon {
+		flex: none;
+		width: 20px;
+		height: 20px;
+	}
+
+	// GRID: 14px items, 40 tall, in two columns filled down then across (`--tabs-rows` is half the
+	// count, set on the list), so ten names stand five high beside the copy instead of ten.
+	.ui-tabs--grid {
+		.ui-tabs__item {
+			@include type-small;
+
+			min-height: 40px;
+			padding: $spacing-2 $spacing-3;
+			font-weight: $font-weight-medium;
+		}
+
+		.ui-tabs__icon {
+			width: 18px;
+			height: 18px;
+		}
+
+		@include media-up(md) {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			grid-template-rows: repeat(var(--tabs-rows, 4), auto);
+			grid-auto-flow: column;
+			gap: $spacing-1 $spacing-4;
+		}
+	}
+
+	@include media-down(md) {
+		.ui-tabs {
+			flex-direction: row;
+			gap: $spacing-2;
+			// The 2px keep the focus ring inside the scroller's clip.
+			padding: 2px;
+			overflow-x: auto;
+			scrollbar-width: none;
+
+			&::-webkit-scrollbar {
+				display: none;
+			}
+		}
+
+		.ui-tabs__item {
+			flex: none;
+			width: auto;
+			white-space: nowrap;
+		}
+	}
+</style>
