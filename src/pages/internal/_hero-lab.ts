@@ -28,13 +28,14 @@ export interface LabSwitch {
 }
 
 export interface LabGroup {
-	id: 'top' | 'footage' | 'phone' | 'below';
+	id: 'top' | 'copy' | 'footage' | 'phone' | 'below';
 	label: string;
 }
 
 /** The bar's headings, top of the page to bottom. */
 export const GROUPS: LabGroup[] = [
 	{ id: 'top', label: 'Menu & headline' },
+	{ id: 'copy', label: 'Lede & words' },
 	{ id: 'footage', label: 'Footage' },
 	{ id: 'phone', label: 'On a phone' },
 	{ id: 'below', label: 'Under the hero' },
@@ -104,6 +105,16 @@ export const FOOTAGE: Footage[] = [
 	},
 ];
 
+/**
+ * The page each frame loads, by the `words` switch: the homepage in A's words, or order C — A's
+ * sections in main's words, whose hero has a shorter lede, no note under the buttons, and more room
+ * round them (`heroCta: 'roomy'`). So a lede size can be judged against both.
+ */
+export const WORDS_SRC: Record<string, string> = {
+	a: '/',
+	c: '/internal/homepages/c/',
+};
+
 /** `footage=url` plays whatever address is pasted into the field beside the buttons. */
 export const PASTED = 'url';
 
@@ -138,6 +149,37 @@ export const SWITCHES: LabSwitch[] = [
 				note: 'As now: “ThingsBoard” lighter at the top, darker toward the bottom, and the logo strip’s marks with it',
 			},
 			{ value: 'flat', label: 'Flat', note: '“ThingsBoard” and the logo strip’s marks in flat half white' },
+		],
+	},
+	{
+		key: 'lede',
+		label: 'Lede',
+		group: 'copy',
+		options: [
+			{ value: '16', label: '16 / 24', note: 'As now: the body size, as every lede on the site is' },
+			{
+				value: '18',
+				label: '18 / 28',
+				note: 'Chosen 2026-10-02 for order C only (`heroLede: large`): the one lede set above body size, under a 48px headline · the measure stays 34ch, so it widens with the type',
+			},
+			{
+				value: '20',
+				label: '20 / 30',
+				note: 'Candidate, 2026-10-02: a step further, 2.4:1 to the headline · the measure stays 34ch',
+			},
+		],
+	},
+	{
+		key: 'words',
+		label: 'Words',
+		group: 'copy',
+		options: [
+			{ value: 'a', label: 'A', note: 'As now: the homepage at /, in A’s words, with its note under the buttons' },
+			{
+				value: 'c',
+				label: 'C · main’s',
+				note: 'Order C at /internal/homepages/c/: A in main’s words — a three-line lede, no note, and the roomy spacing round the copy · its lede ships at 18/28 (`heroLede`), so “16 / 24” shows it at 18 there',
+			},
 		],
 	},
 	{

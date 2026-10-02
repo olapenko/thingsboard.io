@@ -151,14 +151,14 @@ import { GROUPS, SCALES, SCREENS, SEGMENTS_UP_TO, SWITCHES } from '@root/pages/i
 							<span class="hl-screen__read" data-hl-read />
 						</figcaption>
 						<div class="hl-screen__glass">
-							<iframe title={`The homepage at ${s.w} by ${s.h}`} data-src="/" width={s.w} height={s.h} />
+							<iframe title={`The homepage at ${s.w} by ${s.h}`} width={s.w} height={s.h} />
 						</div>
 					</figure>
 				))
 			}
 		</div>
 
-		<iframe class="hl-window" data-hl-window data-src="/" title="The homepage at this window's size" hidden></iframe>
+		<iframe class="hl-window" data-hl-window title="The homepage at this window's size" hidden></iframe>
 	</div>
 </VisualPage>
 
@@ -169,6 +169,7 @@ import { GROUPS, SCALES, SCREENS, SEGMENTS_UP_TO, SWITCHES } from '@root/pages/i
 		PASTED,
 		SCREENS,
 		SWITCHES,
+		WORDS_SRC,
 		readState,
 		writeState,
 		type Footage,
@@ -371,16 +372,24 @@ import { GROUPS, SCALES, SCREENS, SEGMENTS_UP_TO, SWITCHES } from '@root/pages/i
 		requestAnimationFrame(tick);
 	};
 
-	/** A frame that is not showing is emptied rather than hidden: the homepage runs a lot of motion. */
+	/** The page the frames show: the `words` switch picks the homepage or order C. */
+	const page = () => WORDS_SRC[state.on.words] ?? '/';
+
+	/**
+	 * A frame that is not showing is emptied rather than hidden: the homepage runs a lot of motion. A
+	 * showing frame on the other page (the `words` switch moved) loads the one asked for.
+	 */
 	const load = (frame: HTMLIFrameElement, on: boolean) => {
-		if (on === live.has(frame)) return;
+		if (on === live.has(frame) && (!on || frame.dataset.page === page())) return;
 		if (on) {
 			live.add(frame);
-			frame.src = frame.dataset.src ?? '/';
+			frame.dataset.page = page();
+			frame.src = page();
 			watch(frame);
 		} else {
 			live.delete(frame);
 			applied.delete(frame);
+			delete frame.dataset.page;
 			frame.src = 'about:blank';
 		}
 	};
