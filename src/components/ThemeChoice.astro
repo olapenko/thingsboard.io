@@ -10,7 +10,15 @@ import { Icon } from 'astro-icon/components';
  *
  * Same storage as the icon and Starlight's own picker — `starlight-theme`, '' for System — so a
  * choice made with either carries over, and anyone who already picked Dark keeps it.
+ *
+ * `tone`: `page` draws it in the docs footer's shades (Starlight's tokens, so it follows the theme);
+ * `footer` draws it for `FooterMap`'s black ground, which is black in either theme.
  */
+interface Props {
+	tone?: 'page' | 'footer';
+}
+
+const { tone = 'page' } = Astro.props;
 
 // Ids per render: the footer and the drawer can both be on one page.
 const uid = `tc-${Math.random().toString(36).slice(2, 10)}`;
@@ -23,24 +31,24 @@ const OPTIONS = [
 ---
 
 {/* `not-content`: the docs footer sits in `sl-markdown-content`, whose flow spacing staggered the buttons. */}
-<theme-choice class="tc not-content">
-	<span class="tc__label" id={`${uid}-label`}>Appearance</span>
+<theme-choice class:list={['tc', 'not-content', tone === 'footer' && 'tc--footer']}>
+	<span class="tc__label" id={`${uid}-label`}>
+		Appearance
+	</span>
 	<span class="tc__group" role="radiogroup" aria-labelledby={`${uid}-label`}>
-		{
-			OPTIONS.map((o) => (
-				<button
-					type="button"
-					class="tc__opt"
-					role="radio"
-					aria-checked={o.value === 'auto' ? 'true' : 'false'}
-					tabindex={o.value === 'auto' ? 0 : -1}
-					data-value={o.value}
-				>
-					<Icon name={o.icon} aria-hidden="true" />
-					{o.label}
-				</button>
-			))
-		}
+		{OPTIONS.map((o) => (
+			<button
+				type="button"
+				class="tc__opt"
+				role="radio"
+				aria-checked={o.value === 'auto' ? 'true' : 'false'}
+				tabindex={o.value === 'auto' ? 0 : -1}
+				data-value={o.value}
+			>
+				<Icon name={o.icon} aria-hidden="true" />
+				{o.label}
+			</button>
+		))}
 	</span>
 </theme-choice>
 
@@ -140,6 +148,17 @@ const OPTIONS = [
 		align-items: center;
 		gap: 0.5rem 0.75rem;
 		color: var(--tc-ink);
+	}
+
+	// On `FooterMap`'s black: the footer's own muted ink, white for the chosen one, and the ring the
+	// kit uses on a dark ground.
+	.tc--footer {
+		--tc-ink: var(--fm-muted, rgb(255 255 255 / 64%));
+		--tc-ink-on: #fff;
+		--tc-rule: rgb(255 255 255 / 18%);
+		--tc-on: rgb(255 255 255 / 12%);
+		--tc-hover: rgb(255 255 255 / 8%);
+		--tc-focus: var(--focus-ring-dark, #ffd43b);
 	}
 
 	.tc__label {
