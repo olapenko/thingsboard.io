@@ -15,7 +15,7 @@
  */
 import { Icon } from 'astro-icon/components';
 import DataTable from '@components/DataTable.astro';
-import SectionHeader from '@components/Landing/SectionHeader.astro';
+import SectionHeader from '@components/Landing/HomeSectionHeader.astro';
 import DataTableValue from '@components/DataTableValue.astro';
 import type { ComparisonColumn, ComparisonGroup } from '@models/product-comparison';
 import type { DataTableColumn } from '@models/data-table';
@@ -32,7 +32,16 @@ interface Props {
 	groups: ComparisonGroup[];
 }
 
-const { id, title, titleLead, subtitle, caption, labelHeading = 'Feature', columns: columnLabels, groups } = Astro.props;
+const {
+	id,
+	title,
+	titleLead,
+	subtitle,
+	caption,
+	labelHeading = 'Feature',
+	columns: columnLabels,
+	groups,
+} = Astro.props;
 
 // Arity can't be typed — `columns` is a runtime prop — and a miscounted row
 // renders silently wrong: `lint:landmarks` catches empty cells, not missing or
@@ -78,55 +87,51 @@ const span = columns.length;
 		scrollable
 		scrollClass="product-compare__scroll"
 	>
-		{
-			groups.map((group) => (
-				<>
-					{group.label && (
-						<tr class="product-compare__group">
-							<th scope="colgroup" colspan={span}>
-								<span class="product-compare__group-head">
-									{group.mark && (
-										<Icon
-											name={group.mark.icon}
-											class="product-compare__group-mark"
-											style={`background-color: ${group.mark.color}`}
-											aria-hidden="true"
+		{groups.map((group) => (
+			<>
+				{group.label && (
+					<tr class="product-compare__group">
+						<th scope="colgroup" colspan={span}>
+							<span class="product-compare__group-head">
+								{group.mark && (
+									<Icon
+										name={group.mark.icon}
+										class="product-compare__group-mark"
+										style={`background-color: ${group.mark.color}`}
+										aria-hidden="true"
+									/>
+								)}
+								{group.label}
+							</span>
+						</th>
+					</tr>
+				)}
+				{group.rows.map((row) => (
+					<tr>
+						<th scope="row">{row.label}</th>
+						{row.values.map((cell, i) => {
+							const column = columnLabels[i].name;
+							return (
+								<td>
+									{/* Not aria-hidden: the stacked layout hides `thead`, so this is the cell's only column name. */}
+									<span class="product-compare__cell-label">{column}</span>
+									{cell.kind === 'text' ? (
+										<DataTableValue value={cell.value} />
+									) : (
+										<DataTableValue
+											value={false}
+											noIcon="tabler:minus"
+											noClass="product-compare__dash"
+											noText={`Not included in ${column}`}
 										/>
 									)}
-									{group.label}
-								</span>
-							</th>
-						</tr>
-					)}
-					{group.rows.map((row) => (
-						<tr>
-							<th scope="row">{row.label}</th>
-							{row.values.map((cell, i) => {
-								const column = columnLabels[i].name;
-								return (
-									<td>
-										{/* Not aria-hidden: the stacked layout hides `thead`, so this is the cell's only column name. */}
-										<span class="product-compare__cell-label">
-											{column}
-										</span>
-										{cell.kind === 'text' ? (
-											<DataTableValue value={cell.value} />
-										) : (
-											<DataTableValue
-												value={false}
-												noIcon="tabler:minus"
-												noClass="product-compare__dash"
-												noText={`Not included in ${column}`}
-											/>
-										)}
-									</td>
-								);
-							})}
-						</tr>
-					))}
-				</>
-			))
-		}
+								</td>
+							);
+						})}
+					</tr>
+				))}
+			</>
+		))}
 	</DataTable>
 </section>
 
