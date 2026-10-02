@@ -1,4 +1,5 @@
 ---
+import { Icon } from 'astro-icon/components';
 import NButton from './Landing/NButton.astro';
 
 interface Props {
@@ -7,16 +8,139 @@ interface Props {
 
 const { mode = 'page' } = Astro.props;
 
-// The message box's prompt: what makes a useful first message, including the fleet size the team
-// sizes an answer by.
-const PROMPT = 'What you’re working on, roughly how many devices, and any timeline you have in mind.';
+const SUPPORT_PORTAL_URL = 'https://thingsboard-portal.atlassian.net/servicedesk/customer/portal/1';
+// Where the on-premises platform's own README sends support questions.
+const GITHUB_ISSUES_URL = 'https://github.com/thingsboard/thingsboard/issues';
+
+// The message box's prompt when no topic is picked.
+const DEFAULT_PROMPT = 'What you’re working on, where you’d like it to run, and any timeline you have in mind.';
+
+// The device slider's stops. They follow the pricing page — Cloud's plans run to 1,000 devices,
+// Private Cloud's include 5,000, 25,000 and 100,000 — so a stop maps to a plan the team can quote.
+// Stop 0 is "not sure": a reader who never touches the slider has said nothing, and sends nothing.
+const DEVICE_STEPS = [
+	'',
+	'Under 100',
+	'100–1,000',
+	'1,000–5,000',
+	'5,000–25,000',
+	'25,000–100,000',
+	'100,000–1M',
+	'Over 1M',
+];
+// Topics where the fleet's size shapes the answer — a plan, a quote, a deployment, a project's
+// scope — plus no topic at all, since most messages arrive without one. Everywhere else (training,
+// support, partnership, press, feedback, something else) the question is left out: a listed topic
+// has to earn the slider, so a new topic starts without it.
+const DEVICES_SHOWN_FOR = [
+	'',
+	'ThingsBoard Products',
+	'Private Cloud',
+	'Deployment Options',
+	'TBMQ',
+	'Community Grant',
+	'Professional Services',
+	'Custom Development Service',
+];
+
+// `value` is what the form submits and what `?subject=` links across the site match, so it never
+// changes; `label` is only what the reader sees. `prompt` replaces the message box's placeholder
+// once the topic is picked, so the reader knows what makes a useful first message for it.
+const TOPICS: { group: string; options: { value: string; label: string; prompt: string }[] }[] = [
+	{
+		group: 'Products and plans',
+		options: [
+			{
+				value: 'ThingsBoard Products',
+				label: 'ThingsBoard products and plans',
+				prompt: 'What you’re building, and whether you’d like us to host it or run it yourself.',
+			},
+			{
+				value: 'Private Cloud',
+				label: 'Private Cloud',
+				prompt: 'Your message volume, your preferred region, and when you’d like to go live.',
+			},
+			{
+				value: 'Deployment Options',
+				label: 'Deployment options',
+				prompt: 'Where you’d like to run ThingsBoard — our cloud, your servers or at the edge.',
+			},
+			{
+				value: 'TBMQ',
+				label: 'TBMQ MQTT broker',
+				prompt: 'Your message throughput, and whether you’d host the broker yourself.',
+			},
+			{
+				value: 'Community Grant',
+				label: 'Community Grant Program',
+				prompt: 'Your deployment — its version and production servers — and your question about the grant.',
+			},
+		],
+	},
+	{
+		group: 'Services',
+		options: [
+			{
+				value: 'Professional Services',
+				label: 'Professional services',
+				prompt: 'What you’d like a hand with — architecture, a review, a migration or a rollout.',
+			},
+			{
+				value: 'Custom Development Service',
+				label: 'Custom development',
+				prompt: 'What you’d like built — a widget, an integration, a white-label app — and your timeline.',
+			},
+			{
+				value: 'Training',
+				label: 'Training',
+				prompt: 'Who’s taking part, how many people, and the topics you want to cover.',
+			},
+		],
+	},
+	{
+		group: 'Support',
+		options: [
+			{
+				value: 'Technical Support',
+				label: 'Technical support',
+				prompt: 'Your edition and version, what you expected, and what happened instead. Error messages help.',
+			},
+		],
+	},
+	{
+		group: 'Everything else',
+		options: [
+			{
+				value: 'IoT Hub',
+				label: 'IoT Hub',
+				prompt: 'What you’d like to list or ask about — a device, a widget, a solution — with a link if you have one.',
+			},
+			{
+				value: 'Partnership',
+				label: 'Partnership',
+				prompt: 'Your company, who you serve, and the kind of partnership you have in mind.',
+			},
+			{
+				value: 'Press or Analyst Inquiry',
+				label: 'Press or analyst inquiry',
+				prompt: 'Your publication or firm, the story or report, and your deadline.',
+			},
+			{
+				value: 'General Feedback',
+				label: 'General feedback',
+				prompt: 'What’s working for you, what isn’t, and what you’d change.',
+			},
+			{ value: 'Other', label: 'Something else', prompt: DEFAULT_PROMPT },
+		],
+	},
+];
 ---
 
 <div class:list={['cf', `cf--${mode}`]}>
 	<form id="ContactUs" method="post" class="cf-card contact-form gtm_form" novalidate>
 		<div class="cf-head">
 			<h2 class="cf-title">Send us a message</h2>
-			<p class="cf-sub">It takes about a minute. Every field is required.</p>
+			<p class="cf-sub">It takes about a minute. Every field is required unless marked optional.</p>
 		</div>
 
 		<fieldset class="cf-fields">
@@ -91,11 +215,76 @@ const PROMPT = 'What you’re working on, roughly how many devices, and any time
 				<p class="cf-error" id="company-error" hidden></p>
 			</div>
 
+			<div class="cf-field cf-field--full cf-field--topic">
+				<label class="cf-label" for="subject">
+					What’s it about? <span class="cf-optional">Optional</span>
+				</label>
+				<div class="cf-select">
+					<select class="cf-input form-control select input--empty" name="subject" id="subject">
+						<option value="" selected>Choose a topic</option>
+						{
+							TOPICS.map((t) => (
+								<optgroup label={t.group}>
+									{t.options.map((o) => (
+										<option value={o.value} data-prompt={o.prompt}>
+											{o.label}
+										</option>
+									))}
+								</optgroup>
+							))
+						}
+					</select>
+					<Icon name="tabler:chevron-down" class="cf-select__chevron" aria-hidden="true" />
+				</div>
+				<p class="cf-note" id="topic-note" hidden>
+					<Icon name="tabler:info-circle" class="cf-note__icon" aria-hidden="true" />
+					<span>
+						On a paid plan? The <a href={SUPPORT_PORTAL_URL} target="_blank" rel="noopener noreferrer">Support portal</a
+						> is the fastest way to reach our support engineers. Running ThingsBoard on your own servers? You can also ask
+						on <a href={GITHUB_ISSUES_URL} target="_blank" rel="noopener noreferrer">GitHub issues</a>.
+					</span>
+				</p>
+			</div>
+
+			<div
+				class="cf-field cf-field--full cf-field--devices"
+				id="devices-field"
+				data-steps={JSON.stringify(DEVICE_STEPS)}
+				data-shown-for={JSON.stringify(DEVICES_SHOWN_FOR)}
+			>
+				<div class="cf-range-head">
+					<label class="cf-label" for="devices-range">
+						<span id="devices-label">How many devices?</span>
+						<span class="cf-optional">Optional</span>
+					</label>
+					<output class="cf-range-value is-empty" id="devices-value" for="devices-range">Not sure yet</output>
+				</div>
+				<input
+					class="cf-range"
+					type="range"
+					id="devices-range"
+					min="0"
+					max={DEVICE_STEPS.length - 1}
+					step="1"
+					value="0"
+					aria-valuetext="Not sure yet"
+				/>
+				<div class="cf-range-ticks" aria-hidden="true">
+					{DEVICE_STEPS.map(() => <span />)}
+				</div>
+				<div class="cf-range-ends" aria-hidden="true">
+					<span>Not sure</span>
+					<span>1M+</span>
+				</div>
+				<input type="hidden" name="devices" id="devices" value="" />
+			</div>
+
 			<div class="cf-field cf-field--full">
 				<label class="cf-label" for="message">How can we help?</label>
 				<textarea
 					class="cf-input cf-textarea form-control text-area"
-					placeholder={PROMPT}
+					placeholder={DEFAULT_PROMPT}
+					data-default-prompt={DEFAULT_PROMPT}
 					name="message"
 					id="message"
 					rows="6"
@@ -108,7 +297,6 @@ const PROMPT = 'What you’re working on, roughly how many devices, and any time
 				</div>
 			</div>
 
-			<input type="hidden" name="subject" id="subject" value="" />
 			<input type="hidden" name="utm_source" id="utm_source" />
 			<input type="hidden" name="utm_medium" id="utm_medium" />
 			<input type="hidden" name="utm_campaign" id="utm_campaign" />
@@ -137,6 +325,67 @@ const PROMPT = 'What you’re working on, roughly how many devices, and any time
 </div>
 
 <script>
+	// ── Topic select: empty state, per-topic prompt, support note ────────────
+	function updateSelectEmpty(select: HTMLSelectElement) {
+		select.classList.toggle('input--empty', select.value === '');
+	}
+
+	function applyTopic(form: HTMLFormElement, select: HTMLSelectElement) {
+		updateSelectEmpty(select);
+
+		const message = form.querySelector<HTMLTextAreaElement>('textarea[name="message"]');
+		if (message) {
+			const option = select.selectedOptions[0] as HTMLOptionElement | undefined;
+			message.placeholder = option?.dataset.prompt || message.dataset.defaultPrompt || '';
+		}
+
+		const note = form.querySelector<HTMLElement>('#topic-note');
+		if (note) note.hidden = select.value !== 'Technical Support';
+	}
+
+	// ── Device count ─────────────────────────────────────────────────────────
+	// The range is unnamed; what's submitted is the hidden `devices` field, in words ("5,000–25,000
+	// devices"), so the reply reads it the way the reader chose it. Left on "not sure", it's empty.
+	function initDevices(form: HTMLFormElement, select: HTMLSelectElement | null) {
+		const field = form.querySelector<HTMLElement>('#devices-field');
+		const range = form.querySelector<HTMLInputElement>('#devices-range');
+		const readout = form.querySelector<HTMLOutputElement>('#devices-value');
+		const submitted = form.querySelector<HTMLInputElement>('#devices');
+		const label = form.querySelector<HTMLElement>('#devices-label');
+		if (!field || !range || !readout || !submitted || !label) return () => {};
+
+		const steps: string[] = JSON.parse(field.dataset.steps || '[]');
+		const shownFor: string[] = JSON.parse(field.dataset.shownFor || '[]');
+
+		const render = () => {
+			// A broker counts connected clients, not devices.
+			const clients = select?.value === 'TBMQ';
+			const noun = clients ? 'clients' : 'devices';
+			const i = Number(range.value);
+			const text = i === 0 ? 'Not sure yet' : `${steps[i]} ${noun}`;
+
+			label.textContent = clients ? 'How many connected clients?' : 'How many devices?';
+			readout.textContent = text;
+			readout.classList.toggle('is-empty', i === 0);
+			range.setAttribute('aria-valuetext', text);
+			range.style.setProperty('--p', String(i / (steps.length - 1)));
+			submitted.value = i === 0 ? '' : text;
+		};
+
+		const sync = () => {
+			const hide = !shownFor.includes(select?.value ?? '');
+			field.hidden = hide;
+			// Disabled, so a count set before switching to another topic isn't sent with it.
+			submitted.disabled = hide;
+			render();
+		};
+
+		range.addEventListener('input', render);
+		select?.addEventListener('change', sync);
+		sync();
+		return sync;
+	}
+
 	// ── Validation helpers ───────────────────────────────────────────────────
 	function isValidEmail(email: string) {
 		return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/.test(email);
@@ -298,42 +547,23 @@ const PROMPT = 'What you’re working on, roughly how many devices, and any time
 	}
 
 	// ── URL param prefill ────────────────────────────────────────────────────
-	// The form no longer asks for a topic, but links across the site still name one
-	// (`?subject=Private%20Cloud`, `Training`, `Community Grant`…), and the team routes by it, so it
-	// rides along in the hidden `subject` field. Only these values — the ones the old picker offered,
-	// main's included — are passed on; anything else is dropped rather than forwarded as typed.
-	const SUBJECTS = [
-		'Technical Support',
-		'ThingsBoard Products',
-		'Private Cloud',
-		'Deployment Options',
-		'Custom Development Service',
-		'Training',
-		'Professional Services',
-		'Partnership',
-		'Press or Analyst Inquiry',
-		'General Feedback',
-		'TBMQ',
-		'IoT Hub',
-		'Community Grant',
-		'Other',
-	];
-	// Links that name a topic a little differently. Matching is case-insensitive, so only genuinely
-	// different wordings need an entry.
+	// Links that name the topic a little differently from the option's value. Matching is
+	// case-insensitive, so only genuinely different wordings need an entry.
 	const SUBJECT_ALIASES: Record<string, string> = {
 		'thingsboard private cloud': 'Private Cloud',
 		'tbmq private cloud': 'TBMQ',
 	};
 
-	function prefillFromURL(form: HTMLFormElement) {
-		// `?pcorder` swaps the page's heading — an inline script on the page, before first paint.
+	function prefillFromURL(form: HTMLFormElement, select: HTMLSelectElement | null) {
+		// `?pcorder` swaps the page's heading (an inline script on the page, before
+		// first paint) and hide the topic, which the link has already set (see the page's CSS).
 		const params = new URLSearchParams(window.location.search);
 
 		const subject = params.get('subject')?.trim();
-		const field = form.querySelector<HTMLInputElement>('input[name="subject"]');
-		if (subject && field) {
+		if (subject && select) {
 			const wanted = (SUBJECT_ALIASES[subject.toLowerCase()] ?? subject).toLowerCase();
-			field.value = SUBJECTS.find((s) => s.toLowerCase() === wanted) ?? '';
+			const match = Array.from(select.options).find((o) => o.value && o.value.toLowerCase() === wanted);
+			if (match) select.value = match.value;
 		}
 
 		const message = params.get('message');
@@ -345,17 +575,22 @@ const PROMPT = 'What you’re working on, roughly how many devices, and any time
 
 	// ── Hand-off to the thank-you page ───────────────────────────────────────
 	// What was sent, kept in this tab's sessionStorage — never the URL — so `/contact-us-thanks/` can
-	// greet the reader by name, and say where the reply goes, and
-	// its "Edit and send again" can bring the message back here. The thank-you page reads the same key.
+	// greet the reader by name and say where the reply goes, and its "Edit and send again" can
+	// bring the message back here. The thank-you page reads the same key.
 	const SENT_KEY = 'tb-contact-sent';
 	const SENT_FIELDS = ['firstName', 'lastName', 'email', 'company', 'subject', 'message'];
 
 	function rememberSent(form: HTMLFormElement) {
 		const sent: Record<string, string | number> = { at: Date.now() };
 		SENT_FIELDS.forEach((name) => {
-			const el = form.elements.namedItem(name) as Field | null;
+			const el = form.elements.namedItem(name) as Field | HTMLSelectElement | null;
 			if (el) sent[name] = el.value.trim();
 		});
+		const topic = form.querySelector<HTMLSelectElement>('select[name="subject"]')?.selectedOptions[0];
+		sent.topicLabel = topic?.value ? (topic.textContent ?? '').trim() : '';
+		const devices = form.querySelector<HTMLInputElement>('#devices');
+		sent.devices = devices && !devices.disabled ? devices.value : '';
+		sent.devicesStep = form.querySelector<HTMLInputElement>('#devices-range')?.value ?? '0';
 		try {
 			sessionStorage.setItem(SENT_KEY, JSON.stringify(sent));
 		} catch {
@@ -377,9 +612,11 @@ const PROMPT = 'What you’re working on, roughly how many devices, and any time
 		const sent = readSent();
 		if (!sent) return false;
 		SENT_FIELDS.forEach((name) => {
-			const el = form.elements.namedItem(name) as Field | null;
+			const el = form.elements.namedItem(name) as Field | HTMLSelectElement | null;
 			if (el && typeof sent[name] === 'string') el.value = sent[name] as string;
 		});
+		const range = form.querySelector<HTMLInputElement>('#devices-range');
+		if (range && typeof sent.devicesStep === 'string') range.value = sent.devicesStep;
 		return true;
 	}
 
@@ -394,10 +631,16 @@ const PROMPT = 'What you’re working on, roughly how many devices, and any time
 		const renderedAt = form.querySelector<HTMLInputElement>('.form-rendered-at');
 		if (renderedAt) renderedAt.value = String(Math.floor(Date.now() / 1000));
 
+		const select = form.querySelector<HTMLSelectElement>('select[name="subject"]');
 		const textarea = form.querySelector<HTMLTextAreaElement>('textarea[name="message"]');
 
-		prefillFromURL(form);
+		prefillFromURL(form, select);
 		const restored = restoreSent(form);
+		if (select) {
+			applyTopic(form, select);
+			select.addEventListener('change', () => applyTopic(form, select));
+		}
+		const syncDevices = initDevices(form, select);
 		if (textarea) {
 			updateCount(textarea);
 			textarea.addEventListener('input', () => updateCount(textarea));
@@ -447,7 +690,10 @@ const PROMPT = 'What you’re working on, roughly how many devices, and any time
 		// Coming back with the browser's Back button restores the page from the cache as it was
 		// left — mid-send. Give the reader a working button again.
 		window.addEventListener('pageshow', (e) => {
-			if (e.persisted) setSending(form, false);
+			if (e.persisted) {
+				setSending(form, false);
+				syncDevices();
+			}
 		});
 
 		populateTracking(form);
@@ -554,12 +800,23 @@ const PROMPT = 'What you’re working on, roughly how many devices, and any time
 		}
 	}
 
+	// `?pcorder` arrives with the topic already set, so the question is noise there.
+	:global(html[data-contact-intent]) .cf-field--topic {
+		display: none;
+	}
+
 	.cf-label {
 		@include type-link;
 		display: flex;
 		align-items: baseline;
 		gap: $spacing-2;
 		color: var(--color-text);
+	}
+
+	.cf-optional {
+		font-size: $font-size-sm;
+		font-weight: $font-weight-normal;
+		color: var(--color-text-secondary);
 	}
 
 	.cf-input {
@@ -618,6 +875,184 @@ const PROMPT = 'What you’re working on, roughly how many devices, and any time
 		min-height: 148px;
 		padding: 12px 14px;
 		resize: vertical;
+	}
+
+	.cf-select {
+		position: relative;
+
+		select {
+			padding-right: 44px;
+			cursor: pointer;
+			appearance: none;
+
+			&.input--empty {
+				color: var(--color-text-muted);
+			}
+
+			// Native <option> renders with the OS chrome of the dropdown, not the page. Force a
+			// sensible colour in both themes so the open list is readable either way.
+			option,
+			optgroup {
+				color: var(--color-text);
+				background: var(--color-bg-surface);
+			}
+		}
+
+		:global(.cf-select__chevron) {
+			position: absolute;
+			top: 50%;
+			right: 14px;
+			width: 20px;
+			height: 20px;
+			transform: translateY(-50%);
+			color: var(--color-text-secondary);
+			pointer-events: none;
+		}
+	}
+
+	.cf-note {
+		@include type-small;
+		display: flex;
+		gap: $spacing-2;
+		margin-top: 2px;
+		padding: 10px 12px;
+		color: var(--color-text);
+		// Neutral, like every icon on the contact pages: colour is for the action and the outcome.
+		background: color-mix(in srgb, var(--color-text) 5%, var(--color-bg-surface));
+		border-radius: $radius-lg;
+
+		&[hidden] {
+			display: none;
+		}
+
+		:global(.cf-note__icon) {
+			flex: none;
+			width: 18px;
+			height: 18px;
+			margin-top: 2px;
+			color: var(--color-text-secondary);
+		}
+
+		a {
+			color: var(--color-primary);
+			font-weight: $font-weight-medium;
+			text-decoration: underline;
+			text-underline-offset: 2px;
+		}
+	}
+
+	.cf-field--devices[hidden] {
+		display: none;
+	}
+
+	.cf-range-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 2px $spacing-4;
+	}
+
+	.cf-range-value {
+		@include type-link;
+		color: var(--color-primary);
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+
+		&.is-empty {
+			font-weight: $font-weight-normal;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	// Native range, restyled: keyboard, touch and screen readers come with it. `--p` (0–1) is the
+	// thumb's position, set by the script; the fill stops under the thumb's centre, so it runs from
+	// half a thumb in to half a thumb short of the end rather than across the whole track.
+	.cf-range {
+		--thumb: 24px;
+		--track: 6px;
+		--p: 0;
+		--fill: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p));
+
+		width: 100%;
+		height: var(--thumb);
+		margin: 6px 0 0;
+		background: transparent;
+		cursor: pointer;
+		appearance: none;
+		-webkit-appearance: none;
+
+		&::-webkit-slider-runnable-track {
+			height: var(--track);
+			border-radius: 999px;
+			background: linear-gradient(to right, var(--color-primary) var(--fill), var(--cf-border) var(--fill));
+		}
+
+		&::-moz-range-track {
+			height: var(--track);
+			border-radius: 999px;
+			background: linear-gradient(to right, var(--color-primary) var(--fill), var(--cf-border) var(--fill));
+		}
+
+		&::-webkit-slider-thumb {
+			width: var(--thumb);
+			height: var(--thumb);
+			margin-top: calc((var(--track) - var(--thumb)) / 2);
+			background: var(--color-bg-surface);
+			border: 2px solid var(--color-primary);
+			border-radius: 50%;
+			box-shadow: 0 1px 3px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.2);
+			transition: box-shadow 0.15s ease;
+			-webkit-appearance: none;
+		}
+
+		&::-moz-range-thumb {
+			box-sizing: border-box;
+			width: var(--thumb);
+			height: var(--thumb);
+			background: var(--color-bg-surface);
+			border: 2px solid var(--color-primary);
+			border-radius: 50%;
+			box-shadow: 0 1px 3px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.2);
+		}
+
+		&:hover::-webkit-slider-thumb {
+			box-shadow: 0 0 0 6px var(--cf-ring);
+		}
+
+		&:focus {
+			outline: none;
+		}
+
+		&:focus-visible::-webkit-slider-thumb {
+			box-shadow: 0 0 0 6px var(--cf-ring);
+		}
+
+		&:focus-visible::-moz-range-thumb {
+			box-shadow: 0 0 0 6px var(--cf-ring);
+		}
+	}
+
+	// One tick per stop, centred under where the thumb lands: inset half a thumb at each end.
+	.cf-range-ticks {
+		display: flex;
+		justify-content: space-between;
+		padding: 0 calc(12px - 1px);
+
+		span {
+			width: 2px;
+			height: 6px;
+			border-radius: 1px;
+			background: var(--cf-border);
+		}
+	}
+
+	.cf-range-ends {
+		@include type-small;
+		display: flex;
+		justify-content: space-between;
+		margin-top: -2px;
+		color: var(--color-text-secondary);
 	}
 
 	.cf-field__foot {
