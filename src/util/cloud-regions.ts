@@ -48,9 +48,61 @@ export function writeLastRegion(value: CloudRegionId): void {
 	try {
 		localStorage.setItem(LAST_REGION_KEY, value);
 	} catch {
-		// No storage: the next visit simply has no "Last visited" chip.
+		// No storage: the next visit simply has no "Last visited" chip; this document still hears the event.
 	}
+	window.dispatchEvent(new CustomEvent(LAST_REGION.event, { detail: value }));
 }
+
+// ---- The kit-era pickers' names ---------------------------------------------------------------
+// `RegionChoice` (the Install hub, choose-region, later the dialog and the bookends) reads these;
+// the dialog and the header still read the ones above. One module, two vocabularies, until the
+// dialog moves onto `RegionChoice` and the older names go.
+
+export const isCloudRegionId = (value: unknown): value is CloudRegionId => CLOUD_REGIONS.some((r) => r.id === value);
+
+/**
+ * The region this browser last went to Cloud in: the storage key above, and a window event so a
+ * picker in the same document hears a choice made in another (the `storage` event reaches other
+ * documents on this origin). The value is a region id only, never anything personal.
+ */
+export const LAST_REGION = { key: LAST_REGION_KEY, event: 'tfd:last' } as const;
+
+/** Calls `fn` whenever the remembered region changes, from this document or another one. */
+export function onLastRegion(fn: (value: CloudRegionId | null) => void): void {
+	window.addEventListener(LAST_REGION.event, (e) => {
+		const value = (e as CustomEvent<unknown>).detail;
+		fn(isCloudRegionId(value) ? value : null);
+	});
+	window.addEventListener('storage', (e) => {
+		if (e.key === LAST_REGION.key) fn(isCloudRegionId(e.newValue) ? e.newValue : null);
+	});
+}
+
+/** What every region picker says, in one place: the Cloud FAQ's own claim, and no narrower. */
+export const REGION_STORED_IN: Record<CloudRegionId, string> = Object.fromEntries(
+	CLOUD_REGIONS.map((r) => [r.id, r.note])
+) as Record<CloudRegionId, string>;
+
+/** The analytics ids, as `cloudRegionGtmId` builds them, by flow and region. */
+export const REGION_GTM_ID: Record<CloudFlow, Record<CloudRegionId, string>> = {
+	signup: Object.fromEntries(CLOUD_REGIONS.map((r) => [r.id, cloudRegionGtmId(r, 'signup')])) as Record<
+		CloudRegionId,
+		string
+	>,
+	signin: Object.fromEntries(CLOUD_REGIONS.map((r) => [r.id, cloudRegionGtmId(r, 'signin')])) as Record<
+		CloudRegionId,
+		string
+	>,
+};
+
+/** Each globe's hue. Decoration: the names carry the meaning. Europe is a graphics colour only. */
+export const REGION_HUE: Record<CloudRegionId, string> = {
+	us: '#3d50f5',
+	eu: 'var(--region-eu)',
+};
+
+export const regionHref = (host: string, flow: CloudFlow): string =>
+	`https://${host}${flow === 'signin' ? '/login' : '/signup'}`;
 
 const GREENLAND = /^America\/(Nuuk|Godthab|Scoresbysund|Danmarkshavn|Thule)$/;
 

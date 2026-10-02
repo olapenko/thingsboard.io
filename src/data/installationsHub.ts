@@ -1,128 +1,205 @@
-import { CLOUD_REGIONS, type CloudRegion } from '@util/cloud-regions';
+import { CLOUD_REGIONS, type CloudRegionId } from '@util/cloud-regions';
+import { homeProducts } from './homeProducts';
+import { homeEcosystem } from './homeEcosystem';
 
-/** The products on the installations hub (`/installations/`), one section each. */
-
-interface InstallLink {
+/**
+ * The installations hub (`/installations/`), rebuilt 2026-09-27: one SECTION per product, in the
+ * homepage's idiom — the product's mark on its squircle, its name and one line, the way in, and
+ * the ways in — where the old page had a tab per product, each a hero with screenshots, a feature
+ * list and a row of deployment logos. What the old page was FOR survives: every installation
+ * option it linked, each to its own guide, and the pricing links. What it said about the products
+ * does not; the product pages say it.
+ *
+ * NO PROFESSIONAL EDITION. This site sells two platforms, Cloud and On-premises, and the old
+ * page's Community and Professional tabs fold into the one On-premises section: the free guide is
+ * the way in, and the licence is a pricing link.
+ *
+ * The marks, colours, labels and descriptions come from the homepage's own entries, so a change
+ * there follows here.
+ */
+export interface InstallLink {
 	label: string;
 	href: string;
 }
 
-interface InstallOption {
+/** One way to install, as the old page listed them: its logo, and the guide for it. */
+export interface InstallOption {
 	label: string;
+	/** What the label was qualified with in brackets on the old page, set in grey after it. */
 	note?: string;
+	/** A `/src/assets/images/installation/…` wordmark, 180x36. */
 	logo: string;
 	href: string;
 }
 
-interface InstallOptionGroup {
+export interface InstallOptionGroup {
 	title: string;
 	items: InstallOption[];
 }
 
-interface InstallAside {
+export interface InstallRegion {
+	id: CloudRegionId;
+	name: string;
+	/** Where the data stays, in the Cloud FAQ's own words. */
+	note: string;
+	signup: string;
+}
+
+/** A second column beside the way in: Cloud's Private Cloud, with the cloud-provider options under it. */
+export interface InstallAside {
 	title: string;
 	text: string;
 	links: InstallLink[];
+	options: InstallOptionGroup[];
 }
 
-interface InstallProduct {
+export interface InstallProduct {
 	id: string;
 	name: string;
-	/** Platforms only: the part of `name` set in `badgeFill`. Must occur in `name`. */
 	nameHighlight?: string;
 	label: string;
 	description: string;
 	icon: string;
-	accent?: string;
-	/** Platforms only: fills the tile and the button, and switches the section to `.is-platform`. */
+	accent: string;
+	/** The platforms' squircle fill, with the mark knocked out white. The others keep their own mark on the light tile. */
 	badgeFill?: string;
-	buttonIcon?: string;
+	/** The platform's glyph, on the button (the homepage's product cards carry it the same way). */
+	cornerIcon?: string;
+	/** The way in. Cloud has none: its regions are the way in. */
 	primary?: InstallLink;
+	/** The quiet links beside it: the product page, pricing. */
 	links: InstallLink[];
-	options: InstallOptionGroup[];
-	regions?: readonly CloudRegion[];
+	options?: InstallOptionGroup[];
+	regions?: InstallRegion[];
 	aside?: InstallAside;
 }
 
+const product = (highlight: string) => {
+	const found = homeProducts.find((p) => p.nameHighlight === highlight);
+	if (!found) throw new Error(`installationsHub: no homepage product highlights "${highlight}"`);
+	return found;
+};
+
+const ecosystem = (name: string) => {
+	const found = homeEcosystem.find((p) => p.name === name);
+	if (!found) throw new Error(`installationsHub: no homepage ecosystem entry named "${name}"`);
+	return found;
+};
+
+const cloud = product('Cloud');
+const onPremises = product('On-premises');
+const edge = ecosystem('Edge');
+const trendz = ecosystem('Trendz');
+const gateway = ecosystem('IoT Gateway');
+
+/** The ThingsBoard mark both platforms draw (`@data/marks` knows it as `thingsboard`). */
+const TB_MARK = '/src/assets/images/landings/draft/thingsboard-mark.svg';
+const line = (d: string | string[]) => (Array.isArray(d) ? d.join(' ') : d);
+
 const logo = (name: string) => `/src/assets/images/installation/${name}`;
-const mark = (name: string) => `/src/assets/images/landings/${name}`;
+
+const REGION_NOTES: Record<CloudRegionId, string> = {
+	us: 'Data stored in North America',
+	eu: 'Data stored in the European Union',
+};
+
+/**
+ * THE REGIONS ARE THE WAY IN, listed on the page under "Try now" as the old page listed them — one
+ * row per region, each the sign-up on that region's host. Cloud is two sites with an account on
+ * only one, so the region is the one thing to decide, and it is decided here rather than behind a
+ * dialog. No sign-in: a returning user has the header's.
+ */
+const regions: InstallRegion[] = CLOUD_REGIONS.map((r) => ({
+	id: r.id,
+	name: r.name,
+	note: REGION_NOTES[r.id],
+	signup: `https://${r.host}/signup`,
+}));
+
+/**
+ * The old page's "cloud" row of the self-hosted guides — AWS, Azure, GCP, DigitalOcean — sits
+ * under Cloud's Private Cloud column now (asked 2026-09-27), beside the managed offering that runs
+ * on those providers. The guides themselves are still the self-hosted installs on each provider.
+ */
+const cloudProviders: InstallOptionGroup = {
+	title: 'In a cloud of your choice',
+	items: [
+		{ label: 'AWS', logo: logo('aws.svg'), href: '/docs/installation/aws/' },
+		{ label: 'Microsoft Azure', logo: logo('azure.svg'), href: '/docs/installation/azure/' },
+		{ label: 'Google Cloud Platform', logo: logo('gcp.svg'), href: '/docs/installation/gcp/' },
+		{ label: 'DigitalOcean', logo: logo('digital-ocean.svg'), href: '/docs/installation/digital-ocean/' },
+	],
+};
 
 export const installProducts: InstallProduct[] = [
 	{
 		id: 'cloud',
-		name: 'ThingsBoard Cloud',
-		nameHighlight: 'Cloud',
-		label: 'Fully managed, shared or dedicated',
+		name: cloud.name,
+		nameHighlight: cloud.nameHighlight,
+		label: cloud.label,
 		description:
 			'Nothing to install. Pick the region your data lives in and start on a free plan; we run the servers, scaling, backups and upgrades.',
-		icon: '/images/pricing/thingsboard-icon.svg',
-		badgeFill: 'var(--color-product-cloud)',
+		icon: TB_MARK,
+		accent: cloud.badgeFill,
+		badgeFill: cloud.badgeFill,
+		cornerIcon: cloud.action.icon,
 		links: [{ label: 'See plans', href: '/pricing/' }],
-		regions: CLOUD_REGIONS,
+		regions,
 		aside: {
 			title: 'Private Cloud',
 			text: 'A dedicated cluster we provision and operate for you, in the cloud and the region you choose.',
+			// A dedicated cluster is a conversation, so the contact link leads; the comparison follows.
 			links: [
-				{
-					label: 'Contact us',
-					href: '/contact-us/?subject=Private%20Cloud&pcorder&message=I%20am%20interested%20in%20Private%20Cloud',
-				},
-				{ label: 'Cloud vs Private Cloud', href: '/products/paas/#public-vs-private' },
+				{ label: 'Contact us', href: '/contact-us/?subject=ThingsBoard%20Private%20Cloud' },
+				{ label: cloud.link, href: cloud.href },
 			],
+			options: [cloudProviders],
 		},
-		options: [
-			{
-				title: 'In a cloud of your choice',
-				items: [
-					{ label: 'AWS', logo: logo('aws.svg'), href: '/docs/pe/installation/aws/' },
-					{ label: 'Microsoft Azure', logo: logo('azure.svg'), href: '/docs/pe/installation/azure/' },
-					{ label: 'Google Cloud Platform', logo: logo('gcp.svg'), href: '/docs/pe/installation/gcp/' },
-					{ label: 'DigitalOcean', logo: logo('digital-ocean.svg'), href: '/docs/pe/installation/digital-ocean/' },
-				],
-			},
-		],
 	},
 	{
 		id: 'on-premises',
-		name: 'ThingsBoard On-premises',
-		nameHighlight: 'On-premises',
-		label: 'Self-managed, on your infrastructure',
+		name: onPremises.name,
+		nameHighlight: onPremises.nameHighlight,
+		label: onPremises.label,
 		description:
 			'You run the deployment, on your own servers or fully offline. Free to install; the licence for the advanced features is on the pricing page.',
-		icon: '/images/pricing/thingsboard-icon.svg',
-		badgeFill: 'var(--brand-pe)',
-		buttonIcon: 'tabler:server',
-		primary: { label: 'Installation guide', href: '/docs/pe/installation/' },
+		icon: TB_MARK,
+		accent: onPremises.badgeFill,
+		badgeFill: onPremises.badgeFill,
+		cornerIcon: onPremises.action.icon,
+		primary: { label: 'Installation guide', href: '/docs/installation/' },
 		links: [
 			{ label: 'See plans', href: '/pricing/' },
-			{ label: 'Explore On-premises', href: '/products/thingsboard-pe/' },
+			{ label: onPremises.link, href: onPremises.href },
 		],
-		// "Cluster setup" goes to the guide index, which lists the cluster guides.
+		// The old page's server row for this product, its own guides; its cloud row is under Private
+		// Cloud above. "Cluster setup" goes to the guide's index, as it did: the cluster guides are
+		// several, and the index lists them.
 		options: [
 			{
 				title: 'On your servers',
 				items: [
-					{ label: 'Ubuntu Server', logo: logo('ubuntu.svg'), href: '/docs/pe/installation/ubuntu/' },
-					{ label: 'CentOS / RHEL Server', logo: logo('cenos-rhel.svg'), href: '/docs/pe/installation/rhel/' },
-					{ label: 'Raspberry Pi', logo: logo('raspberry-pi.svg'), href: '/docs/pe/installation/rpi/' },
+					{ label: 'Ubuntu Server', logo: logo('ubuntu.svg'), href: '/docs/installation/ubuntu/' },
+					{ label: 'CentOS / RHEL Server', logo: logo('cenos-rhel.svg'), href: '/docs/installation/rhel/' },
+					{ label: 'Raspberry Pi', logo: logo('raspberry-pi.svg'), href: '/docs/installation/rpi/' },
 					{
 						label: 'Docker',
 						note: 'Linux / macOS',
 						logo: logo('docker-linux-mac.svg'),
-						href: '/docs/pe/installation/docker/',
+						href: '/docs/installation/docker/',
 					},
 					{
 						label: 'Docker',
 						note: 'Windows',
 						logo: logo('docker-windows.svg'),
-						href: '/docs/pe/installation/docker-windows/',
+						href: '/docs/installation/docker-windows/',
 					},
 					{
 						label: 'Building from source',
 						logo: logo('sources.svg'),
-						href: '/docs/pe/installation/building-from-source/',
+						href: '/docs/installation/building-from-source/',
 					},
-					{ label: 'Cluster setup', logo: logo('kubernetes.svg'), href: '/docs/pe/installation/' },
+					{ label: 'Cluster setup', logo: logo('kubernetes.svg'), href: '/docs/installation/' },
 				],
 			},
 		],
@@ -130,15 +207,15 @@ export const installProducts: InstallProduct[] = [
 	{
 		id: 'edge',
 		name: 'ThingsBoard Edge',
-		label: 'Edge computing',
-		description:
-			'Processes and visualizes data locally at the network edge, enabling autonomous operation during connectivity outages. Manage every remote edge location from one platform.',
-		icon: mark('ce/thingsboard-e-icon.svg'),
-		accent: '#0f9b8e',
+		nameHighlight: 'Edge',
+		label: edge.label,
+		description: line(edge.description),
+		icon: edge.icon,
+		accent: edge.accent,
 		primary: { label: 'Installation guide', href: '/docs/edge/installation/' },
 		links: [
 			{ label: 'See plans', href: '/pricing/?active=thingsboard-edge' },
-			{ label: 'See how Edge works', href: '/products/thingsboard-edge/' },
+			{ label: edge.action, href: edge.href },
 		],
 		options: [
 			{
@@ -175,15 +252,15 @@ export const installProducts: InstallProduct[] = [
 	{
 		id: 'trendz',
 		name: 'Trendz Analytics',
-		label: 'Analytics & AI',
-		description:
-			'Predictive analytics, anomaly detection and forecasting. Explore your data without code using natural-language queries, and run AI agents over it.',
-		icon: mark('ce/trendz-icon.svg'),
-		accent: '#1976d2',
+		nameHighlight: 'Trendz',
+		label: trendz.label,
+		description: line(trendz.description),
+		icon: trendz.icon,
+		accent: trendz.accent,
 		primary: { label: 'Installation guide', href: '/docs/trendz/installation/' },
 		links: [
 			{ label: 'See plans', href: '/pricing/' },
-			{ label: 'Explore Trendz', href: '/products/trendz/' },
+			{ label: trendz.action, href: trendz.href },
 		],
 		options: [
 			{
@@ -211,13 +288,14 @@ export const installProducts: InstallProduct[] = [
 	{
 		id: 'gateway',
 		name: 'IoT Gateway',
-		label: 'Protocol bridge',
-		description:
-			'Brings legacy equipment online. Modbus, OPC UA, BACnet, SNMP, KNX and 25+ industrial protocols, translated to MQTT. Open-source, runs on a Raspberry Pi or industrial PC.',
-		icon: mark('ce/gateway-icon.svg'),
-		accent: '#7b3fe4',
+		nameHighlight: 'Gateway',
+		label: gateway.label,
+		description: line(gateway.description),
+		icon: gateway.icon,
+		accent: gateway.accent,
 		primary: { label: 'Installation guide', href: '/docs/iot-gateway/installation/' },
-		links: [{ label: 'See supported protocols', href: '/docs/iot-gateway/' }],
+		links: [{ label: gateway.action, href: gateway.href }],
+		// Not on the old page; the guide's own options.
 		options: [
 			{
 				title: 'Install on',
