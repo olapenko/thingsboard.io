@@ -1,48 +1,248 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro';
-import ContactForm from '../components/ContactForm.astro';
+import ContactForm from '@components/ContactForm.astro';
 import ContactsSection from '@components/Company/ContactsSection.astro';
+import PageIntro from '@components/Landing/PageIntro.astro';
+import PricingBackground from '@components/Pricing/PricingBackground.astro';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
+
+// The heading the page opens with, and the one that replaces it when a Private Cloud order lands
+// here (`?pcorder`, from the pricing plans). The swap runs inline before first paint, so the reader
+// never sees the default heading flash by. Main dropped `?tbmqorder`: nothing links it.
+const INTRO = {
+	eyebrow: 'Contact us',
+	title: 'Let’s talk about what you’re building',
+	lede: 'Planning a rollout, weighing up Private Cloud, or looking for a partner? Tell us a little about it, and someone from our team will write back by email.',
+};
+const INTENTS = {
+	pcorder: {
+		eyebrow: 'Private Cloud',
+		title: 'Get your private IoT platform',
+		lede: 'A dedicated ThingsBoard cluster, run by us for you. Tell us about your devices, your data and where you’d like it hosted, and we’ll come back with a setup and a quote sized to it.',
+	},
+};
+
+const ELSEWHERE = [
+	{
+		icon: 'tabler:lifebuoy',
+		lead: 'Already a customer?',
+		label: 'Open a ticket in the Support portal',
+		href: 'https://thingsboard-portal.atlassian.net/servicedesk/customer/portal/1',
+		external: true,
+	},
+	{
+		icon: 'tabler:brand-github',
+		lead: 'Running ThingsBoard on your own servers?',
+		label: 'Ask on GitHub issues',
+		href: 'https://github.com/thingsboard/thingsboard/issues',
+		external: true,
+	},
+	{
+		icon: 'tabler:mail',
+		lead: 'Prefer email?',
+		label: 'info@thingsboard.io',
+		href: 'mailto:info@thingsboard.io',
+		external: false,
+	},
+];
 ---
 
 <BaseLayout
 	headerVariant="solid-shadow"
-	showSearch={true}
-	showThemeToggle={true}
+	forceLightTheme
+	footer="map"
 	title="Contact Us"
-	description="Contact ThingsBoard team"
+	description="Talk to the ThingsBoard team about your IoT project — products and pricing, Private Cloud, professional services, training or partnership."
 >
-	<div class="contact-us-page">
-		<ContactForm mode="page" />
+	<PricingBackground />
+	<div class="contact-page">
+		<header class="contact-intro">
+			<PageIntro
+				eyebrow={INTRO.eyebrow}
+				title={INTRO.title}
+				lede={INTRO.lede}
+				ledeMeasure="narrow"
+				partAttrs={{
+					eyebrow: { 'data-intro': 'eyebrow' },
+					title: { 'data-intro': 'title' },
+					subtitle: { 'data-intro': 'lede' },
+				}}
+			/>
+		</header>
+		<script is:inline define:vars={{ INTENTS }}>
+			(() => {
+				const params = new URLSearchParams(window.location.search);
+				const key = Object.keys(INTENTS).find((k) => params.has(k));
+				if (!key) return;
+				document.documentElement.dataset.contactIntent = key;
+				const root = document.currentScript.previousElementSibling;
+				['eyebrow', 'title', 'lede'].forEach((part) => {
+					const el = root.querySelector(`[data-intro="${part}"]`);
+					if (el) el.textContent = INTENTS[key][part];
+				});
+			})();
+		</script>
+		<div class="contact-form-slot">
+			<ContactForm />
+		</div>
+
+		{/* On paper the form is no use; the company's addresses are. Main's printable contacts, kept. */}
 		<div class="print-contacts print:only">
 			<ContactsSection />
 		</div>
+
+		<aside class="contact-elsewhere" aria-labelledby="contact-elsewhere-title">
+			<h2 class="contact-elsewhere__title" id="contact-elsewhere-title">
+				Looking for something else?
+			</h2>
+			<ul class="contact-elsewhere__list">
+				{ELSEWHERE.map((item) => (
+					<li class="contact-elsewhere__item">
+						<Mark size={48} icon={item.icon} fill="white" accent="neutral" lift />
+						<span class="contact-elsewhere__text">
+							<span class="contact-elsewhere__lead">{item.lead}</span>
+							<Link
+								class="contact-elsewhere__link"
+								href={item.href}
+								tone="ink"
+								external={item.external}
+								dir={item.external ? undefined : 'none'}
+							>
+								{item.label}
+							</Link>
+						</span>
+					</li>
+				))}
+			</ul>
+		</aside>
 	</div>
 </BaseLayout>
 
-<style lang="scss">
-	.contact-us-page {
-		min-height: calc(100vh - var(--sl-nav-height, 72px));
-		background-color: #f4f8fe;
-		background-image: url('/images/contact-us-bg.svg');
-		background-position: center;
-		background-repeat: no-repeat;
-		background-size: contain;
+<style lang="scss" is:global>
+	// The pricing page's ground: the wave field is fixed behind the page, so the body has to let it
+	// through in light mode, as it does there. Dark mode keeps its own ground, as pricing does.
+	:root:not([data-theme='dark']) body:has(.contact-page) {
+		background-color: transparent;
+	}
+</style>
 
-		// In dark mode the brand-blue dotted SVG is fine on a dark page bg
-		// (transparent background, themed strokes), but the page surface must
-		// switch to a dark tone so the form card has contrast.
-		:global([data-theme='dark']) & {
-			background-color: var(--color-bg);
+<style lang="scss">
+	@use '../styles/variables' as *;
+
+	.contact-page {
+		display: grid;
+		// 400 for the intro: the heading's longer line, "what you’re building", sets 386 at 40px, so
+		// the column holds it to two lines; the form takes the rest of the measure.
+		grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+		grid-template-rows: auto 1fr;
+		grid-template-areas:
+			'intro form'
+			'aside form';
+		gap: 0 $spacing-12;
+		// The footer's measure — 960 inside 20px of padding, at every width (`FooterMap`'s `.fm__inner`,
+		// the construction ClosingCta and the card grids share) — so the intro's left edge and the
+		// form's right edge are the footer's own.
+		max-width: calc(960px + #{$spacing-5} * 2);
+		margin: 0 auto;
+		padding: calc(var(--home-header-h, #{$header-height}) + #{$spacing-12}) $spacing-5 $spacing-24;
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+			grid-template-rows: none;
+			grid-template-areas: 'intro' 'form' 'aside';
+			padding-top: calc(var(--home-header-h, #{$header-height}) + #{$spacing-8});
+			padding-bottom: $spacing-16;
+		}
+
+		:where(p, h2, ul) {
+			margin: 0;
 		}
 	}
 
-	@media print {
-		.contact-us-page {
-			background: none;
+	.contact-intro {
+		grid-area: intro;
+		padding-top: $spacing-6;
+
+		@include media-down(lg) {
+			padding-top: 0;
+			margin-bottom: $spacing-8;
 		}
 
+		// `PageIntro` sets the parts (the narrow lede: 46ch, the secondary grey, 16 on phones); the page
+		// keeps one thing beyond them: the title stays balanced, so wherever it breaks its lines come
+		// out even. Through the header's own classes, one level deeper than its rules, so it wins on
+		// weight rather than on stylesheet order.
+		:global(.section-header .section-header__title) {
+			text-wrap: balance;
+		}
+	}
+
+	.contact-form-slot {
+		grid-area: form;
+		min-width: 0;
+	}
+
+	.print-contacts {
+		grid-column: 1 / -1;
+	}
+
+	@media print {
 		.print-contacts :global(.contacts-wrapper) {
 			padding: 24px 0 0;
+		}
+	}
+
+	.contact-elsewhere {
+		grid-area: aside;
+		align-self: start;
+		margin-top: $spacing-12;
+
+		@include media-down(lg) {
+			margin-top: $spacing-10;
+		}
+
+		&__title {
+			@include type-tile;
+			margin-bottom: $spacing-5;
+			color: var(--color-text);
+		}
+
+		&__list {
+			display: grid;
+			gap: $spacing-5;
+			padding: 0;
+			list-style: none;
+		}
+
+		// The marks are `Mark` 48, white with the lift, in the neutral scheme's ink (option B: colour on
+		// this page is kept for the action and the outcome). White, not the neutral grey the quiet tiles
+		// take elsewhere: these sit on the page's own ground rather than on a card, where a grey tile
+		// vanished.
+		&__item {
+			display: flex;
+			align-items: flex-start;
+			gap: 14px;
+		}
+
+		&__text {
+			display: flex;
+			flex-direction: column;
+			min-width: 0;
+		}
+
+		&__lead {
+			@include type-small;
+			color: var(--color-text-secondary);
+		}
+
+		// `Link` (ink, md) holds its label on one line; a route's label wraps here instead, as the
+		// support portal's does on a phone, and the link is only as wide as its text, so the column
+		// beside it is not a target. Under the item, so it outweighs the kit's own rule.
+		&__item &__link {
+			width: fit-content;
+			white-space: normal;
+			overflow-wrap: anywhere;
 		}
 	}
 </style>
