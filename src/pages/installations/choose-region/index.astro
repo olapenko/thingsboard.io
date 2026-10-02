@@ -1,38 +1,23 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro';
+import RegionChoice from '@components/Landing/RegionChoice.astro';
 ---
 
 <BaseLayout
 	headerVariant="solid-shadow"
 	forceLightTheme
 	title="ThingsBoard choose region"
-	description="ThingsBoard is an IoT platform for device management, data collection, processing and visualization for your IoT projects"
+	description="ThingsBoard is an open-source IoT platform for device management, data collection, processing and visualization for your IoT projects"
 	noIndex
-	ownsCloudSignupIds
 >
 	<section class="intro">
 		<h1>Where should we store your data?</h1>
 		<div class="details">
 			<p class="margin">Pick a cluster for localized performance and regulatory compliance.</p>
 		</div>
-		<div class="region-button-section">
-			<a
-				id="TryItNow_Cloud_NorthAmerica"
-				data-region="north-america"
-				class="button gtm_button"
-				href="https://thingsboard.cloud/signup"
-			>
-				North America
-			</a>
-			<a
-				id="TryItNow_Cloud_Europe"
-				data-region="europe"
-				class="button gtm_button"
-				href="https://eu.thingsboard.cloud/signup"
-			>
-				Europe
-			</a>
-		</div>
+		{/* The region dialog's rows, as everywhere else the region is asked. This page is on the old
+		    header, which does not mount the dialog, so the rows carry the analytics ids themselves. */}
+		<RegionChoice layout="row" flow="signup" gtm class="regions" />
 	</section>
 
 	<section class="map-container">
@@ -41,24 +26,23 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 </BaseLayout>
 
 <script>
+	// The map lifts the continent a row leads to while the row is hovered. The map names its two
+	// regions for the continent; the rows carry the region's id.
+	const MAP_REGION: Record<string, string> = { us: 'north-america', eu: 'europe' };
+
 	document.getElementById('map')!.addEventListener('load', function (this: HTMLObjectElement) {
 		const svgDoc = this.contentDocument!;
-		const buttons = document.querySelector('.region-button-section')!.querySelectorAll<HTMLElement>('.button');
+		const rows = document.querySelectorAll<HTMLElement>('.regions .region-choice__row');
 
-		buttons.forEach((button) => {
-			button.addEventListener('mouseenter', () => {
-				svgDoc.querySelector('.' + button.dataset.region)?.classList.add('region-selected');
-			});
-			button.addEventListener('mouseleave', () => {
-				svgDoc.querySelector('.' + button.dataset.region)?.classList.remove('region-selected');
-			});
+		rows.forEach((row) => {
+			const region = () => svgDoc.querySelector('.' + MAP_REGION[row.dataset.region ?? '']);
+			row.addEventListener('mouseenter', () => region()?.classList.add('region-selected'));
+			row.addEventListener('mouseleave', () => region()?.classList.remove('region-selected'));
 		});
 	});
 </script>
 
 <style lang="scss">
-	@use '../../../styles/variables' as *;
-
 	.intro {
 		padding: 40px 30px 55px;
 		width: 830px;
@@ -113,49 +97,12 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 			}
 		}
 
-		.region-button-section {
-			display: flex;
-			gap: 24px;
-
-			@media (max-width: 959px) {
-				justify-content: center;
-				align-items: center;
-			}
-
-			@media (max-width: 599px) {
-				flex-direction: column;
-			}
-
-			.button {
-				flex: 1;
-				display: inline-block;
-				border-radius: 4px;
-				padding: 10px 20px;
-				line-height: 24px;
-				color: #fff;
-				background-color: var(--tb-main-color);
-				text-decoration: none;
-				font-size: 16px;
-				font-weight: 500;
-				border: 1px solid var(--tb-main-color);
-				box-shadow: 0 12px 16px 0 rgba(42, 125, 236, 0.16);
-				transition-property: background-color, box-shadow, color, filter;
-				transition-duration: 0.4s;
-				transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1);
-				text-align: center;
-
-				@media (max-width: 959px) {
-					width: 200px;
-					max-width: 200px;
-				}
-
-				&:hover {
-					filter: none;
-					color: var(--tb-main-color);
-					background-color: unset;
-					box-shadow: none;
-				}
-			}
+		// The rows on the measure the hub and the dialog give them, centred under the title; their
+		// own text reads from the start.
+		.regions {
+			max-width: 480px;
+			margin-inline: auto;
+			text-align: start;
 		}
 	}
 
@@ -184,15 +131,6 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 			margin-bottom: 40px;
 			padding-left: 16px;
 			padding-right: 16px;
-		}
-	}
-
-	@media print {
-		.intro .region-button-section .button {
-			color: var(--color-text);
-			background: none;
-			border-color: transparent;
-			box-shadow: none;
 		}
 	}
 </style>
