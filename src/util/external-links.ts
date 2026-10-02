@@ -36,3 +36,15 @@ export const newTabLinkLabel = (name: string, href?: string): string =>
 	href !== undefined && isExternalHref(href)
 		? `${name} (opens ${new URL(href).host} in a new tab)`
 		: `${name} (opens in a new tab)`;
+
+/**
+ * The pair for a link DECLARED off-site (a component's `external` prop) rather than derived from
+ * its href. A fresh object per call, as every helper here returns: Astro appends a scoped
+ * component's class onto the very object it spreads, so a shared constant would collect the class
+ * of every component that ever spread it and hand them all to the next one.
+ */
+export const newTabAttrs = (open = true): { target?: '_blank'; rel?: string } =>
+	open ? { target: '_blank', rel: 'noopener noreferrer' } : {};
+
+/** What a screen reader hears after a new-tab link's label, in a `ui-sr` span. */
+export const NEW_TAB_NOTE = ' (opens in a new tab)';
