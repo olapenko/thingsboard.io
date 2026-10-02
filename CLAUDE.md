@@ -177,6 +177,8 @@ All non-doc pages (landing, use-cases, case-studies, standalone pages) share a u
 
 Key rule: **Never hardcode font values** — use mixins. **Never use compile-time SCSS color variables** for theme-dependent colors — use CSS custom properties (`var(--color-*)`).
 
+The face is Ubuntu, self-hosted via `@fontsource/ubuntu` and loaded through Starlight's `customCss` in `astro.config.ts`, so it reaches the docs and every `BaseLayout` page (the legal layout keeps its own system stack). **There is no Ubuntu 600**, and nothing synthesises one: a `600` declaration paints the 700 face, so `$font-weight-semibold` is an alias of `$font-weight-bold` and the declared weight is the painted one. If you want a weight between normal and bold, `$font-weight-medium` (500) is the only one that exists — say so explicitly rather than reaching for the alias.
+
 ### Use-Case Pages
 
 Data-driven pages at `/use-cases/{slug}`. Use the `use-case-pages` skill for data types, page composition, layout, and section components.
@@ -250,7 +252,7 @@ Per-page OG cards (1200×630 PNG) are generated at build time by Satori + Resvg.
 - Cache lives at `node_modules/.og-cache/` (gitignored). Bump `TEMPLATE_VERSION` in `render.ts` to invalidate.
 - `SKIP_OG=true` (used by `pnpm build:fast`) makes `renderCard` return the global fallback instead of running Satori — endpoints still register paths.
 - Pages outside `MARKETING_ALLOWLIST` (or otherwise unmapped) fall back to `/thingsboard-og.png` via `SeoMeta.astro`.
-- Roboto 400/500/700 (7 subsets each: latin, latin-ext, cyrillic, cyrillic-ext, greek, greek-ext, vietnamese) + Noto Sans Symbols 400 for arrows. CJK / Arabic / Hebrew not covered — render as `.notdef`. Site CSS uses an unrelated system font stack; no `FONT_CREDENTIALS` env var.
+- Roboto 400/500/700 (7 subsets each: latin, latin-ext, cyrillic, cyrillic-ext, greek, greek-ext, vietnamese) + Noto Sans Symbols 400 for arrows. CJK / Arabic / Hebrew not covered — render as `.notdef`. Site CSS uses a different face (Ubuntu); no `FONT_CREDENTIALS` env var.
 - **Astro dev quirk:** `trailingSlash: 'always'` makes dev-server 404 dynamic-route URLs that end in `.png`. `SeoMeta.astro` and `routeData.ts` append `/` to `og:image` only when `import.meta.env.DEV` so dev links resolve to `localhost:.../foo.png/` while production HTML keeps the clean `.png` URL Cloudflare Pages serves directly.
 
 **To add a new marketing landing to OG generation:** add its pathname to `MARKETING_ALLOWLIST` in `src/util/ogContext.ts` and rebuild.
