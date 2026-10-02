@@ -1,7 +1,35 @@
-<script is:inline>
-	window.YGC_WIDGET_ID = '388b06d9-9f7f-4125-81e7-0cd963efb031';
+---
+import ChatSkin from '@components/ChatWidget/ChatSkin.astro';
+import ChatLauncher from '@components/ChatWidget/ChatLauncher.astro';
+import { CHAT_LAUNCHER, CHAT_SKIN, YOURGPT_WIDGET_ID } from '@data/chat-widget';
+
+/**
+ * The YourGPT chat on every page, in the site's look (`ChatSkin`, `CHAT_SKIN`) and opened from our
+ * own launcher (`ChatLauncher`, `CHAT_LAUNCHER`) rather than their purple disc, which the skin hides.
+ * The directions it was chosen from are at `/internal/flows/chat-widget/`.
+ *
+ * Mounted in <head> (`ThirdPartyScripts`, by the Starlight Head override), where a <button> cannot
+ * go: the parser would end the head at it. So the launcher ships in a <template> and is cloned into
+ * the body as the page boots — scoped styles and icon included, since both travel with the markup.
+ *
+ * The widget still loads as it did: on the first interaction, or after 10s (see
+ * `DeferredLoadTrigger` for the schedule). A click on the launcher before that loads it on the spot.
+ */
+---
+
+<ChatSkin />
+
+<template id="chat-launcher-template">
+	<ChatLauncher {...CHAT_LAUNCHER} floating />
+</template>
+
+<script is:inline define:vars={{ widgetId: YOURGPT_WIDGET_ID, skin: CHAT_SKIN }}>
+	// Before their root exists, so their launcher is hidden and the skin applies from its first paint.
+	document.documentElement.dataset.chatSkin = skin;
+	window.YGC_WIDGET_ID = widgetId;
 
 	const injectWidget = () => {
+		if (document.getElementById('yourgpt-chatbot')) return;
 		const script = document.createElement('script');
 		script.src = 'https://widget.yourgpt.ai/script.js';
 		script.id = 'yourgpt-chatbot';
@@ -14,4 +42,14 @@
 	};
 
 	(window.__deferOnInteraction || ((cb) => cb()))(loadWidget, 10000);
+</script>
+
+<script>
+	import { wireFloatingLaunchers } from '@util/chat-widget';
+
+	const template = document.getElementById('chat-launcher-template') as HTMLTemplateElement | null;
+	if (template && !document.querySelector('[data-chat-floating]')) {
+		document.body.append(template.content.cloneNode(true));
+	}
+	wireFloatingLaunchers();
 </script>
