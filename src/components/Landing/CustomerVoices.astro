@@ -1,0 +1,383 @@
+---
+import Band from '@components/ui/Band.astro';
+import Link from '@components/ui/Link.astro';
+import SectionHeader from '@components/Landing/SectionHeader.astro';
+import { HOME_VOICES, VOICES_COPY, VOICES_STATS } from '@data/home-voices';
+
+/**
+ * The numbers, then six short customer quotes: the last thing before the closing CTA, so the page
+ * asks for the sign-up straight after people, not logos, have said it worked. Which quotes, why,
+ * and where every number comes from are in `@data/home-voices`, which also checks that each quote is
+ * verbatim.
+ *
+ * THE BOOKENDS' COLOUR, not a section's (see `VOICES_COPY`): the closing CTA under this is `#121425`,
+ * the brand indigo mixed into near-black, and this section leads into it — a ground from white to 10%
+ * of that indigo, and the two accents on the navy itself, so the last cards read as small pieces of
+ * the band that follows. The trust band does the same above Products. No badge: this is the page
+ * closing its case, not a capability.
+ *
+ * SMALL CARDS, TWO ACCENTS. The quote leads each card at body size and the person sits under it,
+ * smaller: the words are the argument and the face is the proof they were said. Two cards are set
+ * on the navy with the quote a size up, in opposite corners, so a grid of six has a first and a last
+ * thing to read instead of six equal things. Faces are the feedback page's own headshots, with its
+ * initial fallback.
+ *
+ * WORDS AT THE TOP, THE PERSON AT THE FOOT. A card is a column: the quote and its context run from
+ * the top, and the person and the case study are pushed to the bottom, so a row's names share a
+ * line because its cards share a height. The three-card version rode shared rows through `subgrid`
+ * instead; with an accent's larger quote in a row, that opened a gap under every smaller quote
+ * beside it, and on the phone's strip all nine shared one set of rows.
+ *
+ * ON A PHONE THE SIX ARE A STRIP you swipe, one card and the edge of the next in view, rather than
+ * six stacked cards fifteen hundred pixels long. The strip is a scroll region for the keyboard only
+ * where it actually scrolls (`initScrollRegions`).
+ */
+---
+
+{/* A `ui/Band`, which paints its own ground (the homepage's rule that flattens section backgrounds
+	   leaves bands alone): 64 over the heading and 80 under the strip, 48 each on a phone. */}
+<Band id="voices" class="voices" ground="fade" pad={{ top: 'md', bottom: 'lg' }}>
+	<SectionHeader
+		title={VOICES_COPY.title}
+		subtitle={VOICES_COPY.lede}
+		titleSize="section"
+		subtitleMeasure="copy"
+		spacing="md"
+	/>
+
+	<dl class="voices__stats" aria-label={VOICES_COPY.statsLabel}>
+		{VOICES_STATS.map((s) => (
+			<div class="voices__stat">
+				<dt class="voices__stat-label">{s.label}</dt>
+				<dd class="voices__stat-value">{s.value}</dd>
+			</div>
+		))}
+	</dl>
+
+	<div class="voices__strip" data-scroll-region role="region" aria-label={VOICES_COPY.stripLabel} tabindex="0">
+		<ul class="voices__list" role="list">
+			{HOME_VOICES.map((v) => (
+				<li
+					class:list={['voices__card', v.accent && 'voices__card--accent']}
+					data-surface={v.accent ? 'dark' : undefined}
+				>
+					{/* The name is in the card's text already, so the mark itself is decoration. */}
+					<img
+						class="voices__logo"
+						src={v.logo.src}
+						alt=""
+						width={v.logo.width}
+						height={v.logo.height}
+						loading="lazy"
+						decoding="async"
+					/>
+					<blockquote class="voices__quote">
+						<p>“{v.quote}”</p>
+					</blockquote>
+					<p class="voices__context">{v.context}</p>
+					<p class="voices__who">
+						{v.image ? (
+							<img class="voices__face" src={v.image} alt="" width="36" height="36" loading="lazy" decoding="async" />
+						) : (
+							<span class="voices__face voices__face--initial" aria-hidden="true">
+								{v.author.charAt(0)}
+							</span>
+						)}
+						<span class="voices__name">
+							<b>{v.author}</b>
+							{/* The company once: Farinia's role already names it ("…at Safir (Farinia Group)"). */}
+							<span>
+								{[v.position, v.position?.includes(v.company) ? undefined : v.company].filter(Boolean).join(', ')}
+							</span>
+						</span>
+					</p>
+					{v.href ? (
+						<Link href={v.href} size="sm" srSuffix={`— ${v.company}`} class="voices__link">
+							Case study
+						</Link>
+					) : (
+						<span class="voices__link-slot" />
+					)}
+				</li>
+			))}
+		</ul>
+	</div>
+
+	<div class="voices__all">
+		<Link href={VOICES_COPY.all.href} size="lg">
+			{VOICES_COPY.all.text}
+		</Link>
+	</div>
+</Band>
+
+<script>
+	import { initScrollRegions } from '@util/scroll-regions';
+	initScrollRegions();
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
+
+	// The bookends' two values: their ground, and the indigo it is mixed from.
+	.voices {
+		--voices-ink: var(--band-indigo);
+		--voices-indigo: var(--color-brand, #3d50f5);
+
+		scroll-margin-top: calc(#{$header-height} + var(--promo-h, 0px));
+	}
+
+	// White to 10% of the bookends' indigo at its foot: the rows' gradient, in the colour of the band
+	// that follows, so the page runs down into the closing CTA rather than stepping onto it. It holds
+	// white through the heading and the numbers, the top third, before the tint starts: the Band's
+	// fade with a later start, so stated here (two classes, over the Band's one).
+	.voices.ui-band--fade {
+		background-image: linear-gradient(
+			180deg,
+			#fff 0%,
+			#fff 35%,
+			color-mix(in srgb, var(--voices-indigo) 10%, #fff) 100%
+		);
+	}
+
+	// ── The numbers ───────────────────────────────────────────────────
+	// Four across on hairlines, the figure over its label: the band the wireframe opened its proof
+	// with, set as one line of facts rather than as four cards, so it reads as the quotes' preface.
+	.voices__stats {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		margin: 0 0 $spacing-10;
+		padding: 0;
+
+		@include media-down(md) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			row-gap: $spacing-6;
+		}
+	}
+
+	// The figure is the `dd` and comes second in the markup, so it is raised with `column-reverse`;
+	// `flex-end` then holds it to the TOP of a cell made taller by a neighbour's two-line label.
+	.voices__stat {
+		display: flex;
+		flex-direction: column-reverse;
+		justify-content: flex-end;
+		align-items: center;
+		gap: $spacing-1;
+		padding-inline: $spacing-4;
+		text-align: center;
+
+		& + & {
+			border-left: 1px solid var(--sl-color-hairline-light, #ebebeb);
+		}
+
+		// Two by two: the hairline only between the pair on each row.
+		@include media-down(md) {
+			&:nth-child(odd) {
+				border-left: 0;
+			}
+		}
+	}
+
+	.voices__stat-value {
+		@include type-title;
+		margin: 0;
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text);
+	}
+
+	.voices__stat-label {
+		@include type-small;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	// ── The quotes ────────────────────────────────────────────────────
+	// Three across on the ecosystem grid's gutter, so the page's card grids share one rhythm; two
+	// across on a tablet, where six still leaves the accents in opposite corners.
+	.voices__list {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: $spacing-5;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	// A card by shadow alone, as the feature tiles and the ecosystem cards are: on white a hairline
+	// would be a second, competing edge. A column, the person at its foot (see the note up top).
+	.voices__card {
+		@include surface(tile);
+
+		display: flex;
+		flex-direction: column;
+		margin: 0;
+		padding: $spacing-5;
+	}
+
+	// Each customer's mark over its quote, in grey so six brands' colours do not fight the quotes: one
+	// height, as wide as its own ratio makes it, up to 120.
+	.voices__logo {
+		display: block;
+		width: auto;
+		max-width: 120px;
+		height: 24px;
+		margin-bottom: $spacing-4;
+		object-fit: contain;
+		object-position: left center;
+		filter: grayscale(1);
+		opacity: 0.72;
+	}
+
+	.voices__quote {
+		margin: 0;
+		padding: 0;
+		border: 0;
+
+		p {
+			@include type-body;
+			margin: 0;
+			font-weight: $font-weight-medium;
+			color: var(--color-text);
+			text-wrap: balance;
+		}
+	}
+
+	.voices__context {
+		@include type-small;
+		margin: $spacing-2 0 0;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	// The face on the name's line, not centred on the block: the block is held at three lines (below).
+	.voices__who {
+		display: grid;
+		grid-template-columns: 36px minmax(0, 1fr);
+		gap: $spacing-3;
+		align-items: start;
+		margin: auto 0 0;
+		padding-top: $spacing-4;
+	}
+
+	.voices__face {
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		object-fit: cover;
+	}
+
+	.voices__face--initial {
+		display: grid;
+		place-items: center;
+		font-weight: $font-weight-bold;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+		background: #f5f6ff;
+	}
+
+	// Room for a role on two lines ("Cloud & App Development Manager, Circutor") under the name's
+	// one, whatever this card's needs: the person sits at the card's foot, so a block one line taller
+	// would lift its name a line above its row's.
+	.voices__name {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		min-height: calc(3 * 22px);
+
+		b {
+			@include type-small-strong;
+			color: var(--color-text);
+		}
+
+		span {
+			@include type-small;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+	}
+
+	// A card with no case study keeps the link's line empty, so its person sits where its row's do.
+	.voices__link,
+	.voices__link-slot {
+		align-self: start;
+		min-height: 22px;
+		margin-top: $spacing-3;
+	}
+
+	// ── The two accents ───────────────────────────────────────────────
+	// The bookends' navy with white type, and the quote a size up. Everything else about the card
+	// holds — the same box, the same parts — so an accent is a louder card, not a different one.
+	.voices__card--accent {
+		color: #fff;
+		background: var(--voices-ink);
+		box-shadow: none;
+
+		.voices__quote p {
+			@include type-card;
+			color: #fff;
+		}
+
+		// White on the navy.
+		.voices__logo {
+			filter: brightness(0) invert(1);
+			opacity: 0.9;
+		}
+
+		.voices__context,
+		.voices__name span {
+			color: rgba(255, 255, 255, 0.78);
+		}
+
+		.voices__name b {
+			color: #fff;
+		}
+
+		.voices__face--initial {
+			color: var(--voices-ink);
+			background: #fff;
+		}
+	}
+
+	// The accent's link takes the dark ground's tone (`data-surface="dark"` on the card): the scheme's
+	// light, through `ui/Link`.
+
+	// ── Phone: a strip ────────────────────────────────────────────────
+	// One card at 82% of the column and the edge of the next, snapping to each. The strip runs to the
+	// screen's edges — the gutter is paid back as scroll padding — so a card slides out of view rather
+	// than being cut at the column.
+	// The page's own 20px gutter. The fallback was 16px and nothing sets the variable, so the strip
+	// stopped 4px short of both screen edges.
+	@include media-down(md) {
+		.voices__strip {
+			margin-inline: calc(-1 * var(--voices-gutter, #{$spacing-5}));
+			padding-inline: var(--voices-gutter, #{$spacing-5});
+			overflow-x: auto;
+			overscroll-behavior-x: contain;
+			scroll-snap-type: x mandatory;
+			scroll-padding-inline: var(--voices-gutter, #{$spacing-5});
+			scrollbar-width: none;
+
+			&::-webkit-scrollbar {
+				display: none;
+			}
+		}
+
+		.voices__list {
+			grid-template-columns: none;
+			grid-auto-flow: column;
+			grid-auto-columns: 82%;
+			gap: $spacing-3;
+			// The last card's shadow and the trailing gutter need room inside the scroll box.
+			padding-block: $spacing-2 $spacing-5;
+		}
+
+		.voices__card {
+			scroll-snap-align: start;
+		}
+	}
+
+	.voices__all {
+		margin-top: $spacing-8;
+		text-align: center;
+	}
+</style>

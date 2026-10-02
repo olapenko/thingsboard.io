@@ -1,0 +1,209 @@
+---
+import Band from '@components/ui/Band.astro';
+import Link from '@components/ui/Link.astro';
+import TrustVisual from '@components/Landing/TrustVisual.astro';
+import TrustVisualStages from '@components/Landing/TrustVisualStages.astro';
+import SectionHeader from '@components/Landing/SectionHeader.astro';
+import { TRUST_COPY, TRUST_HEADING, TRUST_POINTS } from '@data/home-trust';
+
+/**
+ * Three cards — security, scale, openness — each opening on a small drawing (`TrustVisual`). The
+ * homepage's breather between the use cases and the dark Products band: one band a step darker than
+ * the rows, white cards on it, so the rhythm changes before the page asks the reader to choose a
+ * deployment. Copy and its sources are in `@data/home-trust`.
+ *
+ * WHITE CARDS, NO STROKE, on a tint darker than the rows' `#f5f6ff` and much lighter than the Products
+ * band under it: the page steps from white rows through this to navy rather than jumping. The card's
+ * edge is the change of ground, so it needs no border. (They were three columns of text on the rows'
+ * own tint, each under a black glyph, until 2026-09-26.)
+ *
+ * The section is a `ui/Band` (a fade to 14% of the brand, 64 above and below, 48 on a phone), which
+ * paints its own ground: the homepage's rule that flattens section backgrounds leaves bands alone.
+ * The cards take the tile surface through the `surface()` mixin rather than `ui/Card`, because each
+ * is a row of the list's subgrid.
+ */
+
+interface Props {
+	/**
+	 * Which drawings open the cards. `stages` — `TrustVisualStages`, the homepage's since 2026-09-27:
+	 * the shield with the seals, scale one topology at a time, and the repo as GitHub shows it.
+	 * `cards` — `TrustVisual`, the drawings it replaced, kept as the sandbox's reference.
+	 */
+	drawings?: 'stages' | 'cards';
+	/**
+	 * A visible section heading over the cards (`TRUST_HEADING`), where the band otherwise names itself
+	 * only to the outline. Order C's (`heading: 'visible'` in `data/home-compositions.ts`) since 2026-10-02.
+	 */
+	heading?: boolean;
+	/**
+	 * Which way the ground runs. `rise` — the homepage's: white into the bookends' indigo, the approach
+	 * to the dark Products band. `fall` — the same two colours turned over, indigo at the top: the band
+	 * starts on an edge of its own under the use cases' white instead of continuing it. Order C's since
+	 * 2026-10-02 (`ground: 'fall'`).
+	 */
+	ground?: 'rise' | 'fall';
+}
+
+const { drawings = 'stages', heading = false, ground = 'rise' } = Astro.props;
+const Drawing = drawings === 'stages' ? TrustVisualStages : TrustVisual;
+---
+
+<Band
+	id="trust"
+	class:list={['trust', drawings === 'stages' && 'trust--stages', `trust--${ground}`]}
+	ground="fade"
+	strength={14}
+	hue="var(--color-brand, #3d50f5)"
+	attrs={{
+		'aria-labelledby': heading ? undefined : 'trust-title',
+		'aria-label': heading ? TRUST_HEADING.title : undefined,
+	}}
+>
+	{heading ? (
+		<SectionHeader
+			title={TRUST_HEADING.title}
+			subtitle={TRUST_HEADING.subtitle}
+			titleSize="section"
+			subtitleMeasure="copy"
+		/>
+	) : (
+		<h2 id="trust-title" class="trust__title">
+			{TRUST_COPY.title}
+		</h2>
+	)}
+	<ul class="trust__list" role="list">
+		{TRUST_POINTS.map((p) => (
+			<li class="trust__item">
+				<div class="trust__visual">
+					<Drawing kind={p.kind} />
+				</div>
+				<h3 class="trust__name">{p.title}</h3>
+				<p class="trust__text">{p.body}</p>
+				<Link href={p.link.href} class="trust__link">
+					{p.link.text}
+				</Link>
+			</li>
+		))}
+	</ul>
+</Band>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
+
+	.trust {
+		scroll-margin-top: calc(#{$header-height} + var(--promo-h, 0px));
+	}
+
+	// THE BOOKENDS' INDIGO, top to bottom: white to 14% of the brand at the foot, the colour `#121425`
+	// (the Products ground) is mixed from, so this band reads as the approach to the dark one rather
+	// than as a step before it. The Band paints it. Turned over for the sandbox's `fall`: the indigo at
+	// the top, against the use cases' white, and white at the foot.
+	.trust.trust--fall {
+		background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-brand, #3d50f5) 14%, #fff) 0%, #fff 100%);
+	}
+
+	.trust__title {
+		@include visually-hidden;
+	}
+
+	// Three cards on the page's 960 measure, the ecosystem grid's 20 between them: these are cards
+	// now, and cards are separated by their own edges rather than by a wide gutter.
+	.trust__list {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: $spacing-5;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: $spacing-4;
+		}
+	}
+
+	// Each card's four parts — drawing, title, text, link — on rows shared across the three, through
+	// `subgrid`, so a title that takes two lines moves every card's text down with it instead of
+	// starting its own paragraph lower than its neighbours'.
+	.trust__item {
+		display: grid;
+		grid-row: span 4;
+		grid-template-rows: subgrid;
+		row-gap: 0;
+		justify-items: start;
+		margin: 0;
+		// The tile: r8, the tile lift, the tile's 20. No border: the ground starts at white, so a card's
+		// top would dissolve into it, and the lift draws the edge the ground no longer does.
+		@include surface(tile);
+
+		padding: $spacing-5;
+	}
+
+	.trust__visual {
+		width: 100%;
+		margin-bottom: $spacing-6;
+	}
+
+	.trust__name {
+		@include type-card;
+		margin: 0 0 $spacing-3;
+		color: var(--color-text);
+		text-wrap: balance;
+	}
+
+	// With the stages drawings, the titles a step down, at `type-tile-lg`'s 20, the step the ladder
+	// gained for exactly this (decision 8). The `cards` reference keeps `type-card`.
+	.trust--stages .trust__name {
+		@include type-tile-lg;
+	}
+
+	.trust__text {
+		@include type-body;
+		margin: 0;
+		color: var(--color-text);
+	}
+
+	// A card's link, one step under the rows' section link: `ui/Link` at md, the body size, where the
+	// rows take lg. These three sit inside cards beside a drawing, and at the rows' size they read as
+	// three section headings' worth of links. Pushed to the foot of the card's row.
+	.trust__link {
+		align-self: end;
+		justify-self: start;
+		margin-top: $spacing-4;
+	}
+
+	// One card to a row below the three-up grid. From md to lg the room is wide and short, so the
+	// drawing moves beside the words — one row each, the drawing at its full 299 — instead of three
+	// tall cards with a small picture on top of each. Below md, where the card is the column, the
+	// drawing goes back on top.
+	@media (min-width: #{$breakpoint-md}) and (max-width: #{$breakpoint-lg - 1px}) {
+		.trust__item {
+			grid-row: auto;
+			grid-template-columns: 300px minmax(0, 1fr);
+			grid-template-rows: auto auto 1fr;
+			column-gap: $spacing-8;
+			align-items: start;
+		}
+
+		.trust__visual {
+			grid-row: 1 / -1;
+			align-self: center;
+			margin-bottom: 0;
+		}
+
+		.trust__name,
+		.trust__text,
+		.trust__link {
+			grid-column: 2;
+		}
+	}
+
+	@include media-down(md) {
+		.trust__item {
+			grid-row: auto;
+			grid-template-rows: none;
+			padding: $spacing-5;
+		}
+	}
+</style>

@@ -92,10 +92,6 @@ const edge = ecosystem('Edge');
 const trendz = ecosystem('Trendz');
 const gateway = ecosystem('IoT Gateway');
 
-/** The ThingsBoard mark both platforms draw (`@data/marks` knows it as `thingsboard`). */
-const TB_MARK = '/src/assets/images/landings/draft/thingsboard-mark.svg';
-const line = (d: string | string[]) => (Array.isArray(d) ? d.join(' ') : d);
-
 const logo = (name: string) => `/src/assets/images/installation/${name}`;
 
 const REGION_NOTES: Record<CloudRegionId, string> = {
@@ -139,10 +135,10 @@ export const installProducts: InstallProduct[] = [
 		label: cloud.label,
 		description:
 			'Nothing to install. Pick the region your data lives in and start on a free plan; we run the servers, scaling, backups and upgrades.',
-		icon: TB_MARK,
-		accent: cloud.badgeFill,
+		icon: cloud.icon,
+		accent: cloud.accent,
 		badgeFill: cloud.badgeFill,
-		cornerIcon: cloud.action.icon,
+		cornerIcon: cloud.cornerIcon,
 		links: [{ label: 'See plans', href: '/pricing/' }],
 		regions,
 		aside: {
@@ -151,7 +147,7 @@ export const installProducts: InstallProduct[] = [
 			// A dedicated cluster is a conversation, so the contact link leads; the comparison follows.
 			links: [
 				{ label: 'Contact us', href: '/contact-us/?subject=ThingsBoard%20Private%20Cloud' },
-				{ label: cloud.link, href: cloud.href },
+				{ label: cloud.action, href: cloud.href },
 			],
 			options: [cloudProviders],
 		},
@@ -163,14 +159,14 @@ export const installProducts: InstallProduct[] = [
 		label: onPremises.label,
 		description:
 			'You run the deployment, on your own servers or fully offline. Free to install; the licence for the advanced features is on the pricing page.',
-		icon: TB_MARK,
-		accent: onPremises.badgeFill,
+		icon: onPremises.icon,
+		accent: onPremises.accent,
 		badgeFill: onPremises.badgeFill,
-		cornerIcon: onPremises.action.icon,
+		cornerIcon: onPremises.cornerIcon,
 		primary: { label: 'Installation guide', href: '/docs/installation/' },
 		links: [
 			{ label: 'See plans', href: '/pricing/' },
-			{ label: onPremises.link, href: onPremises.href },
+			{ label: onPremises.action, href: onPremises.href },
 		],
 		// The old page's server row for this product, its own guides; its cloud row is under Private
 		// Cloud above. "Cluster setup" goes to the guide's index, as it did: the cluster guides are
@@ -209,7 +205,7 @@ export const installProducts: InstallProduct[] = [
 		name: 'ThingsBoard Edge',
 		nameHighlight: 'Edge',
 		label: edge.label,
-		description: line(edge.description),
+		description: edge.description,
 		icon: edge.icon,
 		accent: edge.accent,
 		primary: { label: 'Installation guide', href: '/docs/edge/installation/' },
@@ -254,7 +250,7 @@ export const installProducts: InstallProduct[] = [
 		name: 'Trendz Analytics',
 		nameHighlight: 'Trendz',
 		label: trendz.label,
-		description: line(trendz.description),
+		description: trendz.description,
 		icon: trendz.icon,
 		accent: trendz.accent,
 		primary: { label: 'Installation guide', href: '/docs/trendz/installation/' },
@@ -290,7 +286,7 @@ export const installProducts: InstallProduct[] = [
 		name: 'IoT Gateway',
 		nameHighlight: 'Gateway',
 		label: gateway.label,
-		description: line(gateway.description),
+		description: gateway.description,
 		icon: gateway.icon,
 		accent: gateway.accent,
 		primary: { label: 'Installation guide', href: '/docs/iot-gateway/installation/' },

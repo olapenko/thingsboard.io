@@ -29,9 +29,12 @@ sync is `main` ← upstream, then `main` → `handoff`, then `handoff` → `lab`
 | 6 | Contact us + Thanks | #15 | The two pages on the kit with the topic picker and device slider; FE's `SectionHeader` + `PageIntro`; main's header renamed `HomeSectionHeader` for the product pages. |
 | 7 | Installations | #16 | The hub as one section per product with `RegionChoice` and `InstallOptions`; choose-region on the region rows; `cloud-regions` gains the pickers' names. |
 | 8 | Cloud + On-premises | #17 | The product pages on the kit: FE's `Hero` (main's → `HomeHero`), `Bookend`, `ProductMatrix`, FE's `BenefitGrid`/`ChoiceBand`/`ProductFaq`; `page-inset()`. |
+| 9 | Home | #18 | The redesigned homepage: FE's sections, data and visuals; main's homepage sections removed; `BaseLayout` preload variants; `ImageComparison` id. |
 
-Next: the Home layer (`feat/page-home`), the last page, which also brings the homepage areas of
-the sandbox. Each brings its sections, data and visuals; each takes
+Every page layer has landed. What remains on `lab`: the homepage areas of the sandbox (the running
+orders at `/internal/homepages/`, each section at `/internal/sections/<id>/`, the sign-up and
+sign-in flows), to be rebuilt on this branch's `_Workbench` from FE-handoff's `_VisualPage` /
+`_Variant` pages now that their components are on `handoff`. Each brings its sections, data and visuals; each takes
 `footer="map"`. Then `FE-handoff` is renamed `facelift-archive` and kept as a frozen reference.
 
 Open, for a review: whether the bar takes FE-handoff's responsive logo (160px from 1281, 215 from

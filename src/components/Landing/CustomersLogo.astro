@@ -1,7 +1,34 @@
 ---
-import { defaultCustomersLogos } from '@data/customersLogo';
+import { defaultCustomersLogos, type CustomerLogo } from '../../data/customersLogo';
 
-/** The customer strip under the homepage hero: white marks on black, looping when the row overflows. */
+interface Props {
+	/**
+	 * Product tag for styling: 'ce' | 'pe' | 'paas' | 'edge' | etc.
+	 */
+	productTag?: string;
+	/**
+	 * Custom logos array. If not provided, uses default logos.
+	 */
+	logos?: CustomerLogo[];
+	/**
+	 * Renders the row as a full-width dark strip. Used directly under the
+	 * homepage hero, where it closes the hero rather than opening the content.
+	 */
+	onDark?: boolean;
+}
+
+const { productTag = 'ce', logos = defaultCustomersLogos, onDark = false } = Astro.props;
+
+const filterMap: Record<string, string> = {
+	ce: 'invert(86%) sepia(5%) saturate(530%) hue-rotate(171deg) brightness(237%) contrast(86%)',
+	pe: 'invert(79%) sepia(25%) saturate(246%) hue-rotate(93deg) brightness(185%) contrast(82%)',
+	paas: 'invert(87%) sepia(3%) saturate(664%) hue-rotate(176deg) brightness(237%) contrast(82%)',
+	edge: 'invert(79%) sepia(25%) saturate(246%) hue-rotate(130deg) brightness(185%) contrast(82%)',
+};
+// The light rows tint each mark per product. The dark strip flattens every mark to plain white
+// instead, which is one CSS rule (see `--dark`), not a style on each of them.
+const imgFilter = onDark ? '' : (filterMap[productTag] ?? '');
+
 const LOCAL_PREFIX = '/src/assets/images/';
 const svgUrls = import.meta.glob<string>('/src/assets/images/**/*.svg', {
 	query: '?url',
@@ -9,50 +36,68 @@ const svgUrls = import.meta.glob<string>('/src/assets/images/**/*.svg', {
 });
 
 const resolvedLogos = await Promise.all(
-	defaultCustomersLogos.map(async (logo) => {
-		if (!logo.src.startsWith(LOCAL_PREFIX)) return logo;
-		const loader = svgUrls[logo.src];
-		return { ...logo, src: loader ? await loader() : logo.src };
+	logos.map(async (logo) => {
+		if (logo.src.startsWith(LOCAL_PREFIX)) {
+			const loader = svgUrls[logo.src];
+			return { ...logo, src: loader ? await loader() : logo.src };
+		}
+		return logo;
 	})
 );
 
-// Optical sizing: `k` scales each mark to the area of a 4:1 mark of the reference height; `units` is its
-// width in reference heights, summed so the CSS can fit the row.
+// OPTICAL SIZING, from each logo's own box and nothing else. The marks run from 2.6:1
+// (Intel) to 6:1 (T-Mobile), so one shared height gave the wide ones more than twice
+// the area, and so the weight, of the compact ones. Each mark instead takes a factor `k`
+// on a shared reference height: the square root of its aspect ratio against 4:1, which
+// gives every mark the same area as a 4:1 mark of that height. It needs only the width
+// and height every entry already carries, so a new logo is balanced on arrival.
+//
+// `units` is the mark's width in reference heights. Their sum is the whole row's width
+// per pixel of reference height, which is what lets the CSS fit the row to its container
+// without knowing which logos are in it; the narrowest and widest set the size limits.
 const REF_RATIO = 4;
 const sizedLogos = resolvedLogos.map((logo) => {
 	const ratio = logo.width / logo.height;
 	const k = Math.sqrt(REF_RATIO / ratio);
 	return { ...logo, k, units: k * ratio };
 });
+const rowUnits = sizedLogos.reduce((sum, logo) => sum + logo.units, 0);
 const rowVars = [
 	`--logo-count: ${sizedLogos.length}`,
-	`--logo-units: ${sizedLogos.reduce((sum, logo) => sum + logo.units, 0).toFixed(3)}`,
+	`--logo-units: ${rowUnits.toFixed(3)}`,
 	`--logo-units-min: ${Math.min(...sizedLogos.map((logo) => logo.units)).toFixed(3)}`,
 	`--logo-units-max: ${Math.max(...sizedLogos.map((logo) => logo.units)).toFixed(3)}`,
 ].join('; ');
 ---
 
-<section id="tb-customers" class="customers-logo" style={rowVars} data-logo-strip>
+<section
+	id="tb-customers"
+	class:list={['customers-logo', onDark && 'customers-logo--dark']}
+	style={rowVars}
+	data-logo-strip
+>
 	<div class="customers-logo__content">
 		<div class="customers-logo__track">
 			{
-				/* Twice for a seamless loop (the script adds copies if needed). Copies show only while looping,
-				   are `aria-hidden` and hold no links, so each logo is announced and tabbed to once. */
+				/* Rendered twice so the loop can run seamlessly: the track slides by exactly one
+				   set and starts over. The copy is only displayed while the loop runs, and it is
+				   `inert` and `aria-hidden`, so a screen reader or a keyboard meets each logo once.
+				   Where one set is narrower than the strip, the script adds more copies. */
 				[false, true].map((isCopy) => (
-					<div class:list={['customers-logo__set', isCopy && 'print:hidden']} aria-hidden={isCopy ? 'true' : undefined}>
+					<div class="customers-logo__set" aria-hidden={isCopy ? 'true' : undefined} inert={isCopy ? true : undefined}>
 						{sizedLogos.map((logo) => {
-							const img = (
-								<img src={logo.src} alt={isCopy ? '' : logo.ariaLabel} width={logo.width} height={logo.height} />
-							);
-							const style = `--k: ${logo.k.toFixed(4)}`;
-							return logo.href && !isCopy ? (
-								<a href={logo.href} class="customers-logo__item" style={style}>
-									{img}
-								</a>
-							) : (
-								<span class="customers-logo__item" style={style}>
-									{img}
-								</span>
+							// A mark with a page of ours behind it is a link; the rest are plain marks.
+							const Item = logo.href ? 'a' : 'span';
+							return (
+								<Item href={logo.href} class="customers-logo__item" style={`--k: ${logo.k.toFixed(4)}`}>
+									<img
+										src={logo.src}
+										alt={logo.ariaLabel}
+										width={logo.width}
+										height={logo.height}
+										style={imgFilter ? `filter:${imgFilter}` : undefined}
+									/>
+								</Item>
 							);
 						})}
 					</div>
@@ -65,33 +110,67 @@ const rowVars = [
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
+	// ONE ROW, SIZED BY ONE NUMBER.
+	//
+	// Every mark is `--k` (see the frontmatter) times a shared reference height, `--h0`,
+	// so the row scales as one and stays balanced at every size. `--h0` is the height that
+	// fits the row to its container with `--logo-gap-fit` between marks, held between two
+	// limits stated as the WIDTHS a reader sees:
+	//
+	//   floor    the narrowest mark is never under `--mark-min-w`, so nothing renders as
+	//            a smudge;
+	//   ceiling  the widest mark is never over `--mark-max-w`, so a big screen does not
+	//            blow the strip up into a billboard.
+	//
+	// The spacing is even ALL the way across, the two ends included: the first and last
+	// marks keep a full gap of room inside the row's padding, so at no width does a mark
+	// sit on the hero's own edge. At the ceiling the marks stop growing and the spare room
+	// goes into those gaps, evenly — though with today's seven the 960 cap binds first (the
+	// widest mark tops out at 108), so the ceiling is a guard for a shorter set. Below the
+	// floor they stop shrinking and the row no longer fits, and then it loops (see THE
+	// LOOP). All of it comes from the logo set itself, so adding or removing a logo needs
+	// no retuning here.
 	.customers-logo {
+		// Leaning small: the strip closes the hero rather than opening the page, so the
+		// marks support it.
 		--mark-min-w: 56px;
 		--mark-max-w: 120px;
 		--logo-gap-min: #{$spacing-6};
 		--logo-gap-fit: #{$spacing-10};
-		--ribbon-pad: clamp(20px, calc(0.5rem + 2vw), 56px);
+		// The page's inset (`page-inset`), with the phone's 20px floor the hero's copy has.
+		--ribbon-pad: #{page-inset(20px)};
 
+		position: relative;
 		padding-block: clamp(#{$spacing-6}, 2.5vw, 36px);
-		background-color: #000;
 
 		&__content {
-			// Query container for the `100cqi` in `--h0`.
+			// The query container for `cqi` below: the row's own width, less its padding.
 			container-type: inline-size;
 			max-width: calc(960px + var(--ribbon-pad) * 2);
 			margin: 0 auto;
 			padding-inline: var(--ribbon-pad);
+
+			// Never wrapped: two rows hold the floor only from ~390px, so a 360 or 375
+			// phone would get three, and a wrapped row is taller than the strip it is in.
+			// One line and one height, looping when it does not fit (below) and swipeable
+			// where the loop is off: reduced motion, or no script.
 			overflow-x: auto;
 			overscroll-behavior-x: contain;
 			scroll-snap-type: x proximity;
 			scroll-padding-inline: var(--ribbon-pad);
+			// No bar at any width. On touch it was already overlay-only; with a mouse it
+			// only ever showed in a window under ~700px, as a grey rule under a strip of
+			// white marks, and a trackpad, Shift+wheel or Tab still get across.
 			scrollbar-width: none;
 
 			&::-webkit-scrollbar {
 				display: none;
 			}
 
-			// Covers only the padding: nothing while the row fits, the edge mark once it overflows.
+			// The fades sit over the padding alone, so while the row fits they cover
+			// nothing. Once it overflows, the marks pass under them at both ends and the
+			// one at the edge fades out rather than being sliced — a slice is what made an
+			// earlier scroller here read as broken rather than scrollable.
 			--fade-mask: linear-gradient(
 				to right,
 				transparent,
@@ -103,18 +182,23 @@ const rowVars = [
 			mask-image: var(--fade-mask);
 		}
 
-		// At least the row's width, so a set that fits can spread across it.
+		// At least the row's width, so the one visible set can spread across it; wider
+		// once the loop shows the copy beside it.
 		&__track {
 			display: flex;
+			gap: var(--logo-gap-min);
 			width: max-content;
 			min-width: 100%;
 		}
 
-		// A gap's worth of padding plus `space-evenly` spaces the ends like the gaps between marks.
 		&__set {
 			display: flex;
 			flex: 1 0 auto;
 			align-items: center;
+			// Even spacing between the marks AND at the two ends: the padding is a gap's
+			// worth, so the end slots start level with the inner ones and `space-evenly`
+			// then grows every slot alike. A row that does not fit has no free space to
+			// share (the track is `max-content`), so its marks simply sit a gap apart.
 			justify-content: space-evenly;
 			gap: var(--logo-gap-min);
 			padding-inline: var(--logo-gap-min);
@@ -125,10 +209,12 @@ const rowVars = [
 		}
 
 		&__item {
+			display: block;
 			flex: 0 0 auto;
 			scroll-snap-align: start;
 
-			// The height that fits the row at `--logo-gap-fit`, bounded by the narrowest and widest mark widths.
+			// `cqi`, not `vw`: the fit is to the row's own width, so it holds under any
+			// padding and at any cap.
 			--h0: clamp(
 				var(--mark-min-w) / var(--logo-units-min),
 				(100cqi - (var(--logo-count) + 1) * var(--logo-gap-fit)) / var(--logo-units),
@@ -138,29 +224,31 @@ const rowVars = [
 
 		img {
 			display: block;
+			height: calc(var(--h0) * var(--k, 1));
 			width: auto;
-			height: calc(var(--h0) * var(--k));
-			filter: brightness(0) invert(1);
-			-webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.38));
-			mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.38));
 		}
 
-		a:hover img,
-		a:focus-visible img {
-			-webkit-mask-image: none;
-			mask-image: none;
-		}
-
-		// Set by the script, with `--marquee-distance` and `--marquee-duration`, when the row overflows.
+		// ── THE LOOP ────────────────────────────────────────────────────────────────────
+		//
+		// Where the row does not fit (a phone, a narrow window) it slides by one set at a
+		// constant speed and starts over, so every visitor sees all the marks without
+		// having to swipe for them. The script below sets `data-marquee` only then, and
+		// never under reduced motion; it also sets the distance and the duration from the
+		// set's measured width, so the speed is the same whatever the logos.
+		//
+		// Slow, and it stops for anyone reading it: a pointer over it, a finger on it, a
+		// logo in keyboard focus. It also stops while off screen. There is deliberately no
+		// pause button; reduced motion turns the loop off entirely.
 		&[data-marquee] {
 			.customers-logo__content {
 				overflow-x: hidden;
 				scroll-snap-type: none;
 			}
 
-			// The start padding is the seam to the previous set, so no mark moves as the loop starts.
+			// The track's gap is the seam between the set and its copy; the sets' own end
+			// padding is for the resting row, where it is the space to the edges.
 			.customers-logo__set {
-				padding-inline-end: 0;
+				padding-inline: 0;
 			}
 
 			.customers-logo__set[aria-hidden='true'] {
@@ -168,7 +256,7 @@ const rowVars = [
 			}
 
 			.customers-logo__track {
-				animation: customers-logo-loop var(--marquee-duration) linear infinite;
+				animation: customers-logo-loop var(--marquee-duration, 24s) linear infinite;
 			}
 		}
 
@@ -186,36 +274,34 @@ const rowVars = [
 			}
 		}
 
-		@media print {
-			padding-block: $spacing-2 $spacing-8;
-			background: none;
+		// Full-bleed dark band under the homepage hero; the row itself is capped at the
+		// page's 960 measure and centred on it, its marks inset by their end gaps.
+		//
+		// Measured: on the 960 measure (from ~1000px) the row settles with 40px between
+		// marks and 40 at each end, the outer marks 69px from the edge at 1024, where the
+		// hero's copy stands at 28. At the floor the narrowest is 56 and the row loops below
+		// a ~750px viewport. The strip is ~99 tall on desktop, 70 below it.
+		&--dark {
+			background-color: #000;
 
-			&,
-			&[data-marquee] {
-				.customers-logo__content {
-					overflow: visible;
-					padding-inline: 0;
-					-webkit-mask-image: none;
-					mask-image: none;
-				}
-
-				.customers-logo__track {
-					width: auto;
-					transform: none !important;
-				}
-
-				.customers-logo__set {
-					flex: 1 1 100%;
-					flex-wrap: wrap;
-					justify-content: center;
-					row-gap: $spacing-4;
-					padding-inline: 0;
-				}
+			// Plain white: `brightness(0)` flattens each mark to black and `invert(1)` takes
+			// it to white — the per-product tints land on light grey here. So the only
+			// variable is how far a mark sits back from the strip, and a mask carries that,
+			// which keeps every mark the same hue at rest and on hover.
+			//
+			// The mask is the hero's brand line's ramp, 0.62 at the top to 0.38 at the
+			// bottom, down each mark's own height as the word's runs down its line: the two
+			// muted things bracketing the hero stay one treatment, as they were at a flat 0.5.
+			// A mask rather than an opacity because it is a ramp; hover lifts it to full white,
+			// on the marks that are links only, so the lift always means "this goes somewhere".
+			img {
+				filter: brightness(0) invert(1);
+				-webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.38));
+				mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.38));
 			}
 
-			img {
-				filter: brightness(0);
-				opacity: 0.6;
+			a.customers-logo__item:hover img,
+			a.customers-logo__item:focus-visible img {
 				-webkit-mask-image: none;
 				mask-image: none;
 			}
@@ -224,17 +310,16 @@ const rowVars = [
 
 	@keyframes customers-logo-loop {
 		to {
-			transform: translateX(calc(-1 * var(--marquee-distance)));
+			transform: translateX(calc(-1 * var(--marquee-distance, 0px)));
 		}
 	}
 </style>
 
 <script>
-	import { pauseOffscreen } from '@util/pause-offscreen';
-
-	// Loops the strip when the row overflows, which CSS cannot detect; without it the row just scrolls.
-	const SPEED = 20; // px per second
-	const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+	// The loop is switched on here rather than in CSS because its condition, "the row does
+	// not fit its strip", is a comparison CSS cannot make. Without this script the strip is
+	// the plain swipeable row.
+	const SPEED = 20; // px per second: a mark takes ~19s to cross a phone, one loop ~34s
 
 	for (const strip of document.querySelectorAll<HTMLElement>('[data-logo-strip]')) {
 		const viewport = strip.querySelector<HTMLElement>('.customers-logo__content');
@@ -242,19 +327,28 @@ const rowVars = [
 		const [set, copy] = strip.querySelectorAll<HTMLElement>('.customers-logo__set');
 		if (!viewport || !track || !set || !copy) continue;
 
-		const items = [...set.children];
-		const gap = parseFloat(getComputedStyle(set).columnGap);
+		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const items = [...set.children] as HTMLElement[];
+		// The gap is a constant (`--logo-gap-min`), so it is read once.
+		const gap = parseFloat(getComputedStyle(set).columnGap) || 0;
 		let room = 0;
 
 		const update = () => {
-			// Measured at minimum spacing (a set that fits is spread out); start padding included, so this is
-			// exactly one loop step.
-			const distance = items.reduce((sum, item) => sum + item.getBoundingClientRect().width, 0) + gap * items.length;
-			const loop = !reduce.matches && distance + gap > room + 1;
+			// The set at its minimum spacing, not as laid out (while it fits it is spread):
+			// a gap between each pair and one at each end, as the resting row keeps them, so
+			// a row that fits never has a mark on the edge.
+			const need = items.reduce((sum, item) => sum + item.getBoundingClientRect().width, 0) + gap * (items.length + 1);
+			const loop = !reduce.matches && need > room + 1;
 			if (loop) {
+				// One set plus the gap before the next — the set loses its end padding while
+				// it loops — so after exactly this the next copy stands where the set started
+				// and the restart is invisible.
+				const distance = need - gap;
 				strip.style.setProperty('--marquee-distance', `${distance}px`);
 				strip.style.setProperty('--marquee-duration', `${(distance / SPEED).toFixed(2)}s`);
-				// One set more than spans the strip, so it never runs short of marks.
+				// Enough copies that the strip is never short of marks as the track slides:
+				// one set more than it takes to span it. Two on a phone; three where the strip
+				// is wider than a set (700-749px), or its right end ran out before each restart.
 				const sets = Math.ceil(viewport.clientWidth / distance) + 1;
 				while (track.children.length < sets) track.append(copy.cloneNode(true));
 			}
@@ -268,10 +362,13 @@ const rowVars = [
 		}).observe(viewport);
 		reduce.addEventListener('change', update);
 
-		for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'pointerleave']) {
-			viewport.addEventListener(type, () => strip.toggleAttribute('data-held', type === 'pointerdown'));
-		}
-	}
+		// A finger on the strip holds it still, so a moving logo can be read or tapped.
+		const hold = (held: boolean) => () => strip.toggleAttribute('data-held', held);
+		viewport.addEventListener('pointerdown', hold(true));
+		for (const type of ['pointerup', 'pointercancel', 'pointerleave']) viewport.addEventListener(type, hold(false));
 
-	pauseOffscreen('[data-logo-strip]');
+		new IntersectionObserver(([entry]) => strip.toggleAttribute('data-offscreen', !entry.isIntersecting)).observe(
+			strip
+		);
+	}
 </script>

@@ -1,23 +1,89 @@
 ---
 import { Icon } from 'astro-icon/components';
-import { AI_ASSISTANT_DEMO, AI_ASSISTANT_LABEL } from '@data/ai-visual';
+import { AI_ASSISTANT_SCENARIOS } from '@data/ai-visual';
+import type { AiChatScenario } from '@data/ai-visual';
 
 /**
- * The AI Assistant as a looping picture: prompts typed into the composer and answered. Nothing is
- * interactive, so the whole window is one `role="img"`.
+ * The AI Assistant, as a window typing out one exchange and answering it.
+ *
+ * Ported from `tb-landing-prototype` (`src/sections/06-ai.html` plus the assistant block in
+ * `src/scripts/00-block.js.html`).
+ *
+ * ── BARE, NOT IN-APP ──────────────────────────────────────────────────────────────────────────
+ * This was the prototype's "In app" treatment: the chat sat on a grey plate inside a slice of the
+ * product — green app bar, a card cropped by the left edge, 9px of grey showing all round. That is
+ * gone, which is the prototype's own "Bare" switch. The white body now carries the shadow itself,
+ * so the window reads as one object instead of a screenshot of a screenshot, and the grey is not
+ * competing with the panel wash behind it.
+ *
+ * The window is CUT AT THE TOP by the panel that holds it (see `AiSection`), and the cut is sized
+ * to take the `New chat` bar with it. Nothing above the log earns its space while the demo is
+ * running: the log fills from the bottom, so the top of it is empty for most of the loop.
+ *
+ * ── NO FAKE MOUSE ────────────────────────────────────────────────────────────────────────────
+ * The prototype drove this with a drawn cursor: it slid in, became an I-beam, clicked the composer,
+ * moved aside while the line was typed, then travelled to Send and pressed it. That is gone, and the
+ * demo is KEYBOARD-ONLY — the composer is already focused, the prompt types, Enter commits it.
+ *
+ * Four reasons, in the order they matter:
+ *
+ * 1. It argued the wrong thing. The section's claim is that you DESCRIBE what you want in plain
+ *    English; a cursor hunting for a button makes the story about clicking.
+ * 2. It was the only skeuomorph on the page. Nothing else here draws a pretend input device.
+ * 3. It is meaningless on a phone, where most of this traffic is, and `prefers-reduced-motion`
+ *    already hid it — so the no-pointer reading was already shipping to two audiences and reads fine.
+ * 4. It was the most fragile code here. Its path was computed from `offsetLeft`/`offsetTop` against
+ *    a window that is now scaled 1.2x and cropped, so every geometry change was a chance to leave
+ *    the arrow pointing at nothing.
+ *
+ * KEPT from the prototype: the rest of the choreography — type, commit, thinking dots, answer, loop
+ * — and the product's own greens, sampled from the ThingsBoard UI, which make it read as the real
+ * thing.
+ *
+ * CHANGED: Material Symbols became Tabler through `astro-icon`, the only icon set this repo ships;
+ * `Roboto` is no longer named, because the product UI font is not loaded here and asking for it
+ * only produced a fallback; and every query is scoped to this instance, with playback held until
+ * the window is on screen and parked again when it leaves — the prototype's script reached the
+ * document and ran forever.
+ *
+ * Nothing here is interactive on purpose. It is a picture of an app, and real controls would be tab
+ * stops that do nothing — so the whole thing is one `role="img"` with a label saying what the
+ * exchange is, rather than a fake chat log for a screen reader to walk.
  */
+
 interface Props {
-	/** Titles the bar in place of the `New chat` picker and drops the edit control, for a window shown whole. */
-	titled?: boolean;
+	/** Play the exchange. Off renders the empty state as a still. */
+	animate?: boolean;
+	/**
+	 * Which scenario plays — `shipping` is the homepage's, the others are sandbox candidates. Named on
+	 * the plate as `data-assistant-scenario`, because the player below is one bundled script for every
+	 * window on the page and reads each window's scenario from the window itself.
+	 */
+	scenario?: AiChatScenario;
+	/**
+	 * A plain label in the bar in place of the product's `New chat` picker, with the edit control gone
+	 * and the context ring and the close kept — the bar as a window title rather than a chat header.
+	 * For a treatment that shows the whole window (`AiWide`); the homepage crops the bar away and
+	 * leaves this unset.
+	 */
+	title?: string;
 }
 
-const { titled } = Astro.props;
+const { animate = true, scenario = 'shipping', title } = Astro.props;
+const { demo: AI_ASSISTANT_DEMO, label: AI_ASSISTANT_LABEL } = AI_ASSISTANT_SCENARIOS[scenario];
 ---
 
-<div class:list={['assistant', titled && 'assistant--titled']} role="img" aria-label={AI_ASSISTANT_LABEL}>
+<div
+	class:list={['assistant', title && 'assistant--titled']}
+	role="img"
+	aria-label={AI_ASSISTANT_LABEL}
+	data-assistant-plate
+	data-assistant-scenario={scenario}
+	data-animate={animate ? 'on' : null}
+>
 	<div class="assistant__bar" aria-hidden="true">
-		{titled ? (
-			<span class="assistant__title">AI Assistant</span>
+		{title ? (
+			<span class="assistant__title">{title}</span>
 		) : (
 			<span class="assistant__chat">
 				New chat
@@ -25,44 +91,34 @@ const { titled } = Astro.props;
 			</span>
 		)}
 		<span class="assistant__tools">
-			{/* The context-usage gauge; `pathLength` makes the dash a percentage. */}
+			{/* The context-usage ring: a track and an arc, drawn as strokes so the arc is a true arc at any
+				   scale. `pathLength` makes the dash a percentage: 22 is the fill in the product's header. */}
 			<svg class="assistant__ring" viewBox="0 0 20 20">
 				<circle class="assistant__ring-track" cx="10" cy="10" r="8"></circle>
 				<circle class="assistant__ring-arc" cx="10" cy="10" r="8" pathLength="100"></circle>
 			</svg>
-			{!titled && <Icon name="tabler:edit" />}
+			{!title && <Icon name="tabler:edit" />}
 			<Icon name="tabler:x" />
 		</span>
 	</div>
 
-	<div class="assistant__log" aria-hidden="true">
-		<div class="assistant__intro">
+	<div class="assistant__log" data-assistant-log aria-hidden="true">
+		<div class:list={['assistant__intro', !AI_ASSISTANT_DEMO.chip && 'assistant__intro--bare']} data-assistant-intro>
 			<p class="assistant__hello">{AI_ASSISTANT_DEMO.hello}</p>
 			<p class="assistant__lead">{AI_ASSISTANT_DEMO.lead}</p>
+			{AI_ASSISTANT_DEMO.chip && <span class="assistant__chip">{AI_ASSISTANT_DEMO.chip}</span>}
 		</div>
 	</div>
 
-	<div class="assistant__log assistant__log--final is-running print:only" aria-hidden="true">
-		{AI_ASSISTANT_DEMO.exchanges.map(({ prompt, actions, reply }) => (
-			<Fragment>
-				<p class="assistant__msg assistant__msg--user">{prompt}</p>
-				{actions.map((action) => (
-					<p class="assistant__done">
-						<svg class="assistant__tick" viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M5 12l5 5l10 -10" />
-						</svg>
-						<span set:html={action} />
-					</p>
-				))}
-				<p class="assistant__msg assistant__msg--bot" set:html={reply} />
-			</Fragment>
-		))}
-	</div>
-
-	<div class="assistant__input" aria-hidden="true">
-		{/* The placeholder is drawn by CSS `content`. */}
-		<span class="assistant__typed is-idle" style={`--placeholder: "${AI_ASSISTANT_DEMO.placeholder}"`}></span>
-		<span class="assistant__send">
+	<div class="assistant__input" data-assistant-field aria-hidden="true">
+		{/* The hint is drawn by CSS `content`, which cannot read the data file — so the string is
+			   handed over as a custom property rather than retyped in the stylesheet. One source. */}
+		<span
+			class="assistant__typed is-idle"
+			style={`--placeholder: "${AI_ASSISTANT_DEMO.placeholder}"`}
+			data-assistant-typed
+		></span>
+		<span class="assistant__send" data-assistant-send>
 			<Icon name="tabler:send" />
 		</span>
 	</div>
@@ -71,15 +127,37 @@ const { titled } = Astro.props;
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
-	// The product UI's own colours, fixed rather than themed: this is a picture of the app.
+	// The product's own greens, sampled from the ThingsBoard UI. Fixed rather than themed: this is a
+	// photograph of an app, and the app does not change colour with the page around it.
 	.assistant {
 		--tb-green: #0a5648;
 		--tb-ink: #1c1c1c;
 		--tb-muted: #5d6d68;
 		--tb-bubble: #e9f0ee;
 
-		// Drawn at native width and scaled by `--ui-scale`, which the section sets. Scales from the bottom,
-		// so the overflow goes off the top, the edge the section crops.
+		// THE UI IS DRAWN NARROW AND BLOWN UP, rather than drawn at the size it ends up.
+		//
+		// The window occupies 500x396 on the page, but it is authored at 365x289 and scaled by
+		// `--ui-scale`, which the section sets. Two things fall out of that, both wanted: every glyph
+		// inside renders larger than its declared size, and the layout is a genuinely NARROWER app —
+		// text wraps where it would in a 365px panel, so it reads like a real assistant docked in a
+		// sidebar instead of a wide box with small type in it.
+		//
+		// 365 IS THE AUTHORED DEFAULT, and the section overrides it per layout — the section owns the
+		// column the window has to fill, so it sets both the native width and the scale:
+		//
+		//   homepage, 600 and up   400 native x 1.36 = 544   (`fit="column"` in `AiSection`)
+		//   phone, below 600       the cell's width, max 365, at scale 1
+		//   `fit="inset"`          365 x 1.37 = 500          (the previous homepage, on the sandbox)
+		//
+		// Two things bound any change. Keep the SCALE near 1.36–1.37: that is what puts the body type at
+		// ~16.3px, level with the terminal's 18px mono once the mono's bigger x-height is counted. And
+		// keep the prompts on one line of the composer, which holds ~50 characters at 400 native and ~45
+		// at 365; the phone's 335 holds ~41, which is where the prompts' 40-character rule comes from.
+		//
+		// `bottom center` pairs with the crop in `AiSection`: the layout box is placed by the flow and
+		// the scale grows UP and out from its bottom edge, so the bottom stays where it was put and the
+		// overflow goes off the top — which is the edge the panel cuts.
 		--ui-scale: 1;
 
 		position: relative;
@@ -90,10 +168,24 @@ const { titled } = Astro.props;
 		overflow: hidden;
 		transform: scale(var(--ui-scale));
 		transform-origin: bottom center;
-		// Page pixels, undoing `--ui-scale`.
-		border-radius: calc(#{$radius-lg} / var(--ui-scale));
+		// OPTICALLY CONCENTRIC WITH THE COMPOSER (2026-09-25). The exact figure is its 8px corner plus the
+		// 14px it sits in from the window's edge = 22 native, 30 on the page — and exact read too round:
+		// two truly concentric arcs make the band between them look THICKER at the corner, because the
+		// eye reads its width along the diagonal. Tightened, as the usual correction does, to 24 on the
+		// page at the homepage's 1.36 scale. Written in page pixels over that scale so the number that
+		// was judged is the number in the file; the phone (scale 1) gets the same proportion, 17.6
+		// against its exact 22. Was 8, the composer's own radius, which pinched the band instead.
+		border-radius: calc(24px / 1.36);
 		background: $color-white;
-		box-shadow: 0 4px 12px rgb(23 24 28 / 10%);
+		// The window's own lift, now that there is no plate under it to cast one — and it has to be a
+		// SMALL one, for a reason that is easy to miss: this shadow is drawn in authored pixels and
+		// then multiplied by `--ui-scale` along with everything else. The old `0 18px 48px` rendered as
+		// roughly `0 22px 58px`, which reached ~35px past the window — further than the 31px of panel
+		// beside it and the 14px beneath it, so the crop box cut the shadow off and what was left read
+		// as a grey smear with straight edges rather than a soft lift.
+		//
+		// `0 4px 12px` renders as `0 5px 14px`, which stays inside the crop on every side.
+		box-shadow: 0 4px 12px rgba(23, 24, 28, 0.1);
 		text-align: left;
 	}
 
@@ -105,18 +197,21 @@ const { titled } = Astro.props;
 		height: 34px;
 		padding: 0 12px;
 		border-bottom: 1px solid $color-border-dark;
-		font-size: 12px;
-		color: var(--tb-ink);
 	}
 
 	.assistant__chat {
 		display: flex;
 		align-items: center;
 		gap: 6px;
+		font-size: 12px;
+		color: var(--tb-ink);
 	}
 
+	// The label, where `title` is set: the picker's size, a step heavier, so it reads as the window's name.
 	.assistant__title {
+		font-size: 12px;
 		font-weight: $font-weight-medium;
+		color: var(--tb-ink);
 	}
 
 	.assistant__tools {
@@ -131,7 +226,11 @@ const { titled } = Astro.props;
 		color: var(--tb-muted);
 	}
 
-	// Starts at twelve o'clock; an SVG circle starts at three. Through its parent, to outrank `.assistant svg`.
+	// The context-usage ring from the product header: a grey track and a green arc over it, starting
+	// at twelve o'clock (an SVG circle starts at three, so the whole ring is turned a quarter back).
+	// It was a bordered box with a green dot on its rim, which read as a broken circle rather than as
+	// a gauge. Selected through its parent so it outranks the `.assistant svg` rule below and keeps the
+	// ring's own 17.
 	.assistant__tools .assistant__ring {
 		width: 17px;
 		height: 17px;
@@ -150,6 +249,7 @@ const { titled } = Astro.props;
 		stroke-dasharray: 22 100;
 	}
 
+	// The exchange grows from the bottom, as in a real chat.
 	.assistant__log {
 		position: relative;
 		display: flex;
@@ -160,10 +260,38 @@ const { titled } = Astro.props;
 		min-height: 0;
 		padding: 18px 18px 14px;
 		overflow: hidden;
-		// On the log, not the window, so the window's edge and shadow stay crisp. Shorter at rest, clear
-		// of the greeting.
+		// The list dissolves upward instead of ending on the panel's cut. Masked on the LOG rather
+		// than on the window, deliberately: the window's own edge and its shadow stay crisp, and what
+		// fades is the conversation — which reads as "this has been going on above" rather than "this
+		// box is chopped off".
+		//
+		// A mask and not an overlay, because the band behind is itself a gradient: any colour painted
+		// over the top would be right at one point on that gradient and wrong everywhere else. A mask
+		// removes pixels rather than covering them, so it does not care what is behind.
+		//
+		// THE HOLD AT 20px IS THE POINT, not the ramp's length. The panel cuts 51px into the window and
+		// the bar takes 34 of those, so the log's first visible pixel is 17px down — and a ramp that
+		// starts at 0 is already a third opaque by then, which is why the old one read as "slightly
+		// grey" rather than as a fade. Holding transparent past the cut means the topmost visible line
+		// is genuinely gone.
+		//
+		// TWO RAMPS, because the two states can afford different amounts. This one is the resting
+		// state, and it is short because the intro is 99px tall in a 164px log: anything past ~52
+		// reaches the greeting, and a half-faded greeting reads as a rendering fault rather than as a
+		// fade. Nothing is scrolling off here anyway — there is no conversation yet to suggest.
 		-webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 20px, #000 52px);
 		mask-image: linear-gradient(to bottom, transparent 0, transparent 20px, #000 52px);
+	}
+
+	// Once the conversation is running the intro is gone and the whole log is messages, so the ramp
+	// can be as long as it likes — 96px, most of the visible log. THIS is where a dramatic fade earns
+	// its place: the top of the list genuinely dissolves, which is what says the exchange continues
+	// above the cut. It swaps length at the moment the intro fades and the first bubble lands, which
+	// is busy enough to hide the change.
+	// THE RESET FADES. The finished conversation dissolves before the log is swapped back to the
+	// greeting, and the greeting comes up through the same transition — the log is the same element
+	// throughout, so removing the class is the fade-in. A one-frame swap was the harshest cut in the loop.
+	.assistant__log {
 		transition: opacity 0.45s ease;
 	}
 
@@ -176,7 +304,10 @@ const { titled } = Astro.props;
 		mask-image: linear-gradient(to bottom, transparent 0, transparent 20px, #000 96px);
 	}
 
-	// Under a visible bar only a short ramp, so a line scrolling out dissolves rather than being cut by the bar.
+	// WITH THE BAR SHOWING (`title` set), less of a fade. The 20px hold exists to hide the crop's cut,
+	// and there is no cut under a visible bar; what is left is a short ramp under it so a line
+	// scrolling out dissolves rather than being sliced by the bar's rule. Both states shorten in
+	// step — the resting one keeps clear of the greeting, the running one keeps the dissolve.
 	.assistant--titled .assistant__log {
 		-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24px);
 		mask-image: linear-gradient(to bottom, transparent 0, #000 24px);
@@ -194,16 +325,43 @@ const { titled } = Astro.props;
 		align-items: center;
 		justify-content: center;
 		gap: 7px;
-		// Centred between the crop and the composer. Keep the sum at 72 so the block's box is unchanged.
-		padding-top: 42px;
-		padding-bottom: 30px;
+		// Pushed clear of the resting mask, which ends at 52.
+		//
+		// The ceiling here is tight and worth stating, because two earlier guesses broke it: the log's
+		// content box is 164, the chip reserves 36 below, and the greeting block MEASURES 99 — a 24px
+		// line, a 7px gap and a lead that wraps to five. Past 29 of padding the intro outgrows its own
+		// box and gets pushed UP, above the log's top edge, which is worse than the fade it was trying
+		// to escape. 36 only works because the lead is widened below to wrap in four lines instead.
+		//
+		// This padding, that max-width and the resting ramp are one measurement in three places.
+		//
+		// ASYMMETRIC ON PURPOSE, and the sum is what matters. The greeting sat 14px off the composer,
+		// which read as cramped — the block wants air under it, not a tighter box. The content is
+		// centred between these two, so moving 12px from the top padding to the bottom moves the whole
+		// greeting up 12 and lets the chip follow it (see `.assistant__chip`), without changing how much
+		// room the block has. The cost is the top: the greeting now starts at 49.5 against a ramp that
+		// finishes at 52, so its first line carries a few per cent of the fade. That is the trade, and
+		// it is the right way round — a hair of fade at the cut, a clear gap at the composer.
+		padding-top: 24px;
+		padding-bottom: 48px; // room for the chip pinned above the composer
 		text-align: center;
 		transition: opacity 0.3s ease;
 	}
 
-	// Must match `AiSection`'s 600px threshold, where the chat drops to scale 1.
+	// WITHOUT THE CHIP the greeting is centred in what the window SHOWS — from the crop's cut to the
+	// composer — rather than lifted to leave the chip room under it. 18 moves from the bottom padding to
+	// the top: measured at 1440 the block sat 25px (18 native) above that centre, which is the room the
+	// chip took. The sum stays 72, so the block's box is unchanged and nothing outgrows it.
+	.assistant__intro--bare {
+		padding-top: 42px;
+		padding-bottom: 30px;
+	}
+
+	// On a phone the lead wraps a line more and the crop is shallower, so the same split left the block
+	// 31 under the cut and 44 over the composer. 6 more lands it at 37 / 38. 600 is `AiSection`'s own
+	// threshold, where the chat drops to scale 1 and this box is laid out at the cell's width.
 	@media (max-width: 599px) {
-		.assistant__intro {
+		.assistant__intro--bare {
 			padding-top: 48px;
 			padding-bottom: 24px;
 		}
@@ -221,7 +379,8 @@ const { titled } = Astro.props;
 	}
 
 	.assistant__lead {
-		// Four lines at most, or the greeting runs into the mask.
+		// 330, not 300: it drops the lead from five lines to four, and that line is the 17px that lets
+		// the greeting clear the mask. See the note on `.assistant__intro`'s padding.
 		max-width: 330px;
 		margin: 0;
 		font-size: 12px;
@@ -229,7 +388,26 @@ const { titled } = Astro.props;
 		color: var(--tb-muted);
 	}
 
-	// `:global`: the script appends these, so they never carry the scope class.
+	.assistant__chip {
+		position: absolute;
+		// Against the LOG's bottom edge, which is the composer's top edge — so this number is the gap
+		// between the greeting block and the field. 14 matched the log's own padding and read as the
+		// text resting on the input; 26 gives it somewhere to sit. It moves with the greeting above it,
+		// which is why `.assistant__intro` shifts 12px of padding at the same time.
+		bottom: 26px;
+		left: 50%;
+		padding: 5px 12px;
+		transform: translateX(-50%);
+		border: 1px solid rgba(0, 0, 0, 0.18);
+		border-radius: $radius-full;
+		font-size: 12px;
+		white-space: nowrap;
+		color: var(--tb-ink);
+	}
+
+	// ── Messages ──────────────────────────────────────────────────────
+	// `:global` because these are appended by the script below, so the scoped class hash never
+	// reaches them.
 	.assistant__log :global(.assistant__msg) {
 		max-width: 78%;
 		margin: 0;
@@ -250,6 +428,7 @@ const { titled } = Astro.props;
 		align-self: flex-start;
 		max-width: 92%;
 		padding: 4px 3px;
+		line-height: 18px;
 		color: var(--tb-ink);
 	}
 
@@ -258,8 +437,11 @@ const { titled } = Astro.props;
 		color: var(--tb-green);
 	}
 
+	// The entities in a confirmation — quoted, as the product quotes them, and bold, in
+	// the INK rather than the reply's green (trial, 2026-09-24): the tick already carries the green.
 	.assistant__log :global(.assistant__done b) {
 		font-weight: $font-weight-medium;
+		color: var(--tb-ink);
 	}
 
 	.assistant__log :global(.assistant__thinking) {
@@ -271,6 +453,8 @@ const { titled } = Astro.props;
 		color: var(--tb-muted);
 	}
 
+	// A confirmed action — the product's green card, simplified to a tick before the text. The tick
+	// carries the green; the words stay ink, so a pair of these does not read as a banner.
 	.assistant__log :global(.assistant__done) {
 		display: flex;
 		align-items: flex-start;
@@ -296,18 +480,25 @@ const { titled } = Astro.props;
 		stroke-linejoin: round;
 	}
 
-	// 5:1 on white; `background: none` clears the site's code style.
+	// A key, a value or a severity in the Assistant's words: bold monospace in the IoT Hub's ochre —
+	// `--color-product-iot-hub`, 5:1 on white — rather than the product's red.
+	//
+	// SIZED TO THE BODY'S x-HEIGHT, not its em: Ubuntu Mono Bold draws its x at 0.47em against Ubuntu's
+	// 0.52, so at the same size the key read a step smaller than the words around it. Measured in the
+	// browser, 1.1em lands it at 6.72px against the body's 6.76 (1.08 left it at 6.60).
 	.assistant__log :global(:is(.assistant__msg--bot, .assistant__done) code) {
 		font-family: $font-family-mono;
-		font-size: 1em;
+		font-size: 1.1em;
 		font-weight: $font-weight-bold;
 		line-height: 1;
-		color: #b45309;
+		color: var(--color-product-iot-hub);
 		background: none;
 	}
 
+	// A CRITICAL severity in the same set, in red: in the amber it read as a warning, a level down.
+	// The page's brick red, the twin's door band, not `--color-danger`'s full saturation.
 	.assistant__log :global(code[data-severity='critical']) {
-		color: #b23c33;
+		color: var(--color-accent-red);
 	}
 
 	.assistant__log :global(.assistant__dots) {
@@ -353,6 +544,7 @@ const { titled } = Astro.props;
 		}
 	}
 
+	// ── Composer ──────────────────────────────────────────────────────
 	.assistant__input {
 		display: flex;
 		flex: none;
@@ -361,23 +553,54 @@ const { titled } = Astro.props;
 		gap: 10px;
 		min-height: 44px;
 		margin: 0 14px 14px;
-		// A 2px edge in page pixels, undoing `--ui-scale`. The padding reserves it rounded down, so the
-		// field keeps its size.
+		// The edge's width, in the PAGE's pixels: everything authored here is multiplied by
+		// `--ui-scale`, so a flat `2px` would land at 2.74 on desktop, and dividing by the scale is how a
+		// hairline gets specified in the pixels the eye actually reads it in.
 		--composer-edge: calc(2px / var(--ui-scale));
+		// The space the old transparent border reserved, which was the edge's width ROUNDED DOWN to a
+		// whole pixel — a border is laid out quantised: 1px on desktop (from 1.46), 2px on a phone. Taken
+		// over as padding at that same whole-pixel value, so the field keeps its exact size and its
+		// contents do not move; the full 1.46 made it 1.24px taller and shifted the text 0.6px. (A border
+		// snaps to DEVICE pixels, this to CSS pixels, so on a 2x or 3x screen the two can differ by a
+		// fraction of a pixel. Nothing else depends on it.)
 		--composer-reserve: round(down, var(--composer-edge), 1px);
 
+		// The round send button carries the height.
 		padding-block: calc(6px + var(--composer-reserve));
 		padding-inline: calc(12px + var(--composer-reserve)) calc(8px + var(--composer-reserve));
-		// An inset shadow, not a border: a border's width is snapped to device pixels, a shadow's spread
-		// keeps the fraction.
+		// NO BORDER, and not even a transparent one — which is what this used to have.
+		//
+		// The edge is an inset box-shadow, not a border: a border's width is quantised to the
+		// device-pixel grid before it is painted (`calc(2px / 1.37)` is 1.46, which floors to 1), while
+		// a shadow's spread keeps the 1.46 verbatim. That part was right. What was wrong was keeping a
+		// TRANSPARENT border of the same width to reserve the space. An inset shadow is painted inside
+		// the PADDING box, so it stopped at the border's inner edge, and the transparent border showed
+		// the field's own white background between that ring and the focus halo outside the box. On the
+		// page that read as a white ring, 2px on a phone and ~1.5px on desktop, between the dark focus
+		// edge and the light wash. The padding above reserves the same space without leaving a gap:
+		// with no border, the padding box IS the border box, so the edge sits on the outer line and the
+		// halo starts exactly where it ends.
 		box-shadow: inset 0 0 0 var(--composer-edge) rgba(0, 0, 0, 0.12);
+		// 8, down from 12. At 12 against a 44px field the ends were most of the way to a pill, which
+		// read as a chat bubble rather than as an input.
 		border-radius: 8px;
 		font-size: 13px;
 	}
 
+	// FOCUS CARRIES WEIGHT AS WELL AS COLOUR NOW — 2.5px against the resting 2 — and it is the change
+	// of paint above that allows it. The old note here said the weight had to stay constant because a
+	// border that thickens when focus lands moves everything inside it by a pixel, and in a loop that
+	// replays every twelve seconds that jump is the thing you notice. That is true of a border and not
+	// of a shadow: a shadow is outside layout entirely, so this one can change width with nothing
+	// moving. Colour alone was all focus had, and at 2px it was not enough to read as a state change.
+	//
+	// No `border-color`: there is no border, and there must not be one — see the note above.
 	.assistant__input.is-focused {
 		box-shadow:
+				// The edge itself.
 			inset 0 0 0 calc(2.5px / var(--ui-scale)) var(--tb-green),
+			// And around it, a wide faint ring rather than the old tight 2px one: at 2px it sat directly
+			// on the edge and just read as a smudge thickening it. Spread out, it reads as focus.
 			0 0 0 calc(4px / var(--ui-scale)) rgba(10, 86, 72, 0.07);
 	}
 
@@ -387,7 +610,11 @@ const { titled } = Astro.props;
 		align-items: center;
 		min-width: 0;
 		color: var(--tb-ink);
-		// One line, as a real input; the script keeps it scrolled to the tail.
+		// ONE LINE, ALWAYS. This is a single-line composer and it has to behave like one: wrapped, the
+		// second line pushed the caret down and out of the field's centre, which is what made the
+		// cursor look broken. `nowrap` plus a hidden overflow makes the text slide left as it is typed,
+		// which is exactly what a real `<input>` does — the script keeps it scrolled to the tail so the
+		// caret stays in frame. The prompts are written short enough that it rarely has to.
 		white-space: nowrap;
 		overflow: hidden;
 
@@ -395,7 +622,11 @@ const { titled } = Astro.props;
 			content: '';
 			display: inline-block;
 			width: 1px;
-			// A real caret spans the font's ascent to descent, taller than its em.
+			// A REAL CARET IS TALLER THAN ITS TEXT. Browsers draw one over the font's whole
+			// ascent-to-descent, not over its em — at 13px that is about 16. This was 13, exactly the
+			// type size, which is what made it read as a small drawn rectangle sitting next to the words
+			// rather than as a cursor sitting in them. In `em` so it tracks the field's type instead of
+			// having to be re-measured if that ever moves.
 			height: 1.25em;
 			margin-left: 1px;
 			background: var(--tb-green);
@@ -408,18 +639,24 @@ const { titled } = Astro.props;
 		color: #9aa5a1;
 	}
 
-	// `animation: none` as well: an animation's keyframes beat a plain `opacity: 0`.
+	// `animation: none` as well as the opacity, and this is the whole cursor bug: an animation's
+	// keyframes beat a normal declaration, so `opacity: 0` on its own did NOTHING — the caret went on
+	// blinking in front of the placeholder from the moment the loop started, before anything had been
+	// clicked. Killing the animation is what lets the opacity apply.
 	.assistant__typed.is-idle::after {
 		animation: none;
 		opacity: 0;
 	}
 
+	// Solid while the prompt is being typed. A real caret does not blink mid-keystroke — it only
+	// blinks once the typing stops — and the blink was reading as a flicker under the moving text.
 	.assistant__typed.is-typing::after {
 		animation: none;
 		opacity: 1;
 	}
 
-	// With nothing typed the caret sits at the head of the hint, against it.
+	// With nothing typed the caret sits at the head of the hint, not after it — and against it: 1px,
+	// down from 3 (4 once scaled), which read as a gap between the cursor and the text it leads.
 	.assistant__typed:empty::after {
 		order: -1;
 		margin-right: 1px;
@@ -437,6 +674,7 @@ const { titled } = Astro.props;
 		}
 	}
 
+	// Send behaves like the product's icon button: a soft round hover, a shade darker while pressed.
 	.assistant__send {
 		display: inline-flex;
 		flex: none;
@@ -456,86 +694,80 @@ const { titled } = Astro.props;
 		color: var(--tb-green);
 	}
 
+	.assistant__send.is-hover {
+		background: #f4f7f6;
+	}
+
 	.assistant__send.is-press {
 		background: #e2eae7;
 		transform: scale(0.94);
 	}
 
+	// Greys out only while the assistant is working on the answer.
 	.assistant__send.is-busy :global(svg) {
 		color: #b5c0bc;
 	}
 
-	@media print {
-		.assistant {
-			border: calc(1px / var(--ui-scale)) solid #d5d9e0;
-			box-shadow: none;
-		}
-
-		.assistant__log:not(.assistant__log--final) {
-			position: absolute;
-			visibility: hidden;
-		}
-
-		.assistant__log.assistant__log--final :global(*) {
+	@media (prefers-reduced-motion: reduce) {
+		.assistant__typed::after,
+		.assistant__log :global(.assistant__msg),
+		.assistant__log :global(.assistant__done),
+		.assistant__log :global(.assistant__dots i) {
 			animation: none;
 		}
 
-		.assistant__typed {
-			font-size: 0;
-
-			&::before {
-				content: var(--placeholder);
-				font-size: 13px;
-				color: #9aa5a1;
-			}
-
-			&::after {
-				opacity: 0 !important;
-			}
-		}
-
-		.assistant__input.is-focused {
-			box-shadow: inset 0 0 0 var(--composer-edge) rgba(0, 0, 0, 0.12);
-		}
-
-		.assistant__send.is-press {
-			background: none;
-			transform: none;
-		}
-
-		.assistant__send.is-busy :global(svg) {
-			color: var(--tb-green);
+		.assistant__log :global(.assistant__dots i) {
+			opacity: 0.6;
 		}
 	}
 </style>
 
 <script>
-	import { AI_ASSISTANT_DEMO } from '@data/ai-visual';
-	import { whenRendered } from '@util/when-rendered';
+	import { AI_ASSISTANT_SCENARIOS } from '@data/ai-visual';
+	import type { AiChatScenario } from '@data/ai-visual';
 
-	// Reduced motion keeps the server-rendered greeting.
+	/**
+	 * The exchange, played on a loop, KEYBOARD-ONLY: the composer is already focused, the prompt is
+	 * typed into it, and Enter commits — Send takes a brief pressed state at that moment because Enter
+	 * fires the same action, which is the only honest way to show a commit without drawing a hand.
+	 *
+	 * There is no fake cursor. See the note at the top of this file for why it went.
+	 *
+	 * The prompt and the reply are IMPORTED, not restated — the same strings the empty state and the
+	 * component's aria-label were rendered from, so the demo cannot end up typing one sentence while
+	 * the label promises another.
+	 *
+	 * Per instance, so several of these can share a page, and held to the viewport: a cycle only
+	 * begins while the window is actually on screen.
+	 */
 	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	/** Tabler's `check`, inline because the script cannot render `<Icon>`. */
+	/** The confirmation tick — tabler's `check`, inline because the script cannot render `<Icon>`. */
 	const CHECK =
 		'<svg class="assistant__tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5l10 -10" /></svg>';
 
-	document.querySelectorAll<HTMLElement>('.assistant').forEach((frame) => {
-		const log = frame.querySelector<HTMLElement>('.assistant__log:not(.assistant__log--final)');
-		const typed = frame.querySelector<HTMLElement>('.assistant__typed');
-		const field = frame.querySelector<HTMLElement>('.assistant__input');
-		const sendBtn = frame.querySelector<HTMLElement>('.assistant__send');
-		if (!log || !typed || !field || !sendBtn || reduce) return;
+	document.querySelectorAll<HTMLElement>('[data-assistant-plate]').forEach((frame) => {
+		if (frame.dataset.animate !== 'on') return;
+
+		const log = frame.querySelector<HTMLElement>('[data-assistant-log]');
+		const typed = frame.querySelector<HTMLElement>('[data-assistant-typed]');
+		const field = frame.querySelector<HTMLElement>('[data-assistant-field]');
+		const sendBtn = frame.querySelector<HTMLElement>('[data-assistant-send]');
+		if (!log || !typed || !field || !sendBtn) return;
+
+		// Reduced motion keeps the empty state exactly as the server rendered it — unfocused, no caret.
+		if (reduce) return;
 
 		const introHTML = log.innerHTML;
-		const { exchanges } = AI_ASSISTANT_DEMO;
+		const scenario = (frame.dataset.assistantScenario ?? 'shipping') as AiChatScenario;
+		const { exchanges } = (AI_ASSISTANT_SCENARIOS[scenario] ?? AI_ASSISTANT_SCENARIOS.shipping).demo;
 
 		let timers: number[] = [];
 		let run = 0;
 		let onScreen = false;
 		let waiting = false;
 
-		/** Tagged with the cycle that booked it, so a restart cancels the old run. */
+		/** Schedules `fn`, tagged with the cycle that booked it, so a restart cancels the old run. */
 		const at = (ms: number, fn: () => void) => {
 			const id = run;
 			timers.push(
@@ -549,13 +781,19 @@ const { titled } = Astro.props;
 			const node = document.createElement('p');
 			node.className = cls;
 			node.innerHTML = html;
-			log.appendChild(node);
+			log!.appendChild(node);
 			return node;
 		};
 
-		const exchange = (n: number) => {
-			const { prompt, reply, working, actions } = exchanges[n];
-			const intro = log.querySelector<HTMLElement>('.assistant__intro');
+		/**
+		 * One prompt, from empty composer to answer, then hands on to the next exchange.
+		 *
+		 * The intro card is only cleared by the FIRST one — after that the conversation is already
+		 * running and the follow-up simply joins it, which is the whole reason there are two.
+		 */
+		function exchange(n: number) {
+			const { prompt, reply, working, actions = [] } = exchanges[n];
+			const intro = log!.querySelector<HTMLElement>('[data-assistant-intro]');
 			let i = 0;
 
 			const type = () => {
@@ -563,31 +801,39 @@ const { titled } = Astro.props;
 					at(400, type);
 					return;
 				}
-				typed.classList.add('is-typing');
-				typed.textContent = prompt.slice(0, ++i);
-				typed.scrollLeft = typed.scrollWidth;
+				typed!.classList.add('is-typing');
+				typed!.textContent = prompt.slice(0, ++i);
+				// Follow the tail, as a single-line input does once the text outruns the field.
+				typed!.scrollLeft = typed!.scrollWidth;
 				if (i < prompt.length) {
 					at(38 + Math.random() * 38, type);
 					return;
 				}
-				typed.classList.remove('is-typing');
+				// Typing is over: the caret goes back to blinking for the beat before Enter.
+				typed!.classList.remove('is-typing');
 				at(420, commit);
 			};
 
 			const done = () => {
 				if (n + 1 < exchanges.length) at(1500, () => exchange(n + 1));
+				// 5.2s on the finished conversation, a second longer than it was, then the fade (see `cycle`).
 				else at(5200, cycle);
 			};
 
-			// Each confirmation lands above the working row, which goes once the answer lands.
+			/**
+			 * The working row, then the answer. With `actions`, each confirmation lands ABOVE the row
+			 * while the dots keep going under it, so the list builds up in reading order and the live
+			 * indicator stays at the foot of the log. The row goes once the answer lands, custom
+			 * `working` line or stock "Thinking…" alike: it is a live status, not part of the transcript.
+			 */
 			const think = () => {
-				sendBtn.classList.add('is-busy');
+				sendBtn!.classList.add('is-busy');
 				const dots = '<span class="assistant__dots"><i></i><i></i><i></i></span>';
-				const row = el('assistant__thinking', `${dots}${working}`);
+				const row = el('assistant__thinking', `${dots}${working ?? 'Thinking…'}`);
 
 				const answer = () => {
 					row.remove();
-					sendBtn.classList.remove('is-busy');
+					sendBtn!.classList.remove('is-busy');
 					el('assistant__msg assistant__msg--bot', reply);
 					done();
 				};
@@ -600,38 +846,41 @@ const { titled } = Astro.props;
 					const line = document.createElement('p');
 					line.className = 'assistant__done';
 					line.innerHTML = `${CHECK}<span>${actions[k]}</span>`;
-					log.insertBefore(line, row);
+					log!.insertBefore(line, row);
 					at(700, () => confirm(k + 1));
 				};
 
-				at(1400, () => confirm(0));
+				at(actions.length ? 1400 : 1700, () => (actions.length ? confirm(0) : answer()));
 			};
 
 			const send = () => {
-				typed.textContent = '';
-				typed.scrollLeft = 0;
+				typed!.textContent = '';
+				typed!.scrollLeft = 0;
 				if (intro) {
 					intro.classList.add('is-out');
 					at(300, () => intro.remove());
 				}
-				log.classList.add('is-running');
+				// The log is a conversation from here, so it takes the long fade.
+				log!.classList.add('is-running');
 				at(180, () => {
 					el('assistant__msg assistant__msg--user', prompt);
 					at(520, think);
 				});
 			};
 
-			const commit = () => {
-				sendBtn.classList.add('is-press');
-				at(200, () => sendBtn.classList.remove('is-press'));
+			/** Enter. Send lights up because the key fires the button's own action. */
+			function commit() {
+				sendBtn!.classList.add('is-press');
+				at(200, () => sendBtn!.classList.remove('is-press'));
 				send();
-			};
+			}
 
 			at(n === 0 ? 900 : 300, type);
-		};
+		}
 
-		const cycle = () => {
-			// Parked only at the cycle boundary, so nothing is left half-played.
+		function cycle() {
+			// Off screen or in a background tab: park the loop and look again shortly. Checked at the
+			// cycle boundary rather than mid-exchange, so nothing is ever left half-played.
 			if (!onScreen || document.hidden) {
 				if (waiting) return;
 				waiting = true;
@@ -642,8 +891,10 @@ const { titled } = Astro.props;
 				return;
 			}
 
-			if (log.classList.contains('is-running') && !log.classList.contains('is-clearing')) {
-				log.classList.add('is-clearing');
+			// A conversation on screen fades out first, and the reset runs once it is gone. The first run,
+			// and a return from off screen onto the resting greeting, have nothing to fade.
+			if (log!.classList.contains('is-running') && !log!.classList.contains('is-clearing')) {
+				log!.classList.add('is-clearing');
 				at(480, cycle);
 				return;
 			}
@@ -652,28 +903,29 @@ const { titled } = Astro.props;
 			timers.forEach(clearTimeout);
 			timers = [];
 
-			log.innerHTML = introHTML;
-			log.classList.remove('is-running', 'is-clearing');
-			typed.textContent = '';
-			typed.scrollLeft = 0;
-			typed.classList.remove('is-typing', 'is-idle');
-			field.classList.add('is-focused');
-			sendBtn.classList.remove('is-press', 'is-busy');
+			log!.innerHTML = introHTML;
+			log!.classList.remove('is-running', 'is-clearing');
+			typed!.textContent = '';
+			typed!.scrollLeft = 0;
+			typed!.classList.remove('is-typing');
+			// The composer starts FOCUSED and empty, which is what a chat waiting for you looks like:
+			// a lit border and a caret blinking at the head of the hint.
+			typed!.classList.remove('is-idle');
+			field!.classList.add('is-focused');
+			sendBtn!.classList.remove('is-press', 'is-busy');
 
 			exchange(0);
-		};
+		}
 
-		whenRendered(frame, () => {
-			new IntersectionObserver(
-				(entries) => {
-					entries.forEach((entry) => {
-						onScreen = entry.isIntersecting;
-					});
-				},
-				{ threshold: 0.2 }
-			).observe(frame);
+		new IntersectionObserver(
+			(entries) => {
+				entries.forEach((entry) => {
+					onScreen = entry.isIntersecting;
+				});
+			},
+			{ threshold: 0.2 }
+		).observe(frame);
 
-			cycle();
-		});
+		cycle();
 	});
 </script>
