@@ -14,6 +14,8 @@ export interface HeaderConfig {
 	variant: HeaderVariant;
 	showSearch: boolean;
 	showThemeToggle: boolean;
+	/** `field` on docs: search labelled, with its keys (see `SearchButton`). */
+	searchForm: 'icon' | 'field';
 	cloudSignupIds: boolean;
 }
 
@@ -28,7 +30,9 @@ export interface HeaderConfigInput {
 // Per-variant defaults for the two icons.
 const VARIANT_DEFAULTS: Record<HeaderVariant, { showSearch: boolean; showThemeToggle: boolean }> = {
 	base: { showSearch: true, showThemeToggle: true },
-	docs: { showSearch: true, showThemeToggle: true },
+	// Docs: search as a labelled field; the theme switch is in the docs footer and the Menu drawer
+	// (`ThemeChoice`) instead of the bar.
+	docs: { showSearch: true, showThemeToggle: false },
 	common: { showSearch: false, showThemeToggle: true },
 	transparent: { showSearch: false, showThemeToggle: false },
 	'transparent-hover': { showSearch: true, showThemeToggle: true },
@@ -47,6 +51,7 @@ export function resolveHeaderConfig(input: HeaderConfigInput = {}): HeaderConfig
 		variant,
 		showSearch: input.showSearch ?? defaults.showSearch,
 		showThemeToggle,
+		searchForm: variant === 'docs' ? 'field' : 'icon',
 		cloudSignupIds: input.cloudSignupIds ?? true,
 	};
 }
