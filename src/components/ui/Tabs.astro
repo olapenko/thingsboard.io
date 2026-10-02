@@ -1,11 +1,18 @@
 ---
 /**
- * Tabs: one behaviour, two looks.
+ * Tabs: one behaviour, three looks, each with one job.
  *
  * - segmented: a pill track with a white thumb that slides to the chosen segment, for two or three
- *   short options above a visual (the AI switch, Automate).
- * - list: a column of items for four or more categories (the product FAQ), a scrolling row below
- *   750 with the same items, so a choice never changes its look at a breakpoint.
+ *   short options above a visual (the AI switch, Automate). The track takes its ground: `neutral`
+ *   is the ink at 6%, so it darkens whatever band is under it; `accent` is the scheme's wash.
+ * - list: a column of 16px items for four to eight categories beside their content (the product
+ *   FAQ).
+ * - grid: the compact 14px items in two columns, filled down then across, for eight or more
+ *   choices that drive one visual (the dashboards' use cases).
+ *
+ * List and grid share the item's states (6% of the accent on hover, 10% and the accent ink when
+ * chosen, never a weight change) and become one scrolling row below 750, so a choice never changes
+ * its look at a breakpoint.
  *
  * ARIA tabs, not a radio group: what changes is which PANEL is on the page. The script is
  * `util/tabs.ts`, shared by every set. The caller renders the panels with `TabPanel`, the first
@@ -31,9 +38,9 @@ export interface TabItem {
 }
 
 interface Props {
-	look?: 'segmented' | 'list';
-	/** List only: 36 or 48 tall. */
-	size?: 'sm' | 'md';
+	look?: 'segmented' | 'list' | 'grid';
+	/** Segmented: the track, the ink blended into the ground (default) or the scheme's wash. */
+	tone?: 'neutral' | 'accent';
 	/** The tablist's accessible name: what is being chosen between. */
 	label: string;
 	items: TabItem[];
@@ -44,13 +51,21 @@ interface Props {
 	class?: string;
 }
 
-const { look = 'segmented', size = 'md', label, items, selected = 0, sticky = false, class: className } = Astro.props;
+const {
+	look = 'segmented',
+	tone = 'neutral',
+	label,
+	items,
+	selected = 0,
+	sticky = false,
+	class: className,
+} = Astro.props;
 ---
 
 {
 	look === 'segmented' ? (
 		<div
-			class:list={['seg', className]}
+			class:list={['seg', tone === 'accent' && 'seg--accent', className]}
 			role="tablist"
 			aria-label={label}
 			data-tabs
@@ -77,12 +92,13 @@ const { look = 'segmented', size = 'md', label, items, selected = 0, sticky = fa
 		</div>
 	) : (
 		<div
-			class:list={['ui-tabs', `ui-tabs--${size}`, sticky && 'ui-tabs--sticky', className]}
+			class:list={['ui-tabs', `ui-tabs--${look}`, sticky && 'ui-tabs--sticky', className]}
 			role="tablist"
 			aria-label={label}
 			aria-orientation="vertical"
 			data-tabs
 			data-tabs-orient="md"
+			style={look === 'grid' ? `--tabs-rows: ${Math.ceil(items.length / 2)}` : undefined}
 		>
 			{items.map((o, i) => (
 				<button
@@ -110,20 +126,44 @@ const { look = 'segmented', size = 'md', label, items, selected = 0, sticky = fa
 
 <style is:global lang="scss">
 	@use '../../styles/variables' as *;
+	@use '../../styles/surface' as *;
 
 	// ── SEGMENTED ───────────────────────────────────────────────────────────
-	// The track: a grey pill with no stroke, so the fill alone makes it a slot the thumb sits IN.
+	// The track: a pill with no stroke, so the fill alone makes it a slot the thumb sits IN. The fill
+	// is translucent, so it takes the ground's hue (a tint band, the AI wash) instead of laying a
+	// grey of its own on it; the white thumb stays white. `fit-content`, so a grid or a flex column
+	// around it never stretches it to the row.
 	.seg {
 		--seg-pad: 3px;
+		--_track: rgba(23, 24, 28, 0.06);
+		--_label: var(--color-text-secondary, #{$color-text-secondary});
+		--_label-hover: var(--color-text, #{$color-text-primary});
 
 		position: relative;
 		display: inline-grid;
 		grid-auto-columns: 1fr;
 		grid-auto-flow: column;
+		width: fit-content;
+		max-width: 100%;
 		padding: var(--seg-pad);
 		border-radius: $radius-full;
-		background: #eef0f4;
+		background: var(--_track);
 		isolation: isolate;
+
+		@include on-dark {
+			--_track: rgba(255, 255, 255, 0.1);
+			--_label: rgba(255, 255, 255, 0.72);
+			--_label-hover: #fff;
+		}
+	}
+
+	// The scheme's wash: 10% of the fill, its light tone at 16% on dark.
+	.seg--accent {
+		--_track: color-mix(in srgb, var(--accent-fill) 10%, transparent);
+
+		@include on-dark {
+			--_track: color-mix(in srgb, var(--accent-light) 16%, transparent);
+		}
 	}
 
 	// The thumb: one segment wide, moved in whole segments through two custom properties rather
@@ -138,8 +178,8 @@ const { look = 'segmented', size = 'md', label, items, selected = 0, sticky = fa
 		border-radius: $radius-full;
 		background: #fff;
 		box-shadow:
-			0 1px 2px rgb(23 24 28 / 10%),
-			0 3px 10px rgb(23 24 28 / 8%);
+			0 1px 2px rgba(var(--color-shadow-ui-rgb), 0.1),
+			0 3px 10px rgba(var(--color-shadow-ui-rgb), 0.08);
 		transform: translateX(calc(var(--seg-index) * 100%));
 		transition: transform var(--seg-duration, 280ms) var(--seg-ease, cubic-bezier(0.3, 0.7, 0.2, 1));
 	}
@@ -160,16 +200,17 @@ const { look = 'segmented', size = 'md', label, items, selected = 0, sticky = fa
 		font-weight: $font-weight-medium;
 		line-height: 1;
 		white-space: nowrap;
-		color: var(--color-text-secondary, #{$color-text-secondary});
+		color: var(--_label);
 		cursor: pointer;
 		transition: color 180ms ease;
 
 		@media (hover: hover) {
 			&:hover {
-				color: var(--color-text, #{$color-text-primary});
+				color: var(--_label-hover);
 			}
 		}
 
+		// On the white thumb, so always the light ground's ink, on any band.
 		&[aria-selected='true'] {
 			color: var(--seg-color, var(--color-text, #{$color-text-primary}));
 			cursor: default;
@@ -240,10 +281,10 @@ const { look = 'segmented', size = 'md', label, items, selected = 0, sticky = fa
 		}
 	}
 
-	// ── LIST ────────────────────────────────────────────────────────────────
-	// A column of items on a tint when chosen: 6% of the accent on hover, 10% and the accent ink
-	// when selected, never a weight change, so a label never shifts its neighbours. Below 750 the
-	// same items run as one scrolling row.
+	// ── LIST AND GRID ───────────────────────────────────────────────────────
+	// Items on a tint when chosen: 6% of the accent on hover, 10% and the accent ink when selected,
+	// never a weight change, so a label never shifts its neighbours. Below 750 the same items run as
+	// one scrolling row.
 	.ui-tabs {
 		display: flex;
 		flex-direction: column;
@@ -301,15 +342,33 @@ const { look = 'segmented', size = 'md', label, items, selected = 0, sticky = fa
 
 	.ui-tabs__icon {
 		flex: none;
-		width: 18px;
-		height: 18px;
+		width: 20px;
+		height: 20px;
 	}
 
-	.ui-tabs--sm .ui-tabs__item {
-		@include type-small;
+	// GRID: 14px items, 40 tall, in two columns filled down then across (`--tabs-rows` is half the
+	// count, set on the list), so ten names stand five high beside the copy instead of ten.
+	.ui-tabs--grid {
+		.ui-tabs__item {
+			@include type-small;
 
-		padding: 7px $spacing-3;
-		font-weight: $font-weight-normal;
+			min-height: 40px;
+			padding: $spacing-2 $spacing-3;
+			font-weight: $font-weight-medium;
+		}
+
+		.ui-tabs__icon {
+			width: 18px;
+			height: 18px;
+		}
+
+		@include media-up(md) {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			grid-template-rows: repeat(var(--tabs-rows, 4), auto);
+			grid-auto-flow: column;
+			gap: $spacing-1 $spacing-4;
+		}
 	}
 
 	@include media-down(md) {
