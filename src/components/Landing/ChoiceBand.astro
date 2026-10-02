@@ -1,38 +1,88 @@
 ---
 import { Icon } from 'astro-icon/components';
-import CtaButton from '@components/Landing/CtaButton.astro';
-import PricingBackground from '@components/Pricing/PricingBackground.astro';
-import type { ChoiceNote, ChoiceOption } from '@models/choice-band';
+import Band from '@components/ui/Band.astro';
+import Button from '@components/ui/Button.astro';
+import ButtonGroup from '@components/ui/ButtonGroup.astro';
+import Card from '@components/ui/Card.astro';
+import CardGrid from '@components/ui/CardGrid.astro';
+import Link from '@components/ui/Link.astro';
+import SectionHeader from '@components/Landing/SectionHeader.astro';
+import type { ChoiceNote, ChoiceOption } from '@data/product-blocks';
 
-/** Two ways to buy one product as side-by-side cards on the page's dark ground, with a note line under them. */
+/**
+ * THE CHOICE: the "which edition" band, under the comparison that informs it. Cloud's Public or
+ * Private, On-premises' subscription or perpetual licence. Judged at `/internal/sections/choice/`.
+ *
+ * It was two buttons under the table, with the same decision also put as a full section at the top
+ * of the page: one decision asked twice, the first time before the reader had seen anything to
+ * decide on. These are the top section's cards, moved down and given the entry price and their own
+ * call to action.
+ *
+ * Built from the kit: the ground and the wave are a `Band` (dark, the page's hero ground, so the
+ * page's two dark moments are one colour), the header a `SectionHeader`, the cards `ui/Card`s in
+ * the `ghost` tone — a panel ON the ground rather than a card cut out of it, since a white card
+ * would hide the field the band has one for — and the actions a `ButtonGroup` and a `ui/Link`. Each
+ * card holds two actions, so it is not a link itself: an anchor cannot contain another.
+ *
+ * The scheme comes from the nearest `data-accent` (or `accent`), so the primary, the prices and the
+ * checks take the page's colour.
+ */
 interface Props {
 	title: string;
-	lead: string;
-	options: readonly ChoiceOption[];
-	note: ChoiceNote;
+	lead?: string;
+	options: ChoiceOption[];
+	/** The line under the cards. */
+	note?: ChoiceNote;
+	/**
+	 * The product the options are editions of, for the hidden suffix that names each card's actions
+	 * out of context: "Start for free — ThingsBoard Public Cloud", "See plans for ThingsBoard
+	 * Public Cloud". Omit it where the options are not products (On-premises' licences), and the
+	 * option is named on its own: "— Monthly subscription", "See plans for the Monthly subscription".
+	 */
+	productName?: string;
+	id?: string;
+	accent?: 'brand' | 'onprem';
+	/** The dark ground, where the page has its own (On-premises' green-cast near-black). */
+	ground?: string;
+	/**
+	 * The field's hue. A LIFTED tone, not the accent: it is drawn at 3.5–10% opacity, where the
+	 * accent all but vanishes. Default: the pricing field's own blue, which Cloud's band has always
+	 * drawn.
+	 */
+	waveHue?: string;
 }
 
-const { title, lead, options, note } = Astro.props;
+const { title, lead, options, note, productName, id = 'choose', accent, ground, waveHue = '#3369ff' } = Astro.props;
+
+// Three options (Pricing's three deployments) take a third of the measure each: the names step down
+// to the card size, and the actions stack, since a third fits "Contact us" and "See plans" on one
+// line but not "Start for free", and the cards would end on three different shapes.
+const three = options.length === 3;
+
+// Each card's actions read "Start for free" and "See plans" — fine beside their own heading,
+// ambiguous in a list of every link on the page.
+const ctaSuffix = (option: ChoiceOption) => `— ${productName ? `${productName} ` : ''}${option.name}`;
+const plansSuffix = (option: ChoiceOption) => `for ${productName ?? 'the'} ${option.name}`;
 ---
 
-<section id="choose" class="choice">
-	<PricingBackground contained />
-	<h2 class="choice__title">{title}</h2>
-	<p class="choice__lead">{lead}</p>
+<Band id={id} ground="dark" groundColor={ground} wave waveHue={waveHue} pad="lg" accent={accent}>
+	<SectionHeader title={title} subtitle={lead} subtitleMeasure="copy" spacing="md" />
 
-	<div class="choice-grid">
+	<CardGrid cols={three ? 3 : 2} gap="lg" class:list={[three && 'choice-band--three']}>
 		{options.map((option) => (
-			<div class="choice-card">
-				<h3 class="choice-card__name">
-					<Icon name={option.icon} class="choice-card__mark" aria-hidden="true" />
+			<Card tone="ghost" pad="lg" class="choice-band__card">
+				<h3 class="choice-band__name">
+					{option.icon && <Icon name={option.icon} class="choice-band__mark" aria-hidden="true" />}
 					{option.name}
 				</h3>
-				<p class="choice-card__price">
-					{option.price}
-					<span class="choice-card__price-note">{option.priceNote}</span>
-				</p>
-				<p class="choice-card__summary">{option.summary}</p>
-				<ul class="choice-card__points">
+				{option.price && (
+					<p class="choice-band__price">
+						{option.price}
+						{option.priceNote && <span class="choice-band__price-note">{option.priceNote}</span>}
+					</p>
+				)}
+				{option.summary && <p class="choice-band__summary">{option.summary}</p>}
+				<ul class="choice-band__points">
 					{option.points.map((point) => (
 						<li>
 							<Icon name="tabler:check" aria-hidden="true" />
@@ -40,269 +90,157 @@ const { title, lead, options, note } = Astro.props;
 						</li>
 					))}
 				</ul>
-				<div class="choice-card__actions print:hidden">
-					<CtaButton {...option.cta}>
+				<ButtonGroup slot="footer" class="choice-band__actions" stackBelow={three ? 400 : undefined}>
+					<Button
+						variant={option.cta.variant}
+						icon={option.cta.icon}
+						href={option.cta.href}
+						attrs={option.cta.attrs}
+						srSuffix={ctaSuffix(option)}
+					>
 						{option.cta.text}
-						<span class="visually-hidden">— {option.name}</span>
-					</CtaButton>
-					<a class="choice-card__plans" href={option.plansHref}>
-						{option.plansLabel ?? 'See plans'}
-						<span class="visually-hidden">for the {option.name}</span>
-						<Icon name="tabler:chevron-right" aria-hidden="true" />
-					</a>
-				</div>
-			</div>
+					</Button>
+					{option.plansHref && (
+						<Link href={option.plansHref} tone="ink" srSuffix={plansSuffix(option)} attrs={option.plansAttrs}>
+							See plans
+						</Link>
+					)}
+				</ButtonGroup>
+			</Card>
 		))}
-	</div>
+	</CardGrid>
 
-	<p class="choice-note">
-		<Icon name={note.icon} class="choice-note__mark" aria-hidden="true" />
-		{note.lead}
-		<a href={note.href}>{note.text}</a>
-		{note.tail}
-	</p>
-</section>
+	{note && (
+		<p class="choice-band__note">
+			<Icon name={note.icon} class="choice-band__note-mark" aria-hidden="true" />
+			{note.lead}
+			<Link variant="inline" tone="ink" href={note.link.href}>
+				{note.link.text}
+			</Link>
+			{note.tail}
+		</p>
+	)}
+</Band>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
-	@use '../../styles/print-mixins' as *;
 
-	.choice {
-		overflow: hidden;
-		// A stacking context, so the wave field's `z-index: -1` stays above this background.
-		isolation: isolate;
-		padding: $spacing-20 var(--band-gutter);
-		background-color: var(--page-hero-ground);
-		color: $color-white;
-
-		@include media-down(md) {
-			padding-block: $spacing-12;
-		}
-
-		// `:global()`: the field is another component's markup, which a scoped rule cannot reach.
-		:global(.pricing-bg) {
-			--pricing-wave-color: var(--page-wave);
-		}
+	.choice-band__card {
+		gap: $spacing-3;
 	}
 
-	.choice__title {
-		@include home-section-title;
-		margin: 0 0 $spacing-3;
-		text-align: center;
+	.choice-band--three .choice-band__name {
+		@include type-card;
 	}
 
-	.choice__lead {
-		@include text-m;
-		max-width: 65ch;
-		margin: 0 auto $spacing-10;
-		line-height: 1.5;
-		color: rgb(255 255 255 / 72%);
-		text-align: center;
-		text-wrap: pretty;
+	// Stacked, the quiet link centres under the button it follows.
+	.choice-band--three .choice-band__actions :global(.ui-link) {
+		justify-content: center;
 	}
 
-	.choice-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: $spacing-6;
+	.choice-band__name {
+		@include subsection-title;
 
-		@include media-down(md) {
-			grid-template-columns: 1fr;
-		}
+		display: flex;
+		align-items: center;
+		gap: $spacing-3;
+		margin: 0;
+		color: #fff;
 	}
 
-	.choice-card {
+	// Sized in `em` so it tracks the name through its 32 -> 24 step below 750 rather than needing a
+	// breakpoint of its own.
+	.choice-band__mark {
+		flex: none;
+		width: 1em;
+		height: 1em;
+		color: #fff;
+	}
+
+	// The entry number and nothing else. One step under the name: the name identifies the option and
+	// the price qualifies it, so the eye should land on "Public Cloud" and then on "Free", not the
+	// other way round. The name steps 32 -> 24 below 750, so this steps with it — left at a flat 24
+	// the two would tie on a phone and the order would stop reading.
+	.choice-band__price {
+		@include type-card;
+
 		display: flex;
 		flex-direction: column;
-		gap: $spacing-3;
-		padding: $spacing-8;
-		border-radius: 16px;
-		background-color: rgb(255 255 255 / 6%);
+		gap: 2px;
+		margin: 0;
+		// The scheme's light tone: the fill itself is 2.1:1 on this ground and unreadable as text.
+		color: var(--accent-light);
 
 		@include media-down(md) {
-			padding: $spacing-6 $spacing-5;
-		}
-
-		&__name {
-			@include subsection-title;
-			display: flex;
-			align-items: center;
-			gap: $spacing-3;
-			margin: 0;
-			font-weight: $font-weight-bold;
-		}
-
-		&__mark {
-			flex: none;
-			width: 1em;
-			height: 1em;
-		}
-
-		&__price {
-			@include card-title;
-			display: flex;
-			flex-direction: column;
-			gap: 2px;
-			margin: 0;
-			font-weight: $font-weight-bold;
-			color: var(--page-accent-light);
-
-			@include media-down(md) {
-				font-size: $font-size-xl;
-			}
-		}
-
-		&__price-note {
-			@include text-m;
-			line-height: 1.5;
-			color: rgb(255 255 255 / 60%);
-		}
-
-		&__summary {
-			@include text-m;
-			margin: 0;
-			line-height: 1.5;
-			color: rgb(255 255 255 / 72%);
-		}
-
-		&__points {
-			@include text-m;
-			display: flex;
-			flex-direction: column;
-			gap: $spacing-2;
-			margin: $spacing-2 0 0;
-			padding: 0;
-			line-height: 1.5;
-			// The mixin colours for a light surface; this band is dark.
-			color: $color-white;
-			list-style: none;
-
-			li {
-				display: flex;
-				align-items: flex-start;
-				gap: $spacing-2;
-			}
-
-			// `:global()`: an `<Icon>` without a class carries no scope attribute.
-			:global(svg) {
-				flex: none;
-				width: 20px;
-				height: 20px;
-				margin-top: 2px;
-				color: var(--page-accent-light);
-			}
-		}
-
-		// `margin-top: auto` so the two cards' actions sit on one line however the copy falls.
-		&__actions {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: center;
-			gap: $spacing-4;
-			margin-top: auto;
-			padding-top: $spacing-6;
-		}
-
-		&__plans {
-			display: inline-flex;
-			align-items: center;
-			font-size: $font-size-base;
-			font-weight: $font-weight-medium;
-			line-height: 1.5;
-			color: $color-white;
-
-			:global(svg) {
-				@include link-chevron;
-			}
-
-			&:hover,
-			&:focus-visible {
-				text-decoration: underline;
-				text-underline-offset: 3px;
-			}
+			font-size: $font-size-xl;
 		}
 	}
 
-	.choice-note {
-		@include text-m;
+	.choice-band__price-note {
+		@include type-body;
+
+		color: rgba(255, 255, 255, 0.6);
+	}
+
+	.choice-band__summary {
+		@include type-body;
+
+		margin: 0;
+		color: rgba(255, 255, 255, 0.72);
+	}
+
+	.choice-band__points {
+		@include type-body;
+
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-2;
+		margin: $spacing-2 0 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			display: flex;
+			align-items: flex-start;
+			gap: $spacing-2;
+		}
+
+		// Optical centring on a 24px line, rather than the 2px a 22px line wanted.
+		:global(svg) {
+			flex: none;
+			width: 20px;
+			height: 20px;
+			margin-top: 2px;
+			color: var(--accent-light);
+		}
+	}
+
+	// The card's footer is pinned to its bottom, which is what keeps the two cards' buttons on one
+	// line across the pair when their lists run to different lengths.
+	.choice-band__actions {
+		padding-top: $spacing-6;
+	}
+
+	// The exit to the other deployment, under the two this band is about: a line rather than a card,
+	// since a third option in the grid would flatten the choice it has just set up. Its mark is
+	// `aria-hidden` and carries no meaning the words do not.
+	.choice-band__note {
+		@include type-body;
+
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: center;
 		gap: $spacing-2;
 		margin: $spacing-10 0 0;
-		line-height: 1.5;
-		color: rgb(255 255 255 / 72%);
-
-		&__mark {
-			flex: none;
-			width: 22px;
-			height: 22px;
-			color: $color-white;
-		}
-
-		a {
-			color: $color-white;
-			text-decoration: underline;
-			text-underline-offset: 3px;
-		}
+		color: rgba(255, 255, 255, 0.72);
 	}
 
-	@media print {
-		.choice {
-			@include print-section($spacing-6);
-		}
-
-		.choice__lead {
-			@include print-section-head;
-			margin-bottom: $spacing-6;
-			color: var(--color-text-secondary);
-		}
-
-		.choice-grid {
-			grid-template-columns: repeat(2, 1fr);
-			gap: $spacing-4;
-		}
-
-		.choice-card {
-			padding: $spacing-5;
-			border: 1px solid #d7d9e0;
-			background: none;
-			break-inside: avoid;
-
-			&__price {
-				color: var(--page-accent-ink);
-			}
-
-			&__price-note,
-			&__summary {
-				color: var(--color-text-secondary);
-			}
-
-			&__points {
-				color: var(--color-text);
-
-				:global(svg) {
-					color: var(--page-accent-ink);
-				}
-			}
-		}
-
-		.choice-note {
-			display: block;
-			margin-top: $spacing-6;
-			color: var(--color-text-secondary);
-			text-align: center;
-
-			&__mark {
-				margin-right: $spacing-2;
-				color: inherit;
-				vertical-align: -0.3em;
-			}
-
-			a {
-				color: var(--color-text);
-			}
-		}
+	// An outline glyph with detail inside it, which wants the room a 14px rhombus did not.
+	.choice-band__note-mark {
+		flex: none;
+		width: 22px;
+		height: 22px;
+		color: #fff;
 	}
 </style>
