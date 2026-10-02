@@ -1,54 +1,344 @@
 ---
-/** A centred band opener: the heading, and the one sentence that says what the band is for. */
+import Mark from '@components/ui/Mark.astro';
+
 interface Props {
+	/**
+	 * Section title
+	 */
 	title: string;
-	/** Its own line above `title`, inside the same heading — a lockup, not a separate eyebrow. */
-	titleLead?: string;
-	subtitle: string;
+	/**
+	 * Optional subtitle/description
+	 */
+	subtitle?: string;
+	/**
+	 * Text alignment
+	 */
+	align?: 'left' | 'center';
+	/**
+	 * Color theme
+	 */
+	theme?: 'light' | 'dark';
+	/**
+	 * Which step of the shared type scale the title takes.
+	 *
+	 * The page used to say this instead, in rules keyed to the section's ID — `#products
+	 * .section-header__title` and a blanket `#overflow h2`. Those score (1,1,0) and (1,0,1), so the
+	 * component could not be corrected from its own stylesheet and neither could the mixins: a change
+	 * to `section-title` moved nothing on the homepage. Stating it as a prop puts the decision back on
+	 * the call site and the values back in the scale.
+	 */
+	titleSize?: 'display' | 'title' | 'section' | 'card';
+	/**
+	 * Measure for the subtitle. `wide` is this component's own 900px; `copy` is the 65ch the homepage
+	 * sets so its ledes share one measure — previously `#overflow .section-header__subtitle`.
+	 */
+	subtitleMeasure?: 'wide' | 'copy' | 'narrow';
+	/** The lede's size: the body's 16, or the 18 a page intro takes (`type-lede`). */
+	ledeSize?: 'body' | 'lede';
+	/** The lede in the ink (a section's), or in the secondary grey (a page intro's, a card's). */
+	ledeTone?: 'ink' | 'muted';
+	/**
+	 * Measure for the TITLE. `full` is the header's own width; `headline` caps it so a long one
+	 * breaks into two lines instead of running the width of the page — see the rule for why that is
+	 * a measure and not a line count.
+	 *
+	 * Left unset it follows the alignment: `headline` when centred, `full` otherwise. A left-aligned
+	 * heading is read against its own edge and a long one simply runs to the container, which is
+	 * fine; a centred one has no edge, so an uncapped line puts the balancer to work across the
+	 * whole 960 and the break lands wherever the last word happens to fall.
+	 */
+	titleMeasure?: 'full' | 'headline';
+	/**
+	 * The section's mark, as the feature rows carry one: the page's squircle in the section's own
+	 * hue, above the title. The rows' 40px tile and 32% radius (64px when centred), centred here
+	 * because this header is.
+	 */
+	badge?: { icon: string; color: string };
+	/**
+	 * An uppercase kicker over the title, when the title makes a claim and the section still needs its
+	 * plain name: "Why choose ThingsBoard" over the heading that says what the tiles are worth. Inside
+	 * the header rather than above it, so it takes the header's alignment and theme.
+	 */
+	eyebrow?: string;
+	/** The eyebrow in the muted grey, or in the scheme's ink (a page intro's). */
+	eyebrowTone?: 'muted' | 'accent';
+	/**
+	 * Space under the header: 0 · 32 · 40 · 48. The eleven rules that overrode the 48 from outside
+	 * now pass this instead.
+	 */
+	spacing?: 'none' | 'sm' | 'md' | 'lg';
+	/**
+	 * The title's heading level. 2 on a homepage section, which is what this was built for; 1 where
+	 * the header opens a page of its own and the title is the page's (the installations hub).
+	 */
+	level?: 1 | 2;
+	/** An id for the title, where something is named by it (a dialog). */
+	titleId?: string;
+	/** Attributes for the parts, for a page script that rewrites them (Contact us' `?pcorder`). */
+	partAttrs?: {
+		eyebrow?: Record<string, string>;
+		title?: Record<string, string>;
+		subtitle?: Record<string, string>;
+	};
+	class?: string;
 }
 
-const { title, titleLead, subtitle } = Astro.props;
+const {
+	title,
+	subtitle,
+	eyebrow,
+	align = 'center',
+	theme = 'light',
+	titleSize = 'section',
+	subtitleMeasure = 'wide',
+	titleMeasure,
+	badge,
+	eyebrowTone = 'muted',
+	ledeSize = 'body',
+	ledeTone = 'ink',
+	spacing = 'lg',
+	level = 2,
+	titleId,
+	partAttrs = {},
+	class: className = '',
+} = Astro.props;
+
+// The mark through `ui/Mark`: 40 at the start, 64 centred. A page's closing is `Bookend`'s own.
+const badgeSize = align === 'center' ? 64 : 40;
+
+const Title = level === 1 ? 'h1' : 'h2';
+
+// Resolved rather than defaulted in the destructure, because the default depends on `align`.
+// An explicit prop still wins either way.
+const measure = titleMeasure ?? (align === 'center' ? 'headline' : 'full');
 ---
 
-<h2 class="section-header__title">
-	{titleLead && <span class="section-header__title-lead">{titleLead}</span>}
-	{title}
-</h2>
-<p class="section-header__subtitle">{subtitle}</p>
+<div
+	class:list={[
+		'section-header',
+		`section-header--${align}`,
+		`section-header--${theme}`,
+		`section-header--title-${titleSize}`,
+		`section-header--subtitle-${subtitleMeasure}`,
+		`section-header--title-measure-${measure}`,
+		`section-header--lede-${ledeSize}`,
+		`section-header--lede-${ledeTone}`,
+		`section-header--eyebrow-${eyebrowTone}`,
+		`section-header--spacing-${spacing}`,
+		className,
+	]}
+	style={badge ? `--badge-color: ${badge.color}` : undefined}
+>
+	{badge && <Mark size={badgeSize} icon={badge.icon} accent={badge.color} class="section-header__badge" />}
+	{eyebrow && (
+		<p class="section-header__eyebrow" {...partAttrs.eyebrow}>
+			{eyebrow}
+		</p>
+	)}
+	<Title class="section-header__title" id={titleId} {...partAttrs.title}>
+		{title}
+	</Title>
+	{subtitle && (
+		<p class="section-header__subtitle" {...partAttrs.subtitle}>
+			{subtitle}
+		</p>
+	)}
+	<slot />
+</div>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
-	@use '../../styles/print-mixins' as *;
+	@use '../../styles/surface' as *;
 
-	.section-header__title {
-		@include section-title;
-		max-width: 720px;
-		margin: 0 auto $spacing-5;
-		font-weight: $font-weight-bold;
-		// The page body's inherited colour is lighter than heading ink.
-		color: var(--color-text);
-		text-align: center;
-		text-wrap: balance;
+	// The mark is `ui/Mark` (40, or 64 centred), set as a block so no line box adds
+	// descender space under it, 16px over what follows. The note on why the row marks settled at
+	// 40/24 and the centred ones at 64/40 now lives with the ladder in `Mark`.
+	.section-header__badge {
+		display: grid;
+		margin-bottom: $spacing-4;
 	}
 
-	// Breaks the heading where the copy wants it, without leaving the h2.
-	.section-header__title-lead {
-		display: block;
+	.section-header--center .section-header__badge {
+		margin-inline: auto;
 	}
 
-	.section-header__subtitle {
-		@include text-m;
-		max-width: 65ch;
-		margin: 0 auto $spacing-10;
-		text-align: center;
-		line-height: 1.5;
-		text-wrap: pretty;
-	}
+	.section-header {
+		margin-bottom: $spacing-12;
 
-	@media print {
-		.section-header__subtitle {
-			@include print-section-head;
-			margin-bottom: $spacing-6;
+		&--spacing-none {
+			margin-bottom: 0;
+		}
+
+		&--spacing-sm {
+			margin-bottom: $spacing-8;
+		}
+
+		&--spacing-md {
+			margin-bottom: $spacing-10;
+		}
+
+		// Theme resolves through these rather than through a descendant selector
+		// on the title. A page-level `#overflow h2 { color: … }` is (1,0,1) and
+		// silently outranked `.section-header--dark .section-header__title`
+		// (0,2,0), so `theme="dark"` rendered dark-on-dark with no error anywhere.
+		// Custom properties inherit instead of competing, so the theme cannot be
+		// out-specified by an ancestor-keyed rule again.
+		--sh-title-color: var(--color-text);
+		--sh-subtitle-color: var(--color-text);
+		--sh-eyebrow-color: var(--color-text-secondary, #{$color-text-secondary});
+
+		&--center {
+			text-align: center;
+
+			.section-header__subtitle {
+				margin-left: auto;
+				margin-right: auto;
+			}
+		}
+
+		&--left {
+			text-align: left;
+		}
+
+		&__title {
+			@include type-section;
+			margin-bottom: $spacing-5;
+			color: var(--sh-title-color);
+		}
+
+		// The section's name, one step quieter than the claim under it: the ladder's kicker, in a
+		// secondary ink so it reads as the header's own rather than as an accent.
+		&__eyebrow {
+			@include type-eyebrow;
+			margin: 0 0 $spacing-3;
+			color: var(--sh-eyebrow-color);
+		}
+
+		&__subtitle {
+			@include type-body;
+			max-width: 900px;
+			margin: 0;
+			color: var(--sh-subtitle-color);
+		}
+
+		// The three steps the title can take, each one a role from the ladder rather than a number
+		// typed here. `--title-section` is the default and is left to `&__title` above.
+		&--title-display .section-header__title {
+			@include type-display;
+		}
+
+		&--title-title .section-header__title {
+			@include type-title;
+		}
+
+		// The dialog's head: a card's title with 8 under it, a kicker 6 over it, and the lede in the
+		// secondary ink at 44ch, under the panel's own measure.
+		&--title-card {
+			--sh-subtitle-color: var(--color-text-secondary, #{$color-text-secondary});
+
+			.section-header__title {
+				@include type-card;
+
+				margin-bottom: $spacing-2;
+			}
+
+			.section-header__eyebrow {
+				margin-bottom: 6px;
+			}
+
+			.section-header__subtitle {
+				max-width: 44ch;
+				text-wrap: pretty;
+			}
+
+			.section-header__title:last-child {
+				margin-bottom: 0;
+			}
+		}
+
+		// THE CENTRED HEADING HAS TO OUTRANK THE ROWS IT OPENS, and on a phone it did not.
+		// `type-section` is 24px there, one step over the 16px body, which reads fine down a column
+		// of left-aligned headings because the alignment itself marks where a section starts. A
+		// centred heading has no such edge, so it was bumped a step to 28 — and 28 is exactly where
+		// `type-subsection` sits, the feature-row headings down the page, which take no mobile step
+		// at all. The band's opener arrived the same size as the headings inside it. 32 is the next
+		// step on the scale and the first one clear of them.
+		//
+		// STATED AFTER THE `--title-*` VARIANTS ON PURPOSE. All three selectors are (0,2,0), so this
+		// can only win on source order. Above them it was beaten for two of the three sizes: a
+		// centred `title` header took `type-title`'s own 30px and this rule silently did nothing.
+		//
+		// It sets one size for all three, which is no loss of ladder — `display` and `title` already
+		// collapse to the same 30px on a phone, so there was nothing left to tell apart up there.
+		// The `section` size only (decision 8, 1 Oct: elsewhere the size decides its own phone step, so
+		// a centred `title` is the 30 it is anywhere else, the card and closing sizes keep theirs).
+		&--center.section-header--title-section .section-header__title {
+			@include media-down(md) {
+				font-size: $font-size-4xl;
+			}
+		}
+
+		// A page intro's lede beside or under its title: Contact us, Thank you.
+		&--subtitle-narrow .section-header__subtitle {
+			max-width: 46ch;
+		}
+
+		&--lede-muted {
+			--sh-subtitle-color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+
+		&--lede-lede .section-header__subtitle {
+			@include type-lede;
+		}
+
+		&--eyebrow-accent {
+			--sh-eyebrow-color: var(--accent-ink);
+		}
+
+		&--subtitle-copy .section-header__subtitle {
+			// 65ch, matching the intro statement and the feature rows: one lede measure per page. The
+			// component's own 900px runs to about 110 characters a line at this size.
+			max-width: 65ch;
+		}
+
+		// A MEASURE, NOT A LINE COUNT, which is the only way to say this in CSS — there is no "wrap to
+		// two lines". Cap the width and let the balancer choose the break.
+		//
+		// 720 is the middle of a gap rather than a tuned number, and the gap is wide. Natural widths
+		// measured across all twelve call sites, on the three pages that have them: the longest title
+		// that fits one line is "ThingsBoard vs a custom IoT stack" at 654, and the only one that has
+		// to break is the AI section's at 952 — which gives the same two lines at every cap from 640
+		// to 760. Anything from ~660 to ~940 behaves identically, so 720 holds 66px of slack over the
+		// longest one-liner and 232px under the one that must wrap.
+		//
+		// It was 640, and that was 14px too tight: it broke the 654 title across two lines. That went
+		// unnoticed while this rule only reached the one call site that opted in — see the resolved
+		// default in the frontmatter, which is what brought the other eleven under it.
+		//
+		// `text-wrap: balance` is restated here rather than inherited. The homepage sets it on headings
+		// from somewhere outside this component, and a cap without a balancer is worse than no cap: the
+		// greedy break fills the first line and leaves a short tail, which is the shape this is meant to
+		// fix.
+		&--title-measure-headline .section-header__title {
+			max-width: 720px;
+			text-wrap: balance;
+		}
+
+		&--center.section-header--title-measure-headline .section-header__title {
+			margin-inline: auto;
+		}
+
+		// Dark theme, by prop or by the ground (`data-surface="dark"` on a Band), unless a white box
+		// sits between: the `on-dark` rule in `_surface.scss`, written out for a scoped style.
+		&--dark,
+		:global([data-surface='dark']) &:not(:where(#{$in-light-box})) {
+			--sh-title-color: #{$color-white};
+			--sh-subtitle-color: #{$color-text-disabled};
+			--sh-eyebrow-color: #{$color-text-disabled};
+		}
+
+		:global([data-surface='dark']) &--eyebrow-accent:not(:where(#{$in-light-box})) {
+			--sh-eyebrow-color: var(--accent-light);
 		}
 	}
 </style>
