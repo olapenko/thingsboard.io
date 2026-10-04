@@ -49,9 +49,37 @@ their components are on `handoff`.
 | `dark-mode` | A WIP on the archive's base: the Appearance row (since rebuilt), PromoBanner dark tokens, IoT Hub hero and Cookie policy dark fixes. | Port the fixes to `handoff` as a `feat/` if dark pages are revisited; then delete. |
 | `header-search` | The docs-search sandbox on the archive's base (search itself shipped via docs chrome). | Rebuild `/internal/flows/main-menu/` as a Chrome direction on `lab` if wanted; then delete. |
 
-Open, for a review: whether the bar takes FE-handoff's responsive logo (160px from 1281, 215 from
-1600; `main` keeps a 180×60 box) and shows the GitHub star count below 1500; legal's sign-off on
-the cookie notice's short sentence.
+Open, for a review: legal's sign-off on the cookie notice's short sentence. The responsive logo and
+the GitHub star count moved into the chrome plan below (layer 11).
+
+## The chrome plan
+
+Decided 4 Oct: the bar, the open menu and the footers become one kit-built set, judged on this
+branch's Chrome workbench and shipped to `handoff` as `feat/` layers in the order below. The theme
+follows the system; its switch stays out of the bar and out of the phone sheet, a quiet row in the
+footer only. Blog moves into Company. Search is a field where the row has room and, where it does
+not, an icon in a stroked box the size of the Sign in button — the same control at two sizes, never
+a label. Two menu models are built and compared. Footers ship as `map` where a page asks for it and
+`docs` for the docs; the legacy pages' compact footer waits. The docs footer goes full-bleed, richer
+than today and lighter than the main one.
+
+**Seeing a candidate everywhere on lab.** `starlight/Header.astro` and `starlight/Footer.astro` are
+the switchboards every page goes through. `lab` carries its own copies that read a `chrome`
+cookie the island sets (`current` · `candidate`), so the whole site on this branch runs a candidate
+bar or footer while `handoff` keeps the shipping one, and a merge from `handoff` only ever meets
+those two files.
+
+| # | Layer | Branch | What it carries |
+| --- | --- | --- | --- |
+| 10 | Nav data | `feat/nav-blog-company` | Blog as a Company item, off the top row. |
+| 11 | The bar | `feat/site-bar` | The archive's header work, none of which reached `handoff` (its bar is `main`'s, byte for byte): the star widget in the bar's own geometry, giving way at 1300 (1a6cee78e); the drawer as a readable menu, chevrons on the items that expand, one left edge (fa3356f71); Close staying where Menu was under 560 (e44c5b1e4); the outlined cloud in the region menu and the stars in the open drawer (cc7a13701); the Products badges on the two platforms (8b2e4e72f); hover on the brand primary and AA shades for Edge and Trendz (adee819cb); underline on the items that navigate (48079b799); `_marketing-bar.scss` as the one home of the bar's rules, the homepage's copy gone. Then the seven `header-config` variants fold into two looks (marketing · docs) and two states (top · scrolled), transparency a page prop; the theme icon leaves every look; the responsive logo (160 from 1281, 215 from 1600) decided here. |
+| 12 | Search | `feat/site-search` | `SiteSearch` from `header-search` (9c2d24e40): one dialog shared by every trigger. The trigger is one control at two sizes, chosen by the room beside the nav: the labelled field with its keys, or the icon in a stroked 40px box like Sign in. The dialog redrawn on the kit: Field, the result rows on the type ladder, the dark ground, focus return. The `field` · `icon` · `live` frames from `header-search`'s `_MenuStage` return as directions on `/internal/chrome/header/`. |
+| 13 | The open menu | `feat/site-menu` | `Navigation` + `HeaderContent` (1,800 lines) split into `SiteBar`, `SiteMenu`, `SiteMenuPanel`, rendered from the data once, popover and `:has()` for open and close, the hover, focus and swipe logic in one place. Two candidates on the workbench, both on the kit's Link, Mark and Card: **Dropdowns**, the per-item panels redrawn (columns from the data, the Products badges, a featured slot); **Panel**, one surface with a section rail on the left and the section's columns on the right. The phone sheet is shared: accordion sections, the search field at the top, Sign in · Try for free pinned at the foot, no theme row. The review picks one, or keeps Dropdowns on docs and Panel on marketing. |
+| 14 | Footers | `feat/site-footer` | One `SiteFooter` on `footer-map.ts` with a density: `map` (today's `FooterMap`), `docs` (below), later `site` for the legacy pages. One `FooterBase` row under all of them: copyright, legal, Cookie settings, the Appearance row, the badges. Social icons from `FOOTER_SOCIAL` only; `SocialNetworks.astro` and `footerNavItems` go. `BaseLayout`'s `footer` prop becomes the density, with a default per layout. |
+| 15 | Docs footer | with 14 | The `docs` density: full-bleed under the sidebar, not in the article column. The highlights row (`FOOTER_HIGHLIGHTS`, with icons), one short column set (Get started, Docs, Use cases, Blog, Contact), the base row. Social icons cut to what the workbench keeps. Lighter than `map`: no platform grid, no newsletter. |
+
+Open on this plan: the GitHub count's threshold (the archive hides it below 1300); which social icons
+the docs footer keeps; whether Pricing stays a button beside Menu on the docs bar.
 
 ## Running it
 
