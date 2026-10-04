@@ -198,7 +198,7 @@ orders, and every visual on its own, are judged on the `lab` branch (`LAB.md`).
 
 Everything under `src/pages/internal/` is review tooling, `noindex`, and exists only on `lab`: the
 Chrome workbench (header, footer, cookie notice, chat — every variation as a tab, the real page in
-frames) and the kit page. **Read `LAB.md`** for the branch model, the areas, how a direction or a
+frames), the kit page, and the homepage running orders with the island's switch on `/`. **Read `LAB.md`** for the branch model, the areas, how a direction or a
 part is added, and the gotchas. Never change a shipped component to try an idea — add a direction
 beside the one in use.
 

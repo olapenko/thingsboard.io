@@ -33,10 +33,11 @@ sync is `main` ← upstream, then `main` → `handoff`, then `handoff` → `lab`
 
 Every page layer has landed; `handoff` is `main` plus nine linear commits. `FE-handoff` is now
 `facelift-archive`, a frozen reference; `ui-reconcile` stays frozen too, as the source of the kit page
-and the pricing drafts the sandbox has yet to take. What remains on `lab`: the homepage areas of the
-sandbox (the running orders at `/internal/homepages/`, each section at `/internal/sections/<id>/`,
-the sign-up and sign-in flows, the pricing drafts), to be rebuilt on this branch's `_Workbench` from
-the archive's `_VisualPage` / `_Variant` pages now that their components are on `handoff`.
+and the pricing drafts the sandbox has yet to take. The running orders are back (`/internal/homepages/`
+and the island's switch on every homepage). What remains on `lab`: the rest of the homepage sandbox
+(each section at `/internal/sections/<id>/`, the sign-up and sign-in flows, the pricing drafts), to be
+rebuilt on this branch's `_Workbench` from the archive's `_VisualPage` / `_Variant` pages now that
+their components are on `handoff`.
 
 ## The other branches
 
@@ -77,9 +78,16 @@ width, is in every header and footer frame.
 **Design system** (`/internal/design-system/`) — the kit, live, with its numbers measured from what
 rendered.
 
-The homepage areas FE-handoff had — Homepages (the running orders), Components (its sections),
-Flows (sign-up, sign-in) — and the Type and UI library pages return with the Home layer. Their old
-addresses land on the hub until then (`[...legacy].astro`).
+**Homepages** (`/internal/homepages/`) — every running order in `data/home-compositions.ts`, side by
+side with what each changes against the reference, and each as the real homepage at
+`/internal/homepages/<id>/`. On any homepage the island grows the switch: the orders as a pill (the
+shipping one first, with its check), `[` and `]` to step between them keeping your place, `O` to box
+and number the sections. The homepage mounts the island at its `TEMP-INTERNAL-NAV` marker on `lab`
+only; `handoff` keeps the marker and nothing else.
+
+The other homepage areas FE-handoff had — Components (its sections), Flows (sign-up, sign-in) — and
+the Type and UI library pages are still to be rebuilt. Their old addresses land on the hub until then
+(`[...legacy].astro`).
 
 ## How it is built
 
@@ -99,6 +107,9 @@ src/pages/internal/
   _CookieStage.astro       a window of page with the notice pinned to its foot (homepage or docs behind it)
   _ChatStage.astro         a slice of page with the real chat mounted into it
   _before/CookieBanner.astro  the banner CookieNotice replaced, kept for the "Before" tab
+  homepages/
+    index.astro            the running orders side by side, each against the reference
+    [id].astro             one order: the homepage itself, handed another `composition`
   chrome/
     index.astro · header.astro · footer.astro · cookie-notice.astro · chat.astro
     _FooterStage.astro     FooterMap layouts no route renders yet, under a stand-in closing band
