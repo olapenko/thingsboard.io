@@ -88,6 +88,13 @@ takes the panel's ground while it is open) — and the products' marks keep the 
 on every ground. The row packs beside the wordmark; a page item is underlined in the ink, an open
 section in the accent.
 
+Also since 5 Oct: Products closes on Pricing, Installation options and the Cloud card (the card left
+the panel's foot); Customers shows three case studies with a figure each and a line of feedback, read
+from the pages' data (`data/menu-customers`); Docs is set in the monospace face. The map footer is
+every `BaseLayout` page's unless it keeps the legacy one by name (`footer="in-use"`, the reference
+homepage order only), so the old footer is gone from the marketing pages. The CLI visual's composer
+is fixed in #26 (`fix/agent-composer` → handoff).
+
 Open on this plan: which menu model ships (layer 13's review); which social icons the docs footer
 keeps; whether Pricing stays a button beside Menu on the docs bar.
 
