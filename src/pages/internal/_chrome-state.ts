@@ -1,7 +1,7 @@
 /**
  * The state the chrome is judged in, shared by every frame on a workbench page and by the stage
- * pages inside them: the theme, whether the page has scrolled (the bar's solid state), and whether
- * the Menu drawer is open.
+ * pages inside them: the theme, whether the page has scrolled (the bar's solid state), whether the
+ * Menu drawer is open, and whether the search dialog is.
  *
  * The workbench writes it (`_StateControls`), the frames read it to build their `src`
  * (`_Frames`), and a stage page reads the resulting query to put itself in that state
@@ -12,10 +12,11 @@ export interface ChromeState {
 	theme: 'auto' | 'light' | 'dark';
 	scrolled: boolean;
 	drawer: boolean;
+	search: boolean;
 }
 
 const KEY = 'lab:chrome-state';
-const DEFAULT: ChromeState = { theme: 'auto', scrolled: false, drawer: false };
+const DEFAULT: ChromeState = { theme: 'auto', scrolled: false, drawer: false, search: false };
 
 export function readState(): ChromeState {
 	try {
@@ -26,6 +27,7 @@ export function readState(): ChromeState {
 			theme: v.theme === 'light' || v.theme === 'dark' ? v.theme : 'auto',
 			scrolled: v.scrolled === true,
 			drawer: v.drawer === true,
+			search: v.search === true,
 		};
 	} catch {
 		return { ...DEFAULT };
@@ -53,6 +55,7 @@ export function stateParams(state: ChromeState = readState()): URLSearchParams {
 	p.set('theme', state.theme);
 	if (state.scrolled) p.set('scrolled', '1');
 	if (state.drawer) p.set('drawer', '1');
+	if (state.search) p.set('search', '1');
 	return p;
 }
 
