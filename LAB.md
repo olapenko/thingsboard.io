@@ -15,7 +15,8 @@ and is never merged back. What a review decides is rebuilt as a `feat/` branch o
 | `exp/<topic>` | An experiment for the sandbox. | PR into `lab`, or dropped |
 
 Delivery to the real repo is `main..handoff`, one PR or patch per layer, in order. An upstream
-sync is `main` ← upstream, then `main` → `handoff`, then `handoff` → `lab`.
+sync is `main` ← upstream, then `main` → `handoff`, then `handoff` → `lab`: `scripts/sync-upstream.sh`
+does the three in their worktrees and stops on the first conflict; `--push` pushes them after.
 
 ## The layers so far
 
