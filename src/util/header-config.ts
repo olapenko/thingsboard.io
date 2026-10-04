@@ -1,57 +1,39 @@
-// Resolves the marketing header's appearance from BaseLayout props, consumed by
-// the Starlight Header override.
+// The bar's appearance, resolved from `BaseLayout`'s props and read by the Starlight Header override.
+//
+// TWO LOOKS. `docs` is the bar the documentation carries: the sidebar ground with a hairline, search
+// as a labelled field, one state. `marketing` is every other page's: the surface with a hairline at
+// the top of the page and, once scrolled, a shadow instead, the bar lifting off the page it covers.
+// A marketing page that opens on a hero says so with `hero`, and the bar starts transparent over it —
+// white ink over a dark hero, the page's own over a light one — until the hero is scrolled past.
+//
+// There is no theme icon in either look: the theme follows the system, and its switch is the footer's.
 
-export type HeaderVariant =
-	| 'base' // sidebar bg, no border, icons shown (id'd marketing pages, e.g. device library)
-	| 'docs' // hairline border, sidebar bg, both icons (real docs pages)
-	| 'common' // docs look but search hidden — 404 + unconfigured marketing pages (BaseLayout default)
-	| 'transparent' // over-hero, white text, flips to solid on scroll
-	| 'transparent-hover' // transparent, opaque on hover + scroll (pricing, affiliate)
-	| 'solid-shadow' // solid bg + drop shadow (product/marketing pages)
-	| 'solid-border'; // surface bg + bottom border (use-cases, blog, partners, …)
+export type HeaderLook = 'marketing' | 'docs';
+
+/** The hero the bar opens over: its ink while transparent. */
+export type HeaderHero = 'dark' | 'light';
 
 export interface HeaderConfig {
-	variant: HeaderVariant;
-	showSearch: boolean;
-	showThemeToggle: boolean;
-	/** `field` on docs: search labelled, with its keys (see `SearchButton`). */
+	look: HeaderLook;
+	hero?: HeaderHero;
+	/** `field` on docs: search labelled, with its keys; the icon elsewhere (see `SearchButton`). */
 	searchForm: 'icon' | 'field';
 	cloudSignupIds: boolean;
 }
 
 export interface HeaderConfigInput {
-	variant?: HeaderVariant;
-	forceLight?: boolean;
-	showSearch?: boolean;
-	showThemeToggle?: boolean;
+	look?: HeaderLook;
+	hero?: HeaderHero;
 	cloudSignupIds?: boolean;
 }
 
-// Per-variant defaults for the two icons.
-const VARIANT_DEFAULTS: Record<HeaderVariant, { showSearch: boolean; showThemeToggle: boolean }> = {
-	base: { showSearch: true, showThemeToggle: true },
-	// Docs: search as a labelled field; the theme switch is in the docs footer and the Menu drawer
-	// (`ThemeChoice`) instead of the bar.
-	docs: { showSearch: true, showThemeToggle: false },
-	common: { showSearch: false, showThemeToggle: true },
-	transparent: { showSearch: false, showThemeToggle: false },
-	'transparent-hover': { showSearch: true, showThemeToggle: true },
-	'solid-shadow': { showSearch: false, showThemeToggle: false },
-	'solid-border': { showSearch: true, showThemeToggle: true },
-};
-
-// `forceLight` always wins over `showThemeToggle` — a locked-light page must
-// not offer a theme switch.
 export function resolveHeaderConfig(input: HeaderConfigInput = {}): HeaderConfig {
-	const variant = input.variant ?? 'docs';
-	const defaults = VARIANT_DEFAULTS[variant];
-	const forceLight = input.forceLight ?? false;
-	const showThemeToggle = forceLight ? false : (input.showThemeToggle ?? defaults.showThemeToggle);
+	const look = input.look ?? 'docs';
 	return {
-		variant,
-		showSearch: input.showSearch ?? defaults.showSearch,
-		showThemeToggle,
-		searchForm: variant === 'docs' ? 'field' : 'icon',
+		look,
+		// Only a marketing page has a hero to open over.
+		hero: look === 'marketing' ? input.hero : undefined,
+		searchForm: look === 'docs' ? 'field' : 'icon',
 		cloudSignupIds: input.cloudSignupIds ?? true,
 	};
 }
