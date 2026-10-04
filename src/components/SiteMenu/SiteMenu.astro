@@ -25,6 +25,13 @@ import { MENU_FEATURED } from '@data/menu-featured';
  *
  * All of its styles are global under the `sm__` prefix: the panels are moved and measured by the
  * script, and the bar's own rules (white ink over a dark hero, the open sheet's surface) reach in.
+ *
+ * COLOUR IS A SET OF TOKENS, named once on `nav.sm` (`--sm-ink`, `--sm-soft`, `--sm-accent`,
+ * `--sm-rule`, `--sm-fill`, `--sm-surface`) and reassigned, never restyled, where the ground changes:
+ * the dark theme, the docs bar, the transparent bar over a dark hero. Every surface — the row, a
+ * dropdown, the one panel, the sheet — draws from the same set, so what a reader sees on one page is
+ * what they see on the next. The products' marks are the one exception by design: a logo keeps its
+ * own colour on every ground, so those are literals (`--sm-brand-*`), the products page's.
  */
 interface Props {
 	model: 'dropdowns' | 'panel';
@@ -39,6 +46,11 @@ const sections = mainNavItems
 		(x): x is { item: (typeof mainNavItems)[number]; sub: NonNullable<ReturnType<typeof submenuById>> } => !!x.sub
 	);
 const panelId = (id: string) => `sm-${id}`;
+
+// The item for the page a reader is on: its line stays, in the ink. A section whose item also has
+// a page (Use Cases) is marked the same way through `data-current`, since `aria-current` is a link's.
+const pathname = Astro.url.pathname;
+const isHere = (href?: string) => !!href && href !== '/' && pathname.startsWith(href);
 ---
 
 <nav class="sm print:hidden" data-model={model} aria-label="Main">
@@ -55,12 +67,18 @@ const panelId = (id: string) => `sm-${id}`;
 							aria-expanded="false"
 							aria-controls={model === 'panel' ? 'sm-one' : panelId(sub.id)}
 							data-sm-trigger={sub.id}
+							data-current={isHere(item.href) || undefined}
 						>
 							{item.label}
 							<Icon name="tabler:chevron-down" class="sm__top-chev" aria-hidden="true" />
 						</button>
 					) : (
-						<a class:list={['sm__top', item.linkClass]} id={item.id} href={item.href}>
+						<a
+							class:list={['sm__top', item.linkClass]}
+							id={item.id}
+							href={item.href}
+							aria-current={isHere(item.href) ? 'page' : undefined}
+						>
 							{item.label}
 						</a>
 					)}
@@ -291,14 +309,81 @@ const panelId = (id: string) => `sm-${id}`;
 	@use '../../styles/variables' as *;
 
 	// ---------------------------------------------------------------------------------------------
-	// THE ROW
+	// THE TOKENS. One set for every surface; the grounds below reassign them.
 	// ---------------------------------------------------------------------------------------------
 	.sm {
+		// The panels, the sheet and the dropdowns.
+		--sm-ink: var(--color-text);
+		--sm-soft: var(--color-text-secondary);
+		--sm-accent: var(--color-primary);
+		--sm-rule: var(--color-border);
+		--sm-fill: color-mix(in srgb, var(--color-primary) 6%, transparent);
+		--sm-fill-strong: color-mix(in srgb, var(--color-primary) 10%, transparent);
+		--sm-surface: var(--color-bg-surface);
+		--sm-shadow: var(--elev-panel);
+		// The row in the bar: its ink, and the line under the open section.
+		--sm-bar-ink: var(--color-text);
+		--sm-bar-accent: var(--color-primary);
+		// How far a product's hue is lifted toward white when it carries TEXT on a dark ground; its
+		// mark is never lifted.
+		--sm-lift: 0%;
+		// The products' own colours — the products page's, the logos' — on every ground and in both
+		// themes. Not the `--brand-*` tokens: those switch to pastels in the dark theme.
+		--sm-brand-pe: #1f8b4d;
+		--sm-brand-cloud: #2a7dec;
+		--sm-brand-edge: #009688;
+		--sm-brand-gateway: #7a4dc3;
+		--sm-brand-mobile: #2a7dec;
+		--sm-brand-tbmq: #1f8b4d;
+		--sm-brand-trendz: #5555ff;
+
 		display: flex;
 		align-items: center;
 		height: 100%;
 	}
 
+	// The dark theme: the same tokens resolve dark through the site's, and a product's text lifts.
+	html[data-theme='dark'] .sm {
+		--sm-lift: 35%;
+	}
+
+	// The docs bar is the sidebar's ground, not the surface; the panel is one piece with it.
+	header.header:has([data-header-look='docs']) .sm {
+		--sm-surface: var(--sl-color-bg-sidebar);
+		--sm-rule: var(--sl-color-hairline-shade);
+	}
+
+	// Over a dark hero the bar is transparent and its ink white, a panel open or not, until the bar is
+	// scrolled onto its surface or the sheet opens. The one panel takes a dark ground under that bar,
+	// so the open menu is one piece with it rather than a white sheet hung under it.
+	header.header:not([data-header-scrolled]):not([data-sm-open]):has([data-header-hero='dark']) .sm {
+		--sm-bar-ink: #fff;
+		--sm-bar-accent: #b3c7ff;
+
+		.sm__one {
+			--sm-ink: #fff;
+			--sm-soft: rgba(255, 255, 255, 0.72);
+			--sm-accent: #b3c7ff;
+			--sm-rule: rgba(255, 255, 255, 0.12);
+			--sm-fill: rgba(255, 255, 255, 0.08);
+			--sm-fill-strong: rgba(255, 255, 255, 0.12);
+			--sm-surface: rgba(8, 9, 14, 0.92);
+			--sm-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+			--sm-lift: 35%;
+		}
+	}
+
+	// And the bar itself takes the panel's ground while the panel is open, so there is no seam of hero
+	// between the row and the menu. Stronger than a page's own scrim rule, which this must win over.
+	header.header:not(.opened-burger):not([data-header-scrolled]):not([data-sm-open]):has(
+			[data-header-hero='dark']
+		)[data-sm-desktop-open] {
+		background-color: rgba(8, 9, 14, 0.92);
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE ROW
+	// ---------------------------------------------------------------------------------------------
 	.sm__row {
 		display: flex;
 		align-items: center;
@@ -308,23 +393,30 @@ const panelId = (id: string) => `sm-${id}`;
 		list-style: none;
 	}
 
+	// The one-panel row gravitates to the wordmark — a clear gap off it, then the items packed — and
+	// the account cluster is pushed to the far side. The dropdowns keep the centred row they inherit.
+	.sm[data-model='panel'] {
+		margin-inline: 24px auto;
+	}
+
 	.sm__item {
 		position: relative;
 	}
 
-	// An item is text in the bar's ink, as the current menu's are, not a button: no fill, no corner. The
-	// open one is marked by a line under it in the ink of the moment, which is what lets the row follow
-	// the bar through white over a hero, the text ink once scrolled, and dark.
+	// An item is text in the bar's ink, not a button: no fill, no corner. Two kinds of line under it:
+	// a PAGE (a link, or the page a section item also owns) is underlined in the ink, on hover and
+	// while the reader is on it; an open SECTION is marked in the accent. The ink follows the bar —
+	// white over a hero, the text ink once scrolled, and dark — so the row reads the same everywhere.
 	.sm__top {
 		position: relative;
 		display: inline-flex;
 		align-items: center;
 		gap: 2px;
 		height: 40px;
-		padding: 0 9px;
+		padding: 0 8px;
 		border: 0;
 		background: none;
-		color: var(--color-text);
+		color: var(--sm-bar-ink);
 		font: inherit;
 		font-size: 15px;
 		line-height: 1;
@@ -336,23 +428,20 @@ const panelId = (id: string) => `sm-${id}`;
 		&::after {
 			content: '';
 			position: absolute;
-			right: 9px;
-			bottom: 4px;
-			left: 9px;
+			right: 8px;
+			bottom: 5px;
+			left: 8px;
 			height: 2px;
 			border-radius: 1px;
 			background: currentColor;
 			opacity: 0;
-			transition: opacity 0.15s ease;
+			transition:
+				opacity 0.15s ease,
+				background-color 0.15s ease;
 		}
 
-		&:hover,
-		&[aria-expanded='true'] {
-			color: var(--color-primary);
-		}
-
-		&[aria-expanded='true']::after {
-			opacity: 1;
+		&:hover {
+			color: var(--sm-bar-ink);
 		}
 
 		&:focus-visible {
@@ -362,36 +451,34 @@ const panelId = (id: string) => `sm-${id}`;
 		}
 	}
 
-	// An item with a page of its own says so on hover, the way a link does.
-	@media (hover: hover) {
-		a.sm__top:hover {
-			text-decoration: underline;
-			text-decoration-thickness: 1px;
-			text-underline-offset: 5px;
-		}
+	// A page: the ink's line.
+	a.sm__top:hover::after,
+	a.sm__top[aria-current='page']::after,
+	button.sm__top[data-current]::after {
+		opacity: 1;
+	}
+
+	// An open section: the accent's line, over whatever the item's own would be.
+	button.sm__top[aria-expanded='true']::after {
+		background: var(--sm-bar-accent);
+		opacity: 1;
 	}
 
 	.sm__top-chev {
 		width: 14px;
 		height: 14px;
 		opacity: 0.55;
-		transition: transform 0.2s ease;
+		transition:
+			transform 0.2s ease,
+			opacity 0.15s ease;
+
+		.sm__top:hover > &,
+		[aria-expanded='true'] > & {
+			opacity: 1;
+		}
 
 		[aria-expanded='true'] > & {
 			transform: rotate(180deg);
-			opacity: 1;
-		}
-	}
-
-	// Over a dark hero the row is white — a panel open or not, since the bar stays transparent under it —
-	// until the bar is scrolled onto its surface or the sheet opens. The hover and the open item's line
-	// stay white too; the colour has nowhere to go on that ground.
-	header.header:not([data-header-scrolled]):not([data-sm-open]):has([data-header-hero='dark']) .sm__top {
-		color: #fff;
-
-		&:hover,
-		&[aria-expanded='true'] {
-			color: #fff;
 		}
 	}
 
@@ -412,7 +499,7 @@ const panelId = (id: string) => `sm-${id}`;
 		font-weight: $font-weight-medium;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--color-text-secondary);
+		color: var(--sm-soft);
 	}
 
 	.sm__cols {
@@ -433,24 +520,28 @@ const panelId = (id: string) => `sm-${id}`;
 		gap: 12px;
 		padding: 8px 10px;
 		border-radius: $radius-lg;
-		color: var(--color-text);
+		color: var(--sm-ink);
 		text-decoration: none;
 		transition: background-color 0.15s ease;
 
 		&:hover,
 		&:focus-visible {
-			background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+			background: var(--sm-fill);
 		}
 
 		&:focus-visible {
-			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline: 2px solid currentColor;
 			outline-offset: -2px;
 		}
 
 		svg.nav-icon {
 			flex: none;
 			margin-top: 1px;
-			color: var(--color-primary);
+			color: var(--sm-accent);
+		}
+
+		&:hover .sm__link-heading {
+			color: var(--sm-accent);
 		}
 	}
 
@@ -465,49 +556,46 @@ const panelId = (id: string) => `sm-${id}`;
 		font-size: 15px;
 		font-weight: $font-weight-medium;
 		line-height: 1.4;
+		transition: color 0.15s ease;
 	}
 
 	.sm__link-desc {
 		font-size: 13px;
 		line-height: 1.4;
-		color: var(--color-text-secondary);
+		color: var(--sm-soft);
 	}
 
-	// The products' own colours on their marks and, on hover, their headings — the text shades where
-	// the icon hue falls under AA as type.
-	.sm__link[data-product='pe'] svg.nav-icon {
-		color: var(--brand-pe);
+	// A product's link carries its own colour: on its mark as it is, on its heading (hover) lifted
+	// toward white where the ground is dark, so it stays the same hue and reads as text.
+	.sm__link[data-product] {
+		svg.nav-icon {
+			color: var(--sm-brand);
+		}
+
+		&:hover .sm__link-heading {
+			color: color-mix(in srgb, var(--sm-brand), #fff var(--sm-lift));
+		}
 	}
-	.sm__link[data-product='cloud'] svg.nav-icon {
-		color: var(--color-product-cloud, var(--brand-cloud));
+	.sm__link[data-product='pe'] {
+		--sm-brand: var(--sm-brand-pe);
 	}
-	.sm__link[data-product='edge'] svg.nav-icon {
-		color: var(--brand-edge);
+	.sm__link[data-product='cloud'] {
+		--sm-brand: var(--sm-brand-cloud);
 	}
-	.sm__link[data-product='gateway'] svg.nav-icon {
-		color: var(--brand-gateway, var(--color-primary));
+	.sm__link[data-product='edge'] {
+		--sm-brand: var(--sm-brand-edge);
 	}
-	.sm__link[data-product='mobile'] svg.nav-icon {
-		color: var(--brand-ce);
+	.sm__link[data-product='gateway'] {
+		--sm-brand: var(--sm-brand-gateway);
 	}
-	.sm__link[data-product='tbmq'] svg.nav-icon {
-		color: var(--brand-pe);
+	.sm__link[data-product='mobile'] {
+		--sm-brand: var(--sm-brand-mobile);
 	}
-	.sm__link[data-product='trendz'] svg.nav-icon {
-		color: var(--brand-trendz);
+	.sm__link[data-product='tbmq'] {
+		--sm-brand: var(--sm-brand-tbmq);
 	}
-	.sm__link:hover .sm__link-heading {
-		color: var(--color-primary);
-	}
-	.sm__link[data-product='pe']:hover .sm__link-heading,
-	.sm__link[data-product='tbmq']:hover .sm__link-heading {
-		color: var(--brand-pe);
-	}
-	.sm__link[data-product='edge']:hover .sm__link-heading {
-		color: var(--brand-edge-text, var(--brand-edge));
-	}
-	.sm__link[data-product='trendz']:hover .sm__link-heading {
-		color: var(--brand-trendz-text, var(--brand-trendz));
+	.sm__link[data-product='trendz'] {
+		--sm-brand: var(--sm-brand-trendz);
 	}
 
 	.sm__all {
@@ -516,7 +604,7 @@ const panelId = (id: string) => `sm-${id}`;
 		gap: 2px;
 		font-size: 14px;
 		font-weight: $font-weight-medium;
-		color: var(--color-primary);
+		color: var(--sm-accent);
 		text-decoration: none;
 
 		svg {
@@ -531,7 +619,7 @@ const panelId = (id: string) => `sm-${id}`;
 		}
 
 		&:focus-visible {
-			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline: 2px solid currentColor;
 			outline-offset: 2px;
 			border-radius: 2px;
 		}
@@ -543,17 +631,17 @@ const panelId = (id: string) => `sm-${id}`;
 		gap: 2px;
 		padding: 14px 16px;
 		border-radius: 12px;
-		background: color-mix(in srgb, var(--color-primary) 6%, transparent);
-		color: var(--color-text);
+		background: var(--sm-fill);
+		color: var(--sm-ink);
 		text-decoration: none;
 		transition: background-color 0.15s ease;
 
 		&:hover {
-			background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+			background: var(--sm-fill-strong);
 		}
 
 		&:focus-visible {
-			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline: 2px solid currentColor;
 			outline-offset: 2px;
 		}
 	}
@@ -563,7 +651,7 @@ const panelId = (id: string) => `sm-${id}`;
 		font-weight: $font-weight-medium;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
-		color: var(--color-primary);
+		color: var(--sm-accent);
 	}
 
 	.sm__feat-title {
@@ -575,7 +663,7 @@ const panelId = (id: string) => `sm-${id}`;
 	.sm__feat-text {
 		font-size: 13px;
 		line-height: 1.45;
-		color: var(--color-text-secondary);
+		color: var(--sm-soft);
 	}
 
 	.sm__feat-cta {
@@ -585,7 +673,7 @@ const panelId = (id: string) => `sm-${id}`;
 		margin-top: 6px;
 		font-size: 14px;
 		font-weight: $font-weight-medium;
-		color: var(--color-primary);
+		color: var(--sm-accent);
 
 		svg {
 			width: 18px;
@@ -609,11 +697,11 @@ const panelId = (id: string) => `sm-${id}`;
 		min-width: 280px;
 		max-width: calc(100vw - 32px);
 		padding: 20px;
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--sm-rule);
 		border-radius: $radius-xl;
-		background: var(--color-bg-surface);
-		color: var(--color-text);
-		box-shadow: var(--elev-panel);
+		background: var(--sm-surface);
+		color: var(--sm-ink);
+		box-shadow: var(--sm-shadow);
 		transform: translateX(calc(-50% + var(--sm-shift, 0px)));
 		transition:
 			opacity 0.15s ease,
@@ -650,10 +738,10 @@ const panelId = (id: string) => `sm-${id}`;
 		max-height: calc(100vh - var(--home-header-h, #{$header-height}));
 		overflow-y: auto;
 		// No line between the bar and the panel: it is the bar's surface continued.
-		border-bottom: 1px solid var(--color-border);
-		background: var(--color-bg-surface);
-		color: var(--color-text);
-		box-shadow: var(--elev-panel);
+		border-bottom: 1px solid var(--sm-rule);
+		background: var(--sm-surface);
+		color: var(--sm-ink);
+		box-shadow: var(--sm-shadow);
 		transition:
 			opacity 0.15s ease,
 			display 0.15s allow-discrete;
@@ -682,7 +770,7 @@ const panelId = (id: string) => `sm-${id}`;
 		gap: 2px;
 		margin: 0;
 		padding: 0 16px 0 0;
-		border-right: 1px solid var(--color-border);
+		border-right: 1px solid var(--sm-rule);
 		list-style: none;
 	}
 
@@ -696,7 +784,7 @@ const panelId = (id: string) => `sm-${id}`;
 		border: 0;
 		border-radius: $radius-lg;
 		background: none;
-		color: var(--color-text);
+		color: var(--sm-soft);
 		font: inherit;
 		font-size: 15px;
 		font-weight: $font-weight-medium;
@@ -715,95 +803,26 @@ const panelId = (id: string) => `sm-${id}`;
 
 		&:hover,
 		&[aria-current='true'] {
-			color: var(--color-primary);
-			background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+			color: var(--sm-ink);
+			background: var(--sm-fill);
 
 			svg {
 				opacity: 1;
 			}
 		}
 
+		&[aria-current='true'] {
+			color: var(--sm-accent);
+		}
+
 		&:focus-visible {
-			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline: 2px solid currentColor;
 			outline-offset: -2px;
 		}
 	}
 
 	.sm__one-sec[hidden] {
 		display: none;
-	}
-
-	// Over a dark hero the bar is transparent on a dark scrim, and the panel takes that ground and
-	// white ink, so the open menu is one piece with the bar rather than a white sheet hung under it.
-	header.header:not([data-header-scrolled]):not([data-sm-open]):has([data-header-hero='dark']) .sm__one {
-		--sm-dark-soft: rgba(255, 255, 255, 0.72);
-		--sm-dark-rule: rgba(255, 255, 255, 0.12);
-		--sm-dark-fill: rgba(255, 255, 255, 0.08);
-		--sm-dark-accent: #b3c7ff;
-		background: rgba(8, 9, 14, 0.92);
-		color: #fff;
-		border-bottom-color: var(--sm-dark-rule);
-		box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
-
-		.sm__rail {
-			border-right-color: var(--sm-dark-rule);
-		}
-
-		.sm__rail-btn {
-			color: var(--sm-dark-soft);
-
-			&:hover,
-			&[aria-current='true'] {
-				color: #fff;
-				background: var(--sm-dark-fill);
-			}
-		}
-
-		.sm__group-name,
-		.sm__link-desc,
-		.sm__feat-text {
-			color: var(--sm-dark-soft);
-		}
-
-		.sm__link {
-			color: #fff;
-
-			&:hover,
-			&:focus-visible {
-				background: var(--sm-dark-fill);
-			}
-
-			svg.nav-icon {
-				color: var(--sm-dark-accent);
-			}
-		}
-
-		.sm__link:hover .sm__link-heading,
-		.sm__all,
-		.sm__feat-eyebrow,
-		.sm__feat-cta {
-			color: var(--sm-dark-accent);
-		}
-
-		.sm__feat {
-			color: #fff;
-			background: var(--sm-dark-fill);
-
-			&:hover {
-				background: rgba(255, 255, 255, 0.12);
-			}
-		}
-
-		.sm__feat--foot {
-			padding-inline: 0;
-			border-top: 1px solid var(--sm-dark-rule);
-			border-radius: 0;
-			background: none;
-
-			&:hover {
-				background: none;
-			}
-		}
 	}
 
 	.sm__one-head {
@@ -822,19 +841,32 @@ const panelId = (id: string) => `sm-${id}`;
 		line-height: 1.2;
 	}
 
+	// Along the foot of the panel: a rule above it, no card.
 	.sm__feat--foot {
 		grid-column: 1 / -1;
 		grid-template-columns: auto 1fr auto;
 		grid-template-areas: 'eyebrow text cta' 'title text cta';
 		align-items: center;
 		column-gap: 20px;
-		padding: 14px 20px;
+		padding: 16px 0 0;
+		border-top: 1px solid var(--sm-rule);
+		border-radius: 0;
+		background: none;
+
+		&:hover {
+			background: none;
+		}
+
+		&:hover .sm__feat-title {
+			color: var(--sm-accent);
+		}
 
 		.sm__feat-eyebrow {
 			grid-area: eyebrow;
 		}
 		.sm__feat-title {
 			grid-area: title;
+			transition: color 0.15s ease;
 		}
 		.sm__feat-text {
 			grid-area: text;
@@ -859,7 +891,7 @@ const panelId = (id: string) => `sm-${id}`;
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg-light);
-		color: var(--color-text);
+		color: var(--sm-ink);
 
 		&[hidden] {
 			display: none;
@@ -878,10 +910,10 @@ const panelId = (id: string) => `sm-${id}`;
 		width: 100%;
 		height: 44px;
 		padding: 0 14px;
-		border: 1px solid #868d9a;
+		border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
 		border-radius: $radius-md;
-		background: var(--color-bg-surface);
-		color: var(--color-text-secondary);
+		background: var(--sm-surface);
+		color: var(--sm-soft);
 		font: inherit;
 		font-size: 15px;
 		text-align: left;
@@ -893,7 +925,7 @@ const panelId = (id: string) => `sm-${id}`;
 		}
 
 		&:focus-visible {
-			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline: 2px solid currentColor;
 			outline-offset: 2px;
 		}
 	}
@@ -908,7 +940,7 @@ const panelId = (id: string) => `sm-${id}`;
 	}
 
 	.sm__sheet-item + .sm__sheet-item {
-		border-top: 1px solid var(--sl-color-hairline-light, var(--color-border));
+		border-top: 1px solid var(--sm-rule);
 	}
 
 	.sm__acc-sum,
@@ -920,7 +952,7 @@ const panelId = (id: string) => `sm-${id}`;
 		padding: 14px 0;
 		font-size: 16px;
 		font-weight: $font-weight-medium;
-		color: var(--color-text);
+		color: var(--sm-ink);
 		text-decoration: none;
 		cursor: pointer;
 		list-style: none;
@@ -930,7 +962,7 @@ const panelId = (id: string) => `sm-${id}`;
 		}
 
 		&:focus-visible {
-			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline: 2px solid currentColor;
 			outline-offset: -2px;
 			border-radius: 4px;
 		}
@@ -946,7 +978,7 @@ const panelId = (id: string) => `sm-${id}`;
 	}
 
 	.sm__acc[open] > .sm__acc-sum {
-		color: var(--color-primary);
+		color: var(--sm-accent);
 
 		.sm__acc-chev {
 			transform: rotate(180deg);
@@ -981,15 +1013,16 @@ const panelId = (id: string) => `sm-${id}`;
 		display: flex;
 		gap: 12px;
 		padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
-		border-top: 1px solid var(--color-border);
-		background: var(--color-bg-surface);
+		border-top: 1px solid var(--sm-rule);
+		background: var(--sm-surface);
 
 		> * {
 			flex: 1;
 		}
 	}
 
-	// The bar above the open sheet: its surface, and the Menu button as Close.
+	// The bar above the open sheet: its surface, and the Menu button as Close. A page's own rule for
+	// the bar over its hero (the homepage's scrim) must leave `[data-sm-open]` out, as the bar's do.
 	header.header[data-sm-open] {
 		background-color: var(--color-bg-light);
 		box-shadow: var(--shadow-header);
