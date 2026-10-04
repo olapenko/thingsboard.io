@@ -1,0 +1,940 @@
+---
+import { Icon } from 'astro-icon/components';
+import SiteMenuSection from '@components/SiteMenu/SiteMenuSection.astro';
+import SiteMenuSheet from '@components/SiteMenu/SiteMenuSheet.astro';
+import { mainNavItems, allSubmenus } from '@data/navigation';
+import { MENU_FEATURED } from '@data/menu-featured';
+
+/**
+ * THE MAIN MENU, rendered once from `data/navigation`, in one of two desktop models (layer 13's two
+ * candidates) over one phone sheet:
+ *
+ * - `dropdowns`: each item with a section opens its own panel under it — the current menu's shape,
+ *   redrawn: the section's groups side by side in their columns, the product marks, a featured slot
+ *   in Products, the panel kept inside the viewport.
+ * - `panel`: one surface under the whole bar; a rail of the sections on the left, the open section's
+ *   groups on the right, the featured slot along the foot. Hovering or focusing a rail entry, or
+ *   another item in the bar, switches the section without closing.
+ *
+ * Both open on hover intent (120ms), on click, and on Enter; both close on leave (200ms grace), on
+ * Escape (focus back on the item), on a click outside, and when focus leaves the menu. Below 1281 the
+ * row and the panels are gone and the bar's Menu button opens `SiteMenuSheet` instead.
+ *
+ * The item for a section is a `<button aria-expanded>`; a section whose item also has a page of its
+ * own (Use Cases) gets that page as the first link of its panel. Items with no section are links.
+ *
+ * All of its styles are global under the `sm__` prefix: the panels are moved and measured by the
+ * script, and the bar's own rules (white ink over a dark hero, the open sheet's surface) reach in.
+ */
+interface Props {
+	model: 'dropdowns' | 'panel';
+}
+
+const { model } = Astro.props;
+
+const submenuById = (id?: string) => (id ? allSubmenus.find((s) => s.id === id) : undefined);
+const sections = mainNavItems
+	.map((item) => ({ item, sub: submenuById(item.submenuId) }))
+	.filter(
+		(x): x is { item: (typeof mainNavItems)[number]; sub: NonNullable<ReturnType<typeof submenuById>> } => !!x.sub
+	);
+const panelId = (id: string) => `sm-${id}`;
+---
+
+<nav class="sm print:hidden" data-model={model} aria-label="Main">
+	<ul class="sm__row">
+		{mainNavItems.map((item) => {
+			const sub = submenuById(item.submenuId);
+			return (
+				<li class="sm__item" data-sm-item={sub?.id}>
+					{sub ? (
+						<button
+							type="button"
+							class="sm__top"
+							id={item.id}
+							aria-expanded="false"
+							aria-controls={model === 'panel' ? 'sm-one' : panelId(sub.id)}
+							data-sm-trigger={sub.id}
+						>
+							{item.label}
+							<Icon name="tabler:chevron-down" class="sm__top-chev" aria-hidden="true" />
+						</button>
+					) : (
+						<a class:list={['sm__top', item.linkClass]} id={item.id} href={item.href}>
+							{item.label}
+						</a>
+					)}
+					{model === 'dropdowns' && sub && (
+						<div class="sm__drop" id={panelId(sub.id)} data-sm-panel={sub.id} hidden>
+							{item.href && (
+								<a class="sm__all" href={item.href}>
+									All {item.label.toLowerCase()}
+									<Icon name="tabler:chevron-right" aria-hidden="true" />
+								</a>
+							)}
+							<SiteMenuSection submenu={sub} iconSize={sub.id === 'nav-products' ? 32 : 24} />
+							{sub.id === 'nav-products' && (
+								<a class="sm__feat" href={MENU_FEATURED.href} {...MENU_FEATURED.attrs}>
+									<span class="sm__feat-eyebrow">{MENU_FEATURED.eyebrow}</span>
+									<span class="sm__feat-title">{MENU_FEATURED.title}</span>
+									<span class="sm__feat-text">{MENU_FEATURED.text}</span>
+									<span class="sm__feat-cta">
+										{MENU_FEATURED.cta}
+										<Icon name="tabler:chevron-right" aria-hidden="true" />
+									</span>
+								</a>
+							)}
+						</div>
+					)}
+				</li>
+			);
+		})}
+	</ul>
+
+	{model === 'panel' && (
+		<div class="sm__one" id="sm-one" data-sm-one hidden>
+			<div class="sm__one-in">
+				<ul class="sm__rail">
+					{sections.map(({ item, sub }) => (
+						<li>
+							<button type="button" class="sm__rail-btn" data-sm-rail={sub.id} aria-current="false">
+								{item.label}
+								<Icon name="tabler:chevron-right" aria-hidden="true" />
+							</button>
+						</li>
+					))}
+				</ul>
+				<div class="sm__one-body">
+					{sections.map(({ item, sub }) => (
+						<section class="sm__one-sec" data-sm-panel={sub.id} aria-label={item.label} hidden>
+							<div class="sm__one-head">
+								<h2 class="sm__one-title">{item.label}</h2>
+								{item.href && (
+									<a class="sm__all" href={item.href}>
+										All {item.label.toLowerCase()}
+										<Icon name="tabler:chevron-right" aria-hidden="true" />
+									</a>
+								)}
+							</div>
+							<SiteMenuSection submenu={sub} iconSize={sub.id === 'nav-products' ? 32 : 24} />
+						</section>
+					))}
+				</div>
+				<a class="sm__feat sm__feat--foot" href={MENU_FEATURED.href} {...MENU_FEATURED.attrs}>
+					<span class="sm__feat-eyebrow">{MENU_FEATURED.eyebrow}</span>
+					<span class="sm__feat-title">{MENU_FEATURED.title}</span>
+					<span class="sm__feat-text">{MENU_FEATURED.text}</span>
+					<span class="sm__feat-cta">
+						{MENU_FEATURED.cta}
+						<Icon name="tabler:chevron-right" aria-hidden="true" />
+					</span>
+				</a>
+			</div>
+		</div>
+	)}
+
+	<SiteMenuSheet />
+</nav>
+
+<script>
+	import { lockScroll, unlockScroll } from '@util/scroll-lock';
+
+	const nav = document.querySelector<HTMLElement>('nav.sm');
+	if (nav) {
+		const header = nav.closest<HTMLElement>('header.header');
+		const triggers = [...nav.querySelectorAll<HTMLButtonElement>('[data-sm-trigger]')];
+		const panels = [...nav.querySelectorAll<HTMLElement>('[data-sm-panel]')];
+		const rails = [...nav.querySelectorAll<HTMLButtonElement>('[data-sm-rail]')];
+		const one = nav.querySelector<HTMLElement>('[data-sm-one]');
+		const sheet = nav.querySelector<HTMLElement>('[data-sm-sheet]');
+		const toggle = header?.querySelector<HTMLButtonElement>('[data-sm-toggle]') ?? null;
+
+		const desktop = () => matchMedia('(min-width: 1281px)').matches;
+		const OPEN_DELAY = 120;
+		const CLOSE_DELAY = 200;
+		let openId: string | null = null;
+		let openTimer = 0;
+		let closeTimer = 0;
+
+		// --- the desktop panels -------------------------------------------------------------------
+
+		/** Keeps a dropdown inside the viewport: measured once shown, shifted by what overflows. */
+		const nudge = (panel: HTMLElement) => {
+			panel.style.removeProperty('--sm-shift');
+			const r = panel.getBoundingClientRect();
+			const over = r.right - (window.innerWidth - 16);
+			const under = 16 - r.left;
+			const shift = over > 0 ? -over : under > 0 ? under : 0;
+			if (shift) panel.style.setProperty('--sm-shift', `${shift}px`);
+		};
+
+		const show = (id: string) => {
+			if (!desktop()) return;
+			window.clearTimeout(closeTimer);
+			openId = id;
+			triggers.forEach((t) => t.setAttribute('aria-expanded', String(t.dataset.smTrigger === id)));
+			panels.forEach((p) => {
+				p.hidden = p.dataset.smPanel !== id;
+			});
+			rails.forEach((r) => r.setAttribute('aria-current', String(r.dataset.smRail === id)));
+			if (one) one.hidden = false;
+			nav.setAttribute('data-open', id);
+			header?.setAttribute('data-sm-desktop-open', '');
+			const panel = panels.find((p) => p.dataset.smPanel === id);
+			if (panel && !one) nudge(panel);
+		};
+
+		const hide = () => {
+			window.clearTimeout(openTimer);
+			window.clearTimeout(closeTimer);
+			if (openId === null) return;
+			openId = null;
+			triggers.forEach((t) => t.setAttribute('aria-expanded', 'false'));
+			panels.forEach((p) => {
+				p.hidden = true;
+			});
+			if (one) one.hidden = true;
+			nav.removeAttribute('data-open');
+			header?.removeAttribute('data-sm-desktop-open');
+		};
+
+		const soon = (id: string) => {
+			window.clearTimeout(openTimer);
+			window.clearTimeout(closeTimer);
+			// Something open already: switch at once, the way a reader sweeps along the row.
+			if (openId !== null) show(id);
+			else openTimer = window.setTimeout(() => show(id), OPEN_DELAY);
+		};
+		const later = () => {
+			window.clearTimeout(openTimer);
+			window.clearTimeout(closeTimer);
+			closeTimer = window.setTimeout(hide, CLOSE_DELAY);
+		};
+
+		nav.querySelectorAll<HTMLElement>('[data-sm-item]').forEach((li) => {
+			const id = li.dataset.smItem;
+			if (!id) {
+				// A plain link: sweeping onto it closes what a neighbour opened.
+				li.addEventListener('mouseenter', later);
+				return;
+			}
+			li.addEventListener('mouseenter', () => soon(id));
+			li.addEventListener('mouseleave', later);
+		});
+		one?.addEventListener('mouseenter', () => window.clearTimeout(closeTimer));
+		one?.addEventListener('mouseleave', later);
+
+		triggers.forEach((t) =>
+			t.addEventListener('click', () => {
+				const id = t.dataset.smTrigger!;
+				if (openId === id) hide();
+				else show(id);
+			})
+		);
+		rails.forEach((r) => {
+			const id = r.dataset.smRail!;
+			r.addEventListener('mouseenter', () => show(id));
+			r.addEventListener('focus', () => show(id));
+			r.addEventListener('click', () => show(id));
+		});
+
+		// Keyboard: Escape closes and puts focus back on the item; focus leaving the menu closes it.
+		nav.addEventListener('keydown', (e) => {
+			if (e.key !== 'Escape' || openId === null) return;
+			const id = openId;
+			e.preventDefault();
+			hide();
+			triggers.find((t) => t.dataset.smTrigger === id)?.focus();
+		});
+		nav.addEventListener('focusout', (e) => {
+			const next = e.relatedTarget as Node | null;
+			if (openId !== null && (!next || !nav.contains(next))) later();
+		});
+		document.addEventListener('pointerdown', (e) => {
+			if (openId !== null && !nav.contains(e.target as Node)) hide();
+		});
+
+		// --- the phone sheet ----------------------------------------------------------------------
+
+		const sheetOpen = () => !!sheet && !sheet.hidden;
+		const openSheet = () => {
+			if (!sheet) return;
+			sheet.hidden = false;
+			header?.setAttribute('data-sm-open', '');
+			toggle?.setAttribute('aria-expanded', 'true');
+			lockScroll('menu');
+		};
+		const closeSheet = () => {
+			if (!sheet || !sheetOpen()) return;
+			sheet.hidden = true;
+			header?.removeAttribute('data-sm-open');
+			toggle?.setAttribute('aria-expanded', 'false');
+			unlockScroll('menu');
+		};
+		toggle?.addEventListener('click', () => (sheetOpen() ? closeSheet() : openSheet()));
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape' && sheetOpen()) {
+				closeSheet();
+				toggle?.focus();
+			}
+		});
+
+		// Crossing the breakpoint closes whichever menu the other side had.
+		matchMedia('(min-width: 1281px)').addEventListener('change', (q) => {
+			if (q.matches) closeSheet();
+			else hide();
+		});
+	}
+</script>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	// ---------------------------------------------------------------------------------------------
+	// THE ROW
+	// ---------------------------------------------------------------------------------------------
+	.sm {
+		display: flex;
+		align-items: center;
+		height: 100%;
+	}
+
+	.sm__row {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.sm__item {
+		position: relative;
+	}
+
+	.sm__top {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		height: 40px;
+		padding: 0 10px;
+		border: 0;
+		border-radius: $radius-md;
+		background: none;
+		color: var(--color-text);
+		font: inherit;
+		font-size: 15px;
+		line-height: 1;
+		white-space: nowrap;
+		text-decoration: none;
+		cursor: pointer;
+		transition:
+			color 0.15s ease,
+			background-color 0.15s ease;
+
+		&:hover,
+		&[aria-expanded='true'] {
+			color: var(--color-primary);
+			background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+		}
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 2px;
+		}
+	}
+
+	// An item with a page of its own says so on hover, the way a link does.
+	@media (hover: hover) {
+		a.sm__top:hover {
+			text-decoration: underline;
+			text-decoration-thickness: 1px;
+			text-underline-offset: 5px;
+		}
+	}
+
+	.sm__top-chev {
+		width: 16px;
+		height: 16px;
+		opacity: 0.6;
+		transition: transform 0.2s ease;
+
+		[aria-expanded='true'] > & {
+			transform: rotate(180deg);
+			opacity: 1;
+		}
+	}
+
+	// Over a dark hero the row is white, until the bar is scrolled onto its surface, a panel is open
+	// (its surface is light) or the sheet is.
+	header.header:not([data-header-scrolled]):not([data-sm-open]):not([data-sm-desktop-open]):has(
+			[data-header-hero='dark']
+		)
+		.sm__top {
+		color: #fff;
+
+		&:hover {
+			color: #fff;
+			background: rgba(255, 255, 255, 0.12);
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// A SECTION'S CONTENT, on every surface
+	// ---------------------------------------------------------------------------------------------
+	.sm__groups {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		gap: 24px 32px;
+	}
+
+	.sm__group-name {
+		margin: 0 0 6px;
+		padding: 0 10px;
+		font-size: 12px;
+		font-weight: $font-weight-medium;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-text-secondary);
+	}
+
+	.sm__cols {
+		display: grid;
+		grid-template-columns: repeat(var(--cols, 1), minmax(176px, max-content));
+		gap: 0 12px;
+	}
+
+	.sm__col {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.sm__link {
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		padding: 8px 10px;
+		border-radius: $radius-lg;
+		color: var(--color-text);
+		text-decoration: none;
+		transition: background-color 0.15s ease;
+
+		&:hover,
+		&:focus-visible {
+			background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline-offset: -2px;
+		}
+
+		svg.nav-icon {
+			flex: none;
+			margin-top: 1px;
+			color: var(--color-primary);
+		}
+	}
+
+	.sm__link-text {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+		min-width: 0;
+	}
+
+	.sm__link-heading {
+		font-size: 15px;
+		font-weight: $font-weight-medium;
+		line-height: 1.4;
+	}
+
+	.sm__link-desc {
+		font-size: 13px;
+		line-height: 1.4;
+		color: var(--color-text-secondary);
+	}
+
+	// The products' own colours on their marks and, on hover, their headings — the text shades where
+	// the icon hue falls under AA as type.
+	.sm__link[data-product='pe'] svg.nav-icon {
+		color: var(--brand-pe);
+	}
+	.sm__link[data-product='cloud'] svg.nav-icon {
+		color: var(--color-product-cloud, var(--brand-cloud));
+	}
+	.sm__link[data-product='edge'] svg.nav-icon {
+		color: var(--brand-edge);
+	}
+	.sm__link[data-product='gateway'] svg.nav-icon {
+		color: var(--brand-gateway, var(--color-primary));
+	}
+	.sm__link[data-product='mobile'] svg.nav-icon {
+		color: var(--brand-ce);
+	}
+	.sm__link[data-product='tbmq'] svg.nav-icon {
+		color: var(--brand-pe);
+	}
+	.sm__link[data-product='trendz'] svg.nav-icon {
+		color: var(--brand-trendz);
+	}
+	.sm__link:hover .sm__link-heading {
+		color: var(--color-primary);
+	}
+	.sm__link[data-product='pe']:hover .sm__link-heading,
+	.sm__link[data-product='tbmq']:hover .sm__link-heading {
+		color: var(--brand-pe);
+	}
+	.sm__link[data-product='edge']:hover .sm__link-heading {
+		color: var(--brand-edge-text, var(--brand-edge));
+	}
+	.sm__link[data-product='trendz']:hover .sm__link-heading {
+		color: var(--brand-trendz-text, var(--brand-trendz));
+	}
+
+	.sm__all {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		font-size: 14px;
+		font-weight: $font-weight-medium;
+		color: var(--color-primary);
+		text-decoration: none;
+
+		svg {
+			width: 18px;
+			height: 18px;
+		}
+
+		&:hover {
+			text-decoration: underline;
+			text-decoration-thickness: 1px;
+			text-underline-offset: 3px;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline-offset: 2px;
+			border-radius: 2px;
+		}
+	}
+
+	// The featured slot: a tinted card to the Cloud sign-up.
+	.sm__feat {
+		display: grid;
+		gap: 2px;
+		padding: 14px 16px;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+		color: var(--color-text);
+		text-decoration: none;
+		transition: background-color 0.15s ease;
+
+		&:hover {
+			background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline-offset: 2px;
+		}
+	}
+
+	.sm__feat-eyebrow {
+		font-size: 12px;
+		font-weight: $font-weight-medium;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--color-primary);
+	}
+
+	.sm__feat-title {
+		font-size: 16px;
+		font-weight: $font-weight-bold;
+		line-height: 1.3;
+	}
+
+	.sm__feat-text {
+		font-size: 13px;
+		line-height: 1.45;
+		color: var(--color-text-secondary);
+	}
+
+	.sm__feat-cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		margin-top: 6px;
+		font-size: 14px;
+		font-weight: $font-weight-medium;
+		color: var(--color-primary);
+
+		svg {
+			width: 18px;
+			height: 18px;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// MODEL A — DROPDOWNS: one panel under each item, kept inside the viewport by `--sm-shift`.
+	// ---------------------------------------------------------------------------------------------
+	.sm__drop {
+		position: absolute;
+		top: calc(100% + 8px);
+		left: 50%;
+		z-index: 5;
+		display: grid;
+		gap: 16px;
+		// Sized by its content, capped by the viewport: a section with five columns is wide, and where
+		// it does not fit the groups wrap rather than overrun the panel.
+		width: max-content;
+		min-width: 280px;
+		max-width: calc(100vw - 32px);
+		padding: 20px;
+		border: 1px solid var(--color-border);
+		border-radius: $radius-xl;
+		background: var(--color-bg-surface);
+		color: var(--color-text);
+		box-shadow: var(--elev-panel);
+		transform: translateX(calc(-50% + var(--sm-shift, 0px)));
+		transition:
+			opacity 0.15s ease,
+			translate 0.15s ease,
+			display 0.15s allow-discrete;
+
+		@starting-style {
+			opacity: 0;
+			translate: 0 -4px;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+
+		.sm__all {
+			margin: -4px 0 -6px 10px;
+		}
+
+		.sm__feat {
+			margin-top: 4px;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// MODEL B — PANEL: one surface under the bar, a rail of sections, the open one's groups beside it.
+	// ---------------------------------------------------------------------------------------------
+	.sm__one {
+		position: fixed;
+		top: calc(var(--promo-cur, var(--promo-h, 0px)) + var(--home-header-h, #{$header-height}));
+		left: 0;
+		right: 0;
+		z-index: 5;
+		max-height: calc(100vh - var(--home-header-h, #{$header-height}));
+		overflow-y: auto;
+		border-top: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border);
+		background: var(--color-bg-surface);
+		color: var(--color-text);
+		box-shadow: var(--elev-panel);
+		transition:
+			opacity 0.15s ease,
+			display 0.15s allow-discrete;
+
+		@starting-style {
+			opacity: 0;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.sm__one-in {
+		display: grid;
+		grid-template-columns: 220px minmax(0, 1fr);
+		gap: 24px 40px;
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 24px var(--tb-bar-inset, 24px) 28px;
+	}
+
+	.sm__rail {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		margin: 0;
+		padding: 0 16px 0 0;
+		border-right: 1px solid var(--color-border);
+		list-style: none;
+	}
+
+	.sm__rail-btn {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		width: 100%;
+		padding: 10px 12px;
+		border: 0;
+		border-radius: $radius-lg;
+		background: none;
+		color: var(--color-text);
+		font: inherit;
+		font-size: 15px;
+		font-weight: $font-weight-medium;
+		text-align: left;
+		cursor: pointer;
+		transition:
+			color 0.15s ease,
+			background-color 0.15s ease;
+
+		svg {
+			width: 18px;
+			height: 18px;
+			opacity: 0;
+			transition: opacity 0.15s ease;
+		}
+
+		&:hover,
+		&[aria-current='true'] {
+			color: var(--color-primary);
+			background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+
+			svg {
+				opacity: 1;
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline-offset: -2px;
+		}
+	}
+
+	.sm__one-sec[hidden] {
+		display: none;
+	}
+
+	.sm__one-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 16px;
+		margin: 0 0 14px;
+		padding: 0 10px;
+	}
+
+	.sm__one-title {
+		margin: 0;
+		font-size: 20px;
+		font-weight: $font-weight-bold;
+		line-height: 1.2;
+	}
+
+	.sm__feat--foot {
+		grid-column: 1 / -1;
+		grid-template-columns: auto 1fr auto;
+		grid-template-areas: 'eyebrow text cta' 'title text cta';
+		align-items: center;
+		column-gap: 20px;
+		padding: 14px 20px;
+
+		.sm__feat-eyebrow {
+			grid-area: eyebrow;
+		}
+		.sm__feat-title {
+			grid-area: title;
+		}
+		.sm__feat-text {
+			grid-area: text;
+			font-size: 14px;
+		}
+		.sm__feat-cta {
+			grid-area: cta;
+			margin: 0;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE PHONE SHEET, under the bar, the height of the screen.
+	// ---------------------------------------------------------------------------------------------
+	.sm__sheet {
+		position: fixed;
+		top: calc(var(--promo-cur, var(--promo-h, 0px)) + var(--home-header-h, #{$header-height}));
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 2;
+		display: flex;
+		flex-direction: column;
+		background: var(--color-bg-light);
+		color: var(--color-text);
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.sm__sheet-top {
+		flex: none;
+		padding: 12px 20px 4px;
+	}
+
+	.sm__sheet-search {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		width: 100%;
+		height: 44px;
+		padding: 0 14px;
+		border: 1px solid #868d9a;
+		border-radius: $radius-md;
+		background: var(--color-bg-surface);
+		color: var(--color-text-secondary);
+		font: inherit;
+		font-size: 15px;
+		text-align: left;
+		cursor: pointer;
+
+		svg {
+			width: 20px;
+			height: 20px;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline-offset: 2px;
+		}
+	}
+
+	.sm__sheet-list {
+		flex: 1;
+		min-height: 0;
+		margin: 0;
+		padding: 8px 20px 24px;
+		overflow-y: auto;
+		list-style: none;
+	}
+
+	.sm__sheet-item + .sm__sheet-item {
+		border-top: 1px solid var(--sl-color-hairline-light, var(--color-border));
+	}
+
+	.sm__acc-sum,
+	.sm__sheet-link {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 14px 0;
+		font-size: 16px;
+		font-weight: $font-weight-medium;
+		color: var(--color-text);
+		text-decoration: none;
+		cursor: pointer;
+		list-style: none;
+
+		&::-webkit-details-marker {
+			display: none;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline-offset: -2px;
+			border-radius: 4px;
+		}
+	}
+
+	.sm__acc-chev {
+		width: 20px;
+		height: 20px;
+		opacity: 0.5;
+		transition:
+			transform 0.2s ease,
+			opacity 0.15s ease;
+	}
+
+	.sm__acc[open] > .sm__acc-sum {
+		color: var(--color-primary);
+
+		.sm__acc-chev {
+			transform: rotate(180deg);
+			opacity: 1;
+		}
+	}
+
+	.sm__acc-body {
+		padding: 0 0 16px 6px;
+
+		.sm__all {
+			margin: 0 0 8px 10px;
+		}
+	}
+
+	// Stacked in the sheet; two columns where a tablet has the room.
+	.sm__sheet .sm__groups {
+		flex-direction: column;
+		gap: 16px;
+	}
+	.sm__sheet .sm__cols {
+		grid-template-columns: 1fr;
+	}
+	@media (min-width: 600px) {
+		.sm__sheet .sm__cols {
+			grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+		}
+	}
+
+	.sm__sheet-foot {
+		flex: none;
+		display: flex;
+		gap: 12px;
+		padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+		border-top: 1px solid var(--color-border);
+		background: var(--color-bg-surface);
+
+		> * {
+			flex: 1;
+		}
+	}
+
+	// The bar above the open sheet: its surface, and the Menu button as Close.
+	header.header[data-sm-open] {
+		background-color: var(--color-bg-light);
+		box-shadow: var(--shadow-header);
+
+		.burger .icon-open,
+		.burger .label-open {
+			display: none;
+		}
+		.burger .icon-close {
+			display: block;
+		}
+		.burger .label-close {
+			visibility: visible;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// WHICH SURFACE AT WHICH WIDTH
+	// ---------------------------------------------------------------------------------------------
+	@media screen and (max-width: 1280px) {
+		.sm__row,
+		.sm__drop,
+		.sm__one {
+			display: none !important;
+		}
+	}
+	@media screen and (min-width: 1281px) {
+		.sm__sheet {
+			display: none !important;
+		}
+	}
+	@media screen and (min-width: 600px) {
+		.sm__sheet-foot {
+			display: none;
+		}
+	}
+</style>
