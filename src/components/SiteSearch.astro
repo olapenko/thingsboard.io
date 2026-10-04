@@ -1,0 +1,798 @@
+---
+import { Products, productDocsPrefix } from '@models/site.models.ts';
+
+/**
+ * THE SEARCH DIALOG, rendered once per page by the bar and opened by any `<search-button>` on the
+ * page (`SearchButton`, the bar's trigger) and by the keys: ⌘K or Ctrl K anywhere, `/` outside a
+ * text field.
+ *
+ * Google Programmable Search in a panel, built on first use. cse.js costs ~170 KiB and ~200ms of
+ * main thread, so it loads on the first hover, focus or click of a trigger and never before; it
+ * scans the DOM for `.gcse-search` once as it executes, so the panel is built in the same breath.
+ *
+ * NOT A `<dialog>`, on purpose. Google renders its autocomplete dropdown (`.gssb_c`) at the body
+ * root, and a modal dialog in the top layer would cover it whatever z-index it carried. So the
+ * panel is a positioned layer of its own, and what a `<dialog>` gives for free is done by hand:
+ * the backdrop, the close button and Escape close it, Tab wraps inside it, and focus returns to the
+ * control that opened it.
+ *
+ * Drawn on the kit: the Dialog's panel (the surface, 16px corners, `--elev-dialog`, the 55% ink
+ * backdrop, a sheet from the foot on a phone), the Field's box around Google's input, the primary
+ * Button for its submit, and the result rows on the type ladder — titles only, the ink, the brand
+ * on hover.
+ */
+
+// TBMQ docs moved off-site, so no `/docs/mqtt-broker/**` pages — and no search page — exist here
+// any more. The prefixes stay in `productDocsPrefix` for the links that still point at the broker,
+// but they must not produce a search route to a page we don't build.
+const offSiteProducts: Products[] = [Products.TBMQ, Products.TBMQ_PE];
+
+// Search-page routes, derived rather than retyped: every docs product hosted here maps mechanically
+// to `/docs/<prefix>search/`. Sorting by prefix length descending yields the specificity order the
+// lookup needs — a prefix that extends another is always strictly longer, so `paas/eu/` precedes
+// `paas/`, and CE's empty prefix lands last as the catch-all. Non-docs routes stay explicit.
+const searchRoutes: [string, string][] = [
+	['/iot-hub/', '/iot-hub/search/'],
+	...Object.entries(productDocsPrefix)
+		.filter(([product]) => !offSiteProducts.includes(product as Products))
+		.map(([, prefix]) => prefix)
+		.sort((a, b) => b.length - a.length)
+		.map((prefix): [string, string] => [`/docs/${prefix}`, `/docs/${prefix}search/`]),
+];
+---
+
+<site-search data-search-routes={JSON.stringify(searchRoutes)}></site-search>
+
+<script>
+	import { lockScroll, unlockScroll } from '@util/scroll-lock';
+
+	// Rendered once by the bar; the flag guards a second copy (a stage, a sandbox page) all the same.
+	if (!(window as any).__tbSearch) {
+		(window as any).__tbSearch = true;
+
+		// Lazy-load Google CSE on first interaction. cse.js scans the DOM for `.gcse-search` elements
+		// once at execute time (default `parsetags=onload`), so the panel holding that element MUST be
+		// in the DOM before cse.js runs — `loadCse()` and `buildModal()` always go together via `init()`.
+		let cseLoaded = false;
+		const loadCse = () => {
+			if (cseLoaded) return;
+			cseLoaded = true;
+			const script = document.createElement('script');
+			script.async = true;
+			script.src = 'https://cse.google.com/cse.js?cx=006967103846171422263:o5lnt35mvwq';
+			document.head.appendChild(script);
+		};
+
+		// Detaches the hover/focus preload listeners once the first interaction has done their job.
+		const preloadCtrl = new AbortController();
+
+		const init = () => {
+			buildModal();
+			loadCse();
+			preloadCtrl.abort();
+		};
+
+		// The "more results" page for the section the reader is in; the routes come from the frontmatter.
+		const routesAttr = document.querySelector('site-search')?.getAttribute('data-search-routes');
+		const searchRoutes: [string, string][] = routesAttr ? JSON.parse(routesAttr) : [];
+
+		const getSearchPageUrl = (query: string) => {
+			const path = window.location.pathname;
+			const match = searchRoutes.find(([prefix]) => path.startsWith(prefix));
+			const searchPage = match ? match[1] : '/docs/pe/search/';
+			return query ? `${searchPage}?q=${encodeURIComponent(query)}` : searchPage;
+		};
+
+		let modal: HTMLElement | null = null;
+		let box: HTMLElement | null = null;
+		let loaderBar: HTMLElement | null = null;
+		// The control that opened the dialog, to hand focus back to on close.
+		let opener: HTMLElement | null = null;
+
+		const isOpen = () => !!modal?.classList.contains('open');
+
+		const close = () => {
+			if (!modal || !isOpen()) return;
+			modal.classList.remove('open');
+			document.documentElement.classList.remove('tb-search-open');
+			unlockScroll('search');
+			stopFocusRetention();
+			const back = opener;
+			opener = null;
+			if (back && back.isConnected) back.focus({ preventScroll: true });
+		};
+
+		const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+		const buildModal = (): HTMLElement => {
+			if (modal) return modal;
+			modal = document.createElement('div');
+			modal.id = 'tb-search-modal';
+			modal.className = 'print:hidden';
+			modal.setAttribute('role', 'dialog');
+			modal.setAttribute('aria-modal', 'true');
+			modal.setAttribute('aria-labelledby', 'tb-search-title');
+			modal.innerHTML = `
+				<div class="tb-search-overlay" data-search-close></div>
+				<div class="tb-search-box">
+					<div class="tb-loader-bar"></div>
+					<div class="tb-search-head">
+						<span class="tb-search-eyebrow" id="tb-search-title">Search ThingsBoard</span>
+						<button type="button" class="tb-search-close" aria-label="Close search" data-search-close>
+							<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+						</button>
+					</div>
+					<div class="gcse-search"></div>
+				</div>
+			`;
+			document.body.appendChild(modal);
+
+			box = modal.querySelector<HTMLElement>('.tb-search-box');
+			loaderBar = modal.querySelector<HTMLElement>('.tb-loader-bar');
+			const showLoader = () => loaderBar?.classList.add('active');
+			const hideLoader = () => loaderBar?.classList.remove('active');
+
+			// The backdrop and the close button both close; a click anywhere else in the panel is Google's.
+			modal.addEventListener('click', (e) => {
+				if ((e.target as Element).closest('[data-search-close]')) close();
+			});
+
+			// Tab wraps inside the panel, since nothing makes the page behind it inert (see the note above).
+			modal.addEventListener('keydown', (e) => {
+				if (e.key !== 'Tab' || !box) return;
+				const items = [...box.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null);
+				if (!items.length) return;
+				const first = items[0];
+				const last = items[items.length - 1];
+				if (e.shiftKey && document.activeElement === first) {
+					e.preventDefault();
+					last.focus();
+				} else if (!e.shiftKey && document.activeElement === last) {
+					e.preventDefault();
+					first.focus();
+				}
+			});
+
+			const injectMoreLink = () => {
+				const branding = modal!.querySelector('.gcsc-more-maybe-branding-root');
+				if (!branding || branding.querySelector('.tb-more-link')) return;
+				const query = modal!.querySelector<HTMLInputElement>('input.gsc-input')?.value || '';
+				const link = document.createElement('a');
+				link.className = 'tb-more-link';
+				link.href = getSearchPageUrl(query);
+				link.textContent = 'Search more results';
+				branding.prepend(link);
+			};
+
+			modal.addEventListener('submit', showLoader, true);
+			modal.addEventListener(
+				'click',
+				(e) => {
+					if ((e.target as HTMLElement).closest('.gsc-search-button')) showLoader();
+				},
+				true
+			);
+			modal.addEventListener(
+				'keydown',
+				(e) => {
+					if ((e.target as HTMLElement).classList.contains('gsc-input') && e.key === 'Enter') showLoader();
+				},
+				true
+			);
+			new MutationObserver((mutations) => {
+				for (const m of mutations) {
+					if (
+						(m.target as Element).classList?.contains('gsc-results') ||
+						(m.target as Element).closest?.('.gsc-results')
+					) {
+						hideLoader();
+						break;
+					}
+				}
+				injectMoreLink();
+			}).observe(modal, { childList: true, subtree: true });
+
+			return modal;
+		};
+
+		const focusInput = (m: HTMLElement) => {
+			const input = m.querySelector<HTMLInputElement>('input.gsc-input');
+			if (input && document.activeElement !== input) input.focus();
+		};
+
+		// Two mechanisms keep Google's input focused while the dialog is open; both stop on close.
+		// 1. Google rebuilds its input several times during its async mount, so one focus() when the
+		//    first input appears gets blown away: re-focus on every mutation inside the panel.
+		// 2. A late script moving focus to <body>/null (not to an element the reader chose) is undone
+		//    on the next frame; a real move — to the close button, a result, outside — is left alone.
+		let focusObs: MutationObserver | null = null;
+		let focusOutHandler: ((e: FocusEvent) => void) | null = null;
+
+		const startFocusRetention = (m: HTMLElement) => {
+			focusInput(m);
+
+			focusObs?.disconnect();
+			focusObs = new MutationObserver(() => {
+				// Only while the input is what has focus, or nothing has: a reader on the close button or a
+				// result keeps their place through Google's re-renders.
+				const a = document.activeElement;
+				if (!a || a === document.body || a.classList.contains('gsc-input')) focusInput(m);
+			});
+			focusObs.observe(m, { childList: true, subtree: true });
+
+			if (focusOutHandler) m.removeEventListener('focusout', focusOutHandler);
+			focusOutHandler = (e: FocusEvent) => {
+				if (!isOpen()) return;
+				const input = m.querySelector<HTMLInputElement>('input.gsc-input');
+				if (!input || e.target !== input) return;
+				const next = e.relatedTarget as Node | null;
+				if (next && m.contains(next)) return;
+				if (next && next !== document.body) return;
+				requestAnimationFrame(() => {
+					if (isOpen()) input.focus();
+				});
+			};
+			m.addEventListener('focusout', focusOutHandler);
+		};
+
+		const stopFocusRetention = () => {
+			focusObs?.disconnect();
+			focusObs = null;
+			if (focusOutHandler && modal) modal.removeEventListener('focusout', focusOutHandler);
+			focusOutHandler = null;
+		};
+
+		const open = () => {
+			init();
+			const m = modal!;
+			if (isOpen()) return;
+			opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+			document.documentElement.classList.add('tb-search-open');
+			lockScroll('search');
+			m.classList.add('open');
+			// The loader until Google has mounted its input: the first open only, while cse.js arrives.
+			if (!m.querySelector('input.gsc-input')) {
+				loaderBar?.classList.add('active');
+				const obs = new MutationObserver(() => {
+					if (m.querySelector('input.gsc-input')) {
+						loaderBar?.classList.remove('active');
+						startFocusRetention(m);
+						obs.disconnect();
+					}
+				});
+				obs.observe(m, { childList: true, subtree: true });
+			} else {
+				requestAnimationFrame(() => startFocusRetention(m));
+			}
+		};
+
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape' && isOpen()) {
+				e.preventDefault();
+				close();
+			}
+		});
+
+		// Warm cse.js and the panel on hover or focus of a trigger, so the click feels instant; the
+		// listeners go on the first interaction, so they do not run for the rest of the page's life.
+		const preload = (e: Event) => {
+			if ((e.target as Element)?.closest?.('search-button')) init();
+		};
+		document.addEventListener('pointerover', preload, { capture: true, passive: true, signal: preloadCtrl.signal });
+		document.addEventListener('focusin', preload, { capture: true, signal: preloadCtrl.signal });
+
+		// Every trigger on the page, by delegation.
+		document.addEventListener('click', (e) => {
+			if ((e.target as Element).closest('search-button')) open();
+		});
+
+		// The keys: ⌘K or Ctrl K anywhere, `/` when focus is not in a text field. They open the dialog
+		// from the trigger on show, so focus has somewhere to return to.
+		const ua =
+			(navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ||
+			navigator.userAgent;
+		if (/mac|iphone|ipad|ipod/i.test(ua)) {
+			document.querySelectorAll('.search-toggle-btn__kbd').forEach((k) => (k.textContent = '⌘K'));
+		}
+
+		const typing = (t: EventTarget | null) =>
+			t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+
+		document.addEventListener('keydown', (e) => {
+			if (e.defaultPrevented || e.isComposing) return;
+			const combo = (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k';
+			const slash = e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !typing(e.target);
+			if (!combo && !slash) return;
+			// Open already: ⌘K stays ours rather than the browser's, and does nothing.
+			if (isOpen()) {
+				if (combo) e.preventDefault();
+				return;
+			}
+			const all = [...document.querySelectorAll<HTMLButtonElement>('search-button button')];
+			const btn = all.find((b) => b.offsetParent !== null) ?? all[0];
+			if (!btn) return;
+			e.preventDefault();
+			btn.focus({ preventScroll: true });
+			btn.click();
+		});
+	}
+</script>
+
+<style is:global lang="scss">
+	@use '../styles/variables' as *;
+
+	// The layer. Built by the script and appended to <body>, so nothing here is scoped.
+	#tb-search-modal {
+		display: none;
+		position: fixed;
+		inset: 0;
+		z-index: 9999;
+		align-items: flex-start;
+		justify-content: center;
+		padding: clamp(32px, 10vh, 96px) 16px 16px;
+
+		&.open {
+			display: flex;
+		}
+
+		// A sheet from the foot on a phone, as the kit's Dialog is.
+		@media (max-width: 559px) {
+			align-items: flex-end;
+			padding: 0;
+		}
+	}
+
+	.tb-search-overlay {
+		position: absolute;
+		inset: 0;
+		background: rgb(23 24 28 / 55%);
+	}
+
+	// The panel: the Dialog's surface, corners and lift.
+	.tb-search-box {
+		position: relative;
+		z-index: 1;
+		width: 640px;
+		max-width: 100%;
+		max-height: 100%;
+		overflow-y: auto;
+		padding: 16px 24px 20px;
+		border-radius: $radius-xl;
+		background: var(--color-bg-surface, #fff);
+		color: var(--color-text, #17181c);
+		box-shadow: var(--elev-dialog);
+		scrollbar-width: thin;
+		scrollbar-color: color-mix(in srgb, currentColor 20%, transparent) transparent;
+
+		@media (max-width: 559px) {
+			width: 100vw;
+			max-height: 92vh;
+			padding: 12px 16px 20px;
+			border-radius: $radius-xl $radius-xl 0 0;
+		}
+
+		// High contrast drops the shadow: a border keeps the panel off the backdrop.
+		@media (forced-colors: active) {
+			border: 1px solid CanvasText;
+		}
+	}
+
+	.tb-search-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin: 0 0 12px;
+	}
+
+	.tb-search-eyebrow {
+		@include type-eyebrow;
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.tb-search-close {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		margin-right: -10px;
+		padding: 0;
+		border: 0;
+		border-radius: $radius-md;
+		background: transparent;
+		color: var(--color-text-secondary, #5b616e);
+		cursor: pointer;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		&:hover {
+			background: color-mix(in srgb, currentColor 8%, transparent);
+			color: var(--color-text, #17181c);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring-light, #17181c);
+			outline-offset: 2px;
+		}
+	}
+
+	[data-theme='dark'] .tb-search-close:focus-visible {
+		outline-color: var(--focus-ring-dark, #ffd43b);
+	}
+
+	// The loader, along the panel's top edge, on the brand.
+	.tb-loader-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		overflow: hidden;
+		z-index: 2;
+	}
+	.tb-loader-bar::after {
+		content: '';
+		display: block;
+		height: 100%;
+		background: var(--color-primary);
+		transform: scaleX(0);
+		transform-origin: left;
+	}
+	.tb-loader-bar.active::after {
+		animation: tb-progress 1.4s ease-in-out infinite;
+	}
+	@keyframes tb-progress {
+		0% {
+			transform: scaleX(0);
+			transform-origin: left;
+		}
+		45% {
+			transform: scaleX(1);
+			transform-origin: left;
+		}
+		55% {
+			transform: scaleX(1);
+			transform-origin: right;
+		}
+		100% {
+			transform: scaleX(0);
+			transform-origin: right;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.tb-loader-bar.active::after {
+			animation-duration: 2.8s;
+		}
+	}
+
+	// =============================================================================================
+	// GOOGLE'S MARKUP, ON THE KIT. Google ships its own sheet and inline styles, hence `!important`
+	// throughout; every rule is fenced to `.tb-search-box` (the panel) or `.gssb_c` (the dropdown).
+	// =============================================================================================
+	.tb-search-box {
+		.gsc-control-cse {
+			padding: 0 !important;
+			border: 0 !important;
+			background: transparent !important;
+			font-family: inherit !important;
+		}
+
+		.gsc-control-cse * {
+			box-sizing: border-box;
+		}
+
+		form.gsc-search-box,
+		table.gsc-search-box {
+			margin: 0 !important;
+			width: 100% !important;
+		}
+
+		table.gsc-search-box td {
+			padding: 0 !important;
+			vertical-align: middle !important;
+		}
+
+		td.gsc-input {
+			padding-right: 8px !important;
+		}
+
+		// The Field's box around Google's input: 48px, the 3:1 edge, 6px corners, the brand and its halo
+		// on focus.
+		.gsc-input-box {
+			height: 48px !important;
+			padding: 0 14px !important;
+			border: 1px solid #868d9a !important;
+			border-radius: $radius-md !important;
+			background: var(--color-bg-surface, #fff) !important;
+			box-shadow: 0 1px 2px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.04);
+			outline: 3px solid transparent;
+			outline-offset: 0;
+			transition:
+				border-color 0.15s ease,
+				outline-color 0.15s ease;
+
+			&:hover {
+				border-color: #63656c !important;
+			}
+
+			&:focus-within {
+				border-color: var(--color-primary) !important;
+				outline-color: color-mix(in srgb, var(--color-primary) 24%, transparent);
+			}
+
+			table,
+			td {
+				height: 100% !important;
+				padding: 0 !important;
+				border: 0 !important;
+				background: transparent !important;
+			}
+		}
+
+		.gsib_a {
+			padding: 0 !important;
+		}
+
+		input.gsc-input {
+			height: 46px !important;
+			margin: 0 !important;
+			padding: 0 !important;
+			border: 0 !important;
+			// Google paints its wordmark into the field as a background image; the Field has none.
+			background: transparent !important;
+			font: inherit !important;
+			font-size: 16px !important;
+			line-height: 1.5 !important;
+			color: var(--color-text, #17181c) !important;
+			outline: none !important;
+
+			&::placeholder {
+				color: var(--color-text-secondary, #5b616e);
+			}
+		}
+
+		// The clear button Google puts after the text.
+		.gsst_a {
+			padding: 0 6px !important;
+
+			.gscb_a {
+				color: var(--color-text-secondary, #5b616e) !important;
+				font-size: 20px !important;
+			}
+		}
+
+		// The submit: the kit's primary, at the field's height.
+		.gsc-search-button-v2 {
+			height: 48px !important;
+			min-width: 48px !important;
+			margin: 0 !important;
+			padding: 0 16px !important;
+			border: 0 !important;
+			border-radius: $radius-md !important;
+			background: var(--color-primary) !important;
+			color: #fff !important;
+			cursor: pointer;
+
+			&:hover {
+				background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)) !important;
+			}
+
+			&:active {
+				background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)) !important;
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--focus-ring-light, #17181c) !important;
+				outline-offset: 3px !important;
+			}
+
+			svg {
+				width: 18px !important;
+				height: 18px !important;
+				fill: #fff !important;
+			}
+		}
+
+		// The results: a list of titles on the type ladder, the brand on hover, no chrome of Google's.
+		.gsc-results-wrapper-nooverlay,
+		.gsc-resultsRoot,
+		.gsc-results,
+		.gsc-wrapper,
+		.gsc-expansionArea {
+			background: transparent !important;
+		}
+
+		.gsc-results {
+			width: 100% !important;
+			padding: 12px 0 0 !important;
+		}
+
+		.gsc-above-wrapper-area,
+		.gsc-adBlock,
+		.gsc-webResult-divider {
+			display: none !important;
+		}
+
+		.gsc-webResult.gsc-result {
+			margin: 0 !important;
+			padding: 10px 12px !important;
+			border: 0 !important;
+			border-radius: $radius-lg !important;
+			background: transparent !important;
+			transition: background-color 0.15s ease !important;
+
+			&:hover,
+			&:focus-within {
+				background: color-mix(in srgb, var(--color-primary) 6%, transparent) !important;
+			}
+		}
+
+		.gsc-result .gs-title,
+		.gsc-result a.gs-title,
+		.gsc-result a.gs-title:link,
+		.gsc-result a.gs-title:visited {
+			display: block !important;
+			max-width: 100% !important;
+			overflow: hidden !important;
+			font-size: 16px !important;
+			line-height: 1.5 !important;
+			font-weight: $font-weight-medium !important;
+			color: var(--color-text, #17181c) !important;
+			text-decoration: none !important;
+			text-overflow: ellipsis !important;
+			white-space: nowrap !important;
+		}
+
+		.gsc-result a.gs-title b {
+			color: inherit !important;
+			font-weight: $font-weight-bold !important;
+		}
+
+		.gsc-webResult.gsc-result:hover .gs-title,
+		.gsc-webResult.gsc-result:hover .gs-title b,
+		.gsc-webResult.gsc-result:focus-within .gs-title,
+		.gsc-webResult.gsc-result:focus-within .gs-title b {
+			color: var(--color-primary) !important;
+		}
+
+		.gsc-result a.gs-title:focus-visible {
+			outline: 2px solid var(--focus-ring-light, #17181c) !important;
+			outline-offset: 2px !important;
+			border-radius: 2px;
+		}
+
+		.gsc-table-result,
+		.gsc-table-cell-snippet-close {
+			display: block !important;
+			width: 100% !important;
+			overflow: hidden !important;
+		}
+
+		// Titles only: the snippet, the URL, the thumbnail, the labels, the count and Google's own
+		// "find more" all go; one link of ours takes the reader to the full results page.
+		.gsc-thumbnail-inside,
+		.gsc-url-top,
+		.gsc-url-bottom,
+		.gs-visibleUrl,
+		.gs-visibleUrl-long,
+		.gsc-table-cell-thumbnail,
+		.gsc-cursor-box,
+		.gsc-branding,
+		.gsc-result-info,
+		.gs-per-result-labels,
+		.gs-fileformat,
+		.gcsc-find-more-on-google-root,
+		.gsc-result:not(.gs-no-results-result) .gs-snippet {
+			display: none !important;
+		}
+
+		// Except when there are none: that message is the result.
+		.gs-no-results-result .gs-snippet {
+			display: block !important;
+			padding: 8px 12px !important;
+			border: 0 !important;
+			background: transparent !important;
+			font-size: 14px !important;
+			line-height: 1.5 !important;
+			color: var(--color-text-secondary, #5b616e) !important;
+		}
+
+		.gcsc-more-maybe-branding-root {
+			display: flex !important;
+			justify-content: center !important;
+			align-items: center !important;
+			margin-top: 8px !important;
+			padding: 12px 0 0 !important;
+			border-top: 1px solid var(--color-border, #e5e7eb) !important;
+
+			> :not(.tb-more-link) {
+				display: none !important;
+			}
+		}
+
+		.tb-more-link {
+			font-size: 14px;
+			font-weight: $font-weight-medium;
+			color: var(--color-primary) !important;
+			text-decoration: none;
+
+			&::after {
+				content: ' \203A';
+			}
+
+			&:hover {
+				text-decoration: underline !important;
+				text-decoration-thickness: 1px;
+				text-underline-offset: 3px;
+			}
+		}
+	}
+
+	[data-theme='dark'] .tb-search-box {
+		.gsc-input-box {
+			border-color: rgba(255, 255, 255, 0.4) !important;
+			background: transparent !important;
+			box-shadow: none;
+
+			&:hover {
+				border-color: rgba(255, 255, 255, 0.64) !important;
+			}
+		}
+
+		.gsc-search-button-v2:focus-visible,
+		.gsc-result a.gs-title:focus-visible {
+			outline-color: var(--focus-ring-dark, #ffd43b) !important;
+		}
+	}
+
+	// Google's autocomplete dropdown, rendered at the body root: above the backdrop, on the panel's
+	// surface, in the panel's type.
+	.gssb_c {
+		z-index: 50000 !important;
+		font-family: inherit !important;
+	}
+	html.tb-search-open .gssb_c {
+		// Pinned to the viewport while the dialog is open, so it sits above the backdrop; on the
+		// search pages Google's own `absolute` stays, so the dropdown tracks the input as the page scrolls.
+		position: fixed !important;
+	}
+	.gssb_c .gsc-completion-container,
+	.gssb_c > tbody {
+		border: 1px solid var(--color-border, #e5e7eb) !important;
+		border-radius: $radius-lg !important;
+		background: var(--color-bg-surface, #fff) !important;
+		box-shadow: var(--elev-panel) !important;
+		overflow: hidden;
+	}
+	.gssb_c table,
+	.gssb_c tbody,
+	.gssb_c tr,
+	.gssb_c td {
+		background: transparent !important;
+		color: var(--color-text, #17181c) !important;
+	}
+	.gssb_c .gssb_a,
+	.gssb_c .gsq_a,
+	.gssb_c .gssb_d {
+		padding: 6px 12px !important;
+		font-size: 14px !important;
+		color: var(--color-text, #17181c) !important;
+	}
+	.gssb_c .gssb_a:hover,
+	.gssb_c .gssb_i {
+		background: color-mix(in srgb, var(--color-primary) 6%, transparent) !important;
+	}
+	.gssb_c .gssb_p,
+	.gssb_c .gssb_e {
+		color: var(--color-text-secondary, #5b616e) !important;
+	}
+
+	@media print {
+		#tb-search-modal,
+		.gssb_c {
+			display: none !important;
+		}
+	}
+</style>
