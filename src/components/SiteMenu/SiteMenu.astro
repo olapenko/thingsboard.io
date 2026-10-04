@@ -302,7 +302,7 @@ const panelId = (id: string) => `sm-${id}`;
 	.sm__row {
 		display: flex;
 		align-items: center;
-		gap: 2px;
+		gap: 0;
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -312,14 +312,17 @@ const panelId = (id: string) => `sm-${id}`;
 		position: relative;
 	}
 
+	// An item is text in the bar's ink, as the current menu's are, not a button: no fill, no corner. The
+	// open one is marked by a line under it in the ink of the moment, which is what lets the row follow
+	// the bar through white over a hero, the text ink once scrolled, and dark.
 	.sm__top {
+		position: relative;
 		display: inline-flex;
 		align-items: center;
-		gap: 4px;
+		gap: 2px;
 		height: 40px;
-		padding: 0 10px;
+		padding: 0 9px;
 		border: 0;
-		border-radius: $radius-md;
 		background: none;
 		color: var(--color-text);
 		font: inherit;
@@ -328,19 +331,34 @@ const panelId = (id: string) => `sm-${id}`;
 		white-space: nowrap;
 		text-decoration: none;
 		cursor: pointer;
-		transition:
-			color 0.15s ease,
-			background-color 0.15s ease;
+		transition: color 0.15s ease;
+
+		&::after {
+			content: '';
+			position: absolute;
+			right: 9px;
+			bottom: 4px;
+			left: 9px;
+			height: 2px;
+			border-radius: 1px;
+			background: currentColor;
+			opacity: 0;
+			transition: opacity 0.15s ease;
+		}
 
 		&:hover,
 		&[aria-expanded='true'] {
 			color: var(--color-primary);
-			background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+		}
+
+		&[aria-expanded='true']::after {
+			opacity: 1;
 		}
 
 		&:focus-visible {
 			outline: 2px solid currentColor;
 			outline-offset: 2px;
+			border-radius: 2px;
 		}
 	}
 
@@ -354,9 +372,9 @@ const panelId = (id: string) => `sm-${id}`;
 	}
 
 	.sm__top-chev {
-		width: 16px;
-		height: 16px;
-		opacity: 0.6;
+		width: 14px;
+		height: 14px;
+		opacity: 0.55;
 		transition: transform 0.2s ease;
 
 		[aria-expanded='true'] > & {
@@ -365,17 +383,15 @@ const panelId = (id: string) => `sm-${id}`;
 		}
 	}
 
-	// Over a dark hero the row is white, until the bar is scrolled onto its surface, a panel is open
-	// (its surface is light) or the sheet is.
-	header.header:not([data-header-scrolled]):not([data-sm-open]):not([data-sm-desktop-open]):has(
-			[data-header-hero='dark']
-		)
-		.sm__top {
+	// Over a dark hero the row is white — a panel open or not, since the bar stays transparent under it —
+	// until the bar is scrolled onto its surface or the sheet opens. The hover and the open item's line
+	// stay white too; the colour has nowhere to go on that ground.
+	header.header:not([data-header-scrolled]):not([data-sm-open]):has([data-header-hero='dark']) .sm__top {
 		color: #fff;
 
-		&:hover {
+		&:hover,
+		&[aria-expanded='true'] {
 			color: #fff;
-			background: rgba(255, 255, 255, 0.12);
 		}
 	}
 
@@ -633,7 +649,7 @@ const panelId = (id: string) => `sm-${id}`;
 		z-index: 5;
 		max-height: calc(100vh - var(--home-header-h, #{$header-height}));
 		overflow-y: auto;
-		border-top: 1px solid var(--color-border);
+		// No line between the bar and the panel: it is the bar's surface continued.
 		border-bottom: 1px solid var(--color-border);
 		background: var(--color-bg-surface);
 		color: var(--color-text);
@@ -715,6 +731,79 @@ const panelId = (id: string) => `sm-${id}`;
 
 	.sm__one-sec[hidden] {
 		display: none;
+	}
+
+	// Over a dark hero the bar is transparent on a dark scrim, and the panel takes that ground and
+	// white ink, so the open menu is one piece with the bar rather than a white sheet hung under it.
+	header.header:not([data-header-scrolled]):not([data-sm-open]):has([data-header-hero='dark']) .sm__one {
+		--sm-dark-soft: rgba(255, 255, 255, 0.72);
+		--sm-dark-rule: rgba(255, 255, 255, 0.12);
+		--sm-dark-fill: rgba(255, 255, 255, 0.08);
+		--sm-dark-accent: #b3c7ff;
+		background: rgba(8, 9, 14, 0.92);
+		color: #fff;
+		border-bottom-color: var(--sm-dark-rule);
+		box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+
+		.sm__rail {
+			border-right-color: var(--sm-dark-rule);
+		}
+
+		.sm__rail-btn {
+			color: var(--sm-dark-soft);
+
+			&:hover,
+			&[aria-current='true'] {
+				color: #fff;
+				background: var(--sm-dark-fill);
+			}
+		}
+
+		.sm__group-name,
+		.sm__link-desc,
+		.sm__feat-text {
+			color: var(--sm-dark-soft);
+		}
+
+		.sm__link {
+			color: #fff;
+
+			&:hover,
+			&:focus-visible {
+				background: var(--sm-dark-fill);
+			}
+
+			svg.nav-icon {
+				color: var(--sm-dark-accent);
+			}
+		}
+
+		.sm__link:hover .sm__link-heading,
+		.sm__all,
+		.sm__feat-eyebrow,
+		.sm__feat-cta {
+			color: var(--sm-dark-accent);
+		}
+
+		.sm__feat {
+			color: #fff;
+			background: var(--sm-dark-fill);
+
+			&:hover {
+				background: rgba(255, 255, 255, 0.12);
+			}
+		}
+
+		.sm__feat--foot {
+			padding-inline: 0;
+			border-top: 1px solid var(--sm-dark-rule);
+			border-radius: 0;
+			background: none;
+
+			&:hover {
+				background: none;
+			}
+		}
 	}
 
 	.sm__one-head {
