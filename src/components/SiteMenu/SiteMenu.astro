@@ -17,9 +17,10 @@ import { mainNavItems, allSubmenus } from '@data/navigation';
  *   groups on the right. Hovering or focusing a rail entry, or another item in the bar, switches the
  *   section without closing.
  *
- * Two sections carry more than their links, on both models: Products closes on Pricing, Installation
- * options and the Cloud card (`SiteMenuPromos`); Customers on three case studies and a line of
- * feedback (`SiteMenuCustomers`). Docs is set in the monospace face, the documentation's own.
+ * A section may close on a row of promotions, one-line tiles from `data/menu-featured`
+ * (`SiteMenuPromos`): Products on Pricing, Installation options and the Cloud sign-up; Services on
+ * the proof and a conversation; Docs on the CLI and Get started. Customers closes on three case
+ * studies and a line of feedback (`SiteMenuCustomers`). Docs is set in the monospace face, bold.
  *
  * Both open on hover intent (120ms), on click, and on Enter; both close on leave (200ms grace), on
  * Escape (focus back on the item), on a click outside, and when focus leaves the menu. Below 1281 the
@@ -96,8 +97,8 @@ const isHere = (href?: string) => !!href && href !== '/' && pathname.startsWith(
 								</a>
 							)}
 							<SiteMenuSection submenu={sub} iconSize={sub.id === 'nav-products' ? 32 : 24} />
-							{sub.id === 'nav-products' && <SiteMenuPromos />}
 							{sub.id === 'nav-customers' && <SiteMenuCustomers />}
+							<SiteMenuPromos section={sub.id} />
 						</div>
 					)}
 				</li>
@@ -131,8 +132,8 @@ const isHere = (href?: string) => !!href && href !== '/' && pathname.startsWith(
 								)}
 							</div>
 							<SiteMenuSection submenu={sub} iconSize={sub.id === 'nav-products' ? 32 : 24} />
-							{sub.id === 'nav-products' && <SiteMenuPromos />}
 							{sub.id === 'nav-customers' && <SiteMenuCustomers />}
+							<SiteMenuPromos section={sub.id} />
 						</section>
 					))}
 				</div>
@@ -833,34 +834,38 @@ const isHere = (href?: string) => !!href && href !== '/' && pathname.startsWith(
 	// ---------------------------------------------------------------------------------------------
 	// WHAT TWO SECTIONS CARRY BESIDES THEIR LINKS, and the docs' face
 	// ---------------------------------------------------------------------------------------------
-	// Products: Pricing and Installation options as two promotions, the Cloud card as the third.
+	// A section's promotions: one row of one-line tiles, an icon and a title each; the featured one
+	// filled in the accent's tint, with a chevron.
 	.sm__promos {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 12px;
-		margin-top: 20px;
-		padding-top: 18px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 18px;
+		padding-top: 16px;
 		border-top: 1px solid var(--sm-rule);
 	}
 
 	.sm__promo {
-		display: flex;
-		align-items: flex-start;
-		gap: 12px;
-		padding: 12px 14px;
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		height: 36px;
+		padding: 0 12px;
 		border: 1px solid var(--sm-rule);
-		border-radius: 12px;
+		border-radius: 10px;
 		color: var(--sm-ink);
+		font-size: 14px;
+		font-weight: $font-weight-medium;
+		line-height: 1;
 		text-decoration: none;
+		white-space: nowrap;
 		transition:
 			background-color 0.15s ease,
-			border-color 0.15s ease;
+			border-color 0.15s ease,
+			color 0.15s ease;
 
 		&:hover {
 			background: var(--sm-fill);
-		}
-
-		&:hover .sm__promo-title {
 			color: var(--sm-accent);
 		}
 
@@ -872,29 +877,27 @@ const isHere = (href?: string) => !!href && href !== '/' && pathname.startsWith(
 
 	.sm__promo-icon {
 		flex: none;
-		width: 22px;
-		height: 22px;
-		margin-top: 1px;
+		width: 18px;
+		height: 18px;
 		color: var(--sm-accent);
 	}
 
-	.sm__promo-text {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		min-width: 0;
+	.sm__promo-chev {
+		flex: none;
+		width: 16px;
+		height: 16px;
+		margin: 0 -4px 0 -2px;
 	}
 
-	.sm__promo-title {
-		font-size: 15px;
-		font-weight: $font-weight-medium;
-		line-height: 1.4;
-		transition: color 0.15s ease;
-	}
+	.sm__promo--feat {
+		margin-left: auto;
+		border-color: transparent;
+		background: var(--sm-fill);
+		color: var(--sm-accent);
 
-	// A dropdown is sized by its content, where `1fr` would grow to the longest line; fixed cells.
-	.sm__drop .sm__promos {
-		grid-template-columns: repeat(3, 200px);
+		&:hover {
+			background: var(--sm-fill-strong);
+		}
 	}
 
 	// Customers: three stories with a figure each, and a line of feedback beside them.
@@ -1004,7 +1007,7 @@ const isHere = (href?: string) => !!href && href !== '/' && pathname.startsWith(
 		}
 	}
 
-	// Docs: the documentation's own face, on every surface that shows the section.
+	// Docs: the documentation's own face, bold, on every surface that shows the section.
 	[data-sm-section='nav-docs'] {
 		.sm__group-name,
 		.sm__link-heading {
@@ -1012,14 +1015,15 @@ const isHere = (href?: string) => !!href && href !== '/' && pathname.startsWith(
 		}
 
 		.sm__link-heading {
-			font-size: 14px;
+			font-size: 15px;
+			font-weight: $font-weight-bold;
 			letter-spacing: -0.01em;
 		}
 	}
 
-	.sm__one-sec[data-sm-panel='nav-docs'] .sm__one-title {
+	.sm__one-sec[data-sm-panel='nav-docs'] .sm__one-title,
+	[data-sm-panel='nav-docs'] .sm__promo {
 		font-family: var(--font-family-mono);
-		font-weight: $font-weight-medium;
 	}
 
 	// ---------------------------------------------------------------------------------------------
