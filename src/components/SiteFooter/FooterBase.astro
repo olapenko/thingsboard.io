@@ -1,0 +1,166 @@
+---
+import SmartImage from '@components/SmartImage.astro';
+import ThemeChoice from '@components/ThemeChoice.astro';
+import { FOOTER_LEGAL } from '@data/footer-map';
+
+/**
+ * THE BASE ROW every footer ends on, once: the copyright, the legal links and Cookie settings as one
+ * line of fine print, the Appearance row under them where the page follows the theme, and the award
+ * badges at the row's end where a footer carries them.
+ *
+ * Cookie settings is a button, not a link: it reopens the consent dialog (`CookieConsent`, by
+ * `data-cc`). The Appearance row is quiet on purpose — the theme follows the system, and this is the
+ * one place to overrule it. `tone` picks the colours: `dark` for the map footer's ground, `page`
+ * for a footer on the page's own, following the theme.
+ */
+interface Props {
+	tone?: 'dark' | 'page';
+	appearance?: boolean;
+	badges?: boolean;
+	class?: string;
+}
+
+const { tone = 'dark', appearance = false, badges = true, class: className } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<div class:list={['fb', `fb--${tone}`, className]}>
+	<div class="fb__legalblock">
+		<p class="fb__copy">&copy; {year} The ThingsBoard Authors</p>
+		<ul class="fb__legal" aria-label="Legal">
+			{FOOTER_LEGAL.map((l) => (
+				<li>
+					<a href={l.href}>{l.label}</a>
+				</li>
+			))}
+			<li>
+				<button type="button" class="fb__cookies" data-cc="show-preferences">
+					Cookie settings
+				</button>
+			</li>
+		</ul>
+		{appearance && (
+			<div class="fb__appearance">
+				<ThemeChoice tone={tone === 'dark' ? 'footer' : 'page'} />
+			</div>
+		)}
+	</div>
+	{badges && (
+		<div class="fb__badges">
+			<SmartImage
+				src="/src/assets/images/landings/footer/crozdesk-quality-choice-badge.png"
+				alt="Crozdesk Quality Choice"
+				height="64"
+				width="64"
+			/>
+			<SmartImage
+				src="/src/assets/images/landings/footer/crozdesk-trusted-vendor-badge.png"
+				alt="Crozdesk Trusted Vendor"
+				height="64"
+				width="64"
+			/>
+			<SmartImage
+				src="/src/assets/images/landings/footer/crozdesk-happiest-users-badge.png"
+				alt="Crozdesk Happiest Users"
+				height="64"
+				width="64"
+			/>
+			<SmartImage
+				src="/src/assets/images/landings/footer/supplier-retail.webp"
+				alt="Top Supplier in Retail 2024"
+				height="64"
+				width="44"
+			/>
+		</div>
+	)}
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.fb {
+		--fb-faint: rgba(255, 255, 255, 0.5);
+		--fb-muted: rgba(255, 255, 255, 0.64);
+		--fb-strong: #fff;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+		gap: $spacing-5 $spacing-10;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+
+			.fb__badges {
+				order: -1;
+			}
+		}
+	}
+
+	// On the page's own ground the fine print takes the secondary ink, the hover the text.
+	.fb--page {
+		--fb-faint: var(--color-text-secondary, #5b616e);
+		--fb-muted: var(--color-text-secondary, #5b616e);
+		--fb-strong: var(--color-text, #17181c);
+	}
+
+	.fb__copy {
+		margin: 0 0 $spacing-1;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+		color: var(--fb-faint);
+	}
+
+	.fb__legal {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0 $spacing-5;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		a,
+		.fb__cookies {
+			font-size: 13px;
+			line-height: 1.8;
+			color: var(--fb-muted);
+			text-decoration: none;
+
+			&:hover {
+				color: var(--fb-strong);
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--focus-ring, currentColor);
+				outline-offset: 2px;
+				border-radius: 4px;
+			}
+		}
+	}
+
+	.fb__cookies {
+		padding: 0;
+		border: 0;
+		background: none;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.fb__appearance {
+		margin-top: $spacing-3;
+	}
+
+	.fb__badges {
+		display: flex;
+		align-items: center;
+		gap: $spacing-5;
+
+		// 64: at 48 the seals' own lettering was unreadable, and they are the one proof the foot carries.
+		:global(img) {
+			display: block;
+			height: 64px;
+			width: auto;
+		}
+	}
+</style>
