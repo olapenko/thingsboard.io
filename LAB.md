@@ -81,6 +81,13 @@ those two files.
 | 14 | Footers | `feat/site-footer` → #25, stacked on #24 | On `lab`. One `SiteFooter` on `footer-map.ts` with a density: `map` (today's `FooterMap`), `docs` (below); no third density — the legacy pages take `map` when they move onto the kit (decided 5 Oct). One `FooterBase` row under all of them: copyright, legal, Cookie settings, the Appearance row, the badges. Social icons from `FOOTER_SOCIAL` only; `SocialNetworks.astro` and `footerNavItems` go. `BaseLayout`'s `footer` prop becomes the density, with a default per layout. |
 | 15 | Docs footer | with 14 (#25) | On `lab`. The `docs` density: full-bleed under the sidebar, not in the article column. The highlights row (`FOOTER_HIGHLIGHTS`, with icons), one short column set (Get started, Docs, Use cases, Blog, Contact), the base row. Social icons cut to what the workbench keeps. Lighter than `map`: no platform grid, no newsletter. |
 
+Since 5 Oct the one panel is the menu every page on `lab` opens with (the pill's `current` and
+`dropdowns` are choices), the candidate for home. Its colour is one token set on `nav.sm`, reassigned
+per ground — dark theme, the docs bar's sidebar ground, the transparent bar over a dark hero (which
+takes the panel's ground while it is open) — and the products' marks keep the products page's colours
+on every ground. The row packs beside the wordmark; a page item is underlined in the ink, an open
+section in the accent.
+
 Open on this plan: which menu model ships (layer 13's review); which social icons the docs footer
 keeps; whether Pricing stays a button beside Menu on the docs bar.
 
