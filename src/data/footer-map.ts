@@ -285,3 +285,42 @@ export const FOOTER_NEWSLETTER = {
  */
 export const FOOTER_TAGLINE =
 	'All-in-one IoT platform that gives you everything you need to build, deploy, and scale IoT solutions.';
+
+/**
+ * THE DOCS FOOTER (`SiteFooter` at the `docs` density): lighter than the map — no platform grid,
+ * no newsletter — and richer than the six-link row it replaces. Three short columns: where the
+ * platform is run and bought, where to learn it, and the company. Every page named is one the map
+ * carries; the first column's marks are the map's platform badges. The follow line and the base row
+ * are the map's own.
+ */
+export const FOOTER_DOCS_COLUMNS: FooterColumn[] = [
+	{
+		title: 'Platform',
+		links: [
+			{ label: 'ThingsBoard Cloud', href: '/products/paas/' },
+			{ label: 'ThingsBoard', href: '/products/thingsboard-pe/' },
+			{ label: 'Pricing', href: '/pricing/' },
+			{ label: 'Installation options', href: '/installations/' },
+			{ label: 'License portal', href: 'https://license.thingsboard.io/', external: true },
+		],
+	},
+	{
+		title: 'Learn',
+		links: [
+			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
+			{ label: 'Documentation', href: '/docs/pe/' },
+			{ label: 'Use cases', href: '/use-cases/' },
+			{ label: 'IoT Hub', href: '/iot-hub/' },
+			{ label: 'Blog', href: '/blog/' },
+		],
+	},
+	{
+		title: 'Company',
+		links: [
+			{ label: 'Services', href: '/services/' },
+			{ label: 'Partners', href: '/partners/' },
+			{ label: 'Contact us', href: '/contact-us/' },
+			{ label: 'Careers', href: CAREERS_URL, external: true },
+		],
+	},
+];
