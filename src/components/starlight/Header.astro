@@ -53,6 +53,30 @@ const headerConfig = (locals.bslHeaderConfig as HeaderConfig | undefined) ?? res
 		var current = document.querySelector('nav.head-menu');
 		if (!tpl || !current) return;
 		current.replaceWith(tpl.content.cloneNode(true));
+		// astro-icon defines each symbol once per page, inside the first icon that uses it — which may
+		// be in the template left inert. Any symbol the stamped menu references that the document lacks
+		// is copied over from the templates, so a tile's icon draws.
+		var missing = {};
+		document.querySelectorAll('nav.sm use').forEach(function (u) {
+			var id = (u.getAttribute('href') || '').slice(1);
+			if (id && !document.getElementById(id)) missing[id] = true;
+		});
+		var ids = Object.keys(missing);
+		if (ids.length) {
+			var defs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			defs.setAttribute('aria-hidden', 'true');
+			defs.style.display = 'none';
+			document.querySelectorAll('template[data-lab-menu]').forEach(function (t) {
+				ids.forEach(function (id) {
+					var sym = missing[id] && t.content.getElementById(id);
+					if (sym) {
+						defs.appendChild(sym.cloneNode(true));
+						missing[id] = false;
+					}
+				});
+			});
+			document.body.appendChild(defs);
+		}
 		var burger = document.querySelector('header.header .burger');
 		if (burger) {
 			burger.removeAttribute('onclick');
