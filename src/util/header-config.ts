@@ -11,18 +11,26 @@
 
 export type HeaderLook = 'marketing' | 'docs';
 
+/**
+ * The main menu's model: `current` is `Landing/Navigation`, the menu as it ships; `dropdowns` and
+ * `panel` are layer 13's two candidates (`SiteMenu`), judged on `lab` before one replaces it.
+ */
+export type HeaderMenu = 'current' | 'dropdowns' | 'panel';
+
 /** The hero the bar opens over: its ink while transparent. */
 export type HeaderHero = 'dark' | 'light';
 
 export interface HeaderConfig {
 	look: HeaderLook;
 	hero?: HeaderHero;
+	menu: HeaderMenu;
 	cloudSignupIds: boolean;
 }
 
 export interface HeaderConfigInput {
 	look?: HeaderLook;
 	hero?: HeaderHero;
+	menu?: HeaderMenu;
 	cloudSignupIds?: boolean;
 }
 
@@ -32,6 +40,7 @@ export function resolveHeaderConfig(input: HeaderConfigInput = {}): HeaderConfig
 		look,
 		// Only a marketing page has a hero to open over.
 		hero: look === 'marketing' ? input.hero : undefined,
+		menu: input.menu ?? 'current',
 		cloudSignupIds: input.cloudSignupIds ?? true,
 	};
 }
