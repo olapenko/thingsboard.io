@@ -3,6 +3,7 @@ import HeaderContent from '../Landing/HeaderContent.astro';
 import PromoBanner from '../PromoBanner.astro';
 import { Products } from '@models/site.models';
 import { resolveHeaderConfig, type HeaderConfig } from '@util/header-config';
+import SiteMenu from '@components/SiteMenu/SiteMenu.astro';
 
 const pathname = Astro.url.pathname;
 
@@ -27,3 +28,35 @@ const headerConfig = (locals.bslHeaderConfig as HeaderConfig | undefined) ?? res
 
 <PromoBanner />
 <HeaderContent gitHubPlatform={gitHubPlatform} headerConfig={headerConfig} />
+
+{/* LAB ONLY — THE MENU SWITCH. The site is prerendered, so a page sees neither query nor cookie on
+	   the server; the switch is on the client. Both candidates ride along in inert templates, and the
+	   script below, inline so it runs before the components' own scripts, puts the one the cookie names
+	   for this page's look (`tb-menu-docs`, `tb-menu-marketing`) in place of the current menu and hands
+	   it the Menu button. The island's Menu pill sets the cookie. With no cookie the page is `handoff`'s. */}
+<template data-lab-menu="dropdowns">
+	<SiteMenu model="dropdowns" />
+</template>
+<template data-lab-menu="panel">
+	<SiteMenu model="panel" />
+</template>
+<script is:inline>
+	(function () {
+		var bar = document.querySelector('[data-header-look]');
+		var look = bar && bar.getAttribute('data-header-look');
+		if (!look) return;
+		var m = new RegExp('(?:^|; )tb-menu-' + look + '=(dropdowns|panel)').exec(document.cookie);
+		if (!m) return;
+		var tpl = document.querySelector('template[data-lab-menu="' + m[1] + '"]');
+		var current = document.querySelector('nav.head-menu');
+		if (!tpl || !current) return;
+		current.replaceWith(tpl.content.cloneNode(true));
+		var burger = document.querySelector('header.header .burger');
+		if (burger) {
+			burger.removeAttribute('onclick');
+			burger.setAttribute('data-sm-toggle', '');
+			burger.setAttribute('aria-controls', 'sm-sheet');
+		}
+		document.documentElement.setAttribute('data-lab-menu', m[1]);
+	})();
+</script>
