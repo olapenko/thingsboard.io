@@ -2,8 +2,9 @@
 import { Icon } from 'astro-icon/components';
 import SiteMenuSection from '@components/SiteMenu/SiteMenuSection.astro';
 import SiteMenuSheet from '@components/SiteMenu/SiteMenuSheet.astro';
+import SiteMenuPromos from '@components/SiteMenu/SiteMenuPromos.astro';
+import SiteMenuCustomers from '@components/SiteMenu/SiteMenuCustomers.astro';
 import { mainNavItems, allSubmenus } from '@data/navigation';
-import { MENU_FEATURED } from '@data/menu-featured';
 
 /**
  * THE MAIN MENU, rendered once from `data/navigation`, in one of two desktop models (layer 13's two
@@ -13,8 +14,12 @@ import { MENU_FEATURED } from '@data/menu-featured';
  *   redrawn: the section's groups side by side in their columns, the product marks, a featured slot
  *   in Products, the panel kept inside the viewport.
  * - `panel`: one surface under the whole bar; a rail of the sections on the left, the open section's
- *   groups on the right, the featured slot along the foot. Hovering or focusing a rail entry, or
- *   another item in the bar, switches the section without closing.
+ *   groups on the right. Hovering or focusing a rail entry, or another item in the bar, switches the
+ *   section without closing.
+ *
+ * Two sections carry more than their links, on both models: Products closes on Pricing, Installation
+ * options and the Cloud card (`SiteMenuPromos`); Customers on three case studies and a line of
+ * feedback (`SiteMenuCustomers`). Docs is set in the monospace face, the documentation's own.
  *
  * Both open on hover intent (120ms), on click, and on Enter; both close on leave (200ms grace), on
  * Escape (focus back on the item), on a click outside, and when focus leaves the menu. Below 1281 the
@@ -91,17 +96,8 @@ const isHere = (href?: string) => !!href && href !== '/' && pathname.startsWith(
 								</a>
 							)}
 							<SiteMenuSection submenu={sub} iconSize={sub.id === 'nav-products' ? 32 : 24} />
-							{sub.id === 'nav-products' && (
-								<a class="sm__feat" href={MENU_FEATURED.href} {...MENU_FEATURED.attrs}>
-									<span class="sm__feat-eyebrow">{MENU_FEATURED.eyebrow}</span>
-									<span class="sm__feat-title">{MENU_FEATURED.title}</span>
-									<span class="sm__feat-text">{MENU_FEATURED.text}</span>
-									<span class="sm__feat-cta">
-										{MENU_FEATURED.cta}
-										<Icon name="tabler:chevron-right" aria-hidden="true" />
-									</span>
-								</a>
-							)}
+							{sub.id === 'nav-products' && <SiteMenuPromos />}
+							{sub.id === 'nav-customers' && <SiteMenuCustomers />}
 						</div>
 					)}
 				</li>
@@ -135,18 +131,11 @@ const isHere = (href?: string) => !!href && href !== '/' && pathname.startsWith(
 								)}
 							</div>
 							<SiteMenuSection submenu={sub} iconSize={sub.id === 'nav-products' ? 32 : 24} />
+							{sub.id === 'nav-products' && <SiteMenuPromos />}
+							{sub.id === 'nav-customers' && <SiteMenuCustomers />}
 						</section>
 					))}
 				</div>
-				<a class="sm__feat sm__feat--foot" href={MENU_FEATURED.href} {...MENU_FEATURED.attrs}>
-					<span class="sm__feat-eyebrow">{MENU_FEATURED.eyebrow}</span>
-					<span class="sm__feat-title">{MENU_FEATURED.title}</span>
-					<span class="sm__feat-text">{MENU_FEATURED.text}</span>
-					<span class="sm__feat-cta">
-						{MENU_FEATURED.cta}
-						<Icon name="tabler:chevron-right" aria-hidden="true" />
-					</span>
-				</a>
 			</div>
 		</div>
 	)}
@@ -841,41 +830,196 @@ const isHere = (href?: string) => !!href && href !== '/' && pathname.startsWith(
 		line-height: 1.2;
 	}
 
-	// Along the foot of the panel: a rule above it, no card.
-	.sm__feat--foot {
-		grid-column: 1 / -1;
-		grid-template-columns: auto 1fr auto;
-		grid-template-areas: 'eyebrow text cta' 'title text cta';
-		align-items: center;
-		column-gap: 20px;
-		padding: 16px 0 0;
+	// ---------------------------------------------------------------------------------------------
+	// WHAT TWO SECTIONS CARRY BESIDES THEIR LINKS, and the docs' face
+	// ---------------------------------------------------------------------------------------------
+	// Products: Pricing and Installation options as two promotions, the Cloud card as the third.
+	.sm__promos {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 12px;
+		margin-top: 20px;
+		padding-top: 18px;
 		border-top: 1px solid var(--sm-rule);
-		border-radius: 0;
-		background: none;
+	}
+
+	.sm__promo {
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		padding: 12px 14px;
+		border: 1px solid var(--sm-rule);
+		border-radius: 12px;
+		color: var(--sm-ink);
+		text-decoration: none;
+		transition:
+			background-color 0.15s ease,
+			border-color 0.15s ease;
 
 		&:hover {
-			background: none;
+			background: var(--sm-fill);
 		}
 
-		&:hover .sm__feat-title {
+		&:hover .sm__promo-title {
 			color: var(--sm-accent);
 		}
 
-		.sm__feat-eyebrow {
-			grid-area: eyebrow;
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 2px;
 		}
-		.sm__feat-title {
-			grid-area: title;
-			transition: color 0.15s ease;
+	}
+
+	.sm__promo-icon {
+		flex: none;
+		width: 22px;
+		height: 22px;
+		margin-top: 1px;
+		color: var(--sm-accent);
+	}
+
+	.sm__promo-text {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.sm__promo-title {
+		font-size: 15px;
+		font-weight: $font-weight-medium;
+		line-height: 1.4;
+		transition: color 0.15s ease;
+	}
+
+	// A dropdown is sized by its content, where `1fr` would grow to the longest line; fixed cells.
+	.sm__drop .sm__promos {
+		grid-template-columns: repeat(3, 200px);
+	}
+
+	// Customers: three stories with a figure each, and a line of feedback beside them.
+	.sm__cust {
+		display: grid;
+		grid-template-columns: minmax(0, 1.4fr) minmax(240px, 1fr);
+		gap: 24px 40px;
+		margin-top: 20px;
+		padding-top: 18px;
+		border-top: 1px solid var(--sm-rule);
+	}
+
+	.sm__stories {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0 12px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.sm__story {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		height: 100%;
+		padding: 10px;
+		border-radius: $radius-lg;
+		color: var(--sm-ink);
+		text-decoration: none;
+		transition: background-color 0.15s ease;
+
+		&:hover {
+			background: var(--sm-fill);
 		}
-		.sm__feat-text {
-			grid-area: text;
+
+		&:hover .sm__story-line {
+			color: var(--sm-accent);
+		}
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: -2px;
+		}
+	}
+
+	.sm__story-stat {
+		font-size: 13px;
+		line-height: 1.3;
+		color: var(--sm-soft);
+
+		b {
+			display: block;
+			font-size: 22px;
+			font-weight: $font-weight-bold;
+			line-height: 1.15;
+			letter-spacing: -0.01em;
+			color: var(--sm-accent);
+		}
+	}
+
+	.sm__story-line {
+		margin-top: 4px;
+		font-size: 14px;
+		font-weight: $font-weight-medium;
+		line-height: 1.35;
+		transition: color 0.15s ease;
+	}
+
+	.sm__story-meta {
+		font-size: 12px;
+		line-height: 1.4;
+		color: var(--sm-soft);
+	}
+
+	.sm__quote {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		margin: 0;
+		padding: 14px 16px;
+		border-radius: 12px;
+		background: var(--sm-fill);
+	}
+
+	.sm__quote-mark {
+		width: 22px;
+		height: 22px;
+		color: var(--sm-accent);
+		opacity: 0.7;
+	}
+
+	.sm__quote-text {
+		margin: 0;
+		font-size: 14px;
+		line-height: 1.5;
+	}
+
+	.sm__quote-by {
+		font-size: 13px;
+		line-height: 1.4;
+		color: var(--sm-soft);
+
+		b {
+			font-weight: $font-weight-medium;
+			color: var(--sm-ink);
+		}
+	}
+
+	// Docs: the documentation's own face, on every surface that shows the section.
+	[data-sm-section='nav-docs'] {
+		.sm__group-name,
+		.sm__link-heading {
+			font-family: var(--font-family-mono);
+		}
+
+		.sm__link-heading {
 			font-size: 14px;
+			letter-spacing: -0.01em;
 		}
-		.sm__feat-cta {
-			grid-area: cta;
-			margin: 0;
-		}
+	}
+
+	.sm__one-sec[data-sm-panel='nav-docs'] .sm__one-title {
+		font-family: var(--font-family-mono);
+		font-weight: $font-weight-medium;
 	}
 
 	// ---------------------------------------------------------------------------------------------
