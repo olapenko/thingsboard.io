@@ -13,3 +13,24 @@ export const MENU_FEATURED = {
 	href: CLOUD_SIGNUP.href,
 	attrs: CLOUD_SIGNUP.attrs,
 };
+
+/**
+ * The two promotions beside it in the Products section: what it costs, and how it installs. Both
+ * are pages of their own; the row sends a reader there before they dig for either in the docs.
+ */
+export const MENU_PRODUCT_PROMOS = [
+	{
+		icon: 'tabler:tag',
+		title: 'Pricing',
+		text: 'Cloud plans from a free tier, on-premises licences, and an estimator for both.',
+		href: '/pricing/',
+		id: 'Menu_Products_Pricing',
+	},
+	{
+		icon: 'tabler:download',
+		title: 'Installation options',
+		text: 'Cloud needs nothing installed; everything else has a guide for every way it installs.',
+		href: '/installations/',
+		id: 'Menu_Products_Installations',
+	},
+];
