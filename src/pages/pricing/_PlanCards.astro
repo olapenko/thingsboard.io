@@ -1,0 +1,100 @@
+---
+/**
+ * One deployment's plan cards for the conservative pricing draft (`./pricing.astro`): main's
+ * `PlanCard`, line for line — name, description, price, button, features with their ⓘ — on the UI
+ * kit: the button is `ui/Button`, the flag a `Chip` tag, the card the kit's tile surface (the
+ * page's `.plan`, through `surface()`, since a subgridded row is markup `ui/Card` cannot render).
+ *
+ * Underscore-prefixed so Astro does not make it a route.
+ */
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import Chip from '@components/ui/Chip.astro';
+import InfoTip from './_InfoTip.astro';
+import { formatPrice, licenseSignup } from '@data/pricing-page';
+import type { PlanCard, PlanFeature } from '@data/pricing/types';
+
+interface Props {
+	plans: PlanCard[];
+	/** Main's FAQ snippets by answer id, for lines that name a `faqId` and carry no tooltip. */
+	snippets: Map<string, string>;
+	/** The answers this deployment's FAQ renders, and the prefix their ids take on this page. */
+	answers: Set<string>;
+	faqPrefix: string;
+}
+
+const { plans, snippets, answers, faqPrefix } = Astro.props;
+
+// Main's spacer rows hold its subgrid's rows level; these cards are subgridded by section instead.
+const shown = (features: PlanFeature[]) => features.filter((f) => f.text.trim() !== '');
+
+// "Start Free", "Get Started", "Contact Us" on main; sentence case on every new page.
+const label = (text: string) => text.charAt(0) + text.slice(1).toLowerCase();
+
+// The text before its last word, and the last word, which carries the ⓘ with it when it wraps.
+const lead = (text: string) => text.slice(0, text.lastIndexOf(' ') + 1);
+const last = (text: string) => text.slice(text.lastIndexOf(' ') + 1);
+
+const tipFor = (f: PlanFeature) => f.faqTooltip || (f.faqId ? snippets.get(f.faqId) : undefined);
+const moreFor = (f: PlanFeature) => (f.faqId && answers.has(f.faqId) ? `#${faqPrefix}${f.faqId}` : undefined);
+---
+
+<ul class:list={['plan-grid', `plan-grid--${plans.length}`]} style={`--plan-cols: ${plans.length}`}>
+	{plans.map((plan) => (
+		<li class:list={['plan', plan.popular && 'plan--popular']}>
+			<div class="plan__head">
+				<h3 class="plan__name">{plan.name}</h3>
+				{plan.popular && <Chip>Popular</Chip>}
+			</div>
+			<p class="plan__desc">{plan.description}</p>
+			<p class="plan__price">
+				{plan.price === null ? (
+					<span class="plan__amount">Custom</span>
+				) : (
+					<>
+						<span class="plan__amount" data-billing-show={plan.annualPrice != null ? 'monthly' : undefined}>
+							{formatPrice(plan.price, plan.currency)}
+						</span>
+						{plan.annualPrice != null && (
+							<span class="plan__amount" data-billing-show="annual">
+								{formatPrice(plan.annualPrice, plan.currency)}
+							</span>
+						)}
+						<span class="plan__period">{plan.period}</span>
+					</>
+				)}
+			</p>
+			<Button
+				size="sm"
+				variant={plan.ctaPrimary ? 'primary' : 'secondary'}
+				href={licenseSignup(plan)}
+				srSuffix={`— ${plan.name}`}
+				class:list={['plan__cta', plan.gtmId && 'gtm_button']}
+				attrs={{ id: plan.gtmId, 'data-product-id': plan.productId, 'data-plan-id': plan.planId }}
+			>
+				{label(plan.ctaText)}
+			</Button>
+			<ul class="plan__features">
+				{shown(plan.features).map((feature) => {
+					const tip = tipFor(feature);
+					return (
+						<li class:list={[feature.highlight && 'is-highlight']}>
+							<Icon name={feature.plusIcon ? 'tabler:plus' : 'tabler:check'} aria-hidden="true" />
+							{tip ? (
+								<span>
+									{lead(feature.text)}
+									<span class="tip-anchor">
+										{last(feature.text)}
+										<InfoTip html={tip} label={feature.text} more={moreFor(feature)} />
+									</span>
+								</span>
+							) : (
+								<span>{feature.text}</span>
+							)}
+						</li>
+					);
+				})}
+			</ul>
+		</li>
+	))}
+</ul>

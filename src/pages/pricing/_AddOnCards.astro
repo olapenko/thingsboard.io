@@ -1,0 +1,87 @@
+---
+/**
+ * A deployment's add-ons for the conservative pricing draft (`./pricing.astro`): main's
+ * `AddOnsSection` card — name with ⓘ, line and price — in the new styles, with the product's own
+ * mark in place of main's generic line icon: a `ui/Mark`, the product's logo knocked out of its
+ * accent, and a Tabler glyph where an add-on is not a product with a mark of its own.
+ *
+ * Underscore-prefixed so Astro does not make it a route.
+ */
+import Mark from '@components/ui/Mark.astro';
+import InfoTip from './_InfoTip.astro';
+import { CONSERVATIVE_ADDON_MARKS, addonMark } from '@data/pricing-page';
+import { markBySrc } from '@data/marks';
+import type { AddOnItem } from '@data/pricing/types';
+
+interface Props {
+	addOns: AddOnItem[];
+	answers: Set<string>;
+	faqPrefix: string;
+}
+
+const { addOns, answers, faqPrefix } = Astro.props;
+
+/** Main's price line, in its words: "Starting from $9 /month" — the amount set apart from its lead
+ *  and its period, as the plan cards set theirs. */
+const price = (a: AddOnItem) => {
+	if (a.priceUsd == null) return null;
+	const amount = typeof a.priceUsd === 'string' ? a.priceUsd : `$${a.priceUsd.toLocaleString('en-US')}`;
+	return { lead: a.startingFrom ? 'Starting from ' : '', amount, period: a.period ?? '' };
+};
+
+/** What the add-on's tile holds: the logo, a product's mark, or a glyph. */
+const markOf = (a: AddOnItem) => {
+	const mark = addonMark(a.name, CONSERVATIVE_ADDON_MARKS);
+	const art = mark.src ? markBySrc(mark.src) : undefined;
+	if (mark.src && !art) throw new Error(`pricing draft: no mark for ${mark.src}`);
+	const content = art === 'thingsboard' ? { logo: art } : art ? { product: art } : { icon: mark.icon };
+	return { accent: mark.accent, ...content };
+};
+
+const setup = (a: AddOnItem) =>
+	a.setupFee ? `+ ${a.setupFeeCurrency ?? '$'}${a.setupFee.toLocaleString('en-US')} one-time setup fee` : null;
+---
+
+<ul class="addon-cards">
+	{addOns.map((addon) => {
+		const p = price(addon);
+		const fee = setup(addon);
+		return (
+			<li class="addon-card">
+				<Mark size={48} {...markOf(addon)} />
+				<div class="addon-card__body">
+					<h3 class="addon-card__name">
+						{addon.faqTooltip ? (
+							<>
+								{addon.name.slice(0, addon.name.lastIndexOf(' ') + 1)}
+								<span class="tip-anchor">
+									{addon.name.slice(addon.name.lastIndexOf(' ') + 1)}
+									<InfoTip
+										html={addon.faqTooltip}
+										label={addon.name}
+										more={addon.faqId && answers.has(addon.faqId) ? `#${faqPrefix}${addon.faqId}` : undefined}
+									/>
+								</span>
+							</>
+						) : (
+							addon.name
+						)}
+					</h3>
+					{addon.description && <p class="addon-card__desc">{addon.description}</p>}
+					{addon.priceNote ? (
+						<p class="addon-card__price addon-card__price-note">{addon.priceNote}</p>
+					) : (
+						p && (
+							<p class="addon-card__price">
+								{p.lead}
+								<strong>{p.amount}</strong>
+								{p.period && ` ${p.period}`}
+								{fee && <span class="addon-card__fee">{fee}</span>}
+							</p>
+						)
+					)}
+				</div>
+			</li>
+		);
+	})}
+</ul>
