@@ -562,6 +562,13 @@ const pathname = Astro.url.pathname;
 		--sm-icon-col: 32px;
 		--sm-icon-gap: 12px;
 		--sm-row: 56px;
+		// THE PANEL'S COLUMNS: one width and one gap for every column of every section, between two
+		// columns of a list and between two lists alike, so the open sections tile one grid — moving
+		// from Products to Solutions, a column's edge stays where it was. 236 is the widest of their
+		// links (a product's line, "Environment monitoring"); Docs' monospace headings take 260
+		// (`[data-sm-section='nav-docs']`). A longer link wraps rather than widening its column.
+		--sm-col: 236px;
+		--sm-gutter: 24px;
 		// THE MOVES between sections (the line under the row, the panel's height):
 		// one length and curve, `GLIDE_MS` / `GLIDE_EASE` in the script.
 		--sm-glide: 0.26s;
@@ -788,13 +795,13 @@ const pathname = Astro.url.pathname;
 	// ---------------------------------------------------------------------------------------------
 	// A SECTION'S CONTENT, on every surface
 	// ---------------------------------------------------------------------------------------------
-	// A section's groups side by side, 40 apart (three times a column's 12, so a group reads as one),
-	// wrapping where the panel's measure ends.
+	// A section's groups side by side on the columns' gutter, wrapping where the panel's measure ends;
+	// each group's name stands over its first column.
 	.sm__groups {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: flex-start;
-		gap: 24px 40px;
+		gap: 24px var(--sm-gutter);
 	}
 
 	.sm__group-name {
@@ -807,16 +814,15 @@ const pathname = Astro.url.pathname;
 		color: var(--sm-soft);
 	}
 
-	// A group's one list, folded into columns of `--rows` (`SiteMenuSection`): down, then across. The
-	// columns share one width, the widest link's (`1fr` of a grid sized to its content), so a section
-	// reads as a grid rather than a ragged run; the rows are shared across them, so a two-line link
-	// keeps its neighbours level.
+	// A group's one list, folded into columns of `--rows` (`SiteMenuSection`): down, then across, on
+	// the panel's one column (`--sm-col`); the rows are shared across a list's columns, so a two-line
+	// link keeps its neighbours level.
 	.sm__cols {
 		display: grid;
 		grid-auto-flow: column;
 		grid-template-rows: repeat(var(--rows, 1), auto);
-		grid-auto-columns: minmax(184px, 1fr);
-		gap: 0 12px;
+		grid-auto-columns: var(--sm-col);
+		gap: 0 var(--sm-gutter);
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -1033,12 +1039,12 @@ const pathname = Astro.url.pathname;
 	}
 
 	// A section is as wide as its groups, so its promotions close the block they belong to rather
-	// than run on to the window's edge, and never wider than the page's measure: past 1000 its groups
-	// wrap under one another instead. Every section's own width is under it (Solutions, the widest,
-	// is four columns).
+	// than run on to the window's edge, and never wider than four columns: past that its groups wrap
+	// under one another. Solutions, the widest, is four (1016); at 1281, where the row starts, it ends
+	// 25px inside the window's edge.
 	.sm__one-sec {
 		width: fit-content;
-		max-width: min(100%, 1000px);
+		max-width: min(100%, calc(4 * var(--sm-col) + 3 * var(--sm-gutter)));
 	}
 
 	.sm__one-sec[hidden] {
@@ -1147,6 +1153,8 @@ const pathname = Astro.url.pathname;
 	// and lighter: here they name whose documentation a link opens, under a heading that is the link's
 	// point. Full strength on hover, with the heading's colour.
 	[data-sm-section='nav-docs'] {
+		--sm-col: 260px;
+
 		.sm__group-name,
 		.sm__link-heading {
 			font-family: var(--font-family-mono);

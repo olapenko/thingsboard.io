@@ -256,7 +256,7 @@ export const solutionsSubmenu: SubMenu = {
 				{
 					href: '/use-cases/scada-oil-and-gas-drilling-system/',
 					icon: '/src/assets/images/landings/nav/case-scada-drilling-system-icon.svg',
-					heading: 'Oil and gas drilling system',
+					heading: 'Oil & gas drilling system',
 					description: 'Control drilling operations',
 				},
 				{
