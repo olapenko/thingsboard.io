@@ -1,17 +1,13 @@
 ---
-import LandingFooter from '~/components/Landing/Footer.astro';
 import SiteFooter from '@components/SiteFooter/SiteFooter.astro';
 import InternalNav from '@root/pages/internal/_InternalNav.astro';
-import { HOME_COMPOSITIONS, SHIPPING_COMPOSITION } from '@data/home-compositions';
+import LegacyFooter from '@root/pages/internal/_LegacyFooter.astro';
+import { HOME_COMPOSITIONS, REFERENCE_COMPOSITION, SHIPPING_COMPOSITION } from '@data/home-compositions';
 
-// The switchboard in front of Starlight's footer slot. The documentation gets `SiteFooter` at its
-// `docs` density; a page rendered through `BaseLayout` (`Astro.locals.bsl`) gets the map density
-// unless it keeps the legacy `Landing/Footer` by name (`footer="in-use"`, read here as `bslFooter`),
-// which only a reference page does. Each branch is its own component, so only the chosen footer's
-// styles land in a route's CSS.
+// The switchboard in front of Starlight's footer slot: the documentation gets `SiteFooter` at its
+// `docs` density, a page rendered through `BaseLayout` (`Astro.locals.bsl`) the `map` density.
 const locals = Astro.locals as unknown as Record<string, unknown>;
 const isBaseStarlight = locals.bsl === true;
-const footerMap = locals.bslFooter !== 'in-use';
 
 // LAB ONLY. The sandbox's island on every page the site renders — docs, marketing, the redesigned
 // pages — so Homepages, Chrome and the Design system are one tap away wherever a review is standing.
@@ -26,15 +22,13 @@ const homepage =
 		: orderMatch && HOME_COMPOSITIONS.some((c) => c.id === orderMatch[1])
 			? orderMatch[1]
 			: undefined;
+
+// LAB ONLY. Main's footer (`Landing/Footer`, retired from handoff, kept here as `_LegacyFooter`) for
+// the two places that show what main ships: the `live` reference order, and the footer workbench's
+// `site` stage.
+const legacy =
+	(homepage === REFERENCE_COMPOSITION && pathname !== '/') || pathname === '/internal/chrome/stage/footer/site/';
 ---
 
-{isBaseStarlight ? (
-	footerMap ? (
-		<SiteFooter density="map" id="footer" />
-	) : (
-		<LandingFooter />
-	)
-) : (
-	<SiteFooter density="docs" />
-)}
+{isBaseStarlight ? legacy ? <LegacyFooter /> : <SiteFooter density="map" id="footer" /> : <SiteFooter density="docs" />}
 <InternalNav homepage={homepage} />
