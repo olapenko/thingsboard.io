@@ -1,0 +1,165 @@
+---
+import Mark from '@components/ui/Mark.astro';
+import { markBySrc, type MarkName } from '@data/marks';
+import type { FooterProduct } from '@data/footer-map';
+import { DOCS_HUB_COMMUNITY, DOCS_HUB_ECOSYSTEM, DOCS_HUB_PLATFORMS } from '@data/docs-hub';
+import { externalLinkAttrs } from '@util/external-links';
+
+/**
+ * THE DOCS HUB's product grid (`docs/index.mdx`, under its "Choose your product"): the Docs menu's own
+ * groups, each product with the badge the footer's map gives it, drawn as Starlight's LinkCard is
+ * drawn (its border, radius, padding and type), so the grid reads as part of the docs. `not-content`
+ * keeps the Markdown list styles off it.
+ */
+
+// An ecosystem badge's glyph, as the footer's map draws it: the ThingsBoard logo (the Mobile App's), a
+// tabler icon, or the product's logo found by the file the data names.
+const glyphOf = (p: FooterProduct) =>
+	p.icon === 'mark'
+		? { logo: 'thingsboard' as const }
+		: p.icon.startsWith('tabler:')
+			? { icon: p.icon }
+			: { product: markBySrc(p.icon) as Exclude<MarkName, 'thingsboard'> };
+---
+
+<div class="dhp not-content">
+	<p class="dhp__kicker">IoT platforms</p>
+	<ul class="dhp__grid dhp__grid--platforms">
+		{DOCS_HUB_PLATFORMS.map((p) => (
+			<li>
+				<a class="dhp__card" href={p.href} {...externalLinkAttrs(p.href)}>
+					<Mark size={40} logo="thingsboard" accent={p.mark.hue} class="dhp__mark" />
+					<span class="dhp__name">{p.heading}</span>
+					<span class="dhp__line">{p.description}</span>
+				</a>
+				{p.href === DOCS_HUB_COMMUNITY.under && (
+					<p class="dhp__community">
+						{DOCS_HUB_COMMUNITY.text} <a href={DOCS_HUB_COMMUNITY.link.href}>{DOCS_HUB_COMMUNITY.link.title} ›</a>
+					</p>
+				)}
+			</li>
+		))}
+	</ul>
+	<p class="dhp__kicker">Product ecosystem</p>
+	<ul class="dhp__grid dhp__grid--eco">
+		{DOCS_HUB_ECOSYSTEM.map((p) => (
+			<li>
+				<a class="dhp__card" href={p.href} {...externalLinkAttrs(p.href)}>
+					<Mark size={36} fill="wash" accent={p.mark.hue} class="dhp__mark" {...glyphOf(p.mark)} />
+					<span class="dhp__name">{p.heading}</span>
+					<span class="dhp__line">{p.description}</span>
+				</a>
+			</li>
+		))}
+	</ul>
+</div>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	.dhp {
+		margin-top: 1rem;
+	}
+
+	.dhp ul {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.dhp__kicker {
+		margin: 0 0 0.5rem;
+		font-size: var(--sl-text-xs);
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--sl-color-gray-3);
+	}
+
+	// The CardGrid's gap above it (1.5rem), two platforms, three to a row of the ecosystem.
+	.dhp .dhp__grid {
+		display: grid;
+		gap: 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.dhp__grid--platforms {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.dhp__grid--eco {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+
+		@include media-down(lg) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@include media-down(sm) {
+		.dhp__grid--platforms,
+		.dhp__grid--eco {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	// As Starlight's LinkCard: the gray-5 border, 0.5rem corners, 1rem in, the small shadow; on hover
+	// the gray-7 ground and the gray-2 border.
+	.dhp__card {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		column-gap: 0.875rem;
+		align-items: center;
+		height: 100%;
+		padding: 1rem;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.5rem;
+		box-shadow: var(--sl-shadow-sm);
+		color: var(--sl-color-white);
+		text-decoration: none;
+
+		&:hover,
+		&:focus-visible {
+			background: var(--sl-color-gray-7, var(--sl-color-gray-6));
+			border-color: var(--sl-color-gray-2);
+		}
+
+		:global(.dhp__mark) {
+			grid-row: 1 / span 2;
+		}
+	}
+
+	.dhp__grid--platforms .dhp__card {
+		height: auto;
+	}
+
+	.dhp__name {
+		align-self: end;
+		font-size: var(--sl-text-lg);
+		font-weight: 600;
+		line-height: var(--sl-line-height-headings);
+	}
+
+	.dhp__line {
+		align-self: start;
+		font-size: var(--sl-text-sm);
+		line-height: 1.5;
+		color: var(--sl-color-gray-3);
+	}
+
+	// The retired edition: one quiet line under ThingsBoard's card.
+	.dhp__community {
+		margin: 0.5rem 0 0 0.25rem;
+		font-size: var(--sl-text-xs);
+		color: var(--sl-color-gray-3);
+
+		a {
+			color: inherit;
+			text-decoration: underline;
+			text-underline-offset: 3px;
+
+			&:hover {
+				color: var(--sl-color-white);
+			}
+		}
+	}
+</style>
