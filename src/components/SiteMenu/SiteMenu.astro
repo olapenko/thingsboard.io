@@ -2,24 +2,25 @@
 import { Icon } from 'astro-icon/components';
 import SiteMenuBody from '@components/SiteMenu/SiteMenuBody.astro';
 import SiteMenuSheet from '@components/SiteMenu/SiteMenuSheet.astro';
-import { MENU_ENTRIES, MENU_SECTIONS, isHere } from '@components/SiteMenu/menu-model';
+import { MENU_ENTRIES, MENU_SECTIONS, inSection, isHere } from '@components/SiteMenu/menu-model';
 import type { HeaderMenu } from '@util/header-config';
 
 /**
  * THE MAIN MENU, rendered once from `data/navigation` (through `menu-model`), in one of two desktop
  * models over one sheet below 1281:
  *
- * - `panel`, the site's: one surface under the whole bar; a rail of the sections on the left, the
- *   open section on the right. Hovering a rail entry or another item in the bar, or clicking one,
+ * - `panel`, the site's: one surface under the whole bar holding the open section — its groups and
+ *   its promotions, no heading (the item names it) — set from the left edge of the row's first item,
+ *   so whatever is open starts under the menu. Hovering another item in the bar, or clicking one,
  *   switches the section without closing. The panel sits in the DOM after the open item's button,
  *   so Tab goes from the item into its section and on to the next item.
  * - `dropdowns`, kept as the alternative (lab's chrome workbench shows it; `BaseLayout`'s `menu`):
  *   each item with a section opens its own panel under it, kept inside the viewport.
  *
  * A section's content is `SiteMenuBody` on every surface — the one panel, a dropdown, the sheet — so
- * the three cannot drift: its heading and "All …" page, its groups (`SiteMenuSection`), Customers'
- * stories (`SiteMenuCustomers`), and the row of promotions a section closes on (`SiteMenuPromos`,
- * from `data/menu-featured`). Docs is set in the monospace face.
+ * the three cannot drift: its groups (`SiteMenuSection`), the row of promotions a section closes on
+ * (`SiteMenuPromos`, from `data/menu-featured`), and the section's name in the sheet only. Docs is set
+ * in the monospace face.
  *
  * Both models open on a mouse's hover intent (120ms), which closes again on leave (200ms grace); a
  * click, a tap or Enter pins the panel open until a second click, Escape (focus back on the item), a
@@ -27,8 +28,8 @@ import type { HeaderMenu } from '@util/header-config';
  * Below 1281 the row and the panels are gone and the bar's Menu button opens `SiteMenuSheet`.
  *
  * The item for a section is a `<button aria-expanded>`; items with no section are links. The item
- * for the page the reader is on keeps its underline (`aria-current`, or `data-current` on a section
- * item that owns a page, as Use Cases does).
+ * for the page the reader is on keeps its underline: `aria-current` on a link, `data-current` on a
+ * section item whose section holds the page (`inSection`), as Solutions does on a case study.
  *
  * All of its styles are global under the `sm__` prefix: the panels are moved and measured by the
  * script, and the bar's own rules (white ink over a dark hero, the open sheet's surface) reach in.
@@ -60,7 +61,7 @@ const pathname = Astro.url.pathname;
 						aria-expanded="false"
 						aria-controls={model === 'panel' ? 'sm-one' : `sm-${sub.id}`}
 						data-sm-trigger={sub.id}
-						data-current={isHere(pathname, item.href) || undefined}
+						data-current={inSection(pathname, { item, sub }) || undefined}
 					>
 						{item.label}
 						<Icon name="tabler:chevron-down" class="sm__chev" aria-hidden="true" />
@@ -87,23 +88,11 @@ const pathname = Astro.url.pathname;
 	{model === 'panel' && (
 		<div class="sm__one" id="sm-one" data-sm-one hidden>
 			<div class="sm__one-in">
-				<ul class="sm__rail">
-					{MENU_SECTIONS.map(({ item, sub }) => (
-						<li>
-							<button type="button" class="sm__rail-btn" data-sm-rail={sub.id} aria-current="false" tabindex="-1">
-								{item.label}
-								<Icon name="tabler:chevron-right" class="sm__rail-chev" aria-hidden="true" />
-							</button>
-						</li>
-					))}
-				</ul>
-				<div class="sm__one-body">
-					{MENU_SECTIONS.map((entry) => (
-						<section class="sm__one-sec" data-sm-panel={entry.sub.id} aria-labelledby={`sm-one-${entry.sub.id}`} hidden>
-							<SiteMenuBody entry={entry} titleId={`sm-one-${entry.sub.id}`} />
-						</section>
-					))}
-				</div>
+				{MENU_SECTIONS.map((entry) => (
+					<section class="sm__one-sec" data-sm-panel={entry.sub.id} aria-label={entry.item.label} hidden>
+						<SiteMenuBody entry={entry} />
+					</section>
+				))}
 			</div>
 		</div>
 	)}
@@ -132,7 +121,6 @@ const pathname = Astro.url.pathname;
 		// from `pointerenter` and only for a mouse: a tap is a click and nothing else.
 
 		const OPEN_DELAY = 120; // hover intent on the row
-		const RAIL_DELAY = 90; // and on the rail, so a diagonal path to a section's links crosses it untouched
 		const CLOSE_DELAY = 200; // grace on leaving
 		// Switching sections: the length and curve of `--sm-glide` in the stylesheet, for the moves made
 		// here. The close is a short fade.
@@ -144,10 +132,8 @@ const pathname = Astro.url.pathname;
 
 		const triggers = [...nav.querySelectorAll<HTMLButtonElement>('[data-sm-trigger]')];
 		const panels = [...nav.querySelectorAll<HTMLElement>('[data-sm-panel]')];
-		const rails = [...nav.querySelectorAll<HTMLButtonElement>('[data-sm-rail]')];
 		const one = nav.querySelector<HTMLElement>('[data-sm-one]');
 		const row = nav.querySelector<HTMLElement>('.sm__row');
-		const rail = nav.querySelector<HTMLElement>('.sm__rail');
 		const itemOf = (id: string) => nav.querySelector<HTMLElement>(`.sm__item[data-sm-item="${id}"]`);
 		const triggerOf = (id: string) => triggers.find((t) => t.dataset.smTrigger === id);
 		const isMouse = (e: PointerEvent) => e.pointerType === 'mouse';
@@ -157,7 +143,6 @@ const pathname = Astro.url.pathname;
 		let pinnedId: string | null = null;
 		let openTimer = 0;
 		let closeTimer = 0;
-		let railTimer = 0;
 		/** The one panel's fade on close, and its height easing between two sections. */
 		let leaving: Animation | null = null;
 		let morphing: Animation | null = null;
@@ -165,7 +150,6 @@ const pathname = Astro.url.pathname;
 		const clearTimers = () => {
 			window.clearTimeout(openTimer);
 			window.clearTimeout(closeTimer);
-			window.clearTimeout(railTimer);
 		};
 
 		/** Keeps a dropdown inside the viewport (the scrollbar excluded): measured once shown, shifted by what overflows. */
@@ -192,11 +176,11 @@ const pathname = Astro.url.pathname;
 		};
 
 		// THE MOVES BETWEEN SECTIONS. One line in the accent under the open item, which glides along the
-		// row to the next one rather than blinking from item to item; the rail's highlight glides the
-		// same way; the incoming section slides in from the side the reader is moving toward, and the
-		// panel's edge eases from one section's height to the next. All on one length and curve. The
-		// first placement of a line is made where it lands, with no glide from wherever it last was.
-		const order = (id: string) => rails.findIndex((r) => r.dataset.smRail === id);
+		// row to the next one rather than blinking from item to item; the incoming section slides in
+		// from the side the reader is moving toward, and the panel's edge eases from one section's
+		// height to the next. All on one length and curve. The first placement of the line is made
+		// where it lands, with no glide from wherever it last was.
+		const order = (id: string) => triggers.findIndex((t) => t.dataset.smTrigger === id);
 
 		/** Puts a gliding mark (`--sm-<name>-*` on `host`) on `target`, without the glide when `instant`. */
 		const setMark = (host: HTMLElement, vars: Record<string, number>, instant: boolean) => {
@@ -221,10 +205,15 @@ const pathname = Astro.url.pathname;
 			row.setAttribute('data-ink', '');
 		};
 
-		const markRail = (id: string, instant: boolean) => {
-			const r = rails.find((x) => x.dataset.smRail === id);
-			if (!rail || !r) return;
-			setMark(rail, { '--sm-rail-y': r.offsetTop, '--sm-rail-h': r.offsetHeight }, instant);
+		// The one panel's content starts under the row's first item: the item's words, less the inset a
+		// link keeps round its own (`.sm__link`'s 10), so the first link's mark stands under them.
+		// Measured, because the row sits after the wordmark, whose width changes with the window.
+		const LINK_INSET = 10;
+		const alignOne = () => {
+			const first = row?.querySelector<HTMLElement>('.sm__top');
+			if (!one || !first) return;
+			const x = first.getBoundingClientRect().left + (parseFloat(getComputedStyle(first).paddingLeft) || 0);
+			one.style.setProperty('--sm-col-x', `${Math.round(x - LINK_INSET)}px`);
 		};
 
 		/** The switch from one section to the next, `before` the panel's height while it showed the first. */
@@ -315,12 +304,13 @@ const pathname = Astro.url.pathname;
 			seat(id);
 			for (const t of triggers) t.setAttribute('aria-expanded', String(t.dataset.smTrigger === id));
 			for (const p of panels) p.hidden = p.dataset.smPanel !== id;
-			for (const r of rails) r.setAttribute('aria-current', String(r.dataset.smRail === id));
-			if (one) one.hidden = false;
+			if (one) {
+				one.hidden = false;
+				if (!switching) alignOne();
+			}
 			header.setAttribute('data-sm-desktop-open', '');
 			markRow(id, from === null);
 			if (one) {
-				markRail(id, !switching);
 				if (switching) morph(from!, id, before);
 			} else {
 				const panel = panels.find((p) => p.dataset.smPanel === id);
@@ -376,19 +366,6 @@ const pathname = Astro.url.pathname;
 			});
 		}
 
-		// The rail is the mouse's way round the sections; the keyboard's is the row, so the rail is out
-		// of the Tab order (`tabindex="-1"`) and switches on hover intent or a click, never on focus.
-		for (const r of rails) {
-			const id = r.dataset.smRail!;
-			r.addEventListener('pointerenter', (e) => {
-				if (!isMouse(e)) return;
-				window.clearTimeout(railTimer);
-				railTimer = window.setTimeout(() => show(id), RAIL_DELAY);
-			});
-			r.addEventListener('pointerleave', () => window.clearTimeout(railTimer));
-			r.addEventListener('click', () => show(id, true));
-		}
-
 		// Escape closes an open panel wherever focus is (a passing one included), and puts focus back
 		// on its item when focus was in the menu.
 		document.addEventListener('keydown', (e) => {
@@ -412,13 +389,12 @@ const pathname = Astro.url.pathname;
 			if (openId !== null && !nav.contains(e.target as Node)) hide();
 		});
 
-		// A dropdown measured against the window it opened in is measured again when the window changes.
-		// The open item's line, and a dropdown measured against the window it opened in, are measured
-		// again when the window changes.
+		// The open item's line, the one panel's left edge, and a dropdown measured against the window it
+		// opened in, are measured again when the window changes.
 		window.addEventListener('resize', () => {
 			if (openId === null) return;
 			markRow(openId, true);
-			if (one) return markRail(openId, true);
+			if (one) return alignOne();
 			const panel = panels.find((p) => p.dataset.smPanel === openId);
 			if (panel) nudge(panel);
 		});
@@ -591,7 +567,7 @@ const pathname = Astro.url.pathname;
 		--sm-icon-col: 32px;
 		--sm-icon-gap: 12px;
 		--sm-row: 56px;
-		// THE MOVES between sections (the line under the row, the rail's highlight, the panel's height):
+		// THE MOVES between sections (the line under the row, the panel's height):
 		// one length and curve, `GLIDE_MS` / `GLIDE_EASE` in the script.
 		--sm-glide: 0.26s;
 		--sm-glide-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -888,12 +864,34 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
+	// The mark's box is square at the section's size (`--sm-mark`, 24 or Products' 32), whatever the
+	// art's own ratio: a few of the use cases' icons are taller than wide, and set by width alone
+	// they made their rows taller than the rest.
 	.sm__link-icon {
 		flex: none;
 		display: flex;
+		align-items: center;
 		justify-content: center;
 		width: var(--sm-icon-col);
+		height: var(--sm-mark, 24px);
 		padding-top: 1px;
+
+		svg.nav-icon {
+			max-height: 100%;
+		}
+	}
+
+	[data-sm-section='nav-products'] {
+		--sm-mark: 32px;
+	}
+
+	// A link with no line under it: its mark and its name on one centre line.
+	.sm__link:not(:has(.sm__link-desc)) {
+		align-items: center;
+
+		.sm__link-icon {
+			padding-top: 0;
+		}
 	}
 
 	.sm__link-text {
@@ -1018,7 +1016,7 @@ const pathname = Astro.url.pathname;
 	}
 
 	// ---------------------------------------------------------------------------------------------
-	// MODEL B — PANEL: one surface under the bar, a rail of sections, the open one's groups beside it.
+	// MODEL B — PANEL: one surface under the bar, the open section on it, set under the row.
 	// ---------------------------------------------------------------------------------------------
 	.sm__one {
 		position: fixed;
@@ -1059,13 +1057,10 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
+	// From the row's first item (`--sm-col-x`, measured by the script) to the bar's far gutter. No
+	// heading and no index of sections beside it: the item names the section and the row is the index.
 	.sm__one-in {
-		display: grid;
-		grid-template-columns: 220px minmax(0, 1fr);
-		gap: 24px 40px;
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 24px var(--tb-bar-inset, 24px) 28px;
+		padding: 20px var(--tb-bar-inset, 24px) 24px var(--sm-col-x, var(--tb-bar-inset, 24px));
 		transition:
 			opacity 0.22s ease 0.06s,
 			translate 0.3s var(--sm-glide-ease) 0.04s;
@@ -1076,102 +1071,18 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
-	.sm__rail {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		margin: 0;
-		padding: 0 16px 0 0;
-		border-right: 1px solid var(--sm-rule);
-		list-style: none;
-
-		// The open section's highlight: one, placed by the script on the current entry
-		// (`--sm-rail-y`, `--sm-rail-h`), gliding to the next as the sections switch.
-		&::before {
-			content: '';
-			position: absolute;
-			top: 0;
-			right: 16px;
-			left: 0;
-			height: var(--sm-rail-h, 0px);
-			border-radius: $radius-lg;
-			background: var(--sm-fill);
-			pointer-events: none;
-			translate: 0 var(--sm-rail-y, 0px);
-			transition:
-				translate var(--sm-glide) var(--sm-glide-ease),
-				height var(--sm-glide) var(--sm-glide-ease);
-		}
-
-		&[data-instant]::before {
-			transition: none;
-		}
-	}
-
-	.sm__rail-btn {
-		position: relative;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-		width: 100%;
-		padding: 10px 12px;
-		border: 0;
-		border-radius: $radius-lg;
-		background: none;
-		color: var(--sm-soft);
-		font: inherit;
-		font-size: 15px;
-		font-weight: $font-weight-medium;
-		text-align: left;
-		cursor: pointer;
-		transition:
-			color 0.15s ease,
-			background-color 0.15s ease;
-
-		// The rail's chevron slides in toward the section it opens, rather than blinking on.
-		.sm__rail-chev {
-			width: 18px;
-			height: 18px;
-			opacity: 0;
-			translate: -4px 0;
-			transition:
-				opacity 0.15s ease,
-				translate 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
-		}
-
-		&:hover,
-		&[aria-current='true'] {
-			color: var(--sm-ink);
-
-			.sm__rail-chev {
-				opacity: 1;
-				translate: 0;
-			}
-		}
-
-		// The current entry's ground is the rail's gliding highlight; another entry under the pointer
-		// takes a wash of the ink, so the accent's tint stays the current one's alone.
-		&:hover:not([aria-current='true']) {
-			background: color-mix(in srgb, var(--sm-ink) 4%, transparent);
-		}
-
-		&[aria-current='true'] {
-			color: var(--sm-accent);
-		}
-
-		&:focus-visible {
-			outline: 2px solid currentColor;
-			outline-offset: -2px;
-		}
+	// A section is as wide as its groups, so its promotions close the block they belong to rather
+	// than run on to the window's edge.
+	.sm__one-sec {
+		width: fit-content;
+		max-width: 100%;
 	}
 
 	.sm__one-sec[hidden] {
 		display: none;
 	}
 
-	// A section's heading and its "All …" page, in the one panel and the sheet (`SiteMenuBody`).
+	// A section's heading and its "All …" page, in the sheet (`SiteMenuBody`).
 	.sm__head {
 		display: flex;
 		align-items: baseline;
@@ -1189,7 +1100,7 @@ const pathname = Astro.url.pathname;
 	}
 
 	// ---------------------------------------------------------------------------------------------
-	// WHAT TWO SECTIONS CARRY BESIDES THEIR LINKS, and the docs' face
+	// WHAT A SECTION CARRIES BESIDES ITS LINKS, and the docs' face
 	// ---------------------------------------------------------------------------------------------
 	// A section's promotions: one row of one-line tiles, an icon and a title each. No outline on any of
 	// them: a grey stroke beside the accent's tint read as two kinds of control. The tiles are one
@@ -1250,109 +1161,18 @@ const pathname = Astro.url.pathname;
 		margin: 0 -4px 0 -2px;
 	}
 
+	// The featured one closes the row at its far end; alone, it stands where the row starts.
 	.sm__promo--feat {
 		margin-left: auto;
 		background: var(--sm-fill);
 		color: var(--sm-accent);
 
+		&:only-child {
+			margin-left: 0;
+		}
+
 		&:hover {
 			background: var(--sm-fill-strong);
-		}
-	}
-
-	// Customers: three stories with a figure each, and a line of feedback beside them.
-	.sm__cust {
-		display: grid;
-		grid-template-columns: minmax(0, 1.4fr) minmax(240px, 1fr);
-		gap: 24px 40px;
-		margin-top: 20px;
-		padding-top: 18px;
-		border-top: 1px solid var(--sm-rule);
-	}
-
-	.sm__stories {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 0 12px;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	// A value card: the figure in the accent, what it counts under it, whose it is in the soft ink.
-	.sm__story {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		height: 100%;
-		padding: 10px;
-		border-radius: $radius-lg;
-		color: var(--sm-ink);
-		text-decoration: none;
-		transition: background-color 0.15s ease;
-
-		&:hover {
-			background: var(--sm-fill);
-		}
-
-		&:focus-visible {
-			outline: 2px solid currentColor;
-			outline-offset: -2px;
-		}
-	}
-
-	.sm__story-value {
-		font-size: 24px;
-		font-weight: $font-weight-bold;
-		line-height: 1.15;
-		letter-spacing: -0.01em;
-		color: var(--sm-accent);
-	}
-
-	.sm__story-label {
-		font-size: 14px;
-		font-weight: $font-weight-medium;
-		line-height: 1.35;
-	}
-
-	.sm__story-meta {
-		margin-top: 2px;
-		font-size: 12px;
-		line-height: 1.4;
-		color: var(--sm-soft);
-	}
-
-	.sm__quote {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		margin: 0;
-		padding: 14px 16px;
-		border-radius: 12px;
-		background: var(--sm-fill);
-	}
-
-	.sm__quote-mark {
-		width: 22px;
-		height: 22px;
-		color: var(--sm-accent);
-		opacity: 0.7;
-	}
-
-	.sm__quote-text {
-		margin: 0;
-		font-size: 14px;
-		line-height: 1.5;
-	}
-
-	.sm__quote-by {
-		font-size: 13px;
-		line-height: 1.4;
-		color: var(--sm-soft);
-
-		b {
-			font-weight: $font-weight-medium;
-			color: var(--sm-ink);
 		}
 	}
 
@@ -1391,14 +1211,14 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
-	// The section's name, in the panel (20 elsewhere) and in the sheet's view (24), over both.
-	:is(.sm__one-sec[data-sm-panel='nav-docs'], .sm__view[data-sm-view='nav-docs']) .sm__title {
+	// The section's name in the sheet's view, a step over the other sections' 24.
+	.sm__view[data-sm-view='nav-docs'] .sm__title {
 		font-family: var(--font-family-mono);
 		font-size: 25px;
 	}
 
 	// ---------------------------------------------------------------------------------------------
-	// THE SHEET — the one panel at a phone's width: the rail as a list, a section as a view of its own.
+	// THE SHEET — the menu at a phone's width: the row as a list, a section as a view of its own.
 	// ---------------------------------------------------------------------------------------------
 	.sm__sheet {
 		// Full bleed: every row, its fill and its hairline run edge to edge; the text stands on the
@@ -1507,7 +1327,7 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
-	// The list: the panel's rail at the sheet's width — one row a section or a page, a hairline between,
+	// The list: the bar's row at the sheet's width — one row a section or a page, a hairline between,
 	// the chevron on the rows that open a view.
 	.sm__list {
 		margin: 0;
@@ -1618,8 +1438,8 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
-	// A section in the sheet: the panel's content stacked to the width. Every row bleeds — the links,
-	// the value cards, the promotions, the line of feedback — and the headings stand on the same gutter.
+	// A section in the sheet: the panel's content stacked to the width. Every row bleeds — the links
+	// and the promotions — and the headings stand on the same gutter.
 	.sm__sheet {
 		.sm__head,
 		.sm__group-name {
@@ -1645,8 +1465,7 @@ const pathname = Astro.url.pathname;
 			gap: 0;
 		}
 
-		.sm__link,
-		.sm__story {
+		.sm__link {
 			padding: 12px var(--sm-in);
 			border-radius: 0;
 
@@ -1664,40 +1483,6 @@ const pathname = Astro.url.pathname;
 			.sm__link-icon {
 				padding-top: 0;
 			}
-		}
-
-		.sm__cust {
-			grid-template-columns: 1fr;
-			gap: 16px;
-			padding-top: 16px;
-		}
-
-		// A value card as a row: the figure, then what it counts over whose it is.
-		.sm__stories {
-			grid-template-columns: 1fr;
-			gap: 0;
-		}
-
-		.sm__story {
-			display: grid;
-			grid-template-columns: 4.5em minmax(0, 1fr);
-			column-gap: 12px;
-			align-items: baseline;
-		}
-
-		.sm__story-value {
-			grid-row: span 2;
-			font-size: 22px;
-		}
-
-		.sm__story-meta {
-			grid-column: 2;
-			margin-top: 0;
-		}
-
-		.sm__quote {
-			padding: 16px var(--sm-in);
-			border-radius: 0;
 		}
 
 		.sm__promos {
@@ -1752,19 +1537,6 @@ const pathname = Astro.url.pathname;
 		.sm__sheet {
 			.sm__cols {
 				grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-			}
-
-			.sm__stories {
-				grid-template-columns: repeat(3, minmax(0, 1fr));
-			}
-
-			.sm__story {
-				display: flex;
-				flex-direction: column;
-			}
-
-			.sm__story-value {
-				font-size: 24px;
 			}
 		}
 	}
@@ -1823,14 +1595,12 @@ const pathname = Astro.url.pathname;
 	// sheet's own step has its rule above.
 	@media (prefers-reduced-motion: reduce) {
 		.sm__chev,
-		.sm__rail-chev,
 		.sm__sheet-chev,
 		.sm__back svg,
 		.sm__drop,
 		.sm__one,
 		.sm__one-in,
-		.sm__row::after,
-		.sm__rail::before {
+		.sm__row::after {
 			transition: none;
 		}
 	}
