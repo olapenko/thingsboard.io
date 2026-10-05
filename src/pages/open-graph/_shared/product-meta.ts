@@ -42,7 +42,11 @@ const META_BY_PRODUCT: Record<Products, DocsProductMeta> = {
 	[Products.IOT_HUB]:   { slabClass: 'brand',   iconKey: 'iot-hub',   primaryLabel: 'IoT Hub' },
 };
 
+/** The docs hub (`/docs/`, id `docs`) is every product's, not Community's whose address it took. */
+const DOCS_HUB_META: DocsProductMeta = { slabClass: 'brand', iconKey: 'cm', primaryLabel: 'Docs' };
+
 /** Resolve docs slug (e.g. 'docs/pe/getting-started/quickstart') to product meta. */
 export function getDocsProductMeta(slug: string): DocsProductMeta {
+	if (slug === 'docs') return DOCS_HUB_META;
 	return META_BY_PRODUCT[getVersionFromSlug(slug)];
 }
