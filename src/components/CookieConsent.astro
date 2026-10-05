@@ -20,10 +20,18 @@
  * The words are upstream's, unchanged. The dialog is `ui/Dialog`: the browser's focus trap and
  * Escape, focus back to the opener on close (`util/dialog`), a bottom sheet under 560.
  *
- * THE CHAT LAUNCHER (44, 16px in from the bottom-right corner) has the other corner from a tablet up.
- * On a phone the card takes the width and the launcher lifts above it: the script publishes the
- * card's footprint — its height and its inset — as `--cc-card-h` on the root, which `ChatLauncher`
- * adds to its own inset below 768, 0 once the card has gone.
+ * THE CHAT LAUNCHER (44, 16px in from the bottom-right corner) has the other corner. Where the card
+ * leaves it no room — a phone, under 448 — it steps out while the card is up and returns once a
+ * choice is made: the root carries `data-cc-card` while the card shows (set before first paint with
+ * the card, dropped as it leaves), which `ChatLauncher` reads.
+ *
+ * THE BUTTONS. The card asks one question: Accept all (primary, first, as every call to action on the
+ * site leads) and Reject all, two equal buttons, then Manage preferences under them as a quiet link.
+ * The dialog is where a reader who wants a say per category makes it, so its primary is Save
+ * preferences, at the end of the row (on a phone, the sheet's last row, under the thumb); Accept all
+ * and Reject all are the card's pair in the card's order, as two equal secondary buttons before it.
+ * Accept all is not the dialog's highlighted choice: in the layer a reader opens to choose, a
+ * highlighted Accept is the pattern the EDPB's deceptive-design guidelines single out.
  *
  * Hidden in print (`print:hidden`, and its own rule for pages without the utility).
  */
@@ -104,6 +112,8 @@ const categories = [
 			// dialog are on the page's surface, so their ground is the theme's, set before they paint.
 			root.setAttribute('data-surface', document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
 			if (root.hasAttribute('data-cc-demo') || !window.tbConsent) el.hidden = false;
+			// For the chat launcher, which steps out of the card's way on a phone (the page's card only).
+			if (!el.hidden && !root.hasAttribute('data-cc-demo')) document.documentElement.setAttribute('data-cc-card', '');
 		})(document.currentScript && document.currentScript.previousElementSibling);
 	</script>
 	<Dialog
@@ -163,17 +173,24 @@ const categories = [
 			</Link>{' '}
 			lists every cookie we set and what each one does.
 		</p>
-		{/* Reject all and Accept all as the pair they are on the card; Save at the end of the row, for the
-		    reader who used the switches. Under 480 (the sheet) the three stack. */}
-		<ButtonGroup slot="footer" stackBelow={480} gap="sm" class="cc__dialog-actions">
-			<Button variant="secondary" attrs={{ 'data-cc': 'reject-all' }}>
-				Reject all
-			</Button>
-			<Button attrs={{ 'data-cc': 'accept-all' }}>Accept all</Button>
-			<Button variant="secondary" class="cc__save" attrs={{ 'data-cc': 'save' }}>
-				Save preferences
-			</Button>
-		</ButtonGroup>
+		{/* The card's pair in the card's order, equal and secondary; Save preferences, the choice made with
+		    the switches, is the primary, at the end. Narrower than 480 (the sheet), the pair keeps its
+		    row and Save takes the width under it. */}
+		<div slot="footer" class="cc__dialog-actions">
+			<div class="cc__dialog-row">
+				<ButtonGroup equal gap="sm" class="cc__dialog-pair">
+					<Button variant="secondary" attrs={{ 'data-cc': 'accept-all' }}>
+						Accept all
+					</Button>
+					<Button variant="secondary" attrs={{ 'data-cc': 'reject-all' }}>
+						Reject all
+					</Button>
+				</ButtonGroup>
+				<Button class="cc__save" attrs={{ 'data-cc': 'save' }}>
+					Save preferences
+				</Button>
+			</div>
+		</div>
 	</Dialog>
 </div>
 
@@ -183,9 +200,8 @@ const categories = [
 	const CONSENT_COOKIE = 'tb_consent';
 	const CONSENT_VERSION = 1;
 	const MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
-	/** The card's footprint while it shows — its height and its inset — for the chat launcher above it on a phone. */
-	const CARD_FOOT_VAR = '--cc-card-h';
-	const CARD_INSET = 20;
+	/** On the root while the page's card shows, for the chat launcher (`ChatLauncher`). */
+	const CARD_MARK = 'data-cc-card';
 	const LEAVE_MS = 160;
 
 	type Category = 'analytics' | 'marketing';
@@ -202,20 +218,10 @@ const categories = [
 		let demoConsent: TbConsent | null = null;
 		const current = () => (demo ? demoConsent : window.tbConsent);
 
-		// The card's footprint, published while it shows, 0 once it has gone. The page's instance only:
-		// several sandbox instances would fight over the one variable.
-		if (!demo) {
-			const publish = () =>
-				document.documentElement.style.setProperty(
-					CARD_FOOT_VAR,
-					`${card.hidden || card.hasAttribute('data-cc-leaving') ? 0 : card.getBoundingClientRect().height + CARD_INSET}px`
-				);
-			publish();
-			new ResizeObserver(publish).observe(card);
-		}
-
 		function hideCard() {
 			if (card.hidden) return;
+			// The launcher comes back as the card leaves. The page's instance only: the sandbox's never set it.
+			if (!demo) document.documentElement.removeAttribute(CARD_MARK);
 			const done = () => {
 				card.hidden = true;
 				card.removeAttribute('data-cc-leaving');
@@ -496,8 +502,31 @@ const categories = [
 		color: var(--color-text-secondary, #63656c);
 	}
 
-	// Save at the end of the row, apart from the pair. In the sheet's column every button is the row.
+	// The pair, then Save at the end of the row. The footer measures itself, as `ButtonGroup` does:
+	// narrower than 480 (the sheet), Save takes the width under the pair.
+	.cc__dialog-actions {
+		container-type: inline-size;
+	}
+
+	.cc__dialog-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+	}
+
 	.cc__save {
 		margin-inline-start: auto;
+	}
+
+	@container (max-width: 479px) {
+		.cc__dialog-row {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.cc__save {
+			margin-inline-start: 0;
+		}
 	}
 </style>
