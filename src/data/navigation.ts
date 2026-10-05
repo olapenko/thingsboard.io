@@ -51,12 +51,14 @@ export interface SubMenu {
 
 // Main navigation items. Seven since 2026-10-05: Use Cases and Customers are Solutions (the use
 // cases, then their case studies), and Partners is a group in Company, beside Clients feedback.
+// Solutions before Services — what can be built before who builds it — and Company late, as the
+// footer's columns run (`data/footer-map`): a page has one name and one home in both.
 export const mainNavItems: NavItem[] = [
 	{ label: 'Products', submenuId: 'nav-products' },
-	{ label: 'Services', submenuId: 'nav-services' },
 	{ label: 'Solutions', submenuId: 'nav-solutions' },
-	{ label: 'Company', submenuId: 'nav-company' },
+	{ label: 'Services', submenuId: 'nav-services' },
 	{ label: 'Docs', submenuId: 'nav-docs' },
+	{ label: 'Company', submenuId: 'nav-company' },
 	{ label: 'IoT Hub', href: '/iot-hub/' },
 	{ label: 'Pricing', href: '/pricing/', id: 'Menu_Pricing', linkClass: 'gtm_button' },
 ];
@@ -150,7 +152,7 @@ export const servicesSubmenu: SubMenu = {
 				{
 					href: '/services/',
 					icon: '/src/assets/images/landings/nav/support-icon.svg',
-					heading: 'Support',
+					heading: 'Support plans',
 					description: 'Support packages and SLAs',
 				},
 				{
@@ -293,7 +295,7 @@ export const companySubmenu: SubMenu = {
 				{
 					href: '/company/',
 					icon: '/src/assets/images/landings/nav/about-s-icon.svg',
-					heading: 'Our company',
+					heading: 'About us',
 					linkClass: 'small-link',
 				},
 				{
