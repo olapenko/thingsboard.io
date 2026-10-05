@@ -1,8 +1,58 @@
 ---
-// Cookie consent banner + preferences dialog, mounted once per page from `starlight/SkipLink.astro`.
-// `GtmHead.astro` parses the stored choice into `window.tbConsent` before GTM loads: keep `CONSENT_COOKIE` /
-// `CONSENT_VERSION` in step with it.
-import NButton from '@components/Landing/NButton.astro';
+/**
+ * The cookie consent: a card in the bottom-left corner of every page and the preferences dialog
+ * behind it, mounted once per page from `starlight/SkipLink.astro`.
+ *
+ * WHAT IT DOES (the compliance side, unchanged since upstream #704): Accept all and Reject all as two
+ * equal buttons, Manage preferences for a choice per category (Analytics, Marketing), the choice
+ * stored in the `tb_consent` cookie for 180 days and pushed to Google Consent Mode v2. `GtmHead.astro`
+ * parses the stored choice into `window.tbConsent` before GTM loads and sets the consent default:
+ * keep `CONSENT_COOKIE` / `CONSENT_VERSION` in step with it. Any element with
+ * `data-cc="show-preferences"` (the footers' "Cookie settings", the Cookie Policy page) reopens the
+ * dialog; the click is delegated on the document so the footers need no script of their own.
+ *
+ * HOW IT LOOKS: main's card (#704), on the kit. A 340 card 20px in from the bottom-left corner — the
+ * bottom-right is the chat launcher's — on the page's own surface, so it follows the theme: "We use
+ * cookies" over upstream's sentence and its Cookie Policy link (`ui/Link`), Accept all and Reject all
+ * as two equal buttons (`ui/ButtonGroup`), Manage preferences under them (`ui/Button`, tertiary).
+ * The root carries `data-surface` from the theme (light or dark), so the kit's controls take the
+ * tones of the ground they are on in both themes.
+ * The words are upstream's, unchanged. The dialog is `ui/Dialog`: the browser's focus trap and
+ * Escape, focus back to the opener on close (`util/dialog`), a bottom sheet under 560.
+ *
+ * THE CHAT LAUNCHER (44, 16px in from the bottom-right corner) has the other corner. Where the card
+ * leaves it no room — a phone, under 448 — it steps out while the card is up and returns once a
+ * choice is made: the root carries `data-cc-card` while the card shows (set before first paint with
+ * the card, dropped as it leaves), which `ChatLauncher` reads.
+ *
+ * THE BUTTONS. The card asks one question: Accept all (primary, first, as every call to action on the
+ * site leads) and Reject all, two equal buttons, then Manage preferences under them as a quiet link.
+ * The dialog is where a reader who wants a say per category makes it, so its primary is Save
+ * preferences, at the end of the row (on a phone, the sheet's last row, under the thumb); Accept all
+ * and Reject all are the card's pair in the card's order, as two equal secondary buttons before it.
+ * Accept all is not the dialog's highlighted choice: in the layer a reader opens to choose, a
+ * highlighted Accept is the pattern the EDPB's deceptive-design guidelines single out.
+ *
+ * Hidden in print (`print:hidden`, and its own rule for pages without the utility).
+ */
+import Button from '@components/ui/Button.astro';
+import ButtonGroup from '@components/ui/ButtonGroup.astro';
+import Dialog from '@components/ui/Dialog.astro';
+import Link from '@components/ui/Link.astro';
+
+interface Props {
+	/**
+	 * Sandbox only: always shown on load, and no choice writes the cookie or reaches GTM, so trying
+	 * it never dismisses the real card on the rest of the site.
+	 */
+	demo?: boolean;
+	/** A second instance on one page (the sandbox) needs its own id. */
+	id?: string;
+}
+
+const { demo = false, id = 'cookie-consent' } = Astro.props;
+
+const POLICY_HREF = '/cookie-policy/';
 
 const categories = [
 	{
@@ -18,144 +68,238 @@ const categories = [
 ];
 ---
 
-<div id="cc-main" class="print:hidden" data-pagefind-ignore>
-	<section class="cm" aria-labelledby="cm-title" aria-describedby="cm-desc" hidden>
-		<p id="cm-title" class="cm__title">
+<div class="cc" id={id} data-cc-root data-cc-demo={demo ? '' : undefined} data-pagefind-ignore>
+	{/* A `div` with the region role, not a `section`: the homepage strips every section's background. */}
+	<div
+		class="cc__card print:hidden"
+		role="region"
+		aria-labelledby={`${id}-title`}
+		aria-describedby={`${id}-desc`}
+		hidden
+	>
+		<p class="cc__title" id={`${id}-title`}>
 			We use cookies
 		</p>
-		<p id="cm-desc" class="cm__desc">
+		<p class="cc__text" id={`${id}-desc`}>
 			We use cookies to understand how our site is used and to improve it. We never sell your data. You can change your
-			choice anytime in Cookie settings. <a href="/cookie-policy/">Cookie Policy</a>
+			choice anytime in Cookie settings.{' '}
+			<Link href={POLICY_HREF} variant="inline">
+				Cookie Policy
+			</Link>
 		</p>
-		<div class="cm__btns">
-			<NButton data-cc="accept-all">Accept all</NButton>
-			<NButton variant="outlined" data-cc="reject-all">
+		<ButtonGroup equal gap="sm" class="cc__choice">
+			<Button attrs={{ 'data-cc': 'accept-all' }}>Accept all</Button>
+			<Button variant="secondary" attrs={{ 'data-cc': 'reject-all' }}>
 				Reject all
-			</NButton>
-		</div>
-		<NButton variant="text" size="sm" class="cm__manage" data-cc="show-preferences">
+			</Button>
+		</ButtonGroup>
+		<Button
+			variant="tertiary"
+			size="sm"
+			class="cc__manage"
+			attrs={{ 'data-cc': 'show-preferences', 'aria-haspopup': 'dialog' }}
+		>
 			Manage preferences
-		</NButton>
-	</section>
-	<!-- Shown before first paint rather than from the module script, so it never lands late as the LCP element. -->
+		</Button>
+	</div>
+	{/* Inline and right after the card, so it runs before first paint: a visitor who has chosen never
+	    sees it flash, and one who has not sees it with the page, never late as the LCP element. */}
 	<script is:inline>
-		if (!window.tbConsent) document.currentScript.previousElementSibling.hidden = false;
+		(function (el) {
+			if (!el) return;
+			const root = el.parentElement;
+			// The kit's buttons and links take their dark tones on a ground marked dark; the card and the
+			// dialog are on the page's surface, so their ground is the theme's, set before they paint.
+			root.setAttribute('data-surface', document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+			if (root.hasAttribute('data-cc-demo') || !window.tbConsent) el.hidden = false;
+			// For the chat launcher, which steps out of the card's way on a phone (the page's card only).
+			if (!el.hidden && !root.hasAttribute('data-cc-demo')) document.documentElement.setAttribute('data-cc-card', '');
+		})(document.currentScript && document.currentScript.previousElementSibling);
 	</script>
-	<dialog class="pm" aria-labelledby="pm-title">
-		<div class="pm__header">
-			<h2 id="pm-title" class="pm__title">
-				Cookie preferences
-			</h2>
-			<form method="dialog">
-				<button type="submit" class="pm__close" aria-label="Close">
-					✕
-				</button>
-			</form>
-		</div>
-		<div class="pm__body">
-			<p class="pm__desc">
-				We use cookies for our own analytics and to see how our campaigns perform. We never sell your data. Necessary
-				cookies keep the site working and cannot be switched off. See our <a href="/cookie-policy/">Cookie Policy</a>
-				for details.
-			</p>
-			<div class="pm__section">
-				<label class="pm__section-head">
-					<span>Strictly necessary</span>
-					<input type="checkbox" role="switch" class="pm__switch" checked disabled />
-				</label>
-				<p class="pm__section-desc">Security, load balancing and remembering your cookie choice.</p>
-			</div>
-			{categories.map((c) => (
-				<div class="pm__section">
-					<label class="pm__section-head">
-						<span>{c.title}</span>
-						<input type="checkbox" role="switch" class="pm__switch" data-category={c.id} />
+	<Dialog
+		id={`${id}-prefs`}
+		title="Cookie preferences"
+		lede="We use cookies for our own analytics and to see how our campaigns perform. We never sell your data."
+		class="cc__dialog"
+	>
+		<ul class="cc__cats">
+			<li class="cc__cat">
+				<div class="cc__cat-head">
+					<label class="cc__cat-title" for={`${id}-necessary`}>
+						Strictly necessary
 					</label>
-					<p class="pm__section-desc">{c.description}</p>
+					<input
+						type="checkbox"
+						role="switch"
+						class="cc__switch"
+						id={`${id}-necessary`}
+						aria-describedby={`${id}-necessary-desc`}
+						checked
+						disabled
+					/>
 				</div>
+				<p class="cc__cat-desc" id={`${id}-necessary-desc`}>
+					Security, load balancing and remembering your cookie choice. These keep the site working and cannot be
+					switched off.
+				</p>
+			</li>
+			{categories.map((c) => (
+				<li class="cc__cat">
+					<div class="cc__cat-head">
+						<label class="cc__cat-title" for={`${id}-${c.id}`}>
+							{c.title}
+						</label>
+						<input
+							type="checkbox"
+							role="switch"
+							class="cc__switch"
+							id={`${id}-${c.id}`}
+							aria-describedby={`${id}-${c.id}-desc`}
+							data-category={c.id}
+						/>
+					</div>
+					<p class="cc__cat-desc" id={`${id}-${c.id}-desc`}>
+						{c.description}
+					</p>
+				</li>
 			))}
-		</div>
-		<div class="pm__footer">
-			<div class="cm__btns">
-				<NButton variant="outlined" data-cc="reject-all">
-					Reject all
-				</NButton>
-				<NButton data-cc="accept-all">Accept all</NButton>
+		</ul>
+		{/* The link mid-sentence, with a word after it: a full stop right after the link would gain the
+		    whitespace Prettier puts between the link and the text (the `DocsNotice` lesson). */}
+		<p class="cc__note">
+			Our{' '}
+			<Link variant="inline" tone="ink" href={POLICY_HREF}>
+				Cookie Policy
+			</Link>{' '}
+			lists every cookie we set and what each one does.
+		</p>
+		{/* The card's pair in the card's order, equal and secondary; Save preferences, the choice made with
+		    the switches, is the primary, at the end. Narrower than 480 (the sheet), the pair keeps its
+		    row and Save takes the width under it. */}
+		<div slot="footer" class="cc__dialog-actions">
+			<div class="cc__dialog-row">
+				<ButtonGroup equal gap="sm" class="cc__dialog-pair">
+					<Button variant="secondary" attrs={{ 'data-cc': 'accept-all' }}>
+						Accept all
+					</Button>
+					<Button variant="secondary" attrs={{ 'data-cc': 'reject-all' }}>
+						Reject all
+					</Button>
+				</ButtonGroup>
+				<Button class="cc__save" attrs={{ 'data-cc': 'save' }}>
+					Save preferences
+				</Button>
 			</div>
-			<NButton variant="outlined" data-cc="save">
-				Save preferences
-			</NButton>
 		</div>
-	</dialog>
+	</Dialog>
 </div>
 
 <script>
-	import { lockScroll, unlockScroll } from '@util/scroll-lock';
+	import { openDialog } from '@util/dialog';
 
 	const CONSENT_COOKIE = 'tb_consent';
 	const CONSENT_VERSION = 1;
 	const MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
+	/** On the root while the page's card shows, for the chat launcher (`ChatLauncher`). */
+	const CARD_MARK = 'data-cc-card';
+	const LEAVE_MS = 160;
 
-	const root = document.getElementById('cc-main')!;
-	const banner = root.querySelector<HTMLElement>('.cm')!;
-	const dialog = root.querySelector<HTMLDialogElement>('.pm')!;
-	const switches = [...dialog.querySelectorAll<HTMLInputElement>('input[data-category]')];
+	type Category = 'analytics' | 'marketing';
+	type Action = 'accept-all' | 'reject-all' | 'save' | 'show-preferences';
 
-	function saveConsent(analytics: boolean, marketing: boolean) {
-		const consent: TbConsent = { v: CONSENT_VERSION, analytics, marketing };
-		window.tbConsent = consent;
-		const secure = location.protocol === 'https:' ? '; Secure' : '';
-		document.cookie = `${CONSENT_COOKIE}=${encodeURIComponent(JSON.stringify(consent))}; max-age=${MAX_AGE_SECONDS}; path=/; SameSite=Lax${secure}`;
+	const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
-		const ads = marketing ? 'granted' : 'denied';
-		window.gtag('consent', 'update', {
-			analytics_storage: analytics ? 'granted' : 'denied',
-			ad_storage: ads,
-			ad_user_data: ads,
-			// Never granted — see GtmHead.astro.
-			ad_personalization: 'denied',
-		});
+	function mount(root: HTMLElement) {
+		const demo = root.hasAttribute('data-cc-demo');
+		const card = root.querySelector<HTMLElement>('.cc__card')!;
+		const dialog = root.querySelector<HTMLDialogElement>('dialog')!;
+		const switches = [...dialog.querySelectorAll<HTMLInputElement>('input[data-category]')];
+		// The sandbox's instance keeps its choice to itself; the page's is `window.tbConsent`.
+		let demoConsent: TbConsent | null = null;
+		const current = () => (demo ? demoConsent : window.tbConsent);
 
-		banner.hidden = true;
-		if (dialog.open) dialog.close();
+		function hideCard() {
+			if (card.hidden) return;
+			// The launcher comes back as the card leaves. The page's instance only: the sandbox's never set it.
+			if (!demo) document.documentElement.removeAttribute(CARD_MARK);
+			const done = () => {
+				card.hidden = true;
+				card.removeAttribute('data-cc-leaving');
+			};
+			if (reducedMotion.matches) return done();
+			card.setAttribute('data-cc-leaving', '');
+			setTimeout(done, LEAVE_MS);
+		}
+
+		function saveConsent(analytics: boolean, marketing: boolean) {
+			const consent: TbConsent = { v: CONSENT_VERSION, analytics, marketing };
+			if (demo) {
+				demoConsent = consent;
+			} else {
+				window.tbConsent = consent;
+				const secure = location.protocol === 'https:' ? '; Secure' : '';
+				document.cookie = `${CONSENT_COOKIE}=${encodeURIComponent(JSON.stringify(consent))}; max-age=${MAX_AGE_SECONDS}; path=/; SameSite=Lax${secure}`;
+
+				const ads = marketing ? 'granted' : 'denied';
+				window.gtag('consent', 'update', {
+					analytics_storage: analytics ? 'granted' : 'denied',
+					ad_storage: ads,
+					ad_user_data: ads,
+					// Never granted — see GtmHead.astro.
+					ad_personalization: 'denied',
+				});
+			}
+
+			if (dialog.open) dialog.close();
+			hideCard();
+		}
+
+		function showPreferences(opener: HTMLElement | null) {
+			const consent = current();
+			switches.forEach((s) => (s.checked = consent?.[s.dataset.category as Category] ?? false));
+			openDialog(dialog, { opener });
+		}
+
+		const choice = (id: Category) => switches.find((s) => s.dataset.category === id)?.checked ?? false;
+		const actions: Record<Action, (opener: HTMLElement | null) => void> = {
+			'accept-all': () => saveConsent(true, true),
+			'reject-all': () => saveConsent(false, false),
+			save: () => saveConsent(choice('analytics'), choice('marketing')),
+			'show-preferences': showPreferences,
+		};
+
+		return { demo, run: (action: Action, opener: HTMLElement | null) => actions[action]?.(opener) };
 	}
 
-	function showPreferences() {
-		const consent = window.tbConsent;
-		switches.forEach((s) => (s.checked = consent?.[s.dataset.category as 'analytics' | 'marketing'] ?? false));
-		dialog.showModal();
-		lockScroll();
-	}
-
-	const choice = (id: string) => switches.find((s) => s.dataset.category === id)?.checked ?? false;
-	const actions: Record<string, () => void> = {
-		'accept-all': () => saveConsent(true, true),
-		'reject-all': () => saveConsent(false, false),
-		save: () => saveConsent(choice('analytics'), choice('marketing')),
-		'show-preferences': showPreferences,
+	// The ground follows the theme when it changes too (the footers' Appearance switch).
+	const markGround = () => {
+		const ground = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+		document
+			.querySelectorAll<HTMLElement>('[data-cc-root]')
+			.forEach((root) => root.setAttribute('data-surface', ground));
 	};
+	new MutationObserver(markGround).observe(document.documentElement, { attributeFilter: ['data-theme'] });
 
-	// Delegated on the document so footer "Cookie settings" buttons reach the dialog too.
+	const instances = new Map<HTMLElement, ReturnType<typeof mount>>();
+	document.querySelectorAll<HTMLElement>('[data-cc-root]').forEach((root) => instances.set(root, mount(root)));
+	const page = [...instances.values()].find((i) => !i.demo);
+
+	// Delegated on the document so the footers' "Cookie settings" and the Cookie Policy page reach the
+	// dialog too. A trigger inside an instance (the card's or the dialog's own buttons) drives that
+	// instance; one anywhere else drives the page's.
 	document.addEventListener('click', (e) => {
 		const trigger = (e.target as Element).closest<HTMLElement>('[data-cc]');
-		const action = trigger && actions[trigger.dataset.cc!];
-		if (!action) return;
+		if (!trigger) return;
+		const root = trigger.closest<HTMLElement>('[data-cc-root]');
+		const instance = root ? instances.get(root) : page;
+		if (!instance) return;
 		e.preventDefault();
-		action();
-	});
-
-	dialog.addEventListener('close', unlockScroll);
-
-	// A click on the dialog element itself landed on the backdrop.
-	dialog.addEventListener('click', (e) => {
-		if (e.target === dialog) dialog.close();
+		instance.run(trigger.dataset.cc as Action, trigger);
 	});
 </script>
 
-<style lang="scss" is:global>
-	@use '../styles/variables' as *;
-
-	// Link-styled "Cookie settings" trigger used in the footers and the Cookie Policy page.
+<style is:global lang="scss">
+	// Link-styled "Cookie settings" trigger used in the footers in use and on the Cookie Policy page.
 	.cookie-settings {
 		padding: 0;
 		font: inherit;
@@ -165,209 +309,224 @@ const categories = [
 		border: none;
 		cursor: pointer;
 	}
+</style>
 
-	#cc-main {
-		.n-button {
-			white-space: nowrap;
+<style lang="scss">
+	@use '../styles/variables' as *;
+
+	// ---- The card ---------------------------------------------------------------------------
+	//
+	// Main's card, on the kit's tokens: the page's surface and text, the hairline and the panel's lift,
+	// so it is a light card on a light page and a dark one on a dark page. 20px in from the corner (the
+	// home indicator's inset added on a phone), never taller than the window less its insets.
+	.cc__card {
+		position: fixed;
+		left: 20px;
+		bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+		z-index: $z-modal; // the chat launcher sits above, at the 32-bit maximum
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-3;
+		box-sizing: border-box;
+		width: min(340px, calc(100vw - 40px));
+		max-height: calc(100dvh - 40px);
+		overflow-y: auto;
+		padding: $spacing-5 $spacing-5 $spacing-3;
+		font-family: var(--font-family, $font-family-base);
+		color: var(--color-text, #17181c);
+		background: var(--color-bg-surface, #fff);
+		border: 1px solid var(--color-border, #e5e7eb);
+		border-radius: $radius-lg;
+		box-shadow: var(--elev-panel);
+		animation: cc-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+
+		&[hidden] {
+			display: none;
 		}
 
-		.cm,
-		.pm {
-			color: var(--color-text);
-			background: var(--color-bg-surface);
-			border: 1px solid var(--color-border-light);
-			border-radius: 8px;
-			box-shadow:
-				0 1px 2px rgba(16, 24, 40, 0.06),
-				0 12px 32px -8px rgba(16, 24, 40, 0.24);
+		&[data-cc-leaving] {
+			animation: cc-out 160ms ease-in forwards;
 		}
 
-		.cm {
-			position: fixed;
-			// Left corner: the bottom-right one is taken by a floating button.
-			left: 20px;
-			bottom: 20px;
-			z-index: $z-modal;
-			display: flex;
-			flex-direction: column;
-			gap: 12px;
-			width: min(340px, calc(100vw - 40px));
-			max-height: calc(100dvh - 40px);
-			overflow-y: auto;
-			padding: 20px 20px 12px;
-
-			&[hidden] {
-				display: none;
-			}
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
 		}
 
-		.cm__title {
-			margin: 0;
-			font-size: $font-size-lg;
-			font-weight: $font-weight-semibold;
-			line-height: 24px;
+		@media print {
+			display: none;
 		}
+	}
 
-		.cm__desc,
-		.pm__desc,
-		.pm__section-desc {
-			@include text-card-sm;
-			margin: 0;
-
-			a {
-				color: var(--color-text);
-				text-decoration: underline;
-			}
+	@keyframes cc-in {
+		from {
+			opacity: 0;
+			transform: translateY(12px);
 		}
+	}
 
-		.pm__section-desc {
-			color: var(--color-text-secondary);
+	@keyframes cc-out {
+		to {
+			opacity: 0;
+			transform: translateY(8px);
 		}
+	}
 
-		.cm__btns {
-			display: flex;
-			gap: 8px;
-			margin-top: 4px;
+	.cc__title {
+		@include type-tile-lg;
+		margin: 0;
+	}
 
-			.n-button {
-				flex: 1;
-			}
-		}
+	.cc__text {
+		@include type-small;
+		margin: 0;
+		text-wrap: pretty;
+	}
 
-		.cm__manage {
-			align-self: center;
-		}
+	.cc__choice {
+		margin-top: $spacing-1;
+	}
 
-		.pm {
-			width: min(36rem, calc(100vw - 2rem));
-			max-height: calc(100dvh - 2rem);
-			// The site's base styles zero `margin`, which un-centres a modal dialog.
-			margin: auto;
-			padding: 0;
+	.cc__manage {
+		align-self: center;
+	}
 
-			&::backdrop {
-				background: rgba(0, 0, 0, 0.5);
-			}
+	// ---- The dialog -------------------------------------------------------------------------
 
-			&[open] {
-				display: flex;
-				flex-direction: column;
-			}
-		}
+	.cc__cats {
+		display: grid;
+		gap: $spacing-2;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
 
-		.pm__header {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			padding: 20px 24px 0;
-		}
+	// One category: its name and switch on a line, its line under them, on the page's light ground.
+	.cc__cat {
+		padding: $spacing-3 $spacing-4;
+		border-radius: $radius-lg;
+		background: var(--color-bg-light, #f4f5f7);
+	}
 
-		.pm__title {
-			margin: 0;
-			font-size: $font-size-xl;
-			font-weight: $font-weight-semibold;
-			line-height: 28px;
-			color: var(--color-text);
-		}
+	.cc__cat-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: $spacing-4;
+	}
 
-		.pm__close {
-			width: 32px;
-			height: 32px;
-			margin-right: -6px;
-			font-size: $font-size-base;
-			color: var(--color-text);
-			background: transparent;
-			border: none;
-			border-radius: $radius-sm;
-			cursor: pointer;
+	.cc__cat-title {
+		@include type-tile;
+		line-height: 24px;
+		color: var(--color-text, #17181c);
+		cursor: pointer;
+	}
 
-			&:hover {
-				background: var(--color-bg-light);
-			}
-		}
+	.cc__cat-desc {
+		@include type-small;
+		margin: $spacing-1 0 0;
+		color: var(--color-text-secondary, #63656c);
+	}
 
-		.pm__body {
-			display: flex;
-			flex-direction: column;
-			gap: 10px;
-			padding: 16px 24px;
-			overflow-y: auto;
-		}
+	// The switch: a 44 × 24 track, the knob 20. Off, the track is the field's edge grey (#868d9a, 3:1
+	// on white); on, the scheme's fill with the knob in its on-fill. The ring from the ground, as
+	// every control's.
+	.cc__switch {
+		--_track: #868d9a;
+		--_knob: #fff;
 
-		.pm__section {
-			display: flex;
-			flex-direction: column;
-			gap: 4px;
-			padding: 12px 16px;
-			background: var(--color-bg-light);
-			border-radius: $radius-md;
-		}
+		position: relative;
+		flex: none;
+		box-sizing: border-box;
+		width: 44px;
+		height: 24px;
+		margin: 0;
+		appearance: none;
+		background: var(--_track);
+		border: 0;
+		border-radius: $radius-full;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
 
-		.pm__section-head {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			gap: 16px;
-			font-size: $font-size-sm;
-			font-weight: $font-weight-semibold;
-			line-height: 24px;
-			cursor: pointer;
-		}
-
-		.pm__switch {
-			flex-shrink: 0;
-			position: relative;
-			width: 36px;
+		&::after {
+			content: '';
+			position: absolute;
+			top: 2px;
+			left: 2px;
+			width: 20px;
 			height: 20px;
-			margin: 0;
-			appearance: none;
-			background: var(--color-text-light);
-			border-radius: 10px;
-			cursor: pointer;
-			transition: background-color 0.2s ease;
+			background: var(--_knob);
+			border-radius: 50%;
+			box-shadow: 0 1px 2px rgba(16, 24, 40, 0.24);
+			transition: transform 0.2s ease;
+		}
+
+		&:checked {
+			--_track: var(--accent-fill, #3d50f5);
+			--_knob: var(--accent-on-fill, #fff);
 
 			&::after {
-				content: '';
-				position: absolute;
-				top: 2px;
-				left: 2px;
-				width: 16px;
-				height: 16px;
-				background: var(--color-white);
-				border-radius: 50%;
-				transition: transform 0.2s ease;
-			}
-
-			&:checked {
-				background: var(--color-primary);
-
-				&::after {
-					transform: translateX(16px);
-				}
-			}
-
-			&:disabled {
-				opacity: 0.5;
-				cursor: not-allowed;
-			}
-
-			&:focus-visible {
-				outline: 2px solid var(--color-primary);
-				outline-offset: 2px;
+				transform: translateX(20px);
 			}
 		}
 
-		.pm__footer {
-			display: flex;
-			flex-direction: column;
-			gap: 8px;
-			padding: 0 24px 20px;
+		&:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
 
-			@include media-up(sm) {
-				flex-direction: row;
-				align-items: center;
-				justify-content: space-between;
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+
+			&::after {
+				transition: none;
 			}
+		}
+
+		@media (forced-colors: active) {
+			border: 1px solid ButtonText;
+
+			&::after {
+				background: ButtonText;
+			}
+		}
+	}
+
+	.cc__note {
+		@include type-small;
+		margin: $spacing-4 0 0;
+		color: var(--color-text-secondary, #63656c);
+	}
+
+	// The pair, then Save at the end of the row. The footer measures itself, as `ButtonGroup` does:
+	// narrower than 480 (the sheet), Save takes the width under the pair.
+	.cc__dialog-actions {
+		container-type: inline-size;
+	}
+
+	.cc__dialog-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.cc__save {
+		margin-inline-start: auto;
+	}
+
+	@container (max-width: 479px) {
+		.cc__dialog-row {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.cc__save {
+			margin-inline-start: 0;
 		}
 	}
 </style>
