@@ -96,7 +96,9 @@ export const productsSubmenu: SubMenu = {
 				},
 				{
 					href: '/products/mobile/',
-					icon: '/src/assets/images/landings/nav/tb-mobile-icon.svg',
+					// The app's own icon is the ThingsBoard mark, on a wash of its green, as the footer and the
+					// homepage's ecosystem show it; not a phone.
+					icon: '/src/assets/images/landings/nav/thingsboard-m-icon.svg',
 					heading: 'Mobile Application',
 					description: 'IoT mobile product',
 					linkClass: 'mobile-lnk',
@@ -355,7 +357,7 @@ export const partnersSubmenu: SubMenu = {
 	],
 };
 
-// Docs submenu
+// Docs submenu: the products' own marks, drawn a step smaller and lighter than Products' (`SiteMenu`).
 export const docsSubmenu: SubMenu = {
 	id: 'nav-docs',
 	className: 'products',
@@ -366,12 +368,14 @@ export const docsSubmenu: SubMenu = {
 			items: [
 				{
 					href: '/docs/pe/',
+					icon: '/src/assets/images/landings/nav/thingsboard-p-icon.svg',
 					heading: 'ThingsBoard',
 					description: 'On-premises IoT Platform',
 					linkClass: 'prof-lnk',
 				},
 				{
 					href: '/docs/paas/',
+					icon: '/src/assets/images/landings/nav/thingsboard-c-icon.svg',
 					heading: 'ThingsBoard Cloud',
 					description: 'Platform-as-a-Service',
 					linkClass: 'cloud-lnk',
@@ -384,30 +388,35 @@ export const docsSubmenu: SubMenu = {
 			items: [
 				{
 					href: '/docs/edge/pe/',
+					icon: '/src/assets/images/landings/nav/thingsboard-e-icon.svg',
 					heading: 'Edge',
 					description: 'Edge computing',
 					linkClass: 'edge-lnk',
 				},
 				{
 					href: '/docs/iot-gateway/',
+					icon: '/src/assets/images/landings/nav/gateway-icon.svg',
 					heading: 'IoT Gateway',
 					description: 'Connect legacy protocols',
 					linkClass: 'gateway-lnk',
 				},
 				{
 					href: '/docs/mobile/pe/',
+					icon: '/src/assets/images/landings/nav/thingsboard-m-icon.svg',
 					heading: 'Mobile Application',
 					description: 'IoT mobile product',
 					linkClass: 'mobile-pe-lnk',
 				},
 				{
 					href: TBMQ_PE_DOCS_URL,
+					icon: '/src/assets/images/landings/nav/tbmq-icon.svg',
 					heading: 'TBMQ',
 					description: 'Scalable MQTT broker',
 					linkClass: 'mqtt-broker-lnk',
 				},
 				{
 					href: '/docs/trendz/',
+					icon: '/src/assets/images/landings/nav/trendz-icon.svg',
 					heading: 'Trendz Analytics',
 					description: 'Data analytics and Prediction',
 					linkClass: 'trendz-lnk',
