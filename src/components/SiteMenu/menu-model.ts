@@ -22,8 +22,8 @@ export const MENU_ENTRIES: MenuEntry[] = mainNavItems.map((item) => {
 
 export const MENU_SECTIONS: MenuSection[] = MENU_ENTRIES.filter((e): e is MenuSection => e.sub !== undefined);
 
-/** The Products section draws its marks a step larger: they are the products' logos. */
-export const iconSizeOf = (sub: SubMenu) => (sub.id === 'nav-products' ? 32 : 24);
+/** Products and Docs draw their marks a step larger: they are the products' logos. */
+export const iconSizeOf = (sub: SubMenu) => (sub.id === 'nav-products' || sub.id === 'nav-docs' ? 32 : 24);
 
 /**
  * A link's line under its name, only where it tells two links apart: the products, and their docs.
