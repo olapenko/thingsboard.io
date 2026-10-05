@@ -1,7 +1,7 @@
 ---
 /**
- * The cookie consent: an indigo bar at the foot of every page and the preferences dialog behind it,
- * mounted once per page from `starlight/SkipLink.astro`.
+ * The cookie consent: a card in the bottom-left corner of every page and the preferences dialog
+ * behind it, mounted once per page from `starlight/SkipLink.astro`.
  *
  * WHAT IT DOES (the compliance side, unchanged since upstream #704): Accept all and Reject all as two
  * equal buttons, Manage preferences for a choice per category (Analytics, Marketing), the choice
@@ -11,19 +11,17 @@
  * `data-cc="show-preferences"` (the footers' "Cookie settings", the Cookie Policy page) reopens the
  * dialog; the click is delegated on the document so the footers need no script of their own.
  *
- * HOW IT LOOKS (the redesign's `CookieNotice`, folded in here 2026-10-04): the bar edge to edge on the
- * bookends' indigo, "Cookie policy ›" as the heading and the one link to the policy (`ui/Link`, ink on
- * dark), one short sentence at 13/20 — a step under the ladder's 14px floor, for chrome rather than
- * page — and the actions in `ui/Button`: Manage preferences as a tertiary, Reject all and Accept all
- * equal in a `ui/ButtonGroup`. `data-surface="dark"` on the bar gives the kit its dark tones and the
- * yellow ring. The dialog is `ui/Dialog`: the browser's focus trap and Escape, focus back to the
- * opener on close (`util/dialog`), a bottom sheet under 560.
+ * HOW IT LOOKS: main's card (#704), on the kit. A 340 card 20px in from the bottom-left corner — the
+ * bottom-right is the chat launcher's — on the page's own surface, so it follows the theme: "We use
+ * cookies" over upstream's sentence and its Cookie Policy link (`ui/Link`), Accept all and Reject all
+ * as two equal buttons (`ui/ButtonGroup`), Manage preferences under them (`ui/Button`, tertiary).
+ * The words are upstream's, unchanged. The dialog is `ui/Dialog`: the browser's focus trap and
+ * Escape, focus back to the opener on close (`util/dialog`), a bottom sheet under 560.
  *
- * THE CHAT LAUNCHER shares the foot of the window (44, 16px in from the bottom-right corner). From a
- * tablet up the bar's copy stops 90px short of the right edge — the launcher's 44 and 16 and 30
- * clear — and the launcher is centred on the button row (16 + 44 + 16) while the bar is up. On a
- * phone the bar takes the whole width and the launcher lifts above it instead: the script publishes
- * the bar's height as `--cc-bar-h` on the root, which `ChatLauncher` adds to its inset below 768.
+ * THE CHAT LAUNCHER (44, 16px in from the bottom-right corner) has the other corner from a tablet up.
+ * On a phone the card takes the width and the launcher lifts above it: the script publishes the
+ * card's footprint — its height and its inset — as `--cc-card-h` on the root, which `ChatLauncher`
+ * adds to its own inset below 768, 0 once the card has gone.
  *
  * Hidden in print (`print:hidden`, and its own rule for pages without the utility).
  */
@@ -35,7 +33,7 @@ import Link from '@components/ui/Link.astro';
 interface Props {
 	/**
 	 * Sandbox only: always shown on load, and no choice writes the cookie or reaches GTM, so trying
-	 * it never dismisses the real bar on the rest of the site.
+	 * it never dismisses the real card on the rest of the site.
 	 */
 	demo?: boolean;
 	/** A second instance on one page (the sandbox) needs its own id. */
@@ -63,46 +61,38 @@ const categories = [
 <div class="cc" id={id} data-cc-root data-cc-demo={demo ? '' : undefined} data-pagefind-ignore>
 	{/* A `div` with the region role, not a `section`: the homepage strips every section's background. */}
 	<div
-		class="cc__bar print:hidden"
+		class="cc__card print:hidden"
 		role="region"
-		data-surface="dark"
-		data-accent="brand"
 		aria-labelledby={`${id}-title`}
 		aria-describedby={`${id}-desc`}
 		hidden
 	>
-		<div class="cc__in">
-			<div class="cc__copy">
-				{/* The heading IS the link to the policy: one link to the page, not one in the heading and one in the sentence. */}
-				<p class="cc__title" id={`${id}-title`}>
-					<Link href={POLICY_HREF} tone="ink">
-						Cookie policy
-					</Link>
-				</p>
-				<p class="cc__text" id={`${id}-desc`}>
-					We use cookies to understand how our site is used and to improve it. We never sell your data. You can change
-					your choice anytime in Cookie settings.
-				</p>
-			</div>
-			<div class="cc__actions">
-				<Button
-					variant="tertiary"
-					size={{ base: 'sm', md: 'md' }}
-					class="cc__manage"
-					attrs={{ 'data-cc': 'show-preferences', 'aria-haspopup': 'dialog' }}
-				>
-					Manage preferences
-				</Button>
-				<ButtonGroup equal gap="sm" class="cc__choice">
-					<Button variant="secondary" attrs={{ 'data-cc': 'reject-all' }}>
-						Reject all
-					</Button>
-					<Button attrs={{ 'data-cc': 'accept-all' }}>Accept all</Button>
-				</ButtonGroup>
-			</div>
-		</div>
+		<p class="cc__title" id={`${id}-title`}>
+			We use cookies
+		</p>
+		<p class="cc__text" id={`${id}-desc`}>
+			We use cookies to understand how our site is used and to improve it. We never sell your data. You can change your
+			choice anytime in Cookie settings.{' '}
+			<Link href={POLICY_HREF} variant="inline">
+				Cookie Policy
+			</Link>
+		</p>
+		<ButtonGroup equal gap="sm" class="cc__choice">
+			<Button attrs={{ 'data-cc': 'accept-all' }}>Accept all</Button>
+			<Button variant="secondary" attrs={{ 'data-cc': 'reject-all' }}>
+				Reject all
+			</Button>
+		</ButtonGroup>
+		<Button
+			variant="tertiary"
+			size="sm"
+			class="cc__manage"
+			attrs={{ 'data-cc': 'show-preferences', 'aria-haspopup': 'dialog' }}
+		>
+			Manage preferences
+		</Button>
 	</div>
-	{/* Inline and right after the bar, so it runs before first paint: a visitor who has chosen never
+	{/* Inline and right after the card, so it runs before first paint: a visitor who has chosen never
 	    sees it flash, and one who has not sees it with the page, never late as the LCP element. */}
 	<script is:inline>
 		(function (el) {
@@ -166,7 +156,7 @@ const categories = [
 			</Link>{' '}
 			lists every cookie we set and what each one does.
 		</p>
-		{/* Reject all and Accept all as the pair they are in the bar; Save at the end of the row, for the
+		{/* Reject all and Accept all as the pair they are on the card; Save at the end of the row, for the
 		    reader who used the switches. Under 480 (the sheet) the three stack. */}
 		<ButtonGroup slot="footer" stackBelow={480} gap="sm" class="cc__dialog-actions">
 			<Button variant="secondary" attrs={{ 'data-cc': 'reject-all' }}>
@@ -186,8 +176,9 @@ const categories = [
 	const CONSENT_COOKIE = 'tb_consent';
 	const CONSENT_VERSION = 1;
 	const MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
-	/** The bar's height while it shows, for whatever shares the foot of the window (`ChatLauncher`). */
-	const BAR_HEIGHT_VAR = '--cc-bar-h';
+	/** The card's footprint while it shows — its height and its inset — for the chat launcher above it on a phone. */
+	const CARD_FOOT_VAR = '--cc-card-h';
+	const CARD_INSET = 20;
 	const LEAVE_MS = 160;
 
 	type Category = 'analytics' | 'marketing';
@@ -197,33 +188,33 @@ const categories = [
 
 	function mount(root: HTMLElement) {
 		const demo = root.hasAttribute('data-cc-demo');
-		const bar = root.querySelector<HTMLElement>('.cc__bar')!;
+		const card = root.querySelector<HTMLElement>('.cc__card')!;
 		const dialog = root.querySelector<HTMLDialogElement>('dialog')!;
 		const switches = [...dialog.querySelectorAll<HTMLInputElement>('input[data-category]')];
 		// The sandbox's instance keeps its choice to itself; the page's is `window.tbConsent`.
 		let demoConsent: TbConsent | null = null;
 		const current = () => (demo ? demoConsent : window.tbConsent);
 
-		// The bar's height, published while it shows, 0 once it has gone. The page's instance only:
+		// The card's footprint, published while it shows, 0 once it has gone. The page's instance only:
 		// several sandbox instances would fight over the one variable.
 		if (!demo) {
 			const publish = () =>
 				document.documentElement.style.setProperty(
-					BAR_HEIGHT_VAR,
-					`${bar.hidden || bar.hasAttribute('data-cc-leaving') ? 0 : bar.getBoundingClientRect().height}px`
+					CARD_FOOT_VAR,
+					`${card.hidden || card.hasAttribute('data-cc-leaving') ? 0 : card.getBoundingClientRect().height + CARD_INSET}px`
 				);
 			publish();
-			new ResizeObserver(publish).observe(bar);
+			new ResizeObserver(publish).observe(card);
 		}
 
-		function hideBar() {
-			if (bar.hidden) return;
+		function hideCard() {
+			if (card.hidden) return;
 			const done = () => {
-				bar.hidden = true;
-				bar.removeAttribute('data-cc-leaving');
+				card.hidden = true;
+				card.removeAttribute('data-cc-leaving');
 			};
 			if (reducedMotion.matches) return done();
-			bar.setAttribute('data-cc-leaving', '');
+			card.setAttribute('data-cc-leaving', '');
 			setTimeout(done, LEAVE_MS);
 		}
 
@@ -247,7 +238,7 @@ const categories = [
 			}
 
 			if (dialog.open) dialog.close();
-			hideBar();
+			hideCard();
 		}
 
 		function showPreferences(opener: HTMLElement | null) {
@@ -272,7 +263,7 @@ const categories = [
 	const page = [...instances.values()].find((i) => !i.demo);
 
 	// Delegated on the document so the footers' "Cookie settings" and the Cookie Policy page reach the
-	// dialog too. A trigger inside an instance (the bar's or the dialog's own buttons) drives that
+	// dialog too. A trigger inside an instance (the card's or the dialog's own buttons) drives that
 	// instance; one anywhere else drives the page's.
 	document.addEventListener('click', (e) => {
 		const trigger = (e.target as Element).closest<HTMLElement>('[data-cc]');
@@ -301,32 +292,35 @@ const categories = [
 <style lang="scss">
 	@use '../styles/variables' as *;
 
-	// ---- The bar ----------------------------------------------------------------------------
+	// ---- The card ---------------------------------------------------------------------------
 	//
-	// Solid on the bookends' indigo (`--band-indigo`, #121425), not black, so the brand-blue button sits
-	// on a ground of its own family; the copy is white at 78%, 11:1 on it. The same in both themes:
-	// it is chrome, and the dark theme's page (#141517) sits close enough that the hairline on top is
-	// what separates them there.
-	.cc__bar {
-		--cc-ground: var(--band-indigo, #121425);
-		--cc-text: #fff;
-		--cc-muted: rgba(255, 255, 255, 0.78);
-		--cc-edge: rgba(255, 255, 255, 0.12);
-
-		// No `display` here: the UA's `[hidden] { display: none }` is what hides it, and an author
-		// display on this element would beat it.
+	// Main's card, on the kit's tokens: the page's surface and text, the hairline and the panel's lift,
+	// so it is a light card on a light page and a dark one on a dark page. 20px in from the corner (the
+	// home indicator's inset added on a phone), never taller than the window less its insets.
+	.cc__card {
 		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		z-index: 9999; // the chat launcher sits above, at the 32-bit maximum
+		left: 20px;
+		bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+		z-index: $z-modal; // the chat launcher sits above, at the 32-bit maximum
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-3;
 		box-sizing: border-box;
+		width: min(340px, calc(100vw - 40px));
+		max-height: calc(100dvh - 40px);
+		overflow-y: auto;
+		padding: $spacing-5 $spacing-5 $spacing-3;
 		font-family: var(--font-family, $font-family-base);
-		color: var(--cc-text);
-		background: var(--cc-ground);
-		border-top: 1px solid var(--cc-edge);
-		box-shadow: 0 -8px 24px -16px rgba(16, 24, 40, 0.3);
+		color: var(--color-text, #17181c);
+		background: var(--color-bg-surface, #fff);
+		border: 1px solid var(--color-border, #e5e7eb);
+		border-radius: $radius-lg;
+		box-shadow: var(--elev-panel);
 		animation: cc-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+
+		&[hidden] {
+			display: none;
+		}
 
 		&[data-cc-leaving] {
 			animation: cc-out 160ms ease-in forwards;
@@ -355,94 +349,23 @@ const categories = [
 		}
 	}
 
-	// The redesigned pages' measure (`--band-gutter`: 960 inside 20px gutters, centred), but never
-	// closer than 90px to the right edge: the launcher's 44 and its 16px inset, and 30 clear of it. At
-	// 1440 the gutter is 240 and the bar is symmetric; on a docs page past the sidebar it is 90 either
-	// side; at 1024 the right holds 90 and the line gives up the difference.
-	//
-	// Bottom-aligned, not centred: the buttons then sit 16 up whatever the sentence wraps to, and the
-	// launcher (44, 16 up) is centred on their row.
-	.cc__in {
-		display: flex;
-		align-items: flex-end;
-		gap: $spacing-8;
-		padding: $spacing-4 max(90px, var(--band-gutter)) $spacing-4 var(--band-gutter);
-	}
-
-	.cc__copy {
-		flex: 1;
-		min-width: 0;
-	}
-
 	.cc__title {
+		@include type-tile-lg;
 		margin: 0;
 	}
 
-	// The ladder's `type-small` is 14/22, the floor for page text; a notice that is chrome rather than
-	// page takes one step under it, 13/20, as the redesign's notice did.
 	.cc__text {
 		@include type-small;
-		margin: $spacing-1 0 0;
-		font-size: 13px;
-		line-height: 20px;
-		color: var(--cc-muted);
+		margin: 0;
 		text-wrap: pretty;
 	}
 
-	.cc__actions {
-		flex: none;
-		display: flex;
-		align-items: center;
-		gap: $spacing-2;
+	.cc__choice {
+		margin-top: $spacing-1;
 	}
 
-	// A phone: three rows — the heading with Manage preferences (at 40) at the end of its line, the
-	// sentence, the pair full width — 192px of an 812px screen; stacked, the actions alone were 100.
-	// The two wrappers give up their boxes so the grid places the four pieces. The home indicator's
-	// inset under it all. The launcher lifts above the bar here.
-	@include media-down(md) {
-		.cc__in {
-			display: grid;
-			grid-template-columns: minmax(0, 1fr) auto;
-			grid-template-areas:
-				'title manage'
-				'text text'
-				'choice choice';
-			align-items: center;
-			gap: 0 $spacing-3;
-			padding: $spacing-4 $spacing-4 calc(#{$spacing-4} + env(safe-area-inset-bottom, 0px));
-		}
-
-		.cc__copy,
-		.cc__actions {
-			display: contents;
-		}
-
-		.cc__title {
-			grid-area: title;
-		}
-
-		// Its label on the pair's right edge: the button's own side padding, taken back.
-		.cc__manage {
-			grid-area: manage;
-			margin-inline-end: calc(-1 * var(--btn-px));
-		}
-
-		.cc__text {
-			grid-area: text;
-		}
-
-		.cc__choice {
-			grid-area: choice;
-			margin-top: $spacing-3;
-		}
-	}
-
-	// Docs pages: past 72rem Starlight draws the sidebar, and the bar starts where the page does.
-	@media (min-width: 72rem) {
-		:global(html[data-has-sidebar]) .cc__bar {
-			left: var(--sl-sidebar-width);
-		}
+	.cc__manage {
+		align-self: center;
 	}
 
 	// ---- The dialog -------------------------------------------------------------------------
