@@ -32,7 +32,27 @@ does the three in their worktrees and stops on the first conflict; `--push` push
 | 8 | Cloud + On-premises | #17 | The product pages on the kit: FE's `Hero` (main's → `HomeHero`), `Bookend`, `ProductMatrix`, FE's `BenefitGrid`/`ChoiceBand`/`ProductFaq`; `page-inset()`. |
 | 9 | Home | #18 | The redesigned homepage: FE's sections, data and visuals; main's homepage sections removed; `BaseLayout` preload variants; `ImageComparison` id. |
 
-Every page layer has landed; `handoff` is `main` plus nine linear commits. `FE-handoff` is now
+Every page layer has landed, and on 5 Oct the chrome stack did too: `handoff` is `main` plus
+twenty-four linear commits — the nine page layers and the fifteen below, one commit per PR.
+
+| PR | Layer | What it carries |
+| --- | --- | --- |
+| #30 | Lint | The three unused values upstream's CI stopped on; ESLint clean across `src`. |
+| #31 | Chat focus | Focus stays where the reader put it while the YourGPT widget boots closed. |
+| #32 | Dev deps | Embla pre-bundled at dev-server start, as PhotoSwipe is. |
+| #19 | Nav data | Blog into Company. |
+| #20 | The bar | Two looks (marketing · docs), two states; over a dark hero it stays dark until the page turns light. |
+| #21 | Search | One control at two sizes; the dialog as its own layer; the result feed in the site's face. |
+| #24 | The menu | Seven items (Products · Solutions · Services · Docs · Company · IoT Hub · Pricing); one panel on one column grid; the phone sheet. |
+| #25 | Footers | `SiteFooter` at `map` or `docs`; four columns in the menu's order on the platform panel's grid. |
+| #27 | Cookie consent | Main's card on the kit; Save preferences the dialog's primary; the launcher steps aside on a phone. |
+| #29 | Partners | `/partners/`, linked once from the footers and closing the menu's Partners list. |
+| #23 | Pricing | The page on the kit with its calculators. |
+| #28 | FAQ links | A copy link on every answer; an address that names one opens it. |
+| #22 | Home | Order C ships at `/`. |
+| #26 | Agent terminal | The composer's caret back on the prompt's line. |
+| #33 | Old footer | Main's `Landing/Footer` retired; every `BaseLayout` page closes on the map. |
+ `FE-handoff` is now
 `facelift-archive`, a frozen reference; `ui-reconcile` stays frozen too, as the source of the pricing
 drafts the sandbox has yet to take (its kit, Type and UI inventory pages are the Design system now).
 The running orders are back (`/internal/homepages/` and the island's switch on every homepage). What remains on `lab`: the rest of the homepage sandbox
@@ -49,8 +69,8 @@ their components are on `handoff`.
 | `dark-mode` | A WIP on the archive's base: the Appearance row (since rebuilt), PromoBanner dark tokens, IoT Hub hero and Cookie policy dark fixes. | Port the fixes to `handoff` as a `feat/` if dark pages are revisited; then delete. |
 | `header-search` | The docs-search sandbox on the archive's base (search itself shipped via docs chrome). | Rebuild `/internal/flows/main-menu/` as a Chrome direction on `lab` if wanted; then delete. |
 
-Open, for a review: legal's sign-off on the cookie notice's short sentence. The responsive logo and
-the GitHub star count moved into the chrome plan below (layer 11).
+The cookie card speaks upstream's words, so the short sentence that waited on legal is gone. The
+responsive logo and the GitHub star count moved into the chrome plan below (layer 11).
 
 ## The chrome plan
 
@@ -83,27 +103,28 @@ those two files.
 | 16 | Cookie consent | `feat/cookie-consent-kit` → #27, stacked on #25 | On `lab`. Upstream's consent (#704) unchanged — Accept all and Reject all as equals, a switch per category, `tb_consent`, Consent Mode v2 — in the redesign's indigo bar on the kit, with the preferences in `ui/Dialog`; `CookieNotice` goes. The cookie workbench shows it in demo mode. Open: legal's sign-off on the short sentence. |
 
 Since 5 Oct the one panel is the site's menu (layer 13). Its colour is one token set on `nav.sm`,
-reassigned per ground — the dark theme, the docs bar's sidebar ground, the transparent bar over a
-dark hero (which takes the panel's ground while it is open) — and the products' marks keep the
-products page's colours on every ground. The row packs beside the wordmark; a page item is
-underlined in the ink, an open section in the accent; the chevron turns over with a little give.
-The search dialog carries Google's attribution in its head ("enhanced by Google"), as the free
-search asks.
+reassigned per ground — the dark theme, the docs bar's sidebar ground, the bar over a dark hero —
+and the products' marks carry their own colours in their files. The row packs beside the wordmark;
+a page item is underlined in the ink, the open section by one accent line that glides along the row;
+the chevrons say an item opens a section and no longer turn. The panel has no rail and no heading:
+the open section stands under the row's first item, on one column grid (236 wide, 24 apart; Docs'
+monospace 260). The search dialog carries Google's attribution under its field.
 
-Also since 5 Oct: Products closes on Pricing, Installation options and the Cloud card (the card left
-the panel's foot); Customers shows three case studies with a figure each and a line of feedback, read
-from the pages' data (`data/menu-customers`); Docs is set in the monospace face. The map footer is
-every `BaseLayout` page's unless it keeps the legacy one by name (`footer="in-use"`, the reference
-homepage order only), so the old footer is gone from the marketing pages. The CLI visual's composer
-is fixed in #26 (`fix/agent-composer` → handoff).
+Also since 5 Oct: Use Cases and Customers are Solutions (ten use cases, SCADA, five case studies by
+name, each list closed by its own "All …" link) and Partners is a group in Company; Products and Docs
+close on a bar of promotions, Services on Talk to an expert. A page has one name and one home in the
+menu and the footer, in the same order. Main's footer is retired (#33); lab keeps it as
+`internal/_LegacyFooter.astro` for the `live` reference order and the footer workbench's `site`
+stage, which lab's `starlight/Footer.astro` picks by address.
 
-**Merging the stack into `handoff`.** Each PR lands as one layer commit, as layers 1–9 did; a
+**The move into `handoff` (5 Oct).** Each PR landed as one layer commit, as layers 1–9 did: a
 stacked branch carries its parent's commits, so a layer is its own range (`feat/site-bar..feat/
-site-search`), cherry-picked and committed with the layer's message. Prepared on 5 Oct as the local
-branch `handoff-next` (#19, #20, #21, #24, #25, #23, #22, #26 on `handoff`; type-checked, the tree
-identical to a checked rehearsal). Landing it is the owner's push: point each PR branch at its
-layer commit, then fast-forward `handoff`, and GitHub marks the eight merged. #27 follows once
-those are in.
+site-search`), cherry-picked and committed with the layer's message, in the order of the table above.
+Checked first: type-check, ESLint, `build:fast`, `lint:linkcheck:nobuild` (no link issues) and
+`lint:landmarks` (one `<main>` on 4588 pages). Each PR branch was pointed at its layer commit, every
+PR retargeted to `handoff`, and `handoff` fast-forwarded (`dcfa7715b..05312bc46`), so GitHub marked
+#19–#33 merged. `lab` merged it; it differs from `handoff` only by the sandbox. A new layer is a
+`feat/` branch off `handoff` again.
 
 Open on this plan: which social icons the docs footer
 keeps; whether Pricing stays a button beside Menu on the docs bar.
