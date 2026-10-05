@@ -150,7 +150,7 @@ shipping is a PR and dropping it is a revert. (The footer draft beside it was ap
   (`selfCanonical`, #341): old links, `/sitemap` and search already send "ThingsBoard docs" there.
   A hub at `/docs/overview/` would start with no inbound links and leave them on a retired edition.
 - *What it costs.*
-  - Code: 8 files, +262 / −49 — `components/DocsHub/DocsHubProducts.astro`, `data/docs-hub.ts`,
+  - Code: 8 files, +265 / −48 — `components/DocsHub/DocsHubProducts.astro`, `data/docs-hub.ts`,
     `docs/index.mdx` rewritten, `DocHero` (air under a simple hero with buttons), the CE sidebar's Getting Started tab and the CE-vs-PE page's link
     (both to `/docs/getting-started/`), the hub's social card (`product-meta.ts`), the Docs menu's bar.
   - Search: same URL, same self-canonical, no redirect; the title and description change
