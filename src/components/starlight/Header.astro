@@ -3,7 +3,6 @@ import HeaderContent from '../Landing/HeaderContent.astro';
 import PromoBanner from '../PromoBanner.astro';
 import { Products } from '@models/site.models';
 import { resolveHeaderConfig, type HeaderConfig } from '@util/header-config';
-import SiteMenu from '@components/SiteMenu/SiteMenu.astro';
 
 const pathname = Astro.url.pathname;
 
@@ -28,61 +27,3 @@ const headerConfig = (locals.bslHeaderConfig as HeaderConfig | undefined) ?? res
 
 <PromoBanner />
 <HeaderContent gitHubPlatform={gitHubPlatform} headerConfig={headerConfig} />
-
-{/* LAB ONLY — THE MENU SWITCH. The site is prerendered, so a page sees neither query nor cookie on
-	   the server; the switch is on the client. Both candidates ride along in inert templates, and the
-	   script below, inline so it runs before the components' own scripts, puts the one the cookie names
-	   for this page's look (`tb-menu-docs`, `tb-menu-marketing`) in place of the current menu and hands
-	   it the Menu button. The island's Menu pill sets the cookie. With no cookie the page gets the one
-	   panel, the candidate for home since 5 Oct; `current` in the cookie leaves the page `handoff`'s. */}
-<template data-lab-menu="dropdowns">
-	<SiteMenu model="dropdowns" />
-</template>
-<template data-lab-menu="panel">
-	<SiteMenu model="panel" />
-</template>
-<script is:inline>
-	(function () {
-		var bar = document.querySelector('[data-header-look]');
-		var look = bar && bar.getAttribute('data-header-look');
-		if (!look) return;
-		var m = new RegExp('(?:^|; )tb-menu-' + look + '=(current|dropdowns|panel)').exec(document.cookie);
-		var want = m ? m[1] : 'panel';
-		if (want === 'current') return;
-		var tpl = document.querySelector('template[data-lab-menu="' + want + '"]');
-		var current = document.querySelector('nav.head-menu');
-		if (!tpl || !current) return;
-		current.replaceWith(tpl.content.cloneNode(true));
-		// astro-icon defines each symbol once per page, inside the first icon that uses it — which may
-		// be in the template left inert. Any symbol the stamped menu references that the document lacks
-		// is copied over from the templates, so a tile's icon draws.
-		var missing = {};
-		document.querySelectorAll('nav.sm use').forEach(function (u) {
-			var id = (u.getAttribute('href') || '').slice(1);
-			if (id && !document.getElementById(id)) missing[id] = true;
-		});
-		var ids = Object.keys(missing);
-		if (ids.length) {
-			var defs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-			defs.setAttribute('aria-hidden', 'true');
-			defs.style.display = 'none';
-			document.querySelectorAll('template[data-lab-menu]').forEach(function (t) {
-				ids.forEach(function (id) {
-					var sym = missing[id] && t.content.getElementById(id);
-					if (sym) {
-						defs.appendChild(sym.cloneNode(true));
-						missing[id] = false;
-					}
-				});
-			});
-			document.body.appendChild(defs);
-		}
-		var burger = document.querySelector('header.header .burger');
-		if (burger) {
-			burger.removeAttribute('onclick');
-			burger.setAttribute('data-sm-toggle', '');
-			burger.setAttribute('aria-controls', 'sm-sheet');
-		}
-		document.documentElement.setAttribute('data-lab-menu', want);
-	})();
-</script>
