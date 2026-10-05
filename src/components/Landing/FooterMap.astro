@@ -125,12 +125,13 @@ const ext = (external?: boolean) => newTabAttrs(external);
 			</div>
 
 			<div class="fm__keep">
-				{/* The same MailerLite endpoint and field names as main's footer, posted natively. Main's does
-			    the same today: its script waits for a "Sign up for news" button this branch removed, so
-			    MailerLite's own script never loads there either. */}
+				{/* The same MailerLite endpoint and field names as main's footer, sent in the page by
+				    `bindMailerLiteForm` (#710): the request MailerLite's own script makes, so the thanks
+				    shows only once the address is accepted, and MailerLite's refusal shows under the field.
+				    Without script the form posts natively to MailerLite's page in a new tab. */}
 				<form class="fm__news" action={FOOTER_NEWSLETTER.action} method="POST" target="_blank">
 					{/* The lede is the field's hint, so it is what the field is described by. The browser's
-						   own check stands for the field's error: nothing scripts this form. */}
+						   own check catches a malformed address before anything is sent. */}
 					<Field
 						name="fields[email]"
 						id={`${uid}-email`}
@@ -147,8 +148,20 @@ const ext = (external?: boolean) => newTabAttrs(external);
 						</Button>
 					</Field>
 					<input type="hidden" name="ml-submit" value="1" />
+					<p class="fm__news-error" data-ml-error role="alert" hidden />
 					<p class="fm__consent">{FOOTER_NEWSLETTER.consent}</p>
 				</form>
+				{/* In the form's place once MailerLite accepts the address; focused, so a screen reader
+				    hears it. Upstream's words (main's footer and blog say the same). */}
+				<div class="fm__news-done" role="status" tabindex="-1" hidden>
+					<div class="fm__news-done-in">
+						<Icon name="tabler:circle-check" class="fm__news-done-icon" aria-hidden="true" />
+						<div>
+							<p class="fm__news-done-title">{FOOTER_NEWSLETTER.thanks.title}</p>
+							<p class="fm__news-done-text">{FOOTER_NEWSLETTER.thanks.text}</p>
+						</div>
+					</div>
+				</div>
 				{/* The kept-up channels, as a quiet line under the form: the same "keep up" block, but links,
 				    not buttons. As bordered buttons behind a rule they outweighed the form they follow;
 				    under the tagline they split the two ways of keeping up across the row. */}
@@ -280,6 +293,16 @@ const ext = (external?: boolean) => newTabAttrs(external);
 		<FooterBase class="fm__base" tone="dark" appearance={appearance} />
 	</div>
 </footer>
+
+<script>
+	import { bindMailerLiteForm } from '@util/mailerlite';
+
+	// Each footer's form and its thanks (the sandbox shows several footers on one page).
+	document.querySelectorAll<HTMLFormElement>('form.fm__news').forEach((form) => {
+		const done = form.parentElement?.querySelector<HTMLElement>('.fm__news-done');
+		if (done) bindMailerLiteForm(form, done);
+	});
+</script>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
@@ -431,6 +454,58 @@ const ext = (external?: boolean) => newTabAttrs(external);
 		font-size: $font-size-xs;
 		line-height: 1.5;
 		color: var(--fm-faint);
+	}
+
+	// MailerLite's refusal ("already subscribed", a blocked address), under the field.
+	.fm__news-error {
+		margin: $spacing-2 0 0;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+		color: #ff8a8a;
+	}
+
+	// The thanks, where the form was, on the panel's ground. Its row is an inner box: the helper shows
+	// the thanks with an inline `display: block !important`, which would undo a flex set here.
+	.fm__news-done {
+		padding: $spacing-4;
+		border: 1px solid var(--fm-rule);
+		border-radius: $radius-lg;
+		background: var(--fm-panel);
+
+		&:focus-visible {
+			outline: 2px solid #fff;
+			outline-offset: 2px;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.fm__news-done-in {
+		display: flex;
+		align-items: flex-start;
+		gap: $spacing-3;
+	}
+
+	.fm__news-done-icon {
+		flex: none;
+		width: 24px;
+		height: 24px;
+		color: #4ade80;
+	}
+
+	.fm__news-done-title {
+		margin: 0;
+		font-size: $font-size-base;
+		font-weight: $font-weight-bold;
+		color: #fff;
+	}
+
+	.fm__news-done-text {
+		margin: 2px 0 0;
+		font-size: $font-size-sm;
+		color: var(--fm-soft);
 	}
 
 	// ---- 2. The platform ---------------------------------------------------------------------

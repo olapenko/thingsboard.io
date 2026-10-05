@@ -279,6 +279,9 @@ export const FOOTER_NEWSLETTER = {
 	lede: 'Release notes and IoT know-how, once a month. No spam.',
 	consent: 'By subscribing you agree to receive newsletters from ThingsBoard, Inc.',
 	action: 'https://static.mailerlite.com/webforms/submit/r9r9x7',
+	// Shown in the form's place once MailerLite accepts the address — upstream's words, as main's
+	// footer and the blog's forms put them.
+	thanks: { title: 'Thank you for your interest in ThingsBoard!', text: 'Have a great day!' },
 };
 
 /**
