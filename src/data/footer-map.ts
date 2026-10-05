@@ -44,6 +44,8 @@ export interface FooterColumn {
 	 * list as links with an arrow: sections of the site, where the list above them is pages.
 	 */
 	more?: FooterLink[];
+	/** Set under the column before it, as a second list in that column (Customers under Services). */
+	stacked?: boolean;
 }
 
 const NAV = '/src/assets/images/landings/nav';
@@ -179,12 +181,18 @@ export const FOOTER_LICENSE_PORTAL = {
  * comes back when the capability pages (`/device-management/`, `/iot-data-visualization/`…) are
  * rebuilt, pointing at those rather than at the docs.
  */
+// DRAFT (2026-10-05), on review, one commit to revert: six use cases; Customers (Case studies,
+// Clients feedback) as a second list under Services; GitHub in Docs as well as on the Follow line;
+// Contact us as Company's arrowed last word. Customers re-files two pages the menu keeps in
+// Solutions and Company, against the one-home rule above.
 export const FOOTER_COLUMNS: FooterColumn[] = [
 	{
 		title: 'Solutions',
 		links: [
 			{ label: 'Smart energy', href: '/use-cases/smart-energy/' },
 			{ label: 'Smart metering', href: '/use-cases/smart-metering/' },
+			{ label: 'Environment monitoring', href: '/use-cases/environment-monitoring/' },
+			{ label: 'Smart farming', href: '/use-cases/smart-farming/' },
 			{ label: 'Site fleet tracking', href: '/use-cases/site-fleet-tracking/' },
 			{ label: 'SCADA systems', href: '/use-cases/scada/' },
 		],
@@ -199,6 +207,14 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 		],
 	},
 	{
+		title: 'Customers',
+		stacked: true,
+		links: [
+			{ label: 'Case studies', href: '/case-studies/' },
+			{ label: 'Clients feedback', href: '/clients-feedback/' },
+		],
+	},
+	{
 		// A developer's first stops, in the order they come to them; Documentation, the index, closes.
 		title: 'Docs',
 		links: [
@@ -206,6 +222,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Connect devices', href: '/docs/pe/connect-iot-devices/' },
 			{ label: 'REST API', href: '/docs/pe/reference/rest-api/' },
 			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
+			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
 		],
 		more: [{ label: 'Documentation', href: '/docs/pe/' }],
 	},
@@ -213,12 +230,11 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 		title: 'Company',
 		links: [
 			{ label: 'About us', href: '/company/' },
-			{ label: 'Clients feedback', href: '/clients-feedback/' },
 			{ label: 'Blog', href: '/blog/' },
 			{ label: 'Media kit', href: '/mediakit/' },
 			{ label: 'Careers', href: CAREERS_URL, external: true },
-			{ label: 'Contact us', href: '/contact-us/' },
 		],
+		more: [{ label: 'Contact us', href: '/contact-us/' }],
 	},
 ];
 

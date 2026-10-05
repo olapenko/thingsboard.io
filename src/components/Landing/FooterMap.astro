@@ -20,6 +20,7 @@ import {
 	FOOTER_PLATFORMS,
 	FOOTER_SOCIAL,
 	FOOTER_TAGLINE,
+	type FooterColumn,
 	type FooterProduct,
 } from '@data/footer-map';
 
@@ -92,7 +93,7 @@ const markOf = (p: FooterProduct) =>
 // `focus`: the ecosystem as the first link column, and no column repeats a page the panel shows.
 const focus = layout === 'focus';
 const highlighted = new Set(FOOTER_HIGHLIGHTS.map((h) => h.href));
-const columns = focus
+const columns: FooterColumn[] = focus
 	? [
 			{
 				// The License Portal last: the one thing in the column that is an account, not a product.
@@ -105,6 +106,13 @@ const columns = focus
 			...FOOTER_COLUMNS.map((c) => ({ ...c, links: c.links.filter((l) => !highlighted.has(l.href)) })),
 		]
 	: FOOTER_COLUMNS;
+// The columns as the grid lays them out: a `stacked` list joins the column before it (Customers under
+// Services). `focus` keeps one list to a column, its five-column grid.
+const stacks = columns.reduce<FooterColumn[][]>((out, col) => {
+	if (!focus && col.stacked && out.length) out[out.length - 1].push(col);
+	else out.push([col]);
+	return out;
+}, []);
 const ext = (external?: boolean) => newTabAttrs(external);
 ---
 
@@ -234,33 +242,37 @@ const ext = (external?: boolean) => newTabAttrs(external);
 		</nav>
 
 		<nav class="fm__cols" aria-label="Site" data-accent="neutral">
-			{columns.map((col) => (
+			{stacks.map((stack) => (
 				<div class="fm__col">
-					<h2 class="fm__col-title">{col.title}</h2>
-					<ul>
-						{col.links.map((l) => (
-							<li>
-								<a href={l.href} {...ext(l.external)}>
-									{l.label}
-									{l.external && (
-										<>
-											<Icon name="tabler:arrow-up-right" class="fm__ext" aria-hidden="true" />
-											<span class="ui-sr">{NEW_TAB_NOTE}</span>
-										</>
-									)}
-								</a>
-							</li>
-						))}
-					</ul>
-					{col.more && (
-						<div class="fm__more">
-							{col.more.map((m) => (
-								<Link href={m.href} size="sm" tone="ink">
-									{m.label}
-								</Link>
-							))}
+					{stack.map((col) => (
+						<div class="fm__list">
+							<h2 class="fm__col-title">{col.title}</h2>
+							<ul>
+								{col.links.map((l) => (
+									<li>
+										<a href={l.href} {...ext(l.external)}>
+											{l.label}
+											{l.external && (
+												<>
+													<Icon name="tabler:arrow-up-right" class="fm__ext" aria-hidden="true" />
+													<span class="ui-sr">{NEW_TAB_NOTE}</span>
+												</>
+											)}
+										</a>
+									</li>
+								))}
+							</ul>
+							{col.more && (
+								<div class="fm__more">
+									{col.more.map((m) => (
+										<Link href={m.href} size="sm" tone="ink">
+											{m.label}
+										</Link>
+									))}
+								</div>
+							)}
 						</div>
-					)}
+					))}
 				</div>
 			))}
 		</nav>
@@ -636,6 +648,11 @@ const ext = (external?: boolean) => newTabAttrs(external);
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 			padding: $spacing-10 $spacing-4;
 		}
+	}
+
+	// Two lists in one column (Services, then Customers), a row's gap apart.
+	.fm__list + .fm__list {
+		margin-top: $spacing-8;
 	}
 
 	.fm__col-title {
