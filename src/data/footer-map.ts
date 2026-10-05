@@ -160,13 +160,17 @@ export const FOOTER_LICENSE_PORTAL = {
 };
 
 /**
- * The link columns: the menu's sections in the menu's order, one heading each and no heading under
- * it (2026-10-05). Products is the platform map above them; Developers stands for Docs, since it
- * carries the source and the release notes as well. Partners, a group in the menu's Company, has a
- * column of its own here, where there is the room the row did not have. Clients feedback is the
- * company's, what its clients say of working with it; the case studies close Solutions after the use
- * cases they prove, as an arrowed section link rather than a seventh use case, which is how they
- * read when they sat in the list (they came out of it on 2026-09-30 for that).
+ * The link columns: four, one heading each and no heading under it (2026-10-05), in the menu's
+ * order. Products is the platform map above them; Developers stands for Docs, since it carries the
+ * source and the release notes as well. Solutions closes on its one arrowed index, All use cases.
+ * The case studies are Services' fourth: what the work comes to, as each case study's own page ends
+ * on the services banner ("Want to achieve similarly impactful results?"). Clients feedback is the
+ * company's, what its clients say of working with it.
+ *
+ * NO PARTNERS COLUMN: three links under a heading of their own beside a five-link Developers read
+ * as half a column, and the programmes are for a reader who comes looking for them, which the
+ * menu's Company › Partners serves. The two arrowed links that closed Solutions (All use cases, Case
+ * studies) read as a pair of buttons; one stays.
  *
  * NO "BUILD" COLUMN (dropped 2026-09-29). It listed capabilities — connect devices, rule engine,
  * twins, white-labeling — but seven of its eight links landed in the docs, which Developers already
@@ -187,10 +191,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Smart farming', href: '/use-cases/smart-farming/' },
 			{ label: 'SCADA systems', href: '/use-cases/scada/' },
 		],
-		more: [
-			{ label: 'All use cases', href: '/use-cases/' },
-			{ label: 'Case studies', href: '/case-studies/' },
-		],
+		more: [{ label: 'All use cases', href: '/use-cases/' }],
 	},
 	{
 		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
@@ -211,14 +212,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Development services', href: '/services/development-services/' },
 			{ label: 'Support plans', href: '/services/' },
 			{ label: 'Trainings', href: '/services/trainings/' },
-		],
-	},
-	{
-		title: 'Partners',
-		links: [
-			{ label: 'Affiliate program', href: '/partners/affiliate/' },
-			{ label: 'Hardware partners', href: '/partners/hardware/' },
-			{ label: 'Distributors', href: '/partners/distributors/' },
+			{ label: 'Case studies', href: '/case-studies/' },
 		],
 	},
 	{
