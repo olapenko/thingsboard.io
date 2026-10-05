@@ -9,8 +9,12 @@ import { Icon } from 'astro-icon/components';
  * site's ring on focus. The chevron is inside the click target and lights with the words, since
  * lighting half a row reads as a bug rather than as a state.
  *
- * NOT Pricing's `FaqItem`, which is a button with `aria-expanded` and its own unguarded transition;
- * that one waits for the Pricing page to move.
+ * COPY LINK, as main's Pricing FAQ has it: an answer with an id gets a link icon in the row's right
+ * rail, before the chevron — shown on hover and focus, always on a touch screen (no hover to find it
+ * by) — that copies the page's address with the answer's id as its hash; "Copy link" on hover,
+ * "Copied" for two seconds after. A sibling of the `<details>`, not inside its `<summary>`: a button
+ * inside the summary's button is two controls in one. `ProductFaq` runs it and opens the answer a
+ * hash names on arrival.
  */
 interface Props {
 	question: string;
@@ -18,34 +22,52 @@ interface Props {
 	answer: string;
 	/** Held back behind its panel's "More questions" (`hidden` until then). */
 	extra?: boolean;
-	/** An id, for a link to this one answer (Pricing's tooltips link into their FAQ). */
+	/** An id, for a link to this one answer (Pricing's tooltips link into their FAQ); it gets a copy link. */
 	id?: string;
+	/** The answer's id in its data, unprefixed — what main's addresses carry in their hash. */
+	faqId?: string;
 	/** Rendered open. */
 	open?: boolean;
 }
 
-const { question, answer, extra = false, id, open = false } = Astro.props;
+const { question, answer, extra = false, id, faqId, open = false } = Astro.props;
 ---
 
-<details class="faq-q" id={id} open={open} hidden={extra} data-faq-extra={extra ? '' : undefined}>
-	<summary class="faq-q__summary">
-		<span class="faq-q__question">{question}</span>
-		<Icon name="tabler:chevron-down" class="faq-q__chevron" aria-hidden="true" />
-	</summary>
-	<div class="faq-q__answer" set:html={answer} />
-</details>
+<div class="faq-q" hidden={extra} data-faq-extra={extra ? '' : undefined}>
+	<details class="faq-q__details" id={id} data-faq-id={faqId} open={open}>
+		<summary class="faq-q__summary" data-copy={id ? '' : undefined}>
+			<span class="faq-q__question">{question}</span>
+			<Icon name="tabler:chevron-down" class="faq-q__chevron" aria-hidden="true" />
+		</summary>
+		<div class="faq-q__answer" set:html={answer} />
+	</details>
+	{id && (
+		<button type="button" class="faq-q__copy print:hidden" data-faq-copy aria-label={`Copy link to: ${question}`}>
+			<Icon name="tabler:link" aria-hidden="true" />
+			<span class="faq-q__tip" aria-hidden="true" data-faq-tip>
+				Copy link
+			</span>
+		</button>
+	)}
+</div>
 
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
 	.faq-q {
+		position: relative;
 		border-bottom: 1px solid var(--color-border);
 	}
 
-	// `hidden` is a presentation hint that any author `display` beats; stated, so a later rule on
-	// `details` cannot silently show the held-back answers.
+	// `hidden` is a presentation hint that any author `display` beats; stated, so a later rule cannot
+	// silently show the held-back answers.
 	.faq-q[hidden] {
 		display: none;
+	}
+
+	// Arriving from a link, the answer lands under the bar rather than behind it.
+	.faq-q__details {
+		scroll-margin-top: calc(var(--header-height, 64px) + #{$spacing-6});
 	}
 
 	.faq-q__summary {
@@ -67,6 +89,11 @@ const { question, answer, extra = false, id, open = false } = Astro.props;
 
 		&::-webkit-details-marker {
 			display: none;
+		}
+
+		// Room in the right rail for the copy link, between the words and the chevron.
+		&[data-copy] .faq-q__question {
+			margin-right: 24px;
 		}
 
 		@media (hover: hover) {
@@ -124,8 +151,99 @@ const { question, answer, extra = false, id, open = false } = Astro.props;
 		}
 	}
 
-	.faq-q[open] .faq-q__chevron {
+	.faq-q__details[open] .faq-q__chevron {
 		transform: rotate(180deg);
+	}
+
+	// The copy link: 28 square, in the rail left of the chevron, on the question's first line. Hidden
+	// and out of reach until the row is hovered or the button focused — an invisible target there
+	// would copy a link the reader never saw instead of opening the answer — and shown at all times on
+	// a touch screen, which has no hover to reveal it.
+	.faq-q__copy {
+		position: absolute;
+		top: calc(#{$spacing-4} + 12px - 14px);
+		right: 28px;
+		display: grid;
+		place-items: center;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		border: 0;
+		border-radius: $radius-md;
+		background: none;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		opacity: 0;
+		pointer-events: none;
+		transition:
+			opacity 0.15s ease,
+			color 0.15s ease,
+			background-color 0.15s ease;
+
+		svg {
+			width: 16px;
+			height: 16px;
+		}
+
+		.faq-q:hover > &,
+		&:focus-visible {
+			opacity: 1;
+			pointer-events: auto;
+		}
+
+		&:hover {
+			color: var(--accent-ink);
+			background: color-mix(in srgb, currentColor 10%, transparent);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+
+		@media (pointer: coarse) {
+			opacity: 1;
+			pointer-events: auto;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+		}
+
+		&[data-copied] {
+			opacity: 1;
+			color: var(--color-success, #178649);
+		}
+	}
+
+	// The tip over the icon: "Copy link" on hover or focus, "Copied" once it has.
+	.faq-q__tip {
+		position: absolute;
+		bottom: calc(100% + 6px);
+		left: 50%;
+		padding: 4px 8px;
+		border-radius: $radius-sm;
+		background: var(--color-text);
+		color: var(--color-bg-surface);
+		font-size: 12px;
+		font-weight: $font-weight-medium;
+		line-height: 1.3;
+		white-space: nowrap;
+		opacity: 0;
+		pointer-events: none;
+		transform: translateX(-50%);
+		transition: opacity 0.15s ease;
+
+		.faq-q__copy:hover > &,
+		.faq-q__copy:focus-visible > &,
+		.faq-q__copy[data-copied] > & {
+			opacity: 1;
+		}
+
+		.faq-q__copy[data-copied] > & {
+			background: var(--color-success, #178649);
+			color: #fff;
+		}
 	}
 
 	.faq-q__answer {
