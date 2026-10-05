@@ -298,11 +298,11 @@ export const solutionsSubmenu: SubMenu = {
 			// says what they are. The name is the logo's alt text.
 			name: 'Case studies',
 			items: [
-				caseStudy('schwarz', 'Schwarz Group', 18, 'schwarz-gruppe.svg'),
-				caseStudy('t-mobile-cz', 'T-Mobile', 17, 't-mobile.svg'),
-				caseStudy('obb-infra', 'ÖBB-Infrastruktur', 21, 'obb.svg'),
-				caseStudy('super-bock', 'Super Bock', 28),
-				caseStudy('circutor', 'Circutor', 19, 'circutor.svg'),
+				caseStudy('schwarz', 'Schwarz Group', 15, 'schwarz-gruppe.svg'),
+				caseStudy('t-mobile-cz', 'T-Mobile', 15, 't-mobile.svg'),
+				caseStudy('obb-infra', 'ÖBB-Infrastruktur', 18, 'obb.svg'),
+				caseStudy('super-bock', 'Super Bock', 24),
+				caseStudy('circutor', 'Circutor', 16, 'circutor.svg'),
 			],
 			more: { label: 'All case studies', href: '/case-studies/' },
 		},
