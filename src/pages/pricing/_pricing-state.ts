@@ -90,19 +90,24 @@ export function mountPricingState({ tabs, plans, onDeploy }: Options): void {
 			return;
 		}
 
-		// A link that quotes an FAQ answer opens it: its topic selected, "More questions" opened if it
-		// is past the first six, the answer itself expanded, and scrolled to under the bar.
+		// A link that quotes an FAQ answer opens it, through the FAQ's own opener (`ProductFaq`): its
+		// topic selected, "More questions" opened if it is held back, the answer expanded and scrolled
+		// to under the bar.
 		const more = target.closest<HTMLAnchorElement>('[data-faq-link]');
 		if (more) {
-			const answer = document.getElementById(more.hash.slice(1)) as HTMLDetailsElement | null;
+			const answer = document.getElementById(more.hash.slice(1));
 			if (!answer) return;
 			event.preventDefault();
-			const panel = answer.closest<HTMLElement>('[role="tabpanel"]');
-			if (panel?.hidden) document.getElementById(panel.getAttribute('aria-labelledby') ?? '')?.click();
-			if (panel && answer.hidden) panel.querySelector<HTMLButtonElement>('[data-faq-more]')?.click();
-			answer.open = true;
-			scrollToElement(answer);
+			answer.dispatchEvent(new CustomEvent('faq:open', { bubbles: true }));
 			answer.querySelector('summary')?.focus({ preventScroll: true });
 		}
+	});
+
+	// An answer in another deployment's FAQ — a copied link, main's address — brings that deployment
+	// forward before it opens.
+	document.addEventListener('faq:reveal', (event) => {
+		const view = (event.target as Element).closest<HTMLElement>('[data-deploy-panel]');
+		const id = view?.dataset.deployPanel;
+		if (id && root.dataset.deploy !== id) document.getElementById(`plans-${id}-tab`)?.click();
 	});
 }

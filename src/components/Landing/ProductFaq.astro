@@ -20,8 +20,14 @@ import FaqItem from '@components/Landing/FaqItem.astro';
  * FAQ as structured data passes the same array to its layout's `jsonLd`. That stays the page's
  * call: Cloud publishes it, On-premises deliberately does not (see the note there).
  *
- * NOT Pricing's `FaqSection` (buttons with `aria-current`, bordered cards, a 280px column, copy and
- * deep links), nor Trendz's: different pages with different jobs, reconciled if Pricing moves.
+ * LINKS TO ONE ANSWER, as main's Pricing FAQ has them. Every answer has an id (`<itemIdPrefix><id>`)
+ * and a copy link beside it (`FaqItem`); an address whose hash names an answer — by that id, or by
+ * the answer's own unprefixed id, which is what main's Pricing addresses carry — opens it on arrival:
+ * its topic selected, "More questions" opened if it is held back, the answer expanded and scrolled to
+ * under the bar. A page can ask the same with a `faq:open` event on the answer; before opening, the
+ * answer sends `faq:reveal`, for a page whose FAQ sits inside a view of its own (Pricing's
+ * deployments) to bring that view forward. `analytics` sends main's two events to the data layer:
+ * `faq_node_interaction` when an answer is opened, `faq_copy_link` when its link is copied.
  */
 /** Pricing's `FaqCategory`, with the pricing draft's optional `defaultOpen` per answer. */
 interface Category {
@@ -38,15 +44,32 @@ interface Props {
 	idPrefix?: string;
 	/** The tablist's accessible name. */
 	label?: string;
-	/** Gives every answer the id `<itemIdPrefix><answer id>`, for links straight to one answer. */
+	/** Prefixes every answer's id (`<itemIdPrefix><answer id>`); `<idPrefix>-q-` by default. */
 	itemIdPrefix?: string;
+	/** Sends main's FAQ events to the data layer (`faq_node_interaction`, `faq_copy_link`). */
+	analytics?: boolean;
 }
 
-const { categories, visibleCount = 6, idPrefix = 'faq', label = 'FAQ topics', itemIdPrefix } = Astro.props;
+const {
+	categories,
+	visibleCount = 6,
+	idPrefix = 'faq',
+	label = 'FAQ topics',
+	itemIdPrefix = `${idPrefix}-q-`,
+	analytics = false,
+} = Astro.props;
 const panelId = (category: Category) => `${idPrefix}-${category.id}`;
+
+// Every answer's id must be unique on the page, and the panels' ids live in the same namespace.
+const answerIds = categories.flatMap((c) => c.items.map((item) => `${itemIdPrefix}${item.id}`));
+const taken = new Set(categories.map(panelId));
+for (const id of answerIds) {
+	if (taken.has(id)) throw new Error(`[ProductFaq] the id "${id}" is used twice on the page`);
+	taken.add(id);
+}
 ---
 
-<div class="product-faq">
+<div class="product-faq" data-faq-analytics={analytics ? '' : undefined}>
 	<Tabs
 		look="list"
 		sticky
@@ -64,7 +87,8 @@ const panelId = (category: Category) => `${idPrefix}-${category.id}`;
 						answer={item.answer}
 						extra={j >= visibleCount}
 						open={item.defaultOpen}
-						id={itemIdPrefix === undefined ? undefined : `${itemIdPrefix}${item.id}`}
+						id={`${itemIdPrefix}${item.id}`}
+						faqId={item.id}
 					/>
 				))}
 				{category.items.length > visibleCount && (
@@ -81,6 +105,8 @@ const panelId = (category: Category) => `${idPrefix}-${category.id}`;
 			</TabPanel>
 		))}
 	</div>
+	{/* What the copy link did, for a screen reader: the button's own tip is drawn, not spoken. */}
+	<span class="ui-sr" role="status" data-faq-status></span>
 </div>
 
 <script>
@@ -98,6 +124,82 @@ const panelId = (category: Category) => `${idPrefix}-${category.id}`;
 			});
 			if (label) label.textContent = expanded ? 'Fewer questions' : 'More questions';
 		});
+	});
+
+	// --- one answer: open it, link to it ---------------------------------------------------------
+
+	const ANSWER = '.faq-q__details';
+	const track = (event: string, answer: Element) => {
+		if (!answer.closest('[data-faq-analytics]')) return;
+		const id = (answer as HTMLElement).dataset.faqId;
+		(window as { dataLayer?: unknown[] }).dataLayer?.push({ event, faq_node_id: id });
+	};
+
+	/** The answer a hash names: by its element id, or by its own id in the data (main's addresses). */
+	const answerFor = (hash: string): HTMLDetailsElement | null => {
+		if (!hash) return null;
+		let id = hash;
+		try {
+			id = decodeURIComponent(hash);
+		} catch {
+			/* a malformed escape: try it as it is */
+		}
+		const byId = document.getElementById(id);
+		if (byId?.matches(ANSWER)) return byId as HTMLDetailsElement;
+		return document.querySelector<HTMLDetailsElement>(`${ANSWER}[data-faq-id="${CSS.escape(id)}"]`);
+	};
+
+	/** Brings an answer into view, opened: its view, its topic, "More questions", then the answer. */
+	const reveal = (answer: HTMLDetailsElement) => {
+		answer.dispatchEvent(new CustomEvent('faq:reveal', { bubbles: true }));
+		const panel = answer.closest<HTMLElement>('[role="tabpanel"]');
+		if (panel?.hidden) document.getElementById(panel.getAttribute('aria-labelledby') ?? '')?.click();
+		if (answer.closest<HTMLElement>('[data-faq-extra]')?.hidden)
+			panel?.querySelector<HTMLButtonElement>('[data-faq-more]')?.click();
+		answer.open = true;
+		requestAnimationFrame(() => answer.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+	};
+
+	const fromHash = () => {
+		const answer = answerFor(location.hash.slice(1));
+		if (answer) reveal(answer);
+	};
+	fromHash();
+	window.addEventListener('hashchange', fromHash);
+
+	// A page's own link into the FAQ (Pricing's tooltips) asks the same way.
+	document.addEventListener('faq:open', (e) => {
+		if ((e.target as Element).matches?.(ANSWER)) reveal(e.target as HTMLDetailsElement);
+	});
+
+	// main's `faq_node_interaction`: an answer opened, not closed.
+	document.querySelectorAll<HTMLDetailsElement>(`[data-faq-analytics] ${ANSWER}`).forEach((answer) => {
+		answer.addEventListener('toggle', () => answer.open && track('faq_node_interaction', answer));
+	});
+
+	// The copy link: the page's address with the answer's id as its hash, on the clipboard.
+	document.addEventListener('click', (e) => {
+		const button = (e.target as Element).closest<HTMLButtonElement>('[data-faq-copy]');
+		const answer = button?.closest('.faq-q')?.querySelector<HTMLDetailsElement>(ANSWER);
+		if (!button || !answer?.id) return;
+		const url = new URL(location.href);
+		url.hash = answer.id;
+		const status = button.closest('.product-faq')?.querySelector<HTMLElement>('[data-faq-status]');
+		const tip = button.querySelector<HTMLElement>('[data-faq-tip]');
+		track('faq_copy_link', answer);
+		navigator.clipboard
+			?.writeText(url.toString())
+			.then(() => {
+				button.dataset.copied = '';
+				if (tip) tip.textContent = 'Copied';
+				if (status) status.textContent = 'Link copied';
+				window.setTimeout(() => {
+					delete button.dataset.copied;
+					if (tip) tip.textContent = 'Copy link';
+					if (status) status.textContent = '';
+				}, 2000);
+			})
+			.catch(() => {});
 	});
 </script>
 
