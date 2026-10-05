@@ -38,8 +38,8 @@ import type { HeaderMenu } from '@util/header-config';
  * `--sm-rule`, `--sm-fill`, `--sm-surface`) and reassigned, never restyled, where the ground changes:
  * the dark theme, the docs bar, the transparent bar over a dark hero. Every surface draws from the
  * same set, so what a reader sees on one page is what they see on the next. The products' marks are
- * the one exception by design: a logo keeps its own colour on every ground, so those are literals
- * (`--sm-brand-*`), the products page's.
+ * the one exception by design: a logo keeps its own colour on every ground, so the colour is in the
+ * logo's file (the products page's hues), and a product's link is otherwise a link like any other.
  */
 interface Props {
 	model: HeaderMenu;
@@ -553,11 +553,6 @@ const pathname = Astro.url.pathname;
 		// The row in the bar: its ink, and the line under the open section.
 		--sm-bar-ink: var(--color-text);
 		--sm-bar-accent: var(--color-primary);
-		// A product's hue as TEXT (a heading on hover) is toned to read: shaded 18% toward black on a
-		// light ground, where the logo hues are 3.7–4.3:1 on white, and lifted 35% toward white on a
-		// dark one; both clear 5:1. The mark itself keeps the hue as it is.
-		--sm-tone: #000;
-		--sm-tone-mix: 18%;
 		// The docs' marks, lighter than Products' (see Docs below); less so on a dark ground, where
 		// fading a mark darkens it into the ground rather than lightening it.
 		--sm-mark-soft: 0.72;
@@ -571,25 +566,14 @@ const pathname = Astro.url.pathname;
 		// one length and curve, `GLIDE_MS` / `GLIDE_EASE` in the script.
 		--sm-glide: 0.26s;
 		--sm-glide-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-		// The products' own colours — the products page's, the logos' — on every ground and in both
-		// themes. Not the `--brand-*` tokens: those switch to pastels in the dark theme.
-		--sm-brand-pe: #1f8b4d;
-		--sm-brand-cloud: #2a7dec;
-		--sm-brand-edge: #009688;
-		--sm-brand-gateway: #7a4dc3;
-		--sm-brand-mobile: #1f8b4d;
-		--sm-brand-tbmq: #1f8b4d;
-		--sm-brand-trendz: #5555ff;
 
 		display: flex;
 		align-items: center;
 		height: 100%;
 	}
 
-	// The dark theme: the same tokens resolve dark through the site's, and a product's text lifts.
+	// The dark theme: the same tokens resolve dark through the site's; the docs' marks fade less.
 	html[data-theme='dark'] .sm {
-		--sm-tone: #fff;
-		--sm-tone-mix: 35%;
 		--sm-mark-soft: 0.86;
 	}
 
@@ -618,8 +602,6 @@ const pathname = Astro.url.pathname;
 			--sm-fill-strong: rgba(255, 255, 255, 0.12);
 			--sm-surface: var(--tb-bar-dark);
 			--sm-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
-			--sm-tone: #fff;
-			--sm-tone-mix: 35%;
 			--sm-mark-soft: 0.86;
 
 			// Frosted as the bar is: the panel has no fixed children for the filter to capture.
@@ -806,11 +788,13 @@ const pathname = Astro.url.pathname;
 	// ---------------------------------------------------------------------------------------------
 	// A SECTION'S CONTENT, on every surface
 	// ---------------------------------------------------------------------------------------------
+	// A section's groups side by side, 40 apart (three times a column's 12, so a group reads as one),
+	// wrapping where the panel's measure ends.
 	.sm__groups {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: flex-start;
-		gap: 24px 32px;
+		gap: 24px 40px;
 	}
 
 	.sm__group-name {
@@ -823,13 +807,16 @@ const pathname = Astro.url.pathname;
 		color: var(--sm-soft);
 	}
 
+	// A group's one list, folded into columns of `--rows` (`SiteMenuSection`): down, then across. The
+	// columns share one width, the widest link's (`1fr` of a grid sized to its content), so a section
+	// reads as a grid rather than a ragged run; the rows are shared across them, so a two-line link
+	// keeps its neighbours level.
 	.sm__cols {
 		display: grid;
-		grid-template-columns: repeat(var(--cols, 1), minmax(176px, max-content));
+		grid-auto-flow: column;
+		grid-template-rows: repeat(var(--rows, 1), auto);
+		grid-auto-columns: minmax(184px, 1fr);
 		gap: 0 12px;
-	}
-
-	.sm__col {
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -885,9 +872,11 @@ const pathname = Astro.url.pathname;
 		--sm-mark: 32px;
 	}
 
-	// A link with no line under it: its mark and its name on one centre line.
+	// A link with no line under it: its mark and its name on one centre line, 40 tall with a mark or
+	// without, so a group of names (the case studies) keeps the rows of the groups beside it.
 	.sm__link:not(:has(.sm__link-desc)) {
 		align-items: center;
+		min-height: 40px;
 
 		.sm__link-icon {
 			padding-top: 0;
@@ -912,39 +901,6 @@ const pathname = Astro.url.pathname;
 		font-size: 13px;
 		line-height: 1.4;
 		color: var(--sm-soft);
-	}
-
-	// A product's link carries its own colour: on its mark as it is, on its heading (hover) lifted
-	// toward white where the ground is dark, so it stays the same hue and reads as text.
-	.sm__link[data-product] {
-		svg.nav-icon {
-			color: var(--sm-brand);
-		}
-
-		&:hover .sm__link-heading {
-			color: color-mix(in srgb, var(--sm-brand), var(--sm-tone) var(--sm-tone-mix));
-		}
-	}
-	.sm__link[data-product='pe'] {
-		--sm-brand: var(--sm-brand-pe);
-	}
-	.sm__link[data-product='cloud'] {
-		--sm-brand: var(--sm-brand-cloud);
-	}
-	.sm__link[data-product='edge'] {
-		--sm-brand: var(--sm-brand-edge);
-	}
-	.sm__link[data-product='gateway'] {
-		--sm-brand: var(--sm-brand-gateway);
-	}
-	.sm__link[data-product='mobile'] {
-		--sm-brand: var(--sm-brand-mobile);
-	}
-	.sm__link[data-product='tbmq'] {
-		--sm-brand: var(--sm-brand-tbmq);
-	}
-	.sm__link[data-product='trendz'] {
-		--sm-brand: var(--sm-brand-trendz);
 	}
 
 	.sm__all {
@@ -1072,10 +1028,12 @@ const pathname = Astro.url.pathname;
 	}
 
 	// A section is as wide as its groups, so its promotions close the block they belong to rather
-	// than run on to the window's edge.
+	// than run on to the window's edge, and never wider than the page's measure: past 1000 its groups
+	// wrap under one another instead. Every section's own width is under it (Solutions, the widest,
+	// is four columns).
 	.sm__one-sec {
 		width: fit-content;
-		max-width: 100%;
+		max-width: min(100%, 1000px);
 	}
 
 	.sm__one-sec[hidden] {
@@ -1102,10 +1060,10 @@ const pathname = Astro.url.pathname;
 	// ---------------------------------------------------------------------------------------------
 	// WHAT A SECTION CARRIES BESIDES ITS LINKS, and the docs' face
 	// ---------------------------------------------------------------------------------------------
-	// A section's promotions: one row of one-line tiles, an icon and a title each. No outline on any of
-	// them: a grey stroke beside the accent's tint read as two kinds of control. The tiles are one
-	// family of washes instead, the ink's for the plain ones and the accent's for the featured one,
-	// which also has the chevron.
+	// A section's promotions: one row of one-line links, an icon and a title each. Only the featured
+	// one has a ground, the accent's tint, and the chevron; the others are links on the panel's own
+	// ground, filled only under the pointer — a grey stroke, then a grey fill, beside the accent's tint
+	// read as a second kind of button.
 	.sm__promos {
 		display: flex;
 		flex-wrap: wrap;
@@ -1120,12 +1078,10 @@ const pathname = Astro.url.pathname;
 		align-items: center;
 		gap: 8px;
 		height: 36px;
-		padding: 0 12px;
+		padding: 0 10px;
 		border: 0;
 		border-radius: 10px;
-		// Worked out here, not as a token on `.sm`: there it would resolve against the light ink, and
-		// over a dark hero the panel reassigns `--sm-ink`.
-		background: color-mix(in srgb, var(--sm-ink) 5%, transparent);
+		background: none;
 		color: var(--sm-ink);
 		font-size: 14px;
 		font-weight: $font-weight-medium;
@@ -1454,13 +1410,17 @@ const pathname = Astro.url.pathname;
 			font-size: 24px;
 		}
 
+		// One group under another. A grid, not a flex column: a flex column sized each group as if its
+		// list had a single column, and on a tablet, where the list folds into two, left that much
+		// empty under it.
 		.sm__groups {
-			flex-direction: column;
-			align-items: stretch;
+			display: grid;
 			gap: 16px;
 		}
 
 		.sm__cols {
+			grid-auto-flow: row;
+			grid-template-rows: none;
 			grid-template-columns: 1fr;
 			gap: 0;
 		}
