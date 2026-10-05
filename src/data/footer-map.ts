@@ -110,10 +110,9 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
 		hue: '#60a5fa',
 	},
 	{
-		// As the homepage's ecosystem section has it (`homeEcosystem`): "Mobile App", the PE app's
-		// page, its mark, and the app's own green — the dark menu's `--brand-pe` — not the menu's "Mobile
-		// Application" at `/products/mobile/` in its slate blue.
-		name: 'Mobile App',
+		// Named as the menu and its own page name it ("IoT Mobile Application builder"); its mark is the
+		// ThingsBoard logo in the app's own green, as the menu draws it too.
+		name: 'Mobile Application',
 		line: 'iOS & Android',
 		href: '/products/mobile/',
 		// The ThingsBoard mark, not the menu's phone: the app's icon IS the mark, and the ecosystem
@@ -160,26 +159,20 @@ export const FOOTER_LICENSE_PORTAL = {
 };
 
 /**
- * The link columns: four, one heading each and no heading under it (2026-10-05), in the menu's
- * order. Products is the platform map above them; Developers stands for Docs, since it carries the
- * source and the release notes as well. Solutions closes on its one arrowed index, All use cases.
- * The case studies are Services' fourth: what the work comes to, as each case study's own page ends
- * on the services banner ("Want to achieve similarly impactful results?"). Clients feedback is the
- * company's, what its clients say of working with it.
- *
- * NO PARTNERS COLUMN: three links under a heading of their own beside a five-link Developers read
- * as half a column, and the programmes are for a reader who comes looking for them, which the
- * menu's Company › Partners serves. The two arrowed links that closed Solutions (All use cases, Case
- * studies) read as a pair of buttons; one stays.
+ * The link columns, the menu's sections in the menu's order (Products is the platform map above
+ * them): one heading each, and A PAGE HAS ONE NAME AND ONE HOME in the menu and here. The footer may
+ * show fewer of a section's links; it never moves one to another heading or calls it something else
+ * (2026-10-05). So the case studies are Solutions', as in the menu, a plain link after the use cases
+ * with All use cases the one arrowed link; Services closes on Talk to an expert, as its menu list
+ * does; Docs is the menu's word. The partner programmes, a group in the menu's Company, have no page
+ * of their own to link once from here, and a column of three read as half a column; they are the
+ * menu's.
  *
  * NO "BUILD" COLUMN (dropped 2026-09-29). It listed capabilities — connect devices, rule engine,
- * twins, white-labeling — but seven of its eight links landed in the docs, which Developers already
- * covers; the header has no capabilities menu for it to mirror; and it said SCADA twice. It comes
- * back when the capability pages (`/device-management/`, `/iot-data-visualization/`…) are rebuilt,
- * pointing at those rather than at the docs.
- *
- * Talk to an expert, the menu's Services promotion, is not repeated in Services: it is Contact us,
- * which Company lists, and one footer naming one page two ways reads as two pages.
+ * twins, white-labeling — but seven of its eight links landed in the docs, which the Docs column
+ * already covers; the header has no capabilities menu for it to mirror; and it said SCADA twice. It
+ * comes back when the capability pages (`/device-management/`, `/iot-data-visualization/`…) are
+ * rebuilt, pointing at those rather than at the docs.
  */
 export const FOOTER_COLUMNS: FooterColumn[] = [
 	{
@@ -187,24 +180,11 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 		links: [
 			{ label: 'Smart energy', href: '/use-cases/smart-energy/' },
 			{ label: 'Smart metering', href: '/use-cases/smart-metering/' },
-			{ label: 'Fleet tracking', href: '/use-cases/site-fleet-tracking/' },
-			{ label: 'Smart farming', href: '/use-cases/smart-farming/' },
+			{ label: 'Site fleet tracking', href: '/use-cases/site-fleet-tracking/' },
 			{ label: 'SCADA systems', href: '/use-cases/scada/' },
+			{ label: 'Case studies', href: '/case-studies/' },
 		],
 		more: [{ label: 'All use cases', href: '/use-cases/' }],
-	},
-	{
-		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
-		// else already knows to look. No API or protocol references (REST, connectivity): they are
-		// one click inside Documentation, and a footer is not a docs index.
-		title: 'Developers',
-		links: [
-			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
-			{ label: 'Documentation', href: '/docs/pe/' },
-			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
-			{ label: 'Release notes', href: '/docs/pe/releases/releases-table/' },
-			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
-		],
 	},
 	{
 		title: 'Services',
@@ -212,7 +192,20 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Development services', href: '/services/development-services/' },
 			{ label: 'Support plans', href: '/services/' },
 			{ label: 'Trainings', href: '/services/trainings/' },
-			{ label: 'Case studies', href: '/case-studies/' },
+		],
+		more: [{ label: 'Talk to an expert', href: '/contact-us/' }],
+	},
+	{
+		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
+		// else already knows to look. No API or protocol references (REST, connectivity): they are
+		// one click inside Documentation, and a footer is not a docs index.
+		title: 'Docs',
+		links: [
+			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
+			{ label: 'Documentation', href: '/docs/pe/' },
+			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
+			{ label: 'Release notes', href: '/docs/pe/releases/releases-table/' },
+			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
 		],
 	},
 	{
@@ -231,7 +224,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 /**
  * The Follow line: only the channels that are kept up (checked 2026-09-29) and that are news, not
  * product. YouTube's tutorials are the evergreen ones, LinkedIn posts daily. GitHub is kept up too
- * (4.4 shipped that day) but is linked once, in Developers, where the source is looked for. Left out: X (silent since
+ * (4.4 shipped that day) but is linked once, in Docs, where the source is looked for. Left out: X (silent since
  * August 2025), Stack Overflow (no question for ten months, most unanswered), Instagram (team life,
  * not the product), Facebook (kept up, but re-posts with little reach). The shared
  * `data/socialNetworks.ts` is untouched: the footer in use still reads all seven.
@@ -311,7 +304,7 @@ export const FOOTER_DOCS_COLUMNS: FooterColumn[] = [
 		// No Partners: there is no `/partners/` page, and the link this had went nowhere.
 		title: 'Company',
 		links: [
-			{ label: 'Services', href: '/services/' },
+			{ label: 'Support plans', href: '/services/' },
 			{ label: 'Clients feedback', href: '/clients-feedback/' },
 			{ label: 'Contact us', href: '/contact-us/' },
 			{ label: 'Careers', href: CAREERS_URL, external: true },
