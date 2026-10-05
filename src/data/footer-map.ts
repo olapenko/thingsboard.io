@@ -39,14 +39,11 @@ export interface FooterLink {
 export interface FooterColumn {
 	title: string;
 	links: FooterLink[];
-	/** The column's own last word — "All use cases" — set apart from the list as a link with an arrow. */
-	more?: FooterLink;
 	/**
-	 * A group under the column's own list, with its own small heading and its own arrowed last link:
-	 * Use Cases' Customers, the header's Customers menu (case studies, clients feedback) folded in
-	 * under the use cases they prove.
+	 * The column's own last words — Solutions' "All use cases" and "Case studies" — set apart from the
+	 * list as links with an arrow: sections of the site, where the list above them is pages.
 	 */
-	sub?: { title: string; links: FooterLink[]; more?: FooterLink };
+	more?: FooterLink[];
 }
 
 const NAV = '/src/assets/images/landings/nav';
@@ -163,41 +160,37 @@ export const FOOTER_LICENSE_PORTAL = {
 };
 
 /**
- * The link columns. SOLUTIONS is the Use Cases menu's first five and the SCADA group; DEVELOPERS the
- * references a builder goes looking for; the last two are the Services, Partners,
- * Customers and Company menus folded together.
+ * The link columns: the menu's sections in the menu's order, one heading each and no heading under
+ * it (2026-10-05). Products is the platform map above them; Developers stands for Docs, since it
+ * carries the source and the release notes as well. Partners, a group in the menu's Company, has a
+ * column of its own here, where there is the room the row did not have. Clients feedback is the
+ * company's, what its clients say of working with it; the case studies close Solutions after the use
+ * cases they prove, as an arrowed section link rather than a seventh use case, which is how they
+ * read when they sat in the list (they came out of it on 2026-09-30 for that).
  *
  * NO "BUILD" COLUMN (dropped 2026-09-29). It listed capabilities — connect devices, rule engine,
  * twins, white-labeling — but seven of its eight links landed in the docs, which Developers already
  * covers; the header has no capabilities menu for it to mirror; and it said SCADA twice. It comes
  * back when the capability pages (`/device-management/`, `/iot-data-visualization/`…) are rebuilt,
  * pointing at those rather than at the docs.
+ *
+ * Talk to an expert, the menu's Services promotion, is not repeated in Services: it is Contact us,
+ * which Company lists, and one footer naming one page two ways reads as two pages.
  */
-/**
- * WIP — PARKED 2026-09-29, not rendered. The footer carries no case studies link since 2026-09-30:
- * they were Use Cases' seventh link, where they read as one more use case, and came out. This group
- * under Use Cases — the header's Customers menu, case studies arrowed like "All use cases →" — was
- * tried and pulled back undecided. To try it again: set it as `sub` on the Use Cases column and drop
- * Clients feedback from Company; `FooterMap` renders `sub`.
- */
-export const FOOTER_CUSTOMERS_WIP: NonNullable<FooterColumn['sub']> = {
-	title: 'Customers',
-	links: [{ label: 'Clients feedback', href: '/clients-feedback/' }],
-	more: { label: 'Case studies', href: '/case-studies/' },
-};
-
 export const FOOTER_COLUMNS: FooterColumn[] = [
 	{
-		title: 'Use Cases',
+		title: 'Solutions',
 		links: [
 			{ label: 'Smart energy', href: '/use-cases/smart-energy/' },
 			{ label: 'Smart metering', href: '/use-cases/smart-metering/' },
 			{ label: 'Fleet tracking', href: '/use-cases/site-fleet-tracking/' },
 			{ label: 'Smart farming', href: '/use-cases/smart-farming/' },
-			{ label: 'Environment monitoring', href: '/use-cases/environment-monitoring/' },
 			{ label: 'SCADA systems', href: '/use-cases/scada/' },
 		],
-		more: { label: 'All use cases', href: '/use-cases/' },
+		more: [
+			{ label: 'All use cases', href: '/use-cases/' },
+			{ label: 'Case studies', href: '/case-studies/' },
+		],
 	},
 	{
 		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
@@ -218,6 +211,11 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Development services', href: '/services/development-services/' },
 			{ label: 'Support plans', href: '/services/' },
 			{ label: 'Trainings', href: '/services/trainings/' },
+		],
+	},
+	{
+		title: 'Partners',
+		links: [
 			{ label: 'Affiliate program', href: '/partners/affiliate/' },
 			{ label: 'Hardware partners', href: '/partners/hardware/' },
 			{ label: 'Distributors', href: '/partners/distributors/' },
@@ -310,15 +308,17 @@ export const FOOTER_DOCS_COLUMNS: FooterColumn[] = [
 			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
 			{ label: 'Documentation', href: '/docs/pe/' },
 			{ label: 'Use cases', href: '/use-cases/' },
+			{ label: 'Case studies', href: '/case-studies/' },
 			{ label: 'IoT Hub', href: '/iot-hub/' },
 			{ label: 'Blog', href: '/blog/' },
 		],
 	},
 	{
+		// No Partners: there is no `/partners/` page, and the link this had went nowhere.
 		title: 'Company',
 		links: [
 			{ label: 'Services', href: '/services/' },
-			{ label: 'Partners', href: '/partners/' },
+			{ label: 'Clients feedback', href: '/clients-feedback/' },
 			{ label: 'Contact us', href: '/contact-us/' },
 			{ label: 'Careers', href: CAREERS_URL, external: true },
 		],
