@@ -16,21 +16,22 @@ interface Props {
 }
 
 const { gitHubPlatform, headerConfig } = Astro.props;
-const { variant, showSearch, showThemeToggle, searchForm } = headerConfig;
+const { look, hero, searchForm } = headerConfig;
 
-// Ship the scroll-flip script only on the variants that go transparent.
-const needsScrollState = variant === 'transparent' || variant === 'transparent-hover';
+// The marketing look has two states, top and scrolled; the docs look one. The watch is a few lines
+// of inline script, shipped only where a state can change.
+const needsScrollState = look === 'marketing';
 const currentYear = new Date().getFullYear();
 ---
 
-<div class="logo-burger" data-header-variant={variant}>
+<div class="logo-burger" data-header-look={look} data-header-hero={hero}>
 	<a href="/" class="logo" aria-label="Link to homepage"></a>
 	<span class="header-copyright print:only">&copy; {currentYear} The ThingsBoard Authors</span>
 </div>
 
 {/* Before <Navigation> on purpose: its ~125 KiB of markup shifted the centred nav (≈0.012 CLS); `order` restores the visual order. */}
-<div class="head-buttons print:hidden" data-header-variant={variant}>
-	<HeaderIcons showSearch={showSearch} showThemeToggle={showThemeToggle} searchForm={searchForm} />
+<div class="head-buttons print:hidden" data-header-look={look} data-header-hero={hero}>
+	<HeaderIcons searchForm={searchForm} />
 	<GitHubButton platform={gitHubPlatform} />
 	{/* Both open the `CloudRegionDialog`; the hrefs are the no-script fallback. */}
 	<a
@@ -61,8 +62,7 @@ const currentYear = new Date().getFullYear();
 	</button>
 </div>
 
-{/* Docs: the theme switch is the drawer's last row (and the footer's), not an icon in the bar. */}
-<Navigation appearance={variant === 'docs'} />
+<Navigation />
 
 <CloudRegionDialog signupIds={headerConfig.cloudSignupIds} />
 
@@ -188,11 +188,6 @@ const currentYear = new Date().getFullYear();
 			}
 		}
 
-		// It separated the icons from controls the compact bar no longer carries.
-		.divider {
-			display: none;
-		}
-
 		// Icon only: a square reads the same in both states, so nothing shifts.
 		.burger {
 			width: 40px;
@@ -293,17 +288,6 @@ const currentYear = new Date().getFullYear();
 				align-items: center;
 			}
 
-			.divider {
-				width: 1px;
-				height: 32px;
-				background-color: var(--sl-color-hairline-light);
-				flex-shrink: 0;
-
-				@media screen and (min-width: 1281px) and (max-width: 1499px) {
-					display: none;
-				}
-			}
-
 			.n-button {
 				min-width: 90px;
 				// Match the 40px sign-in control beside it; the `md` ramp is 47px.
@@ -358,11 +342,14 @@ const currentYear = new Date().getFullYear();
 		.logo {
 			position: relative;
 			display: block;
-			// Only `width`: `contain` derives the height from the 168x44 wordmark.
-			width: 180px;
+			// The redesign's wordmark sizes. The art is 168x44 and `contain` keeps its ratio inside the
+			// box, so the width drives the rendered size until the 50px height caps it (at 191 wide):
+			// 215 where the bar has room, 160 across the laptop band where the nav, the cluster and the
+			// star count all compete for it, and a phone step under that.
+			width: 175px;
+			height: 50px;
 			// The SVG has a left margin; this puts the glyph, not the box, on the inset.
 			transform: translateX(-3.571%);
-			height: 60px;
 			background-image: url(../../assets/images/landings/thingsboard-logo.svg);
 			background-size: contain;
 			background-position: center center;
@@ -372,8 +359,22 @@ const currentYear = new Date().getFullYear();
 				filter: invert(100%) sepia(68%) saturate(0%) hue-rotate(350deg) brightness(113%) contrast(101%);
 			}
 
-			@media screen and (max-width: 559px) {
+			@media screen and (min-width: 1025px) {
+				width: 215px;
+			}
+
+			@media screen and (min-width: 1281px) and (max-width: 1599px) {
+				width: 160px;
+			}
+
+			@media screen and (max-width: 767px) {
+				width: 168px;
+				height: 48px;
+			}
+
+			@media screen and (max-width: 480px) {
 				width: 152px;
+				height: 44px;
 			}
 		}
 	}
@@ -535,105 +536,75 @@ const currentYear = new Date().getFullYear();
 		}
 	}
 
-	// These pages carry ~88px more, so the star and then the account pair give way.
-	header.header:has(.icon-buttons) {
-		@include media-down(2xl) {
-			.gh-wrap {
-				display: none;
-			}
-		}
-
-		@include media-down(md) {
-			@include compact-bar;
-		}
-	}
-
-	// 152 + 78 + 110 + 94, two 24px insets and three 8px gaps: 534 is the floor.
-	@media screen and (max-width: 559px) {
+	// The floor of the full bar, every look carrying the search icon now: the 168 wordmark, the
+	// 40 icon, Sign in (78), Try for free (110) and Menu (94), two 24px insets and four 8px gaps come
+	// to 586. Under 600 the account pair steps into the drawer.
+	@media screen and (max-width: 599px) {
 		header.header {
 			@include compact-bar;
 		}
 	}
 
-	// ============================================
-	// PAGE-SPECIFIC HEADER STYLES
-	// ============================================
-
-	// Solid marketing header with a drop shadow (no border). `services` is
-	// solid-border instead, per the design.
-	header.header:has([data-header-variant='solid-shadow']) {
-		// Same surface bg as solid-border so all marketing headers match.
-		background-color: var(--color-bg-surface);
-		box-shadow:
-			0 0 20px rgba(0, 0, 0, 0.1),
-			0 0 40px rgba(0, 0, 0, 0.1);
+	// The star count joins the open drawer's cluster at every width: the closed bar hides it where
+	// the room runs out, but the open drawer has the room, and the account cluster is where a reader
+	// looks for the repo.
+	header.header.opened-burger .head-buttons .gh-wrap {
+		display: block;
 	}
 
-	// Transparent header over a hero (transparent variant).
-	header.header:has([data-header-variant='transparent']) {
-		background-color: transparent;
-		box-shadow: none;
+	// ============================================
+	// THE TWO LOOKS AND THEIR STATES
+	// ============================================
 
+	// Docs: the sidebar ground with a hairline, and one state.
+	header.header:has([data-header-look='docs']) {
+		border-bottom: 1px solid var(--sl-color-hairline-shade);
+	}
+
+	// Marketing: the surface with a hairline at the top of the page; scrolled, the shadow takes the
+	// hairline's place and the bar lifts off the page it now covers.
+	header.header:has([data-header-look='marketing']) {
+		background-color: var(--color-bg-surface);
+		border-bottom: 1px solid var(--color-border);
+
+		&[data-header-scrolled] {
+			border-bottom-color: transparent;
+			box-shadow: var(--shadow-header);
+		}
+	}
+
+	// Over a hero, the bar starts transparent: neither surface nor line nor shadow, until it is
+	// scrolled past or the drawer opens, both of which want a surface of their own.
+	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-hero]) {
+		background-color: transparent;
+		border-bottom-color: transparent;
+		box-shadow: none;
+	}
+
+	// A dark hero takes white ink. Every control draws itself in `currentColor`, so naming the colour
+	// once is the whole of it; the wordmark is an image and inverts.
+	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-hero='dark']) {
 		.logo {
 			filter: invert(100%) sepia(68%) saturate(0%) hue-rotate(350deg) brightness(113%) contrast(101%);
 		}
 
-		// Only the unscrolled, unopened bar is over the hero. The star widget draws itself in
-		// `currentColor`, so it follows this line rather than carrying a second set of colours.
-		&:not(.opened-burger):not([data-header-scrolled]) {
-			.region-signin__trigger,
-			.burger,
-			.gh-button {
-				color: $color-white;
-			}
-		}
-
-		.n-button {
-			min-width: 110px;
-		}
-	}
-
-	// Transparent header overlays the hero → no header clearance, BUT still
-	// reserve the promo-banner band so the hero starts below the banner (the
-	// transparent nav then floats over the hero as before). Without this the
-	// fixed banner would overlay the top of the hero / crowd the hero title.
-	.page:has(header.header [data-header-variant='transparent']) .main-frame,
-	.page:has(header.header [data-header-variant='transparent-hover']) .main-frame {
-		padding-top: var(--promo-h, 0px);
-	}
-
-	// Transparent, opaque on hover + scroll (transparent-hover — pricing, affiliate).
-	header.header:has([data-header-variant='transparent-hover']) {
-		background-color: transparent;
-		// Quick opaque flip synced with the banner.
-		transition:
-			background-color 0.15s ease,
-			box-shadow 0.15s ease;
-
-		&:hover {
-			background-color: var(--color-bg-surface);
-		}
-	}
-
-	// Scrolled transparent header: un-invert the logo/burger.
-	header.header[data-header-scrolled]:has([data-header-variant='transparent']) {
-		.logo {
-			filter: none;
-		}
-
 		.region-signin__trigger,
-		.burger {
-			color: var(--color-text);
+		.burger,
+		.gh-button,
+		.search-toggle-btn {
+			color: $color-white;
 		}
 	}
 
-	// Scrolled state: solid surface for the transparent family.
-	header.header[data-header-scrolled]:has([data-header-variant='transparent']),
-	header.header[data-header-scrolled]:has([data-header-variant='transparent-hover']) {
-		// Quick flip synced with the banner.
-		transition: all 0.12s ease;
-		background-color: var(--color-bg-surface);
-		box-shadow: var(--shadow-header);
+	// A hero page's call to action keeps the wider cell at every width.
+	header.header:has([data-header-hero]) .n-button {
+		min-width: 110px;
+	}
+
+	// The bar over a hero takes no clearance, BUT the promo banner's band is still reserved, so the
+	// hero starts below the banner and the bar floats over the hero as before.
+	.page:has(header.header [data-header-hero]) .main-frame {
+		padding-top: var(--promo-h, 0px);
 	}
 
 	// Mobile burger drawer — identical on every page. `--color-bg-light` is the
@@ -648,15 +619,6 @@ const currentYear = new Date().getFullYear();
 		background-color: var(--color-bg-light);
 		box-shadow: var(--shadow-header);
 
-		.logo {
-			filter: none;
-
-			// The reset is for the hero's white wordmark; in dark it left the dark one on the drawer.
-			[data-theme='dark'] & {
-				filter: invert(100%) sepia(68%) saturate(0%) hue-rotate(350deg) brightness(113%) contrast(101%);
-			}
-		}
-
 		.head-menu ul {
 			a,
 			a:not([href]),
@@ -667,7 +629,7 @@ const currentYear = new Date().getFullYear();
 			// Highlight the expanded section (`.open-sub`, toggled in listburg).
 			li:has(.open-sub) > a,
 			li:has(.open-sub) > span.main-menu-link {
-				color: $color-primary;
+				color: var(--color-primary);
 			}
 
 			// Hover highlight for pointer devices only — touch `:hover` sticks
@@ -675,16 +637,10 @@ const currentYear = new Date().getFullYear();
 			@media (hover: hover) {
 				li:hover > a,
 				li:hover > span.main-menu-link {
-					color: $color-primary;
+					color: var(--color-primary);
 				}
 			}
 		}
-	}
-
-	// Docs / 404 default header — hairline bottom border.
-	header.header:has([data-header-variant='docs']),
-	header.header:has([data-header-variant='common']) {
-		border-bottom: 1px solid var(--sl-color-hairline-shade);
 	}
 
 	// Starlight mobile sidebar: 90% width, toggle button left when closed / right edge when open
@@ -712,13 +668,6 @@ const currentYear = new Date().getFullYear();
 		html[data-has-toc] .sl-menu-button:has(~ :popover-open) {
 			display: flex;
 		}
-	}
-
-	// Use-cases / case-studies / partners / blog / services etc.:
-	// surface background + bottom border (solid-border variant).
-	header.header:has([data-header-variant='solid-border']) {
-		background-color: var(--color-bg-surface);
-		border-bottom: 1px solid var(--color-border);
 	}
 
 	// Dark-mode dropdown tinting. `!important` beats Navigation's per-brand rules
@@ -763,9 +712,9 @@ const currentYear = new Date().getFullYear();
 			margin: 0 0 1.5rem;
 
 			&,
-			&:has([data-header-variant]),
-			&[data-header-scrolled]:has([data-header-variant]),
-			&:has([data-header-variant]):hover {
+			&:has([data-header-look]),
+			&[data-header-scrolled]:has([data-header-look]),
+			&:has([data-header-look]):hover {
 				border-bottom: 1px solid #d7d9e0;
 				background: none;
 				box-shadow: none;
