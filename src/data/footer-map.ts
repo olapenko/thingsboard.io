@@ -162,18 +162,19 @@ export const FOOTER_LICENSE_PORTAL = {
 
 /**
  * The link columns, the menu's sections in the menu's order (Products is the platform map above
- * them): one heading each, and A PAGE HAS ONE NAME AND ONE HOME in the menu and here. The footer may
- * show fewer of a section's links; it never moves one to another heading or calls it something else
- * (2026-10-05).
+ * them): one heading each. The rule is that A PAGE HAS ONE NAME AND ONE HOME in the menu and here,
+ * and the footer may show fewer of a section's links; two exceptions were agreed (2026-10-05):
  *
- * BALANCED AT FIVE OR SIX (2026-10-05). An arrowed link closes a list only where an index stands
- * behind it, and then just one: All use cases for Solutions, Documentation for Docs. Services has
- * three pages and no index; Contact us is Company's alone, so no Talk to an expert. Case studies
- * are the menu's (with Clients feedback in Company for the proof); here they made a second index
- * link stacked on the first. Docs carries the developer's first stops — getting started, connecting
- * a device, the REST API, the CLI — to stand level with its neighbours; release notes are one click
- * inside, GitHub is on the Follow line. The partner programmes are left out: their hub is a
- * technical page, and the menu carries the three.
+ * - USE CASES, not Solutions: the column lists use cases and closes on their index, so it is named
+ *   for them; the menu's Solutions also holds SCADA and the case studies.
+ * - CUSTOMERS, a second list under Services: Case studies (the menu's Solutions) and Clients
+ *   feedback (the menu's Company), together as the proof, so the columns stand level.
+ *
+ * An arrowed link closes a list only where an index stands behind it — All use cases, Documentation
+ * — or where it is the footer's one action, Contact us. Services has three pages and no index. Docs
+ * carries a developer's first stops; release notes are one click inside, GitHub is on the Follow
+ * line alone. The partner programmes are left out: their hub is a technical page, and the menu
+ * carries the three.
  *
  * NO "BUILD" COLUMN (dropped 2026-09-29). It listed capabilities — connect devices, rule engine,
  * twins, white-labeling — but seven of its eight links landed in the docs, which the Docs column
@@ -181,13 +182,9 @@ export const FOOTER_LICENSE_PORTAL = {
  * comes back when the capability pages (`/device-management/`, `/iot-data-visualization/`…) are
  * rebuilt, pointing at those rather than at the docs.
  */
-// Since 2026-10-05: six use cases; Customers (Case studies, Clients feedback) as a second list under
-// Services; GitHub in Docs as well as on the Follow line; Contact us as Company's arrowed last word,
-// the footer's one action. Customers files two pages the menu keeps in Solutions and Company — an
-// agreed exception to the one-home rule above, for the columns' balance.
 export const FOOTER_COLUMNS: FooterColumn[] = [
 	{
-		title: 'Solutions',
+		title: 'Use cases',
 		links: [
 			{ label: 'Smart energy', href: '/use-cases/smart-energy/' },
 			{ label: 'Smart metering', href: '/use-cases/smart-metering/' },
@@ -222,7 +219,6 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Connect devices', href: '/docs/pe/connect-iot-devices/' },
 			{ label: 'REST API', href: '/docs/pe/reference/rest-api/' },
 			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
-			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
 		],
 		more: [{ label: 'Documentation', href: '/docs/pe/' }],
 	},
