@@ -45,6 +45,9 @@ const nameParts = (name: string, highlight?: string) => {
 		{ text: name.slice(at + highlight.length), tint: false },
 	].filter((part) => part.text);
 };
+
+/** The old tabbed page's product ids, each to the section that holds it now (the script resolves them). */
+const aliases = Object.fromEntries(installProducts.flatMap((p) => (p.aliases ?? []).map((a) => [a, p.id])));
 ---
 
 <BaseLayout
@@ -62,9 +65,29 @@ const nameParts = (name: string, highlight?: string) => {
 				level={1}
 			/>
 
+			{/* The page's contents: one link per section, the word the section's title tints. Sticky
+				    under the header while the sections run in one column (see the style). */}
+			<nav
+				class="install-nav"
+				aria-label="Products on this page"
+				data-install-nav
+				data-aliases={JSON.stringify(aliases)}
+			>
+				<ul class="install-nav__list" role="list">
+					{installProducts.map((p) => (
+						<li>
+							<a class="install-nav__link" href={`#${p.id}`} style={`--tab-accent: ${p.badgeFill ?? p.accent}`}>
+								{p.navLabel ?? p.nameHighlight ?? p.name}
+							</a>
+						</li>
+					))}
+				</ul>
+			</nav>
+
 			{installProducts.map((p) => (
 				<article
 					id={p.id}
+					aria-labelledby={`${p.id}-title`}
 					class:list={['install__product', p.regions && 'install__product--band']}
 					style={p.badgeFill ? `--badge-fill: ${p.badgeFill}` : undefined}
 				>
@@ -74,7 +97,7 @@ const nameParts = (name: string, highlight?: string) => {
 							    while the section runs in one column, 72 (the product cards' step) once its two
 							    columns sit side by side. */}
 						<Mark
-							size={{ base: 64, md: 72 }}
+							size={{ base: 64, lg: 72 }}
 							fill={p.badgeFill ? 'solid' : 'white'}
 							accent={p.badgeFill ?? p.accent}
 							lift
@@ -82,7 +105,7 @@ const nameParts = (name: string, highlight?: string) => {
 						/>
 						<div>
 							<p class="install__label">{p.label}</p>
-							<h2 class="install__title">
+							<h2 class="install__title" id={`${p.id}-title`}>
 								{nameParts(p.name, p.nameHighlight).map((part) =>
 									part.tint ? <span class="install__title-accent">{part.text}</span> : part.text
 								)}
@@ -125,6 +148,14 @@ const nameParts = (name: string, highlight?: string) => {
 
 						{p.aside && (
 							<Card role="panel" pad="md" class="install__aside">
+								<ul class="install__hosts" role="list" aria-label={`${p.aside.title} runs on`}>
+									{p.aside.hosts.map((host) => (
+										<li class="install__host">
+											<Icon name={host.icon} class="install__host-mark" aria-hidden="true" />
+											<span class="install__host-sr">{host.name}</span>
+										</li>
+									))}
+								</ul>
 								<div class="install__aside-head">
 									<Icon name="tabler:cloud-lock" class="install__aside-glyph" aria-hidden="true" />
 									<h3 class="install__aside-title">{p.aside.title}</h3>
@@ -137,7 +168,6 @@ const nameParts = (name: string, highlight?: string) => {
 										</Link>
 									))}
 								</div>
-								<InstallOptions groups={p.aside.options} class="install__aside-options" />
 							</Card>
 						)}
 
@@ -153,8 +183,111 @@ const nameParts = (name: string, highlight?: string) => {
 	</section>
 </BaseLayout>
 
+<script>
+	const nav = document.querySelector<HTMLElement>('[data-install-nav]');
+	if (nav) follow(nav);
+
+	/**
+	 * The page nav: lights the section being read, keeps its link in view when the row scrolls
+	 * sideways, lands a click under the header and the nav, and sends the old tabbed page's
+	 * addresses to their sections. Without script the links are plain anchors and land by the
+	 * root's `scroll-padding-top`, which the style sizes for the nav.
+	 */
+	function follow(nav: HTMLElement) {
+		const list = nav.querySelector<HTMLElement>('ul');
+		const links = Array.from(nav.querySelectorAll<HTMLAnchorElement>('a[href^="#"]'));
+		const found = links.map((a) => document.getElementById(a.hash.slice(1)));
+		if (!list || found.some((s) => !s)) return;
+		const sections = found as HTMLElement[];
+		const root = document.documentElement;
+		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const behavior = (): ScrollBehavior => (reduce.matches ? 'instant' : 'smooth');
+
+		// `?product=thingsboard-cloud` and `#tab-thingsboard-pe`, the old page's tab addresses, which
+		// docs pages still link. Rewritten to the section's own anchor, without a history entry.
+		const aliases: Record<string, string> = JSON.parse(nav.dataset.aliases ?? '{}');
+		const url = new URL(window.location.href);
+		const fromQuery = url.searchParams.get('product');
+		const fromHash = url.hash.slice(1);
+		const legacy =
+			(fromQuery && aliases[fromQuery]) ||
+			(fromHash && !document.getElementById(fromHash) && aliases[fromHash.replace(/^tab-/, '')]) ||
+			'';
+		const landing = legacy ? document.getElementById(legacy) : null;
+		if (landing) {
+			if (fromQuery && aliases[fromQuery]) url.searchParams.delete('product');
+			url.hash = legacy;
+			history.replaceState(null, '', url);
+			landing.scrollIntoView({ block: 'start', behavior: 'instant' });
+			// Again once images and fonts have settled, unless the reader has moved on.
+			let moved = false;
+			const stop = () => (moved = true);
+			['wheel', 'touchstart', 'keydown'].forEach((t) =>
+				window.addEventListener(t, stop, { once: true, passive: true })
+			);
+			window.addEventListener('load', () => moved || landing.scrollIntoView({ block: 'start', behavior: 'instant' }), {
+				once: true,
+			});
+		}
+
+		let current = -1;
+		let frame = 0;
+
+		const update = () => {
+			frame = 0;
+			const pad = parseFloat(getComputedStyle(root).scrollPaddingTop) || 0;
+			const sticky = getComputedStyle(nav).position === 'sticky';
+			const stuck = sticky && nav.getBoundingClientRect().top <= (parseFloat(getComputedStyle(nav).top) || 0) + 0.5;
+			nav.toggleAttribute('data-stuck', stuck);
+			root.toggleAttribute('data-install-nav-stuck', stuck);
+
+			// The section being read is the last one whose top has passed a line a quarter of the way
+			// into the page under the header; at the very end of the page, the last one, however short.
+			const line = pad + (window.innerHeight - pad) * 0.25;
+			const atEnd = window.scrollY + window.innerHeight >= root.scrollHeight - 2;
+			let next = atEnd ? sections.length - 1 : -1;
+			if (!atEnd) sections.forEach((s, i) => s.getBoundingClientRect().top <= line && (next = i));
+			if (next === current) return;
+			current = next;
+			links.forEach((a, i) =>
+				i === current ? a.setAttribute('aria-current', 'location') : a.removeAttribute('aria-current')
+			);
+
+			// The row scrolls sideways on a phone: bring the lit link to its middle.
+			const lit = links[current];
+			if (lit && list.scrollWidth > list.clientWidth) {
+				list.scrollTo({ left: lit.offsetLeft - (list.clientWidth - lit.offsetWidth) / 2, behavior: behavior() });
+			}
+		};
+
+		const schedule = () => {
+			if (!frame) frame = requestAnimationFrame(update);
+		};
+		window.addEventListener('scroll', schedule, { passive: true });
+		window.addEventListener('resize', schedule);
+		update();
+
+		// `scrollIntoView` honours the root's `scroll-padding-top`, so the section lands where a plain
+		// anchor would, smoothly. The address follows without a history entry per click; focus moves
+		// to the section, so the next Tab continues from there.
+		nav.addEventListener('click', (event) => {
+			const link = (event.target as Element).closest<HTMLAnchorElement>('a[href^="#"]');
+			const target = link ? document.getElementById(link.hash.slice(1)) : null;
+			if (!target) return;
+			event.preventDefault();
+			target.scrollIntoView({ block: 'start', behavior: behavior() });
+			history.replaceState(null, '', `#${target.id}`);
+			if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+			target.focus({ preventScroll: true });
+		});
+	}
+</script>
+
 <style lang="scss">
 	@use '../../styles/variables' as *;
+
+	// The page nav's row: its own height, and what an anchor clears under the header.
+	$install-nav-h: 48px;
 
 	// The homepage's ground and measure: a section on white, its content on the 960 the homepage's
 	// product grids sit on (`.main-div` at 1000 with 20 of padding).
@@ -172,6 +305,147 @@ const nameParts = (name: string, highlight?: string) => {
 			margin-inline: auto;
 			padding-inline: $spacing-5;
 		}
+	}
+
+	// ── The page nav ──────────────────────────────────────────────────
+	// One link per section under the intro, as an underlined tab row: grey words, the section being
+	// read in ink over a 3px rounded bar in that product's colour (asked 2026-10-05): the row is the
+	// one place every product shows its hue, while the sections keep it to the two platforms. Links,
+	// not ARIA tabs: they go to a place on the page rather than switch a panel.
+	//
+	// STICKY AT EVERY WIDTH, under the header and the promo strip as it collapses: the page is
+	// several screens per product, and the row is the one place that shows what else it holds.
+	// Full-bleed, as the Cloud band is, so once stuck it reads as the header's second line rather
+	// than a strip floating on the measure. No hairline at any point: stuck, the header's shadow
+	// marks its edge; at rest, the Cloud band's own edge is right under it.
+	.install-nav {
+		position: sticky;
+		top: calc(var(--promo-cur, 0px) + var(--home-header-h, 64px));
+		// Over the sections scrolling under it (their tiles and panels lift on shadows), under the
+		// header's 8888 and the menu that opens from it.
+		z-index: 10;
+		margin: $spacing-8 calc(50% - 50vw) 0;
+		background: var(--color-bg, #fff);
+		transition: box-shadow 0.15s ease;
+
+		// Stuck: the header's shadow, which the header gives up meanwhile (below), so the two read as
+		// one bar with a second line.
+		&[data-stuck] {
+			box-shadow: var(--shadow-header);
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+		}
+	}
+
+	// CENTRED WHEREVER IT FITS, SCROLLING WHERE IT DOES NOT. The row is its own sideways scroller at
+	// every width, and the first and last items take the spare room as auto margins: while there is
+	// room they centre the row (tablet, desktop, a 375 phone), and when there is none they fall to
+	// zero, so the row starts at its padding and scrolls (a 320 phone), rather than centring and
+	// cutting off both ends the way `justify-content: center` would. 16 between and at the ends on a
+	// phone, which holds all five at 375; 24 between from `md`.
+	.install-nav__list {
+		position: relative;
+		display: flex;
+		gap: $spacing-4;
+		height: $install-nav-h;
+		margin: 0;
+		padding: 0 $spacing-4;
+		overflow-x: auto;
+		overscroll-behavior-x: contain;
+		list-style: none;
+		scrollbar-width: none;
+
+		&::-webkit-scrollbar {
+			display: none;
+		}
+
+		@include media-up(md) {
+			gap: $spacing-6;
+		}
+
+		> li {
+			display: flex;
+			flex: none;
+
+			&:first-child {
+				margin-inline-start: auto;
+			}
+
+			&:last-child {
+				margin-inline-end: auto;
+			}
+		}
+	}
+
+	// The bar is drawn rather than a border, so it can round its top corners and grow from the
+	// middle; the word keeps its weight and only changes ink, so nothing in the row shifts.
+	.install-nav__link {
+		@include type-small-strong;
+
+		position: relative;
+		display: flex;
+		align-items: center;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+		text-decoration: none;
+		white-space: nowrap;
+		transition: color 0.15s ease;
+
+		&::after {
+			content: '';
+			position: absolute;
+			right: 0;
+			bottom: 0;
+			left: 0;
+			height: 3px;
+			border-radius: 3px 3px 0 0;
+			background: var(--tab-accent, var(--color-text, #17181c));
+			transform: scaleX(0);
+			transition: transform 0.2s ease;
+		}
+
+		&:hover {
+			color: var(--color-text, #17181c);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--tab-accent, var(--color-text, #17181c));
+			outline-offset: -2px;
+			border-radius: 4px;
+		}
+
+		&[aria-current] {
+			color: var(--color-text, #17181c);
+
+			&::after {
+				transform: scaleX(1);
+			}
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+
+			&::after {
+				transition: none;
+			}
+		}
+	}
+
+	// An anchor lands its section under the header and the nav: the root's padding is what both a
+	// plain anchor and the script's `scrollIntoView` honour. It replaces Starlight's 1.5rem over the
+	// header; the sections bring their own top padding.
+	:global(:root:has([data-install-nav])) {
+		scroll-padding-top: calc(var(--home-header-h, 64px) + #{$install-nav-h});
+	}
+
+	:global(:root[data-install-nav-stuck] header.header[data-header-scrolled]) {
+		box-shadow: none;
+	}
+
+	// Focus moved to a section by a nav click is for the next Tab, not something to draw.
+	.install__product:focus {
+		outline: none;
 	}
 
 	// ── One product, one section ──────────────────────────────────────
@@ -216,12 +490,16 @@ const nameParts = (name: string, highlight?: string) => {
 		color: var(--color-text, #17181c);
 	}
 
+	// One unit: "On-premises" never breaks at its hyphen ("ThingsBoard On-" over "premises" at 375).
 	.install__title-accent {
 		color: var(--badge-fill, inherit);
+		white-space: nowrap;
 	}
 
-	// The way in on the left, the ways in on the right; one column once the row is too narrow for
-	// both to keep a reading width.
+	// The way in on the left, the ways in on the right; one column below `lg`. At a 768 tablet the
+	// two columns left the panel 300 wide, and the longest chips ("Building from source",
+	// "Docker Linux / macOS") ran out of it; in one column the panel takes the full row and its chips
+	// sit several to a line.
 	// The way in takes the larger share (13 to 10, asked 2026-09-27 from five to six): 520 of the
 	// 920 the gap leaves, which holds a product's button and its two links on one row — 497 for
 	// On-premises, the widest set — and the panel of chips beside it wraps without complaint.
@@ -231,7 +509,7 @@ const nameParts = (name: string, highlight?: string) => {
 		gap: $spacing-8 $spacing-10;
 		align-items: start;
 
-		@include media-down(md) {
+		@include media-down(lg) {
 			grid-template-columns: minmax(0, 1fr);
 		}
 	}
@@ -303,8 +581,8 @@ const nameParts = (name: string, highlight?: string) => {
 	// the same column (asked for the aside first, then for the rest). A white Card panel, on the
 	// Cloud band too, where it matches the white region rows beside it. At 20 of padding rather than
 	// the panel's 32: the 400 column then keeps 360 for chips, which holds the rows the page was set
-	// to (AWS beside Azure, Trendz Cloud beside Ubuntu Server); at 32 those pairs ran one chip to a
-	// line and the page grew by 280px.
+	// to (AWS beside Azure under On-premises, Trendz Cloud beside Ubuntu Server); at 32 those pairs
+	// ran one chip to a line and the page grew by 280px.
 	.install__aside-head {
 		display: flex;
 		align-items: center;
@@ -334,7 +612,38 @@ const nameParts = (name: string, highlight?: string) => {
 		margin-top: $spacing-3;
 	}
 
-	.install__aside-options {
-		margin-top: $spacing-5;
+	// ── Where Private Cloud runs ──────────────────────────────────────
+	// The clouds open the panel as its picture: one row of marks in one ink, the muted grey, with no
+	// names beside them (screen readers get the names) and linking nowhere — the panel's links are the
+	// ways in, and these are a fact about the offering. 32 tall; AWS's mark is a wordmark with its
+	// smile under it, so it runs larger to sit at the same visual height as the two glyphs.
+	.install__hosts {
+		display: flex;
+		align-items: center;
+		gap: $spacing-6;
+		margin: 0 0 $spacing-5;
+		padding: 0;
+		list-style: none;
+	}
+
+	.install__host {
+		display: flex;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.install__host-mark {
+		flex: none;
+		width: 32px;
+		height: 32px;
+	}
+
+	.install__host-mark[data-icon='simple-icons:amazonwebservices'] {
+		width: 48px;
+		height: 48px;
+		margin-block: -8px;
+	}
+
+	.install__host-sr {
+		@include visually-hidden;
 	}
 </style>

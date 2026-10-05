@@ -17,6 +17,14 @@ export const CLOUD_SIGNUP = {
 /** The On-premises product's own guide, the one `/products/thingsboard-pe/` already sends people to. */
 export const INSTALL_GUIDE_HREF = '/docs/pe/installation/';
 
+/**
+ * The Private Cloud enquiry form. `pcorder` is the flag the contact form routes on: it opens on the
+ * Private Cloud heading and skips the topic question. `paasPage` and `pricing-page` still hold their
+ * own copies of the same string.
+ */
+export const CONTACT_PRIVATE_CLOUD =
+	'/contact-us/?subject=Private%20Cloud&pcorder&message=I%20am%20interested%20in%20Private%20Cloud';
+
 /** The two, by name, for the kit's `to` prop: `<Button to="cloud-signup">`, `<Link to="install-guide">`. */
 export const DESTINATIONS = {
 	'cloud-signup': CLOUD_SIGNUP,

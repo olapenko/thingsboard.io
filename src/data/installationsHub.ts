@@ -1,4 +1,4 @@
-import { CLOUD_REGIONS, type CloudRegionId } from '@util/cloud-regions';
+import { CONTACT_PRIVATE_CLOUD } from '@data/cta-destinations';
 import { homeProducts } from './homeProducts';
 import { homeEcosystem } from './homeEcosystem';
 
@@ -37,24 +37,31 @@ export interface InstallOptionGroup {
 	items: InstallOption[];
 }
 
-export interface InstallRegion {
-	id: CloudRegionId;
+/** A cloud a managed offering runs on: shown, not linked — there is nothing to install. */
+export interface InstallHost {
 	name: string;
-	/** Where the data stays, in the Cloud FAQ's own words. */
-	note: string;
-	signup: string;
+	/** A Simple Icons mark, drawn in one ink; the name is for screen readers only. */
+	icon: string;
 }
 
-/** A second column beside the way in: Cloud's Private Cloud, with the cloud-provider options under it. */
+/** A second column beside the way in: Cloud's Private Cloud, opening on the clouds it runs on. */
 export interface InstallAside {
 	title: string;
 	text: string;
 	links: InstallLink[];
-	options: InstallOptionGroup[];
+	hosts: InstallHost[];
 }
 
 export interface InstallProduct {
+	/** The section's anchor (`/installations/#edge`), and the page nav's link to it. */
 	id: string;
+	/**
+	 * The old tabbed page's ids for this product (`?product=thingsboard-cloud`, `#tab-thingsboard-pe`),
+	 * which docs pages still link: the page's script sends them to this section.
+	 */
+	aliases?: string[];
+	/** The page nav's word for the section, where the tinted word is not it. */
+	navLabel?: string;
 	name: string;
 	nameHighlight?: string;
 	label: string;
@@ -65,12 +72,18 @@ export interface InstallProduct {
 	badgeFill?: string;
 	/** The platform's glyph, on the button (the homepage's product cards carry it the same way). */
 	cornerIcon?: string;
-	/** The way in. Cloud has none: its regions are the way in. */
+	/** The way in. Cloud has none: its region rows are the way in. */
 	primary?: InstallLink;
 	/** The quiet links beside it: the product page, pricing. */
 	links: InstallLink[];
 	options?: InstallOptionGroup[];
-	regions?: InstallRegion[];
+	/**
+	 * THE REGIONS ARE THE WAY IN: the section lists Cloud's regions under "Try now", one sign-up row
+	 * per region (`RegionChoice`, which reads the regions from `@util/cloud-regions` itself). Cloud is
+	 * two sites with an account on only one, so the region is the one thing to decide, and it is
+	 * decided here rather than behind a dialog. No sign-in: a returning user has the header's.
+	 */
+	regions?: boolean;
 	aside?: InstallAside;
 }
 
@@ -94,35 +107,18 @@ const gateway = ecosystem('IoT Gateway');
 
 const logo = (name: string) => `/src/assets/images/installation/${name}`;
 
-const REGION_NOTES: Record<CloudRegionId, string> = {
-	us: 'Data stored in North America',
-	eu: 'Data stored in the European Union',
-};
-
 /**
- * THE REGIONS ARE THE WAY IN, listed on the page under "Try now" as the old page listed them — one
- * row per region, each the sign-up on that region's host. Cloud is two sites with an account on
- * only one, so the region is the one thing to decide, and it is decided here rather than behind a
- * dialog. No sign-in: a returning user has the header's.
+ * The self-hosted guides for the four clouds — AWS, Azure, GCP, DigitalOcean — sit with
+ * On-premises (moved 2026-10-05 from under Private Cloud, where they read as Private Cloud's
+ * options): each installs ThingsBoard on the reader's own cloud account, which is self-managed,
+ * however far from a server room. Private Cloud names the clouds it runs on instead, unlinked.
  */
-const regions: InstallRegion[] = CLOUD_REGIONS.map((r) => ({
-	id: r.id,
-	name: r.name,
-	note: REGION_NOTES[r.id],
-	signup: `https://${r.host}/signup`,
-}));
-
-/**
- * The old page's "cloud" row of the self-hosted guides — AWS, Azure, GCP, DigitalOcean — sits
- * under Cloud's Private Cloud column now (asked 2026-09-27), beside the managed offering that runs
- * on those providers. The guides themselves are still the self-hosted installs on each provider.
- */
-const cloudProviders: InstallOptionGroup = {
-	title: 'In a cloud of your choice',
+const cloudAccounts: InstallOptionGroup = {
+	title: 'In your cloud account',
 	items: [
 		{ label: 'AWS', logo: logo('aws.svg'), href: '/docs/installation/aws/' },
 		{ label: 'Microsoft Azure', logo: logo('azure.svg'), href: '/docs/installation/azure/' },
-		{ label: 'Google Cloud Platform', logo: logo('gcp.svg'), href: '/docs/installation/gcp/' },
+		{ label: 'Google Cloud', logo: logo('gcp.svg'), href: '/docs/installation/gcp/' },
 		{ label: 'DigitalOcean', logo: logo('digital-ocean.svg'), href: '/docs/installation/digital-ocean/' },
 	],
 };
@@ -130,6 +126,7 @@ const cloudProviders: InstallOptionGroup = {
 export const installProducts: InstallProduct[] = [
 	{
 		id: 'cloud',
+		aliases: ['thingsboard-cloud'],
 		name: cloud.name,
 		nameHighlight: cloud.nameHighlight,
 		label: cloud.label,
@@ -140,20 +137,32 @@ export const installProducts: InstallProduct[] = [
 		badgeFill: cloud.badgeFill,
 		cornerIcon: cloud.cornerIcon,
 		links: [{ label: 'See plans', href: '/pricing/' }],
-		regions,
+		regions: true,
 		aside: {
 			title: 'Private Cloud',
-			text: 'A dedicated cluster we provision and operate for you, in the cloud and the region you choose.',
+			// The Private Cloud FAQ's case, cut to one paragraph: isolated, provisioned in hours (the
+			// product page's "in hours"; the FAQ's "1-2 hours"), operated by us, under the SLA in #676's
+			// spelling.
+			text: 'Your own isolated ThingsBoard cluster, provisioned in hours and run by our team: patches, 24/7 monitoring, backups and upgrades, under a 99.9%–99.99% uptime SLA.',
 			// A dedicated cluster is a conversation, so the contact link leads; the comparison follows.
 			links: [
-				{ label: 'Contact us', href: '/contact-us/?subject=ThingsBoard%20Private%20Cloud' },
+				{ label: 'Contact us', href: CONTACT_PRIVATE_CLOUD },
 				{ label: cloud.action, href: cloud.href },
 			],
-			options: [cloudProviders],
+			// Where it runs, not a way in: the logos open the panel as its picture and link nowhere,
+			// since there is nothing to install. DigitalOcean is not among them — Private Cloud does
+			// not run there.
+			hosts: [
+				{ name: 'AWS', icon: 'simple-icons:amazonwebservices' },
+				{ name: 'Azure', icon: 'simple-icons:microsoftazure' },
+				{ name: 'Google Cloud', icon: 'simple-icons:googlecloud' },
+			],
 		},
 	},
 	{
 		id: 'on-premises',
+		// Both of the old page's self-managed tabs: there is no Professional Edition section.
+		aliases: ['thingsboard-pe', 'thingsboard-ce'],
 		name: onPremises.name,
 		nameHighlight: onPremises.nameHighlight,
 		label: onPremises.label,
@@ -168,9 +177,9 @@ export const installProducts: InstallProduct[] = [
 			{ label: 'See plans', href: '/pricing/' },
 			{ label: onPremises.action, href: onPremises.href },
 		],
-		// The old page's server row for this product, its own guides; its cloud row is under Private
-		// Cloud above. "Cluster setup" goes to the guide's index, as it did: the cluster guides are
-		// several, and the index lists them.
+		// The old page's server row for this product, its own guides, then its cloud row. "Cluster
+		// setup" goes to the guide's index, as it did: the cluster guides are several, and the index
+		// lists them.
 		options: [
 			{
 				title: 'On your servers',
@@ -198,10 +207,12 @@ export const installProducts: InstallProduct[] = [
 					{ label: 'Cluster setup', logo: logo('kubernetes.svg'), href: '/docs/installation/' },
 				],
 			},
+			cloudAccounts,
 		],
 	},
 	{
 		id: 'edge',
+		aliases: ['thingsboard-edge'],
 		name: 'ThingsBoard Edge',
 		nameHighlight: 'Edge',
 		label: edge.label,
@@ -247,6 +258,7 @@ export const installProducts: InstallProduct[] = [
 	},
 	{
 		id: 'trendz',
+		aliases: ['thingsboard-trendz'],
 		name: 'Trendz Analytics',
 		nameHighlight: 'Trendz',
 		label: trendz.label,
@@ -283,6 +295,7 @@ export const installProducts: InstallProduct[] = [
 	},
 	{
 		id: 'gateway',
+		navLabel: 'IoT Gateway',
 		name: 'IoT Gateway',
 		nameHighlight: 'Gateway',
 		label: gateway.label,
