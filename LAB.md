@@ -135,8 +135,8 @@ back (#23). Both are stacked PRs into `handoff` like the chrome layers.
 
 ## Awaiting a ship decision
 
-Built and on `lab` for review; not for `handoff` until the owner decides. Each is one commit, so
-shipping is a PR and dropping it is a revert.
+Built and on `lab` for review; not for `handoff` until the owner decides. It is one commit, so
+shipping is a PR and dropping it is a revert. (The footer draft beside it was applied on 5 Oct.)
 
 **The docs hub at `/docs/`** — `feat/docs-hub`, commit `39b32cf70` (proposed 5 Oct).
 
@@ -164,12 +164,6 @@ shipping is a PR and dropping it is a revert.
   wordmark (`SiteTitle`, now `/docs/pe/`) at the hub; decide whether IoT Hub's docs join the hub and
   the Docs menu (neither lists them).
 - *To drop it.* Revert `39b32cf70`; `/docs/` is the Community intro again.
-
-**The footer draft** — on `feat/menu-logos`, commit `1439447cd` (5 Oct): six use cases, Customers
-(Case studies, Clients feedback) as a second list under Services, GitHub in Docs as well as on the
-Follow line, Contact us as Company's arrowed last word. Its cost is the rule it bends: Customers files
-two pages the menu keeps under Solutions and Company (one name, one home). To drop it:
-`git revert 1439447cd` restores the four balanced columns (5 / 3 / 5 / 6).
 
 ## Running it
 
