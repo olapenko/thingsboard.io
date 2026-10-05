@@ -214,10 +214,20 @@ const currentYear = new Date().getFullYear();
 		// top:0 as the banner collapses on scroll (--promo-cur → 0).
 		top: var(--promo-cur, var(--promo-h, 0px));
 		left: 0;
+		// One length for every change of state — the ground, its line, its shadow, the ink — so they
+		// move as one: a swap from white ink to dark is over before the eye can catch the two between.
+		--tb-bar-swap: 0.2s;
+		// The ground the bar takes scrolled over a dark hero, and the one panel over it: the hero's own
+		// colour (`HeaderScrollWatch`), so the bar reads as the hero continued; a near-black otherwise.
+		// Nearly opaque and frosted (`--tb-bar-frost`): at 92% bare, a dashboard or a headline moving
+		// under it showed through as noise.
+		--tb-bar-dark: color-mix(in srgb, var(--tb-hero-ground, rgb(8 9 14)) 94%, transparent);
+		--tb-bar-frost: blur(16px) saturate(1.2);
 		// No `filter`: it would become the containing block for the fixed promo banner.
 		transition:
-			background-color 0.3s ease,
-			box-shadow 0.3s ease;
+			background-color var(--tb-bar-swap) ease,
+			border-color var(--tb-bar-swap) ease,
+			box-shadow var(--tb-bar-swap) ease;
 		width: 100%;
 		height: $header-height;
 		z-index: 8888;
@@ -245,6 +255,8 @@ const currentYear = new Date().getFullYear();
 		.head-buttons {
 			// After the menu in the DOM and on screen; `order` keeps it last whatever comes before.
 			order: 1;
+			// Every control here draws in `currentColor` and inherits it, so the ink is changed once, here.
+			transition: color var(--tb-bar-swap) ease;
 			// The cluster never gives way to the row: squeezed, Try for free broke onto two lines. The
 			// widths it changes at (the search field, the star count) are measured so it does not have to.
 			flex-shrink: 0;
@@ -326,6 +338,7 @@ const currentYear = new Date().getFullYear();
 			background-size: contain;
 			background-position: center center;
 			background-repeat: no-repeat;
+			transition: filter var(--tb-bar-swap) ease;
 
 			[data-theme='dark'] & {
 				filter: invert(100%) sepia(68%) saturate(0%) hue-rotate(350deg) brightness(113%) contrast(101%);
@@ -468,18 +481,56 @@ const currentYear = new Date().getFullYear();
 		box-shadow: none;
 	}
 
-	// A dark hero takes white ink. Every control draws itself in `currentColor`, so naming the colour
-	// once is the whole of it; the wordmark is an image and inverts.
-	header.header:not([data-sm-open]):not([data-header-scrolled]):has([data-header-hero='dark']) {
+	// A dark hero takes white ink, at the top of the page and scrolled while the hero is still under the
+	// bar. Every control draws itself in `currentColor`, so naming the colour once is the whole of it;
+	// the wordmark is an image and inverts.
+	@include bar-over-dark-hero {
 		.logo {
 			filter: invert(100%) sepia(68%) saturate(0%) hue-rotate(350deg) brightness(113%) contrast(101%);
 		}
 
-		.region-signin__trigger,
-		.burger,
-		.gh-button,
-		.search-toggle-btn {
+		.head-buttons {
 			color: $color-white;
+		}
+
+		// The promo banner over the hero is part of it: the hero's ground, white words, the dark menu's
+		// accent. It is only ever seen at the top of the page, before it slides away.
+		#promo-banner {
+			background-color: var(--tb-hero-ground, rgb(8 9 14));
+			border-bottom-color: rgba(255, 255, 255, 0.1);
+
+			.promo-msg {
+				color: rgba(255, 255, 255, 0.88);
+			}
+
+			.promo-msg strong,
+			.promo-star,
+			.promo-chevron {
+				color: #b3c7ff;
+			}
+		}
+	}
+
+	// Scrolled with the hero still under it: the hero's ground, a faint light line under it, no
+	// shadow, and the ink stays white. The line goes while the one panel hangs under the bar.
+	header.header:not([data-sm-open])[data-header-scrolled][data-header-over-hero]:has([data-header-hero='dark']) {
+		background-color: var(--tb-bar-dark);
+		border-bottom-color: rgba(255, 255, 255, 0.08);
+		box-shadow: none;
+
+		// The frost on a layer of its own: on the bar itself it would make the bar the containing block
+		// of the fixed promo banner and panel inside it, as `filter` would.
+		&::before {
+			content: '';
+			position: absolute;
+			inset: 0;
+			z-index: -1;
+			backdrop-filter: var(--tb-bar-frost);
+			pointer-events: none;
+		}
+
+		&[data-sm-desktop-open] {
+			border-bottom-color: transparent;
 		}
 	}
 
