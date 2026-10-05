@@ -181,9 +181,9 @@ export const servicesSubmenu: SubMenu = {
 };
 
 /**
- * A case study as a menu row: its page, its customer's name, and a logo — the homepage strip's
- * (`customer-logo/`, single-colour marks cropped to their ink) where the strip has the customer,
- * else the one the study's page shows.
+ * A case study as a menu row: its page, its customer's name, and a logo from `customer-logo/` —
+ * single-colour marks cropped to their ink, the homepage strip's and Super Bock's beside them
+ * (made from its study's artwork). A study named without one falls back to its page's logo.
  */
 const STRIP_LOGO = '/src/assets/images/landings/customer-logo/';
 function caseStudy(slug: string, heading: string, logoHeight: number, stripLogo?: string): SubMenuItem {
@@ -301,7 +301,7 @@ export const solutionsSubmenu: SubMenu = {
 				caseStudy('schwarz', 'Schwarz Group', 15, 'schwarz-gruppe.svg'),
 				caseStudy('t-mobile-cz', 'T-Mobile', 15, 't-mobile.svg'),
 				caseStudy('obb-infra', 'ÖBB-Infrastruktur', 18, 'obb.svg'),
-				caseStudy('super-bock', 'Super Bock', 24),
+				caseStudy('super-bock', 'Super Bock', 24, 'super-bock.svg'),
 				caseStudy('circutor', 'Circutor', 16, 'circutor.svg'),
 			],
 			more: { label: 'All case studies', href: '/case-studies/' },

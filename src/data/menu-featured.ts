@@ -31,6 +31,6 @@ export const MENU_SECTION_PROMOS: Record<string, MenuPromo[]> = {
 	],
 	'nav-docs': [
 		{ icon: 'tabler:terminal-2', title: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
-		{ icon: 'tabler:rocket', title: 'Get started', href: '/docs/pe/getting-started/', featured: true },
+		{ icon: 'tabler:rocket', title: 'Getting started', href: '/docs/pe/getting-started/', featured: true },
 	],
 };
