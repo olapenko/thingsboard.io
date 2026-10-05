@@ -231,15 +231,37 @@ const pathname = Astro.url.pathname;
 		const sheet = nav.querySelector<HTMLElement>('[data-sm-sheet]');
 		const toggle = header.querySelector<HTMLButtonElement>('[data-sm-toggle]');
 		const views = sheet ? [...sheet.querySelectorAll<HTMLElement>('[data-sm-view]')] : [];
+		const listView = views.find((v) => v.dataset.smView === 'root') ?? null;
 		// The row a section was opened from, for focus on the way back.
 		let fromRow: HTMLElement | null = null;
 		let inerted: Element[] = [];
 
 		const sheetOpen = () => !!sheet && !sheet.hidden;
 
-		const showView = (id: string) => {
+		/** Where a view stands: on stage, or off it to the side it leaves by — the list left, a section right. */
+		const place = (v: HTMLElement, pos: 'left' | 'center' | 'right') => {
+			v.dataset.pos = pos;
+			v.inert = pos !== 'center';
+		};
+
+		/** Every view home, without a move: the list on stage, the sections off to the right. */
+		const resetViews = () => {
 			if (!sheet) return;
-			for (const v of views) v.hidden = v.dataset.smView !== id;
+			sheet.dataset.instant = '';
+			for (const v of views) place(v, v === listView ? 'center' : 'right');
+			sheet.dataset.view = 'root';
+			requestAnimationFrame(() => requestAnimationFrame(() => delete sheet.dataset.instant));
+		};
+
+		/** The step: the view asked for comes on stage, the one there leaves by its own side. */
+		const showView = (id: string) => {
+			if (!sheet || sheet.dataset.view === id) return;
+			const from = views.find((v) => v.dataset.smView === sheet.dataset.view);
+			const to = views.find((v) => v.dataset.smView === id);
+			if (!to) return;
+			if (to !== listView) to.scrollTop = 0;
+			place(to, 'center');
+			if (from) place(from, from === listView ? 'left' : 'right');
 			sheet.dataset.view = id;
 		};
 
@@ -262,14 +284,13 @@ const pathname = Astro.url.pathname;
 
 		const openSheet = () => {
 			if (!sheet || sheetOpen()) return;
-			showView('root');
-			delete sheet.dataset.stepped;
+			resetViews();
 			sheet.hidden = false;
 			header.setAttribute('data-sm-open', '');
 			toggle?.setAttribute('aria-expanded', 'true');
 			lockScroll('menu');
 			setPageInert(true);
-			sheet.querySelector<HTMLElement>('.sm__sheet-row')?.focus({ preventScroll: true });
+			listView?.querySelector<HTMLElement>('.sm__sheet-row')?.focus({ preventScroll: true });
 		};
 
 		const closeSheet = (returnFocus = false) => {
@@ -285,9 +306,8 @@ const pathname = Astro.url.pathname;
 		/** Back from a section to the list; false when the list is already showing. */
 		const back = () => {
 			if (!sheet || sheet.dataset.view === 'root') return false;
-			sheet.dataset.stepped = '';
 			showView('root');
-			(fromRow ?? sheet.querySelector<HTMLElement>('.sm__sheet-row'))?.focus({ preventScroll: true });
+			(fromRow ?? listView?.querySelector<HTMLElement>('.sm__sheet-row'))?.focus({ preventScroll: true });
 			return true;
 		};
 
@@ -898,10 +918,11 @@ const pathname = Astro.url.pathname;
 		list-style: none;
 	}
 
+	// A value card: the figure in the accent, what it counts under it, whose it is in the soft ink.
 	.sm__story {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: 2px;
 		height: 100%;
 		padding: 10px;
 		border-radius: $radius-lg;
@@ -913,40 +934,28 @@ const pathname = Astro.url.pathname;
 			background: var(--sm-fill);
 		}
 
-		&:hover .sm__story-line {
-			color: var(--sm-accent);
-		}
-
 		&:focus-visible {
 			outline: 2px solid currentColor;
 			outline-offset: -2px;
 		}
 	}
 
-	.sm__story-stat {
-		font-size: 13px;
-		line-height: 1.3;
-		color: var(--sm-soft);
-
-		b {
-			display: block;
-			font-size: 22px;
-			font-weight: $font-weight-bold;
-			line-height: 1.15;
-			letter-spacing: -0.01em;
-			color: var(--sm-accent);
-		}
+	.sm__story-value {
+		font-size: 24px;
+		font-weight: $font-weight-bold;
+		line-height: 1.15;
+		letter-spacing: -0.01em;
+		color: var(--sm-accent);
 	}
 
-	.sm__story-line {
-		margin-top: 4px;
+	.sm__story-label {
 		font-size: 14px;
 		font-weight: $font-weight-medium;
 		line-height: 1.35;
-		transition: color 0.15s ease;
 	}
 
 	.sm__story-meta {
+		margin-top: 2px;
 		font-size: 12px;
 		line-height: 1.4;
 		color: var(--sm-soft);
@@ -1017,9 +1026,13 @@ const pathname = Astro.url.pathname;
 	// THE SHEET — the one panel at a phone's width: the rail as a list, a section as a view of its own.
 	// ---------------------------------------------------------------------------------------------
 	.sm__sheet {
-		// The bar's own gutter, less the 10px a link pads its text by, so the sheet's text stands on
-		// the wordmark's line.
-		--sm-sheet-pad: max(10px, calc(var(--tb-bar-inset, 24px) - 10px));
+		// Full bleed: every row, its fill and its hairline run edge to edge; the text stands on the
+		// bar's own gutter, the wordmark's line.
+		--sm-in: var(--tb-bar-inset, 24px);
+		// The step between views: one length and one curve for both views, so they move as one. The
+		// curve starts fast and settles long, as a sheet pushed by a finger does.
+		--sm-step: 0.42s;
+		--sm-ease: cubic-bezier(0.32, 0.72, 0, 1);
 		position: fixed;
 		top: calc(var(--promo-cur, var(--promo-h, 0px)) + var(--home-header-h, #{$header-height}));
 		right: 0;
@@ -1032,8 +1045,8 @@ const pathname = Astro.url.pathname;
 		color: var(--sm-ink);
 		transition:
 			opacity 0.2s ease,
-			translate 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
-			display 0.24s allow-discrete;
+			translate 0.3s var(--sm-ease),
+			display 0.3s allow-discrete;
 
 		@starting-style {
 			opacity: 0;
@@ -1045,46 +1058,83 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
-	.sm__view {
+	// The views share one cell. Forward, a section slides in over the list from the right edge while
+	// the list eases a quarter of the way left and fades under it; back, the section slides off to the
+	// right over the list easing back in. A view out of place turns invisible (and the script makes it
+	// inert) only once its move has ended — `visibility` waits out the step — so nothing blinks, and an
+	// off-stage view never takes a tap or a Tab.
+	.sm__views {
+		position: relative;
+		display: grid;
 		flex: 1;
 		min-height: 0;
-		padding: 12px var(--sm-sheet-pad) 28px;
+		overflow: hidden;
+	}
+
+	.sm__view {
+		grid-area: 1 / 1;
+		min-height: 0;
+		padding: 8px 0 28px;
 		overflow-y: auto;
 		overscroll-behavior: contain;
+		background: var(--sm-surface);
 		transition:
-			opacity 0.2s ease,
-			translate 0.26s cubic-bezier(0.2, 0.8, 0.2, 1),
-			display 0.26s allow-discrete;
+			translate var(--sm-step) var(--sm-ease),
+			opacity var(--sm-step) var(--sm-ease),
+			visibility 0s linear var(--sm-step);
 
-		&[hidden] {
-			display: none;
+		&[data-pos='center'] {
+			transition-delay: 0s;
+		}
+
+		&[data-pos='left'] {
+			translate: -25% 0;
+			opacity: 0;
+			visibility: hidden;
+		}
+
+		&[data-pos='right'] {
+			translate: 100% 0;
+			visibility: hidden;
 		}
 	}
 
-	// The step's direction: a section comes in from the right, the list back from the left.
+	// A section rides over the list, with a hairline on its leading edge while it moves.
+	.sm__view--root {
+		z-index: 1;
+	}
+
 	.sm__view--sec {
-		@starting-style {
-			opacity: 0;
-			translate: 24px 0;
-		}
+		z-index: 2;
+		box-shadow: -1px 0 0 var(--sm-rule);
 	}
 
-	.sm__sheet[data-stepped] .sm__view--root {
-		@starting-style {
-			opacity: 0;
-			translate: -24px 0;
-		}
+	// Opening the sheet puts every view in place without a move.
+	.sm__sheet[data-instant] .sm__view {
+		transition: none;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.sm__sheet,
-		.sm__view {
+		.sm__sheet {
 			transition: none;
+		}
+
+		// No travel: the views cross-fade in place.
+		.sm__view {
+			transition:
+				opacity 0.15s linear,
+				visibility 0s linear 0.15s;
+
+			&[data-pos='left'],
+			&[data-pos='right'] {
+				translate: none;
+				opacity: 0;
+			}
 		}
 	}
 
-	// The list: the panel's rail at the sheet's width — one row a section or a page, a hairline
-	// between, the chevron on the rows that open a view.
+	// The list: the panel's rail at the sheet's width — one row a section or a page, a hairline between,
+	// the chevron on the rows that open a view.
 	.sm__list {
 		margin: 0;
 		padding: 0;
@@ -1101,8 +1151,8 @@ const pathname = Astro.url.pathname;
 		justify-content: space-between;
 		gap: 12px;
 		width: 100%;
-		min-height: 52px;
-		padding: 0 10px;
+		min-height: 56px;
+		padding: 0 var(--sm-in);
 		border: 0;
 		background: none;
 		color: var(--sm-ink);
@@ -1113,9 +1163,19 @@ const pathname = Astro.url.pathname;
 		text-align: left;
 		text-decoration: none;
 		cursor: pointer;
-		transition: color 0.15s ease;
+		transition:
+			color 0.15s ease,
+			background-color 0.15s ease;
 
-		&:hover,
+		&:hover {
+			background: var(--sm-fill);
+			color: var(--sm-accent);
+		}
+
+		&:active {
+			background: var(--sm-fill-strong);
+		}
+
 		&[aria-current='page'],
 		&[data-current] {
 			color: var(--sm-accent);
@@ -1124,7 +1184,6 @@ const pathname = Astro.url.pathname;
 		&:focus-visible {
 			outline: 2px solid currentColor;
 			outline-offset: -2px;
-			border-radius: $radius-md;
 		}
 	}
 
@@ -1135,7 +1194,7 @@ const pathname = Astro.url.pathname;
 		opacity: 0.5;
 		transition:
 			opacity 0.15s ease,
-			translate 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+			translate 0.22s var(--sm-ease);
 
 		.sm__sheet-row:hover > & {
 			opacity: 1;
@@ -1143,28 +1202,29 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
-	// Back to the list: the chevron the row had, turned round.
+	// Back to the list: a row of its own at the head of the view, the list's chevron turned round.
 	.sm__back {
-		display: inline-flex;
+		display: flex;
 		align-items: center;
 		gap: 4px;
-		height: 40px;
-		margin: 0 0 6px;
-		padding: 0 10px 0 4px;
+		width: 100%;
+		height: 44px;
+		margin: 0 0 4px;
+		padding: 0 var(--sm-in) 0 calc(var(--sm-in) - 6px);
 		border: 0;
-		border-radius: $radius-md;
 		background: none;
 		color: var(--sm-soft);
 		font: inherit;
 		font-size: 15px;
 		font-weight: $font-weight-medium;
+		text-align: left;
 		cursor: pointer;
 		transition: color 0.15s ease;
 
 		svg {
 			width: 20px;
 			height: 20px;
-			transition: translate 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+			transition: translate 0.22s var(--sm-ease);
 		}
 
 		&:hover {
@@ -1181,11 +1241,16 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
-	// A section in the sheet: the panel's content, stacked to the width — the groups in one column
-	// (two where a tablet has the room), the stories and the promotions one under another.
+	// A section in the sheet: the panel's content stacked to the width. Every row bleeds — the links,
+	// the value cards, the promotions, the line of feedback — and the headings stand on the same gutter.
 	.sm__sheet {
+		.sm__head,
+		.sm__group-name {
+			padding-inline: var(--sm-in);
+		}
+
 		.sm__head {
-			margin-bottom: 16px;
+			margin-bottom: 8px;
 		}
 
 		.sm__title {
@@ -1194,36 +1259,82 @@ const pathname = Astro.url.pathname;
 
 		.sm__groups {
 			flex-direction: column;
-			gap: 20px;
+			align-items: stretch;
+			gap: 16px;
 		}
 
 		.sm__cols {
 			grid-template-columns: 1fr;
+			gap: 0;
+		}
+
+		.sm__link,
+		.sm__story {
+			padding: 12px var(--sm-in);
+			border-radius: 0;
+
+			&:active {
+				background: var(--sm-fill-strong);
+			}
 		}
 
 		.sm__cust {
 			grid-template-columns: 1fr;
+			gap: 16px;
+			padding-top: 16px;
 		}
 
+		// A value card as a row: the figure, then what it counts over whose it is.
 		.sm__stories {
 			grid-template-columns: 1fr;
-			gap: 4px;
+			gap: 0;
+		}
+
+		.sm__story {
+			display: grid;
+			grid-template-columns: 4.5em minmax(0, 1fr);
+			column-gap: 12px;
+			align-items: baseline;
+		}
+
+		.sm__story-value {
+			grid-row: span 2;
+			font-size: 22px;
+		}
+
+		.sm__story-meta {
+			grid-column: 2;
+			margin-top: 0;
+		}
+
+		.sm__quote {
+			padding: 16px var(--sm-in);
+			border-radius: 0;
 		}
 
 		.sm__promos {
 			flex-direction: column;
 			align-items: stretch;
+			gap: 0;
+			margin-top: 16px;
+			padding-top: 0;
 		}
 
 		.sm__promo {
-			height: 44px;
+			height: 52px;
+			padding: 0 var(--sm-in);
+			border: 0;
+			border-bottom: 1px solid var(--sm-rule);
+			border-radius: 0;
 		}
 
 		.sm__promo--feat {
 			margin-left: 0;
+			border-bottom-color: transparent;
 		}
 	}
 
+	// A tablet has the room for the panel's columns again; the rows still bleed.
 	@media (min-width: 600px) {
 		.sm__sheet {
 			.sm__cols {
@@ -1234,14 +1345,13 @@ const pathname = Astro.url.pathname;
 				grid-template-columns: repeat(3, minmax(0, 1fr));
 			}
 
-			.sm__promos {
-				flex-direction: row;
-				flex-wrap: wrap;
-				align-items: center;
+			.sm__story {
+				display: flex;
+				flex-direction: column;
 			}
 
-			.sm__promo--feat {
-				margin-left: auto;
+			.sm__story-value {
+				font-size: 24px;
 			}
 		}
 	}
@@ -1250,7 +1360,7 @@ const pathname = Astro.url.pathname;
 		flex: none;
 		display: flex;
 		gap: 12px;
-		padding: 12px var(--sm-sheet-pad) calc(16px + env(safe-area-inset-bottom, 0px));
+		padding: 12px var(--sm-in) calc(16px + env(safe-area-inset-bottom, 0px));
 		border-top: 1px solid var(--sm-rule);
 		background: var(--sm-surface);
 
