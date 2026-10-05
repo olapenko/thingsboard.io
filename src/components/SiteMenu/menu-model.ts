@@ -32,12 +32,6 @@ export const iconSizeOf = (sub: SubMenu) => (sub.id === 'nav-products' ? 32 : 24
  */
 export const describes = (sub: SubMenu) => sub.id === 'nav-products' || sub.id === 'nav-docs';
 
-/**
- * The width the row shows from, for scripts; keep in step with `$menu-row-from` in
- * `styles/_variables.scss`. A range, so it and the stylesheets' `(width < …)` meet with no gap.
- */
-export const MENU_ROW_QUERY = '(width >= 1281px)';
-
 /** Whether the page being rendered is the item's page or under it. The homepage is no item's. */
 export const isHere = (pathname: string, href?: string) => !!href && href !== '/' && pathname.startsWith(href);
 
