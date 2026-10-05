@@ -36,10 +36,26 @@ const MAX_COLUMNS = 3;
  */
 const rowsOf = ({ items, perColumn }: SubMenuGroup) =>
 	Math.max(perColumn ?? items.length, Math.ceil(items.length / MAX_COLUMNS));
+
+// A logo in the repo (the homepage strip's, `/src/assets/…`) is served by its built URL; any other
+// (the case studies' CDN) as it is.
+const logoUrls = import.meta.glob<string>('/src/assets/images/landings/customer-logo/*.svg', {
+	query: '?url',
+	import: 'default',
+});
+const logoSrc = async (src: string) => (logoUrls[src] ? await logoUrls[src]() : src);
+const sections = await Promise.all(
+	submenu.groups.map(async (group) => ({
+		...group,
+		items: await Promise.all(
+			group.items.map(async (item) => (item.logo ? { ...item, logo: await logoSrc(item.logo) } : item))
+		),
+	}))
+);
 ---
 
 <div class="sm__groups" data-sm-section={submenu.id}>
-	{submenu.groups.map((group) => (
+	{sections.map((group) => (
 		<div class="sm__group">
 			{named(group.name) && <p class="sm__group-name">{group.name}</p>}
 			<ul class="sm__cols" style={`--rows: ${rowsOf(group)}`}>
@@ -51,15 +67,30 @@ const rowsOf = ({ items, perColumn }: SubMenuGroup) =>
 							aria-label={isExternalHref(item.href) ? newTabLinkLabel(item.heading, item.href) : undefined}
 							{...externalLinkAttrs(item.href)}
 						>
-							{item.icon && (
-								<span class="sm__link-icon">
-									<NavIcon src={item.icon} size={iconSize} alt="" />
+							{item.logo ? (
+								<span class="sm__link-logo">
+									{/* Lazy: the section is hidden until it opens, and then it is the only thing loading. */}
+									<img
+										src={item.logo}
+										alt={item.heading}
+										loading="lazy"
+										decoding="async"
+										style={item.logoHeight ? `--sm-logo-h: ${item.logoHeight}px` : undefined}
+									/>
 								</span>
+							) : (
+								<Fragment>
+									{item.icon && (
+										<span class="sm__link-icon">
+											<NavIcon src={item.icon} size={iconSize} alt="" />
+										</span>
+									)}
+									<span class="sm__link-text">
+										<span class="sm__link-heading">{item.heading}</span>
+										{describe && item.description && <span class="sm__link-desc">{item.description}</span>}
+									</span>
+								</Fragment>
 							)}
-							<span class="sm__link-text">
-								<span class="sm__link-heading">{item.heading}</span>
-								{describe && item.description && <span class="sm__link-desc">{item.description}</span>}
-							</span>
 						</a>
 					</li>
 				))}
