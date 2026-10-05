@@ -39,14 +39,11 @@ export interface FooterLink {
 export interface FooterColumn {
 	title: string;
 	links: FooterLink[];
-	/** The column's own last word — "All use cases" — set apart from the list as a link with an arrow. */
-	more?: FooterLink;
 	/**
-	 * A group under the column's own list, with its own small heading and its own arrowed last link:
-	 * Solutions' Customers, the header's Customers menu (case studies, clients feedback) folded in
-	 * under the use cases they prove.
+	 * The column's own last words — Solutions' "All use cases" and "Case studies" — set apart from the
+	 * list as links with an arrow: sections of the site, where the list above them is pages.
 	 */
-	sub?: { title: string; links: FooterLink[]; more?: FooterLink };
+	more?: FooterLink[];
 }
 
 const NAV = '/src/assets/images/landings/nav';
@@ -113,10 +110,9 @@ export const FOOTER_ECOSYSTEM: FooterProduct[] = [
 		hue: '#60a5fa',
 	},
 	{
-		// As the homepage's ecosystem section has it (`homeEcosystem`): "Mobile App", the PE app's
-		// page, its mark, and the app's own green — the dark menu's `--brand-pe` — not the menu's "Mobile
-		// Application" at `/products/mobile/` in its slate blue.
-		name: 'Mobile App',
+		// Named as the menu and its own page name it ("IoT Mobile Application builder"); its mark is the
+		// ThingsBoard logo in the app's own green, as the menu draws it too.
+		name: 'Mobile Application',
 		line: 'iOS & Android',
 		href: '/products/mobile/',
 		// The ThingsBoard mark, not the menu's phone: the app's icon IS the mark, and the ecosystem
@@ -163,54 +159,32 @@ export const FOOTER_LICENSE_PORTAL = {
 };
 
 /**
- * The link columns. SOLUTIONS is the Use Cases menu's first five and the SCADA group; DEVELOPERS the
- * references a builder goes looking for; the last two are the Services, Partners,
- * Customers and Company menus folded together.
+ * The link columns, the menu's sections in the menu's order (Products is the platform map above
+ * them): one heading each, and A PAGE HAS ONE NAME AND ONE HOME in the menu and here. The footer may
+ * show fewer of a section's links; it never moves one to another heading or calls it something else
+ * (2026-10-05). So the case studies are Solutions', as in the menu, a plain link after the use cases
+ * with All use cases the one arrowed link; Services closes on Talk to an expert, as its menu list
+ * does; Docs is the menu's word. The partner programmes, a group in the menu's Company, have no page
+ * of their own to link once from here, and a column of three read as half a column; they are the
+ * menu's.
  *
  * NO "BUILD" COLUMN (dropped 2026-09-29). It listed capabilities — connect devices, rule engine,
- * twins, white-labeling — but seven of its eight links landed in the docs, which Developers already
- * covers; the header has no capabilities menu for it to mirror; and it said SCADA twice. It comes
- * back when the capability pages (`/device-management/`, `/iot-data-visualization/`…) are rebuilt,
- * pointing at those rather than at the docs.
+ * twins, white-labeling — but seven of its eight links landed in the docs, which the Docs column
+ * already covers; the header has no capabilities menu for it to mirror; and it said SCADA twice. It
+ * comes back when the capability pages (`/device-management/`, `/iot-data-visualization/`…) are
+ * rebuilt, pointing at those rather than at the docs.
  */
-/**
- * WIP — PARKED 2026-09-29, not rendered. The footer carries no case studies link since 2026-09-30:
- * they were Solutions' seventh link, where they read as one more use case, and came out. This group
- * under Solutions — the header's Customers menu, case studies arrowed like "All use cases →" — was
- * tried and pulled back undecided. To try it again: set it as `sub` on the Solutions column and drop
- * Clients feedback from Company; `FooterMap` renders `sub`.
- */
-export const FOOTER_CUSTOMERS_WIP: NonNullable<FooterColumn['sub']> = {
-	title: 'Customers',
-	links: [{ label: 'Clients feedback', href: '/clients-feedback/' }],
-	more: { label: 'Case studies', href: '/case-studies/' },
-};
-
 export const FOOTER_COLUMNS: FooterColumn[] = [
 	{
 		title: 'Solutions',
 		links: [
 			{ label: 'Smart energy', href: '/use-cases/smart-energy/' },
 			{ label: 'Smart metering', href: '/use-cases/smart-metering/' },
-			{ label: 'Fleet tracking', href: '/use-cases/site-fleet-tracking/' },
-			{ label: 'Smart farming', href: '/use-cases/smart-farming/' },
-			{ label: 'Environment monitoring', href: '/use-cases/environment-monitoring/' },
+			{ label: 'Site fleet tracking', href: '/use-cases/site-fleet-tracking/' },
 			{ label: 'SCADA systems', href: '/use-cases/scada/' },
+			{ label: 'Case studies', href: '/case-studies/' },
 		],
-		more: { label: 'All use cases', href: '/use-cases/' },
-	},
-	{
-		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
-		// else already knows to look. No API or protocol references (REST, connectivity): they are
-		// one click inside Documentation, and a footer is not a docs index.
-		title: 'Developers',
-		links: [
-			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
-			{ label: 'Documentation', href: '/docs/pe/' },
-			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
-			{ label: 'Release notes', href: '/docs/pe/releases/releases-table/' },
-			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
-		],
+		more: [{ label: 'All use cases', href: '/use-cases/' }],
 	},
 	{
 		title: 'Services',
@@ -218,9 +192,20 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Development services', href: '/services/development-services/' },
 			{ label: 'Support plans', href: '/services/' },
 			{ label: 'Trainings', href: '/services/trainings/' },
-			{ label: 'Affiliate program', href: '/partners/affiliate/' },
-			{ label: 'Hardware partners', href: '/partners/hardware/' },
-			{ label: 'Distributors', href: '/partners/distributors/' },
+		],
+		more: [{ label: 'Talk to an expert', href: '/contact-us/' }],
+	},
+	{
+		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
+		// else already knows to look. No API or protocol references (REST, connectivity): they are
+		// one click inside Documentation, and a footer is not a docs index.
+		title: 'Docs',
+		links: [
+			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
+			{ label: 'Documentation', href: '/docs/pe/' },
+			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
+			{ label: 'Release notes', href: '/docs/pe/releases/releases-table/' },
+			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
 		],
 	},
 	{
@@ -239,7 +224,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 /**
  * The Follow line: only the channels that are kept up (checked 2026-09-29) and that are news, not
  * product. YouTube's tutorials are the evergreen ones, LinkedIn posts daily. GitHub is kept up too
- * (4.4 shipped that day) but is linked once, in Developers, where the source is looked for. Left out: X (silent since
+ * (4.4 shipped that day) but is linked once, in Docs, where the source is looked for. Left out: X (silent since
  * August 2025), Stack Overflow (no question for ten months, most unanswered), Instagram (team life,
  * not the product), Facebook (kept up, but re-posts with little reach). The shared
  * `data/socialNetworks.ts` is untouched: the footer in use still reads all seven.
@@ -285,3 +270,44 @@ export const FOOTER_NEWSLETTER = {
  */
 export const FOOTER_TAGLINE =
 	'All-in-one IoT platform that gives you everything you need to build, deploy, and scale IoT solutions.';
+
+/**
+ * THE DOCS FOOTER (`SiteFooter` at the `docs` density): lighter than the map — no platform grid,
+ * no newsletter — and richer than the six-link row it replaces. Three short columns: where the
+ * platform is run and bought, where to learn it, and the company. Every page named is one the map
+ * carries; the first column's marks are the map's platform badges. The follow line and the base row
+ * are the map's own.
+ */
+export const FOOTER_DOCS_COLUMNS: FooterColumn[] = [
+	{
+		title: 'Platform',
+		links: [
+			{ label: 'ThingsBoard Cloud', href: '/products/paas/' },
+			{ label: 'ThingsBoard', href: '/products/thingsboard-pe/' },
+			{ label: 'Pricing', href: '/pricing/' },
+			{ label: 'Installation options', href: '/installations/' },
+			{ label: 'License portal', href: 'https://license.thingsboard.io/', external: true },
+		],
+	},
+	{
+		title: 'Learn',
+		links: [
+			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
+			{ label: 'Documentation', href: '/docs/pe/' },
+			{ label: 'Use cases', href: '/use-cases/' },
+			{ label: 'Case studies', href: '/case-studies/' },
+			{ label: 'IoT Hub', href: '/iot-hub/' },
+			{ label: 'Blog', href: '/blog/' },
+		],
+	},
+	{
+		// No Partners: there is no `/partners/` page, and the link this had went nowhere.
+		title: 'Company',
+		links: [
+			{ label: 'Support plans', href: '/services/' },
+			{ label: 'Clients feedback', href: '/clients-feedback/' },
+			{ label: 'Contact us', href: '/contact-us/' },
+			{ label: 'Careers', href: CAREERS_URL, external: true },
+		],
+	},
+];
