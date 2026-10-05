@@ -162,7 +162,7 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 	cloud: {
 		title: 'Ready to build on ThingsBoard Cloud?',
 		badge: true,
-		lead: 'Start free on Public Cloud in under five minutes, or talk to our team about a dedicated Private Cloud cluster.',
+		lead: 'Start free on ThingsBoard Cloud in under five minutes, or talk to our team about a dedicated Private Cloud cluster.',
 		scheme: 'brand',
 		accent: '#3d50f5',
 		band: '#f5f6ff',
@@ -185,7 +185,7 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 	onprem: {
 		title: 'Ready to deploy ThingsBoard?',
 		badge: true,
-		lead: 'Start on the Free plan and run it on your own hardware, or talk to our team about a perpetual licence and offline operation.',
+		lead: 'Start on the Free plan and run it on your own hardware, or talk to our team about a perpetual license and offline operation.',
 		scheme: 'onprem',
 		accent: '#178649',
 		band: '#f1f8f4',
