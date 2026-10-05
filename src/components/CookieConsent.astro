@@ -15,6 +15,8 @@
  * bottom-right is the chat launcher's — on the page's own surface, so it follows the theme: "We use
  * cookies" over upstream's sentence and its Cookie Policy link (`ui/Link`), Accept all and Reject all
  * as two equal buttons (`ui/ButtonGroup`), Manage preferences under them (`ui/Button`, tertiary).
+ * The root carries `data-surface` from the theme (light or dark), so the kit's controls take the
+ * tones of the ground they are on in both themes.
  * The words are upstream's, unchanged. The dialog is `ui/Dialog`: the browser's focus trap and
  * Escape, focus back to the opener on close (`util/dialog`), a bottom sheet under 560.
  *
@@ -96,7 +98,12 @@ const categories = [
 	    sees it flash, and one who has not sees it with the page, never late as the LCP element. */}
 	<script is:inline>
 		(function (el) {
-			if (el && (el.parentElement.hasAttribute('data-cc-demo') || !window.tbConsent)) el.hidden = false;
+			if (!el) return;
+			const root = el.parentElement;
+			// The kit's buttons and links take their dark tones on a ground marked dark; the card and the
+			// dialog are on the page's surface, so their ground is the theme's, set before they paint.
+			root.setAttribute('data-surface', document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+			if (root.hasAttribute('data-cc-demo') || !window.tbConsent) el.hidden = false;
 		})(document.currentScript && document.currentScript.previousElementSibling);
 	</script>
 	<Dialog
@@ -257,6 +264,15 @@ const categories = [
 
 		return { demo, run: (action: Action, opener: HTMLElement | null) => actions[action]?.(opener) };
 	}
+
+	// The ground follows the theme when it changes too (the footers' Appearance switch).
+	const markGround = () => {
+		const ground = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+		document
+			.querySelectorAll<HTMLElement>('[data-cc-root]')
+			.forEach((root) => root.setAttribute('data-surface', ground));
+	};
+	new MutationObserver(markGround).observe(document.documentElement, { attributeFilter: ['data-theme'] });
 
 	const instances = new Map<HTMLElement, ReturnType<typeof mount>>();
 	document.querySelectorAll<HTMLElement>('[data-cc-root]').forEach((root) => instances.set(root, mount(root)));
