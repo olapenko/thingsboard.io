@@ -4021,7 +4021,7 @@ export const iotHubSidebar: SidebarConfig = [
 /** Maps tab group label → URL to navigate when the tab is clicked (optional per-group). */
 export type SidebarTabLinks = Partial<Record<string, string>>;
 export const opensourceSidebarTabLinks: SidebarTabLinks = {
-	'Getting Started': '/docs/',
+	'Getting Started': '/docs/getting-started/',
 	Guides: '/docs/user-guide/',
 	'Build with AI': '/docs/iot-solutions-with-ai/',
 	Installation: '/docs/installation/',
