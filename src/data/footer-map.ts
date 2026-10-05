@@ -181,10 +181,10 @@ export const FOOTER_LICENSE_PORTAL = {
  * comes back when the capability pages (`/device-management/`, `/iot-data-visualization/`…) are
  * rebuilt, pointing at those rather than at the docs.
  */
-// DRAFT (2026-10-05), on review, one commit to revert: six use cases; Customers (Case studies,
-// Clients feedback) as a second list under Services; GitHub in Docs as well as on the Follow line;
-// Contact us as Company's arrowed last word. Customers re-files two pages the menu keeps in
-// Solutions and Company, against the one-home rule above.
+// Since 2026-10-05: six use cases; Customers (Case studies, Clients feedback) as a second list under
+// Services; GitHub in Docs as well as on the Follow line; Contact us as Company's arrowed last word,
+// the footer's one action. Customers files two pages the menu keeps in Solutions and Company — an
+// agreed exception to the one-home rule above, for the columns' balance.
 export const FOOTER_COLUMNS: FooterColumn[] = [
 	{
 		title: 'Solutions',
