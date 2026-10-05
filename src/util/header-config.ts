@@ -13,6 +13,13 @@
 
 export type HeaderLook = 'marketing' | 'docs';
 
+/**
+ * The main menu's model (`SiteMenu`): `panel`, one surface under the bar with a rail of sections,
+ * is the site's since 5 Oct. `dropdowns`, a panel under each item, is kept as the alternative and
+ * shown by the chrome workbench; a page can ask for it through `BaseLayout`'s `menu`.
+ */
+export type HeaderMenu = 'dropdowns' | 'panel';
+
 /** The hero the bar opens over: its ink while transparent. */
 export type HeaderHero = 'dark' | 'light';
 
@@ -21,6 +28,7 @@ export interface HeaderConfig {
 	hero?: HeaderHero;
 	/** Site search in the bar: the control, its dialog and its keys. */
 	search: boolean;
+	menu: HeaderMenu;
 	cloudSignupIds: boolean;
 }
 
@@ -28,6 +36,7 @@ export interface HeaderConfigInput {
 	look?: HeaderLook;
 	hero?: HeaderHero;
 	search?: boolean;
+	menu?: HeaderMenu;
 	cloudSignupIds?: boolean;
 }
 
@@ -38,6 +47,7 @@ export function resolveHeaderConfig(input: HeaderConfigInput = {}): HeaderConfig
 		// Only a marketing page has a hero to open over.
 		hero: look === 'marketing' ? input.hero : undefined,
 		search: input.search ?? true,
+		menu: input.menu ?? 'panel',
 		cloudSignupIds: input.cloudSignupIds ?? true,
 	};
 }

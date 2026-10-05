@@ -1,5 +1,5 @@
 ---
-import Navigation from '@components/Landing/Navigation.astro';
+import SiteMenu from '@components/SiteMenu/SiteMenu.astro';
 import HeaderScrollWatch from '@components/Landing/HeaderScrollWatch.astro';
 import SearchButton from '@components/SearchButton.astro';
 import SiteSearch from '@components/SiteSearch.astro';
@@ -17,7 +17,7 @@ interface Props {
 }
 
 const { gitHubPlatform, headerConfig } = Astro.props;
-const { look, hero, search } = headerConfig;
+const { look, hero, search, menu } = headerConfig;
 
 // The marketing look has two states, top and scrolled; the docs look one. The watch is a few lines
 // of inline script, shipped only where a state can change.
@@ -30,7 +30,11 @@ const currentYear = new Date().getFullYear();
 	<span class="header-copyright print:only">&copy; {currentYear} The ThingsBoard Authors</span>
 </div>
 
-{/* Before <Navigation> on purpose: its ~125 KiB of markup shifted the centred nav (≈0.012 CLS); `order` restores the visual order. */}
+{/* The menu before the cluster, the reading order: Tab goes wordmark, the row, then search and the
+    account pair. The row is packed toward the wordmark, so the cluster arriving later in the parse
+    shifts nothing. */}
+<SiteMenu model={menu} />
+
 <div class="head-buttons print:hidden" data-header-look={look} data-header-hero={hero}>
 	{search && (
 		<div class="icon-buttons">
@@ -57,7 +61,9 @@ const currentYear = new Date().getFullYear();
 	>
 		Try for free
 	</NButton>
-	<button onclick="Burger()" class="burger" aria-expanded="false">
+	{/* Menu: opens `SiteMenu`'s sheet below 1281, where the row is gone. Without a script, the link
+	    under it takes its place at every width and opens the sheet as its target. */}
+	<button type="button" data-sm-toggle aria-controls="sm-sheet" class="burger" aria-expanded="false">
 		<Icon name="tabler:menu-2" class="icon-open" aria-hidden="true" />
 		<Icon name="tabler:x" class="icon-close" aria-hidden="true" />
 		<span class="burger__label">
@@ -65,9 +71,11 @@ const currentYear = new Date().getFullYear();
 			<span class="label-close">Close</span>
 		</span>
 	</button>
+	<a href="#sm-sheet" class="burger sm__nojs">
+		<Icon name="tabler:menu-2" aria-hidden="true" />
+		<span>Menu</span>
+	</a>
 </div>
-
-<Navigation />
 
 <CloudRegionDialog signupIds={headerConfig.cloudSignupIds} />
 
@@ -77,33 +85,11 @@ const currentYear = new Date().getFullYear();
 {needsScrollState && <HeaderScrollWatch />}
 
 <script>
-	import { lockScroll, unlockScroll } from '@util/scroll-lock';
-
-	// Burger menu toggle
-	function Burger() {
-		const header = document.querySelector('header.header');
-
-		if (header?.classList.contains('opened-burger')) {
-			header.classList.remove('opened-burger');
-			const subMenus = document.querySelectorAll('nav.head-menu > ul > li > div.centered-sub > ul.sub-menu');
-			subMenus.forEach((menu) => menu.classList.remove('open-sub'));
-			unlockScroll();
-		} else {
-			header?.classList.add('opened-burger');
-			lockScroll();
-		}
-
-		// Read back from the class, so the swipe gestures that also toggle the drawer keep it right.
-		const open = header?.classList.contains('opened-burger') ?? false;
-		header?.querySelector('.burger')?.setAttribute('aria-expanded', String(open));
-	}
-
-	// Make function available globally
-	(window as any).Burger = Burger;
+	import { MENU_ROW_QUERY } from '@components/SiteMenu/menu-query';
 
 	// Swipe to open/close mobile menus:
 	//   Starlight sidebar — swipe RIGHT from left edge to open, swipe LEFT to close
-	//   Burger menu      — swipe LEFT from right edge to open, swipe RIGHT to close
+	//   The menu sheet   — swipe LEFT from right edge to open, swipe RIGHT to step back or close
 	(function () {
 		const OPEN_EDGE = 30; // px from screen edge that starts an open gesture
 		const MIN_DIST = 60; // minimum horizontal travel to trigger
@@ -111,7 +97,7 @@ const currentYear = new Date().getFullYear();
 
 		let startX = 0;
 		let startY = 0;
-		let tracking: 'sidebar' | 'burger' | null = null;
+		let tracking: 'sidebar' | 'menu' | null = null;
 
 		// Starlight drops the sidebar's `popover` attribute on desktop viewports, where the sidebar
 		// is always shown; `togglePopover()` throws on an element without it.
@@ -123,16 +109,22 @@ const currentYear = new Date().getFullYear();
 			return !!document.getElementById('starlight__sidebar')?.matches(':popover-open');
 		}
 
-		function isBurgerOpen() {
-			return document.querySelector('header.header')?.classList.contains('opened-burger') ?? false;
+		function isMenuOpen() {
+			return document.querySelector('header.header')?.hasAttribute('data-sm-open') ?? false;
 		}
 
 		function triggerSidebar() {
 			document.getElementById('starlight__sidebar')?.togglePopover();
 		}
 
-		function triggerBurger() {
-			(window as any).Burger?.();
+		// Through the Menu button, so the sheet's own open (and its focus) is the only one.
+		function openMenu() {
+			document.querySelector<HTMLButtonElement>('header.header [data-sm-toggle]')?.click();
+		}
+
+		// A swipe back steps out of a section first, then closes: the sheet decides (`SiteMenu`).
+		function stepBack() {
+			document.querySelector('[data-sm-sheet]')?.dispatchEvent(new CustomEvent('sm-back'));
 		}
 
 		document.addEventListener(
@@ -142,12 +134,14 @@ const currentYear = new Date().getFullYear();
 				startX = t.clientX;
 				startY = t.clientY;
 
-				// A modal dialog owns the page: a drawer toggled under it would fight it for the scroll lock.
-				if (document.querySelector('dialog[open]')) tracking = null;
+				// A modal layer owns the page — a dialog, or the search panel (a layer of its own, not a
+				// `<dialog>`, see `SiteSearch`) — and a menu toggled under it would open behind it.
+				if (document.querySelector('dialog[open], #tb-search-modal.open')) tracking = null;
 				else if (isSidebarOpen()) tracking = 'sidebar';
-				else if (isBurgerOpen()) tracking = 'burger';
+				else if (isMenuOpen()) tracking = 'menu';
 				else if (startX <= OPEN_EDGE && isSidebarDrawer()) tracking = 'sidebar';
-				else if (startX >= window.innerWidth - OPEN_EDGE) tracking = 'burger';
+				// The sheet is the phone and tablet menu: the edge does nothing where the row is shown.
+				else if (startX >= window.innerWidth - OPEN_EDGE && !matchMedia(MENU_ROW_QUERY).matches) tracking = 'menu';
 				else tracking = null;
 			},
 			{ passive: true }
@@ -174,9 +168,9 @@ const currentYear = new Date().getFullYear();
 						triggerSidebar(); // swipe right → open
 					else if (isSidebarOpen() && dx < 0) triggerSidebar(); // swipe left → close
 				} else {
-					if (!isBurgerOpen() && dx < 0)
-						triggerBurger(); // swipe left from right edge → open
-					else if (isBurgerOpen() && dx > 0) triggerBurger(); // swipe right → close
+					if (!isMenuOpen() && dx < 0)
+						openMenu(); // swipe left from right edge → open
+					else if (isMenuOpen() && dx > 0) stepBack(); // swipe right → back, then close
 				}
 			},
 			{ passive: true }
@@ -187,16 +181,18 @@ const currentYear = new Date().getFullYear();
 <style lang="scss" is:global>
 	@use '../../styles/variables' as *;
 
-	// Wordmark, the page's icons and Menu; the account pair moves into the drawer.
+	// Wordmark, the page's icons and Menu; the account pair moves to the foot of the menu sheet.
 	@mixin compact-bar {
-		&:not(.opened-burger) .head-buttons {
+		.head-buttons {
 			.region-signin__trigger,
 			.n-button {
 				display: none;
 			}
 		}
+	}
 
-		// Icon only: a square reads the same in both states, so nothing shifts.
+	// Menu as an icon alone: a square reads the same in both states, so nothing shifts.
+	@mixin menu-square {
 		.burger {
 			width: 40px;
 			padding: 0;
@@ -204,40 +200,6 @@ const currentYear = new Date().getFullYear();
 			// Still the button's accessible name, so hidden visually rather than with `display: none`.
 			.burger__label {
 				@include visually-hidden;
-			}
-		}
-
-		&.opened-burger {
-			.head-buttons {
-				position: static;
-				order: 0;
-				height: auto;
-				// 20px on the header's gutter lines this row up with the nav below.
-				padding: 10px 0 2px 20px;
-				// Hidden in the closed bar, so it arrives rather than travels.
-				transform: none;
-				transition: none;
-			}
-
-			.head-menu {
-				order: 1;
-			}
-
-			// The bar's row holds still; the icons clear Close's 40px square plus the gap.
-			.burger,
-			.icon-buttons {
-				position: absolute;
-				top: calc((#{$header-height} - 40px) / 2);
-				z-index: 1;
-			}
-
-			.burger {
-				right: var(--tb-bar-right);
-			}
-
-			.icon-buttons {
-				right: calc(var(--tb-bar-right) + 48px);
-				height: 40px;
 			}
 		}
 	}
@@ -252,10 +214,20 @@ const currentYear = new Date().getFullYear();
 		// top:0 as the banner collapses on scroll (--promo-cur → 0).
 		top: var(--promo-cur, var(--promo-h, 0px));
 		left: 0;
+		// One length for every change of state — the ground, its line, its shadow, the ink — so they
+		// move as one: a swap from white ink to dark is over before the eye can catch the two between.
+		--tb-bar-swap: 0.2s;
+		// The ground the bar takes scrolled over a dark hero, and the one panel over it: the hero's own
+		// colour (`HeaderScrollWatch`), so the bar reads as the hero continued; a near-black otherwise.
+		// Nearly opaque and frosted (`--tb-bar-frost`): at 92% bare, a dashboard or a headline moving
+		// under it showed through as noise.
+		--tb-bar-dark: color-mix(in srgb, var(--tb-hero-ground, rgb(8 9 14)) 94%, transparent);
+		--tb-bar-frost: blur(16px) saturate(1.2);
 		// No `filter`: it would become the containing block for the fixed promo banner.
 		transition:
-			background-color 0.3s ease,
-			box-shadow 0.3s ease;
+			background-color var(--tb-bar-swap) ease,
+			border-color var(--tb-bar-swap) ease,
+			box-shadow var(--tb-bar-swap) ease;
 		width: 100%;
 		height: $header-height;
 		z-index: 8888;
@@ -281,10 +253,14 @@ const currentYear = new Date().getFullYear();
 		}
 
 		.head-buttons {
-			// head-buttons is placed before <Navigation /> in DOM order to avoid
-			// the centred-nav layout shift on slow CPUs. `order: 1` keeps it
-			// visually after the nav (which keeps the default order: 0).
+			// After the menu in the DOM and on screen; `order` keeps it last whatever comes before.
 			order: 1;
+			// Every control here draws in `currentColor` and inherits it, so the ink is changed once, here.
+			transition: color var(--tb-bar-swap) ease;
+			// The cluster never gives way to the row: squeezed, Try for free broke onto two lines. The
+			// widths it changes at (the search field, the star count) are measured so it does not have to.
+			flex-shrink: 0;
+			white-space: nowrap;
 			padding-right: calc(var(--tb-bar-inset) - 20px);
 			display: flex;
 			flex-direction: row;
@@ -362,6 +338,7 @@ const currentYear = new Date().getFullYear();
 			background-size: contain;
 			background-position: center center;
 			background-repeat: no-repeat;
+			transition: filter var(--tb-bar-swap) ease;
 
 			[data-theme='dark'] & {
 				filter: invert(100%) sepia(68%) saturate(0%) hue-rotate(350deg) brightness(113%) contrast(101%);
@@ -371,7 +348,7 @@ const currentYear = new Date().getFullYear();
 				width: 215px;
 			}
 
-			@media screen and (min-width: 1281px) and (max-width: 1599px) {
+			@media (width >= #{$menu-row-from}) and (width < 1600px) {
 				width: 160px;
 			}
 
@@ -437,127 +414,42 @@ const currentYear = new Date().getFullYear();
 		}
 	}
 
-	.opened-burger .burger {
-		.icon-open {
-			display: none;
-		}
-
-		.icon-close {
-			display: block;
-		}
-
-		.label-open {
-			visibility: hidden;
-		}
-
-		.label-close {
-			visibility: visible;
-		}
-	}
-
-	// Responsive styles
-	@media screen and (max-width: 1280px) {
+	// Under 1281 the row is gone and Menu opens the sheet; the wordmark takes the room the row had.
+	@media (width < #{$menu-row-from}) {
 		header.header {
-			display: block; // stays position:fixed (base rule); block keeps it a proper box — `unset` would resolve to inline and break it
-			height: unset !important;
-			transition-property: height; // `top` follows --promo-cur; don't transition it here
-
 			.logo-burger {
-				height: $header-height;
-			}
-
-			&.opened-burger {
-				// Anchor the drawer where the bar already sits (top stays at --promo-cur,
-				// below the banner) and fill to the viewport bottom, so opening at the top
-				// shifts nothing. The banner stays visible above the drawer (when scrolled
-				// it has already collapsed off-screen, so the drawer reaches top:0).
-				bottom: 0;
-				z-index: 10000;
-				display: flex !important;
-				flex-direction: column;
-				align-items: stretch;
-
-				.logo-burger {
-					box-shadow: 0 1px 0 rgba(48, 86, 128, 0.07);
-					flex-shrink: 0;
-				}
-
-				.head-buttons {
-					display: flex;
-					flex-shrink: 0;
-					padding: 20px 0;
-				}
-
-				// Slide + fade the drawer content in on open. The bar (.logo-burger)
-				// stays put and top/height are pinned, so the menu glides down into
-				// place with no banner-height jump. Enter only; closing is instant.
-				.head-menu,
-				.head-buttons {
-					opacity: 1;
-					transform: translateY(0);
-					transition:
-						opacity 0.22s ease,
-						transform 0.22s ease,
-						display 0.22s allow-discrete;
-
-					@starting-style {
-						opacity: 0;
-						transform: translateY(-8px);
-					}
-				}
-
-				@media (prefers-reduced-motion: reduce) {
-					.head-menu,
-					.head-buttons {
-						transition: none;
-						transform: none;
-					}
-				}
+				flex: 1;
 			}
 
 			.burger {
 				display: flex;
 			}
-
-			&:not(.opened-burger) {
-				display: flex;
-				align-items: center;
-
-				// Scoped away from the open state, a column where this would grow downward.
-				.logo-burger {
-					flex: 1;
-				}
-			}
-
-			// The nav list flows down the drawer; the cluster stays pinned over the bar.
-			&.opened-burger .head-buttons {
-				position: absolute;
-				top: 0;
-				// Not `right: 0`: the padding box ignores the header's own 20px gutter.
-				right: var(--tb-bar-right);
-				z-index: 1;
-				height: $header-height;
-				padding: 0;
-				transform: none;
-				transition: none;
-			}
 		}
 	}
 
-	// The floor of the full bar, every look carrying the search icon now: the 168 wordmark, the
-	// 40 icon, Sign in (78), Try for free (110) and Menu (94), two 24px insets and four 8px gaps come
-	// to 586. Under 600 the account pair steps into the drawer.
-	@media screen and (max-width: 599px) {
+	// The floor of the full bar, measured with the search icon (a page without search has 48px more):
+	// the 168 wordmark, the 40 icon, Sign in (78), Try for free (110) and Menu (94), two 24px insets
+	// and four 8px gaps come to 586. Under 600 the account pair steps into the sheet's foot.
+	@media (width < #{$bar-compact-below}) {
 		header.header {
 			@include compact-bar;
 		}
 	}
 
-	// The star count joins the open drawer's cluster at every width: the closed bar hides it where
-	// the room runs out, but the open drawer has the room, and the account cluster is where a reader
-	// looks for the repo.
-	header.header.opened-burger .head-buttons .gh-wrap {
-		display: block;
+	// Menu keeps its word wherever the compact bar has the room for it. The labelled button is 54px
+	// wider than the square (94 against 40); beside the search icon the 152 wordmark leaves 92px free
+	// at 375, so the word fits from 360 with 16 to spare; a page without search has 56px more and
+	// fits it on every phone. Narrower than that, the square.
+	@media (width < 360px) {
+		header.header:has(.icon-buttons) {
+			@include menu-square;
+		}
+	}
+
+	@media (width < 320px) {
+		header.header {
+			@include menu-square;
+		}
 	}
 
 	// ============================================
@@ -582,25 +474,63 @@ const currentYear = new Date().getFullYear();
 	}
 
 	// Over a hero, the bar starts transparent: neither surface nor line nor shadow, until it is
-	// scrolled past or the drawer opens, both of which want a surface of their own.
-	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-hero]) {
+	// scrolled past or the sheet opens, both of which want a surface of their own.
+	header.header:not([data-sm-open]):not([data-header-scrolled]):has([data-header-hero]) {
 		background-color: transparent;
 		border-bottom-color: transparent;
 		box-shadow: none;
 	}
 
-	// A dark hero takes white ink. Every control draws itself in `currentColor`, so naming the colour
-	// once is the whole of it; the wordmark is an image and inverts.
-	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-hero='dark']) {
+	// A dark hero takes white ink, at the top of the page and scrolled while the hero is still under the
+	// bar. Every control draws itself in `currentColor`, so naming the colour once is the whole of it;
+	// the wordmark is an image and inverts.
+	@include bar-over-dark-hero {
 		.logo {
 			filter: invert(100%) sepia(68%) saturate(0%) hue-rotate(350deg) brightness(113%) contrast(101%);
 		}
 
-		.region-signin__trigger,
-		.burger,
-		.gh-button,
-		.search-toggle-btn {
+		.head-buttons {
 			color: $color-white;
+		}
+
+		// The promo banner over the hero is part of it: the hero's ground, white words, the dark menu's
+		// accent. It is only ever seen at the top of the page, before it slides away.
+		#promo-banner {
+			background-color: var(--tb-hero-ground, rgb(8 9 14));
+			border-bottom-color: rgba(255, 255, 255, 0.1);
+
+			.promo-msg {
+				color: rgba(255, 255, 255, 0.88);
+			}
+
+			.promo-msg strong,
+			.promo-star,
+			.promo-chevron {
+				color: #b3c7ff;
+			}
+		}
+	}
+
+	// Scrolled with the hero still under it: the hero's ground, a faint light line under it, no
+	// shadow, and the ink stays white. The line goes while the one panel hangs under the bar.
+	header.header:not([data-sm-open])[data-header-scrolled][data-header-over-hero]:has([data-header-hero='dark']) {
+		background-color: var(--tb-bar-dark);
+		border-bottom-color: rgba(255, 255, 255, 0.08);
+		box-shadow: none;
+
+		// The frost on a layer of its own: on the bar itself it would make the bar the containing block
+		// of the fixed promo banner and panel inside it, as `filter` would.
+		&::before {
+			content: '';
+			position: absolute;
+			inset: 0;
+			z-index: -1;
+			backdrop-filter: var(--tb-bar-frost);
+			pointer-events: none;
+		}
+
+		&[data-sm-desktop-open] {
+			border-bottom-color: transparent;
 		}
 	}
 
@@ -613,42 +543,6 @@ const currentYear = new Date().getFullYear();
 	// hero starts below the banner and the bar floats over the hero as before.
 	.page:has(header.header [data-header-hero]) .main-frame {
 		padding-top: var(--promo-h, 0px);
-	}
-
-	// Mobile burger drawer — identical on every page. `--color-bg-light` is the
-	// brightest surface per theme, so it sits above the page bg in dark too.
-	header.header.opened-burger {
-		// Don't reposition on open — the bar stays put (the mobile block fills the
-		// drawer downward from there), so there is no jump at the banner position.
-		// Only bg + shadow ease.
-		transition:
-			background-color $transition-base,
-			box-shadow $transition-base;
-		background-color: var(--color-bg-light);
-		box-shadow: var(--shadow-header);
-
-		.head-menu ul {
-			a,
-			a:not([href]),
-			span.main-menu-link {
-				color: var(--color-text);
-			}
-
-			// Highlight the expanded section (`.open-sub`, toggled in listburg).
-			li:has(.open-sub) > a,
-			li:has(.open-sub) > span.main-menu-link {
-				color: var(--color-primary);
-			}
-
-			// Hover highlight for pointer devices only — touch `:hover` sticks
-			// after a tap, so touch relies on `.open-sub` above instead.
-			@media (hover: hover) {
-				li:hover > a,
-				li:hover > span.main-menu-link {
-					color: var(--color-primary);
-				}
-			}
-		}
 	}
 
 	// Starlight mobile sidebar: 90% width, toggle button left when closed / right edge when open
@@ -675,37 +569,6 @@ const currentYear = new Date().getFullYear();
 		// But when the sidebar is open it covers the TOC bar, so restore the close button
 		html[data-has-toc] .sl-menu-button:has(~ :popover-open) {
 			display: flex;
-		}
-	}
-
-	// Dark-mode dropdown tinting. `!important` beats Navigation's per-brand rules
-	// (light keeps its brand colours; only dark flattens to primary). Force-light
-	// pages are locked to light, so they never match — no exclusion needed.
-	html[data-theme='dark'] header.header {
-		.head-menu .sub-menu .group-name {
-			color: var(--color-primary) !important;
-		}
-
-		.head-menu .sub-menu a:hover .sub-text span.item-heading {
-			color: var(--color-primary) !important;
-		}
-
-		// Top-level link hover — pointer devices only (touch `:hover` sticks).
-		@media (hover: hover) {
-			.head-menu ul li:hover a,
-			.head-menu ul li:hover span.main-menu-link,
-			.head-menu ul li a:not([href]):hover,
-			.head-menu ul li span.main-menu-link:hover {
-				color: var(--color-primary) !important;
-			}
-		}
-
-		// Active-tab indicator (the underline + arrow under the hovered top item)
-		.head-menu .indicator .head-arrow {
-			border-bottom-color: var(--color-primary) !important;
-		}
-		.head-menu .indicator .line {
-			background-color: var(--color-primary) !important;
 		}
 	}
 
