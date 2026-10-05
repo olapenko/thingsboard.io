@@ -77,16 +77,18 @@ those two files.
 | 10 | Nav data | `feat/nav-blog-company` → #19 | Blog as a Company item, off the top row. On `lab`. |
 | 11 | The bar | `feat/site-bar` → #20 | On `lab`, site-wide. The archive's header work, none of which reached `handoff` (its bar is `main`'s, byte for byte): the star widget in the bar's own geometry, giving way at 1300 (1a6cee78e); the drawer as a readable menu, chevrons on the items that expand, one left edge (fa3356f71); Close staying where Menu was under 560 (e44c5b1e4); the outlined cloud in the region menu and the stars in the open drawer (cc7a13701); the Products badges on the two platforms (8b2e4e72f); hover on the brand primary and AA shades for Edge and Trendz (adee819cb); underline on the items that navigate (48079b799); `_marketing-bar.scss` as the one home of the bar's rules, the homepage's copy gone. Then the seven `header-config` variants fold into two looks (marketing · docs) and two states (top · scrolled), transparency a page prop; the theme icon leaves every look; the responsive logo (160 from 1281, 215 from 1600) decided here. |
 | 12 | Search | `feat/site-search` → #21, stacked on #20 | On `lab`, site-wide; the header workbench has a Search direction and a Search Closed/Open state. `SiteSearch`: one dialog, rendered once by the bar, opened by every trigger and the keys. The trigger is one control at two sizes, chosen by the room beside the nav: the labelled field with its keys from 1480 (measured: 50px a side), the icon in a stroked 40px box like Sign in below. The dialog on the kit: the Dialog's panel, the Field around Google's input, the primary for its submit, title rows on the type ladder, Escape and the backdrop and a close button, Tab wrapping, focus return; not a `<dialog>`, since Google's autocomplete at the body root would sit under the top layer. |
-| 13 | The open menu | `feat/site-menu` → #24, stacked on #21 | On `lab`: the island's **Menu · docs / marketing** pill switches current · dropdowns · panel site-wide for that look (a cookie, applied on the client, since a prerendered page sees no cookie on the server). `Navigation` + `HeaderContent` (1,800 lines) split into `SiteBar`, `SiteMenu`, `SiteMenuPanel`, rendered from the data once, popover and `:has()` for open and close, the hover, focus and swipe logic in one place. Two candidates on the workbench, both on the kit's Link, Mark and Card: **Dropdowns**, the per-item panels redrawn (columns from the data, the Products badges, a featured slot); **Panel**, one surface with a section rail on the left and the section's columns on the right. The phone sheet is shared: accordion sections, the search field at the top, Sign in · Try for free pinned at the foot, no theme row. The review picks one, or keeps Dropdowns on docs and Panel on marketing. |
+| 13 | The open menu | `feat/site-menu` → #24, stacked on #21 | Ships the **one panel** (decided 5 Oct): `SiteMenu` replaces `Landing/Navigation` everywhere. From 1281 the row opens one surface under the bar, a rail of the sections and the open one beside it; below, the sheet is the same design at a phone's width — the rail as a list, a section as its own view with a row back, no search field (the bar's control is a tap away). One `SiteMenuBody` per section on every surface, from `menu-model`. `dropdowns` is kept as the alternative (`BaseLayout` `menu`), judged on the header workbench's Dropdowns tab; lab's menu switch is gone. |
 | 14 | Footers | `feat/site-footer` → #25, stacked on #24 | On `lab`. One `SiteFooter` on `footer-map.ts` with a density: `map` (today's `FooterMap`), `docs` (below); no third density — the legacy pages take `map` when they move onto the kit (decided 5 Oct). One `FooterBase` row under all of them: copyright, legal, Cookie settings, the Appearance row, the badges. Social icons from `FOOTER_SOCIAL` only; `SocialNetworks.astro` and `footerNavItems` go. `BaseLayout`'s `footer` prop becomes the density, with a default per layout. |
 | 15 | Docs footer | with 14 (#25) | On `lab`. The `docs` density: full-bleed under the sidebar, not in the article column. The highlights row (`FOOTER_HIGHLIGHTS`, with icons), one short column set (Get started, Docs, Use cases, Blog, Contact), the base row. Social icons cut to what the workbench keeps. Lighter than `map`: no platform grid, no newsletter. |
+| 16 | Cookie consent | `feat/cookie-consent-kit` → #27, stacked on #25 | On `lab`. Upstream's consent (#704) unchanged — Accept all and Reject all as equals, a switch per category, `tb_consent`, Consent Mode v2 — in the redesign's indigo bar on the kit, with the preferences in `ui/Dialog`; `CookieNotice` goes. The cookie workbench shows it in demo mode. Open: legal's sign-off on the short sentence. |
 
-Since 5 Oct the one panel is the menu every page on `lab` opens with (the pill's `current` and
-`dropdowns` are choices), the candidate for home. Its colour is one token set on `nav.sm`, reassigned
-per ground — dark theme, the docs bar's sidebar ground, the transparent bar over a dark hero (which
-takes the panel's ground while it is open) — and the products' marks keep the products page's colours
-on every ground. The row packs beside the wordmark; a page item is underlined in the ink, an open
-section in the accent.
+Since 5 Oct the one panel is the site's menu (layer 13). Its colour is one token set on `nav.sm`,
+reassigned per ground — the dark theme, the docs bar's sidebar ground, the transparent bar over a
+dark hero (which takes the panel's ground while it is open) — and the products' marks keep the
+products page's colours on every ground. The row packs beside the wordmark; a page item is
+underlined in the ink, an open section in the accent; the chevron turns over with a little give.
+The search dialog carries Google's attribution in its head ("enhanced by Google"), as the free
+search asks.
 
 Also since 5 Oct: Products closes on Pricing, Installation options and the Cloud card (the card left
 the panel's foot); Customers shows three case studies with a figure each and a line of feedback, read
@@ -95,7 +97,15 @@ every `BaseLayout` page's unless it keeps the legacy one by name (`footer="in-us
 homepage order only), so the old footer is gone from the marketing pages. The CLI visual's composer
 is fixed in #26 (`fix/agent-composer` → handoff).
 
-Open on this plan: which menu model ships (layer 13's review); which social icons the docs footer
+**Merging the stack into `handoff`.** Each PR lands as one layer commit, as layers 1–9 did; a
+stacked branch carries its parent's commits, so a layer is its own range (`feat/site-bar..feat/
+site-search`), cherry-picked and committed with the layer's message. Prepared on 5 Oct as the local
+branch `handoff-next` (#19, #20, #21, #24, #25, #23, #22, #26 on `handoff`; type-checked, the tree
+identical to a checked rehearsal). Landing it is the owner's push: point each PR branch at its
+layer commit, then fast-forward `handoff`, and GitHub marks the eight merged. #27 follows once
+those are in.
+
+Open on this plan: which social icons the docs footer
 keeps; whether Pricing stays a button beside Menu on the docs bar.
 
 Also on `lab` since 4 Oct, outside the chrome: `/` renders running order **C** (#22), and `/pricing/`
