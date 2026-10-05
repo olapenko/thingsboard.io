@@ -2,10 +2,10 @@ import { TBMQ_SITE_URL } from '@models/tbmq';
 import { CAREERS_URL } from '@models/careers';
 
 /**
- * The footer candidate's contents (`FooterMap`), judged at `/internal/sections/footer/`.
+ * The site footer's contents (`FooterMap`, `SiteFooter`'s `map` density).
  *
- * WHAT IT IS FOR. The footer in use says "Get Started · Documentation · Use cases · Blog · Services ·
- * Contact us" and nothing about what ThingsBoard is made of. This one maps the platform: the two ways
+ * WHAT IT IS FOR. Main's footer (`Landing/Footer`, retired here) says "Get Started · Documentation ·
+ * Use cases · Blog · Services · Contact us" and nothing about what ThingsBoard is made of. This one maps the platform: the two ways
  * to run it, the products around it, what you build with it, and where each of those is documented.
  *
  * THE WORDS ARE THE SITE'S OWN, not new copy. The two groups of the map are the Products menu's
@@ -227,7 +227,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
  * (4.4 shipped that day) but is linked once, in Docs, where the source is looked for. Left out: X (silent since
  * August 2025), Stack Overflow (no question for ten months, most unanswered), Instagram (team life,
  * not the product), Facebook (kept up, but re-posts with little reach). The shared
- * `data/socialNetworks.ts` is untouched: the footer in use still reads all seven.
+ * `data/socialNetworks.ts` keeps all seven, as main's footer read them.
  */
 export const FOOTER_SOCIAL = [
 	{ icon: 'simple-icons:youtube', name: 'YouTube' },
@@ -251,7 +251,7 @@ export const FOOTER_LEGAL: FooterLink[] = [
 ];
 
 /**
- * The newsletter block: the heading and consent line from the footer in use; the lede rewritten
+ * The newsletter block: the heading and consent line from main's footer; the lede rewritten
  * (2026-09-30). It promised "no sales mail", and the list does carry product news, so the promise
  * is the one that holds — no spam — and "roughly monthly" becomes plain words. "About once a
  * month" was 406px against the form's 400 and left "No spam." on a line of its own; this is 366.
