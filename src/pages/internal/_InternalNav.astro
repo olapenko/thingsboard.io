@@ -272,6 +272,20 @@ const onAPage = PAGES.some(isPage);
 <script>
 	const KEY = 'internal-nav:open';
 	const root = document.querySelector<HTMLElement>('[data-internal-nav]');
+
+	// The cookie card holds the bottom-left corner until a choice is made (`CookieConsent`, which marks
+	// the root `data-cc-card` while it shows): the island stands 8px above it rather than over its
+	// buttons, and comes down when it goes.
+	const ccCard = document.querySelector<HTMLElement>('#cookie-consent .cc__card');
+	if (root && ccCard) {
+		const lift = () => {
+			const up = document.documentElement.hasAttribute('data-cc-card') && !ccCard.hidden;
+			root.style.setProperty('--inav-lift', up ? `${Math.ceil(ccCard.getBoundingClientRect().height) + 16}px` : '0px');
+		};
+		lift();
+		new ResizeObserver(lift).observe(ccCard);
+		new MutationObserver(lift).observe(document.documentElement, { attributeFilter: ['data-cc-card'] });
+	}
 	const hide = root?.querySelector<HTMLButtonElement>('[data-inav-hide]');
 	const show = root?.querySelector<HTMLButtonElement>('[data-inav-show]');
 
@@ -435,7 +449,7 @@ const onAPage = PAGES.some(isPage);
 				place = JSON.parse(sessionStorage.getItem(PLACE) ?? 'null') as Place | null;
 				sessionStorage.removeItem(PLACE);
 			} catch {
-				place = null;
+				// Storage blocked or the entry unreadable: nothing to restore.
 			}
 			if (!place || Date.now() - place.t > STALE_MS) return;
 			const target = place;
@@ -591,8 +605,9 @@ const onAPage = PAGES.some(isPage);
 	.inav,
 	.inav-tab {
 		position: fixed;
-		z-index: 10000; // Over the cookie banner's 9999, which spans this edge until dismissed.
-		bottom: $spacing-3;
+		z-index: 10000; // Over the cookie card's layer.
+		// On top of the cookie card while it holds this corner (`--inav-lift`, the script's).
+		bottom: calc(#{$spacing-3} + var(--inav-lift, 0px));
 		box-sizing: border-box;
 		height: var(--inav-h);
 		margin: 0;
@@ -852,7 +867,7 @@ const onAPage = PAGES.some(isPage);
 	/* The running-order switch: the island's own surface, one island-height plus a gap above it, so the
 	   two read as a stack in the one corner and fold away together (it is an `.inav` too). */
 	.inav--proto {
-		bottom: calc(#{$spacing-3} + var(--inav-h) + #{$spacing-2});
+		bottom: calc(#{$spacing-3} + var(--inav-h) + #{$spacing-2} + var(--inav-lift, 0px));
 	}
 
 	.inav__caption {
