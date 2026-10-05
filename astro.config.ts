@@ -73,8 +73,12 @@ export default defineConfig({
 				),
 			},
 		},
+		// Bundled when the dev server starts, not when a page first imports them: a dependency found
+		// late makes Vite re-optimise and rename its bundle, and a page holding the old name fails to
+		// load it ("Failed to fetch dynamically imported module …/deps/embla-carousel.js"). The
+		// carousels import Embla on demand, as the lightbox does PhotoSwipe.
 		optimizeDeps: {
-			include: ['photoswipe', 'photoswipe/lightbox'],
+			include: ['photoswipe', 'photoswipe/lightbox', 'embla-carousel', 'embla-carousel-autoplay'],
 		},
 		plugins: [
 			{
