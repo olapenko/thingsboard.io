@@ -10,14 +10,13 @@ export interface MenuPromo {
 	icon: string;
 	title: string;
 	href: string;
-	id?: string;
 	attrs?: Record<string, string>;
 	featured?: boolean;
 }
 
 export const MENU_SECTION_PROMOS: Record<string, MenuPromo[]> = {
 	'nav-products': [
-		{ icon: 'tabler:tag', title: 'Pricing', href: '/pricing/', id: 'Menu_Products_Pricing' },
+		{ icon: 'tabler:tag', title: 'Pricing', href: '/pricing/' },
 		{ icon: 'tabler:download', title: 'Installation options', href: '/installations/' },
 		{
 			icon: 'tabler:cloud',

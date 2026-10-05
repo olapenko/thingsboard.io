@@ -14,10 +14,11 @@
 export type HeaderLook = 'marketing' | 'docs';
 
 /**
- * The main menu's model: `current` is `Landing/Navigation`, the menu as it ships; `dropdowns` and
- * `panel` are layer 13's two candidates (`SiteMenu`), judged on `lab` before one replaces it.
+ * The main menu's model (`SiteMenu`): `panel`, one surface under the bar with a rail of sections,
+ * is the site's since 5 Oct. `dropdowns`, a panel under each item, is kept as the alternative and
+ * shown by the chrome workbench; a page can ask for it through `BaseLayout`'s `menu`.
  */
-export type HeaderMenu = 'current' | 'dropdowns' | 'panel';
+export type HeaderMenu = 'dropdowns' | 'panel';
 
 /** The hero the bar opens over: its ink while transparent. */
 export type HeaderHero = 'dark' | 'light';
@@ -46,7 +47,7 @@ export function resolveHeaderConfig(input: HeaderConfigInput = {}): HeaderConfig
 		// Only a marketing page has a hero to open over.
 		hero: look === 'marketing' ? input.hero : undefined,
 		search: input.search ?? true,
-		menu: input.menu ?? 'current',
+		menu: input.menu ?? 'panel',
 		cloudSignupIds: input.cloudSignupIds ?? true,
 	};
 }
