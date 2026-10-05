@@ -1,8 +1,7 @@
 ---
 import { Icon } from 'astro-icon/components';
 import NavIcon from '@components/Landing/NavIcon.astro';
-import Mark from '@components/ui/Mark.astro';
-import { badgeOf } from '@data/product-badges';
+import { menuBadgeOf } from '@data/product-badges';
 import { badgesIn } from '@components/SiteMenu/menu-model';
 import type { SubMenu, SubMenuGroup } from '@data/navigation';
 import { externalLinkAttrs, isExternalHref, newTabLinkLabel } from '@util/external-links';
@@ -16,7 +15,7 @@ import { externalLinkAttrs, isExternalHref, newTabLinkLabel } from '@util/extern
  */
 interface Props {
 	submenu: SubMenu;
-	/** The Products section draws its marks a step larger: they are the products' logos (`iconSizeOf`). */
+	/** Products and Docs draw their marks a step larger: they are the products' logos (`iconSizeOf`). */
 	iconSize?: number;
 	/** Each link's line under its name, where the section keeps it (`describes`). */
 	describe?: boolean;
@@ -29,7 +28,7 @@ interface Props {
 
 const { submenu, iconSize = 24, describe = true, omitName } = Astro.props;
 // A product's row draws its badge (Products, Docs); every other row its nav icon.
-const badgeFor = (heading: string) => (badgesIn(submenu) ? badgeOf(heading) : undefined);
+const badgeFor = (heading: string) => (badgesIn(submenu) ? menuBadgeOf(heading) : undefined);
 const named = (name?: string) => !!name && name.toLowerCase() !== omitName?.toLowerCase();
 
 /** Widest a group lays its columns out side by side. */
@@ -53,7 +52,11 @@ const sections = await Promise.all(
 	submenu.groups.map(async (group) => ({
 		...group,
 		items: await Promise.all(
-			group.items.map(async (item) => (item.logo ? { ...item, logo: await logoSrc(item.logo) } : item))
+			group.items.map(async (item) => ({
+				...item,
+				logo: item.logo ? await logoSrc(item.logo) : undefined,
+				badge: badgeFor(item.heading),
+			}))
 		),
 	}))
 );
@@ -85,9 +88,18 @@ const sections = await Promise.all(
 								</span>
 							) : (
 								<Fragment>
-									{badgeFor(item.heading) ? (
+									{item.badge ? (
 										<span class="sm__link-icon">
-											<Mark size={32} {...badgeFor(item.heading)} class="sm__badge" />
+											<span
+												class:list={[
+													'sm__badge',
+													`sm__badge--${item.badge.fill}`,
+													item.badge.wide && 'sm__badge--wide',
+												]}
+												style={`--badge-hue: ${item.badge.hue}; --badge-glyph: ${item.badge.size}px`}
+											>
+												<NavIcon src={item.badge.glyph} size={item.badge.size} alt="" />
+											</span>
 										</span>
 									) : (
 										item.icon && (

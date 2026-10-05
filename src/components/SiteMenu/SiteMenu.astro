@@ -590,16 +590,13 @@ const pathname = Astro.url.pathname;
 		--sm-logo-ink: 0.78;
 	}
 
-	// THE PRODUCTS' BADGES ON A DARK GROUND. `ui/Mark` turns its wash dark under a `data-surface="dark"`
-	// ancestor, which the menu has no static one of: the dark theme is the page's, and over a dark hero
-	// the panel is dark by the bar's state alone. So the menu gives the wash Mark's own dark values —
-	// its hue's light tone at 14%, the glyph in that tone — wherever its ground is dark: the dark
-	// theme (panel, dropdowns, sheet) and the one panel over a dark hero. A solid badge is the same on
-	// either ground.
+	// THE PRODUCTS' BADGES ON A DARK GROUND: the wash at the hue's 14%, the glyph in the hue itself —
+	// `ui/Mark`'s own dark values — wherever the menu's ground is dark: the dark theme (panel,
+	// dropdowns, sheet) and the one panel over a dark hero. A solid badge is the same on either ground.
 	@mixin badges-on-dark {
-		.sm__badge.ui-mark--wash {
-			background-color: color-mix(in srgb, var(--_light) 14%, transparent);
-			color: var(--_light);
+		.sm__badge--wash {
+			background-color: color-mix(in srgb, var(--badge-hue) 14%, transparent);
+			color: var(--badge-hue);
 		}
 	}
 
@@ -648,6 +645,11 @@ const pathname = Astro.url.pathname;
 	// Stronger than a page's own rule for its bar (the homepage's scrim), which it must win over. The
 	// dropdowns hang free under the bar and leave it as it is.
 	header.header:not([data-header-scrolled]):not([data-sm-open])[data-sm-desktop-open]:has(.sm[data-model='panel']) {
+		// At once, not faded in: the panel's ground is whole from its first frame (it unrolls, it does
+		// not fade), so a bar still fading in left the hero showing through above it for ~100ms. On
+		// close the bar fades back as before (the transition of the state it returns to).
+		transition-duration: 0s;
+
 		&:has([data-header-hero='dark']) {
 			background-color: var(--tb-bar-dark);
 		}
@@ -655,6 +657,11 @@ const pathname = Astro.url.pathname;
 		&:has([data-header-hero='light']) {
 			background-color: var(--color-bg-surface);
 		}
+	}
+
+	// The sheet's bar, likewise at once: the sheet is whole under it from its first frame.
+	header.header[data-sm-open] {
+		transition-duration: 0s;
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -747,8 +754,9 @@ const pathname = Astro.url.pathname;
 		white-space: nowrap;
 		text-decoration: none;
 		cursor: pointer;
-		// With the rest of the bar's ink (`--tb-bar-swap`), as the ground under it changes.
-		transition: color var(--tb-bar-swap, 0.2s) ease;
+		// With the rest of the bar's ink: in one step, as the ground under it passes mid-grey
+		// (`--tb-ink-at` in `HeaderContent`). Only the ground swap changes this colour; hover keeps it.
+		transition: color 0s linear var(--tb-ink-at, 0.06s);
 
 		&::after {
 			content: '';
@@ -900,6 +908,47 @@ const pathname = Astro.url.pathname;
 	[data-sm-section='nav-products'],
 	[data-sm-section='nav-docs'] {
 		--sm-mark: 32px;
+	}
+
+	// A PRODUCT'S BADGE (Products, Docs): `ui/Mark`'s tile in CSS — 32 square, 32% corners, the solid
+	// one's sheen — with its glyph from the nav sprite (`menuBadgeOf` in `product-badges`), so the menu
+	// carries a `<use>` per badge rather than the artwork. Solid: the hue, the logo white. Wash: the hue
+	// at 12% on the menu's surface, a logo glyph in the hue taken toward black — the hues are the
+	// footer's, picked for a dark ground, and Mobile's #4ade80 on its own wash read 1.6:1. Product
+	// glyphs draw in their own colours. Dark grounds: `badges-on-dark`.
+	.sm__badge {
+		display: inline-grid;
+		flex: none;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 32%;
+	}
+
+	.sm__badge--solid {
+		background-color: var(--badge-hue);
+		background-image: linear-gradient(
+			155deg,
+			rgba(255, 255, 255, 0.22) 0%,
+			rgba(255, 255, 255, 0) 55%,
+			rgba(0, 0, 0, 0.06) 100%
+		);
+		color: #fff;
+	}
+
+	.sm__badge--wash {
+		background-color: color-mix(in srgb, var(--badge-hue) 12%, var(--sm-surface));
+		color: color-mix(in srgb, var(--badge-hue) 55%, #0b1410);
+	}
+
+	// The glyph takes the tile's colour, not the row's accent (`.sm__link svg.nav-icon`), in a SQUARE
+	// box as Mark draws it: the artwork's box (`marks.ts`) is fitted inside and centred, and what a
+	// product draws past it shows — TBMQ's box is its brackets, and its circle rises above and below.
+	.sm__link .sm__badge svg.nav-icon {
+		width: var(--badge-glyph);
+		height: var(--badge-glyph);
+		max-height: none;
+		color: inherit;
 	}
 
 	// A customer's logo in place of its name (the case studies): on the row's centre line, 20 tall
@@ -1517,6 +1566,11 @@ const pathname = Astro.url.pathname;
 				min-height: 64px;
 				padding-inline: 12px;
 				background: var(--sm-surface);
+
+				// The press, as a list row has it: the cell's own ground outranks the row's `:active`.
+				&:active {
+					background: var(--sm-fill-strong);
+				}
 			}
 		}
 
@@ -1617,9 +1671,10 @@ const pathname = Astro.url.pathname;
 				grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 			}
 
-			// Five in a row's room: one row of logos.
+			// One row of the five logos. Five columns outright, not `auto-fit`: between 600 and 704 that
+			// fitted four, and the fifth sat alone over three empty cells of the wall's grey.
 			.sm__cols:has(.sm__link-logo) {
-				grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+				grid-template-columns: repeat(5, minmax(0, 1fr));
 
 				li:last-child:nth-child(odd) {
 					grid-column: auto;
