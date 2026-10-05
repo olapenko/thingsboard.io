@@ -13,10 +13,10 @@ import type { CompareColumn, CompareGroup, CompareRow } from '@data/product-bloc
  * marketing table, so the caption, the header scopes and the no-empty-cell contract that
  * `pnpm lint:landmarks` checks are the shell's, not this file's.
  *
- * FROM 880 it is a table under a header pill that pins below the fixed bar while the rows scroll
- * past it. BELOW 880 it is not a table at all: each row becomes a block — the label, then its
- * values, each one labelled with its column — so the things being compared are on screen together
- * instead of a scroll apart. The column names in the cells are real text rather than
+ * FROM 880 it is a table under a header pill, over the compared columns, that pins below the
+ * fixed bar while the rows scroll past it. BELOW 880 it is not a table at all: each row becomes a
+ * block — the label, then its values, each one labelled with its column — so the things being
+ * compared are on screen together instead of a scroll apart. The column names in the cells are real text rather than
  * `::before` content: a reflowed table loses its table semantics the moment `display` stops being
  * `table-*`, so every cell says what it is on its own, for a screen reader and for an extractor.
  *
@@ -27,7 +27,7 @@ import type { CompareColumn, CompareGroup, CompareRow } from '@data/product-bloc
 interface Props {
 	/** The table's accessible name; hidden, since the section's own header says it on screen. */
 	caption: string;
-	/** The row labels' column heading. */
+	/** The row labels' column heading: in the markup, but not drawn — the pill spans the values. */
 	firstLabel: string;
 	/** The value columns, in the order of each row's `values`. */
 	columns: CompareColumn[];
@@ -45,8 +45,12 @@ const { caption, firstLabel, columns, rows = [], lead, groups = [], align = 'sta
 const NOT_INCLUDED = '—';
 const included = (value: string | boolean) => value !== false && value !== NOT_INCLUDED;
 
+// The row labels' heading is read, not shown: `srLabel` with no `label` puts it in the cell as
+// clipped text, so a screen reader announces it and a crawler's `innerText` keeps it, while the
+// cell itself stays in the row to hold the column. The pill then starts where the columns being
+// compared start — the labels need no heading on screen, the differences do.
 const tableColumns: DataTableColumn[] = [
-	{ label: firstLabel },
+	{ srLabel: firstLabel, thClass: 'product-matrix__label-head' },
 	...columns.map((column) =>
 		column.icon
 			? { label: column.name, icon: column.icon, iconClass: 'product-matrix__glyph', thClass: 'product-matrix__marked' }
@@ -125,9 +129,10 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 		border-spacing: 0;
 		text-align: left;
 
-		// THE HEADER PILL, pinned under the fixed bar. A row of three cells drawn as one rounded bar:
-		// the outer two take the round ends, the middle inherits the fill, and `border-spacing: 0`
-		// leaves no seam between them. It needs a ground of its own, since the rows pass under it.
+		// THE HEADER PILL, pinned under the fixed bar, over the compared columns only. Their cells are
+		// drawn as one rounded bar: the first and last take the round ends, any between inherit the
+		// fill, and `border-spacing: 0` leaves no seam between them. It needs a ground of its own,
+		// since the rows pass under it. The label column's cell rides along, pinned and bare.
 		thead th {
 			@include type-body;
 
@@ -141,9 +146,9 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 			font-weight: $font-weight-medium;
 			color: var(--color-text);
 
-			// The first cell over its neighbours, as before the table moved: each cell casts the pill's
-			// shadow, and the second cell's would otherwise draw a seam down the first one's edge.
-			&:first-child {
+			// The pill's first cell over its neighbours: each cell casts the pill's shadow, and the
+			// next cell's would otherwise draw a seam down this one's edge.
+			&:nth-child(2) {
 				z-index: 2;
 				border-top-left-radius: $radius-full;
 				border-bottom-left-radius: $radius-full;
@@ -159,6 +164,13 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 			&:not(:first-child) {
 				color: var(--accent-ink);
 			}
+		}
+
+		// The label column's header: no ground and no shadow, so nothing is drawn over the labels and
+		// the pill reads as the columns' own. Its text is clipped (`srLabel`), not removed.
+		thead th.product-matrix__label-head {
+			background: none;
+			box-shadow: none;
 		}
 
 		// The glyph the choice cards carry, on the column it labels, in the label's colour, from 880 (the
@@ -245,12 +257,6 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 		thead th:not(:first-child) {
 			text-align: center;
 		}
-
-		@media (max-width: 879px) {
-			td {
-				text-align: start;
-			}
-		}
 	}
 
 	// THE TABLE BELOW 880: each row a block, each value labelled with its column.
@@ -271,7 +277,10 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 				width: auto;
 			}
 
+			// `auto`, not the table's 30%: the label has the row to itself now, so it takes the whole line
+			// and wraps only when that runs out.
 			tbody th[scope='row'] {
+				width: auto;
 				padding: 0 0 $spacing-2;
 				font-weight: $font-weight-bold;
 				color: var(--color-text);
@@ -305,6 +314,76 @@ const runs: { group?: CompareGroup; rows: CompareRow[] }[] = [
 
 			.product-matrix__group th {
 				padding: $spacing-8 0 $spacing-2;
+			}
+		}
+
+		// A LADDER OF PLANS keeps its columns. Its values are marks and two-word labels, so the steps
+		// fit side by side even at 320, and a column per plan reads as the ladder it is; stacking them
+		// spent a line per plan on every feature, the plan's name included. So the header comes back
+		// as the desktop's pinned pill over the steps, each row is its label on a line of its own and
+		// its values in one line under it, and the names in the cells go back to the screen reader.
+		//
+		// Flex, not grid, on both rows: the header and every row lay out the same number of equal
+		// boxes across the same width, so the columns line up without the table knowing its count.
+		// The header is pinned on `thead` rather than on its cells: a sticky box sticks only inside
+		// its parent, and a cell's parent is now a one-line row.
+		.product-matrix--center {
+			thead {
+				display: block;
+				position: sticky;
+				top: calc(var(--home-header-h, 64px) + #{$spacing-2});
+				z-index: 1;
+			}
+
+			thead tr {
+				display: flex;
+				border-radius: $radius-full;
+				background-color: var(--page-sticky-band, #eef0ff);
+				box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+			}
+
+			// Reset to plain boxes in the pill: the ground, the round ends and the stickiness are the
+			// row's now. The label column's heading stays for a screen reader, out of the flow.
+			thead th {
+				@include type-small;
+
+				position: static;
+				flex: 1 1 0;
+				min-width: 0;
+				padding: $spacing-2 $spacing-1;
+				border-radius: 0;
+				background: none;
+				box-shadow: none;
+				font-weight: $font-weight-medium;
+			}
+
+			thead th.product-matrix__label-head {
+				@include visually-hidden;
+			}
+
+			tbody tr:not(.product-matrix__group) {
+				display: flex;
+				flex-wrap: wrap;
+			}
+
+			tbody th[scope='row'] {
+				flex: 0 0 100%;
+			}
+
+			td {
+				@include type-small;
+
+				display: flex;
+				flex: 1 1 0;
+				flex-direction: column;
+				align-items: center;
+				min-width: 0;
+				padding: $spacing-1;
+				text-align: center;
+			}
+
+			.product-matrix__cell-label {
+				@include visually-hidden;
 			}
 		}
 	}
