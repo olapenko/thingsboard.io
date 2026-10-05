@@ -58,16 +58,16 @@ const NAV = '/src/assets/images/landings/nav';
 export const FOOTER_PLATFORMS: FooterProduct[] = [
 	{
 		name: 'ThingsBoard Cloud',
-		line: 'We host, scale and upgrade it',
+		line: 'Hosted and run by us',
 		href: '/products/paas/',
 		icon: `${NAV}/thingsboard-c-icon.svg`,
 		hue: '#3d50f5',
 	},
 	{
 		// Named as the menu names it: "ThingsBoard", beside "ThingsBoard Cloud". The map's line under it
-		// says where it runs.
+		// says where it runs. Both lines fit the footer's equal tracks (161px beside the mark).
 		name: 'ThingsBoard',
-		line: 'Deploy it inside your own network',
+		line: 'Runs on your servers',
 		href: '/products/thingsboard-pe/',
 		icon: `${NAV}/thingsboard-p-icon.svg`,
 		hue: '#178649',
@@ -279,6 +279,9 @@ export const FOOTER_NEWSLETTER = {
 	lede: 'Release notes and IoT know-how, once a month. No spam.',
 	consent: 'By subscribing you agree to receive newsletters from ThingsBoard, Inc.',
 	action: 'https://static.mailerlite.com/webforms/submit/r9r9x7',
+	// Shown in the form's place once MailerLite accepts the address — upstream's words, as main's
+	// footer and the blog's forms put them.
+	thanks: { title: 'Thank you for your interest in ThingsBoard!', text: 'Have a great day!' },
 };
 
 /**
@@ -292,7 +295,7 @@ export const FOOTER_TAGLINE =
 /**
  * THE DOCS FOOTER (`SiteFooter` at the `docs` density): lighter than the map — no platform grid,
  * no newsletter — and richer than the six-link row it replaces. Three short columns: where the
- * platform is run and bought, where to learn it, and the company. Every page named is one the map
+ * platform is run and bought, where to learn it, and where to get help. Every page named is one the map
  * carries; the first column's marks are the map's platform badges. The follow line and the base row
  * are the map's own.
  */
@@ -319,10 +322,12 @@ export const FOOTER_DOCS_COLUMNS: FooterColumn[] = [
 		],
 	},
 	{
-		title: 'Company',
+		// "Get help", not "Company" (2026-10-05): Support plans is Services' in the menu and the map, so
+		// under "Company" it was filed twice; the docs reader's third question is who answers them.
+		// Partners is out, as from the map: its hub is a technical page.
+		title: 'Get help',
 		links: [
 			{ label: 'Support plans', href: '/services/' },
-			{ label: 'Partners', href: '/partners/' },
 			{ label: 'Clients feedback', href: '/clients-feedback/' },
 			{ label: 'Contact us', href: '/contact-us/' },
 			{ label: 'Careers', href: CAREERS_URL, external: true },

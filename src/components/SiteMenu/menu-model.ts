@@ -26,6 +26,12 @@ export const MENU_SECTIONS: MenuSection[] = MENU_ENTRIES.filter((e): e is MenuSe
 export const iconSizeOf = (sub: SubMenu) => (sub.id === 'nav-products' || sub.id === 'nav-docs' ? 32 : 24);
 
 /**
+ * Products and Docs list the products, so their rows carry the products' badges (`product-badges`,
+ * the footer's and the docs hub's), not the nav icons.
+ */
+export const badgesIn = (sub: SubMenu) => sub.id === 'nav-products' || sub.id === 'nav-docs';
+
+/**
  * A link's line under its name, only where it tells two links apart: the products, and their docs.
  * Elsewhere the name says it — "Smart metering", "Careers" — and the line was the weight that made
  * the panel heavy.
