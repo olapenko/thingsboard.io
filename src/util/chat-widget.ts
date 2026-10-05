@@ -124,6 +124,37 @@ export function syncHues(): void {
 	);
 }
 
+/** Until when focus may go into their window while it is still closed: the moments after our launcher asks it to open. */
+let openingUntil = 0;
+const OPENING_GRACE_MS = 3000;
+let focusGuarded = false;
+
+/**
+ * KEEPS FOCUS OUT OF THE CLOSED WINDOW. The widget loads on the reader's first interaction
+ * (`YourGptWidget`), which for a keyboard reader is their first Tab, and as it boots it focuses its
+ * message box — before it marks the closed window `inert`. Focus left the link the reader had just
+ * tabbed to for a box nobody can see, and the next Tab went on from the end of the page. Focus that
+ * lands in their root while the window is closed, and not because our launcher is opening it, goes
+ * back where it came from. A chat mounted into an element of ours (`widget:mount`) is not in their
+ * root and is left alone.
+ */
+function guardFocus(): void {
+	if (focusGuarded) return;
+	focusGuarded = true;
+	document.addEventListener(
+		'focusin',
+		(e) => {
+			const target = e.target as HTMLElement;
+			if (!target.closest?.('#yourgpt_root')) return;
+			if (document.documentElement.hasAttribute('data-chat-open') || performance.now() < openingUntil) return;
+			const back = e.relatedTarget as HTMLElement | null;
+			if (back?.isConnected && !back.closest('#yourgpt_root')) back.focus({ preventScroll: true });
+			else target.blur();
+		},
+		true
+	);
+}
+
 /**
  * Our floating launchers (`ChatLauncher floating`): a click loads the widget if it has not loaded
  * yet and toggles the window; the window's state comes back through `widget:popup`, so the header's
@@ -151,10 +182,14 @@ export function wireFloatingLaunchers(root: ParentNode = document): void {
 		listening = true;
 		void onChatPopup(reflect);
 	};
+	guardFocus();
 	launchers.forEach((b) =>
 		b.addEventListener('click', async () => {
 			listen();
-			(await whenChatUp()).execute(open ? 'widget:close' : 'widget:open');
+			const api = await whenChatUp();
+			// From the moment the open is asked for, which on a first click waits for the widget's boot.
+			if (!open) openingUntil = performance.now() + OPENING_GRACE_MS;
+			api.execute(open ? 'widget:close' : 'widget:open');
 		})
 	);
 	// Already loaded (the deferred loader got there first): follow its state from now on.
