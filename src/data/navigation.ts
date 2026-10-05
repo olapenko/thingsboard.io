@@ -283,10 +283,12 @@ export const solutionsSubmenu: SubMenu = {
 	],
 };
 
-// Company submenu: the company, with what its clients say about it, and the partner programmes.
+// Company submenu: the company, with what its clients say about it, and the partner programmes,
+// closed by their hub.
 export const companySubmenu: SubMenu = {
 	id: 'nav-company',
 	className: 'about',
+	owns: ['/partners/'],
 	groups: [
 		{
 			name: 'Company',
@@ -352,6 +354,7 @@ export const companySubmenu: SubMenu = {
 					linkClass: 'small-link',
 				},
 			],
+			more: { label: 'All partners', href: '/partners/' },
 		},
 	],
 };
