@@ -1,0 +1,75 @@
+---
+import { Icon } from 'astro-icon/components';
+import NavIcon from '@components/Landing/NavIcon.astro';
+import type { SubMenu, SubMenuGroup } from '@data/navigation';
+import { externalLinkAttrs, isExternalHref, newTabLinkLabel } from '@util/external-links';
+
+/**
+ * ONE SECTION OF THE MENU — a submenu's groups, each one list of its links — as every surface of
+ * `SiteMenu` renders it: a dropdown, the one panel, the phone sheet. A list is one `<ul>` however
+ * many columns it shows in, so a screen reader hears ten use cases rather than two lists of five; the
+ * stylesheet folds it into columns of `--rows` (a CSS grid flowing down, then across), and the
+ * surface decides whether it folds at all. This decides the markup, once.
+ */
+interface Props {
+	submenu: SubMenu;
+	/** The Products section draws its marks a step larger: they are the products' logos (`iconSizeOf`). */
+	iconSize?: number;
+	/** Each link's line under its name, where the section keeps it (`describes`). */
+	describe?: boolean;
+	/**
+	 * A group name not to repeat: the sheet's view is headed by the section's name, so Company's
+	 * own "Company" group goes unlabelled under it, and only "Partners" is named.
+	 */
+	omitName?: string;
+}
+
+const { submenu, iconSize = 24, describe = true, omitName } = Astro.props;
+const named = (name?: string) => !!name && name.toLowerCase() !== omitName?.toLowerCase();
+
+/** Widest a group lays its columns out side by side. */
+const MAX_COLUMNS = 3;
+
+/**
+ * The rows a group's list runs to before it starts the next column: `perColumn` from the nav data,
+ * or the whole list in one column, and never more columns than `MAX_COLUMNS`.
+ */
+const rowsOf = ({ items, perColumn }: SubMenuGroup) =>
+	Math.max(perColumn ?? items.length, Math.ceil(items.length / MAX_COLUMNS));
+---
+
+<div class="sm__groups" data-sm-section={submenu.id}>
+	{submenu.groups.map((group) => (
+		<div class="sm__group">
+			{named(group.name) && <p class="sm__group-name">{group.name}</p>}
+			<ul class="sm__cols" style={`--rows: ${rowsOf(group)}`}>
+				{group.items.map((item) => (
+					<li>
+						<a
+							class:list={['sm__link', item.linkClass]}
+							href={item.href}
+							aria-label={isExternalHref(item.href) ? newTabLinkLabel(item.heading, item.href) : undefined}
+							{...externalLinkAttrs(item.href)}
+						>
+							{item.icon && (
+								<span class="sm__link-icon">
+									<NavIcon src={item.icon} size={iconSize} alt="" />
+								</span>
+							)}
+							<span class="sm__link-text">
+								<span class="sm__link-heading">{item.heading}</span>
+								{describe && item.description && <span class="sm__link-desc">{item.description}</span>}
+							</span>
+						</a>
+					</li>
+				))}
+			</ul>
+			{group.more && (
+				<a class="sm__more" href={group.more.href}>
+					{group.more.label}
+					<Icon name="tabler:chevron-right" aria-hidden="true" />
+				</a>
+			)}
+		</div>
+	))}
+</div>

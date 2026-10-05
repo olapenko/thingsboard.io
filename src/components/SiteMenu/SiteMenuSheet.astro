@@ -1,0 +1,141 @@
+---
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import SiteMenuBody from '@components/SiteMenu/SiteMenuBody.astro';
+import { MENU_ENTRIES, MENU_SECTIONS, isHere } from '@components/SiteMenu/menu-model';
+
+/**
+ * THE SHEET: the menu below 1281, under the bar, the height of the screen — the one panel at a
+ * phone's width. The panel's rail becomes the first view, the sections and the plain links as one
+ * list; a section opens as a view of its own showing what the panel shows for it (`SiteMenuBody`:
+ * the heading and its "All …" page, the groups, the section's stories and promotions), with a row
+ * back to the list. One view at a time, so a section is never a fold inside a long scroll, and
+ * nothing in it is a step smaller than on the desktop. Every row runs edge to edge, and the step
+ * between views moves both at once, the section over the list.
+ *
+ * No search field: where the page has search, the bar above keeps its control at every width, one
+ * tap from the open sheet, and a second field under it would be the same control twice; where the
+ * page has none (the homepage, the product pages), the menu has none either. Under 600, where the bar
+ * has stepped Sign in and Try for free out, the two sit at the foot, the same links with the same
+ * analytics names as the bar's (`_Sheet` on the ids, which must stay unique on the page). No theme
+ * row: the theme follows the system, and its switch is the footer's.
+ *
+ * `SiteMenu`'s script drives it: the views, focus, Escape (back a view, then close), and the page
+ * made inert underneath while it is open. Without a script the bar's Menu is a link to the sheet,
+ * which then lays every section out in one scroll (the `<noscript>` rule at the end).
+ */
+const pathname = Astro.url.pathname;
+---
+
+<div class="sm__sheet" id="sm-sheet" data-sm-sheet data-view="root" hidden>
+	{/* The views share one cell and step sideways between each other; see `SiteMenu`'s styles. */}
+	<div class="sm__views">
+		<div class="sm__view sm__view--root" data-sm-view="root" data-pos="center">
+			<ul class="sm__list">
+				{MENU_ENTRIES.map(({ item, sub }) => (
+					<li>
+						{sub ? (
+							<button
+								type="button"
+								class="sm__sheet-row"
+								data-sm-open-view={sub.id}
+								aria-controls={`sm-sheet-${sub.id}`}
+								data-current={isHere(pathname, item.href) || undefined}
+							>
+								{item.label}
+								<Icon name="tabler:chevron-right" class="sm__sheet-chev" aria-hidden="true" />
+							</button>
+						) : (
+							<a
+								class:list={['sm__sheet-row', item.linkClass]}
+								id={item.id ? `${item.id}_Sheet` : undefined}
+								href={item.href}
+								aria-current={isHere(pathname, item.href) ? 'page' : undefined}
+							>
+								{item.label}
+							</a>
+						)}
+					</li>
+				))}
+			</ul>
+		</div>
+
+		{MENU_SECTIONS.map((entry) => (
+			<section
+				class="sm__view sm__view--sec"
+				id={`sm-sheet-${entry.sub.id}`}
+				data-sm-view={entry.sub.id}
+				aria-labelledby={`sm-sheet-${entry.sub.id}-title`}
+				data-pos="right"
+			>
+				<button type="button" class="sm__back" data-sm-back>
+					<Icon name="tabler:chevron-left" aria-hidden="true" />
+					Menu
+				</button>
+				<SiteMenuBody entry={entry} titleId={`sm-sheet-${entry.sub.id}-title`} />
+			</section>
+		))}
+	</div>
+
+	<div class="sm__sheet-foot">
+		<Button
+			variant="secondary"
+			size="md"
+			href="https://thingsboard.cloud/login"
+			attrs={{ 'data-cloud-auth': 'signin', target: '_blank', rel: 'noopener noreferrer' }}
+		>
+			Sign in
+		</Button>
+		<Button
+			variant="primary"
+			size="md"
+			href="/installations/choose-region/"
+			class="gtm_button"
+			attrs={{ 'data-cloud-auth': 'signup', id: 'Menu_TryItNow_Sheet' }}
+		>
+			Try for free
+		</Button>
+	</div>
+
+	{/* No script: the sheet is the target of the bar's Menu link (`HeaderContent`), shown with every
+	    view stacked in one scroll; a section's row and its back row, which need the script, go. */}
+	<noscript>
+		<a class="sm__sheet-row sm__nojs-close" href="#">
+			Close the menu
+		</a>
+	</noscript>
+</div>
+
+<noscript>
+	<style is:inline>
+		header.header .burger[data-sm-toggle],
+		.sm__row {
+			display: none !important;
+		}
+		header.header .sm__nojs {
+			display: flex !important;
+		}
+		#sm-sheet:target {
+			display: flex !important;
+		}
+		#sm-sheet .sm__views {
+			display: block;
+			overflow-y: auto;
+		}
+		#sm-sheet .sm__view {
+			overflow: visible;
+			translate: none !important;
+			opacity: 1 !important;
+			visibility: visible !important;
+		}
+		#sm-sheet [data-sm-open-view],
+		#sm-sheet .sm__back {
+			display: none;
+		}
+		#sm-sheet > noscript {
+			display: block;
+			order: -1;
+			border-bottom: 1px solid var(--sm-rule);
+		}
+	</style>
+</noscript>

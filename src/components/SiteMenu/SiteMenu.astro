@@ -1,0 +1,1630 @@
+---
+import { Icon } from 'astro-icon/components';
+import SiteMenuBody from '@components/SiteMenu/SiteMenuBody.astro';
+import SiteMenuSheet from '@components/SiteMenu/SiteMenuSheet.astro';
+import { MENU_ENTRIES, MENU_SECTIONS, inSection, isHere } from '@components/SiteMenu/menu-model';
+import type { HeaderMenu } from '@util/header-config';
+
+/**
+ * THE MAIN MENU, rendered once from `data/navigation` (through `menu-model`), in one of two desktop
+ * models over one sheet below 1281:
+ *
+ * - `panel`, the site's: one surface under the whole bar holding the open section — its groups and
+ *   its promotions, no heading (the item names it) — set from the left edge of the row's first item,
+ *   so whatever is open starts under the menu. Hovering another item in the bar, or clicking one,
+ *   switches the section without closing. The panel sits in the DOM after the open item's button,
+ *   so Tab goes from the item into its section and on to the next item.
+ * - `dropdowns`, kept as the alternative (lab's chrome workbench shows it; `BaseLayout`'s `menu`):
+ *   each item with a section opens its own panel under it, kept inside the viewport.
+ *
+ * A section's content is `SiteMenuBody` on every surface — the one panel, a dropdown, the sheet — so
+ * the three cannot drift: its groups (`SiteMenuSection`), the row of promotions a section closes on
+ * (`SiteMenuPromos`, from `data/menu-featured`), and the section's name in the sheet only. Docs is set
+ * in the monospace face.
+ *
+ * Both models open on a mouse's hover intent (120ms), which closes again on leave (200ms grace); a
+ * click, a tap or Enter pins the panel open until a second click, Escape (focus back on the item), a
+ * click outside, or focus leaving the open item. Touch never hovers.
+ * Below 1281 the row and the panels are gone and the bar's Menu button opens `SiteMenuSheet`.
+ *
+ * The item for a section is a `<button aria-expanded>`; items with no section are links. The item
+ * for the page the reader is on keeps its underline: `aria-current` on a link, `data-current` on a
+ * section item whose section holds the page (`inSection`), as Solutions does on a case study.
+ *
+ * All of its styles are global under the `sm__` prefix: the panels are moved and measured by the
+ * script, and the bar's own rules (white ink over a dark hero, the open sheet's surface) reach in.
+ *
+ * COLOUR IS A SET OF TOKENS, named once on `nav.sm` (`--sm-ink`, `--sm-soft`, `--sm-accent`,
+ * `--sm-rule`, `--sm-fill`, `--sm-surface`) and reassigned, never restyled, where the ground changes:
+ * the dark theme, the docs bar, the transparent bar over a dark hero. Every surface draws from the
+ * same set, so what a reader sees on one page is what they see on the next. The products' marks are
+ * the one exception by design: a logo keeps its own colour on every ground, so the colour is in the
+ * logo's file (the products page's hues), and a product's link is otherwise a link like any other.
+ */
+interface Props {
+	model: HeaderMenu;
+}
+
+const { model } = Astro.props;
+const pathname = Astro.url.pathname;
+---
+
+<nav class="sm print:hidden" data-model={model} aria-label="Site menu">
+	<ul class="sm__row">
+		{MENU_ENTRIES.map(({ item, sub }) => (
+			<li class="sm__item" data-sm-item={sub?.id}>
+				{sub ? (
+					<button
+						type="button"
+						class="sm__top"
+						id={item.id}
+						aria-expanded="false"
+						aria-controls={model === 'panel' ? 'sm-one' : `sm-${sub.id}`}
+						data-sm-trigger={sub.id}
+						data-current={inSection(pathname, { item, sub }) || undefined}
+					>
+						{item.label}
+						<Icon name="tabler:chevron-down" class="sm__chev" aria-hidden="true" />
+					</button>
+				) : (
+					<a
+						class:list={['sm__top', item.linkClass]}
+						id={item.id}
+						href={item.href}
+						aria-current={isHere(pathname, item.href) ? 'page' : undefined}
+					>
+						{item.label}
+					</a>
+				)}
+				{model === 'dropdowns' && sub && (
+					<div class="sm__drop" id={`sm-${sub.id}`} data-sm-panel={sub.id} hidden>
+						<SiteMenuBody entry={{ item, sub }} />
+					</div>
+				)}
+			</li>
+		))}
+	</ul>
+
+	{model === 'panel' && (
+		<div class="sm__one" id="sm-one" data-sm-one hidden>
+			<div class="sm__one-in">
+				{MENU_SECTIONS.map((entry) => (
+					<section class="sm__one-sec" data-sm-panel={entry.sub.id} aria-label={entry.item.label} hidden>
+						<SiteMenuBody entry={entry} />
+					</section>
+				))}
+			</div>
+		</div>
+	)}
+
+	<SiteMenuSheet />
+</nav>
+
+<script>
+	import { lockScroll, unlockScroll } from '@util/scroll-lock';
+	import { MENU_ROW_QUERY } from '@components/SiteMenu/menu-query';
+
+	const nav = document.querySelector<HTMLElement>('nav.sm');
+	const header = nav?.closest<HTMLElement>('header.header') ?? null;
+
+	if (nav && header) {
+		// The row and its panels from 1281; the sheet below. One query, shared with the stylesheets.
+		const wide = matchMedia(MENU_ROW_QUERY);
+
+		// --- the desktop panels -------------------------------------------------------------------
+		//
+		// HOVER IS A MOUSE'S. A panel the mouse opens is passing: it closes when the mouse leaves. A
+		// click, a tap or Enter PINS it to that item: it stays until Escape, a click outside, focus
+		// moving elsewhere, or a second click on the same item. A click on a section the mouse opened —
+		// by resting on it, or by sweeping to it along the row from a pinned one — pins it rather than
+		// closing it. A touch screen fires compatibility mouse events around a tap, so hover is read
+		// from `pointerenter` and only for a mouse: a tap is a click and nothing else.
+
+		const OPEN_DELAY = 120; // hover intent on the row
+		const CLOSE_DELAY = 200; // grace on leaving
+		// Switching sections: the length and curve of `--sm-glide` in the stylesheet, for the moves made
+		// here. The close is a short fade.
+		const GLIDE_MS = 260;
+		const GLIDE_EASE = 'cubic-bezier(0.2, 0.7, 0.2, 1)';
+		const LEAVE_MS = 140;
+		const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+		const moves = () => !reducedMotion.matches && typeof Element.prototype.animate === 'function';
+
+		const triggers = [...nav.querySelectorAll<HTMLButtonElement>('[data-sm-trigger]')];
+		const panels = [...nav.querySelectorAll<HTMLElement>('[data-sm-panel]')];
+		const one = nav.querySelector<HTMLElement>('[data-sm-one]');
+		const row = nav.querySelector<HTMLElement>('.sm__row');
+		const itemOf = (id: string) => nav.querySelector<HTMLElement>(`.sm__item[data-sm-item="${id}"]`);
+		const triggerOf = (id: string) => triggers.find((t) => t.dataset.smTrigger === id);
+		const isMouse = (e: PointerEvent) => e.pointerType === 'mouse';
+
+		let openId: string | null = null;
+		/** The item a click pinned the menu to; null while the menu is only passing. */
+		let pinnedId: string | null = null;
+		let openTimer = 0;
+		let closeTimer = 0;
+		/** The one panel's fade on close, and its height easing between two sections. */
+		let leaving: Animation | null = null;
+		let morphing: Animation | null = null;
+
+		const clearTimers = () => {
+			window.clearTimeout(openTimer);
+			window.clearTimeout(closeTimer);
+		};
+
+		/** Keeps a dropdown inside the viewport (the scrollbar excluded): measured once shown, shifted by what overflows. */
+		const nudge = (panel: HTMLElement) => {
+			panel.style.removeProperty('--sm-shift');
+			const room = document.documentElement.clientWidth;
+			const r = panel.getBoundingClientRect();
+			const over = r.right - (room - 16);
+			const under = 16 - r.left;
+			const shift = over > 0 ? -over : under > 0 ? under : 0;
+			if (shift) panel.style.setProperty('--sm-shift', `${shift}px`);
+		};
+
+		// The one panel sits in the open item, after its button, so the DOM order is the reading order:
+		// Tab and a screen reader go from the item into its section and on to the next item. It is
+		// `position: fixed`, so where it sits in the DOM does not move it on the screen. A move while it
+		// shows is made without its entry transition (`data-moving`), so switching sections never blinks.
+		const seat = (id: string) => {
+			const li = itemOf(id);
+			if (!one || !li || one.parentElement === li) return;
+			if (!one.hidden) nav.setAttribute('data-moving', '');
+			li.append(one);
+			requestAnimationFrame(() => requestAnimationFrame(() => nav.removeAttribute('data-moving')));
+		};
+
+		// THE MOVES BETWEEN SECTIONS. One line in the accent under the open item, which glides along the
+		// row to the next one rather than blinking from item to item; the incoming section slides in
+		// from the side the reader is moving toward, and the panel's edge eases from one section's
+		// height to the next. All on one length and curve. The first placement of the line is made
+		// where it lands, with no glide from wherever it last was.
+		const order = (id: string) => triggers.findIndex((t) => t.dataset.smTrigger === id);
+
+		/** Puts a gliding mark (`--sm-<name>-*` on `host`) on `target`, without the glide when `instant`. */
+		const setMark = (host: HTMLElement, vars: Record<string, number>, instant: boolean) => {
+			if (instant) host.setAttribute('data-instant', '');
+			for (const [name, px] of Object.entries(vars)) host.style.setProperty(name, `${px}px`);
+			if (instant) {
+				void host.offsetWidth; // commit the placement before the glide comes back on
+				host.removeAttribute('data-instant');
+			}
+		};
+
+		const markRow = (id: string, instant: boolean) => {
+			const t = triggerOf(id);
+			const li = itemOf(id);
+			if (!row || !t || !li) return;
+			const pad = parseFloat(getComputedStyle(t).paddingLeft) || 0;
+			setMark(
+				row,
+				{ '--sm-ink-x': li.offsetLeft + t.offsetLeft + pad, '--sm-ink-w': t.offsetWidth - 2 * pad },
+				instant
+			);
+			row.setAttribute('data-ink', '');
+		};
+
+		// The one panel's content starts under the row's first item: the item's words, less the inset a
+		// link keeps round its own (`.sm__link`'s 10), so the first link's mark stands under them.
+		// Measured, because the row sits after the wordmark, whose width changes with the window.
+		const LINK_INSET = 10;
+		const alignOne = () => {
+			const first = row?.querySelector<HTMLElement>('.sm__top');
+			if (!one || !first) return;
+			const x = first.getBoundingClientRect().left + (parseFloat(getComputedStyle(first).paddingLeft) || 0);
+			one.style.setProperty('--sm-col-x', `${Math.round(x - LINK_INSET)}px`);
+		};
+
+		/** The switch from one section to the next, `before` the panel's height while it showed the first. */
+		const morph = (from: string, to: string, before: number) => {
+			if (!one || !moves()) return;
+			const next = panels.find((p) => p.dataset.smPanel === to);
+			const dir = order(to) > order(from) ? 1 : -1;
+			next?.getAnimations().forEach((a) => a.cancel());
+			next?.animate(
+				[
+					{ opacity: 0, translate: `${dir * 16}px 0` },
+					{ opacity: 1, translate: '0 0' },
+				],
+				{
+					duration: GLIDE_MS,
+					easing: GLIDE_EASE,
+				}
+			);
+			morphing?.cancel();
+			const after = one.getBoundingClientRect().height;
+			if (Math.abs(after - before) < 1) return;
+			// The content is already the new section's; the panel clips it while its edge travels.
+			one.setAttribute('data-morphing', '');
+			const anim = one.animate([{ height: `${before}px` }, { height: `${after}px` }], {
+				duration: GLIDE_MS,
+				easing: GLIDE_EASE,
+			});
+			morphing = anim;
+			const done = () => {
+				if (morphing !== anim) return;
+				morphing = null;
+				one.removeAttribute('data-morphing');
+			};
+			anim.addEventListener('finish', done);
+			anim.addEventListener('cancel', done);
+		};
+
+		/** The one panel back, from a close still fading out. */
+		const stopLeaving = () => {
+			if (!leaving || !one) return;
+			const anim = leaving;
+			leaving = null;
+			anim.cancel();
+			one.removeAttribute('data-leaving');
+		};
+
+		/** Closes the one panel: a short fade, then hidden. A reopen in the meantime takes it back. */
+		const shut = (instant: boolean) => {
+			if (!one || one.hidden || leaving) return;
+			const done = () => {
+				if (leaving !== anim) return;
+				leaving = null;
+				one.hidden = true;
+				one.removeAttribute('data-leaving');
+				anim.cancel(); // its held last frame would keep the next open at nothing
+			};
+			if (instant || !moves()) {
+				one.hidden = true;
+				return;
+			}
+			one.setAttribute('data-leaving', '');
+			const anim = one.animate([{ opacity: 1 }, { opacity: 0 }], {
+				duration: LEAVE_MS,
+				easing: 'ease-in',
+				fill: 'forwards',
+			});
+			leaving = anim;
+			anim.addEventListener('finish', done);
+			// A tab in the background may not run the fade to its end; the close must still happen.
+			window.setTimeout(done, LEAVE_MS + 80);
+		};
+
+		/**
+		 * Opens a section, or switches to it. `pin`: true pins the menu to this item, false makes it
+		 * passing, omitted leaves the menu as it was (a sweep along a pinned menu keeps it pinned).
+		 */
+		const show = (id: string, pin?: boolean) => {
+			if (!wide.matches) return;
+			clearTimers();
+			if (pin !== undefined) pinnedId = pin ? id : null;
+			if (openId === id) return;
+			const from = openId;
+			// A switch is a move from one section to another while the panel shows; anything else opens it.
+			const switching = from !== null && !!one && !one.hidden && !leaving;
+			const before = switching ? one!.getBoundingClientRect().height : 0;
+			stopLeaving();
+			openId = id;
+			seat(id);
+			for (const t of triggers) t.setAttribute('aria-expanded', String(t.dataset.smTrigger === id));
+			for (const p of panels) p.hidden = p.dataset.smPanel !== id;
+			if (one) {
+				one.hidden = false;
+				if (!switching) alignOne();
+			}
+			header.setAttribute('data-sm-desktop-open', '');
+			markRow(id, from === null);
+			if (one) {
+				if (switching) morph(from!, id, before);
+			} else {
+				const panel = panels.find((p) => p.dataset.smPanel === id);
+				if (panel) nudge(panel);
+			}
+		};
+
+		const hide = (instant = false) => {
+			clearTimers();
+			pinnedId = null;
+			if (openId === null) return;
+			openId = null;
+			for (const t of triggers) t.setAttribute('aria-expanded', 'false');
+			row?.removeAttribute('data-ink');
+			// The dropdowns go at once (theirs is an entry only); the one panel fades, its section with it.
+			if (one) shut(instant);
+			else for (const p of panels) p.hidden = true;
+			header.removeAttribute('data-sm-desktop-open');
+		};
+
+		/** A passing panel closes after the grace; a pinned one stays. */
+		const later = () => {
+			window.clearTimeout(openTimer);
+			window.clearTimeout(closeTimer);
+			if (openId !== null && pinnedId === null) closeTimer = window.setTimeout(hide, CLOSE_DELAY);
+		};
+
+		for (const li of nav.querySelectorAll<HTMLElement>('.sm__item')) {
+			const id = li.dataset.smItem;
+			li.addEventListener('pointerenter', (e) => {
+				if (!isMouse(e) || !wide.matches) return;
+				// A plain link: sweeping onto it lets a passing panel go.
+				if (!id) return later();
+				window.clearTimeout(closeTimer);
+				// Something open already: switch at once, the way a reader sweeps along the row.
+				if (openId !== null) show(id);
+				else {
+					window.clearTimeout(openTimer);
+					openTimer = window.setTimeout(() => show(id, false), OPEN_DELAY);
+				}
+			});
+			li.addEventListener('pointerleave', (e) => {
+				if (isMouse(e)) later();
+			});
+		}
+
+		for (const t of triggers) {
+			t.addEventListener('click', () => {
+				const id = t.dataset.smTrigger!;
+				if (openId !== id) show(id, true);
+				else if (pinnedId !== id) pinnedId = id;
+				else hide();
+			});
+		}
+
+		// Escape closes an open panel wherever focus is (a passing one included), and puts focus back
+		// on its item when focus was in the menu.
+		document.addEventListener('keydown', (e) => {
+			if (e.key !== 'Escape' || openId === null || e.defaultPrevented) return;
+			const back = nav.contains(document.activeElement) ? triggerOf(openId) : undefined;
+			e.preventDefault();
+			hide();
+			back?.focus();
+		});
+
+		// Focus moving out of the open item — Tab past its last link, or anywhere else on the page —
+		// closes it. Focus dropping to nothing (a click on a panel's plain text, the window losing
+		// focus) does not: a click outside is the pointer's to handle.
+		nav.addEventListener('focusout', (e) => {
+			if (openId === null) return;
+			const next = e.relatedTarget as Node | null;
+			if (next && !itemOf(openId)?.contains(next)) hide();
+		});
+
+		document.addEventListener('pointerdown', (e) => {
+			if (openId !== null && !nav.contains(e.target as Node)) hide();
+		});
+
+		// The open item's line, the one panel's left edge, and a dropdown measured against the window it
+		// opened in, are measured again when the window changes.
+		window.addEventListener('resize', () => {
+			if (openId === null) return;
+			markRow(openId, true);
+			if (one) return alignOne();
+			const panel = panels.find((p) => p.dataset.smPanel === openId);
+			if (panel) nudge(panel);
+		});
+
+		// --- the sheet -----------------------------------------------------------------------------
+
+		const sheet = nav.querySelector<HTMLElement>('[data-sm-sheet]');
+		const toggle = header.querySelector<HTMLButtonElement>('[data-sm-toggle]');
+		const views = sheet ? [...sheet.querySelectorAll<HTMLElement>('[data-sm-view]')] : [];
+		const listView = views.find((v) => v.dataset.smView === 'root') ?? null;
+		// The row a section was opened from, for focus on the way back.
+		let fromRow: HTMLElement | null = null;
+		let inerted: Element[] = [];
+
+		const sheetOpen = () => !!sheet && !sheet.hidden;
+
+		/** Where a view stands: on stage, or off it to the side it leaves by — the list left, a section right. */
+		const place = (v: HTMLElement, pos: 'left' | 'center' | 'right') => {
+			v.dataset.pos = pos;
+			v.inert = pos !== 'center';
+		};
+
+		/** Every view home, without a move: the list on stage, the sections off to the right. */
+		const resetViews = () => {
+			if (!sheet) return;
+			sheet.dataset.instant = '';
+			for (const v of views) place(v, v === listView ? 'center' : 'right');
+			sheet.dataset.view = 'root';
+			requestAnimationFrame(() => requestAnimationFrame(() => delete sheet.dataset.instant));
+		};
+
+		/** The step: the view asked for comes on stage, the one there leaves by its own side. */
+		const showView = (id: string) => {
+			if (!sheet || sheet.dataset.view === id) return;
+			const from = views.find((v) => v.dataset.smView === sheet.dataset.view);
+			const to = views.find((v) => v.dataset.smView === id);
+			if (!to) return;
+			if (to !== listView) to.scrollTop = 0;
+			place(to, 'center');
+			if (from) place(from, from === listView ? 'left' : 'right');
+			sheet.dataset.view = id;
+		};
+
+		// The page under the open sheet is inert, so Tab and a screen reader stay in the bar and the
+		// menu. The search panel and Google's suggestions are layers of their own at the body root,
+		// opened from the bar over the sheet, and stay live.
+		const LIVE = '#tb-search-modal, .gssb_c, script, style, template, link';
+		const setPageInert = (on: boolean) => {
+			for (const el of inerted) el.removeAttribute('inert');
+			inerted = [];
+			if (!on) return;
+			for (let node: Element = header; node.parentElement && node !== document.body; node = node.parentElement) {
+				for (const sib of node.parentElement.children) {
+					if (sib === node || sib.matches(LIVE) || sib.hasAttribute('inert')) continue;
+					sib.setAttribute('inert', '');
+					inerted.push(sib);
+				}
+			}
+		};
+
+		const openSheet = () => {
+			if (!sheet || sheetOpen()) return;
+			resetViews();
+			sheet.hidden = false;
+			header.setAttribute('data-sm-open', '');
+			toggle?.setAttribute('aria-expanded', 'true');
+			lockScroll('menu');
+			setPageInert(true);
+			listView?.querySelector<HTMLElement>('.sm__sheet-row')?.focus({ preventScroll: true });
+		};
+
+		/**
+		 * Closes the sheet. Focus goes back to the Menu button when asked, or by default when it was in
+		 * the sheet — never left on a control that has just been hidden.
+		 */
+		const closeSheet = (returnFocus: boolean | 'auto' = 'auto') => {
+			if (!sheet || !sheetOpen()) return;
+			const hadFocus = sheet.contains(document.activeElement);
+			sheet.hidden = true;
+			header.removeAttribute('data-sm-open');
+			toggle?.setAttribute('aria-expanded', 'false');
+			setPageInert(false);
+			unlockScroll('menu');
+			if (returnFocus === true || (returnFocus === 'auto' && hadFocus)) toggle?.focus({ preventScroll: true });
+		};
+
+		/** Back from a section to the list; false when the list is already showing. */
+		const back = () => {
+			if (!sheet || sheet.dataset.view === 'root') return false;
+			showView('root');
+			(fromRow ?? listView?.querySelector<HTMLElement>('.sm__sheet-row'))?.focus({ preventScroll: true });
+			return true;
+		};
+
+		toggle?.addEventListener('click', () => (sheetOpen() ? closeSheet(false) : openSheet()));
+
+		sheet?.addEventListener('click', (e) => {
+			const target = e.target as Element;
+			const row = target.closest<HTMLElement>('[data-sm-open-view]');
+			if (row) {
+				const id = row.dataset.smOpenView!;
+				fromRow = row;
+				showView(id);
+				sheet.querySelector<HTMLElement>(`[data-sm-view="${id}"] [data-sm-back]`)?.focus({ preventScroll: true });
+			} else if (target.closest('[data-sm-back]')) back();
+		});
+
+		// The bar's swipe right steps back a view before it closes the sheet (`HeaderContent`); a layer
+		// opening over the page closes it outright, focus on the Menu button for the layer to return to
+		// (`CloudRegionDialog`).
+		sheet?.addEventListener('sm-back', () => {
+			if (!back()) closeSheet();
+		});
+		sheet?.addEventListener('sm-close', () => closeSheet(true));
+
+		document.addEventListener('keydown', (e) => {
+			if (e.key !== 'Escape' || !sheetOpen() || e.defaultPrevented || document.querySelector('#tb-search-modal.open'))
+				return;
+			e.preventDefault();
+			if (!back()) closeSheet(true);
+		});
+
+		if (sheet) resetViews();
+
+		// --- both -----------------------------------------------------------------------------------
+
+		// Crossing the breakpoint closes whichever menu the other side had.
+		wide.addEventListener('change', (q) => (q.matches ? closeSheet() : hide(true)));
+
+		// A page restored from the back/forward cache comes back as it was left: after following a
+		// link from the menu, that is with the menu open, the page inert and the scroll locked.
+		window.addEventListener('pageshow', (e) => {
+			if (!e.persisted) return;
+			hide(true);
+			closeSheet(false);
+		});
+	}
+</script>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	// ---------------------------------------------------------------------------------------------
+	// THE TOKENS. One set for every surface; the grounds below reassign them.
+	// ---------------------------------------------------------------------------------------------
+	.sm {
+		// The panels, the sheet and the dropdowns.
+		--sm-ink: var(--color-text);
+		--sm-soft: var(--color-text-secondary);
+		--sm-accent: var(--color-primary);
+		--sm-rule: var(--color-border);
+		--sm-fill: color-mix(in srgb, var(--color-primary) 6%, transparent);
+		--sm-fill-strong: color-mix(in srgb, var(--color-primary) 10%, transparent);
+		--sm-surface: var(--color-bg-surface);
+		--sm-shadow: var(--elev-panel);
+		// The row in the bar: its ink, and the line under the open section.
+		--sm-bar-ink: var(--color-text);
+		--sm-bar-accent: var(--color-primary);
+		// The docs' marks, lighter than Products' (see Docs below); less so on a dark ground, where
+		// fading a mark darkens it into the ground rather than lightening it.
+		--sm-mark-soft: 0.72;
+		// THE GRID of a section's rows, on every surface: an icon column 32 wide (a 24 mark centred in it,
+		// a product's 32 filling it), 12 to the text, so a row's text starts at the same place whatever
+		// the section; in the sheet, a single-line row is 56 tall, the list's row.
+		--sm-icon-col: 32px;
+		--sm-icon-gap: 12px;
+		--sm-row: 56px;
+		// THE PANEL'S COLUMNS: one width and one gap for every column of every section, between two
+		// columns of a list and between two lists alike, so the open sections tile one grid — moving
+		// from Products to Solutions, a column's edge stays where it was. 236 is the widest of their
+		// links (a product's line, "Environment monitoring"); Docs' monospace headings take 260
+		// (`[data-sm-section='nav-docs']`). A longer link wraps rather than widening its column.
+		--sm-col: 236px;
+		--sm-gutter: 24px;
+		// THE MOVES between sections (the line under the row, the panel's height):
+		// one length and curve, `GLIDE_MS` / `GLIDE_EASE` in the script.
+		--sm-glide: 0.26s;
+		--sm-glide-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+		display: flex;
+		align-items: center;
+		height: 100%;
+	}
+
+	// The dark theme: the same tokens resolve dark through the site's; the docs' marks fade less.
+	html[data-theme='dark'] .sm {
+		--sm-mark-soft: 0.86;
+	}
+
+	// The docs bar is the sidebar's ground, not the surface; the panel is one piece with it.
+	header.header:has([data-header-look='docs']) .sm {
+		--sm-surface: var(--sl-color-bg-sidebar);
+		--sm-rule: var(--sl-color-hairline-shade);
+	}
+
+	// Over a dark hero the bar's ink is white, a panel open or not: at the top, where the bar is
+	// transparent, and scrolled while the hero is still under it, on the hero's ground. The one panel
+	// takes the same dark ground under that bar (`--tb-bar-dark`), so the open menu is one piece with
+	// it rather than a white sheet hung under it.
+	@include bar-over-dark-hero {
+		.sm {
+			--sm-bar-ink: #fff;
+			--sm-bar-accent: #b3c7ff;
+		}
+
+		.sm__one {
+			--sm-ink: #fff;
+			--sm-soft: rgba(255, 255, 255, 0.72);
+			--sm-accent: #b3c7ff;
+			--sm-rule: rgba(255, 255, 255, 0.12);
+			--sm-fill: rgba(255, 255, 255, 0.08);
+			--sm-fill-strong: rgba(255, 255, 255, 0.12);
+			--sm-surface: var(--tb-bar-dark);
+			--sm-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+			--sm-mark-soft: 0.86;
+
+			// Frosted as the bar is: the panel has no fixed children for the filter to capture.
+			backdrop-filter: var(--tb-bar-frost);
+		}
+	}
+
+	// And the bar takes the one panel's ground while it is open over a hero, so there is no strip of
+	// hero between the row and the menu: the dark one over a dark hero, the surface over a light one.
+	// Stronger than a page's own rule for its bar (the homepage's scrim), which it must win over. The
+	// dropdowns hang free under the bar and leave it as it is.
+	header.header:not([data-header-scrolled]):not([data-sm-open])[data-sm-desktop-open]:has(.sm[data-model='panel']) {
+		&:has([data-header-hero='dark']) {
+			background-color: var(--tb-bar-dark);
+		}
+
+		&:has([data-header-hero='light']) {
+			background-color: var(--color-bg-surface);
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE ROW
+	// ---------------------------------------------------------------------------------------------
+	.sm__row {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 0;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		// The open section's line: one mark for the whole row, placed by the script under the open item
+		// (`--sm-ink-x`, `--sm-ink-w`), which glides to the next item as the reader sweeps along.
+		&::after {
+			content: '';
+			position: absolute;
+			bottom: 5px;
+			left: 0;
+			width: var(--sm-ink-w, 0px);
+			height: 2px;
+			border-radius: 1px;
+			background: var(--sm-bar-accent);
+			opacity: 0;
+			pointer-events: none;
+			translate: var(--sm-ink-x, 0px) 0;
+			transition:
+				translate var(--sm-glide) var(--sm-glide-ease),
+				width var(--sm-glide) var(--sm-glide-ease),
+				opacity 0.15s ease,
+				background-color var(--tb-bar-swap, 0.2s) ease;
+		}
+
+		&[data-ink]::after {
+			opacity: 1;
+		}
+
+		&[data-instant]::after {
+			transition: opacity 0.15s ease;
+		}
+	}
+
+	// The row gravitates to the wordmark — a clear gap off it, then the items packed — and the account
+	// cluster is pushed to the far side, never closer to the last item than 16px. The menu comes
+	// before the cluster in the DOM (the reading order); packed to the left, the cluster arriving
+	// later in the parse shifts nothing.
+	@media (width >= #{$menu-row-from}) {
+		.sm {
+			margin-inline: 24px auto;
+			padding-inline-end: 16px;
+		}
+	}
+
+	// Across the laptop band the row and the cluster are at their widest for the room — at 1281 with
+	// search, and again at 1340 where the star count returns — so the items close up by 2px a side.
+	@media (width >= #{$menu-row-from}) and (width < 1440px) {
+		.sm__top {
+			padding-inline: 6px;
+
+			&::after {
+				right: 6px;
+				left: 6px;
+			}
+		}
+	}
+
+	.sm__item {
+		position: relative;
+	}
+
+	// An item is text in the bar's ink, not a button: no fill, no corner. Two kinds of line under it:
+	// a PAGE (a link, or the page a section item also owns) is underlined in the ink, on hover and
+	// while the reader is on it; an open SECTION is marked in the accent. The ink follows the bar —
+	// white over a hero, the text ink once scrolled, and dark — so the row reads the same everywhere.
+	.sm__top {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		height: 40px;
+		padding: 0 8px;
+		border: 0;
+		background: none;
+		color: var(--sm-bar-ink);
+		font: inherit;
+		font-size: 15px;
+		line-height: 1;
+		white-space: nowrap;
+		text-decoration: none;
+		cursor: pointer;
+		// With the rest of the bar's ink (`--tb-bar-swap`), as the ground under it changes.
+		transition: color var(--tb-bar-swap, 0.2s) ease;
+
+		&::after {
+			content: '';
+			position: absolute;
+			right: 8px;
+			bottom: 5px;
+			left: 8px;
+			height: 2px;
+			border-radius: 1px;
+			background: currentColor;
+			opacity: 0;
+			transition:
+				opacity 0.15s ease,
+				background-color 0.15s ease;
+		}
+
+		&:hover {
+			color: var(--sm-bar-ink);
+		}
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 2px;
+			border-radius: 2px;
+		}
+	}
+
+	// A page: the ink's line.
+	a.sm__top:hover::after,
+	a.sm__top[aria-current='page']::after,
+	button.sm__top[data-current]::after {
+		opacity: 1;
+	}
+
+	// An open section: the accent's line, over whatever the item's own would be. With the script, the
+	// row's one gliding line is that line, and the item's own steps aside.
+	button.sm__top[aria-expanded='true']::after {
+		background: var(--sm-bar-accent);
+		opacity: 1;
+	}
+
+	.sm__row[data-ink] button.sm__top[aria-expanded='true']::after {
+		opacity: 0;
+	}
+
+	// The chevron says the item opens a section, where IoT Hub and Pricing are pages: on hover it dips
+	// a pixel toward the panel it opens. It no longer turns over when the section is open — the accent
+	// line gliding under the open item says that already, and the turn said it twice.
+	.sm__chev {
+		width: 14px;
+		height: 14px;
+		opacity: 0.55;
+		transition:
+			translate 0.2s ease,
+			opacity 0.15s ease;
+
+		.sm__top:hover > & {
+			opacity: 1;
+			translate: 0 1px;
+		}
+
+		[aria-expanded='true'] > & {
+			opacity: 1;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// A SECTION'S CONTENT, on every surface
+	// ---------------------------------------------------------------------------------------------
+	// A section's groups side by side on the columns' gutter, wrapping where the panel's measure ends;
+	// each group's name stands over its first column.
+	.sm__groups {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		gap: 24px var(--sm-gutter);
+	}
+
+	.sm__group-name {
+		margin: 0 0 6px;
+		padding: 0 10px;
+		font-size: 12px;
+		font-weight: $font-weight-medium;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--sm-soft);
+	}
+
+	// A group's one list, folded into columns of `--rows` (`SiteMenuSection`): down, then across, on
+	// the panel's one column (`--sm-col`); the rows are shared across a list's columns, so a two-line
+	// link keeps its neighbours level.
+	.sm__cols {
+		display: grid;
+		grid-auto-flow: column;
+		grid-template-rows: repeat(var(--rows, 1), auto);
+		grid-auto-columns: var(--sm-col);
+		gap: 0 var(--sm-gutter);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.sm__link {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--sm-icon-gap);
+		padding: 8px 10px;
+		border-radius: $radius-lg;
+		color: var(--sm-ink);
+		text-decoration: none;
+		transition: background-color 0.15s ease;
+
+		&:hover,
+		&:focus-visible {
+			background: var(--sm-fill);
+		}
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: -2px;
+		}
+
+		svg.nav-icon {
+			color: var(--sm-accent);
+		}
+
+		&:hover .sm__link-heading {
+			color: var(--sm-accent);
+		}
+	}
+
+	// The mark's box is square at the section's size (`--sm-mark`, 24 or Products' 32), whatever the
+	// art's own ratio: a few of the use cases' icons are taller than wide, and set by width alone
+	// they made their rows taller than the rest.
+	.sm__link-icon {
+		flex: none;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--sm-icon-col);
+		height: var(--sm-mark, 24px);
+		padding-top: 1px;
+
+		svg.nav-icon {
+			max-height: 100%;
+		}
+	}
+
+	[data-sm-section='nav-products'] {
+		--sm-mark: 32px;
+	}
+
+	// A link with no line under it: its mark and its name on one centre line, 40 tall with a mark or
+	// without, so a group of names (the case studies) keeps the rows of the groups beside it.
+	.sm__link:not(:has(.sm__link-desc)) {
+		align-items: center;
+		min-height: 40px;
+
+		.sm__link-icon {
+			padding-top: 0;
+		}
+	}
+
+	.sm__link-text {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+		min-width: 0;
+	}
+
+	.sm__link-heading {
+		font-size: 15px;
+		font-weight: $font-weight-medium;
+		line-height: 1.4;
+		transition: color 0.15s ease;
+	}
+
+	.sm__link-desc {
+		font-size: 13px;
+		line-height: 1.4;
+		color: var(--sm-soft);
+	}
+
+	// A list's last word (`SubMenuGroup.more`): its index or its next step, under the list in the
+	// accent with a chevron, on the links' own inset, so it reads as where the list goes on rather
+	// than as one more item in it. The chevron leans on hover.
+	.sm__more {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		margin-top: 4px;
+		padding: 8px 10px;
+		border-radius: $radius-lg;
+		color: var(--sm-accent);
+		font-size: 14px;
+		font-weight: $font-weight-medium;
+		line-height: 1.4;
+		text-decoration: none;
+		transition: background-color 0.15s ease;
+
+		svg {
+			width: 18px;
+			height: 18px;
+			transition: translate 0.2s var(--sm-glide-ease);
+		}
+
+		&:hover {
+			background: var(--sm-fill);
+
+			svg {
+				translate: 2px 0;
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: -2px;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// MODEL A — DROPDOWNS: one panel under each item, kept inside the viewport by `--sm-shift`.
+	// ---------------------------------------------------------------------------------------------
+	.sm__drop {
+		position: absolute;
+		top: calc(100% + 8px);
+		left: 50%;
+		z-index: 5;
+		display: grid;
+		gap: 16px;
+		// Sized by its content, capped by the viewport: a section with five columns is wide, and where
+		// it does not fit the groups wrap rather than overrun the panel.
+		width: max-content;
+		min-width: 280px;
+		max-width: calc(100vw - 32px);
+		padding: 20px;
+		border: 1px solid var(--sm-rule);
+		border-radius: $radius-xl;
+		background: var(--sm-surface);
+		color: var(--sm-ink);
+		box-shadow: var(--sm-shadow);
+		transform: translateX(calc(-50% + var(--sm-shift, 0px)));
+		transition:
+			opacity 0.15s ease,
+			translate 0.15s ease;
+
+		@starting-style {
+			opacity: 0;
+			translate: 0 -4px;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// MODEL B — PANEL: one surface under the bar, the open section on it, set under the row.
+	// ---------------------------------------------------------------------------------------------
+	.sm__one {
+		position: fixed;
+		top: calc(var(--promo-cur, var(--promo-h, 0px)) + var(--home-header-h, #{$header-height}));
+		left: 0;
+		right: 0;
+		z-index: 5;
+		// The window under the bar, the promo banner's band included, so the panel's own scroll reaches its foot.
+		max-height: calc(100dvh - var(--promo-cur, var(--promo-h, 0px)) - var(--home-header-h, #{$header-height}));
+		overflow-y: auto;
+		// No line between the bar and the panel: it is the bar's surface continued.
+		border-bottom: 1px solid var(--sm-rule);
+		background: var(--sm-surface);
+		color: var(--sm-ink);
+		box-shadow: var(--sm-shadow);
+		// OPENING, the panel unrolls from under the bar: its lower edge travels down, its shadow with it
+		// (the clip leaves the shadow its room), and its content settles in a beat behind. A clip rather
+		// than a height or a scale, so neither the layout nor the type moves while it opens.
+		clip-path: inset(0 -120px -120px);
+		transition: clip-path 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+		@starting-style {
+			clip-path: inset(0 -120px 100%);
+		}
+
+		&[hidden] {
+			display: none;
+		}
+
+		// Closing (a short fade, the script's) and switching sections (its height eases to the next
+		// section's, the content clipped while the edge travels).
+		&[data-leaving] {
+			pointer-events: none;
+		}
+
+		&[data-morphing] {
+			overflow: hidden;
+		}
+	}
+
+	// From the row's first item (`--sm-col-x`, measured by the script) to the bar's far gutter. No
+	// heading and no index of sections beside it: the item names the section and the row is the index.
+	.sm__one-in {
+		padding: 20px var(--tb-bar-inset, 24px) 24px var(--sm-col-x, var(--tb-bar-inset, 24px));
+		transition:
+			opacity 0.22s ease 0.06s,
+			translate 0.3s var(--sm-glide-ease) 0.04s;
+
+		@starting-style {
+			opacity: 0;
+			translate: 0 -6px;
+		}
+	}
+
+	// A section is as wide as its groups, so its promotions close the block they belong to rather
+	// than run on to the window's edge, and never wider than four columns: past that its groups wrap
+	// under one another. Solutions, the widest, is four (1016); at 1281, where the row starts, it ends
+	// 25px inside the window's edge.
+	.sm__one-sec {
+		width: fit-content;
+		max-width: min(100%, calc(4 * var(--sm-col) + 3 * var(--sm-gutter)));
+	}
+
+	.sm__one-sec[hidden] {
+		display: none;
+	}
+
+	// A section's heading and its "All …" page, in the sheet (`SiteMenuBody`).
+	.sm__head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 16px;
+		margin: 0 0 14px;
+		padding: 0 10px;
+	}
+
+	.sm__title {
+		margin: 0;
+		font-size: 20px;
+		font-weight: $font-weight-bold;
+		line-height: 1.2;
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// WHAT A SECTION CARRIES BESIDES ITS LINKS, and the docs' face
+	// ---------------------------------------------------------------------------------------------
+	// A section's promotions: one row of one-line links, an icon and a title each. Only the featured
+	// one has a ground, the accent's tint, and the chevron; the others are links on the panel's own
+	// ground, filled only under the pointer — a grey stroke, then a grey fill, beside the accent's tint
+	// read as a second kind of button.
+	.sm__promos {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 18px;
+		padding-top: 16px;
+		border-top: 1px solid var(--sm-rule);
+	}
+
+	.sm__promo {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		height: 36px;
+		padding: 0 10px;
+		border: 0;
+		border-radius: 10px;
+		background: none;
+		color: var(--sm-ink);
+		font-size: 14px;
+		font-weight: $font-weight-medium;
+		line-height: 1;
+		text-decoration: none;
+		white-space: nowrap;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		&:hover {
+			background: var(--sm-fill);
+			color: var(--sm-accent);
+		}
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 2px;
+		}
+	}
+
+	.sm__promo-icon {
+		flex: none;
+		width: 18px;
+		height: 18px;
+		color: var(--sm-accent);
+	}
+
+	.sm__promo-chev {
+		flex: none;
+		width: 16px;
+		height: 16px;
+		margin: 0 -4px 0 -2px;
+	}
+
+	// The featured one closes the row at its far end; alone, it stands where the row starts.
+	.sm__promo--feat {
+		margin-left: auto;
+		background: var(--sm-fill);
+		color: var(--sm-accent);
+
+		&:only-child {
+			margin-left: 0;
+		}
+
+		&:hover {
+			background: var(--sm-fill-strong);
+		}
+	}
+
+	// Docs: the documentation's own face, bold, for the section's name, its group names and its
+	// headings, on every surface that shows it; the descriptions and the promotions below stay in the
+	// site's face. Ubuntu Mono sets visibly smaller than Ubuntu at one size — a lower x-height in a
+	// narrower cell — so each takes a step up, the headings two (18 against the others' 15), to sit
+	// as the code-set index of the docs rather than as a smaller list.
+	//
+	// The marks are the products' own, as Products draws them but a step smaller (24, `iconSizeOf`)
+	// and lighter: here they name whose documentation a link opens, under a heading that is the link's
+	// point. Full strength on hover, with the heading's colour.
+	[data-sm-section='nav-docs'] {
+		--sm-col: 260px;
+
+		.sm__group-name,
+		.sm__link-heading {
+			font-family: var(--font-family-mono);
+		}
+
+		.sm__group-name {
+			font-size: 14px;
+		}
+
+		.sm__link-heading {
+			font-size: 18px;
+			font-weight: $font-weight-bold;
+			line-height: 1.25;
+		}
+
+		svg.nav-icon {
+			opacity: var(--sm-mark-soft);
+			transition: opacity 0.15s ease;
+		}
+
+		.sm__link:is(:hover, :focus-visible) svg.nav-icon {
+			opacity: 1;
+		}
+	}
+
+	// The section's name in the sheet's view, a step over the other sections' 24.
+	.sm__view[data-sm-view='nav-docs'] .sm__title {
+		font-family: var(--font-family-mono);
+		font-size: 25px;
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE SHEET — the menu at a phone's width: the row as a list, a section as a view of its own.
+	// ---------------------------------------------------------------------------------------------
+	.sm__sheet {
+		// Full bleed: every row, its fill and its hairline run edge to edge; the text stands on the
+		// bar's own gutter, the wordmark's line.
+		--sm-in: var(--tb-bar-inset, 24px);
+		// The step between views: one length and one curve for both views, so they move as one. The
+		// curve starts fast and settles long, as a sheet pushed by a finger does.
+		--sm-step: 0.42s;
+		--sm-ease: cubic-bezier(0.32, 0.72, 0, 1);
+		position: fixed;
+		top: calc(var(--promo-cur, var(--promo-h, 0px)) + var(--home-header-h, #{$header-height}));
+		right: 0;
+		bottom: 0;
+		left: 0;
+		z-index: 2;
+		display: flex;
+		flex-direction: column;
+		background: var(--sm-surface);
+		color: var(--sm-ink);
+		transition:
+			opacity 0.2s ease,
+			translate 0.3s var(--sm-ease);
+
+		@starting-style {
+			opacity: 0;
+			translate: 0 -8px;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	// The views share one cell. Forward, a section slides in over the list from the right edge while
+	// the list eases a quarter of the way left and fades under it; back, the section slides off to the
+	// right over the list easing back in. A view out of place turns invisible (and the script makes it
+	// inert) only once its move has ended — `visibility` waits out the step — so nothing blinks, and an
+	// off-stage view never takes a tap or a Tab.
+	.sm__views {
+		position: relative;
+		display: grid;
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.sm__view {
+		grid-area: 1 / 1;
+		min-height: 0;
+		padding: 8px 0 28px;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		background: var(--sm-surface);
+		transition:
+			translate var(--sm-step) var(--sm-ease),
+			opacity var(--sm-step) var(--sm-ease),
+			visibility 0s linear var(--sm-step);
+
+		&[data-pos='center'] {
+			transition-delay: 0s;
+		}
+
+		&[data-pos='left'] {
+			translate: -25% 0;
+			opacity: 0;
+			visibility: hidden;
+		}
+
+		&[data-pos='right'] {
+			translate: 100% 0;
+			visibility: hidden;
+		}
+	}
+
+	// A section rides over the list, with a hairline on its leading edge while it moves.
+	.sm__view--root {
+		z-index: 1;
+	}
+
+	.sm__view--sec {
+		z-index: 2;
+		box-shadow: -1px 0 0 var(--sm-rule);
+	}
+
+	// Opening the sheet puts every view in place without a move.
+	.sm__sheet[data-instant] .sm__view {
+		transition: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.sm__sheet {
+			transition: none;
+		}
+
+		// No travel: the views cross-fade in place.
+		.sm__view {
+			transition:
+				opacity 0.15s linear,
+				visibility 0s linear 0.15s;
+
+			&[data-pos='left'],
+			&[data-pos='right'] {
+				translate: none;
+				opacity: 0;
+			}
+		}
+	}
+
+	// The list: the bar's row at the sheet's width — one row a section or a page, a hairline between,
+	// the chevron on the rows that open a view.
+	.sm__list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		> li + li {
+			border-top: 1px solid var(--sm-rule);
+		}
+	}
+
+	.sm__sheet-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		width: 100%;
+		min-height: var(--sm-row);
+		padding: 0 var(--sm-in);
+		border: 0;
+		background: none;
+		color: var(--sm-ink);
+		font: inherit;
+		// The first level is the sheet's index, set a step over a section's links (15): 20, the size a
+		// phone's own settings list reads at, in the medium weight.
+		font-size: 20px;
+		font-weight: $font-weight-medium;
+		line-height: 1.3;
+		letter-spacing: -0.01em;
+		text-align: left;
+		text-decoration: none;
+		cursor: pointer;
+		transition:
+			color 0.15s ease,
+			background-color 0.15s ease;
+
+		&:hover {
+			background: var(--sm-fill);
+			color: var(--sm-accent);
+		}
+
+		&:active {
+			background: var(--sm-fill-strong);
+		}
+
+		&[aria-current='page'],
+		&[data-current] {
+			color: var(--sm-accent);
+		}
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: -2px;
+		}
+	}
+
+	.sm__sheet-chev {
+		flex: none;
+		width: 20px;
+		height: 20px;
+		opacity: 0.5;
+		transition:
+			opacity 0.15s ease,
+			translate 0.22s var(--sm-ease);
+
+		.sm__sheet-row:hover > & {
+			opacity: 1;
+			translate: 2px 0;
+		}
+	}
+
+	// Back to the list: a row of its own at the head of the view, the list's chevron turned round.
+	.sm__back {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		width: 100%;
+		height: 44px;
+		margin: 0 0 4px;
+		padding: 0 var(--sm-in) 0 calc(var(--sm-in) - 6px);
+		border: 0;
+		background: none;
+		color: var(--sm-soft);
+		font: inherit;
+		font-size: 15px;
+		font-weight: $font-weight-medium;
+		text-align: left;
+		cursor: pointer;
+		transition: color 0.15s ease;
+
+		svg {
+			width: 20px;
+			height: 20px;
+			transition: translate 0.22s var(--sm-ease);
+		}
+
+		&:hover {
+			color: var(--sm-accent);
+
+			svg {
+				translate: -2px 0;
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: -2px;
+		}
+	}
+
+	// A section in the sheet: the panel's content stacked to the width. Every row bleeds — the links
+	// and the promotions — and the headings stand on the same gutter.
+	.sm__sheet {
+		.sm__head,
+		.sm__group-name {
+			padding-inline: var(--sm-in);
+		}
+
+		.sm__head {
+			margin-bottom: 8px;
+		}
+
+		.sm__title {
+			font-size: 24px;
+		}
+
+		// One group under another. A grid, not a flex column: a flex column sized each group as if its
+		// list had a single column, and on a tablet, where the list folds into two, left that much
+		// empty under it.
+		.sm__groups {
+			display: grid;
+			gap: 16px;
+		}
+
+		.sm__cols {
+			grid-auto-flow: row;
+			grid-template-rows: none;
+			grid-template-columns: 1fr;
+			gap: 0;
+		}
+
+		// A list's last word as a row of its own: the list's 56, its words on the gutter, the chevron at
+		// the far one, as the list's rows have it.
+		.sm__more {
+			display: flex;
+			justify-content: space-between;
+			min-height: var(--sm-row);
+			margin: 0;
+			padding: 0 var(--sm-in);
+			border-radius: 0;
+			font-size: 15px;
+
+			svg {
+				width: 20px;
+				height: 20px;
+			}
+
+			&:active {
+				background: var(--sm-fill-strong);
+			}
+		}
+
+		.sm__link {
+			padding: 12px var(--sm-in);
+			border-radius: 0;
+
+			&:active {
+				background: var(--sm-fill-strong);
+			}
+		}
+
+		// A link with no line under it is a list row: 56 tall, its icon and words on one centre line.
+		.sm__link:not(:has(.sm__link-desc)) {
+			align-items: center;
+			min-height: var(--sm-row);
+			padding-block: 0;
+
+			.sm__link-icon {
+				padding-top: 0;
+			}
+		}
+
+		.sm__promos {
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0;
+			margin-top: 16px;
+			padding-top: 0;
+		}
+
+		// A promotion is a list row on the same grid: its icon centred in the icon column, its words where
+		// a link's start, the featured one's chevron at the far gutter as the list's are.
+		.sm__promo {
+			gap: var(--sm-icon-gap);
+			height: auto;
+			min-height: var(--sm-row);
+			padding: 0 var(--sm-in);
+			border-bottom: 1px solid var(--sm-rule);
+			border-radius: 0;
+			background: none;
+			font-size: 15px;
+
+			&:hover {
+				background: var(--sm-fill);
+			}
+
+			&:active {
+				background: var(--sm-fill-strong);
+			}
+		}
+
+		.sm__promo-icon {
+			box-sizing: content-box;
+			padding-inline: calc((var(--sm-icon-col) - 18px) / 2);
+		}
+
+		.sm__promo--feat {
+			margin-left: 0;
+			border-bottom-color: transparent;
+			background: var(--sm-fill);
+
+			.sm__promo-chev {
+				width: 20px;
+				height: 20px;
+				margin: 0 0 0 auto;
+			}
+		}
+	}
+
+	// A tablet has the room for the panel's columns again; the rows still bleed.
+	@media (width >= #{$bar-compact-below}) {
+		.sm__sheet {
+			.sm__cols {
+				grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+			}
+		}
+	}
+
+	.sm__sheet-foot {
+		flex: none;
+		display: flex;
+		gap: 12px;
+		padding: 12px var(--sm-in) calc(16px + env(safe-area-inset-bottom, 0px));
+		border-top: 1px solid var(--sm-rule);
+		background: var(--sm-surface);
+
+		> * {
+			flex: 1;
+		}
+	}
+
+	// The bar above the open sheet: the sheet's ground, so bar and sheet are one surface with the
+	// bar's hairline between, and the Menu button as Close. A page's own rule for the bar over its
+	// hero (the homepage's scrim) must leave `[data-sm-open]` out, as the bar's do.
+	header.header[data-sm-open] {
+		// Over the scrolled bar's own rules, which give it a shadow and no hairline.
+		&,
+		&[data-header-scrolled]:has([data-header-look]) {
+			box-shadow: none;
+		}
+
+		&:has([data-header-look='marketing']),
+		&[data-header-scrolled]:has([data-header-look='marketing']) {
+			background-color: var(--color-bg-surface);
+			border-bottom-color: var(--color-border);
+		}
+
+		.burger .icon-open {
+			display: none;
+		}
+		.burger .icon-close {
+			display: block;
+		}
+		// The labels share one cell (`HeaderContent`), so the button is as wide in both states.
+		.burger .label-open {
+			visibility: hidden;
+		}
+		.burger .label-close {
+			visibility: visible;
+		}
+	}
+
+	// The chat's launcher floats over every layer: over the sheet it sat on Try for free, and over a
+	// tall panel on a short window it covers the panel's foot. It steps out while either is open.
+	html:has(header.header:is([data-sm-open], [data-sm-desktop-open])) [data-chat-floating] {
+		visibility: hidden;
+	}
+
+	// Reduced motion: the menu's moves go — the chevrons' slides, the panels' entries. The
+	// sheet's own step has its rule above.
+	@media (prefers-reduced-motion: reduce) {
+		.sm__chev,
+		.sm__sheet-chev,
+		.sm__back svg,
+		.sm__drop,
+		.sm__one,
+		.sm__one-in,
+		.sm__row::after {
+			transition: none;
+		}
+	}
+
+	// A move of the one panel between items, made while it shows, skips its entry (`seat()`).
+	.sm[data-moving] :is(.sm__one, .sm__one-in) {
+		transition: none;
+	}
+
+	// No script: the row's section items cannot open and Menu cannot toggle, so the bar's Menu is a
+	// link (`.sm__nojs`, revealed by the `<noscript>` rule in `SiteMenuSheet`) that opens the sheet as
+	// the link's target, every section laid out in one scroll.
+	.sm__nojs {
+		display: none !important;
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// WHICH SURFACE AT WHICH WIDTH
+	// ---------------------------------------------------------------------------------------------
+	@media (width < #{$menu-row-from}) {
+		.sm__row,
+		.sm__drop,
+		.sm__one {
+			display: none !important;
+		}
+	}
+	@media (width >= #{$menu-row-from}) {
+		.sm__sheet {
+			display: none !important;
+		}
+	}
+	@media (width >= #{$bar-compact-below}) {
+		.sm__sheet-foot {
+			display: none;
+		}
+	}
+</style>
