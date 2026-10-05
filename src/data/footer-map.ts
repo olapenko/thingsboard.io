@@ -43,7 +43,7 @@ export interface FooterColumn {
 	more?: FooterLink;
 	/**
 	 * A group under the column's own list, with its own small heading and its own arrowed last link:
-	 * Solutions' Customers, the header's Customers menu (case studies, clients feedback) folded in
+	 * Use Cases' Customers, the header's Customers menu (case studies, clients feedback) folded in
 	 * under the use cases they prove.
 	 */
 	sub?: { title: string; links: FooterLink[]; more?: FooterLink };
@@ -175,9 +175,9 @@ export const FOOTER_LICENSE_PORTAL = {
  */
 /**
  * WIP — PARKED 2026-09-29, not rendered. The footer carries no case studies link since 2026-09-30:
- * they were Solutions' seventh link, where they read as one more use case, and came out. This group
- * under Solutions — the header's Customers menu, case studies arrowed like "All use cases →" — was
- * tried and pulled back undecided. To try it again: set it as `sub` on the Solutions column and drop
+ * they were Use Cases' seventh link, where they read as one more use case, and came out. This group
+ * under Use Cases — the header's Customers menu, case studies arrowed like "All use cases →" — was
+ * tried and pulled back undecided. To try it again: set it as `sub` on the Use Cases column and drop
  * Clients feedback from Company; `FooterMap` renders `sub`.
  */
 export const FOOTER_CUSTOMERS_WIP: NonNullable<FooterColumn['sub']> = {
@@ -188,7 +188,7 @@ export const FOOTER_CUSTOMERS_WIP: NonNullable<FooterColumn['sub']> = {
 
 export const FOOTER_COLUMNS: FooterColumn[] = [
 	{
-		title: 'Solutions',
+		title: 'Use Cases',
 		links: [
 			{ label: 'Smart energy', href: '/use-cases/smart-energy/' },
 			{ label: 'Smart metering', href: '/use-cases/smart-metering/' },
