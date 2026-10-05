@@ -2,16 +2,12 @@
 import Band from '@components/ui/Band.astro';
 import CardGrid from '@components/ui/CardGrid.astro';
 import PlatformClear from '@components/Landing/PlatformClear.astro';
-import PlatformSteps from '@components/Landing/PlatformSteps.astro';
-import PlatformStepsBar from '@components/Landing/PlatformStepsBar.astro';
 import FeatureBlockSection from '@components/Landing/FeatureBlockSection.astro';
 import ConnectHub from '@components/Landing/ConnectHub.astro';
 import SolutionFlow from '@components/Landing/SolutionFlow.astro';
 import TwinCorridor from '@components/Landing/TwinCorridor.astro';
 import NormalizeSeries from '@components/Landing/NormalizeSeries.astro';
 import AutomateSwitch from '@components/Landing/AutomateSwitch.astro';
-import ScaleDuo from '@components/Landing/ScaleDuo.astro';
-import AiSection from '@components/Landing/AiSection.astro';
 import AiWide from '@components/Landing/AiWide.astro';
 import UseCasesSection from '@components/Landing/UseCasesSection.astro';
 import TrustBand from '@components/Landing/TrustBand.astro';
@@ -29,6 +25,7 @@ import { SOLUTION_COPY } from '@data/solution-flow';
 import { homeEcosystem } from '@data/homeEcosystem';
 import { homeProducts } from '@data/homeProducts';
 import { ROW_SECTIONS, type HomeComposition, type HomeSection } from '@data/home-compositions';
+import type { HomeReferences } from '@components/Landing/home-references';
 import { aiBadgeCycleFor } from '@data/ai-visual';
 import { LIVE_PLATFORM, LIVE_ROWS, liveEcosystemCard, liveProduct } from '@data/home-live';
 
@@ -56,13 +53,32 @@ import { LIVE_PLATFORM, LIVE_ROWS, liveEcosystemCard, liveProduct } from '@data/
  *   other foot (see `_home-rows.scss`). So a seam changes nothing about how the rows alternate.
  * - PRODUCTS AND ECOSYSTEM share `.home-band` when they are consecutive, as they always have: one
  *   band, with the wave field Products' own.
+ *
+ * NOT EVERY SECTION'S DRAWING IS IMPORTED HERE. The ones the shipping order does not draw — the
+ * Scale row's, the steps diagram, the toggle AI section — come in through `references`
+ * (`home-references.ts`), so `/` does not ship their stylesheets. An order that runs one of them
+ * renders with `references={HOME_REFERENCES}`; without it, the build stops on that order.
  */
 
 interface Props {
 	composition: HomeComposition;
+	/** The drawings the shipping order does not use, for an order that does (`home-references.ts`). */
+	references?: Partial<HomeReferences>;
 }
 
-const { composition } = Astro.props;
+const { composition, references = {} } = Astro.props;
+
+/** A reference the order draws with, or the build stops with what to pass. */
+const reference = <K extends keyof HomeReferences>(name: K, what: string): HomeReferences[K] => {
+	const component = references[name];
+	if (!component) {
+		throw new Error(
+			`HomeSections: the "${composition.id}" order runs ${what}, drawn by ${name}, which the homepage does not ` +
+				`import. Render the order with references={HOME_REFERENCES} from '@components/Landing/home-references'.`
+		);
+	}
+	return component as HomeReferences[K];
+};
 
 // The AI mark's cycle, from the sections this order actually renders: a section the order does not
 // run has no stop in it (see `aiBadgeCycleFor`).
@@ -207,7 +223,8 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 									{section.media === 'switch' ? <AutomateSwitch /> : <NormalizeSeries motion="pulse" />}
 								</FeatureBlockSection>
 							);
-						case 'scale':
+						case 'scale': {
+							const ScaleDuo = reference('ScaleDuo', 'the Scale row');
 							return (
 								<FeatureBlockSection
 									id="scale"
@@ -221,6 +238,7 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 									<ScaleDuo animate hue="field" />
 								</FeatureBlockSection>
 							);
+						}
 						default:
 							throw new Error(`HomeSections: "${section.id}" is listed as a row but has no row markup`);
 					}
@@ -290,7 +308,7 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 
 	const { section } = block;
 	switch (section.id) {
-		case 'platform':
+		case 'platform': {
 			/* The centred section: the statement, and the platform visual under it.
 
 				   THIS DISPLACED THE PUBLISHED STATEMENT that used to sit here. That copy was approved and
@@ -305,6 +323,9 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 			/* `steps` draws the platform as one flow and docks its four stages over the rows that
 				   follow. The bar is fixed, so where it sits in the markup only decides its place in the
 				   tab order: after the drawing it came from, before the first row it leads to. */
+			const steps = section.diagram === 'steps';
+			const PlatformSteps = steps ? reference('PlatformSteps', 'the steps diagram') : null;
+			const PlatformStepsBar = steps ? reference('PlatformStepsBar', 'the steps diagram') : null;
 			return (
 				<Fragment>
 					<Band id="intro" class="intro-section" pad={{ top: 'md', bottom: 'none' }}>
@@ -316,28 +337,32 @@ const visualFirst = (block: Extract<Block, { kind: 'rows' }>, i: number) => (blo
 							titleMeasure="full"
 							spacing="none"
 						/>
-						{section.diagram === 'steps' ? <PlatformSteps /> : <PlatformClear />}
+						{PlatformSteps ? <PlatformSteps /> : <PlatformClear />}
 					</Band>
-					{section.diagram === 'steps' && <PlatformStepsBar />}
+					{PlatformStepsBar && <PlatformStepsBar />}
 				</Fragment>
 			);
-		case 'ai':
+		}
+		case 'ai': {
 			/* AI, ported from the `tb-landing-prototype` repo's section 06. NOT a
 				   `FeatureBlockSection`: it is two routes into one platform, and a switch under its heading
 				   chooses which one is on the page — the chat first, the terminal a click away. It never
 				   sits inside `.new-rows` (see the grouping above), whose `.main-div` padding would blow
 				   apart the band geometry the windows are docked to. */
-			return section.layout === 'wide' ? (
-				<AiWide
-					id="ai"
-					wash={section.wash}
-					hues={aiHues}
-					copy={live ? 'live' : 'shipping'}
-					chat={live ? 'live' : 'shipping'}
-				/>
-			) : (
-				<AiSection id="ai" cta={section.cta} wash={section.wash} hues={aiHues} />
-			);
+			if (section.layout === 'wide') {
+				return (
+					<AiWide
+						id="ai"
+						wash={section.wash}
+						hues={aiHues}
+						copy={live ? 'live' : 'shipping'}
+						chat={live ? 'live' : 'shipping'}
+					/>
+				);
+			}
+			const AiSection = reference('AiSection', 'the toggle AI section');
+			return <AiSection id="ai" cta={section.cta} wash={section.wash} hues={aiHues} />;
+		}
 		case 'dashboards':
 			return <UseCasesSection hued={composition.hues === 'section'} copy={composition.copy} />;
 		case 'trust':

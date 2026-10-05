@@ -107,6 +107,14 @@ text width have been wrong by 25u. The browser is the source of truth; the arith
 **Copy that carries meaning lives in `src/data/*-visual.ts`**, not in the component, so a component
 can be redrawn without retyping the words and a marketing page can import the same strings.
 
+**A shipping component imports only what `/` draws.** A component's stylesheet ships on every page
+whose imports reach it, drawn or not, so an alternative kept for the sandbox — `FilterFlow` beside
+`FilterChart`, the toggle `AiSection` beside `AiWide`, `ScaleDuo` for the `live` order — is not
+imported by `HomeSections`, `AutomateSwitch` or `TrustBand`. It lives in `home-references.ts`, and
+a page that shows it passes it in (`references`, `filter`, `notify`, `drawings`). A candidate that
+replaces the shipping one moves into the parent's imports; the one it replaces moves out to the
+references.
+
 **A drawing's lines read `--flow-rail`, with the brand as the fallback** —
 `var(--flow-rail, var(--color-primary, #3d50f5))` for connectors, travelling signals and whatever
 lights up when one lands. Homepage orders with `hues: 'section'` set it on each row to the row's badge
