@@ -47,7 +47,6 @@ export const mainNavItems: NavItem[] = [
 	{ label: 'Partners', submenuId: 'nav-partners' },
 	{ label: 'Docs', submenuId: 'nav-docs' },
 	{ label: 'IoT Hub', href: '/iot-hub/' },
-	{ label: 'Blog', href: '/blog/' },
 	{ label: 'Pricing', href: '/pricing/', id: 'Menu_Pricing', linkClass: 'gtm_button' },
 ];
 
@@ -300,6 +299,12 @@ export const companySubmenu: SubMenu = {
 					href: '/company/',
 					icon: '/src/assets/images/landings/nav/about-s-icon.svg',
 					heading: 'Our company',
+					linkClass: 'small-link',
+				},
+				{
+					href: '/blog/',
+					icon: '/src/assets/images/landings/nav/blog-s-icon.svg',
+					heading: 'Blog',
 					linkClass: 'small-link',
 				},
 				{
