@@ -13,13 +13,16 @@ import { MENU_ENTRIES, MENU_SECTIONS, isHere } from '@components/SiteMenu/menu-m
  * nothing in it is a step smaller than on the desktop. Every row runs edge to edge, and the step
  * between views moves both at once, the section over the list.
  *
- * No search field: the bar above keeps its search control at every width, one tap from the open
- * sheet, and a second field under it was the same control twice. Under 600, where the bar has
- * stepped Sign in and Try for free out, the two sit at the foot. No theme row: the theme follows
- * the system, and its switch is the footer's.
+ * No search field: where the page has search, the bar above keeps its control at every width, one
+ * tap from the open sheet, and a second field under it would be the same control twice; where the
+ * page has none (the homepage, the product pages), the menu has none either. Under 600, where the bar
+ * has stepped Sign in and Try for free out, the two sit at the foot, the same links with the same
+ * analytics names as the bar's (`_Sheet` on the ids, which must stay unique on the page). No theme
+ * row: the theme follows the system, and its switch is the footer's.
  *
  * `SiteMenu`'s script drives it: the views, focus, Escape (back a view, then close), and the page
- * made inert underneath while it is open.
+ * made inert underneath while it is open. Without a script the bar's Menu is a link to the sheet,
+ * which then lays every section out in one scroll (the `<noscript>` rule at the end).
  */
 const pathname = Astro.url.pathname;
 ---
@@ -45,6 +48,7 @@ const pathname = Astro.url.pathname;
 						) : (
 							<a
 								class:list={['sm__sheet-row', item.linkClass]}
+								id={item.id ? `${item.id}_Sheet` : undefined}
 								href={item.href}
 								aria-current={isHere(pathname, item.href) ? 'page' : undefined}
 							>
@@ -63,7 +67,6 @@ const pathname = Astro.url.pathname;
 				data-sm-view={entry.sub.id}
 				aria-labelledby={`sm-sheet-${entry.sub.id}-title`}
 				data-pos="right"
-				inert
 			>
 				<button type="button" class="sm__back" data-sm-back>
 					<Icon name="tabler:chevron-left" aria-hidden="true" />
@@ -83,8 +86,56 @@ const pathname = Astro.url.pathname;
 		>
 			Sign in
 		</Button>
-		<Button variant="primary" size="md" to="cloud-signup">
+		<Button
+			variant="primary"
+			size="md"
+			href="/installations/choose-region/"
+			class="gtm_button"
+			attrs={{ 'data-cloud-auth': 'signup', id: 'Menu_TryItNow_Sheet' }}
+		>
 			Try for free
 		</Button>
 	</div>
+
+	{/* No script: the sheet is the target of the bar's Menu link (`HeaderContent`), shown with every
+	    view stacked in one scroll; a section's row and its back row, which need the script, go. */}
+	<noscript>
+		<a class="sm__sheet-row sm__nojs-close" href="#">
+			Close the menu
+		</a>
+	</noscript>
 </div>
+
+<noscript>
+	<style is:inline>
+		header.header .burger[data-sm-toggle],
+		.sm__row {
+			display: none !important;
+		}
+		header.header .sm__nojs {
+			display: flex !important;
+		}
+		#sm-sheet:target {
+			display: flex !important;
+		}
+		#sm-sheet .sm__views {
+			display: block;
+			overflow-y: auto;
+		}
+		#sm-sheet .sm__view {
+			overflow: visible;
+			translate: none !important;
+			opacity: 1 !important;
+			visibility: visible !important;
+		}
+		#sm-sheet [data-sm-open-view],
+		#sm-sheet .sm__back {
+			display: none;
+		}
+		#sm-sheet > noscript {
+			display: block;
+			order: -1;
+			border-bottom: 1px solid var(--sm-rule);
+		}
+	</style>
+</noscript>
