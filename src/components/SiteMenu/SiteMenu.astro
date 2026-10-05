@@ -556,6 +556,10 @@ const pathname = Astro.url.pathname;
 		// The docs' marks, lighter than Products' (see Docs below); less so on a dark ground, where
 		// fading a mark darkens it into the ground rather than lightening it.
 		--sm-mark-soft: 0.72;
+		// The case studies' logos, flattened to one ink (`brightness(0)`: black, white once inverted)
+		// and taken down to the text's weight; whole on hover.
+		--sm-logo-filter: brightness(0);
+		--sm-logo-ink: 0.62;
 		// THE GRID of a section's rows, on every surface: an icon column 32 wide (a 24 mark centred in it,
 		// a product's 32 filling it), 12 to the text, so a row's text starts at the same place whatever
 		// the section; in the sheet, a single-line row is 56 tall, the list's row.
@@ -582,6 +586,22 @@ const pathname = Astro.url.pathname;
 	// The dark theme: the same tokens resolve dark through the site's; the docs' marks fade less.
 	html[data-theme='dark'] .sm {
 		--sm-mark-soft: 0.86;
+		--sm-logo-filter: brightness(0) invert(1);
+		--sm-logo-ink: 0.78;
+	}
+
+	// THE PRODUCTS' BADGES ON A DARK GROUND: the wash at the hue's 14%, the glyph in the hue itself —
+	// `ui/Mark`'s own dark values — wherever the menu's ground is dark: the dark theme (panel,
+	// dropdowns, sheet) and the one panel over a dark hero. A solid badge is the same on either ground.
+	@mixin badges-on-dark {
+		.sm__badge--wash {
+			background-color: color-mix(in srgb, var(--badge-hue) 14%, transparent);
+			color: var(--badge-hue);
+		}
+	}
+
+	html[data-theme='dark'] .sm {
+		@include badges-on-dark;
 	}
 
 	// The docs bar is the sidebar's ground, not the surface; the panel is one piece with it.
@@ -610,9 +630,13 @@ const pathname = Astro.url.pathname;
 			--sm-surface: var(--tb-bar-dark);
 			--sm-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
 			--sm-mark-soft: 0.86;
+			--sm-logo-filter: brightness(0) invert(1);
+			--sm-logo-ink: 0.78;
 
 			// Frosted as the bar is: the panel has no fixed children for the filter to capture.
 			backdrop-filter: var(--tb-bar-frost);
+
+			@include badges-on-dark;
 		}
 	}
 
@@ -621,6 +645,11 @@ const pathname = Astro.url.pathname;
 	// Stronger than a page's own rule for its bar (the homepage's scrim), which it must win over. The
 	// dropdowns hang free under the bar and leave it as it is.
 	header.header:not([data-header-scrolled]):not([data-sm-open])[data-sm-desktop-open]:has(.sm[data-model='panel']) {
+		// At once, not faded in: the panel's ground is whole from its first frame (it unrolls, it does
+		// not fade), so a bar still fading in left the hero showing through above it for ~100ms. On
+		// close the bar fades back as before (the transition of the state it returns to).
+		transition-duration: 0s;
+
 		&:has([data-header-hero='dark']) {
 			background-color: var(--tb-bar-dark);
 		}
@@ -628,6 +657,11 @@ const pathname = Astro.url.pathname;
 		&:has([data-header-hero='light']) {
 			background-color: var(--color-bg-surface);
 		}
+	}
+
+	// The sheet's bar, likewise at once: the sheet is whole under it from its first frame.
+	header.header[data-sm-open] {
+		transition-duration: 0s;
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -720,8 +754,9 @@ const pathname = Astro.url.pathname;
 		white-space: nowrap;
 		text-decoration: none;
 		cursor: pointer;
-		// With the rest of the bar's ink (`--tb-bar-swap`), as the ground under it changes.
-		transition: color var(--tb-bar-swap, 0.2s) ease;
+		// With the rest of the bar's ink: in one step, as the ground under it passes mid-grey
+		// (`--tb-ink-at` in `HeaderContent`). Only the ground swap changes this colour; hover keeps it.
+		transition: color 0s linear var(--tb-ink-at, 0.06s);
 
 		&::after {
 			content: '';
@@ -870,8 +905,84 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
-	[data-sm-section='nav-products'] {
+	[data-sm-section='nav-products'],
+	[data-sm-section='nav-docs'] {
 		--sm-mark: 32px;
+	}
+
+	// A PRODUCT'S BADGE (Products, Docs): `ui/Mark`'s tile in CSS — 32 square, 32% corners, the solid
+	// one's sheen — with its glyph from the nav sprite (`menuBadgeOf` in `product-badges`), so the menu
+	// carries a `<use>` per badge rather than the artwork. Solid: the hue, the logo white. Wash: the hue
+	// at 12% on the menu's surface, a logo glyph in the hue taken toward black — the hues are the
+	// footer's, picked for a dark ground, and Mobile's #4ade80 on its own wash read 1.6:1. Product
+	// glyphs draw in their own colours. Dark grounds: `badges-on-dark`.
+	.sm__badge {
+		display: inline-grid;
+		flex: none;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 32%;
+	}
+
+	.sm__badge--solid {
+		background-color: var(--badge-hue);
+		background-image: linear-gradient(
+			155deg,
+			rgba(255, 255, 255, 0.22) 0%,
+			rgba(255, 255, 255, 0) 55%,
+			rgba(0, 0, 0, 0.06) 100%
+		);
+		color: #fff;
+	}
+
+	.sm__badge--wash {
+		background-color: color-mix(in srgb, var(--badge-hue) 12%, var(--sm-surface));
+		color: color-mix(in srgb, var(--badge-hue) 55%, #0b1410);
+	}
+
+	// The glyph takes the tile's colour, not the row's accent (`.sm__link svg.nav-icon`), in a SQUARE
+	// box as Mark draws it: the artwork's box (`marks.ts`) is fitted inside and centred, and what a
+	// product draws past it shows — TBMQ's box is its brackets, and its circle rises above and below.
+	.sm__link .sm__badge svg.nav-icon {
+		width: var(--badge-glyph);
+		height: var(--badge-glyph);
+		max-height: none;
+		color: inherit;
+	}
+
+	// A customer's logo in place of its name (the case studies): on the row's centre line, 20 tall
+	// unless the item sets its own (`--sm-logo-h`), no wider than a short name, flush with the group's
+	// heading as the names were.
+	.sm__link-logo {
+		display: flex;
+		align-items: center;
+		height: 24px;
+
+		img {
+			display: block;
+			width: auto;
+			height: var(--sm-logo-h, 20px);
+			max-width: 120px;
+			object-fit: contain;
+			object-position: left center;
+			filter: var(--sm-logo-filter);
+			opacity: var(--sm-logo-ink);
+			transition: opacity 0.15s ease;
+		}
+	}
+
+	// A logo row answers the pointer with its logo alone: no row fill, the logo whole. Keyboard focus
+	// keeps the row's ring, so a reader tabbing through still sees where they are.
+	.sm__link:has(.sm__link-logo) {
+		&:hover,
+		&:focus-visible {
+			background: none;
+		}
+	}
+
+	.sm__link:is(:hover, :focus-visible) .sm__link-logo img {
+		opacity: 1;
 	}
 
 	// A link with no line under it: its mark and its name on one centre line, 40 tall with a mark or
@@ -1038,9 +1149,12 @@ const pathname = Astro.url.pathname;
 	// than run on to the window's edge, and never wider than four columns: past that its groups wrap
 	// under one another. Solutions, the widest, is four (1016); at 1281, where the row starts, it ends
 	// 25px inside the window's edge.
+	// It is transparent on the panel's ground: the landing stylesheet (`landing.scss`) fills every
+	// `<section>` on its pages with the page's white, which under a dark hero left white links on white.
 	.sm__one-sec {
 		width: fit-content;
 		max-width: min(100%, calc(4 * var(--sm-col) + 3 * var(--sm-gutter)));
+		background: none;
 	}
 
 	.sm__one-sec[hidden] {
@@ -1145,9 +1259,9 @@ const pathname = Astro.url.pathname;
 	// narrower cell — so each takes a step up, the headings two (18 against the others' 15), to sit
 	// as the code-set index of the docs rather than as a smaller list.
 	//
-	// The marks are the products' own, as Products draws them but a step smaller (24, `iconSizeOf`)
-	// and lighter: here they name whose documentation a link opens, under a heading that is the link's
-	// point. Full strength on hover, with the heading's colour.
+	// The marks are the products' own, at Products' size (32, `iconSizeOf`) but lighter: here they
+	// name whose documentation a link opens, under a heading that is the link's point. Full strength
+	// on hover, with the heading's colour.
 	[data-sm-section='nav-docs'] {
 		--sm-col: 260px;
 
@@ -1166,12 +1280,12 @@ const pathname = Astro.url.pathname;
 			line-height: 1.25;
 		}
 
-		svg.nav-icon {
+		.sm__badge {
 			opacity: var(--sm-mark-soft);
 			transition: opacity 0.15s ease;
 		}
 
-		.sm__link:is(:hover, :focus-visible) svg.nav-icon {
+		.sm__link:is(:hover, :focus-visible) .sm__badge {
 			opacity: 1;
 		}
 	}
@@ -1434,6 +1548,32 @@ const pathname = Astro.url.pathname;
 			gap: 0;
 		}
 
+		// The case studies' logos as a wall rather than a list: two to a row, each centred in its cell,
+		// the cells parted by hairlines (the rule showing through a 1px gap), an odd last one spanning
+		// the row. Five logos stacked ran 280px down the sheet; this is 194.
+		.sm__cols:has(.sm__link-logo) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 1px;
+			border-block: 1px solid var(--sm-rule);
+			background: var(--sm-rule);
+
+			li:last-child:nth-child(odd) {
+				grid-column: 1 / -1;
+			}
+
+			.sm__link {
+				justify-content: center;
+				min-height: 64px;
+				padding-inline: 12px;
+				background: var(--sm-surface);
+
+				// The press, as a list row has it: the cell's own ground outranks the row's `:active`.
+				&:active {
+					background: var(--sm-fill-strong);
+				}
+			}
+		}
+
 		// A list's last word as a row of its own: the list's 56, its words on the gutter, the chevron at
 		// the far one, as the list's rows have it.
 		.sm__more {
@@ -1522,11 +1662,23 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
-	// A tablet has the room for the panel's columns again; the rows still bleed.
+	// A tablet has the room for the panel's columns again; the rows still bleed. `auto-fill`, not
+	// `auto-fit`: a short list (the two platforms) keeps the longer lists' tracks instead of
+	// stretching across the sheet, so it sits over their first columns.
 	@media (width >= #{$bar-compact-below}) {
 		.sm__sheet {
 			.sm__cols {
-				grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+				grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+			}
+
+			// One row of the five logos. Five columns outright, not `auto-fit`: between 600 and 704 that
+			// fitted four, and the fifth sat alone over three empty cells of the wall's grey.
+			.sm__cols:has(.sm__link-logo) {
+				grid-template-columns: repeat(5, minmax(0, 1fr));
+
+				li:last-child:nth-child(odd) {
+					grid-column: auto;
+				}
 			}
 		}
 	}

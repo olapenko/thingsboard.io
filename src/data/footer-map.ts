@@ -40,10 +40,12 @@ export interface FooterColumn {
 	title: string;
 	links: FooterLink[];
 	/**
-	 * The column's own last words — Solutions' "All use cases" and "Case studies" — set apart from the
+	 * The column's own last word — Solutions' "All use cases", Docs' "Documentation" — set apart from the
 	 * list as links with an arrow: sections of the site, where the list above them is pages.
 	 */
 	more?: FooterLink[];
+	/** Set under the column before it, as a second list in that column (Customers under Services). */
+	stacked?: boolean;
 }
 
 const NAV = '/src/assets/images/landings/nav';
@@ -56,16 +58,16 @@ const NAV = '/src/assets/images/landings/nav';
 export const FOOTER_PLATFORMS: FooterProduct[] = [
 	{
 		name: 'ThingsBoard Cloud',
-		line: 'We host, scale and upgrade it',
+		line: 'Hosted and run by us',
 		href: '/products/paas/',
 		icon: `${NAV}/thingsboard-c-icon.svg`,
 		hue: '#3d50f5',
 	},
 	{
 		// Named as the menu names it: "ThingsBoard", beside "ThingsBoard Cloud". The map's line under it
-		// says where it runs.
+		// says where it runs. Both lines fit the footer's equal tracks (161px beside the mark).
 		name: 'ThingsBoard',
-		line: 'Deploy it inside your own network',
+		line: 'Runs on your servers',
 		href: '/products/thingsboard-pe/',
 		icon: `${NAV}/thingsboard-p-icon.svg`,
 		hue: '#178649',
@@ -160,12 +162,19 @@ export const FOOTER_LICENSE_PORTAL = {
 
 /**
  * The link columns, the menu's sections in the menu's order (Products is the platform map above
- * them): one heading each, and A PAGE HAS ONE NAME AND ONE HOME in the menu and here. The footer may
- * show fewer of a section's links; it never moves one to another heading or calls it something else
- * (2026-10-05). So the case studies are Solutions', as in the menu, a plain link after the use cases
- * with All use cases the one arrowed link; Services closes on Talk to an expert, as its menu list
- * does; Docs is the menu's word. The partner programmes, a group in the menu's Company, are one link
- * here, to their hub (`/partners/`): a column of their three read as half a column.
+ * them): one heading each. The rule is that A PAGE HAS ONE NAME AND ONE HOME in the menu and here,
+ * and the footer may show fewer of a section's links; two exceptions were agreed (2026-10-05):
+ *
+ * - USE CASES, not Solutions: the column lists use cases and closes on their index, so it is named
+ *   for them; the menu's Solutions also holds SCADA and the case studies.
+ * - CUSTOMERS, a second list under Services: Case studies (the menu's Solutions) and Clients
+ *   feedback (the menu's Company), together as the proof, so the columns stand level.
+ *
+ * An arrowed link closes a list only where an index stands behind it — All use cases, Documentation
+ * — or where it is the footer's one action, Contact us. Services has three pages and no index. Docs
+ * carries a developer's first stops; release notes are one click inside, GitHub is on the Follow
+ * line alone. The partner programmes are left out: their hub is a technical page, and the menu
+ * carries the three.
  *
  * NO "BUILD" COLUMN (dropped 2026-09-29). It listed capabilities — connect devices, rule engine,
  * twins, white-labeling — but seven of its eight links landed in the docs, which the Docs column
@@ -175,13 +184,14 @@ export const FOOTER_LICENSE_PORTAL = {
  */
 export const FOOTER_COLUMNS: FooterColumn[] = [
 	{
-		title: 'Solutions',
+		title: 'Use cases',
 		links: [
 			{ label: 'Smart energy', href: '/use-cases/smart-energy/' },
 			{ label: 'Smart metering', href: '/use-cases/smart-metering/' },
+			{ label: 'Environment monitoring', href: '/use-cases/environment-monitoring/' },
+			{ label: 'Smart farming', href: '/use-cases/smart-farming/' },
 			{ label: 'Site fleet tracking', href: '/use-cases/site-fleet-tracking/' },
 			{ label: 'SCADA systems', href: '/use-cases/scada/' },
-			{ label: 'Case studies', href: '/case-studies/' },
 		],
 		more: [{ label: 'All use cases', href: '/use-cases/' }],
 	},
@@ -192,39 +202,42 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Support plans', href: '/services/' },
 			{ label: 'Trainings', href: '/services/trainings/' },
 		],
-		more: [{ label: 'Talk to an expert', href: '/contact-us/' }],
 	},
 	{
-		// Getting started first: it is where a newcomer goes, and Documentation is where everyone
-		// else already knows to look. No API or protocol references (REST, connectivity): they are
-		// one click inside Documentation, and a footer is not a docs index.
+		title: 'Customers',
+		stacked: true,
+		links: [
+			{ label: 'Case studies', href: '/case-studies/' },
+			{ label: 'Clients feedback', href: '/clients-feedback/' },
+		],
+	},
+	{
+		// A developer's first stops, in the order they come to them; Documentation, the index, closes.
 		title: 'Docs',
 		links: [
 			{ label: 'Getting started', href: '/docs/pe/getting-started/' },
-			{ label: 'Documentation', href: '/docs/pe/' },
+			{ label: 'Connect devices', href: '/docs/pe/connect-iot-devices/' },
+			{ label: 'REST API', href: '/docs/pe/reference/rest-api/' },
 			{ label: 'ThingsBoard CLI', href: '/docs/pe/user-guide/cli/' },
-			{ label: 'Release notes', href: '/docs/pe/releases/releases-table/' },
-			{ label: 'GitHub', href: 'https://github.com/thingsboard/thingsboard', external: true },
 		],
+		more: [{ label: 'Documentation', href: '/docs/pe/' }],
 	},
 	{
 		title: 'Company',
 		links: [
 			{ label: 'About us', href: '/company/' },
-			{ label: 'Clients feedback', href: '/clients-feedback/' },
 			{ label: 'Blog', href: '/blog/' },
 			{ label: 'Media kit', href: '/mediakit/' },
 			{ label: 'Careers', href: CAREERS_URL, external: true },
-			{ label: 'Partners', href: '/partners/' },
-			{ label: 'Contact us', href: '/contact-us/' },
 		],
+		more: [{ label: 'Contact us', href: '/contact-us/' }],
 	},
 ];
 
 /**
  * The Follow line: only the channels that are kept up (checked 2026-09-29) and that are news, not
- * product. YouTube's tutorials are the evergreen ones, LinkedIn posts daily. GitHub is kept up too
- * (4.4 shipped that day) but is linked once, in Docs, where the source is looked for. Left out: X (silent since
+ * product. YouTube's tutorials are the evergreen ones, LinkedIn posts daily, GitHub is where the
+ * releases land and the stars are given (it left the Docs column on 2026-10-05). Left out: X (silent since
  * August 2025), Stack Overflow (no question for ten months, most unanswered), Instagram (team life,
  * not the product), Facebook (kept up, but re-posts with little reach). The shared
  * `data/socialNetworks.ts` keeps all seven, as main's footer read them.
@@ -232,6 +245,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 export const FOOTER_SOCIAL = [
 	{ icon: 'simple-icons:youtube', name: 'YouTube' },
 	{ icon: 'simple-icons:linkedin', name: 'LinkedIn' },
+	{ icon: 'simple-icons:github', name: 'GitHub' },
 ];
 
 /**
@@ -261,6 +275,9 @@ export const FOOTER_NEWSLETTER = {
 	lede: 'Release notes and IoT know-how, once a month. No spam.',
 	consent: 'By subscribing you agree to receive newsletters from ThingsBoard, Inc.',
 	action: 'https://static.mailerlite.com/webforms/submit/r9r9x7',
+	// Shown in the form's place once MailerLite accepts the address — upstream's words, as main's
+	// footer and the blog's forms put them.
+	thanks: { title: 'Thank you for your interest in ThingsBoard!', text: 'Have a great day!' },
 };
 
 /**
@@ -274,7 +291,7 @@ export const FOOTER_TAGLINE =
 /**
  * THE DOCS FOOTER (`SiteFooter` at the `docs` density): lighter than the map — no platform grid,
  * no newsletter — and richer than the six-link row it replaces. Three short columns: where the
- * platform is run and bought, where to learn it, and the company. Every page named is one the map
+ * platform is run and bought, where to learn it, and where to get help. Every page named is one the map
  * carries; the first column's marks are the map's platform badges. The follow line and the base row
  * are the map's own.
  */
@@ -301,10 +318,12 @@ export const FOOTER_DOCS_COLUMNS: FooterColumn[] = [
 		],
 	},
 	{
-		title: 'Company',
+		// "Get help", not "Company" (2026-10-05): Support plans is Services' in the menu and the map, so
+		// under "Company" it was filed twice; the docs reader's third question is who answers them.
+		// Partners is out, as from the map: its hub is a technical page.
+		title: 'Get help',
 		links: [
 			{ label: 'Support plans', href: '/services/' },
-			{ label: 'Partners', href: '/partners/' },
 			{ label: 'Clients feedback', href: '/clients-feedback/' },
 			{ label: 'Contact us', href: '/contact-us/' },
 			{ label: 'Careers', href: CAREERS_URL, external: true },

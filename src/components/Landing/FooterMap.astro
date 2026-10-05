@@ -7,7 +7,7 @@ import Mark from '@components/ui/Mark.astro';
 import FooterBase from '@components/SiteFooter/FooterBase.astro';
 import { followsTheme } from '@util/page-theme';
 import logo from '@root/assets/images/landings/thingsboard-logo.svg?raw';
-import { markBySrc, type MarkName } from '@data/marks';
+import { glyphOf } from '@data/product-badges';
 import { newTabAttrs, NEW_TAB_NOTE } from '@util/external-links';
 import { socialNetworks } from '@data/socialNetworks';
 import {
@@ -20,7 +20,7 @@ import {
 	FOOTER_PLATFORMS,
 	FOOTER_SOCIAL,
 	FOOTER_TAGLINE,
-	type FooterProduct,
+	type FooterColumn,
 } from '@data/footer-map';
 
 /**
@@ -38,8 +38,8 @@ import {
  *    - `focus`: one "Platform" group of four peers — ThingsBoard Cloud, ThingsBoard, Pricing,
  *      Installation options — a mark and a name each; the ecosystem moves to a link column, the
  *      License Portal at its foot.
- * 3. FOUR LINK COLUMNS in the menu's order, one heading each: Solutions, Services, Docs,
- *    Company. Then the base row every footer ends on (`FooterBase`): copyright, legal, Cookie
+ * 3. FOUR LINK COLUMNS in the menu's order: Use cases, Services (with Customers under it), Docs,
+ *    Company (`FOOTER_COLUMNS`). Then the base row every footer ends on (`FooterBase`): copyright, legal, Cookie
  *    settings, Appearance, the badges.
  *
  * THE GROUND is black (2026-09-30). It was the bookends' `#121425` with a hairline under the closing
@@ -78,21 +78,10 @@ const social = FOOTER_SOCIAL.map(({ icon, name }) => {
 	return n && { ...n, name };
 }).filter((n) => n !== undefined);
 
-const isTabler = (p: FooterProduct) => p.icon.startsWith('tabler:');
-
-// What an ecosystem tile holds, for `ui/Mark`: the ThingsBoard logo (the Mobile App's), a tabler icon,
-// or the product's logo, found by the file the data names.
-const markOf = (p: FooterProduct) =>
-	p.icon === 'mark'
-		? { logo: 'thingsboard' as const }
-		: isTabler(p)
-			? { icon: p.icon }
-			: { product: markBySrc(p.icon) as Exclude<MarkName, 'thingsboard'> };
-
 // `focus`: the ecosystem as the first link column, and no column repeats a page the panel shows.
 const focus = layout === 'focus';
 const highlighted = new Set(FOOTER_HIGHLIGHTS.map((h) => h.href));
-const columns = focus
+const columns: FooterColumn[] = focus
 	? [
 			{
 				// The License Portal last: the one thing in the column that is an account, not a product.
@@ -105,6 +94,13 @@ const columns = focus
 			...FOOTER_COLUMNS.map((c) => ({ ...c, links: c.links.filter((l) => !highlighted.has(l.href)) })),
 		]
 	: FOOTER_COLUMNS;
+// The columns as the grid lays them out: a `stacked` list joins the column before it (Customers under
+// Services), in both layouts: `focus` puts the ecosystem first and so fills its five-column grid.
+const stacks = columns.reduce<FooterColumn[][]>((out, col) => {
+	if (col.stacked && out.length) out[out.length - 1].push(col);
+	else out.push([col]);
+	return out;
+}, []);
 const ext = (external?: boolean) => newTabAttrs(external);
 ---
 
@@ -117,12 +113,22 @@ const ext = (external?: boolean) => newTabAttrs(external);
 			</div>
 
 			<div class="fm__keep">
-				{/* The same MailerLite endpoint and field names as main's footer, posted natively. Main's does
-			    the same today: its script waits for a "Sign up for news" button this branch removed, so
-			    MailerLite's own script never loads there either. */}
-				<form class="fm__news" action={FOOTER_NEWSLETTER.action} method="POST" target="_blank">
+				{/* The same MailerLite endpoint and field names as main's footer, sent in the page by
+				    `bindMailerLiteForm` (#710): the request MailerLite's own script makes, so the thanks
+				    shows only once the address is accepted, and MailerLite's refusal shows under the field.
+				    Without script the form posts natively to MailerLite's page in a new tab. */}
+				{/* `gtm_form`, `Footer_SignUpForNewsForm` and the submit's `gtm_button` /
+				    `Footer_SignUpForNews_Subscribe` are main's footer's GTM hooks, kept so the tag that counts
+				    sign-ups still finds them. */}
+				<form
+					class="fm__news gtm_form"
+					id="Footer_SignUpForNewsForm"
+					action={FOOTER_NEWSLETTER.action}
+					method="POST"
+					target="_blank"
+				>
 					{/* The lede is the field's hint, so it is what the field is described by. The browser's
-						   own check stands for the field's error: nothing scripts this form. */}
+						   own check catches a malformed address before anything is sent. */}
 					<Field
 						name="fields[email]"
 						id={`${uid}-email`}
@@ -134,13 +140,32 @@ const ext = (external?: boolean) => newTabAttrs(external);
 						autocomplete="email"
 						attrs={{ spellcheck: 'false', autocapitalize: 'off' }}
 					>
-						<Button slot="end" type="submit" attached="start">
+						<Button
+							slot="end"
+							type="submit"
+							attached="start"
+							id="Footer_SignUpForNews_Subscribe"
+							class="gtm_button"
+							loadingLabel="Subscribing…"
+						>
 							Subscribe
 						</Button>
 					</Field>
 					<input type="hidden" name="ml-submit" value="1" />
+					<p class="fm__news-error" data-ml-error role="alert" hidden />
 					<p class="fm__consent">{FOOTER_NEWSLETTER.consent}</p>
 				</form>
+				{/* In the form's place once MailerLite accepts the address; focused, so a screen reader
+				    hears it. Upstream's words (main's footer and blog say the same). */}
+				<div class="fm__news-done" role="status" tabindex="-1" hidden>
+					<div class="fm__news-done-in">
+						<Icon name="tabler:circle-check" class="fm__news-done-icon" aria-hidden="true" />
+						<div>
+							<p class="fm__news-done-title">{FOOTER_NEWSLETTER.thanks.title}</p>
+							<p class="fm__news-done-text">{FOOTER_NEWSLETTER.thanks.text}</p>
+						</div>
+					</div>
+				</div>
 				{/* The kept-up channels, as a quiet line under the form: the same "keep up" block, but links,
 				    not buttons. As bordered buttons behind a rule they outweighed the form they follow;
 				    under the tagline they split the two ways of keeping up across the row. */}
@@ -193,7 +218,7 @@ const ext = (external?: boolean) => newTabAttrs(external);
 							{FOOTER_ECOSYSTEM.map((p) => (
 								<li>
 									<a class="fm__product" href={p.href} {...ext(p.external)}>
-										<Mark size={40} fill="wash" accent={p.hue} class="fm__mark" {...markOf(p)} />
+										<Mark size={40} fill="wash" accent={p.hue} class="fm__mark" {...glyphOf(p)} />
 										<span class="fm__pname">
 											{p.name}
 											{p.external && (
@@ -234,33 +259,37 @@ const ext = (external?: boolean) => newTabAttrs(external);
 		</nav>
 
 		<nav class="fm__cols" aria-label="Site" data-accent="neutral">
-			{columns.map((col) => (
+			{stacks.map((stack) => (
 				<div class="fm__col">
-					<h2 class="fm__col-title">{col.title}</h2>
-					<ul>
-						{col.links.map((l) => (
-							<li>
-								<a href={l.href} {...ext(l.external)}>
-									{l.label}
-									{l.external && (
-										<>
-											<Icon name="tabler:arrow-up-right" class="fm__ext" aria-hidden="true" />
-											<span class="ui-sr">{NEW_TAB_NOTE}</span>
-										</>
-									)}
-								</a>
-							</li>
-						))}
-					</ul>
-					{col.more && (
-						<div class="fm__more">
-							{col.more.map((m) => (
-								<Link href={m.href} size="sm" tone="ink">
-									{m.label}
-								</Link>
-							))}
+					{stack.map((col) => (
+						<div class="fm__list">
+							<h2 class="fm__col-title">{col.title}</h2>
+							<ul>
+								{col.links.map((l) => (
+									<li>
+										<a href={l.href} {...ext(l.external)}>
+											{l.label}
+											{l.external && (
+												<>
+													<Icon name="tabler:arrow-up-right" class="fm__ext" aria-hidden="true" />
+													<span class="ui-sr">{NEW_TAB_NOTE}</span>
+												</>
+											)}
+										</a>
+									</li>
+								))}
+							</ul>
+							{col.more && (
+								<div class="fm__more">
+									{col.more.map((m) => (
+										<Link href={m.href} size="sm" tone="ink">
+											{m.label}
+										</Link>
+									))}
+								</div>
+							)}
 						</div>
-					)}
+					))}
 				</div>
 			))}
 		</nav>
@@ -269,13 +298,24 @@ const ext = (external?: boolean) => newTabAttrs(external);
 	</div>
 </footer>
 
+<script>
+	import { bindMailerLiteForm } from '@util/mailerlite';
+
+	// Each footer's form and its thanks (the sandbox shows several footers on one page).
+	document.querySelectorAll<HTMLFormElement>('form.fm__news').forEach((form) => {
+		const done = form.parentElement?.querySelector<HTMLElement>('.fm__news-done');
+		if (done) bindMailerLiteForm(form, done);
+	});
+</script>
+
 <style lang="scss">
 	@use '../../styles/variables' as *;
 
-	// The footer's grid, shared by the platform panel and the link columns below it: the platforms'
-	// column, and the gap between every two columns.
-	$fm-run: 256px;
+	// The footer's grid, shared by the platform panel and the link columns below it: FOUR EQUAL
+	// TRACKS (2026-10-05) — the platforms', the ecosystem's three, and under them the four link
+	// columns — and the gap between every two. `$fm-track` is one of four across the panel's inside.
 	$fm-gutter: $spacing-5;
+	$fm-track: calc((100% - 3 * #{$fm-gutter}) / 4);
 
 	// Every shade here is white at an alpha over the one ground, so the whole footer retunes from
 	// `--fm-ground`. Measured on black: 0.64 is 8.1:1, 0.5 is 5.3:1 — both clear AA for 14px type.
@@ -421,19 +461,71 @@ const ext = (external?: boolean) => newTabAttrs(external);
 		color: var(--fm-faint);
 	}
 
+	// MailerLite's refusal ("already subscribed", a blocked address), under the field.
+	.fm__news-error {
+		margin: $spacing-2 0 0;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+		color: #ff8a8a;
+	}
+
+	// The thanks, where the form was, on the panel's ground. Its row is an inner box: the helper shows
+	// the thanks with an inline `display: block !important`, which would undo a flex set here.
+	.fm__news-done {
+		padding: $spacing-4;
+		border: 1px solid var(--fm-rule);
+		border-radius: $radius-lg;
+		background: var(--fm-panel);
+
+		&:focus-visible {
+			outline: 2px solid #fff;
+			outline-offset: 2px;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.fm__news-done-in {
+		display: flex;
+		align-items: flex-start;
+		gap: $spacing-3;
+	}
+
+	.fm__news-done-icon {
+		flex: none;
+		width: 24px;
+		height: 24px;
+		color: #4ade80;
+	}
+
+	.fm__news-done-title {
+		margin: 0;
+		font-size: $font-size-base;
+		font-weight: $font-weight-bold;
+		color: #fff;
+	}
+
+	.fm__news-done-text {
+		margin: 2px 0 0;
+		font-size: $font-size-sm;
+		color: var(--fm-soft);
+	}
+
 	// ---- 2. The platform ---------------------------------------------------------------------
 
-	// The platforms' column is as wide as its longest line needs — "Deploy it inside your own
-	// network", 201px at 13px, beside the 40px mark and its 12px gap — and the ecosystem takes the
-	// rest. At 1fr/2fr the ecosystem's lines got 140px and "Dedicated MQTT broker" (142) broke; at
-	// 256, with the ecosystem's three columns 20 apart, they get 147.
+	// The platforms' column is one track, the ecosystem the other three (with their two gutters), so
+	// every tile column is as wide as every other: 213 at 1440, leaving a line 161px beside the 40px
+	// mark. The platforms' lines were cut to fit it ("Hosted and run by us", "Runs on your servers");
+	// the longest left, "Dedicated MQTT broker", is 142.
 	//
-	// ONE GRID WITH THE LINK COLUMNS (from 1024): the platforms' column and the ecosystem's three are
-	// the four link columns' tracks too (`$fm-run`, `$fm-gutter`), and the link columns stand in by
-	// the panel's padding, so each column of links starts under a column of tiles.
+	// ONE GRID WITH THE LINK COLUMNS (from 1024): the same four tracks (`$fm-track`, `$fm-gutter`),
+	// and the link columns stand in by the panel's padding, so each column of links starts under a
+	// column of tiles and is as wide as it.
 	.fm__map {
 		display: grid;
-		grid-template-columns: $fm-run minmax(0, 1fr);
+		grid-template-columns: $fm-track minmax(0, 1fr);
 		gap: $spacing-8 $fm-gutter;
 		padding: $spacing-6;
 		// A fill, no rim: the panel is one of five strokes in a footer that had too many, and the
@@ -470,10 +562,12 @@ const ext = (external?: boolean) => newTabAttrs(external);
 		display: grid;
 		gap: $spacing-1;
 
-		// Tablet: the map is one column there, so the two platforms go side by side rather than
-		// stacking over the ecosystem's grid.
+		// Tablet: the map is one column there, so the two platforms go side by side — on the
+		// ecosystem's three tracks, not across half the panel each: Cloud over Edge, ThingsBoard over
+		// IoT Gateway, the pair kept together and the grid one grid.
 		@media (min-width: $breakpoint-md) and (max-width: #{$breakpoint-lg - 1px}) {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			column-gap: $fm-gutter;
 		}
 	}
 
@@ -618,13 +712,13 @@ const ext = (external?: boolean) => newTabAttrs(external);
 
 	// ---- 3. Link columns ---------------------------------------------------------------------
 
-	// The four columns, on the platform panel's tracks from 1024 (see the panel), stood in by its
-	// padding so a column's links start under its tiles; four equal columns on a tablet (165 each at
-	// 820, over "Development services", 145), two on a phone. The inset follows the panel's padding
+	// The four columns, on the platform panel's four equal tracks (see the panel), stood in by its
+	// padding so a column's links start under its tiles; four equal columns on a tablet too (165 each
+	// at 820, over "Development services", 145), two on a phone. The inset follows the panel's padding
 	// down to the phone's 16.
 	.fm__cols {
 		display: grid;
-		grid-template-columns: $fm-run repeat(3, minmax(0, 1fr));
+		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: $spacing-8 $fm-gutter;
 		padding: $spacing-12 $spacing-6;
 
@@ -636,6 +730,11 @@ const ext = (external?: boolean) => newTabAttrs(external);
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 			padding: $spacing-10 $spacing-4;
 		}
+	}
+
+	// Two lists in one column (Services, then Customers), a row's gap apart.
+	.fm__list + .fm__list {
+		margin-top: $spacing-8;
 	}
 
 	.fm__col-title {

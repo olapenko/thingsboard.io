@@ -1,6 +1,8 @@
 ---
 import { Icon } from 'astro-icon/components';
 import NavIcon from '@components/Landing/NavIcon.astro';
+import { menuBadgeOf } from '@data/product-badges';
+import { badgesIn } from '@components/SiteMenu/menu-model';
 import type { SubMenu, SubMenuGroup } from '@data/navigation';
 import { externalLinkAttrs, isExternalHref, newTabLinkLabel } from '@util/external-links';
 
@@ -13,7 +15,7 @@ import { externalLinkAttrs, isExternalHref, newTabLinkLabel } from '@util/extern
  */
 interface Props {
 	submenu: SubMenu;
-	/** The Products section draws its marks a step larger: they are the products' logos (`iconSizeOf`). */
+	/** Products and Docs draw their marks a step larger: they are the products' logos (`iconSizeOf`). */
 	iconSize?: number;
 	/** Each link's line under its name, where the section keeps it (`describes`). */
 	describe?: boolean;
@@ -25,6 +27,8 @@ interface Props {
 }
 
 const { submenu, iconSize = 24, describe = true, omitName } = Astro.props;
+// A product's row draws its badge (Products, Docs); every other row its nav icon.
+const badgeFor = (heading: string) => (badgesIn(submenu) ? menuBadgeOf(heading) : undefined);
 const named = (name?: string) => !!name && name.toLowerCase() !== omitName?.toLowerCase();
 
 /** Widest a group lays its columns out side by side. */
@@ -36,10 +40,30 @@ const MAX_COLUMNS = 3;
  */
 const rowsOf = ({ items, perColumn }: SubMenuGroup) =>
 	Math.max(perColumn ?? items.length, Math.ceil(items.length / MAX_COLUMNS));
+
+// A logo in the repo (the homepage strip's, `/src/assets/…`) is served by its built URL; any other
+// (the case studies' CDN) as it is.
+const logoUrls = import.meta.glob<string>('/src/assets/images/landings/customer-logo/*.svg', {
+	query: '?url',
+	import: 'default',
+});
+const logoSrc = async (src: string) => (logoUrls[src] ? await logoUrls[src]() : src);
+const sections = await Promise.all(
+	submenu.groups.map(async (group) => ({
+		...group,
+		items: await Promise.all(
+			group.items.map(async (item) => ({
+				...item,
+				logo: item.logo ? await logoSrc(item.logo) : undefined,
+				badge: badgeFor(item.heading),
+			}))
+		),
+	}))
+);
 ---
 
 <div class="sm__groups" data-sm-section={submenu.id}>
-	{submenu.groups.map((group) => (
+	{sections.map((group) => (
 		<div class="sm__group">
 			{named(group.name) && <p class="sm__group-name">{group.name}</p>}
 			<ul class="sm__cols" style={`--rows: ${rowsOf(group)}`}>
@@ -51,15 +75,45 @@ const rowsOf = ({ items, perColumn }: SubMenuGroup) =>
 							aria-label={isExternalHref(item.href) ? newTabLinkLabel(item.heading, item.href) : undefined}
 							{...externalLinkAttrs(item.href)}
 						>
-							{item.icon && (
-								<span class="sm__link-icon">
-									<NavIcon src={item.icon} size={iconSize} alt="" />
+							{item.logo ? (
+								<span class="sm__link-logo">
+									{/* Lazy: the section is hidden until it opens, and then it is the only thing loading. */}
+									<img
+										src={item.logo}
+										alt={item.heading}
+										loading="lazy"
+										decoding="async"
+										style={item.logoHeight ? `--sm-logo-h: ${item.logoHeight}px` : undefined}
+									/>
 								</span>
+							) : (
+								<Fragment>
+									{item.badge ? (
+										<span class="sm__link-icon">
+											<span
+												class:list={[
+													'sm__badge',
+													`sm__badge--${item.badge.fill}`,
+													item.badge.wide && 'sm__badge--wide',
+												]}
+												style={`--badge-hue: ${item.badge.hue}; --badge-glyph: ${item.badge.size}px`}
+											>
+												<NavIcon src={item.badge.glyph} size={item.badge.size} alt="" />
+											</span>
+										</span>
+									) : (
+										item.icon && (
+											<span class="sm__link-icon">
+												<NavIcon src={item.icon} size={iconSize} alt="" />
+											</span>
+										)
+									)}
+									<span class="sm__link-text">
+										<span class="sm__link-heading">{item.heading}</span>
+										{describe && item.description && <span class="sm__link-desc">{item.description}</span>}
+									</span>
+								</Fragment>
 							)}
-							<span class="sm__link-text">
-								<span class="sm__link-heading">{item.heading}</span>
-								{describe && item.description && <span class="sm__link-desc">{item.description}</span>}
-							</span>
 						</a>
 					</li>
 				))}
