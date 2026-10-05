@@ -1,0 +1,973 @@
+---
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
+import { HARVEST_PAGES, designPage } from '@root/pages/internal/_design';
+
+/**
+ * Design system › Type: the type scale, declared and as used.
+ *
+ * Two questions this page exists to answer, side by side, because neither is answerable from the
+ * source alone:
+ *
+ *   1. WHAT THE SYSTEM SAYS. `_variables.scss` carries the `type-*` role ladder on top of a
+ *      `$font-size-*` scale, and the older semantic mixins beside it. Reading them tells you the
+ *      numbers but not the ladder — whether two roles are a step apart or the same size twice,
+ *      whether the line-heights are one ratio or four. Rendered at real size, in one column, that
+ *      reads at a glance. Each row also counts the files that `@include` it, read from `src/` as the
+ *      page renders, so the case for retiring an older mixin is a number rather than a memory.
+ *   2. WHAT A PAGE DOES. One of the redesigned pages is read live through an iframe, every rendered
+ *      combination of size, weight, line-height and family counted. A combination that matches a
+ *      declared step is on the system. One that does not is a decision somebody made in a component
+ *      and nobody can see from here.
+ *
+ * Harvested rather than listed, so it cannot go stale: change a component and reload.
+ *
+ * SMALL UI GETS ITS OWN TABLE because that is where the drift concentrates. Everything under 16px —
+ * badges, eyebrows, chips, notes, table cells — is below the sizes the older mixins were written
+ * for, so it tends to be typed as a literal.
+ *
+ * Ported from `ui-reconcile`'s `/internal/library/type/`, which read the homepage only and named a
+ * ladder the scale has since outgrown; the kit page's own Type section (a sample and a use per role)
+ * is folded into the ladder here.
+ */
+const PAGE = designPage('type');
+
+interface Role {
+	mixin: string;
+	sample: string;
+	use: string;
+}
+
+// In the order the ladder steps down. `use` paraphrases each mixin's own doc comment.
+const LADDER: Role[] = [
+	{ mixin: 'type-display', sample: 'The all-in-one IoT platform', use: 'The page’s largest, at most once: the hero' },
+	{ mixin: 'type-title', sample: 'Why ThingsBoard Cloud', use: 'Leads a band or a bookend' },
+	{ mixin: 'type-section', sample: 'Build IoT solutions faster', use: 'A section heading, and the centred statement' },
+	{ mixin: 'type-subsection', sample: 'Connect any device', use: 'A feature row heading, inside a half-column' },
+	{ mixin: 'type-card', sample: 'Choose your data region', use: 'Card, dialog and panel titles' },
+	{
+		mixin: 'type-tile-lg',
+		sample: 'Trusted by 1,500+ companies',
+		use: 'A title over a few lines: trust cards, benefit tiles',
+	},
+	{ mixin: 'type-tile', sample: 'Rule engine', use: 'A tile’s own title' },
+	{
+		mixin: 'type-lede',
+		sample: 'Tell us about your project and we will get back to you.',
+		use: 'A page intro’s lede, PageIntro only',
+	},
+	{
+		mixin: 'type-body',
+		sample: 'Route, transform and enrich telemetry with visual chains.',
+		use: 'Running copy, a section’s lede included',
+	},
+	{ mixin: 'type-link', sample: 'See supported protocols', use: 'An inline or card link' },
+	{ mixin: 'type-action', sample: 'Connectivity guide', use: 'A section’s own outgoing link' },
+	{ mixin: 'type-button', sample: 'Start for free', use: 'Button and call-to-action labels' },
+	{ mixin: 'type-small', sample: 'Data stored in the European Union', use: 'Descriptions, notes, captions' },
+	{ mixin: 'type-small-strong', sample: 'Case study', use: 'The same with emphasis: labels, active states' },
+	{ mixin: 'type-eyebrow', sample: 'ThingsBoard Cloud', use: 'An uppercase kicker over a title' },
+];
+
+// The semantic mixins the ladder is replacing, page by page. Rendered for comparison, never counted
+// as on the scale: that would score a page against the system it is being moved off.
+const OLDER = [
+	'hero-title',
+	'page-title',
+	'section-title',
+	'home-section-title',
+	'subsection-title',
+	'card-title-lg',
+	'card-title',
+	'card-title-sm',
+	'text-overlay',
+	'text-m',
+	'text-card',
+	'text-s',
+	'text-card-sm',
+	'text-xs',
+	'text-tab',
+	'text-table-header',
+	'text-table-cell',
+	'text-breadcrumb',
+	'section-badge',
+	'action-link',
+	'stat-value',
+	'heading-1',
+	'heading-2',
+	'heading-3',
+	'heading-4',
+	'heading-5',
+	'body-text',
+];
+
+/**
+ * Who `@include`s each mixin: every `.astro` and `.scss` file under `src/`, read as the page renders.
+ * The internal pages are left out, this one included — it includes every mixin to draw it.
+ */
+const SRC = join(process.cwd(), 'src');
+const INTERNAL = join(SRC, 'pages', 'internal');
+const files: string[] = [];
+const walk = (dir: string) => {
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const path = join(dir, entry.name);
+		if (entry.isDirectory()) {
+			if (path !== INTERNAL) walk(path);
+		} else if (/\.(astro|scss)$/.test(entry.name)) {
+			files.push(path);
+		}
+	}
+};
+walk(SRC);
+const sources = files.map((path) => ({ path: relative(process.cwd(), path), text: readFileSync(path, 'utf8') }));
+const usersOf = (mixin: string) => {
+	const call = new RegExp(`@include\\s+${mixin}(?![\\w-])`);
+	return sources.filter((f) => call.test(f.text)).map((f) => f.path);
+};
+const users = Object.fromEntries([...LADDER.map((r) => r.mixin), ...OLDER].map((m) => [m, usersOf(m)]));
+const filesWord = (n: number) => (n === 1 ? '1 file' : `${n} files`);
+const olderInUse = OLDER.filter((m) => users[m].length > 0).length;
+const olderFiles = new Set(OLDER.flatMap((m) => users[m])).size;
+
+const SPECIMENS = [
+	{
+		id: 'ladder',
+		group: 'The ladder — the page roles',
+		rows: LADDER.map((r) => ({ ...r, files: users[r.mixin] })),
+		scale: true,
+	},
+	{
+		id: 'older',
+		group: 'The older semantic mixins — other pages, not counted',
+		rows: OLDER.map((mixin) => ({ mixin, sample: 'Connect any IoT devices', use: '', files: users[mixin] })),
+		scale: false,
+	},
+];
+---
+
+<PlaygroundLayout title={PAGE.label} description={PAGE.blurb}>
+	<div class="ty">
+		<section class="ty__block" id="declared">
+			<header class="ty__head">
+				<h2>Declared</h2>
+				<p>
+					Every role rendered through its own mixin rather than a copy of its numbers, so this page cannot disagree with
+					the scale. The numbers are read off these rows after layout, at this window's width: the steps move below 1024
+					and 768, so resize to see a phone's.
+				</p>
+				<p>
+					<b>The ladder</b> is what the redesigned pages are built on, and only its steps count towards the on-scale
+					tally below. <b>The older mixins</b> under it stay until the pages using them are moved:
+					{olderInUse} of the {OLDER.length} are still included, by {filesWord(olderFiles)} between them.
+				</p>
+			</header>
+
+			{SPECIMENS.map((g) => (
+				<div class="ty__group" id={g.id}>
+					<h3 class="ty__group-name">{g.group}</h3>
+					<ol class="ty__list">
+						{g.rows.map((r) => (
+							<li class="ty__row" data-spec={r.mixin} data-scale={g.scale ? '' : undefined}>
+								<div class="ty__meta">
+									<code class="ty__name">{r.mixin}</code>
+									<span class="ty__nums" data-nums />
+									{r.use && <span class="ty__use">{r.use}</span>}
+									<span
+										class:list={['ty__files', r.files.length === 0 && 'ty__files--none']}
+										title={r.files.join('\n') || undefined}
+									>
+										{r.files.length ? `in ${filesWord(r.files.length)}` : 'in no file'}
+									</span>
+								</div>
+								<div class:list={['ty__sample', `m-${r.mixin}`]}>{r.sample}</div>
+							</li>
+						))}
+					</ol>
+				</div>
+			))}
+		</section>
+
+		<section class="ty__block" id="in-use">
+			<header class="ty__head">
+				<h2>In use</h2>
+				<p>
+					One redesigned page, read in the frame below — its own typography, not the internal island, the cookie notice
+					or the chat. One row per distinct combination of size, weight, line-height and family, commonest first.
+					<b data-onscale-count>—</b> of them land on a step of the ladder; the rest are numbers typed into a component.
+				</p>
+				<p>
+					The key visuals are held out and counted <a href="#visual-type">separately below</a>. They are not on this
+					scale and are not meant to be: each one sizes its type off a design unit tied to its own container, so it
+					renders at whatever fraction the container gives it.
+				</p>
+			</header>
+
+			<div class="ty__pick">
+				<label for="ty-page">Page</label>
+				<select id="ty-page" data-page-pick>
+					{HARVEST_PAGES.map((p) => (
+						<option value={p.key}>{p.label}</option>
+					))}
+				</select>
+				<a data-page-open href={HARVEST_PAGES[0].src} target="_blank" rel="noreferrer">
+					Open it
+				</a>
+				<span class="ty__status" data-status aria-live="polite"></span>
+			</div>
+
+			{/* The reconciliation list, derived rather than eyeballed: one size set at several
+				   leadings is the drift you can actually act on, because the size is already agreed and
+				   only the leading is in dispute. */}
+			<div class="ty__finding" data-leading-block hidden>
+				<h3 class="ty__group-name">One size, several line-heights</h3>
+				<ul class="ty__leading" data-leading></ul>
+			</div>
+
+			<div class="ty__cols">
+				<div>
+					<h3 class="ty__group-name">Page — every combination</h3>
+					<table class="ty__table">
+						<thead>
+							<tr>
+								<th>Size</th>
+								<th>Wt</th>
+								<th>Line</th>
+								<th>n</th>
+								<th>On scale</th>
+								<th>Example</th>
+							</tr>
+						</thead>
+						<tbody data-used-body>
+							<tr>
+								<td colspan="6" class="ty__pending">
+									Reading the page…
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div>
+					<h3 class="ty__group-name">Page — small UI, under 16px</h3>
+					<p class="ty__note">
+						Badges, eyebrows, chips, notes. The sizes the older mixins were not written for, so this is where the
+						literals collect.
+					</p>
+					<table class="ty__table">
+						<thead>
+							<tr>
+								<th>Size</th>
+								<th>Wt</th>
+								<th>Line</th>
+								<th>n</th>
+								<th>On scale</th>
+								<th>Example</th>
+							</tr>
+						</thead>
+						<tbody data-small-body>
+							<tr>
+								<td colspan="6" class="ty__pending">
+									Reading the page…
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<details class="ty__aside" id="visual-type">
+				<summary>
+					Inside the key visuals — <b data-visual-count>—</b>, off the scale by design
+				</summary>
+				<p class="ty__note">
+					Every element here inherits a <code>--*-u</code> design unit from the visual around it, which is how they are
+					told apart: the unit is <code>min(Npx, 100cqw / NATIVE)</code>, so type size is a function of container width
+					and lands on fractions no scale contains. Reconciling these means changing a visual's <code>NATIVE</code>, not
+					its CSS.
+				</p>
+				<table class="ty__table">
+					<thead>
+						<tr>
+							<th>Size</th>
+							<th>Wt</th>
+							<th>Line</th>
+							<th>n</th>
+							<th>Example</th>
+						</tr>
+					</thead>
+					<tbody data-visual-body>
+						<tr>
+							<td colspan="5" class="ty__pending">
+								Reading the page…
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</details>
+
+			{/* Rendered, never displayed. A closed `<details>` skips layout for its contents, so every
+				   `getBoundingClientRect()` inside the frame came back zero and the harvest counted nothing
+				   while the frame held a fully loaded page. Off-screen at a fixed 1200 x 900 instead, which
+				   also pins the width the numbers are measured at — otherwise every reading moved with the
+				   browser window. */}
+			<iframe
+				class="ty__probe"
+				src={HARVEST_PAGES[0].src}
+				title="The page read for its type"
+				loading="eager"
+				data-probe
+				data-pages={JSON.stringify(HARVEST_PAGES)}
+			></iframe>
+			<p class="ty__note ty__note--foot">Read at 1200 × 900.</p>
+		</section>
+	</div>
+</PlaygroundLayout>
+
+<style lang="scss">
+	@use '../../../styles/variables' as *;
+
+	.ty {
+		max-width: 1200px;
+		margin-inline: auto;
+	}
+
+	.ty__block {
+		margin-bottom: $spacing-20;
+		scroll-margin-top: 72px;
+	}
+
+	.ty__head {
+		max-width: 72ch;
+		margin-bottom: $spacing-10;
+
+		h2 {
+			@include type-section;
+
+			margin: 0 0 $spacing-2;
+		}
+
+		p {
+			@include type-body;
+
+			margin: 0 0 $spacing-2;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+			text-wrap: pretty;
+		}
+	}
+
+	.ty__group {
+		margin-bottom: $spacing-10;
+	}
+
+	.ty__group-name {
+		@include type-eyebrow;
+
+		margin: 0 0 $spacing-4;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.ty__list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		border-top: 1px solid var(--color-border, #{$color-border});
+	}
+
+	// The metrics column is fixed so the specimens all start on one left edge — the whole point is
+	// comparing them to each other, which a ragged start defeats.
+	.ty__row {
+		display: grid;
+		grid-template-columns: 260px minmax(0, 1fr);
+		gap: $spacing-6;
+		align-items: baseline;
+		padding: $spacing-4 0;
+		border-bottom: 1px solid var(--color-border, #{$color-border});
+	}
+
+	.ty__meta {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding-top: 4px;
+	}
+
+	.ty__name {
+		@include type-small-strong;
+
+		font-family: $font-family-mono;
+		color: var(--color-text, #{$color-text-primary});
+	}
+
+	.ty__nums,
+	.ty__files {
+		@include text-xs;
+
+		font-family: $font-family-mono;
+		font-weight: $font-weight-normal;
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.ty__files--none {
+		color: #a04503;
+	}
+
+	.ty__use {
+		@include type-small;
+
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.ty__sample {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.ty__pick {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-2 $spacing-4;
+		margin-bottom: $spacing-8;
+
+		label {
+			@include type-small-strong;
+		}
+
+		select {
+			@include type-small;
+
+			min-height: 36px;
+			padding: 0 $spacing-3;
+			border: 1px solid var(--color-border, #{$color-border});
+			border-radius: $radius-md;
+			background: #fff;
+			color: var(--color-text, #{$color-text-primary});
+		}
+
+		a {
+			@include type-small;
+		}
+	}
+
+	.ty__status {
+		@include type-small;
+
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.ty__cols {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+		gap: $spacing-10;
+		align-items: start;
+	}
+
+	.ty__finding {
+		margin-bottom: $spacing-10;
+		padding: $spacing-5 $spacing-6 $spacing-6;
+		border-left: 3px solid var(--color-brand, #{$color-brand});
+		background: var(--color-bg-light, #{$color-bg-light});
+	}
+
+	.ty__leading {
+		@include text-xs;
+
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-2;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		font-family: $font-family-mono;
+		font-weight: $font-weight-normal;
+		font-variant-numeric: tabular-nums;
+
+		:global(li) {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: baseline;
+			gap: $spacing-2;
+		}
+
+		:global(b) {
+			min-width: 46px;
+		}
+
+		:global(em) {
+			min-width: 96px;
+			font-style: normal;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+	}
+
+	.ty__finding :global(.ty__lead) {
+		padding: 1px 6px;
+		border: 1px solid var(--color-border, #{$color-border});
+		border-radius: $radius-sm;
+		background: var(--color-bg-white, #{$color-white});
+
+		:global(i) {
+			margin-left: 4px;
+			font-style: normal;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+	}
+
+	.ty__note {
+		@include type-small;
+
+		max-width: 52ch;
+		margin: 0 0 $spacing-4;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	.ty__table {
+		@include text-xs;
+
+		width: 100%;
+		border-collapse: collapse;
+		font-family: $font-family-mono;
+		font-weight: $font-weight-normal;
+		font-variant-numeric: tabular-nums;
+
+		th,
+		:global(td) {
+			padding: 5px 8px 5px 0;
+			text-align: left;
+			border-bottom: 1px solid var(--color-border, #{$color-border});
+			white-space: nowrap;
+		}
+
+		th {
+			font-weight: $font-weight-bold;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+
+		:global(td:last-child) {
+			white-space: normal;
+			overflow-wrap: anywhere;
+			color: var(--color-text-secondary, #{$color-text-secondary});
+		}
+	}
+
+	.ty__table :global(.ty__pending) {
+		color: var(--color-text-secondary, #{$color-text-secondary});
+	}
+
+	// Held out rather than hidden: the count is on the summary, so the size of what was excluded is
+	// visible without opening it.
+	.ty__aside {
+		margin-top: $spacing-12;
+		padding-top: $spacing-6;
+		border-top: 1px solid var(--color-border, #{$color-border});
+
+		summary {
+			@include type-small;
+
+			color: var(--color-text, #{$color-text-primary});
+			cursor: pointer;
+		}
+
+		.ty__table {
+			max-width: 620px;
+			margin-top: $spacing-4;
+		}
+
+		.ty__note {
+			max-width: 72ch;
+			margin-top: $spacing-4;
+		}
+	}
+
+	// Off-screen rather than hidden: `display: none`, `visibility: hidden` and a closed `<details>`
+	// all skip layout, and a frame whose layout is skipped measures zero for everything in it.
+	.ty__probe {
+		position: absolute;
+		left: -20000px;
+		top: 0;
+		width: 1200px;
+		height: 900px;
+		border: 0;
+	}
+
+	.ty__note--foot {
+		margin-top: $spacing-8;
+		font-family: $font-family-mono;
+	}
+
+	// --- the specimens ---------------------------------------------------------------------------
+	// Each through its own mixin, so this page cannot disagree with the scale.
+
+	.m-type-display {
+		@include type-display;
+	}
+	.m-type-title {
+		@include type-title;
+	}
+	.m-type-section {
+		@include type-section;
+	}
+	.m-type-subsection {
+		@include type-subsection;
+	}
+	.m-type-card {
+		@include type-card;
+	}
+	.m-type-tile-lg {
+		@include type-tile-lg;
+	}
+	.m-type-tile {
+		@include type-tile;
+	}
+	.m-type-lede {
+		@include type-lede;
+	}
+	.m-type-body {
+		@include type-body;
+	}
+	.m-type-link {
+		@include type-link;
+	}
+	.m-type-action {
+		@include type-action;
+	}
+	.m-type-button {
+		@include type-button;
+	}
+	.m-type-small {
+		@include type-small;
+	}
+	.m-type-small-strong {
+		@include type-small-strong;
+	}
+	.m-type-eyebrow {
+		@include type-eyebrow;
+	}
+
+	.m-hero-title {
+		@include hero-title;
+	}
+	.m-page-title {
+		@include page-title;
+	}
+	.m-section-title {
+		@include section-title;
+	}
+	.m-home-section-title {
+		@include home-section-title;
+	}
+	.m-subsection-title {
+		@include subsection-title;
+	}
+	.m-card-title-lg {
+		@include card-title-lg;
+	}
+	.m-card-title {
+		@include card-title;
+	}
+	.m-card-title-sm {
+		@include card-title-sm;
+	}
+	.m-text-overlay {
+		@include text-overlay;
+	}
+	.m-text-m {
+		@include text-m;
+	}
+	.m-text-card {
+		@include text-card;
+	}
+	.m-text-s {
+		@include text-s;
+	}
+	.m-text-card-sm {
+		@include text-card-sm;
+	}
+	.m-text-xs {
+		@include text-xs;
+	}
+	.m-text-tab {
+		@include text-tab;
+	}
+	.m-text-table-header {
+		@include text-table-header;
+	}
+	.m-text-table-cell {
+		@include text-table-cell;
+	}
+	.m-text-breadcrumb {
+		@include text-breadcrumb;
+	}
+	.m-section-badge {
+		@include section-badge;
+	}
+	.m-action-link {
+		@include action-link;
+	}
+	.m-stat-value {
+		@include stat-value;
+	}
+	.m-heading-1 {
+		@include heading-1;
+	}
+	.m-heading-2 {
+		@include heading-2;
+	}
+	.m-heading-3 {
+		@include heading-3;
+	}
+	.m-heading-4 {
+		@include heading-4;
+	}
+	.m-heading-5 {
+		@include heading-5;
+	}
+	.m-body-text {
+		@include body-text;
+	}
+
+	@include media-down(md) {
+		.ty__row {
+			grid-template-columns: minmax(0, 1fr);
+			gap: $spacing-2;
+		}
+	}
+</style>
+
+<script>
+	/**
+	 * Measure the specimens, then read the chosen page through the frame and count what it paints.
+	 *
+	 * Both halves are measured rather than parsed: computed style is the only thing that knows what
+	 * a media query, a container query and four competing selectors actually settled on.
+	 */
+	interface HarvestPage {
+		key: string;
+		label: string;
+		src: string;
+	}
+
+	const fmt = (px: string) => (px.endsWith('px') ? `${Math.round(parseFloat(px) * 100) / 100}` : px);
+
+	// --- declared -----------------------------------------------------------------------------
+	const declared = new Set<string>();
+
+	const measureDeclared = () => {
+		declared.clear();
+		document.querySelectorAll<HTMLElement>('[data-spec]').forEach((row) => {
+			const sample = row.querySelector<HTMLElement>('.ty__sample');
+			const out = row.querySelector<HTMLElement>('[data-nums]');
+			if (!sample || !out) return;
+			const cs = getComputedStyle(sample);
+			const size = fmt(cs.fontSize);
+			const line = fmt(cs.lineHeight);
+			const ratio = (parseFloat(cs.lineHeight) / parseFloat(cs.fontSize)).toFixed(2);
+			out.textContent = `${size} / ${line}  ·  ${ratio}  ·  ${cs.fontWeight}`;
+			// Only the ladder defines "on scale".
+			if (row.hasAttribute('data-scale')) declared.add(`${size}|${cs.fontWeight}|${line}`);
+		});
+	};
+	measureDeclared();
+
+	// --- as used ------------------------------------------------------------------------------
+	const frame = document.querySelector<HTMLIFrameElement>('[data-probe]')!;
+	const pages: HarvestPage[] = JSON.parse(frame.dataset.pages ?? '[]');
+	const pick = document.querySelector<HTMLSelectElement>('[data-page-pick]')!;
+	const open = document.querySelector<HTMLAnchorElement>('[data-page-open]')!;
+	const status = document.querySelector<HTMLElement>('[data-status]')!;
+
+	// Not the page: the internal island, the cookie notice, the chat.
+	const EXCLUDE = '[data-internal-nav], #cc-main, #yourgpt_root';
+
+	/**
+	 * Is this node inside a key visual?
+	 *
+	 * The test is the design unit itself. Every visual declares `--<name>-u` on its root — `--plat-u`,
+	 * `--hub-u`, `--flow-u`, `--norm-u`, `--tc-u`, `--sd-u` and the rest — and custom properties
+	 * inherit, so any descendant resolves one and nothing outside does. That beats a list of component
+	 * class names, which would need editing every time a visual is added or renamed.
+	 */
+	const inVisual = (el: Element) => Array.from(getComputedStyle(el)).some((p) => /^--[a-z0-9]+-u$/.test(p));
+
+	type Row = { size: string; weight: string; line: string; family: string; n: number; eg: string };
+
+	const esc = (s: string) => s.replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'));
+	const fam = (r: Row) => (/Ubuntu Mono/.test(r.family) ? ' mono' : /Ubuntu/.test(r.family) ? '' : ` ${r.family}`);
+	const onScale = (r: Row) => declared.has(`${r.size}|${r.weight}|${r.line}`);
+
+	/** `scale: false` drops the on-scale column — it is a question the visuals are not answering. */
+	const paint = (body: Element | null, list: Row[], scale = true) => {
+		if (!body) return;
+		const cols = scale ? 6 : 5;
+		if (!list.length) {
+			body.innerHTML = `<tr><td colspan="${cols}" class="ty__pending">Nothing here.</td></tr>`;
+			return;
+		}
+		body.innerHTML = list
+			.map((r) => {
+				const mark = scale ? `<td>${onScale(r) ? '✓' : '·'}</td>` : '';
+				return `<tr><td>${r.size}${fam(r)}</td><td>${r.weight}</td><td>${r.line}</td><td>${r.n}</td>${mark}<td>${esc(r.eg)}</td></tr>`;
+			})
+			.join('');
+	};
+
+	const pending = (text: string) => {
+		const row = (cols: number) => `<tr><td colspan="${cols}" class="ty__pending">${esc(text)}</td></tr>`;
+		document.querySelectorAll('[data-used-body], [data-small-body]').forEach((b) => (b.innerHTML = row(6)));
+		const visual = document.querySelector('[data-visual-body]');
+		if (visual) visual.innerHTML = row(5);
+		document.querySelectorAll('[data-onscale-count], [data-visual-count]').forEach((b) => (b.textContent = '—'));
+		const block = document.querySelector<HTMLElement>('[data-leading-block]');
+		if (block) block.hidden = true;
+	};
+
+	const harvest = (doc: Document) => {
+		const seen = new Map<string, Row>();
+		const seenVisual = new Map<string, Row>();
+
+		doc.querySelectorAll<HTMLElement>('.page *').forEach((el) => {
+			if (el.closest(EXCLUDE)) return;
+			// Only elements that paint text of their own — a wrapper inherits its child's numbers and
+			// would count the same decision twice.
+			const own = Array.from(el.childNodes)
+				.filter((n) => n.nodeType === 3)
+				.map((n) => n.textContent?.trim() ?? '')
+				.join(' ')
+				.trim();
+			if (!own) return;
+			const r = el.getBoundingClientRect();
+			// `> 1`, not `truthy`: the visually-hidden pattern clips to a 1px box rather than hiding the
+			// element, so screen-reader text is laid out and has a computed font size. Counted, it put
+			// text nobody will ever see set in among the page's commonest type.
+			if (r.width <= 1 || r.height <= 1) return;
+
+			const cs = getComputedStyle(el);
+			const size = fmt(cs.fontSize);
+			const line = fmt(cs.lineHeight);
+			const family = cs.fontFamily.split(',')[0].replace(/["']/g, '');
+			const key = `${size}|${cs.fontWeight}|${line}|${family}`;
+			const bucket = inVisual(el) ? seenVisual : seen;
+			const hit = bucket.get(key);
+			if (hit) {
+				hit.n += 1;
+			} else {
+				bucket.set(key, { size, weight: cs.fontWeight, line, family, n: 1, eg: own.slice(0, 34) });
+			}
+		});
+
+		const byUse = (a: Row, b: Row) => b.n - a.n || parseFloat(b.size) - parseFloat(a.size);
+		const rows = [...seen.values()].sort(byUse);
+		const visualRows = [...seenVisual.values()].sort(byUse);
+
+		paint(document.querySelector('[data-used-body]'), rows);
+		paint(
+			document.querySelector('[data-small-body]'),
+			rows.filter((r) => parseFloat(r.size) < 16)
+		);
+		paint(document.querySelector('[data-visual-body]'), visualRows, false);
+
+		const hits = rows.filter(onScale).length;
+		const tally = document.querySelector('[data-onscale-count]');
+		if (tally) tally.textContent = `${hits} of ${rows.length}`;
+
+		const vTally = document.querySelector('[data-visual-count]');
+		const vNodes = visualRows.reduce((sum, r) => sum + r.n, 0);
+		if (vTally) vTally.textContent = `${visualRows.length} combinations across ${vNodes} elements`;
+
+		// One size at several leadings. Sorted by how many leadings it carries, because that is the
+		// order they are worth settling in.
+		const leadings = new Map<string, Map<string, number>>();
+		rows.forEach((r) => {
+			const at = leadings.get(r.size) ?? new Map<string, number>();
+			at.set(r.line, (at.get(r.line) ?? 0) + r.n);
+			leadings.set(r.size, at);
+		});
+		const split = [...leadings.entries()]
+			.filter(([, at]) => at.size > 1)
+			.sort((a, b) => b[1].size - a[1].size || parseFloat(a[0]) - parseFloat(b[0]));
+
+		const list = document.querySelector('[data-leading]');
+		const block = document.querySelector<HTMLElement>('[data-leading-block]');
+		if (list && block) {
+			list.innerHTML = split
+				.map(([size, at]) => {
+					const parts = [...at.entries()]
+						.sort((a, b) => b[1] - a[1])
+						.map(([line, n]) => `<span class="ty__lead">${line}<i>×${n}</i></span>`)
+						.join('');
+					return `<li><b>${size}px</b> <em>${at.size} leadings</em> ${parts}</li>`;
+				})
+				.join('');
+			block.hidden = split.length === 0;
+		}
+		return rows.length;
+	};
+
+	/**
+	 * A fresh iframe already has a document — `about:blank`, `readyState: "complete"` — so a bare
+	 * readiness check passes instantly and harvests nothing. And after a switch, the page being left
+	 * is still complete until the next one replaces it. So readiness is asked about the document that
+	 * matters — the page asked for, complete, with the page root present — and asked repeatedly.
+	 */
+	const normal = (path: string) => path.replace(/\/?$/, '/');
+	const ready = (want: string) => {
+		const d = frame.contentDocument;
+		return (
+			!!d && d.readyState === 'complete' && normal(d.location.pathname) === normal(want) && !!d.querySelector('.page')
+		);
+	};
+
+	let run = 0;
+	let current: HarvestPage | undefined;
+	const read = (page: HarvestPage) => {
+		const mine = ++run;
+		current = page;
+		open.href = page.src;
+		pending(`Reading ${page.label}…`);
+		status.textContent = `Reading ${page.label}…`;
+		if (normal(frame.contentDocument?.location.pathname ?? '') !== normal(page.src)) frame.src = page.src;
+		const started = performance.now();
+		const poll = window.setInterval(async () => {
+			if (mine !== run) return window.clearInterval(poll);
+			if (ready(page.src)) {
+				window.clearInterval(poll);
+				await frame.contentDocument!.fonts.ready;
+				if (mine !== run) return;
+				const n = harvest(frame.contentDocument!);
+				status.textContent = `${page.label}: ${n} combinations.`;
+			} else if (performance.now() - started > 30000) {
+				// Leave the tables saying what they are waiting for, which is the honest state.
+				window.clearInterval(poll);
+				status.textContent = `${page.label} did not load. Is the dev server running?`;
+			}
+		}, 250);
+	};
+
+	// The page to read rides on the query, so a reading can be linked: `?page=cloud`.
+	const byKey = (key: string | null) => pages.find((p) => p.key === key);
+	const first = byKey(new URLSearchParams(location.search).get('page')) ?? pages[0];
+	pick.value = first.key;
+	read(first);
+
+	pick.addEventListener('change', () => {
+		const page = byKey(pick.value);
+		if (!page) return;
+		const url = new URL(location.href);
+		url.searchParams.set('page', page.key);
+		history.replaceState(null, '', url);
+		read(page);
+	});
+
+	// The ladder's steps move with the window, and with them what counts as on the scale; the page in
+	// the frame does not, so it is counted again against the new steps rather than read again.
+	let resize = 0;
+	addEventListener('resize', () => {
+		clearTimeout(resize);
+		resize = window.setTimeout(() => {
+			measureDeclared();
+			if (current && ready(current.src)) harvest(frame.contentDocument!);
+		}, 150);
+	});
+</script>

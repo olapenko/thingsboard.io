@@ -33,9 +33,9 @@ does the three in their worktrees and stops on the first conflict; `--push` push
 | 9 | Home | #18 | The redesigned homepage: FE's sections, data and visuals; main's homepage sections removed; `BaseLayout` preload variants; `ImageComparison` id. |
 
 Every page layer has landed; `handoff` is `main` plus nine linear commits. `FE-handoff` is now
-`facelift-archive`, a frozen reference; `ui-reconcile` stays frozen too, as the source of the kit page
-and the pricing drafts the sandbox has yet to take. The running orders are back (`/internal/homepages/`
-and the island's switch on every homepage). What remains on `lab`: the rest of the homepage sandbox
+`facelift-archive`, a frozen reference; `ui-reconcile` stays frozen too, as the source of the pricing
+drafts the sandbox has yet to take (its kit, Type and UI inventory pages are the Design system now).
+The running orders are back (`/internal/homepages/` and the island's switch on every homepage). What remains on `lab`: the rest of the homepage sandbox
 (each section at `/internal/sections/<id>/`, the sign-up and sign-in flows, the pricing drafts), to be
 rebuilt on this branch's `_Workbench` from the archive's `_VisualPage` / `_Variant` pages now that
 their components are on `handoff`.
@@ -45,7 +45,7 @@ their components are on `handoff`.
 | Branch | What it holds | Do |
 | --- | --- | --- |
 | `facelift-archive` | The whole facelift as it grew, 491 commits of sandbox and shipped code mixed. | Read only. Copy from it; never merge it. |
-| `ui-reconcile` | The kit's birthplace: the kit page, the pricing drafts, the reconciled pages before they were rebuilt here. | Read only until the sandbox has taken the kit page and the pricing drafts. |
+| `ui-reconcile` | The kit's birthplace: the kit page, the pricing drafts, the reconciled pages before they were rebuilt here. | Read only until the sandbox has taken the pricing drafts; the kit, Type and UI pages are taken (the Design system). |
 | `dark-mode` | A WIP on the archive's base: the Appearance row (since rebuilt), PromoBanner dark tokens, IoT Hub hero and Cookie policy dark fixes. | Port the fixes to `handoff` as a `feat/` if dark pages are revisited; then delete. |
 | `header-search` | The docs-search sandbox on the archive's base (search itself shipped via docs chrome). | Rebuild `/internal/flows/main-menu/` as a Chrome direction on `lab` if wanted; then delete. |
 
@@ -125,8 +125,17 @@ theme, the bar at the top or scrolled into its solid state, the Menu drawer clos
 cookie and chat pages draw the component in a stage window instead; the real thing, at a real
 width, is in every header and footer frame.
 
-**Design system** (`/internal/design-system/`) — the kit, live, with its numbers measured from what
-rendered.
+**Design system** (`/internal/design-system/`) — what the redesigned pages are built from, four pages
+in the order it builds up, registered in `_design.ts`. **Foundations**: the accent schemes and their
+contrast, the grounds and the focus ring, elevation, radius, spacing, icons and motion. **Type**: the
+`type-*` ladder drawn through its own mixins, the older mixins with how many files still include each
+(read from `src/` as the page renders), and one redesigned page read live in a frame against it.
+**Components**: every `ui/` component, live, then `SectionHeader` and `RegionChoice`. **Inventory**:
+every button, link, mark, label, card and image link on the redesigned pages (`HARVEST_PAGES`: the
+homepage in every order, Cloud, On-premises, Pricing, Installations, Contact us, Thank you), folded into
+variants by shape, each tagged with its component file and whether that is the kit. Every number on
+them is measured from what rendered. The kit page's address lands on Components, and its old
+`#colour`-style anchors are sent on to Foundations.
 
 **Homepages** (`/internal/homepages/`) — every running order in `data/home-compositions.ts`, side by
 side with what each changes against the reference, and each as the real homepage at
@@ -135,9 +144,10 @@ shipping one first, with its check), `[` and `]` to step between them keeping yo
 and number the sections. The homepage mounts the island at its `TEMP-INTERNAL-NAV` marker on `lab`
 only; `handoff` keeps the marker and nothing else.
 
-The other homepage areas FE-handoff had — Components (its sections), Flows (sign-up, sign-in) — and
-the Type and UI library pages are still to be rebuilt. Their old addresses land on the hub until then
-(`[...legacy].astro`).
+The other homepage areas FE-handoff had — Components (its sections), Flows (sign-up, sign-in) — are
+still to be rebuilt. Their old addresses land on the hub until then (`[...legacy].astro`), which also
+sends the old library addresses to the Design system. The ecosystem cards page (`library/cards`) was
+the homepage's ecosystem section in a gallery, so it returns with the sections if at all.
 
 ## How it is built
 
@@ -166,8 +176,12 @@ src/pages/internal/
     stage/_StageState.astro   puts a stage page in the state its query asks for
     stage/header/[variant].astro   a real page under one header variant (docs, or BaseLayout + headerVariant)
     stage/footer/[variant].astro   a real page ending in one footer (site · map · docs)
-  design-system/index.astro
-  library/kit.astro
+  _design.ts               the Design system's pages and the pages Type and Inventory read; the area reads it
+  design-system/
+    index.astro            the overview: one tile per page
+    foundations.astro · type.astro · components.astro · inventory.astro
+    _kit.scss              the specimen pages' shared sheet (frame, section, stages, captions)
+    _kit-measure.ts        the measured captions: data-m, data-var, data-ratios
   [...legacy].astro        old addresses → new
 src/layouts/PlaygroundLayout.astro   the bare shell internal pages render in (tokens, fonts, bar, island)
 ```
@@ -190,6 +204,12 @@ its own button.
 - `getStaticPaths` runs on its own, before the rest of the frontmatter: a module-level constant it
   reads is not defined yet. Keep its data inside it.
 - A route file whose name starts with `_` is not a route.
+- Astro 7's compiler (`@astrojs/compiler-rs`) writes no `data-astro-source-file` in dev, which the
+  archive's UI inventory read for `file:line`. The Inventory reads the component file from the dev
+  server's `<style data-vite-dev-id>` tags instead (scope class → file, `ui-` class → kit file): the
+  file, not the line, and only under `astro dev`.
+- TypeScript reads `el.matches('summary')` as a type guard and narrows `el` to `never` after it in an
+  `else` chain; compare `el.localName` instead.
 - Starlight 0.42 keeps its token sheet at `dist/style/props.css`; `PlaygroundLayout` imports it by
   relative path because the package does not export it.
 - A frame in a hidden tab never intersects anything: the workbench loads a tab's frames when the

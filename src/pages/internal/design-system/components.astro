@@ -16,129 +16,57 @@ import CardGrid from '@components/ui/CardGrid.astro';
 import LinkCard from '@components/ui/LinkCard.astro';
 import Band from '@components/ui/Band.astro';
 import Dialog from '@components/ui/Dialog.astro';
+import RegionChoice from '@components/Landing/RegionChoice.astro';
+import InstallOptions from '@components/Landing/InstallOptions.astro';
+import SectionHeader from '@components/Landing/SectionHeader.astro';
+import { BOOKEND_PLATFORMS } from '@data/bookends';
+import { homeCarouselItems } from '@data/homeCarousel';
+import { designHref, designPage, navGroups } from '@root/pages/internal/_design';
 
 /**
- * The kit: the foundations every `ui/` component is drawn with, then every component in every
- * variant, size and ground, rendered from the component itself. The numbers under a specimen are
- * MEASURED in the browser from what it rendered (size, padding, type, corner, lift, timing), so
- * this page cannot drift from the code: change a component and its caption changes with it.
- * Hover, press and tab through everything; the plan holds the static state grids.
+ * Design system › Components: every `ui/` component in every variant, size, scheme and ground,
+ * rendered from the component itself, then the two Landing pieces built on them that several pages
+ * share. The second half of what was the kit page; the values the components are drawn with are on
+ * Foundations, the type roles on Type, and where the pages use each piece on Inventory.
+ *
+ * The numbers under a specimen are MEASURED in the browser from what it rendered (size, padding,
+ * type, corner, lift, timing — `_kit-measure.ts`), so this page cannot drift from the code: change a
+ * component and its caption changes with it. Hover, press and tab through everything.
+ *
+ * The specimens draw on the pages' own data where a component ships with it — the use cases'
+ * grid from `data/homeCarousel`, the install chips from `data/bookends` — so they show what ships.
  */
+const PAGE = designPage('components');
 
-const NAV = [
-	{
-		group: 'Foundations',
-		items: [
-			['colour', 'Colour'],
-			['grounds', 'Grounds and focus'],
-			['elevation', 'Elevation'],
-			['radius', 'Radius'],
-			['spacing', 'Spacing'],
-			['type', 'Type'],
-			['icons', 'Icons and motion'],
-		],
-	},
-	{
-		group: 'Components',
-		items: [
-			['button', 'Button'],
-			['link', 'Link'],
-			['mark', 'Mark'],
-			['chip', 'Chip'],
-			['tabs', 'Tabs'],
-			['field', 'Field'],
-			['card', 'Card'],
-			['band', 'Band'],
-			['dialog', 'Dialog'],
-		],
-	},
-] as const;
-
-const SCHEMES = [
-	{ id: 'brand', name: 'brand', use: 'Cloud, the site' },
-	{ id: 'onprem', name: 'onprem', use: 'On-premises' },
-	{ id: 'neutral', name: 'neutral', use: 'Quiet controls, the dialog close' },
-] as const;
-const SCHEME_ROLES = [
-	{ v: '--accent-fill', name: 'fill', use: 'Primary buttons, solid marks, pressed toggles' },
-	{ v: '--accent-on-fill', name: 'on-fill', use: 'Text on the fill' },
-	{ v: '--accent-ink', name: 'ink', use: 'Links, tertiary labels, tints on light' },
-	{ v: '--accent-light', name: 'light', use: 'The same on a dark ground' },
-] as const;
-
-const ELEVATION = [
-	{ token: '--elev-tile', use: 'A card in a grid, a row in a list', where: 'Card tile and row, region rows' },
-	{ token: '--elev-tile-hover', use: 'A link tile under the pointer', where: 'Card with href, on hover' },
-	{ token: '--elev-panel', use: 'A card that stands alone', where: 'Card panel, the contact form' },
-	{ token: '--elev-dialog', use: 'The top layer', where: 'Dialog' },
-	{ token: '--elev-mark', use: 'A mark on a card or straddling one', where: 'Mark lift' },
-] as const;
-
-const RADII = [
-	{ name: '2px', box: '2px', where: 'An inline link’s focus ring' },
-	{ name: 'md · 6', box: '6px', where: 'Button, Field' },
-	{ name: 'lg · 8', box: '8px', where: 'Card tile and row, list and grid tabs, region rows' },
-	{ name: 'xl · 16', box: '16px', where: 'Card panel and ghost, Dialog' },
-	{ name: 'full', box: '100px', where: 'Chip, segmented tabs and thumb' },
-	{ name: '32%', box: '32%', where: 'Mark, at every size' },
-	{ name: '50%', box: '50%', where: 'Mark circle (region globes)' },
-] as const;
-
-const SPACING = [4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 100, 120];
-const BAND_PADS = [
-	['none', 0, 0],
-	['sm', 48, 32],
-	['md', 64, 48],
-	['lg', 80, 48],
-	['xl', 96, 64],
-] as const;
-
-const TYPE = [
-	{ mixin: 'display', sample: 'The all-in-one IoT platform', use: 'Hero headline' },
-	{ mixin: 'title', sample: 'Why ThingsBoard Cloud', use: 'Page title, product sections' },
-	{ mixin: 'section', sample: 'Build IoT solutions faster', use: 'Homepage sections' },
-	{ mixin: 'card', sample: 'Choose your data region', use: 'Card, dialog and panel titles' },
-	{ mixin: 'tile-lg', sample: 'Trusted by 1,500+ companies', use: 'Large tile titles' },
-	{ mixin: 'tile', sample: 'Rule engine', use: 'Tile titles' },
-	{ mixin: 'lede', sample: 'Tell us about your project and we will get back to you.', use: 'Page intro lede' },
-	{ mixin: 'body', sample: 'Route, transform and enrich telemetry with visual chains.', use: 'Running text' },
-	{ mixin: 'link', sample: 'See supported protocols', use: 'Link md' },
-	{ mixin: 'action', sample: 'Connectivity guide', use: 'Link lg' },
-	{ mixin: 'small', sample: 'Data stored in the European Union', use: 'Notes, card lines' },
-	{ mixin: 'small-strong', sample: 'Case study', use: 'Link sm' },
-	{ mixin: 'eyebrow', sample: 'ThingsBoard Cloud', use: 'Eyebrows, group labels' },
-] as const;
+/**
+ * `/internal/library/kit/` lands here (`[...legacy].astro`), and a redirect keeps the fragment: an
+ * old link to one of the kit's foundation sections arrives as `#colour` on a page without one. Those
+ * ids are Foundations' now, and `#type` is the Type page's whole subject, so the script below sends
+ * such a link on.
+ */
+const FOUNDATIONS = designPage('foundations');
+const MOVED: Record<string, string> = {
+	...Object.fromEntries(FOUNDATIONS.sections.map((s) => [s.id, `${designHref(FOUNDATIONS)}#${s.id}`])),
+	type: designHref(designPage('type')),
+};
 
 const SIZES = ['xs', 'sm', 'md', 'lg', 'xl'] as const;
 const LADDER = [36, 40, 48, 64, 72, 80, 88] as const;
 const PRODUCTS = ['edge', 'trendz', 'gateway', 'mobile', 'tbmq'] as const;
 const FILLS = ['solid', 'white', 'wash', 'neutral'] as const;
-const GROUNDS = [
-	{ ground: 'flat', note: 'White' },
-	{ ground: 'tint', note: '--band-tint' },
-	{ ground: 'fade', note: 'White to 10% of the hue' },
-	{ ground: 'hue', note: '22% to 6% of the hue, 150°' },
-	{ ground: 'dark', note: '--band-indigo, sets data-surface="dark"' },
-] as const;
-// Stand-ins for the homepage carousel's use cases until the Home layer brings `data/homeCarousel`.
-const USE_CASES = [
-	{ label: 'Smart energy', icon: 'tabler:bolt' },
-	{ label: 'Smart metering', icon: 'tabler:gauge' },
-	{ label: 'Fleet tracking', icon: 'tabler:truck' },
-	{ label: 'Smart farming', icon: 'tabler:plant' },
-].map((item, i) => ({ ...item, panel: `kit-grid-${i}` }));
+const USE_CASES = homeCarouselItems.map((item, i) => ({ label: item.title, icon: item.icon, panel: `kit-grid-${i}` }));
 ---
 
-<PlaygroundLayout title="Kit" description="The foundations and every ui/ component, live; the numbers are measured.">
-	<div class="kit">
-		<nav class="kit__nav" aria-label="Kit">
-			{NAV.map((g) => (
+<PlaygroundLayout title={PAGE.label} description={PAGE.blurb}>
+	<div class="kit" data-moved={JSON.stringify(MOVED)}>
+		<nav class="kit__nav" aria-label={PAGE.label}>
+			{navGroups(PAGE).map((g) => (
 				<div class="kit__nav-group">
-					<p class="kit__nav-title">{g.group}</p>
+					<p class="kit__nav-title">{g.title}</p>
 					<ul>
-						{g.items.map(([id, name]) => (
+						{g.items.map((s) => (
 							<li>
-								<a href={`#${id}`}>{name}</a>
+								<a href={`#${s.id}`}>{s.label}</a>
 							</li>
 						))}
 					</ul>
@@ -147,343 +75,7 @@ const USE_CASES = [
 		</nav>
 
 		<main class="kit__main">
-			<p class="kit__part">Foundations</p>
-
-			<!-- ── Colour ── -->
-			<section class="kit-sec" id="colour">
-				<header class="kit-sec__head">
-					<h2>Colour</h2>
-					<p>
-						An accent is four values, set on any ancestor with <code>data-accent</code>; a component's
-						<code>accent</code> prop takes a scheme or a one-off colour for itself alone. The ratios are measured.
-					</p>
-					<p class="kit-sec__src">src/styles/_theme.scss</p>
-				</header>
-				<div class="kit-schemes">
-					{SCHEMES.map((sc) => (
-						<div class="kit-scheme" data-accent={sc.id}>
-							<p class="kit-scheme__name">
-								<code>{sc.name}</code> <span>{sc.use}</span>
-							</p>
-							<ul class="kit-scheme__swatches">
-								{SCHEME_ROLES.map((r) => (
-									<li>
-										<span class="kit-swatch" style={`background: var(${r.v})`} />
-										<b>{r.name}</b>
-										<code data-var={r.v} />
-									</li>
-								))}
-							</ul>
-							<p class="kit-scheme__ratios" data-ratios />
-						</div>
-					))}
-				</div>
-				<table class="kit-table">
-					<thead>
-						<tr>
-							<th>Role</th>
-							<th>Variable</th>
-							<th>Used for</th>
-						</tr>
-					</thead>
-					<tbody>
-						{SCHEME_ROLES.map((r) => (
-							<tr>
-								<td>{r.name}</td>
-								<td>
-									<code>{r.v}</code>
-								</td>
-								<td>{r.use}</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</section>
-
-			<!-- ── Grounds and focus ── -->
-			<section class="kit-sec" id="grounds">
-				<header class="kit-sec__head">
-					<h2>Grounds and focus</h2>
-					<p>
-						<code>data-surface</code> on an ancestor says what a control sits on: a Band sets it from its ground, a Card
-						and a Dialog set <code>light</code>. It picks each component's dark look and the focus ring (2px, 3px out,
-						keyboard only). Tab through the row on each ground.
-					</p>
-					<p class="kit-sec__src">src/components/ui/Band.astro · src/styles/_surface.scss</p>
-				</header>
-				<div class="kit-grounds">
-					{GROUNDS.map((g) => (
-						<figure class="kit-ground">
-							<Band ground={g.ground} pad="sm" hue={g.ground === 'hue' || g.ground === 'fade' ? '#3d50f5' : undefined}>
-								<div class="kit-ground__row">
-									<Button size="sm">Primary</Button>
-									<Button size="sm" variant="secondary">
-										Secondary
-									</Button>
-									<Link href="#grounds" size="sm">
-										Link
-									</Link>
-								</div>
-							</Band>
-							<figcaption>
-								<b>{g.ground}</b> {g.note}
-							</figcaption>
-						</figure>
-					))}
-					<figure class="kit-ground">
-						<Band ground="dark" pad="sm">
-							<div class="kit-ground__card" data-surface="light">
-								<Button size="sm">Primary</Button>
-								<Button size="sm" variant="secondary">
-									Secondary
-								</Button>
-								<Link href="#grounds" size="sm">
-									Link
-								</Link>
-							</div>
-						</Band>
-						<figcaption>
-							<b>white box in dark</b> data-surface="light" brings the light look back
-						</figcaption>
-					</figure>
-				</div>
-				<div class="kit-rings">
-					<figure class="kit-ring">
-						<span class="kit-ring__sample" style="--r: var(--focus-ring-light)"></span>
-						<figcaption>
-							<b>On light</b> <code data-var="--focus-ring-light"></code>
-						</figcaption>
-					</figure>
-					<figure class="kit-ring kit-ring--dark">
-						<span class="kit-ring__sample" style="--r: var(--focus-ring-dark)"></span>
-						<figcaption>
-							<b>On dark</b> <code data-var="--focus-ring-dark"></code>
-						</figcaption>
-					</figure>
-				</div>
-			</section>
-
-			<!-- ── Elevation ── -->
-			<section class="kit-sec" id="elevation">
-				<header class="kit-sec__head">
-					<h2>Elevation</h2>
-					<p>
-						Five lifts, all cast in one UI ink (<code>--color-shadow-ui-rgb</code>), so a card throws the same shadow on
-						white and on a tint. Nothing else casts a shadow.
-					</p>
-					<p class="kit-sec__src">src/styles/_theme.scss</p>
-				</header>
-				<div class="kit-elev">
-					{ELEVATION.map((e) => (
-						<figure class="kit-elev__item">
-							<span class="kit-elev__box" style={`box-shadow: var(${e.token})`} />
-							<figcaption>
-								<code>{e.token}</code>
-								<span>{e.use}</span>
-								<span class="kit-muted">{e.where}</span>
-							</figcaption>
-						</figure>
-					))}
-				</div>
-				<div class="kit-elev kit-elev--tint">
-					{ELEVATION.map((e) => (
-						<figure class="kit-elev__item">
-							<span class="kit-elev__box" style={`box-shadow: var(${e.token})`} />
-							<figcaption>
-								<code>{e.token}</code> <span class="kit-muted">on the tint</span>
-							</figcaption>
-						</figure>
-					))}
-				</div>
-				<table class="kit-table">
-					<thead>
-						<tr>
-							<th>Token</th>
-							<th>Value</th>
-						</tr>
-					</thead>
-					<tbody>
-						{ELEVATION.map((e) => (
-							<tr>
-								<td>
-									<code>{e.token}</code>
-								</td>
-								<td>
-									<code class="kit-value" data-var={e.token} />
-								</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</section>
-
-			<!-- ── Radius ── -->
-			<section class="kit-sec" id="radius">
-				<header class="kit-sec__head">
-					<h2>Radius</h2>
-					<p>One corner per role. A component owns its corner; a page never sets one.</p>
-					<p class="kit-sec__src">src/styles/_variables.scss ($radius-*)</p>
-				</header>
-				<div class="kit-radii">
-					{RADII.map((r) => (
-						<figure class="kit-radius">
-							<span class="kit-radius__box" style={`border-radius: ${r.box}`} />
-							<figcaption>
-								<b>{r.name}</b>
-								<span class="kit-muted">{r.where}</span>
-							</figcaption>
-						</figure>
-					))}
-				</div>
-			</section>
-
-			<!-- ── Spacing ── -->
-			<section class="kit-sec" id="spacing">
-				<header class="kit-sec__head">
-					<h2>Spacing</h2>
-					<p>
-						The scale every gap and padding is drawn from (<code>$spacing-*</code>), and the five steps a Band pads a
-						section with, which drop a step below 750.
-					</p>
-					<p class="kit-sec__src">src/styles/_variables.scss · src/components/ui/Band.astro</p>
-				</header>
-				<div class="kit-scale">
-					{SPACING.map((n) => (
-						<div class="kit-scale__step">
-							<span class="kit-scale__bar" style={`width: ${n}px`} />
-							<code>{n}</code>
-						</div>
-					))}
-				</div>
-				<table class="kit-table">
-					<thead>
-						<tr>
-							<th>Band pad</th>
-							<th>From 750</th>
-							<th>Below 750</th>
-						</tr>
-					</thead>
-					<tbody>
-						{BAND_PADS.map(([name, wide, narrow]) => (
-							<tr>
-								<td>
-									<code>{name}</code>
-								</td>
-								<td>{wide}</td>
-								<td>{narrow}</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</section>
-
-			<!-- ── Type ── -->
-			<section class="kit-sec" id="type">
-				<header class="kit-sec__head">
-					<h2>Type</h2>
-					<p>Ubuntu, in steps, never fluid. The numbers are measured at this width; resize to see the phone steps.</p>
-					<p class="kit-sec__src">src/styles/_variables.scss (type-*)</p>
-				</header>
-				<div class="kit-type">
-					{TYPE.map((t) => (
-						<div class="kit-type__row" data-m="type" data-m-el={`.kit-t--${t.mixin}`}>
-							<p class={`kit-t--${t.mixin}`}>{t.sample}</p>
-							<p class="kit-type__meta">
-								<code>type-{t.mixin}</code>
-								<span class="kit-m" />
-								<span class="kit-muted">{t.use}</span>
-							</p>
-						</div>
-					))}
-				</div>
-			</section>
-
-			<!-- ── Icons and motion ── -->
-			<section class="kit-sec" id="icons">
-				<header class="kit-sec__head">
-					<h2>Icons and motion</h2>
-					<p>
-						Tabler glyphs, sized by the component they sit in. Motion is short and stops for anyone who asked for less (
-						<code>prefers-reduced-motion</code>).
-					</p>
-				</header>
-				<table class="kit-table">
-					<thead>
-						<tr>
-							<th>Where</th>
-							<th>Icon</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>Button xs · sm · md and lg · xl</td>
-							<td>16 · 18 · 20 · 22</td>
-						</tr>
-						<tr>
-							<td>Link chevron and arrow</td>
-							<td>1.25em of the text (18 · 20 · 22); the arrow 1em</td>
-						</tr>
-						<tr>
-							<td>Chip md · sm</td>
-							<td>20 · 16</td>
-						</tr>
-						<tr>
-							<td>Tabs list · grid · segmented</td>
-							<td>20 · 18 · 20</td>
-						</tr>
-						<tr>
-							<td>Mark</td>
-							<td>60% of the tile (its ladder)</td>
-						</tr>
-					</tbody>
-				</table>
-				<div class="kit-specs" style="--spec-h: 46px; --spec-w: 150px">
-					<figure class="kit-spec" data-m="dur">
-						<Button>Button</Button>
-						<figcaption>
-							<b>Button colour</b>
-							<span class="kit-m"></span>
-						</figcaption>
-					</figure>
-					<figure class="kit-spec" data-m="dur">
-						<Chip href="#icons">Chip</Chip>
-						<figcaption>
-							<b>Chip</b>
-							<span class="kit-m"></span>
-						</figcaption>
-					</figure>
-					<figure class="kit-spec" data-m="dur">
-						<Card href="#icons" title="Card" pad="sm" />
-						<figcaption>
-							<b>Card lift</b>
-							<span class="kit-m"></span>
-						</figcaption>
-					</figure>
-					<figure class="kit-spec" data-m="dur" data-m-el=".ui-seg__thumb">
-						<Tabs
-							label="Motion"
-							items={[
-								{ label: 'One', panel: 'kit-motion-a' },
-								{ label: 'Two', panel: 'kit-motion-b' },
-							]}
-						/>
-						<figcaption>
-							<b>Segmented thumb</b>
-							<span class="kit-m"></span>
-						</figcaption>
-					</figure>
-				</div>
-				<div class="kit-panels">
-					<TabPanel id="kit-motion-a" selected>
-						<span></span>
-					</TabPanel>
-					<TabPanel id="kit-motion-b">
-						<span></span>
-					</TabPanel>
-				</div>
-			</section>
-
-			<p class="kit__part">Components</p>
+			<p class="kit__part">The kit</p>
 
 			<!-- ── Button ── -->
 			<section class="kit-sec" id="button">
@@ -906,6 +498,8 @@ const USE_CASES = [
 							</figcaption>
 						</figure>
 					</div>
+					<p class="kit-label">In use: InstallOptions, with the wordmarks</p>
+					<InstallOptions groups={[{ title: 'On your servers', items: BOOKEND_PLATFORMS }]} />
 					<p class="kit-label">Toggle and tag</p>
 					<div class="kit-specs" style="--spec-h: 32px; --spec-w: 130px">
 						<figure class="kit-spec">
@@ -1167,10 +761,10 @@ const USE_CASES = [
 							<p class="kit-muted kit-m"></p>
 						</div>
 						<div>
-							{USE_CASES.map((item, i) => (
-								<TabPanel id={item.panel} selected={i === 0}>
+							{homeCarouselItems.map((item, i) => (
+								<TabPanel id={`kit-grid-${i}`} selected={i === 0}>
 									<p class="kit-prose">
-										<b>{item.label}</b>
+										<b>{item.title}</b>
 									</p>
 								</TabPanel>
 							))}
@@ -1313,14 +907,18 @@ const USE_CASES = [
 					<h2>Band</h2>
 					<p>
 						A section's ground, its padding step and the 960 measure; it sets <code>data-surface</code> from the ground.
-						The grounds are under Foundations; the wave is a prop.
+						The grounds are on <a href={`${designHref(FOUNDATIONS)}#grounds`}>Foundations</a>; the wave is a prop.
 					</p>
 					<p class="kit-sec__src">src/components/ui/Band.astro</p>
 				</header>
 				<div class="kit-frame">
 					<Band ground="dark" wave pad="md">
-						<h3 class="kit-band-title">A dark band with the wave</h3>
-						<p class="kit-band-lede">pad md: 64 above and below, 48 on a phone.</p>
+						<SectionHeader
+							title="A dark band with the wave"
+							subtitle="pad md: 64 above and below, 48 on a phone."
+							align="center"
+							spacing="sm"
+						/>
 						<ButtonGroup align="center">
 							<Button icon="tabler:cloud-filled">Primary</Button>
 							<Button variant="secondary">Secondary</Button>
@@ -1329,8 +927,12 @@ const USE_CASES = [
 				</div>
 				<div class="kit-frame">
 					<Band ground="fade" strength={14} wave pad="md" hue="#178649">
-						<h3 class="kit-band-title">A fade to 14%, with the wave</h3>
-						<p class="kit-band-lede">The hue is the On-premises green.</p>
+						<SectionHeader
+							title="A fade to 14%, with the wave"
+							subtitle="The hue is the On-premises green."
+							align="center"
+							spacing="none"
+						/>
 					</Band>
 				</div>
 			</section>
@@ -1363,14 +965,7 @@ const USE_CASES = [
 					lede="Your data stays in the region you choose."
 					mark={{ logo: 'thingsboard' }}
 				>
-					<CardGrid cols={2}>
-						<Card href="#dialog" title="North America">
-							<p class="kit-small">thingsboard.cloud</p>
-						</Card>
-						<Card href="#dialog" title="Europe">
-							<p class="kit-small">eu.thingsboard.cloud</p>
-						</Card>
-					</CardGrid>
+					<RegionChoice layout="card" nearest="eu" />
 					<p class="kit-small" slot="footer">
 						The rows' lift draws inside the scrolling body.
 					</p>
@@ -1397,814 +992,97 @@ const USE_CASES = [
 					</CardGrid>
 				</Dialog>
 			</section>
+
+			<p class="kit__part">Built on the kit</p>
+
+			<!-- ── Section header ── -->
+			<section class="kit-sec" id="header">
+				<header class="kit-sec__head">
+					<h2>Section header</h2>
+					<p>
+						The mark, the eyebrow, the title and the lede over a band. Two of its four title sizes (<code>display</code>{' '}
+						·<code>title</code> · <code>section</code> · <code>card</code>), at the start and centred.
+					</p>
+					<p class="kit-sec__src">src/components/Landing/SectionHeader.astro · PageIntro.astro</p>
+				</header>
+				<div class="kit-stage">
+					<div data-m="type" data-m-el=".section-header__title">
+						<SectionHeader
+							title="Build IoT solutions faster"
+							subtitle="A section on the homepage: the mark at 40, the title at type-section."
+							align="left"
+							badge={{ icon: 'tabler:sparkles', color: '#3d50f5' }}
+							spacing="none"
+						/>
+						<p class="kit-muted">
+							<b>section, start</b> <span class="kit-m"></span>
+						</p>
+					</div>
+				</div>
+				<div class="kit-stage">
+					<div data-m="type" data-m-el=".section-header__title">
+						<SectionHeader
+							title="Why ThingsBoard Cloud"
+							subtitle="Centred: the mark at 64."
+							titleSize="title"
+							align="center"
+							badge={{ icon: 'tabler:cloud', color: '#3d50f5' }}
+							spacing="none"
+						/>
+						<p class="kit-muted kit-center">
+							<b>title, centred</b> <span class="kit-m"></span>
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<!-- ── Region choice ── -->
+			<section class="kit-sec" id="regions">
+				<header class="kit-sec__head">
+					<h2>Region choice</h2>
+					<p>
+						North America or Europe, asked one way: <code>row</code> on the Installations hub, the bookends and
+						choose-region, and every row writes the region it leads to. <code>card</code> is the layout drawn for the
+						region dialog, but the site's dialog still draws its own rows (<code>Landing/CloudRegionDialog</code>), so
+						<code>card</code> renders only here.
+					</p>
+					<p class="kit-sec__src">src/components/Landing/RegionChoice.astro</p>
+				</header>
+				<div class="kit-stage kit-stage--tint">
+					<div class="kit-two">
+						<div>
+							<p class="kit-label">card, sign-up</p>
+							<RegionChoice layout="card" nearest="us" />
+						</div>
+						<div>
+							<p class="kit-label">row, sign-in</p>
+							<RegionChoice layout="row" flow="signin" />
+						</div>
+					</div>
+				</div>
+			</section>
 		</main>
 	</div>
 </PlaygroundLayout>
 
 <script>
-	// The captions are measured from what rendered, so they cannot drift from the components.
-	const px = (v: string) => String(Math.round(parseFloat(v) * 10) / 10);
+	import '@root/pages/internal/design-system/_kit-measure';
 
-	const shadowName = new Map<string, string>();
-	for (const token of ['--elev-tile', '--elev-tile-hover', '--elev-panel', '--elev-dialog', '--elev-mark']) {
-		const probe = document.createElement('div');
-		probe.style.boxShadow = `var(${token})`;
-		document.body.append(probe);
-		shadowName.set(getComputedStyle(probe).boxShadow, token.slice(2));
-		probe.remove();
-	}
-
-	const read: Record<string, (el: HTMLElement, cs: CSSStyleDeclaration) => string | null> = {
-		size: (el) => {
-			const r = el.getBoundingClientRect();
-			return `${Math.round(r.width)} × ${Math.round(r.height)}`;
-		},
-		h: (el) => `${Math.round(el.getBoundingClientRect().height)} tall`,
-		pad: (_, cs) => `pad ${px(cs.paddingTop)} ${px(cs.paddingRight)}`,
-		type: (_, cs) => {
-			const size = parseFloat(cs.fontSize);
-			const lh = cs.lineHeight === 'normal' ? '' : ` / ${Math.round((parseFloat(cs.lineHeight) / size) * 100) / 100}`;
-			return `${px(cs.fontSize)}${lh} · ${cs.fontWeight}`;
-		},
-		radius: (_, cs) => {
-			const r = cs.borderTopLeftRadius;
-			return `r ${r.endsWith('%') ? r : px(r)}`;
-		},
-		shadow: (_, cs) => (cs.boxShadow === 'none' ? 'no lift' : (shadowName.get(cs.boxShadow) ?? 'own shadow')),
-		icon: (el) => {
-			const svg = el.querySelector('svg');
-			return svg ? `icon ${Math.round(svg.getBoundingClientRect().width)}` : null;
-		},
-		dur: (_, cs) => {
-			const times = cs.transitionDuration.split(',').map((t) => Math.round(parseFloat(t) * 1000));
-			const max = Math.max(...times);
-			// The first easing of the list: split on the commas between curves, not inside one.
-			const ease = cs.transitionTimingFunction.split(/,(?![^(]*\))/)[0].trim();
-			return max ? `${max}ms ${ease}` : 'no transition';
-		},
-	};
-
-	function measure() {
-		document.querySelectorAll<HTMLElement>('[data-m]').forEach((fig) => {
-			const sel = fig.dataset.mEl;
-			const el = (sel ? fig.querySelector(sel) : fig.firstElementChild) as HTMLElement | null;
-			const out = fig.querySelector('.kit-m');
-			if (!el || !out) return;
-			const cs = getComputedStyle(el);
-			out.textContent = (fig.dataset.m ?? '')
-				.split(',')
-				.map((k) => read[k]?.(el, cs))
-				.filter(Boolean)
-				.join(' · ');
-		});
-
-		document.querySelectorAll<HTMLElement>('[data-var]').forEach((el) => {
-			el.textContent = getComputedStyle(el)
-				.getPropertyValue(el.dataset.var ?? '')
-				.trim();
-		});
-
-		// The contrast each scheme's text roles keep, against the ground each is meant for.
-		const lum = (hex: string) => {
-			let h = hex.trim().replace(/^#/, '');
-			if (/^[0-9a-f]{3}$/i.test(h)) h = [...h].map((ch) => ch + ch).join('');
-			if (!/^[0-9a-f]{6}$/i.test(h)) return null;
-			const c = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
-			const [r, g, b] = c.map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-			return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-		};
-		const ratio = (a: string, b: string) => {
-			const la = lum(a);
-			const lb = lum(b);
-			if (la === null || lb === null) return '–';
-			return `${((Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)).toFixed(1)}:1`;
-		};
-		document.querySelectorAll<HTMLElement>('[data-ratios]').forEach((el) => {
-			const cs = getComputedStyle(el);
-			const v = (name: string) => cs.getPropertyValue(name).trim();
-			const indigo = v('--band-indigo') || '#121425';
-			el.textContent = `on-fill on fill ${ratio(v('--accent-on-fill'), v('--accent-fill'))} · ink on white ${ratio(v('--accent-ink'), '#ffffff')} · light on indigo ${ratio(v('--accent-light'), indigo)}`;
-		});
-	}
-
-	measure();
+	// An old kit link to a section that moved: on to where it lives now, fragment and all.
+	const moved = JSON.parse(document.querySelector<HTMLElement>('[data-moved]')?.dataset.moved ?? '{}');
+	const to = moved[location.hash.slice(1)];
+	if (to) location.replace(to);
 
 	document.addEventListener('segmented:select', (event) => {
 		const { name, value } = (event as CustomEvent<{ name?: string; value: string }>).detail;
 		const out = document.querySelector('[data-kit-seg-out]');
 		if (out) out.textContent = `segmented:select · name "${name}" · value "${value}"`;
 	});
-
-	let t = 0;
-	addEventListener('resize', () => {
-		clearTimeout(t);
-		t = window.setTimeout(measure, 150);
-	});
 </script>
 
 <style lang="scss">
 	@use '../../../styles/variables' as *;
-
-	// Stand-ins for `SectionHeader` in the band specimens until the page layers bring FE's version.
-	.kit-band-title {
-		@include type-section;
-		margin: 0 0 8px;
-		text-align: center;
-	}
-
-	.kit-band-lede {
-		@include type-body;
-		margin: 0 0 24px;
-		text-align: center;
-		color: var(--color-text-secondary, #5b616e);
-	}
-
-	// ── Frame ──
-	.kit {
-		display: grid;
-		grid-template-columns: 184px minmax(0, 1fr);
-		gap: 56px;
-		max-width: 1280px;
-		margin: 0 auto;
-		padding: 40px 24px 160px;
-
-		@include media-down(lg) {
-			grid-template-columns: minmax(0, 1fr);
-			gap: 24px;
-			padding-inline: 16px;
-		}
-	}
-
-	.kit__nav {
-		position: sticky;
-		top: 24px;
-		align-self: start;
-		display: grid;
-		gap: 24px;
-
-		ul {
-			display: grid;
-			gap: 2px;
-			margin: 0;
-			padding: 0;
-			list-style: none;
-		}
-
-		a {
-			@include type-small;
-
-			display: block;
-			padding: 4px 10px;
-			border-radius: $radius-md;
-			color: var(--color-text-secondary);
-			text-decoration: none;
-
-			&:hover {
-				background: rgba(23, 24, 28, 0.05);
-				color: var(--color-text);
-			}
-
-			&:focus-visible {
-				outline: 2px solid var(--focus-ring);
-				outline-offset: 1px;
-			}
-		}
-
-		@include media-down(lg) {
-			position: static;
-			grid-auto-flow: column;
-			justify-content: start;
-			overflow-x: auto;
-
-			ul {
-				grid-auto-flow: column;
-			}
-
-			a {
-				white-space: nowrap;
-			}
-		}
-	}
-
-	.kit__nav-title {
-		@include type-eyebrow;
-
-		margin: 0 0 8px 10px;
-		color: var(--color-text-secondary);
-	}
-
-	// One track that may shrink below its content: an `auto` track sized itself to the widest
-	// demo and pushed the page 190px wider than a phone.
-	.kit__main {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr);
-		gap: 80px;
-	}
-
-	.kit__part {
-		@include type-eyebrow;
-
-		margin: 0 0 -48px;
-		padding-top: 12px;
-		border-top: 1px solid rgba(23, 24, 28, 0.12);
-		color: var(--color-text-secondary);
-	}
-
-	// ── Section ──
-	.kit-sec {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr);
-		gap: 16px;
-		scroll-margin-top: 24px;
-	}
-
-	.kit-sec__head {
-		display: grid;
-		gap: 8px;
-		margin-bottom: 8px;
-
-		h2 {
-			@include type-section;
-
-			margin: 0;
-		}
-
-		p {
-			@include type-body;
-
-			max-width: 72ch;
-			margin: 0;
-			color: var(--color-text-secondary);
-			text-wrap: pretty;
-		}
-	}
-
-	.kit-sec__src {
-		font-family: 'Ubuntu Mono', monospace;
-		font-size: 13px !important;
-		color: var(--color-text-secondary);
-	}
-
-	code {
-		font-family: 'Ubuntu Mono', monospace;
-		font-size: 0.92em;
-	}
-
-	// ── Stages and specimens ──
-	.kit-stage {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr);
-		gap: 20px;
-		padding: 32px;
-		border: 1px solid rgba(23, 24, 28, 0.08);
-		border-radius: 12px;
-		background: #fff;
-
-		@include media-down(md) {
-			padding: 20px 16px;
-		}
-
-		// A demo wider than a small phone (a chip with its note) scrolls in its stage, not the page.
-		@include media-down(sm) {
-			overflow-x: auto;
-		}
-	}
-
-	.kit-stage--tint {
-		border-color: transparent;
-		background: var(--band-tint);
-	}
-
-	.kit-stage--dark {
-		border-color: transparent;
-		background: var(--band-indigo);
-		color: #fff;
-	}
-
-	.kit-label {
-		@include type-eyebrow;
-
-		margin: 4px 0 -4px;
-		color: var(--color-text-secondary);
-
-		.kit-stage--dark & {
-			color: rgba(255, 255, 255, 0.6);
-		}
-	}
-
-	.kit-row {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 24px 32px;
-	}
-
-	.kit-row--end {
-		align-items: flex-end;
-	}
-
-	.kit-row--top {
-		align-items: flex-start;
-	}
-
-	.kit-col {
-		display: grid;
-		gap: 10px;
-		align-content: start;
-		max-width: 100%;
-	}
-
-	// A row of specimens on one grid: each cell's first row is as tall as the row's tallest specimen
-	// (`--spec-h`) and the specimen sits on its floor, so every specimen shares a baseline and every
-	// caption starts on one line.
-	.kit-specs {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(min(var(--spec-w, 160px), 100%), 1fr));
-		gap: 28px 24px;
-		align-items: start;
-	}
-
-	.kit-spec {
-		display: grid;
-		grid-template-rows: minmax(var(--spec-h, 0px), auto) auto;
-		align-items: end;
-		justify-items: start;
-		align-content: start;
-		gap: 10px;
-		margin: 0;
-
-		figcaption {
-			display: grid;
-			gap: 2px;
-		}
-
-		b {
-			@include type-small-strong;
-		}
-	}
-
-	.kit-spec--box,
-	.kit-spec--tint,
-	.kit-spec--hue,
-	.kit-spec--dark {
-		padding: 16px;
-		border-radius: 8px;
-	}
-
-	.kit-spec--box {
-		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.08);
-	}
-
-	// The demo tab sets' panels: they have to exist for `aria-controls`, but show nothing.
-	.kit-panels {
-		display: none;
-	}
-
-	.kit-spec--tint {
-		background: var(--band-tint);
-	}
-
-	.kit-spec--hue {
-		background: linear-gradient(150deg, color-mix(in srgb, #3d50f5 22%, #fff), color-mix(in srgb, #3d50f5 6%, #fff));
-	}
-
-	.kit-spec--dark {
-		background: var(--band-indigo);
-		color: #fff;
-	}
-
-	.kit-m,
-	.kit-muted {
-		@include type-small;
-
-		margin: 0;
-		color: var(--color-text-secondary);
-		font-variant-numeric: tabular-nums;
-
-		.kit-stage--dark &,
-		.kit-spec--dark & {
-			color: rgba(255, 255, 255, 0.64);
-		}
-	}
-
-	.kit-center {
-		text-align: center;
-	}
-
-	.kit-prose {
-		@include type-body;
-
-		margin: 0;
-	}
-
-	.kit-small {
-		@include type-small;
-
-		margin: 0;
-		color: var(--color-text-secondary);
-
-		.kit-stage--dark & {
-			color: inherit;
-			opacity: 0.8;
-		}
-	}
-
-	.kit-notes {
-		display: grid;
-		gap: 4px;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-
-		li {
-			@include type-small;
-
-			color: var(--color-text-secondary);
-		}
-
-		b {
-			color: var(--color-text);
-		}
-	}
-
-	.kit-frame {
-		overflow: hidden;
-		border-radius: 12px;
-	}
-
-	.kit-two {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 32px;
-
-		> div {
-			display: grid;
-			gap: 12px;
-			align-content: start;
-		}
-
-		@include media-down(md) {
-			grid-template-columns: minmax(0, 1fr);
-		}
-	}
-
-	.kit-table {
-		width: 100%;
-		border-collapse: collapse;
-
-		th,
-		td {
-			@include type-small;
-
-			padding: 10px 12px;
-			border-bottom: 1px solid rgba(23, 24, 28, 0.08);
-			text-align: left;
-			vertical-align: top;
-		}
-
-		th {
-			font-weight: $font-weight-medium;
-			color: var(--color-text-secondary);
-		}
-	}
-
-	.kit-value {
-		word-break: break-word;
-	}
-
-	// ── Colour ──
-	.kit-schemes {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 16px;
-
-		@include media-down(lg) {
-			grid-template-columns: minmax(0, 1fr);
-		}
-	}
-
-	.kit-scheme {
-		display: grid;
-		gap: 14px;
-		padding: 20px;
-		border: 1px solid rgba(23, 24, 28, 0.08);
-		border-radius: 12px;
-	}
-
-	.kit-scheme__name {
-		@include type-small;
-
-		margin: 0;
-		color: var(--color-text-secondary);
-
-		code {
-			@include type-small-strong;
-
-			color: var(--color-text);
-		}
-	}
-
-	.kit-scheme__swatches {
-		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 10px;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-
-		li {
-			display: grid;
-			gap: 4px;
-		}
-
-		b {
-			@include type-small-strong;
-		}
-
-		code {
-			@include type-small;
-
-			color: var(--color-text-secondary);
-		}
-	}
-
-	.kit-swatch {
-		display: block;
-		height: 48px;
-		border-radius: 8px;
-		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.08);
-	}
-
-	.kit-scheme__ratios {
-		@include type-small;
-
-		margin: 0;
-		color: var(--color-text-secondary);
-	}
-
-	// ── Grounds ──
-	.kit-grounds {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-		gap: 16px;
-	}
-
-	.kit-ground {
-		display: grid;
-		gap: 8px;
-		margin: 0;
-
-		> :global(.ui-band) {
-			overflow: hidden;
-			border-radius: 12px;
-			box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.06);
-		}
-
-		figcaption {
-			@include type-small;
-
-			color: var(--color-text-secondary);
-
-			b {
-				color: var(--color-text);
-			}
-		}
-	}
-
-	.kit-ground__row,
-	.kit-ground__card {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 12px 16px;
-	}
-
-	.kit-ground__card {
-		padding: 16px;
-		border-radius: 8px;
-		background: #fff;
-	}
-
-	.kit-rings {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 16px;
-	}
-
-	.kit-ring {
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		margin: 0;
-		padding: 20px 24px;
-		border: 1px solid rgba(23, 24, 28, 0.08);
-		border-radius: 12px;
-
-		figcaption {
-			@include type-small;
-
-			display: grid;
-			color: var(--color-text-secondary);
-
-			b {
-				color: var(--color-text);
-			}
-		}
-	}
-
-	.kit-ring--dark {
-		border-color: transparent;
-		background: var(--band-indigo);
-
-		figcaption,
-		figcaption b {
-			color: #fff;
-		}
-	}
-
-	.kit-ring__sample {
-		width: 96px;
-		height: 36px;
-		border-radius: 6px;
-		background: var(--accent-fill);
-		outline: 2px solid var(--r);
-		outline-offset: 3px;
-	}
-
-	// ── Elevation ──
-	.kit-elev {
-		display: grid;
-		grid-template-columns: repeat(5, minmax(0, 1fr));
-		gap: 24px;
-		padding: 40px 32px 32px;
-		border: 1px solid rgba(23, 24, 28, 0.08);
-		border-radius: 12px;
-		background: #fff;
-
-		@include media-down(lg) {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-
-	.kit-elev--tint {
-		border-color: transparent;
-		background: var(--band-tint);
-	}
-
-	.kit-elev__item {
-		display: grid;
-		align-content: start;
-		gap: 16px;
-		margin: 0;
-
-		figcaption {
-			@include type-small;
-
-			display: grid;
-			gap: 2px;
-		}
-	}
-
-	.kit-elev__box {
-		display: block;
-		height: 96px;
-		border-radius: 8px;
-		background: #fff;
-	}
-
-	// ── Radius ──
-	.kit-radii {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-		gap: 24px;
-	}
-
-	.kit-radius {
-		display: grid;
-		align-content: start;
-		gap: 10px;
-		margin: 0;
-
-		figcaption {
-			@include type-small;
-
-			display: grid;
-			gap: 2px;
-		}
-	}
-
-	.kit-radius__box {
-		display: block;
-		width: 96px;
-		height: 96px;
-		border: 2px solid var(--accent-fill);
-		background: color-mix(in srgb, var(--accent-fill) 8%, #fff);
-	}
-
-	// ── Spacing ──
-	.kit-scale {
-		display: grid;
-		gap: 6px;
-	}
-
-	.kit-scale__step {
-		display: grid;
-		grid-template-columns: 128px auto;
-		align-items: center;
-		gap: 16px;
-
-		code {
-			@include type-small;
-
-			color: var(--color-text-secondary);
-		}
-	}
-
-	.kit-scale__bar {
-		display: block;
-		height: 12px;
-		border-radius: 2px;
-		background: color-mix(in srgb, var(--accent-fill) 60%, #fff);
-	}
-
-	// ── Type ──
-	.kit-type {
-		display: grid;
-	}
-
-	.kit-type__row {
-		display: grid;
-		gap: 6px;
-		padding: 16px 0;
-		border-bottom: 1px solid rgba(23, 24, 28, 0.08);
-
-		> p:first-child {
-			margin: 0;
-		}
-	}
-
-	.kit-type__meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px 16px;
-		margin: 0;
-
-		code {
-			@include type-small-strong;
-		}
-	}
-
-	.kit-t--display {
-		@include type-display;
-	}
-
-	.kit-t--title {
-		@include type-title;
-	}
-
-	.kit-t--section {
-		@include type-section;
-	}
-
-	.kit-t--card {
-		@include type-card;
-	}
-
-	.kit-t--tile-lg {
-		@include type-tile-lg;
-	}
-
-	.kit-t--tile {
-		@include type-tile;
-	}
-
-	.kit-t--lede {
-		@include type-lede;
-	}
-
-	.kit-t--body {
-		@include type-body;
-	}
-
-	.kit-t--link {
-		@include type-link;
-	}
-
-	.kit-t--action {
-		@include type-action;
-	}
-
-	.kit-t--small {
-		@include type-small;
-	}
-
-	.kit-t--small-strong {
-		@include type-small-strong;
-	}
-
-	.kit-t--eyebrow {
-		@include type-eyebrow;
-	}
+	@use 'kit';
 
 	// ── Mark ──
 	// A scroller clips both axes, so it pads out far enough for the lift and pulls the stage back.

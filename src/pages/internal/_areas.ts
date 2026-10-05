@@ -1,4 +1,5 @@
 import { CHROME, chromeHref } from '@root/pages/internal/_chrome';
+import { DESIGN, designHref } from '@root/pages/internal/_design';
 import { HOME_COMPOSITIONS, compositionHref } from '@data/home-compositions';
 
 /**
@@ -9,8 +10,10 @@ import { HOME_COMPOSITIONS, compositionHref } from '@data/home-compositions';
  *   its hero and its bookend (`data/home-compositions.ts`). The shipping one is `/` itself.
  * - CHROME: the frame every page shares — header, footer, cookie notice, chat — one workbench page
  *   per part (`_chrome.ts`).
- * - DESIGN SYSTEM: what every page is built from. The kit today; Type and the UI inventory return
- *   with the pages that carry them.
+ * - DESIGN SYSTEM: what the redesigned pages are built from, one page per layer of it — Foundations
+ *   (the tokens), Type (the role ladder, and a page read live against it), Components (the `ui/`
+ *   kit, live) and Inventory (where the pages use what, harvested from them). `_design.ts` is its
+ *   registry, so a page is added there.
  *
  * The other areas the FE-handoff sandbox had for the homepage — Components (its sections) and Flows
  * (sign-up, sign-in) — are still to be rebuilt on `_Workbench`; this file is where they are added,
@@ -67,7 +70,7 @@ export const AREAS: Area[] = [
 	{
 		id: 'design',
 		label: 'Design system',
-		pages: [overview('/internal/design-system/'), { href: '/internal/library/kit/', label: 'Kit' }],
+		pages: [overview('/internal/design-system/'), ...DESIGN.map((p) => ({ href: designHref(p), label: p.label }))],
 	},
 ];
 
