@@ -5,7 +5,9 @@
 // the top of the page and, once scrolled, a shadow instead, the bar lifting off the page it covers.
 // A marketing page that opens on a hero says so with `hero`, and the bar starts transparent over it —
 // white ink over a dark hero, the page's own over a light one — until the hero is scrolled past.
-// Search is the same control on both, sized by the room (`SearchButton`).
+// Search is the same control on both, sized by the room (`SearchButton`), on every bar unless the page
+// turns it off: a page whose reader comes to choose rather than to look something up — the homepage,
+// the product pages — leaves it out, with its dialog and keys.
 //
 // There is no theme icon in either look: the theme follows the system, and its switch is the footer's.
 
@@ -17,12 +19,15 @@ export type HeaderHero = 'dark' | 'light';
 export interface HeaderConfig {
 	look: HeaderLook;
 	hero?: HeaderHero;
+	/** Site search in the bar: the control, its dialog and its keys. */
+	search: boolean;
 	cloudSignupIds: boolean;
 }
 
 export interface HeaderConfigInput {
 	look?: HeaderLook;
 	hero?: HeaderHero;
+	search?: boolean;
 	cloudSignupIds?: boolean;
 }
 
@@ -32,6 +37,7 @@ export function resolveHeaderConfig(input: HeaderConfigInput = {}): HeaderConfig
 		look,
 		// Only a marketing page has a hero to open over.
 		hero: look === 'marketing' ? input.hero : undefined,
+		search: input.search ?? true,
 		cloudSignupIds: input.cloudSignupIds ?? true,
 	};
 }
