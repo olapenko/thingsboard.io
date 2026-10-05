@@ -138,19 +138,19 @@ back (#23). Both are stacked PRs into `handoff` like the chrome layers.
 Built and on `lab` for review; not for `handoff` until the owner decides. It is one commit, so
 shipping is a PR and dropping it is a revert. (The footer draft beside it was applied on 5 Oct.)
 
-**The docs hub at `/docs/`** — `feat/docs-hub`, two commits on `cf7f87606` (proposed 5 Oct; rebuilt the same day from the docs' own pieces).
+**The docs hub at `/docs/`** — `feat/docs-hub`, three commits on `cf7f87606` (proposed 5 Oct; rebuilt the same day from the docs' own pieces).
 
 - *What it does.* `/docs/` stops being the Community Edition introduction and becomes the hub, built
-  as the other docs pages are: the hero with Getting Started and Why ThingsBoard?, four LinkCards
-  (Start here), the products by the Docs menu's own groups with the footer's badges, drawn as
+  as the other docs pages are: the hero with Getting Started and Why ThingsBoard?, the products by
+  the Docs menu's own groups with the footer's badges, drawn as
   LinkCards (`DocsHubProducts`), a quiet "Running Community Edition? Its docs ›" line under
-  ThingsBoard, and the intro's ListCards (Learn, Reference, What's new, Need help?). The Docs menu's bar becomes Getting started · Connect devices · REST API · ThingsBoard
-  CLI and **All documentation ›** (the hub).
+  ThingsBoard, and the intro's ListCards (Learn, Reference, What's new, Need help?). The Docs menu's bar becomes Getting started and **All documentation ›** (the hub); the
+  CLI leaves it. No "Start here" of first stops: the page's job is the choice.
 - *Why `/docs/` and not a new address.* It is the one Community page indexed as itself
   (`selfCanonical`, #341): old links, `/sitemap` and search already send "ThingsBoard docs" there.
   A hub at `/docs/overview/` would start with no inbound links and leave them on a retired edition.
 - *What it costs.*
-  - Code: 8 files, +274 / −47 — `components/DocsHub/DocsHubProducts.astro`, `data/docs-hub.ts`,
+  - Code: 8 files, +262 / −49 — `components/DocsHub/DocsHubProducts.astro`, `data/docs-hub.ts`,
     `docs/index.mdx` rewritten, `DocHero` (air under a simple hero with buttons), the CE sidebar's Getting Started tab and the CE-vs-PE page's link
     (both to `/docs/getting-started/`), the hub's social card (`product-meta.ts`), the Docs menu's bar.
   - Search: same URL, same self-canonical, no redirect; the title and description change
@@ -158,13 +158,13 @@ shipping is a PR and dropping it is a revert. (The footer draft beside it was ap
     that matched the Community intro. The Community intro has no address of its own afterwards;
     its content was a hand copy of the shared intro `/docs/pe/` keeps.
   - Upkeep: the products follow the Docs menu, and a name the footer's map lacks fails the build;
-    the page's other 21 links are written in `docs/index.mdx`, as other docs pages keep theirs.
+    the page's other 17 links are written in `docs/index.mdx`, as other docs pages keep theirs.
   - Not yet verified (needs a full build): the social card (`build:fast` skips OG), link check on
-    the hub's 28 links, `lint:landmarks`.
+    the hub's 24 links, `lint:landmarks`.
 - *If it ships, follow-ups.* Point the footer's Docs "Documentation ›" and the docs header's "Docs"
   wordmark (`SiteTitle`, now `/docs/pe/`) at the hub; decide whether IoT Hub's docs join the hub and
   the Docs menu (neither lists them).
-- *To drop it.* Revert the branch's two commits; `/docs/` is the Community intro again.
+- *To drop it.* Revert the branch's three commits; `/docs/` is the Community intro again.
 
 ## Running it
 
