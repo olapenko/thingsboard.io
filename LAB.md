@@ -133,12 +133,25 @@ Also on `lab` since 4 Oct, outside the chrome: `/` renders running order **C** (
 is the `ui-reconcile` draft made real, with the shipped page's calculators and licence flow grafted
 back (#23). Both are stacked PRs into `handoff` like the chrome layers.
 
-## Awaiting a ship decision
+**Chrome round 2 (`feat/menu-logos`, 5 Oct), notes for the FE review.** The menu's case studies by
+logo (`customer-logo/`, Super Bock's made from its study's artwork), 25 menu icons re-cropped to their
+ink (sprite regenerated), the products' badges in Products and Docs (`data/product-badges`, a new
+32 step in `ui/Mark`; the menu repeats Mark's dark wash values for the dark theme and the over-hero
+panel — `badges-on-dark` — because those grounds carry no `data-surface`), the map on four equal
+tracks, the footer newsletter on upstream's `bindMailerLiteForm` (#710) with its thanks and error,
+the docs footer's "Get help", the phone promo bar. **CRM work, outside this repo:** the contact form's
+`devices` field (new with the redesign) reaches Formspree but has no CRM field yet — marked in
+`ContactForm.astro`.
 
-Built and on `lab` for review; not for `handoff` until the owner decides. It is one commit, so
-shipping is a PR and dropping it is a revert. (The footer draft beside it was applied on 5 Oct.)
+## Parked: not shipping, kept to look up
 
-**The docs hub at `/docs/`** — `feat/docs-hub`, three commits on `cf7f87606` (proposed 5 Oct; rebuilt the same day from the docs' own pieces).
+**The docs hub at `/docs/`** — NOT SHIPPING (owner, 5 Oct). Kept on branch `feat/docs-hub` (4 commits on
+`feat/menu-logos`) and merged into `lab`, so `/docs/` on lab shows it; `handoff` keeps the Community
+Edition introduction there. The chrome layer's commit message names the branch. To pick it up: rebase
+`feat/docs-hub` onto `handoff` (its only shared file with the chrome is `data/menu-featured.ts`, the
+Docs bar), then open it as its own PR. Known gap if it ships: in the docs' dark theme its wash badges
+need the menu's dark values (`badges-on-dark` in `SiteMenu.astro`), since docs pages set no
+`data-surface`.
 
 - *What it does.* `/docs/` stops being the Community Edition introduction and becomes the hub, built
   as the other docs pages are: the hero with Getting Started and Why ThingsBoard?, the products by
@@ -164,7 +177,6 @@ shipping is a PR and dropping it is a revert. (The footer draft beside it was ap
 - *If it ships, follow-ups.* Point the footer's Docs "Documentation ›" and the docs header's "Docs"
   wordmark (`SiteTitle`, now `/docs/pe/`) at the hub; decide whether IoT Hub's docs join the hub and
   the Docs menu (neither lists them).
-- *To drop it.* Revert the branch's three commits; `/docs/` is the Community intro again.
 
 ## Running it
 
