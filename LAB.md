@@ -133,6 +133,44 @@ Also on `lab` since 4 Oct, outside the chrome: `/` renders running order **C** (
 is the `ui-reconcile` draft made real, with the shipped page's calculators and licence flow grafted
 back (#23). Both are stacked PRs into `handoff` like the chrome layers.
 
+## Awaiting a ship decision
+
+Built and on `lab` for review; not for `handoff` until the owner decides. Each is one commit, so
+shipping is a PR and dropping it is a revert.
+
+**The docs hub at `/docs/`** — `feat/docs-hub`, commit `39b32cf70` (proposed 5 Oct).
+
+- *What it does.* `/docs/` stops being the Community Edition introduction and becomes the hub: four
+  first stops, the products by the Docs menu's own groups with the footer's badges, a quiet
+  "Running Community Edition? Its docs ›" line under ThingsBoard, and Reference / What's new / Need
+  help lists. The Docs menu's bar becomes Getting started · Connect devices · REST API · ThingsBoard
+  CLI and **All documentation ›** (the hub).
+- *Why `/docs/` and not a new address.* It is the one Community page indexed as itself
+  (`selfCanonical`, #341): old links, `/sitemap` and search already send "ThingsBoard docs" there.
+  A hub at `/docs/overview/` would start with no inbound links and leave them on a retired edition.
+- *What it costs.*
+  - Code: 7 files, +449 / −61 — `components/DocsHub/DocsHub.astro`, `data/docs-hub.ts`,
+    `docs/index.mdx` rewritten, the CE sidebar's Getting Started tab and the CE-vs-PE page's link
+    (both to `/docs/getting-started/`), the hub's social card (`product-meta.ts`), the Docs menu's bar.
+  - Search: same URL, same self-canonical, no redirect; the title and description change
+    ("Introduction" → "ThingsBoard documentation"), so expect a re-crawl and some churn on queries
+    that matched the Community intro. The Community intro has no address of its own afterwards;
+    its content was a hand copy of the shared intro `/docs/pe/` keeps.
+  - Upkeep: the products follow the Docs menu, and a name the footer's map lacks fails the build;
+    the 4 first stops and 11 list links are hand-kept in `data/docs-hub.ts`.
+  - Not yet verified (needs a full build): the social card (`build:fast` skips OG), link check on
+    the hub's 22 links, `lint:landmarks`.
+- *If it ships, follow-ups.* Point the footer's Docs "Documentation ›" and the docs header's "Docs"
+  wordmark (`SiteTitle`, now `/docs/pe/`) at the hub; decide whether IoT Hub's docs join the hub and
+  the Docs menu (neither lists them).
+- *To drop it.* Revert `39b32cf70`; `/docs/` is the Community intro again.
+
+**The footer draft** — on `feat/menu-logos`, commit `1439447cd` (5 Oct): six use cases, Customers
+(Case studies, Clients feedback) as a second list under Services, GitHub in Docs as well as on the
+Follow line, Contact us as Company's arrowed last word. Its cost is the rule it bends: Customers files
+two pages the menu keeps under Solutions and Company (one name, one home). To drop it:
+`git revert 1439447cd` restores the four balanced columns (5 / 3 / 5 / 6).
+
 ## Running it
 
 ```bash
