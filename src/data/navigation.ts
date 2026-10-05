@@ -29,6 +29,12 @@ export interface SubMenuGroup {
 	 */
 	perColumn?: number;
 	items: SubMenuItem[];
+	/**
+	 * The group's last word, under its list in the accent: its index ("All use cases") or its next
+	 * step ("Talk to an expert"). A section's bar of promotions (`data/menu-featured`) is for several
+	 * ways on that are not its lists; a single one belongs here, at the end of the list it follows.
+	 */
+	more?: { label: string; href: string };
 }
 
 export interface SubMenu {
@@ -154,6 +160,7 @@ export const servicesSubmenu: SubMenu = {
 					description: 'ThingsBoard education courses',
 				},
 			],
+			more: { label: 'Talk to an expert', href: '/contact-us/' },
 		},
 	],
 };
@@ -161,8 +168,8 @@ export const servicesSubmenu: SubMenu = {
 // Solutions submenu: ten of the use cases (the three that narrow another one — irrigation under
 // farming, water metering under metering, air quality under environment monitoring — are one click
 // away under "All use cases"), SCADA, and five case studies, the ones a visitor knows by name: the
-// catalogue's featured Schwarz Group, then names the homepage's logo strip carries. "All use cases"
-// and "All case studies" close it (`data/menu-featured`).
+// catalogue's featured Schwarz Group, then names the homepage's logo strip carries. Each list closes
+// on its own index, "All use cases" and "All case studies"; the section has no bar under it.
 export const solutionsSubmenu: SubMenu = {
 	id: 'nav-solutions',
 	className: 'cases',
@@ -233,6 +240,7 @@ export const solutionsSubmenu: SubMenu = {
 					description: 'Fuel tank location & level monitoring',
 				},
 			],
+			more: { label: 'All use cases', href: '/use-cases/' },
 		},
 		{
 			name: 'SCADA',
@@ -268,6 +276,7 @@ export const solutionsSubmenu: SubMenu = {
 				{ href: '/case-studies/super-bock/', heading: 'Super Bock' },
 				{ href: '/case-studies/circutor/', heading: 'Circutor' },
 			],
+			more: { label: 'All case studies', href: '/case-studies/' },
 		},
 	],
 };
