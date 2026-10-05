@@ -1,10 +1,10 @@
 ---
 import { Icon } from 'astro-icon/components';
 import CookieBanner from '@root/pages/internal/_before/CookieBanner.astro';
-import CookieNotice from '@components/CookieNotice.astro';
+import CookieConsent from '@components/CookieConsent.astro';
 
 /**
- * A window's worth of page with the cookie notice where it lands: pinned to the foot of the screen,
+ * A window's worth of page with the consent bar where it lands: pinned to the foot of the screen,
  * over whatever is there. The stage is the window — it CONTAINS fixed positioning (`contain:
  * layout`), so the real component, `position: fixed` and all, pins to the stage's bottom edge rather
  * than the sandbox's. 720px tall on desktop; 640 in the phone frame, a 375x812 phone less its
@@ -17,14 +17,17 @@ import CookieNotice from '@components/CookieNotice.astro';
  *
  * The chat launcher is drawn too, at its real size and inset (50px, 20px from the corner, measured
  * off the live widget), because it is above the notice on every page and the notice has to leave it
- * room. `shipped` renders the banner in use instead of the candidate, kept from writing its cookie.
+ * room. The bar is `CookieConsent` in its demo mode — shown on every load, its choices kept to the
+ * page, so trying it never dismisses the real bar on the rest of this dev site. `before` renders the
+ * banner it replaced (`_before/CookieBanner`) instead, kept from writing its cookie by the script.
  */
 interface Props {
-	notice?: Parameters<typeof CookieNotice>[0];
-	shipped?: boolean;
+	/** The instance's id: two on one page need their own. */
+	id?: string;
+	before?: boolean;
 }
 
-const { notice = {}, shipped = false } = Astro.props;
+const { id = 'cookie-consent-stage', before = false } = Astro.props;
 ---
 
 <div class="cs" data-cs>
@@ -96,7 +99,7 @@ const { notice = {}, shipped = false } = Astro.props;
 		<Icon name="tabler:message-chatbot" />
 	</span>
 
-	{shipped ? <CookieBanner /> : <CookieNotice {...notice} demo />}
+	{before ? <CookieBanner /> : <CookieConsent demo id={id} />}
 </div>
 
 <script>
@@ -125,9 +128,10 @@ const { notice = {}, shipped = false } = Astro.props;
 			.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.csPick === ground)));
 	};
 
-	/** The banner in use reads the real cookie; here it shows regardless, like the candidates. */
+	/** Every bar on the page shows again: the consent bar's demo, and the old banner regardless of its cookie. */
 	const showAll = () => {
-		document.querySelectorAll<HTMLElement>('[data-cs] [data-cn]').forEach((el) => {
+		document.querySelectorAll<HTMLElement>('[data-cs] .cc__bar').forEach((el) => {
+			el.removeAttribute('data-cc-leaving');
 			el.hidden = false;
 		});
 		document.querySelectorAll<HTMLElement>('[data-cs] #cookie-banner').forEach((el) => {
@@ -139,8 +143,8 @@ const { notice = {}, shipped = false } = Astro.props;
 	apply(read());
 	showAll();
 
-	// The banner in use writes `cookie-notice-dismissed` on Accept, which would hide it on every
-	// other page of this dev site. Caught on the way down, before its own handler sees the click.
+	// The old banner writes `cookie-notice-dismissed` on Accept, which would hide it on every other
+	// page of this dev site. Caught on the way down, before its own handler sees the click.
 	document.querySelectorAll<HTMLElement>('[data-cs]').forEach((stage) =>
 		stage.addEventListener(
 			'click',
@@ -486,17 +490,13 @@ const { notice = {}, shipped = false } = Astro.props;
 		gap: 10px;
 	}
 
-	// The notice starts where the docs page does, past the sidebar — `CookieNotice`'s own rule keys
-	// off `html[data-has-sidebar]`, which this sandbox page does not set, so it is restated here.
+	// The bar starts where the docs page does, past the sidebar — `CookieConsent`'s own rule keys off
+	// `html[data-has-sidebar]`, which this sandbox page does not set, so it is restated here.
 	@media (min-width: 72rem) {
 		:global(:root[data-cs-ground='docs']) .cs {
-			:global(.cn[data-layout='bar']),
+			:global(.cc__bar),
 			:global(#cookie-banner) {
 				left: var(--sl-sidebar-width, 18.75rem);
-			}
-
-			:global(.cn[data-layout='card']) {
-				left: calc(var(--sl-sidebar-width, 18.75rem) + #{$spacing-6});
 			}
 		}
 	}

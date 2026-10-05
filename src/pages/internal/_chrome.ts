@@ -35,14 +35,15 @@ export const CHROME: ChromePart[] = [
 		label: 'Footer',
 		blurb: 'The footer that maps the platform, the one the older pages keep, and the docs footer.',
 		icon: 'tabler:layout-bottombar',
-		source: 'Landing/FooterMap · Landing/Footer · starlight/DocFooter',
+		source: 'SiteFooter (map · docs) · Landing/Footer',
 	},
 	{
 		id: 'cookie-notice',
-		label: 'Cookie notice',
-		blurb: 'The notice at the foot of every page, over the homepage and over a docs page, and what it replaced.',
+		label: 'Cookie consent',
+		blurb:
+			'The consent bar at the foot of every page and its preferences, over the homepage and a docs page, and what it replaced.',
 		icon: 'tabler:cookie',
-		source: 'CookieNotice',
+		source: 'CookieConsent',
 	},
 	{
 		id: 'chat',
