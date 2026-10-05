@@ -2,38 +2,29 @@ import { caseStudyBySlug } from '@data/case-studies';
 import { allFeedbackEntries } from '@data/clients-feedback';
 
 /**
- * WHAT THE CUSTOMERS SECTION SHOWS besides its two links: three stories from the case studies, each
- * with one figure from its own page, and one line of a customer's feedback. The figures and the
- * author are read from the pages' data, so a page edit reaches the menu; the one-line titles are
- * written here, since a case study's own heading runs to twenty words.
+ * WHAT THE CUSTOMERS SECTION SHOWS besides its two links: three case studies as value cards — one
+ * figure from the study's own page, three words for what it counts, and whose it is — and one line
+ * of a customer's feedback. The figures and the author are read from the pages' data, so a page
+ * edit reaches the menu; the labels are written here, because the pages' own run to seven words and
+ * a card says one thing.
  */
-const STORIES: { slug: string; company: string; line: string; stat: number }[] = [
-	{ slug: 'ibt-systems', company: 'IBT Systems', line: 'Precision livestock research across eight centres', stat: 2 },
-	{ slug: 'ariot', company: 'Medline Adana Hospital', line: 'A hospital cold chain, fully digitised', stat: 1 },
-	{ slug: 'wiifor', company: 'Wiifor', line: 'Five hundred sites deployed in two years', stat: 0 },
+const STORIES: { slug: string; company: string; stat: number; label: string }[] = [
+	{ slug: 'ibt-systems', company: 'IBT Systems', stat: 2, label: 'data points a day' },
+	{ slug: 'ariot', company: 'Medline Adana Hospital', stat: 1, label: 'of the cold chain digital' },
+	{ slug: 'wiifor', company: 'Wiifor', stat: 0, label: 'devices connected' },
 ];
 
 export interface MenuStory {
 	href: string;
 	company: string;
-	line: string;
-	category: string;
-	stat?: { value: string; label: string };
+	value: string;
+	label: string;
 }
 
-const titleCase = (s: string) => s.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
-
-export const MENU_STORIES: MenuStory[] = STORIES.map(({ slug, company, line, stat }) => {
-	const d = caseStudyBySlug[slug];
-	if (!d) throw new Error(`[menu-customers] no case study "${slug}"`);
-	const s = d.statistics?.[stat];
-	return {
-		href: `/case-studies/${slug}/`,
-		company,
-		line,
-		category: titleCase(d.hero.category),
-		stat: s ? { value: `${s.prefix ?? ''}${s.value}${s.suffix ?? ''}`, label: s.label } : undefined,
-	};
+export const MENU_STORIES: MenuStory[] = STORIES.map(({ slug, company, stat, label }) => {
+	const s = caseStudyBySlug[slug]?.statistics?.[stat];
+	if (!s) throw new Error(`[menu-customers] no figure ${stat} on the case study "${slug}"`);
+	return { href: `/case-studies/${slug}/`, company, value: `${s.prefix ?? ''}${s.value}${s.suffix ?? ''}`, label };
 });
 
 const circutor = allFeedbackEntries.find((e) => e.id === 'circutor');
