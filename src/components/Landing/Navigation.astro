@@ -1,17 +1,7 @@
 ---
 import { mainNavItems, allSubmenus, type SubMenu, type SubMenuItem } from '@data/navigation';
 import SubMenuLink from '@components/Landing/SubMenuLink.astro';
-import ThemeChoice from '@components/ThemeChoice.astro';
-
-interface Props {
-	/**
-	 * The Appearance switch as the drawer's last row: on docs, whose bar has no theme icon. Drawer
-	 * only — at 1281 and up there is no drawer, and the docs footer carries it.
-	 */
-	appearance?: boolean;
-}
-
-const { appearance = false } = Astro.props;
+import { Icon } from 'astro-icon/components';
 
 /** Widest the Products / Docs dropdowns lay out side by side; `.group` is a nowrap flex row. */
 const MAX_SUBMENU_COLUMNS = 3;
@@ -54,31 +44,28 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 
 <nav class="head-menu print:hidden">
 	<ul>
-		{
-			mainNavItems.map((item) => (
-				<li
-					class={`nav-${item.submenuId?.replace('nav-', '') || item.label.toLowerCase().replace(' ', '-')}`}
-					data-submenu-id={item.submenuId}
-				>
-					{item.href ? (
-						<a class:list={['main-menu-link', item.linkClass]} id={item.id} href={item.href}>
-							{item.label}
-						</a>
-					) : (
-						<span class="main-menu-link">{item.label}</span>
-					)}
-				</li>
-			))
-		}
+		{mainNavItems.map((item) => (
+			<li
+				class={`nav-${item.submenuId?.replace('nav-', '') || item.label.toLowerCase().replace(' ', '-')}`}
+				data-submenu-id={item.submenuId}
+			>
+				{item.href ? (
+					<a class:list={['main-menu-link', item.linkClass]} id={item.id} href={item.href}>
+						{item.label}
+						{/* Keyed off `submenuId`, not off which element renders: "Use Cases" is an <a> that
+							    ALSO expands and "Docs" is a <span> that expands, so the tag says nothing about
+							    it. Decorative — the drawer's expanded state is already the submenu appearing. */}
+						{item.submenuId && <Icon name="tabler:chevron-down" class="main-menu-chevron" aria-hidden="true" />}
+					</a>
+				) : (
+					<span class="main-menu-link">
+						{item.label}
+						{item.submenuId && <Icon name="tabler:chevron-down" class="main-menu-chevron" aria-hidden="true" />}
+					</span>
+				)}
+			</li>
+		))}
 	</ul>
-
-	{
-		appearance && (
-			<div class="head-menu__appearance">
-				<ThemeChoice />
-			</div>
-		)
-	}
 
 	<div class="indicator">
 		<div class="head-arrow"></div>
@@ -86,33 +73,33 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 	</div>
 
 	<div class="sub-menu-container">
-		{
-			allSubmenus.map((submenu: SubMenu) => (
-				<div id={submenu.id} class="centered-sub">
-					<ul class={`sub-menu ${submenu.className}`}>
-						<li class="sub-groups">
-							{submenu.groups.map((group) => (
-								<div class="group">
-									{/* One shape for every submenu: columns from `perColumn`, heading from
+		{allSubmenus.map((submenu: SubMenu) => (
+			<div id={submenu.id} class="centered-sub">
+				<ul class={`sub-menu ${submenu.className}`}>
+					<li class="sub-groups">
+						{submenu.groups.map((group) => (
+							<div class="group">
+								{/* One shape for every submenu: columns from `perColumn`, heading from
 									    `group.name`. Spacer headings in later columns hold NBSP purely to reserve
 									    the heading's height, so they are hidden from assistive tech. */}
-									{toColumns(group.items, group.perColumn ?? group.items.length).map((columnItems, columnIndex) => (
-										<div class="column">
-											{group.name && (
-												<p class="group-name" aria-hidden={columnIndex > 0 ? 'true' : undefined}>{columnIndex > 0 ? NBSP : group.name}</p>
-											)}
-											{columnItems.map((item: SubMenuItem) => (
-												<SubMenuLink item={item} iconSize={submenu.className === 'products' ? 32 : undefined} />
-											))}
-										</div>
-									))}
-								</div>
-							))}
-						</li>
-					</ul>
-				</div>
-			))
-		}
+								{toColumns(group.items, group.perColumn ?? group.items.length).map((columnItems, columnIndex) => (
+									<div class="column">
+										{group.name && (
+											<p class="group-name" aria-hidden={columnIndex > 0 ? 'true' : undefined}>
+												{columnIndex > 0 ? NBSP : group.name}
+											</p>
+										)}
+										{columnItems.map((item: SubMenuItem) => (
+											<SubMenuLink item={item} iconSize={submenu.className === 'products' ? 32 : undefined} />
+										))}
+									</div>
+								))}
+							</div>
+						))}
+					</li>
+				</ul>
+			</div>
+		))}
 	</div>
 </nav>
 
@@ -351,21 +338,6 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 <style lang="scss" is:global>
 	@use '../../styles/variables' as *;
 
-	// The Appearance row (docs): the drawer's last, under the links and a rule, and only in the
-	// drawer. At 1281 and up the nav is the bar's own row; the docs footer carries it there.
-	.head-menu__appearance {
-		display: none;
-	}
-
-	@media screen and (max-width: 1280px) {
-		header.header.opened-burger .head-menu__appearance {
-			display: block;
-			margin-top: 8px;
-			padding: 20px 0 28px;
-			border-top: 1px solid var(--color-border);
-		}
-	}
-
 	.head-menu {
 		height: inherit;
 		position: relative;
@@ -374,7 +346,8 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 
 		.sub-menu-container {
 			position: absolute;
-			top: $header-height + 4px;
+			// Follows the bar's own height token rather than the constant.
+			top: calc(var(--home-header-h, #{$header-height}) + 4px);
 			left: 0;
 			transition:
 				visibility,
@@ -481,6 +454,8 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 									color: var(--color-primary);
 									font-size: 14px;
 									line-height: normal;
+									// Caps at 14px set tight: opened up, the label reads as a label rather than as shouting.
+									letter-spacing: 0.08em;
 								}
 							}
 						}
@@ -508,12 +483,14 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 							color: var(--brand-pe);
 						}
 
+						&.com-lnk:hover .sub-text span.item-heading,
 						&.mobile-lnk:hover .sub-text span.item-heading {
-							color: var(--brand-mobile);
+							color: var(--brand-ce);
 						}
 
+						// Edge and Trendz take their text shades: their icon hues fall under AA as type.
 						&.edge-lnk:hover .sub-text span.item-heading {
-							color: var(--brand-edge);
+							color: var(--brand-edge-text, var(--brand-edge));
 						}
 
 						&.gateway-lnk:hover .sub-text span.item-heading {
@@ -521,7 +498,7 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 						}
 
 						&.trendz-lnk:hover .sub-text span.item-heading {
-							color: var(--brand-trendz);
+							color: var(--brand-trendz-text, var(--brand-trendz));
 						}
 
 						&:last-child {
@@ -561,16 +538,19 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 
 						// Per-product icon hues. `--brand-*` tokens switch per theme
 						// (see _theme.scss), so no dark-mode override is needed.
+						&.com-lnk svg.nav-icon,
+						&.mobile-lnk svg.nav-icon {
+							color: var(--brand-ce);
+						}
+						// The two platforms wear the Products section's badges (the mark knocked out of a filled
+						// squircle), so they take that section's fills: the product indigo for Cloud, PE green below.
 						&.cloud-lnk svg.nav-icon {
-							color: var(--brand-cloud);
+							color: var(--color-product-cloud, var(--brand-cloud));
 						}
 						&.prof-lnk svg.nav-icon,
 						&.mobile-pe-lnk svg.nav-icon,
 						&.mqtt-broker-lnk svg.nav-icon {
 							color: var(--brand-pe);
-						}
-						&.mobile-lnk svg.nav-icon {
-							color: var(--brand-mobile);
 						}
 						&.edge-lnk svg.nav-icon {
 							color: var(--brand-edge);
@@ -615,8 +595,23 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 					text-align: center;
 				}
 
-				&:hover a {
+				// Both forms highlight from the same trigger, the whole li: dropdown parents stayed dark over
+				// the li's padding while plain links beside them lit, so the row responded unevenly.
+				&:hover a,
+				&:hover span.main-menu-link {
 					color: var(--color-primary);
+				}
+
+				// An item with a page of its own (Use Cases, IoT Hub, Pricing) underlines on hover, the way
+				// a link says it goes somewhere; a label that only opens a dropdown does not, since clicking
+				// it goes nowhere. `a[href]` is exactly that split: the labels render as spans. Pointer
+				// devices only — a tap would leave it stuck on.
+				@media (hover: hover) {
+					&:hover > a.main-menu-link[href] {
+						text-decoration: underline;
+						text-decoration-thickness: 1px;
+						text-underline-offset: 5px;
+					}
 				}
 			}
 
@@ -627,6 +622,14 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 				font-size: 1rem;
 				font-weight: normal;
 				text-decoration: none;
+			}
+
+			// `currentColor`, so one rule serves the white bar over a hero and the light bars alike.
+			a:focus-visible,
+			span.main-menu-link:focus-visible {
+				outline: 2px solid currentColor;
+				outline-offset: 3px;
+				border-radius: 2px;
 			}
 
 			a:not([href]),
@@ -709,7 +712,7 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 				transition-duration: 0.6s;
 				z-index: 2;
 				.sub-menu {
-					top: $header-height;
+					top: var(--home-header-h, #{$header-height});
 					transition-delay: 0s;
 				}
 			}
@@ -739,7 +742,9 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 					overflow-y: auto;
 					flex: 1;
 					min-height: 0;
-					padding: 16px 20px 0;
+					// No horizontal padding: the drawer column already insets this nav to 20px, the bar's own
+					// edge; a second 20px here put every row at 40 while the bar above stayed at 20.
+					padding: 16px 0 0;
 
 					// Hide the inner-drawer scrollbar — the drawer is already
 					// the only scrollable region on the page when the burger
@@ -821,19 +826,72 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 									width: 100%;
 									flex-wrap: wrap;
 
+									// THE SECTIONS SIT SIDE BY SIDE where two fit; each one's items stay in a single file under
+									// its own heading. Only these two: Products and Use Cases have two sections each; a lone
+									// section in a two-column grid is a narrow column with a hole beside it.
+									&.products,
+									&.cases {
+										.sub-groups {
+											display: grid;
+											// `auto-fit` with a 200px floor lets the drawer decide: a phone panel (~319px) keeps the
+											// sections stacked, a tablet drawer sits them side by side. Forcing two at every width
+											// clipped the labels into the section beside them.
+											grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+											column-gap: 12px;
+											row-gap: 28px;
+											// Different lengths (Use Cases pairs 13 items with 3): each starts at its column's top.
+											align-items: start;
+										}
+
+										// A grid item will not go below its content's min-width unless told to.
+										.group {
+											min-width: 0;
+										}
+
+										// The descriptions carry the desktop panel's `nowrap`; in a drawer column they must wrap.
+										.sub-text {
+											min-width: 0;
+
+											p {
+												white-space: normal;
+											}
+										}
+
+										// The desktop panel's 32px mark costs 44px of the column once its gap is counted; at 24 it
+										// still reads and the text gains that back as measure.
+										a > svg,
+										a > img {
+											width: 24px;
+											height: 24px;
+											flex: 0 0 24px;
+										}
+
+										a {
+											gap: 10px;
+											// The links carry a width from the desktop panel; without this they push past the column.
+											width: auto;
+											max-width: 100%;
+										}
+									}
+
 									.sub-groups {
-										gap: 60px;
+										// 60px was a column gap from when these sat side by side; stacked, it read as the menu ending.
+										gap: 28px;
 										flex-flow: row wrap;
 										align-items: flex-start;
-										padding-left: 25px;
+										// One step in from the parent label, so the child rows read as belonging to it.
+										padding-left: 16px;
 
 										.group {
 											flex-direction: column;
 											gap: 15px;
 											padding: 0;
+											// The desktop `margin: 5px 5px 0` held side-by-side columns apart; stacked it only knocked the
+											// block off the indent. And the block takes the panel's full width rather than its content's.
+											margin: 0;
+											width: 100%;
 
 											&:first-child {
-												width: unset;
 												align-self: unset;
 											}
 
@@ -865,9 +923,9 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 		}
 	}
 
-	// Transparent-header nav text (transparent variant) — white links. Skipped
-	// in the open burger drawer (light bg) — white text would be invisible there.
-	header.header:not(.opened-burger):has([data-header-variant='transparent']) .head-menu {
+	// Over a dark hero the links are white, until the bar is scrolled onto its own surface or the
+	// drawer opens — both light grounds where white text would vanish.
+	header.header:not(.opened-burger):not([data-header-scrolled]):has([data-header-hero='dark']) .head-menu {
 		ul {
 			li.active {
 				a,
@@ -896,20 +954,18 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 				}
 
 				&:hover a {
-					color: $color-primary;
+					color: var(--color-primary);
 				}
 			}
 		}
 	}
 
-	// Scrolled header state nav for the transparent family. Also skipped in the
-	// open drawer (see above).
-	header.header[data-header-scrolled]:not(.opened-burger):has([data-header-variant='transparent']) .head-menu ul,
-	header.header[data-header-scrolled]:not(.opened-burger):has([data-header-variant='transparent-hover']) .head-menu ul {
+	// Scrolled past the hero, the links take the page's ink. Also skipped in the open drawer.
+	header.header[data-header-scrolled]:not(.opened-burger):has([data-header-hero]) .head-menu ul {
 		li.active a,
 		li.active span.main-menu-link {
 			opacity: 1;
-			color: $color-primary;
+			color: var(--color-primary);
 		}
 
 		a,
@@ -923,7 +979,7 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 			}
 
 			&:hover a {
-				color: $color-primary;
+				color: var(--color-primary);
 			}
 		}
 	}
@@ -951,10 +1007,80 @@ const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => 
 						}
 
 						&:hover a {
-							color: $color-primary;
+							color: var(--color-primary);
 						}
 					}
 				}
+			}
+		}
+	}
+	// ---------------------------------------------------------------------------------------------
+	// THE OPEN DRAWER
+	//
+	// Below 1281px the row becomes a stacked list, and a stacked list gives no hint which of its
+	// items open a submenu and which navigate away. Seven of the ten expand, and the markup cannot
+	// tell you which, so the chevron is driven by `submenuId` rather than by the tag rendered.
+	// Confined to the drawer: the desktop row answers the question with the sliding `.indicator`
+	// under the hovered item, and seven chevrons in a bar whose width is the scarce resource would
+	// be noise.
+	// ---------------------------------------------------------------------------------------------
+	.main-menu-chevron {
+		display: none;
+	}
+
+	@media screen and (max-width: 1280px) {
+		header.header.opened-burger .head-menu > ul > li {
+			// ONE inset for the drawer, the bar's: the nav's own 20px, with nothing added on the row. The
+			// row inherited the desktop `10px 12px 14px`, where the 12px separated items in a horizontal
+			// run and the uneven 10/14 left room under the label for the hover indicator; stacked, both
+			// only misaligned it. Symmetric padding keeps the row over 44px.
+			padding: 14px 0;
+
+			// A hairline per row, on the token the header's own chrome uses. On the `li` rather than the
+			// label, so an expanded item keeps its submenu on its own side of the line.
+			border-bottom: 1px solid var(--sl-color-hairline-light);
+
+			// Nothing follows the last row, so a line under it would open a section that is not there.
+			&:last-child {
+				border-bottom: none;
+			}
+
+			> .main-menu-link {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				// 500, the step Ubuntu ships between 400 and 700: a stacked list carries more weight than
+				// the row did without becoming headings.
+				font-weight: $font-weight-medium;
+				transition: color 0.15s ease;
+
+				&:focus-visible {
+					color: var(--color-primary);
+				}
+			}
+
+			.main-menu-chevron {
+				display: block;
+				width: 20px;
+				height: 20px;
+				flex: 0 0 auto;
+				// Below the label's weight at rest: it marks the kind of item, it is not the thing read.
+				opacity: 0.5;
+				transition:
+					transform 0.2s ease,
+					opacity 0.15s ease;
+			}
+
+			> .main-menu-link:hover .main-menu-chevron,
+			> .main-menu-link:focus-visible .main-menu-chevron {
+				opacity: 1;
+			}
+
+			// Points at the panel it opened, once that panel is open.
+			&:has(.sub-menu.open-sub) > .main-menu-link .main-menu-chevron {
+				transform: rotate(180deg);
+				opacity: 1;
 			}
 		}
 	}
