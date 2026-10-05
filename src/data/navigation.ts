@@ -384,7 +384,7 @@ export const companySubmenu: SubMenu = {
 	],
 };
 
-// Docs submenu: the products' own marks, drawn a step smaller and lighter than Products' (`SiteMenu`).
+// Docs submenu: the products' badges, as Products draws them but lighter until hovered (`SiteMenu`).
 export const docsSubmenu: SubMenu = {
 	id: 'nav-docs',
 	className: 'products',

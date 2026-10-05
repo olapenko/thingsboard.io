@@ -22,7 +22,24 @@ const current = Astro.url.pathname.replace(/\/+$/, '');
 const slide = SLIDES.find((s) => s.target !== current);
 // On a phone the message wraps and the chevron rides on its last line, held to the last word so it
 // never drops onto a line of its own.
-const cut = slide ? slide.html.lastIndexOf(' ') + 1 : 0;
+// The last space outside every element: a space inside one (`<strong>Foo Bar</strong>`) would cut the
+// markup in two. With none, the whole message is the held tail.
+function lastTopLevelSpace(html: string): number {
+	let depth = 0;
+	let at = -1;
+	for (let i = 0; i < html.length; i++) {
+		if (html[i] === '<') {
+			const end = html.indexOf('>', i);
+			if (end < 0) break;
+			const tag = html.slice(i + 1, end);
+			if (tag.startsWith('/')) depth--;
+			else if (!tag.endsWith('/')) depth++;
+			i = end;
+		} else if (html[i] === ' ' && depth === 0) at = i;
+	}
+	return at;
+}
+const cut = slide ? lastTopLevelSpace(slide.html) + 1 : 0;
 const lead = slide?.html.slice(0, cut);
 const lastWord = slide?.html.slice(cut);
 ---
