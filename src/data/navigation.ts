@@ -5,7 +5,7 @@ export interface NavItem {
 	label: string;
 	href?: string;
 	submenuId?: string;
-	/** DOM id on the rendered link — analytics hooks (`Menu_Pricing`) and in-page scripts (`use-cases-link`). */
+	/** DOM id on the rendered link, for analytics hooks (`Menu_Pricing`). */
 	id?: string;
 	/** Extra class on the rendered link, e.g. `gtm_button` for GTM tracking. */
 	linkClass?: string;
@@ -35,16 +35,21 @@ export interface SubMenu {
 	id: string;
 	className: string;
 	groups: SubMenuGroup[];
+	/**
+	 * Paths the section owns besides its links' own pages, for its item's underline in the row: a
+	 * reader on any of them is in the section. Solutions owns the use cases' and case studies' indexes,
+	 * which it reaches through its promotions rather than a link of its own.
+	 */
+	owns?: string[];
 }
 
-// Main navigation items
+// Main navigation items. Seven since 2026-10-05: Use Cases and Customers are Solutions (the use
+// cases, then their case studies), and Partners is a group in Company, beside Clients feedback.
 export const mainNavItems: NavItem[] = [
 	{ label: 'Products', submenuId: 'nav-products' },
 	{ label: 'Services', submenuId: 'nav-services' },
-	{ label: 'Use Cases', href: '/use-cases/', submenuId: 'nav-cases', id: 'use-cases-link' },
-	{ label: 'Customers', submenuId: 'nav-customers' },
+	{ label: 'Solutions', submenuId: 'nav-solutions' },
 	{ label: 'Company', submenuId: 'nav-company' },
-	{ label: 'Partners', submenuId: 'nav-partners' },
 	{ label: 'Docs', submenuId: 'nav-docs' },
 	{ label: 'IoT Hub', href: '/iot-hub/' },
 	{ label: 'Pricing', href: '/pricing/', id: 'Menu_Pricing', linkClass: 'gtm_button' },
@@ -54,6 +59,7 @@ export const mainNavItems: NavItem[] = [
 export const productsSubmenu: SubMenu = {
 	id: 'nav-products',
 	className: 'products',
+	owns: ['/products/', '/installations/'],
 	groups: [
 		{
 			name: 'IoT platforms',
@@ -125,6 +131,7 @@ export const productsSubmenu: SubMenu = {
 export const servicesSubmenu: SubMenu = {
 	id: 'nav-services',
 	className: 'services',
+	owns: ['/services/'],
 	groups: [
 		{
 			items: [
@@ -151,12 +158,15 @@ export const servicesSubmenu: SubMenu = {
 	],
 };
 
-// Use Cases submenu
-export const useCasesSubmenu: SubMenu = {
-	id: 'nav-cases',
+// Solutions submenu: the use cases and SCADA, closed by "All use cases" and the case studies, which
+// prove them (`data/menu-featured`).
+export const solutionsSubmenu: SubMenu = {
+	id: 'nav-solutions',
 	className: 'cases',
+	owns: ['/use-cases/', '/case-studies/'],
 	groups: [
 		{
+			name: 'Use cases',
 			perColumn: 5,
 			items: [
 				{
@@ -241,7 +251,6 @@ export const useCasesSubmenu: SubMenu = {
 		},
 		{
 			name: 'SCADA',
-			perColumn: 1,
 			items: [
 				{
 					href: '/use-cases/scada/',
@@ -266,36 +275,14 @@ export const useCasesSubmenu: SubMenu = {
 	],
 };
 
-// Customers submenu
-export const customersSubmenu: SubMenu = {
-	id: 'nav-customers',
-	className: 'customers',
-	groups: [
-		{
-			items: [
-				{
-					href: '/case-studies/',
-					icon: '/src/assets/images/landings/nav/case-studies.svg',
-					heading: 'Case studies',
-					linkClass: 'small-link',
-				},
-				{
-					href: '/clients-feedback/',
-					icon: '/src/assets/images/landings/nav/feedback.svg',
-					heading: 'Clients feedback',
-					linkClass: 'small-link',
-				},
-			],
-		},
-	],
-};
-
-// Company submenu
+// Company submenu: the company, with what its clients say about it, and the partner programmes.
 export const companySubmenu: SubMenu = {
 	id: 'nav-company',
 	className: 'about',
 	groups: [
 		{
+			name: 'Company',
+			perColumn: 3,
 			items: [
 				{
 					href: '/company/',
@@ -304,15 +291,15 @@ export const companySubmenu: SubMenu = {
 					linkClass: 'small-link',
 				},
 				{
-					href: '/blog/',
-					icon: '/src/assets/images/landings/nav/blog-s-icon.svg',
-					heading: 'Blog',
+					href: '/clients-feedback/',
+					icon: '/src/assets/images/landings/nav/feedback.svg',
+					heading: 'Clients feedback',
 					linkClass: 'small-link',
 				},
 				{
-					href: '/contact-us/',
-					icon: '/src/assets/images/landings/nav/contact-s-icon.svg',
-					heading: 'Contact us',
+					href: '/blog/',
+					icon: '/src/assets/images/landings/nav/blog-s-icon.svg',
+					heading: 'Blog',
 					linkClass: 'small-link',
 				},
 				{
@@ -327,22 +314,21 @@ export const companySubmenu: SubMenu = {
 					heading: 'Careers',
 					linkClass: 'small-link',
 				},
+				{
+					href: '/contact-us/',
+					icon: '/src/assets/images/landings/nav/contact-s-icon.svg',
+					heading: 'Contact us',
+					linkClass: 'small-link',
+				},
 			],
 		},
-	],
-};
-
-// Partners submenu
-export const partnersSubmenu: SubMenu = {
-	id: 'nav-partners',
-	className: 'about',
-	groups: [
 		{
+			name: 'Partners',
 			items: [
 				{
 					href: '/partners/affiliate/',
 					icon: '/src/assets/images/landings/nav/affiliate-s-icon.svg',
-					heading: 'Affiliate Program',
+					heading: 'Affiliate program',
 					linkClass: 'small-link',
 				},
 				{
@@ -366,6 +352,7 @@ export const partnersSubmenu: SubMenu = {
 export const docsSubmenu: SubMenu = {
 	id: 'nav-docs',
 	className: 'products',
+	owns: ['/docs/'],
 	groups: [
 		{
 			name: 'IoT platforms',
@@ -432,15 +419,7 @@ export const docsSubmenu: SubMenu = {
 };
 
 // All submenus
-export const allSubmenus: SubMenu[] = [
-	productsSubmenu,
-	servicesSubmenu,
-	useCasesSubmenu,
-	customersSubmenu,
-	companySubmenu,
-	partnersSubmenu,
-	docsSubmenu,
-];
+export const allSubmenus: SubMenu[] = [productsSubmenu, servicesSubmenu, solutionsSubmenu, companySubmenu, docsSubmenu];
 
 /**
  * The footer link row, shared by the marketing footer (Landing/Footer.astro) and the docs

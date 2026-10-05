@@ -26,6 +26,13 @@ export const MENU_SECTIONS: MenuSection[] = MENU_ENTRIES.filter((e): e is MenuSe
 export const iconSizeOf = (sub: SubMenu) => (sub.id === 'nav-products' ? 32 : 24);
 
 /**
+ * A link's line under its name, only where it tells two links apart: the products, and their docs.
+ * Elsewhere the name says it — "Smart metering", "Careers" — and the line was the weight that made
+ * the panel heavy.
+ */
+export const describes = (sub: SubMenu) => sub.id === 'nav-products' || sub.id === 'nav-docs';
+
+/**
  * The width the row shows from, for scripts; keep in step with `$menu-row-from` in
  * `styles/_variables.scss`. A range, so it and the stylesheets' `(width < …)` meet with no gap.
  */
@@ -33,3 +40,13 @@ export const MENU_ROW_QUERY = '(width >= 1281px)';
 
 /** Whether the page being rendered is the item's page or under it. The homepage is no item's. */
 export const isHere = (pathname: string, href?: string) => !!href && href !== '/' && pathname.startsWith(href);
+
+/**
+ * Whether the page being rendered is in a section: its item's own page, one of its links' pages or
+ * under one, or a path it owns (`SubMenu.owns`). The row underlines that item, so a reader on a case
+ * study sees Solutions marked.
+ */
+export const inSection = (pathname: string, { item, sub }: MenuSection) =>
+	isHere(pathname, item.href) ||
+	sub.groups.some((g) => g.items.some((i) => i.href.startsWith('/') && isHere(pathname, i.href))) ||
+	(sub.owns ?? []).some((path) => isHere(pathname, path));
