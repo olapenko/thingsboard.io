@@ -61,7 +61,12 @@ export default defineConfig({
 	site,
 	base: '/',
 	build: {
-		inlineStylesheets: 'always',
+		// `auto`: a stylesheet over 4 KB (`vite.build.assetsInlineLimit`) ships as a <link> to its
+		// `/_astro/` file, which `public/_headers` caches as immutable; smaller ones stay inline.
+		// `always` put every page's whole CSS in a <style> — the site-wide sheet alone (chrome,
+		// Starlight, fonts) is ~175 KB — so each page view downloaded it again. Astro keeps inline
+		// and linked sheets in one ordered list, so the cascade is the same either way.
+		inlineStylesheets: 'auto',
 		concurrency: BUILD_CONCURRENCY,
 	},
 	redirects,
@@ -181,7 +186,8 @@ export default defineConfig({
 				'@fontsource/ubuntu/700.css',
 				'@fontsource/ubuntu-mono/400.css',
 				'@fontsource/ubuntu-mono/700.css',
-				'./src/styles/_print.scss',
+				// No `_print.scss` here: it is a print-media <link> from `starlight/Head.astro`, so it
+				// does not ride in the stylesheet every page blocks its first paint on.
 			],
 			pagefind: false,
 			head: [
