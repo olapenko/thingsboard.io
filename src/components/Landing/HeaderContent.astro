@@ -30,7 +30,11 @@ const currentYear = new Date().getFullYear();
 	<span class="header-copyright print:only">&copy; {currentYear} The ThingsBoard Authors</span>
 </div>
 
-{/* Before <SiteMenu> on purpose: its markup is large, and ahead of it in the DOM it shifted the cluster (≈0.012 CLS); `order` restores the visual order. */}
+{/* The menu before the cluster, the reading order: Tab goes wordmark, the row, then search and the
+    account pair. The row is packed toward the wordmark, so the cluster arriving later in the parse
+    shifts nothing. */}
+<SiteMenu model={menu} />
+
 <div class="head-buttons print:hidden" data-header-look={look} data-header-hero={hero}>
 	{search && (
 		<div class="icon-buttons">
@@ -57,7 +61,8 @@ const currentYear = new Date().getFullYear();
 	>
 		Try for free
 	</NButton>
-	{/* Menu: opens `SiteMenu`'s sheet below 1281, where the row is gone. */}
+	{/* Menu: opens `SiteMenu`'s sheet below 1281, where the row is gone. Without a script, the link
+	    under it takes its place at every width and opens the sheet as its target. */}
 	<button type="button" data-sm-toggle aria-controls="sm-sheet" class="burger" aria-expanded="false">
 		<Icon name="tabler:menu-2" class="icon-open" aria-hidden="true" />
 		<Icon name="tabler:x" class="icon-close" aria-hidden="true" />
@@ -66,9 +71,11 @@ const currentYear = new Date().getFullYear();
 			<span class="label-close">Close</span>
 		</span>
 	</button>
+	<a href="#sm-sheet" class="burger sm__nojs">
+		<Icon name="tabler:menu-2" aria-hidden="true" />
+		<span>Menu</span>
+	</a>
 </div>
-
-<SiteMenu model={menu} />
 
 <CloudRegionDialog signupIds={headerConfig.cloudSignupIds} />
 
@@ -78,6 +85,8 @@ const currentYear = new Date().getFullYear();
 {needsScrollState && <HeaderScrollWatch />}
 
 <script>
+	import { MENU_ROW_QUERY } from '@components/SiteMenu/menu-model';
+
 	// Swipe to open/close mobile menus:
 	//   Starlight sidebar — swipe RIGHT from left edge to open, swipe LEFT to close
 	//   The menu sheet   — swipe LEFT from right edge to open, swipe RIGHT to step back or close
@@ -125,14 +134,14 @@ const currentYear = new Date().getFullYear();
 				startX = t.clientX;
 				startY = t.clientY;
 
-				// A modal dialog owns the page: a menu toggled under it would fight it for the scroll lock.
-				if (document.querySelector('dialog[open]')) tracking = null;
+				// A modal layer owns the page — a dialog, or the search panel (a layer of its own, not a
+				// `<dialog>`, see `SiteSearch`) — and a menu toggled under it would open behind it.
+				if (document.querySelector('dialog[open], #tb-search-modal.open')) tracking = null;
 				else if (isSidebarOpen()) tracking = 'sidebar';
 				else if (isMenuOpen()) tracking = 'menu';
 				else if (startX <= OPEN_EDGE && isSidebarDrawer()) tracking = 'sidebar';
 				// The sheet is the phone and tablet menu: the edge does nothing where the row is shown.
-				else if (startX >= window.innerWidth - OPEN_EDGE && !matchMedia('(min-width: 1281px)').matches)
-					tracking = 'menu';
+				else if (startX >= window.innerWidth - OPEN_EDGE && !matchMedia(MENU_ROW_QUERY).matches) tracking = 'menu';
 				else tracking = null;
 			},
 			{ passive: true }
@@ -232,9 +241,7 @@ const currentYear = new Date().getFullYear();
 		}
 
 		.head-buttons {
-			// head-buttons is placed before <Navigation /> in DOM order to avoid
-			// the centred-nav layout shift on slow CPUs. `order: 1` keeps it
-			// visually after the nav (which keeps the default order: 0).
+			// After the menu in the DOM and on screen; `order` keeps it last whatever comes before.
 			order: 1;
 			padding-right: calc(var(--tb-bar-inset) - 20px);
 			display: flex;
@@ -322,7 +329,7 @@ const currentYear = new Date().getFullYear();
 				width: 215px;
 			}
 
-			@media screen and (min-width: 1281px) and (max-width: 1599px) {
+			@media (width >= #{$menu-row-from}) and (width < 1600px) {
 				width: 160px;
 			}
 
@@ -389,7 +396,7 @@ const currentYear = new Date().getFullYear();
 	}
 
 	// Under 1281 the row is gone and Menu opens the sheet; the wordmark takes the room the row had.
-	@media screen and (max-width: 1280px) {
+	@media (width < #{$menu-row-from}) {
 		header.header {
 			.logo-burger {
 				flex: 1;
@@ -401,10 +408,10 @@ const currentYear = new Date().getFullYear();
 		}
 	}
 
-	// The floor of the full bar, every look carrying the search icon now: the 168 wordmark, the
-	// 40 icon, Sign in (78), Try for free (110) and Menu (94), two 24px insets and four 8px gaps come
-	// to 586. Under 600 the account pair steps into the sheet's foot.
-	@media screen and (max-width: 599px) {
+	// The floor of the full bar, measured with the search icon (a page without search has 48px more):
+	// the 168 wordmark, the 40 icon, Sign in (78), Try for free (110) and Menu (94), two 24px insets
+	// and four 8px gaps come to 586. Under 600 the account pair steps into the sheet's foot.
+	@media (width < #{$bar-compact-below}) {
 		header.header {
 			@include compact-bar;
 		}
