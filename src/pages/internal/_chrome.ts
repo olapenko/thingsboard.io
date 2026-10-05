@@ -41,7 +41,7 @@ export const CHROME: ChromePart[] = [
 		id: 'cookie-notice',
 		label: 'Cookie consent',
 		blurb:
-			'The consent bar at the foot of every page and its preferences, over the homepage and a docs page, and what it replaced.',
+			'The consent card in the corner of every page and its preferences, over the homepage and a docs page, and what it replaced.',
 		icon: 'tabler:cookie',
 		source: 'CookieConsent',
 	},
