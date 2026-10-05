@@ -354,7 +354,6 @@ export const companySubmenu: SubMenu = {
 					linkClass: 'small-link',
 				},
 			],
-			more: { label: 'All partners', href: '/partners/' },
 		},
 	],
 };
