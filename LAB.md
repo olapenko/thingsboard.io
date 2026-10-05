@@ -133,6 +133,8 @@ Also on `lab` since 4 Oct, outside the chrome: `/` renders running order **C** (
 is the `ui-reconcile` draft made real, with the shipped page's calculators and licence flow grafted
 back (#23). Both are stacked PRs into `handoff` like the chrome layers.
 
+**Landed in `handoff` on 6 Oct:** #34 CSS weight (`b74f2c71a`) and #35 chrome round 2 (`8f1f35a0f`), one layer commit each, as the move did; lab's homepages preview passes `references={HOME_REFERENCES}` since #34.
+
 **Chrome round 2 (`feat/menu-logos`, 5 Oct), notes for the FE review.** The menu's case studies by
 logo (`customer-logo/`, Super Bock's made from its study's artwork), 25 menu icons re-cropped to their
 ink (sprite regenerated), the products' badges in Products and Docs (`data/product-badges`, a new
