@@ -1,5 +1,6 @@
 import { TBMQ_PE_DOCS_URL, TBMQ_SITE_URL } from '@models/tbmq';
 import { CAREERS_URL } from '@models/careers';
+import { caseStudyBySlug } from '@data/case-studies';
 
 export interface NavItem {
 	label: string;
@@ -18,6 +19,18 @@ export interface SubMenuItem {
 	heading: string;
 	description?: string;
 	linkClass?: string;
+	/**
+	 * A customer's logo, shown in place of the heading, which becomes its alt text: the case studies,
+	 * where the name is a brand and its mark says it faster. Drawn in the menu's ink, as the case-study
+	 * catalogue draws them in white, so five brands' colours don't shout over the use cases' marks.
+	 */
+	logo?: string;
+	/**
+	 * The logo's height in px. Logos differ in shape — a long wordmark, a stacked one, a roundel — and
+	 * one height makes the long ones loud and the stacked ones unreadable; each is set to read at
+	 * about the same weight.
+	 */
+	logoHeight?: number;
 }
 
 export interface SubMenuGroup {
@@ -167,6 +180,19 @@ export const servicesSubmenu: SubMenu = {
 	],
 };
 
+/**
+ * A case study as a menu row: its page, its customer's name, and a logo — the homepage strip's
+ * (`customer-logo/`, single-colour marks cropped to their ink) where the strip has the customer,
+ * else the one the study's page shows.
+ */
+const STRIP_LOGO = '/src/assets/images/landings/customer-logo/';
+function caseStudy(slug: string, heading: string, logoHeight: number, stripLogo?: string): SubMenuItem {
+	const study = caseStudyBySlug[slug];
+	if (!study) throw new Error(`[navigation] no case study "${slug}"`);
+	const logo = stripLogo ? `${STRIP_LOGO}${stripLogo}` : study.hero.logo;
+	return { href: `/case-studies/${slug}/`, heading, logo, logoHeight };
+}
+
 // Solutions submenu: ten of the use cases (the three that narrow another one — irrigation under
 // farming, water metering under metering, air quality under environment monitoring — are one click
 // away under "All use cases"), SCADA, and five case studies, the ones a visitor knows by name: the
@@ -268,15 +294,15 @@ export const solutionsSubmenu: SubMenu = {
 			],
 		},
 		{
-			// The customer's name is the link: the study's own title is a sentence, and the group says what
-			// they are. No mark: a row of one icon five times would say nothing.
+			// The customer is the link, by its logo: the study's own title is a sentence, and the group
+			// says what they are. The name is the logo's alt text.
 			name: 'Case studies',
 			items: [
-				{ href: '/case-studies/schwarz/', heading: 'Schwarz Group' },
-				{ href: '/case-studies/t-mobile-cz/', heading: 'T-Mobile' },
-				{ href: '/case-studies/obb-infra/', heading: 'ÖBB-Infrastruktur' },
-				{ href: '/case-studies/super-bock/', heading: 'Super Bock' },
-				{ href: '/case-studies/circutor/', heading: 'Circutor' },
+				caseStudy('schwarz', 'Schwarz Group', 18, 'schwarz-gruppe.svg'),
+				caseStudy('t-mobile-cz', 'T-Mobile', 17, 't-mobile.svg'),
+				caseStudy('obb-infra', 'ÖBB-Infrastruktur', 21, 'obb.svg'),
+				caseStudy('super-bock', 'Super Bock', 28),
+				caseStudy('circutor', 'Circutor', 19, 'circutor.svg'),
 			],
 			more: { label: 'All case studies', href: '/case-studies/' },
 		},
