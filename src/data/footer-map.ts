@@ -164,9 +164,8 @@ export const FOOTER_LICENSE_PORTAL = {
  * show fewer of a section's links; it never moves one to another heading or calls it something else
  * (2026-10-05). So the case studies are Solutions', as in the menu, a plain link after the use cases
  * with All use cases the one arrowed link; Services closes on Talk to an expert, as its menu list
- * does; Docs is the menu's word. The partner programmes, a group in the menu's Company, have no page
- * of their own to link once from here, and a column of three read as half a column; they are the
- * menu's.
+ * does; Docs is the menu's word. The partner programmes, a group in the menu's Company, are one link
+ * here, to their hub (`/partners/`): a column of their three read as half a column.
  *
  * NO "BUILD" COLUMN (dropped 2026-09-29). It listed capabilities — connect devices, rule engine,
  * twins, white-labeling — but seven of its eight links landed in the docs, which the Docs column
@@ -216,6 +215,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
 			{ label: 'Blog', href: '/blog/' },
 			{ label: 'Media kit', href: '/mediakit/' },
 			{ label: 'Careers', href: CAREERS_URL, external: true },
+			{ label: 'Partners', href: '/partners/' },
 			{ label: 'Contact us', href: '/contact-us/' },
 		],
 	},
@@ -301,10 +301,10 @@ export const FOOTER_DOCS_COLUMNS: FooterColumn[] = [
 		],
 	},
 	{
-		// No Partners: there is no `/partners/` page, and the link this had went nowhere.
 		title: 'Company',
 		links: [
 			{ label: 'Support plans', href: '/services/' },
+			{ label: 'Partners', href: '/partners/' },
 			{ label: 'Clients feedback', href: '/clients-feedback/' },
 			{ label: 'Contact us', href: '/contact-us/' },
 			{ label: 'Careers', href: CAREERS_URL, external: true },
