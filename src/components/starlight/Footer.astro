@@ -1,21 +1,23 @@
 ---
-import DocFooter from '~/components/starlight/DocFooter.astro';
 import LandingFooter from '~/components/Landing/Footer.astro';
-import FooterMap from '@components/Landing/FooterMap.astro';
+import SiteFooter from '@components/SiteFooter/SiteFooter.astro';
 
-// Proxy in front of the actual Starlight footer chrome. Pages
-// rendered through `BaseLayout` set `Astro.locals.bsl = true`
-// to opt into the marketing footer (`Landing/Footer`); everything else
-// gets the docs footer (`DocFooter`). Each branch is a separate
-// component so only the styles of the chosen variant land in the
-// route's CSS bundle — there's no per-page cost for the unused one.
-//
-// A page can ask for the footer that maps the platform instead (`footer="map"` on BaseLayout, read
-// here as `bslFooter`): the homepage does, for the running orders that carry it (A and B). It gets
-// the `footer` id the one in use has, which the sandbox hub's "Homepage ↗" link lands on.
+// The switchboard in front of Starlight's footer slot. The documentation gets `SiteFooter` at its
+// `docs` density; a page rendered through `BaseLayout` (`Astro.locals.bsl`) gets the map density
+// unless it keeps the legacy `Landing/Footer` by name (`footer="in-use"`, read here as `bslFooter`),
+// which only a reference page does. Each branch is its own component, so only the chosen footer's
+// styles land in a route's CSS.
 const locals = Astro.locals as unknown as Record<string, unknown>;
 const isBaseStarlight = locals.bsl === true;
-const footerMap = locals.bslFooter === 'map';
+const footerMap = locals.bslFooter !== 'in-use';
 ---
 
-{isBaseStarlight ? footerMap ? <FooterMap id="footer" /> : <LandingFooter /> : <DocFooter />}
+{isBaseStarlight ? (
+	footerMap ? (
+		<SiteFooter density="map" id="footer" />
+	) : (
+		<LandingFooter />
+	)
+) : (
+	<SiteFooter density="docs" />
+)}

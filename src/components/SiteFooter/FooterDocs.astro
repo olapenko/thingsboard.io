@@ -1,0 +1,347 @@
+---
+import DefaultFooter from '@astrojs/starlight/components/Footer.astro';
+import { Icon } from 'astro-icon/components';
+import StarlightIcon from '~/components/starlight/Icon.astro';
+import FooterBase from '@components/SiteFooter/FooterBase.astro';
+import { tutorialPages as allTutorialPages } from '~/content';
+import { getTutorialPages, getTutorialUnits } from '~/util/getTutorialPages';
+import { getVersionFromURL, getVersionFromSlug } from '~/util/path-utils';
+import { followsTheme } from '@util/page-theme';
+import { newTabAttrs, NEW_TAB_NOTE } from '@util/external-links';
+import { socialNetworks } from '@data/socialNetworks';
+import logo from '@root/assets/images/landings/thingsboard-logo.svg?raw';
+import { FOOTER_DOCS_COLUMNS, FOOTER_SOCIAL, FOOTER_TAGLINE } from '@data/footer-map';
+
+/**
+ * THE DOCUMENTATION'S FOOTER — `SiteFooter` at the `docs` density. Above it, what a docs page's foot
+ * has always carried: a tutorial's previous and next lesson, or Starlight's own line (edit link,
+ * last updated). Then the footer proper, lighter than the map and richer than the six-link row it
+ * replaces:
+ *
+ * 1. THE BRAND ROW: the logo, one sentence, the follow line — the map's.
+ * 2. THREE SHORT COLUMNS (`FOOTER_DOCS_COLUMNS`): where the platform is run and bought, where to
+ *    learn it, the company.
+ * 3. THE BASE ROW (`FooterBase`): copyright, legal, Cookie settings, and the Appearance switch, which
+ *    is where the docs' theme is overruled now that the bar has no icon for it. No badges.
+ *
+ * It spans the content pane edge to edge on the page's light ground with a hairline over it: a band
+ * that closes the page, not a block inside the article's measure. It follows the theme with the page.
+ */
+interface Props {
+	id?: string;
+	appearance?: boolean;
+}
+
+const { id, appearance = followsTheme(Astro.locals) } = Astro.props;
+
+const logoSvg = logo.replace(/fill="#212529"/g, 'fill="currentColor"').replace(/<svg\b/, '<svg aria-hidden="true"');
+
+const social = FOOTER_SOCIAL.map(({ icon, name }) => {
+	const n = socialNetworks.find((x) => x.icon === icon);
+	return n && { ...n, name };
+}).filter((n) => n !== undefined);
+
+// A tutorial lesson's previous and next, as the docs footer has always shown them.
+const currentUrl = Astro.url.pathname.replace(/\/$/, '');
+const currentVersion = getVersionFromURL(Astro.url.pathname);
+const versionPages = allTutorialPages.filter((p) => getVersionFromSlug(p.id) === currentVersion);
+const seriesRoot = versionPages.find(
+	(p) =>
+		p.data.unitTitle &&
+		(currentUrl.endsWith('/' + p.id) || currentUrl.endsWith(p.id) || currentUrl.includes('/' + p.id + '/'))
+);
+let prevLink: { href: string; title: string } | null = null;
+let nextLink: { href: string; title: string } | null = null;
+if (seriesRoot) {
+	const seriesPages = versionPages.filter((p) => p.id === seriesRoot.id || p.id.startsWith(seriesRoot.id + '/'));
+	const lessons = getTutorialUnits(getTutorialPages(seriesPages)).flatMap((unit) => unit.lessons);
+	const i = lessons.findIndex((lesson) => currentUrl.endsWith(lesson.id));
+	if (i > 0) prevLink = { href: `/${lessons[i - 1].id}/`, title: lessons[i - 1].data.title };
+	if (i > -1 && i < lessons.length - 1) nextLink = { href: `/${lessons[i + 1].id}/`, title: lessons[i + 1].data.title };
+}
+---
+
+{seriesRoot && (prevLink || nextLink) ? (
+	<div class="pagination-links print:hidden">
+		{prevLink && (
+			<a href={prevLink.href} rel="prev">
+				<StarlightIcon name="left-arrow" size="1.5rem" />
+				<span>
+					Previous
+					<br />
+					<span class="link-title">{prevLink.title}</span>
+				</span>
+			</a>
+		)}
+		{nextLink && (
+			<a href={nextLink.href} rel="next">
+				<StarlightIcon name="right-arrow" size="1.5rem" />
+				<span>
+					Next
+					<br />
+					<span class="link-title">{nextLink.title}</span>
+				</span>
+			</a>
+		)}
+	</div>
+) : (
+	<DefaultFooter />
+)}
+
+<footer id={id} class="sf-docs not-content print:hidden">
+	<div class="sf-docs__in">
+		<div class="sf-docs__top">
+			<div class="sf-docs__brand">
+				<a href="/" class="sf-docs__logo" aria-label="ThingsBoard home" set:html={logoSvg} />
+				<p class="sf-docs__tagline">{FOOTER_TAGLINE}</p>
+				<p class="sf-docs__follow">
+					<span class="sf-docs__follow-label">Follow</span>
+					{social.map((n) => (
+						<a href={n.href} {...newTabAttrs()}>
+							{n.icon && <Icon name={n.icon} aria-hidden="true" />}
+							{n.name}
+							<span class="ui-sr">{NEW_TAB_NOTE}</span>
+						</a>
+					))}
+				</p>
+			</div>
+			<nav class="sf-docs__cols" aria-label="Site">
+				{FOOTER_DOCS_COLUMNS.map((col) => (
+					<div class="sf-docs__col">
+						<h2 class="sf-docs__col-title">{col.title}</h2>
+						<ul>
+							{col.links.map((l) => (
+								<li>
+									<a href={l.href} {...newTabAttrs(l.external)}>
+										{l.label}
+										{l.external && (
+											<>
+												<Icon name="tabler:arrow-up-right" class="sf-docs__ext" aria-hidden="true" />
+												<span class="ui-sr">{NEW_TAB_NOTE}</span>
+											</>
+										)}
+									</a>
+								</li>
+							))}
+						</ul>
+					</div>
+				))}
+			</nav>
+		</div>
+		<FooterBase class="sf-docs__base" tone="page" appearance={appearance} badges={false} />
+	</div>
+</footer>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// THE BAND, out of the article's column to the content pane's edges — the full width the article
+	// itself has, not only its measure. Starlight's footer slot sits in a container capped at the content
+	// measure (`--sl-content-width`), so the container holding this footer lets go of its cap and the
+	// footer's 100% is the pane less its padding. Not under the table of contents' column: that pane is
+	// `position: fixed` in Starlight, in view from top to bottom, and a band drawn under it would carry
+	// the contents over its own columns. On the page's light ground, a hairline over it, following the
+	// theme.
+	:global(.sl-container:has(.sf-docs)) {
+		max-width: none;
+	}
+
+	.sf-docs {
+		box-sizing: border-box;
+		width: calc(100% + 2 * var(--sl-content-pad-x));
+		margin: 3rem 0 calc(-1 * var(--sl-content-pad-y, 1.5rem)) calc(-1 * var(--sl-content-pad-x));
+		border-top: 1px solid var(--color-border, #e5e7eb);
+		background: var(--color-bg-light, #f7f8fb);
+		color: var(--color-text, #17181c);
+		font-family: $font-family-base;
+
+		a {
+			color: inherit;
+			text-decoration: none;
+		}
+
+		a:focus-visible {
+			outline: 2px solid var(--focus-ring, currentColor);
+			outline-offset: 2px;
+			border-radius: 4px;
+		}
+
+		:where(ul) {
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+	}
+
+	.sf-docs__in {
+		max-width: calc(1080px + 2 * var(--sl-content-pad-x));
+		margin-inline: auto;
+		padding: $spacing-10 var(--sl-content-pad-x) $spacing-8;
+	}
+
+	// ---- 1 + 2. The brand row beside the columns -------------------------------------------------
+	.sf-docs__top {
+		display: grid;
+		grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(140px, 1fr));
+		gap: $spacing-8 $spacing-8;
+		padding-bottom: $spacing-8;
+		border-bottom: 1px solid var(--color-border, #e5e7eb);
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+			.sf-docs__brand {
+				grid-column: 1 / -1;
+			}
+		}
+
+		@include media-down(sm) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.sf-docs__cols {
+		display: contents;
+	}
+
+	.sf-docs__logo {
+		display: inline-flex;
+		color: var(--color-text, #17181c);
+
+		:global(svg) {
+			display: block;
+			width: 152px;
+			height: auto;
+		}
+	}
+
+	.sf-docs__tagline {
+		margin: $spacing-3 0 0;
+		max-width: 36ch;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+		color: var(--color-text-secondary, #5b616e);
+		text-wrap: pretty;
+	}
+
+	.sf-docs__follow {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-2 $spacing-5;
+		margin: $spacing-5 0 0;
+		font-size: $font-size-sm;
+		line-height: 1.5;
+
+		a {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			color: var(--color-text-secondary, #5b616e);
+			transition: color 0.15s;
+
+			&:hover {
+				color: var(--color-text, #17181c);
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+		}
+
+		:global(svg) {
+			width: 18px;
+			height: 18px;
+		}
+	}
+
+	.sf-docs__follow-label {
+		color: var(--color-text-secondary, #5b616e);
+	}
+
+	.sf-docs__col-title {
+		margin: 0 0 $spacing-3;
+		font-size: 13px;
+		font-weight: $font-weight-medium;
+		letter-spacing: 0.06em;
+		line-height: 1.4;
+		text-transform: uppercase;
+		color: var(--color-text, #17181c);
+	}
+
+	.sf-docs__col li {
+		margin: 0;
+	}
+
+	.sf-docs__col a {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		font-size: $font-size-sm;
+		line-height: 2;
+		color: var(--color-text-secondary, #5b616e);
+
+		&:hover {
+			color: var(--color-text, #17181c);
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+	}
+
+	.sf-docs__ext {
+		width: 14px;
+		height: 14px;
+		opacity: 0.7;
+	}
+
+	// ---- 3. The base row -------------------------------------------------------------------------
+	:global(.sf-docs__base) {
+		margin-top: $spacing-6;
+	}
+
+	// ---- A tutorial's previous and next, as before ----------------------------------------------
+	.pagination-links {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+		gap: 1rem;
+	}
+
+	.pagination-links a {
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 0.5rem;
+		width: 100%;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.5rem;
+		padding: 1rem;
+		text-decoration: none;
+		color: var(--sl-color-gray-2);
+		box-shadow: var(--sl-shadow-md);
+		overflow-wrap: anywhere;
+
+		&:hover {
+			border-color: var(--sl-color-gray-2);
+		}
+	}
+
+	[rel='next'] {
+		justify-content: end;
+		text-align: end;
+		flex-direction: row-reverse;
+	}
+
+	.link-title {
+		color: var(--sl-color-white);
+		font-size: var(--sl-text-2xl);
+		line-height: var(--sl-line-height-headings);
+	}
+
+	.pagination-links svg {
+		flex-shrink: 0;
+	}
+
+	@media print {
+		:global(footer.sl-flex:not(:has(.meta > p))) {
+			display: none;
+		}
+	}
+</style>
