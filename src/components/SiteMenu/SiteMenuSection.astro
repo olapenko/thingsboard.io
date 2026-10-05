@@ -1,13 +1,14 @@
 ---
 import NavIcon from '@components/Landing/NavIcon.astro';
-import type { SubMenu, SubMenuItem } from '@data/navigation';
+import type { SubMenu, SubMenuGroup } from '@data/navigation';
 import { externalLinkAttrs, isExternalHref, newTabLinkLabel } from '@util/external-links';
 
 /**
- * ONE SECTION OF THE MENU — a submenu's groups, each in its columns, each column its items — as
- * every surface of `SiteMenu` renders it: a dropdown, the one panel, the phone sheet. The surface
- * decides the layout (groups side by side or stacked, how many columns fit); this decides the
- * markup, once.
+ * ONE SECTION OF THE MENU — a submenu's groups, each one list of its links — as every surface of
+ * `SiteMenu` renders it: a dropdown, the one panel, the phone sheet. A list is one `<ul>` however
+ * many columns it shows in, so a screen reader hears ten use cases rather than two lists of five; the
+ * stylesheet folds it into columns of `--rows` (a CSS grid flowing down, then across), and the
+ * surface decides whether it folds at all. This decides the markup, once.
  */
 interface Props {
 	submenu: SubMenu;
@@ -29,70 +30,39 @@ const named = (name?: string) => !!name && name.toLowerCase() !== omitName?.toLo
 const MAX_COLUMNS = 3;
 
 /**
- * A group's items in columns of `perColumn` (from the nav data), at most `MAX_COLUMNS`, the overflow
- * folded into the last one and never an empty column.
+ * The rows a group's list runs to before it starts the next column: `perColumn` from the nav data,
+ * or the whole list in one column, and never more columns than `MAX_COLUMNS`.
  */
-const toColumns = (items: SubMenuItem[], perColumn: number): SubMenuItem[][] => {
-	const columns: SubMenuItem[][] = [];
-	const step = Math.max(1, perColumn);
-	for (let i = 0; i < items.length; i += step) {
-		if (columns.length === MAX_COLUMNS) {
-			columns[MAX_COLUMNS - 1].push(...items.slice(i));
-			break;
-		}
-		columns.push(items.slice(i, i + step));
-	}
-	return columns;
-};
-
-/** The product a link belongs to, from the class the nav data carries, for its colour. */
-const PRODUCT_OF: Record<string, string> = {
-	'prof-lnk': 'pe',
-	'cloud-lnk': 'cloud',
-	'edge-lnk': 'edge',
-	'gateway-lnk': 'gateway',
-	'mobile-lnk': 'mobile',
-	'mobile-pe-lnk': 'mobile',
-	'mqtt-broker-lnk': 'tbmq',
-	'trendz-lnk': 'trendz',
-};
-const productOf = (item: SubMenuItem) => (item.linkClass ? PRODUCT_OF[item.linkClass] : undefined);
+const rowsOf = ({ items, perColumn }: SubMenuGroup) =>
+	Math.max(perColumn ?? items.length, Math.ceil(items.length / MAX_COLUMNS));
 ---
 
 <div class="sm__groups" data-sm-section={submenu.id}>
-	{submenu.groups.map((group) => {
-		const columns = toColumns(group.items, group.perColumn ?? group.items.length);
-		return (
-			<div class="sm__group">
-				{named(group.name) && <p class="sm__group-name">{group.name}</p>}
-				<div class="sm__cols" style={`--cols: ${columns.length}`}>
-					{columns.map((column) => (
-						<ul class="sm__col">
-							{column.map((item) => (
-								<li>
-									<a
-										class="sm__link"
-										href={item.href}
-										data-product={productOf(item)}
-										aria-label={isExternalHref(item.href) ? newTabLinkLabel(item.heading, item.href) : undefined}
-										{...externalLinkAttrs(item.href)}
-									>
-										{item.icon && (
-											<span class="sm__link-icon">
-												<NavIcon src={item.icon} size={iconSize} alt="" />
-											</span>
-										)}
-										<span class="sm__link-text">
-											<span class="sm__link-heading">{item.heading}</span>
-											{describe && item.description && <span class="sm__link-desc">{item.description}</span>}
-										</span>
-									</a>
-								</li>
-							))}
-						</ul>
-					))}
-				</div>
-			</div>
-		);
-	})}
+	{submenu.groups.map((group) => (
+		<div class="sm__group">
+			{named(group.name) && <p class="sm__group-name">{group.name}</p>}
+			<ul class="sm__cols" style={`--rows: ${rowsOf(group)}`}>
+				{group.items.map((item) => (
+					<li>
+						<a
+							class="sm__link"
+							href={item.href}
+							aria-label={isExternalHref(item.href) ? newTabLinkLabel(item.heading, item.href) : undefined}
+							{...externalLinkAttrs(item.href)}
+						>
+							{item.icon && (
+								<span class="sm__link-icon">
+									<NavIcon src={item.icon} size={iconSize} alt="" />
+								</span>
+							)}
+							<span class="sm__link-text">
+								<span class="sm__link-heading">{item.heading}</span>
+								{describe && item.description && <span class="sm__link-desc">{item.description}</span>}
+							</span>
+						</a>
+					</li>
+				))}
+			</ul>
+		</div>
+	))}
 </div>

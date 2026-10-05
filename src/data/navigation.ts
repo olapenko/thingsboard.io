@@ -63,7 +63,7 @@ export const productsSubmenu: SubMenu = {
 	groups: [
 		{
 			name: 'IoT platforms',
-			perColumn: 1,
+			perColumn: 2,
 			items: [
 				{
 					href: '/products/thingsboard-pe/',
@@ -83,7 +83,7 @@ export const productsSubmenu: SubMenu = {
 		},
 		{
 			name: 'Product ecosystem',
-			perColumn: 2,
+			perColumn: 3,
 			items: [
 				{
 					href: '/products/thingsboard-edge/',
@@ -158,8 +158,11 @@ export const servicesSubmenu: SubMenu = {
 	],
 };
 
-// Solutions submenu: the use cases and SCADA, closed by "All use cases" and the case studies, which
-// prove them (`data/menu-featured`).
+// Solutions submenu: ten of the use cases (the three that narrow another one — irrigation under
+// farming, water metering under metering, air quality under environment monitoring — are one click
+// away under "All use cases"), SCADA, and five case studies, the ones a visitor knows by name: the
+// catalogue's featured Schwarz Group, then names the homepage's logo strip carries. "All use cases"
+// and "All case studies" close it (`data/menu-featured`).
 export const solutionsSubmenu: SubMenu = {
 	id: 'nav-solutions',
 	className: 'cases',
@@ -186,12 +189,6 @@ export const solutionsSubmenu: SubMenu = {
 					icon: '/src/assets/images/landings/nav/case-off-icon.svg',
 					heading: 'Smart office',
 					description: 'Boost productivity & optimize resources',
-				},
-				{
-					href: '/use-cases/water-metering/',
-					icon: '/src/assets/images/landings/nav/case-wat-icon.svg',
-					heading: 'Water metering',
-					description: 'Water use analysis & fraud detection',
 				},
 				{
 					href: '/use-cases/smart-retail/',
@@ -222,18 +219,6 @@ export const solutionsSubmenu: SubMenu = {
 					icon: '/src/assets/images/landings/nav/case-met-icon.svg',
 					heading: 'Smart metering',
 					description: 'Meter data collection & analysis',
-				},
-				{
-					href: '/use-cases/air-quality-monitoring/',
-					icon: '/src/assets/images/landings/nav/case-aq-icon.svg',
-					heading: 'Air quality monitoring',
-					description: 'Monitor AQI using wide range of sensors',
-				},
-				{
-					href: '/use-cases/smart-irrigation/',
-					icon: '/src/assets/images/landings/nav/smart-irrigation.svg',
-					heading: 'Smart irrigation',
-					description: 'Soil moisture & irrigation control',
 				},
 				{
 					href: '/use-cases/waste-management/',
@@ -270,6 +255,18 @@ export const solutionsSubmenu: SubMenu = {
 					heading: 'Energy management',
 					description: 'Monitor & control energy systems',
 				},
+			],
+		},
+		{
+			// The customer's name is the link: the study's own title is a sentence, and the group says what
+			// they are. No mark: a row of one icon five times would say nothing.
+			name: 'Case studies',
+			items: [
+				{ href: '/case-studies/schwarz/', heading: 'Schwarz Group' },
+				{ href: '/case-studies/t-mobile-cz/', heading: 'T-Mobile' },
+				{ href: '/case-studies/obb-infra/', heading: 'ÖBB-Infrastruktur' },
+				{ href: '/case-studies/super-bock/', heading: 'Super Bock' },
+				{ href: '/case-studies/circutor/', heading: 'Circutor' },
 			],
 		},
 	],
@@ -356,7 +353,7 @@ export const docsSubmenu: SubMenu = {
 	groups: [
 		{
 			name: 'IoT platforms',
-			perColumn: 1,
+			perColumn: 2,
 			items: [
 				{
 					href: '/docs/pe/',
@@ -376,7 +373,7 @@ export const docsSubmenu: SubMenu = {
 		},
 		{
 			name: 'Product ecosystem',
-			perColumn: 2,
+			perColumn: 3,
 			items: [
 				{
 					href: '/docs/edge/pe/',
