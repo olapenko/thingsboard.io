@@ -1,7 +1,7 @@
 /**
  * The state the chrome is judged in, shared by every frame on a workbench page and by the stage
  * pages inside them: the theme, whether the page has scrolled (the bar's solid state), whether the
- * Menu drawer is open, and whether the search dialog is.
+ * menu is open (the panel from 1281, the sheet below), and whether the search dialog is.
  *
  * The workbench writes it (`_StateControls`), the frames read it to build their `src`
  * (`_Frames`), and a stage page reads the resulting query to put itself in that state

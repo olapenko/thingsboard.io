@@ -1,61 +1,78 @@
 ---
 import { Icon } from 'astro-icon/components';
 import Button from '@components/ui/Button.astro';
-import SiteMenuSection from '@components/SiteMenu/SiteMenuSection.astro';
-import { mainNavItems, allSubmenus } from '@data/navigation';
+import SiteMenuBody from '@components/SiteMenu/SiteMenuBody.astro';
+import { MENU_ENTRIES, MENU_SECTIONS, isHere } from '@components/SiteMenu/menu-model';
 
 /**
- * THE PHONE SHEET, shared by both desktop models: below 1281 the menu is this, under the bar, the
- * height of the screen. Search at the top, as a field the width of the sheet; then the sections
- * as an accordion (`<details name>`, so one is open at a time where the browser knows the
- * attribute); the plain links between them; and under 600, where the bar has stepped its account
- * pair into the drawer, Sign in and Try for free pinned at the foot. No theme row: the theme
- * follows the system, and its switch is the footer's.
+ * THE SHEET: the menu below 1281, under the bar, the height of the screen — the one panel at a
+ * phone's width. The panel's rail becomes the first view, the sections and the plain links as one
+ * list; a section opens as a view of its own showing what the panel shows for it (`SiteMenuBody`:
+ * the heading and its "All …" page, the groups, the section's stories and promotions), with a row
+ * back to the list. One view at a time, so a section is never a fold inside a long scroll, and
+ * nothing in it is a step smaller than on the desktop. Every row runs edge to edge, and the step
+ * between views moves both at once, the section over the list.
+ *
+ * No search field: the bar above keeps its search control at every width, one tap from the open
+ * sheet, and a second field under it was the same control twice. Under 600, where the bar has
+ * stepped Sign in and Try for free out, the two sit at the foot. No theme row: the theme follows
+ * the system, and its switch is the footer's.
+ *
+ * `SiteMenu`'s script drives it: the views, focus, Escape (back a view, then close), and the page
+ * made inert underneath while it is open.
  */
-const submenuById = (id?: string) => (id ? allSubmenus.find((s) => s.id === id) : undefined);
+const pathname = Astro.url.pathname;
 ---
 
-<div class="sm__sheet" id="sm-sheet" data-sm-sheet hidden>
-	<div class="sm__sheet-top">
-		{/* The dialog it opens is the bar's; any `<search-button>` on the page opens it. */}
-		<search-button>
-			<button type="button" class="sm__sheet-search" aria-label="Search">
-				<Icon name="tabler:search" aria-hidden="true" />
-				<span>Search</span>
-			</button>
-		</search-button>
-	</div>
-
-	<ul class="sm__sheet-list">
-		{mainNavItems.map((item) => {
-			const sub = submenuById(item.submenuId);
-			return (
-				<li class="sm__sheet-item">
-					{sub ? (
-						<details class="sm__acc" name="sm-sheet-sections">
-							<summary class="sm__acc-sum">
+<div class="sm__sheet" id="sm-sheet" data-sm-sheet data-view="root" hidden>
+	{/* The views share one cell and step sideways between each other; see `SiteMenu`'s styles. */}
+	<div class="sm__views">
+		<div class="sm__view sm__view--root" data-sm-view="root" data-pos="center">
+			<ul class="sm__list">
+				{MENU_ENTRIES.map(({ item, sub }) => (
+					<li>
+						{sub ? (
+							<button
+								type="button"
+								class="sm__sheet-row"
+								data-sm-open-view={sub.id}
+								aria-controls={`sm-sheet-${sub.id}`}
+								data-current={isHere(pathname, item.href) || undefined}
+							>
 								{item.label}
-								<Icon name="tabler:chevron-down" class="sm__acc-chev" aria-hidden="true" />
-							</summary>
-							<div class="sm__acc-body">
-								{item.href && (
-									<a class="sm__all" href={item.href}>
-										All {item.label.toLowerCase()}
-										<Icon name="tabler:chevron-right" aria-hidden="true" />
-									</a>
-								)}
-								<SiteMenuSection submenu={sub} />
-							</div>
-						</details>
-					) : (
-						<a class:list={['sm__sheet-link', item.linkClass]} id={item.id} href={item.href}>
-							{item.label}
-						</a>
-					)}
-				</li>
-			);
-		})}
-	</ul>
+								<Icon name="tabler:chevron-right" class="sm__sheet-chev" aria-hidden="true" />
+							</button>
+						) : (
+							<a
+								class:list={['sm__sheet-row', item.linkClass]}
+								href={item.href}
+								aria-current={isHere(pathname, item.href) ? 'page' : undefined}
+							>
+								{item.label}
+							</a>
+						)}
+					</li>
+				))}
+			</ul>
+		</div>
+
+		{MENU_SECTIONS.map((entry) => (
+			<section
+				class="sm__view sm__view--sec"
+				id={`sm-sheet-${entry.sub.id}`}
+				data-sm-view={entry.sub.id}
+				aria-labelledby={`sm-sheet-${entry.sub.id}-title`}
+				data-pos="right"
+				inert
+			>
+				<button type="button" class="sm__back" data-sm-back>
+					<Icon name="tabler:chevron-left" aria-hidden="true" />
+					Menu
+				</button>
+				<SiteMenuBody entry={entry} titleId={`sm-sheet-${entry.sub.id}-title`} />
+			</section>
+		))}
+	</div>
 
 	<div class="sm__sheet-foot">
 		<Button
