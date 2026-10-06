@@ -143,7 +143,10 @@ panel — `badges-on-dark` — because those grounds carry no `data-surface`), t
 tracks, the footer newsletter on upstream's `bindMailerLiteForm` (#710) with its thanks and error,
 the docs footer's "Get help", the phone promo bar. **CRM work, outside this repo:** the contact form's
 `devices` field (new with the redesign) reaches Formspree but has no CRM field yet — marked in
-`ContactForm.astro`.
+`ContactForm.astro`. The rest of the contact flow's integration points (6 Oct) are
+`INTEGRATION NOTE` comments: what the thank-you page relies on (Formspree's `_next`, the page view),
+the PE `install-thanks` redirect that lands readers who sent nothing on "Message sent", and the bot
+check's bare reply. `git grep -n "INTEGRATION NOTE\|WORK NEEDED"` lists them all.
 
 ## Parked: not shipping, kept to look up
 
