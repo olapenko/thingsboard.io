@@ -149,7 +149,6 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 	>
 		<div class="cf-head">
 			<h2 class="cf-title">Send us a message</h2>
-			<p class="cf-sub">It takes about a minute. Every field is required unless marked optional.</p>
 		</div>
 
 		<fieldset class="cf-fields">
@@ -175,8 +174,8 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 				attrs={{ autocapitalize: 'words' }}
 			/>
 
-			{/* Email and company take full rows: at the footer's measure a half row left an address
-			    208px, and both are the fields people type longest into. The two names stay paired. */}
+			{/* Everything pairs (2026-10-06): names, then email and company, then topic and devices — 288
+			    each in the 656 form, room for a work address. Only the message takes a full row. */}
 			<Field
 				name="email"
 				label="Work email"
@@ -184,24 +183,16 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 				maxLength={80}
 				autocomplete="email"
 				inputmode="email"
-				class="cf-field--full"
 				controlClass="form-control"
 				attrs={{ autocapitalize: 'off', spellcheck: 'false' }}
 			/>
 
-			<Field
-				name="company"
-				label="Company"
-				maxLength={80}
-				autocomplete="organization"
-				class="cf-field--full"
-				controlClass="form-control"
-			/>
+			<Field name="company" label="Company" maxLength={80} autocomplete="organization" controlClass="form-control" />
 
 			{/* The topic, as a native select in the kit field's clothes (`ui/Field` has no select): the
 			    kit's label and control classes, the chevron ours. Optional — most messages arrive without
 			    one. Picking one swaps the message box's prompt; Technical support adds the note below. */}
-			<div class="ui-field cf-field--full cf-field--topic">
+			<div class="ui-field cf-field--topic">
 				<label class="ui-field__label" for="subject">
 					What’s it about? <span class="ui-field__optional">(optional)</span>
 				</label>
@@ -242,7 +233,7 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 			{/* The fleet's size, as a slider over the plans' stops. A native range, restyled: keyboard, touch
 			    and screen readers come with it. Shown for the topics where the size shapes the answer. */}
 			<div
-				class="ui-field cf-field--full cf-field--devices"
+				class="ui-field cf-field--devices"
 				id="devices-field"
 				data-steps={JSON.stringify(DEVICE_STEPS)}
 				data-shown-for={JSON.stringify(DEVICES_SHOWN_FOR)}
@@ -287,7 +278,7 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 				label="How can we help?"
 				type="textarea"
 				placeholder={DEFAULT_PROMPT}
-				rows={6}
+				rows={4}
 				maxLength={3000}
 				counter
 				class="cf-field--full"
@@ -678,7 +669,7 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 	}
 
 	.cf-head {
-		margin-bottom: $spacing-6;
+		margin-bottom: $spacing-5;
 	}
 
 	.cf-title {
@@ -686,16 +677,10 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 		color: var(--color-text);
 	}
 
-	.cf-sub {
-		@include type-small;
-		margin-top: $spacing-1;
-		color: var(--color-text-secondary);
-	}
-
 	.cf-fields {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: $spacing-5 $spacing-4;
+		gap: $spacing-4;
 		min-width: 0;
 		margin: 0;
 		padding: 0;
@@ -707,6 +692,11 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 	}
 
 	.cf-field--full {
+		grid-column: 1 / -1;
+	}
+
+	// Without the slider (a topic it doesn't serve), the topic has the row to itself.
+	.cf-field--topic:has(~ .cf-field--devices[hidden]) {
 		grid-column: 1 / -1;
 	}
 
@@ -785,23 +775,31 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 		display: none;
 	}
 
+	// The label alone on the head's line, as the topic's is beside it, so the select and the slider
+	// stand level; the chosen count sits under the slider, between its ends. Nothing shows there until
+	// a stop is picked: "Not sure yet" said what the left end already says.
+	.cf-field--devices {
+		position: relative;
+	}
+
 	.cf-range-head {
 		display: flex;
-		flex-wrap: wrap;
 		align-items: baseline;
-		justify-content: space-between;
-		gap: 2px $spacing-4;
+		gap: $spacing-4;
 	}
 
 	.cf-range-value {
+		position: absolute;
+		bottom: 0;
+		left: 50%;
+		transform: translateX(-50%);
 		@include type-link;
 		color: var(--accent-ink, #{$color-brand});
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 
 		&.is-empty {
-			font-weight: $font-weight-normal;
-			color: var(--color-text-secondary);
+			visibility: hidden;
 		}
 	}
 
@@ -886,6 +884,12 @@ const TOPICS: { group: string; options: { value: string; label: string; prompt: 
 			border-radius: 1px;
 			background: var(--cf-border);
 		}
+	}
+
+	// A picked count says more than the scale's ends, and its longest ("25,000–100,000 devices", 176)
+	// would run into "Not sure" in a 288 column: the ends give way to it.
+	.cf-field--devices:has(.cf-range-value:not(.is-empty)) .cf-range-ends {
+		visibility: hidden;
 	}
 
 	.cf-range-ends {
