@@ -7,7 +7,7 @@ import type { HeaderMenu } from '@util/header-config';
 
 /**
  * THE MAIN MENU, rendered once from `data/navigation` (through `menu-model`), in one of two desktop
- * models over one sheet below 1281:
+ * models over one sheet below 1200 (`$menu-row-from`):
  *
  * - `panel`, the site's: one surface under the whole bar holding the open section — its groups and
  *   its promotions, no heading (the item names it) — set from the left edge of the row's first item,
@@ -25,7 +25,9 @@ import type { HeaderMenu } from '@util/header-config';
  * Both models open on a mouse's hover intent (120ms), which closes again on leave (200ms grace); a
  * click, a tap or Enter pins the panel open until a second click, Escape (focus back on the item), a
  * click outside, or focus leaving the open item. Touch never hovers.
- * Below 1281 the row and the panels are gone and the bar's Menu button opens `SiteMenuSheet`.
+ * Below 1200 the row and the panels are gone and the bar's Menu button opens `SiteMenuSheet`: split,
+ * the list as a sidebar beside the open section, where the screen has the room (`MENU_SPLIT_QUERY`,
+ * a tablet); a section as a view of its own on a phone.
  *
  * The item for a section is a `<button aria-expanded>`; items with no section are links. The item
  * for the page the reader is on keeps its underline: `aria-current` on a link, `data-current` on a
@@ -102,14 +104,16 @@ const pathname = Astro.url.pathname;
 
 <script>
 	import { lockScroll, unlockScroll } from '@util/scroll-lock';
-	import { MENU_ROW_QUERY } from '@components/SiteMenu/menu-query';
+	import { MENU_ROW_QUERY, MENU_SPLIT_QUERY } from '@components/SiteMenu/menu-query';
 
 	const nav = document.querySelector<HTMLElement>('nav.sm');
 	const header = nav?.closest<HTMLElement>('header.header') ?? null;
 
 	if (nav && header) {
-		// The row and its panels from 1281; the sheet below. One query, shared with the stylesheets.
+		// The row and its panels from 1200; the sheet below, split beside the list where the screen has
+		// the room. One query each, shared with the stylesheets.
 		const wide = matchMedia(MENU_ROW_QUERY);
+		const split = matchMedia(MENU_SPLIT_QUERY);
 
 		// --- the desktop panels -------------------------------------------------------------------
 		//
@@ -208,12 +212,24 @@ const pathname = Astro.url.pathname;
 		// The one panel's content starts under the row's first item: the item's words, less the inset a
 		// link keeps round its own (`.sm__link`'s 10), so the first link's mark stands under them.
 		// Measured, because the row sits after the wordmark, whose width changes with the window.
+		// Where the window is too narrow for the widest section there (four columns, Solutions: from
+		// 1200 to about 1266), the panel starts as far left as that section needs — the same start for
+		// every section, so a column's edge stays put from one to the next.
 		const LINK_INSET = 10;
+		const MAX_COLUMNS = 4; // `.sm__one-sec`'s cap
 		const alignOne = () => {
 			const first = row?.querySelector<HTMLElement>('.sm__top');
-			if (!one || !first) return;
-			const x = first.getBoundingClientRect().left + (parseFloat(getComputedStyle(first).paddingLeft) || 0);
-			one.style.setProperty('--sm-col-x', `${Math.round(x - LINK_INSET)}px`);
+			const inner = one?.querySelector<HTMLElement>('.sm__one-in');
+			if (!one || !first || !inner) return;
+			const x =
+				first.getBoundingClientRect().left + (parseFloat(getComputedStyle(first).paddingLeft) || 0) - LINK_INSET;
+			const tokens = getComputedStyle(nav);
+			const col = parseFloat(tokens.getPropertyValue('--sm-col')) || 0;
+			const gutter = parseFloat(tokens.getPropertyValue('--sm-gutter')) || 0;
+			const widest = MAX_COLUMNS * col + (MAX_COLUMNS - 1) * gutter;
+			const far = parseFloat(getComputedStyle(inner).paddingRight) || 0;
+			const room = document.documentElement.clientWidth - far - widest;
+			one.style.setProperty('--sm-col-x', `${Math.round(Math.min(x, room))}px`);
 		};
 
 		/** The switch from one section to the next, `before` the panel's height while it showed the first. */
@@ -405,17 +421,33 @@ const pathname = Astro.url.pathname;
 		const toggle = header.querySelector<HTMLButtonElement>('[data-sm-toggle]');
 		const views = sheet ? [...sheet.querySelectorAll<HTMLElement>('[data-sm-view]')] : [];
 		const listView = views.find((v) => v.dataset.smView === 'root') ?? null;
+		const listRows = sheet ? [...sheet.querySelectorAll<HTMLElement>('[data-sm-open-view]')] : [];
 		// The row a section was opened from, for focus on the way back.
 		let fromRow: HTMLElement | null = null;
 		let inerted: Element[] = [];
 
 		const sheetOpen = () => !!sheet && !sheet.hidden;
 
-		/** Where a view stands: on stage, or off it to the side it leaves by — the list left, a section right. */
+		/**
+		 * Where a view stands: on stage, or off it to the side it leaves by — the list left, a section
+		 * right. Split, the list never leaves: it is the sidebar, live beside whichever section shows.
+		 */
 		const place = (v: HTMLElement, pos: 'left' | 'center' | 'right') => {
 			v.dataset.pos = pos;
-			v.inert = pos !== 'center';
+			v.inert = pos !== 'center' && !(v === listView && split.matches);
 		};
+
+		/** Split, the sidebar's rows say which section shows beside them; a view of its own needs no such word. */
+		const markList = () => {
+			for (const r of listRows) {
+				if (split.matches) r.setAttribute('aria-expanded', String(r.dataset.smOpenView === sheet?.dataset.view));
+				else r.removeAttribute('aria-expanded');
+			}
+		};
+
+		/** The section the split sheet opens on: the one the page is in (the row marks it, `inSection`), else the first. */
+		const startView = () =>
+			triggers.find((t) => t.hasAttribute('data-current'))?.dataset.smTrigger ?? listRows[0]?.dataset.smOpenView;
 
 		/** Every view home, without a move: the list on stage, the sections off to the right. */
 		const resetViews = () => {
@@ -423,6 +455,7 @@ const pathname = Astro.url.pathname;
 			sheet.dataset.instant = '';
 			for (const v of views) place(v, v === listView ? 'center' : 'right');
 			sheet.dataset.view = 'root';
+			markList();
 			requestAnimationFrame(() => requestAnimationFrame(() => delete sheet.dataset.instant));
 		};
 
@@ -436,6 +469,7 @@ const pathname = Astro.url.pathname;
 			place(to, 'center');
 			if (from) place(from, from === listView ? 'left' : 'right');
 			sheet.dataset.view = id;
+			markList();
 		};
 
 		// The page under the open sheet is inert, so Tab and a screen reader stay in the bar and the
@@ -458,12 +492,17 @@ const pathname = Astro.url.pathname;
 		const openSheet = () => {
 			if (!sheet || sheetOpen()) return;
 			resetViews();
+			// Split, a section shows beside the list from the first frame (still without a move).
+			const start = split.matches ? startView() : undefined;
+			if (start) showView(start);
 			sheet.hidden = false;
 			header.setAttribute('data-sm-open', '');
 			toggle?.setAttribute('aria-expanded', 'true');
 			lockScroll('menu');
 			setPageInert(true);
-			listView?.querySelector<HTMLElement>('.sm__sheet-row')?.focus({ preventScroll: true });
+			const row =
+				listRows.find((r) => r.dataset.smOpenView === start) ?? listView?.querySelector<HTMLElement>('.sm__sheet-row');
+			row?.focus({ preventScroll: true });
 		};
 
 		/**
@@ -481,9 +520,9 @@ const pathname = Astro.url.pathname;
 			if (returnFocus === true || (returnFocus === 'auto' && hadFocus)) toggle?.focus({ preventScroll: true });
 		};
 
-		/** Back from a section to the list; false when the list is already showing. */
+		/** Back from a section to the list; false when the list is already showing, as it always is split. */
 		const back = () => {
-			if (!sheet || sheet.dataset.view === 'root') return false;
+			if (!sheet || sheet.dataset.view === 'root' || split.matches) return false;
 			showView('root');
 			(fromRow ?? listView?.querySelector<HTMLElement>('.sm__sheet-row'))?.focus({ preventScroll: true });
 			return true;
@@ -523,6 +562,16 @@ const pathname = Astro.url.pathname;
 
 		// Crossing the breakpoint closes whichever menu the other side had.
 		wide.addEventListener('change', (q) => (q.matches ? closeSheet() : hide(true)));
+
+		// Across the split with the sheet open (a tablet turned, a window resized): split, the list stays
+		// and a section shows beside it; unsplit, whatever shows stays, the list a step back behind it.
+		split.addEventListener('change', () => {
+			if (!sheet) return;
+			const start = split.matches && sheetOpen() && sheet.dataset.view === 'root' ? startView() : undefined;
+			if (start) showView(start);
+			if (listView) place(listView, sheet.dataset.view === 'root' ? 'center' : 'left');
+			markList();
+		});
 
 		// A page restored from the back/forward cache comes back as it was left: after following a
 		// link from the menu, that is with the menu open, the page inert and the scroll locked.
@@ -717,8 +766,9 @@ const pathname = Astro.url.pathname;
 		}
 	}
 
-	// Across the laptop band the row and the cluster are at their widest for the room — at 1281 with
-	// search, and again at 1340 where the star count returns — so the items close up by 2px a side.
+	// Across the laptop band the row and the cluster are at their widest for the room — where the row
+	// starts, again at 1281 where the search field opens, and at 1340 where the star count returns —
+	// so the items close up by 2px a side.
 	@media (width >= #{$menu-row-from}) and (width < 1440px) {
 		.sm__top {
 			padding-inline: 6px;
@@ -1147,8 +1197,9 @@ const pathname = Astro.url.pathname;
 
 	// A section is as wide as its groups, so its promotions close the block they belong to rather
 	// than run on to the window's edge, and never wider than four columns: past that its groups wrap
-	// under one another. Solutions, the widest, is four (1016); at 1281, where the row starts, it ends
-	// 25px inside the window's edge.
+	// under one another. Solutions, the widest, is four (1016); where that does not fit under the row's
+	// first item (below about 1266) the script starts the panel further left (`alignOne`), so it never
+	// wraps.
 	// It is transparent on the panel's ground: the landing stylesheet (`landing.scss`) fills every
 	// `<section>` on its pages with the page's white, which under a dark hero left white links on white.
 	.sm__one-sec {
@@ -1679,6 +1730,113 @@ const pathname = Astro.url.pathname;
 				li:last-child:nth-child(odd) {
 					grid-column: auto;
 				}
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// THE SPLIT SHEET — a tablet's: the list as a sidebar that never leaves, the open section beside
+	// it. The views keep their cell and their `data-pos` (the script is the phone's, with the list
+	// never stepping away), but the list has a column of its own and a section, rather than sliding
+	// in over it, cross-fades with the one it replaces. The section opens with the sheet (the page's
+	// own, else Products), so no view of the sheet is ever the list alone.
+	// ---------------------------------------------------------------------------------------------
+	@media (width >= #{$menu-split-from}) and (height >= #{$menu-split-min-height}) {
+		.sm__sheet {
+			// 200 at the split's floor (two columns of links still fit beside it at 720), 248 at most.
+			--sm-rail: clamp(200px, 22vw, 248px);
+
+			.sm__views {
+				grid-template-columns: var(--sm-rail) minmax(0, 1fr);
+			}
+
+			.sm__view--root {
+				grid-area: 1 / 1;
+				padding-top: 12px;
+				border-right: 1px solid var(--sm-rule);
+
+				// Over the phone's positions, the reduced-motion ones included: the list stays.
+				&[data-pos] {
+					translate: none;
+					opacity: 1;
+					visibility: visible;
+					transition: none;
+				}
+			}
+
+			.sm__view--sec {
+				grid-area: 1 / 2;
+				padding-top: 20px;
+				box-shadow: none;
+				transition:
+					opacity 0.18s ease,
+					visibility 0s linear 0.18s;
+
+				&[data-pos] {
+					translate: none;
+				}
+
+				&:not([data-pos='center']) {
+					opacity: 0;
+					visibility: hidden;
+				}
+
+				&[data-pos='center'] {
+					transition-delay: 0s;
+				}
+			}
+
+			// Two columns of links beside the sidebar at the split's floor (720 leaves 472 for them), three
+			// from about 1000; the logo wall keeps its row of five.
+			.sm__cols:not(:has(.sm__link-logo)) {
+				grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+			}
+
+			// The sidebar names the section, so the view's own heading and its row back go.
+			.sm__back,
+			.sm__view--sec .sm__head {
+				display: none;
+			}
+
+			// The list as a sidebar: rows a step quieter than the phone's (17 against 20, 48 tall), no
+			// hairlines between them, and the pages (IoT Hub, Pricing) set off from the sections by one.
+			.sm__list > li + li {
+				border-top: 0;
+			}
+
+			.sm__list > li:has(> button) + li:has(> a) {
+				margin-top: 12px;
+				padding-top: 12px;
+				border-top: 1px solid var(--sm-rule);
+			}
+
+			.sm__sheet-row {
+				position: relative;
+				min-height: 48px;
+				padding-inline: var(--sm-in) 16px;
+				font-size: 17px;
+			}
+
+			// The section beside the list: the accent, the fill and a bar on the sidebar's edge. A chevron
+			// on that row only, pointing at what it opened.
+			.sm__sheet-row[aria-expanded='true'] {
+				background: var(--sm-fill);
+				color: var(--sm-accent);
+
+				&::before {
+					content: '';
+					position: absolute;
+					top: 8px;
+					bottom: 8px;
+					left: 0;
+					width: 3px;
+					border-radius: 0 2px 2px 0;
+					background: currentColor;
+				}
+			}
+
+			.sm__sheet-row[aria-expanded='false'] .sm__sheet-chev {
+				opacity: 0;
 			}
 		}
 	}

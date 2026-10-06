@@ -135,6 +135,20 @@ back (#23). Both are stacked PRs into `handoff` like the chrome layers.
 
 **Landed in `handoff` on 6 Oct:** #34 CSS weight (`b74f2c71a`) and #35 chrome round 2 (`8f1f35a0f`), one layer commit each, as the move did; lab's homepages preview passes `references={HOME_REFERENCES}` since #34.
 
+**`exp/menu-split` (6 Oct): the menu by the room.** Measured first: below 1281 every width got the
+phone's sheet — at 768×1024 seven rows in 406 of 920px, every section a screen away, a 1280 laptop
+on the phone layer — and 1281 dated from the nine-item row. Now three
+surfaces. **The row from 1200** (`$menu-row-from`; fits from 1093 with the seven items, the GitHub
+mark and the search box), the panel's start clamped so Solutions' four columns fit under 1266
+(`alignOne`); the search field stays at 1281. **The split sheet** from 720 on a screen 540 tall
+(`$menu-split-from`, `$menu-split-min-height`, `MENU_SPLIT_QUERY`): the list a sidebar that never
+leaves, the section beside it cross-fading, opened on the section the page is in (`inSection`), no
+step back, Escape and a swipe close. **The phone's views** below, unchanged. GitHub stays in the bar
+from 720 (was 1120): with its count beside Menu, the mark alone from 1200 to 1340, gone on a phone.
+Judged on the header workbench's The menu tab (1440 · 1230 · 1024×768 · 768×1024 ·
+375); `handoff` on its own server is the before. If kept, rebuilt as a `feat/` branch off `handoff`
+from this branch's diff (the stage's opener and the workbench copy stay on `lab`).
+
 **Chrome round 2 (`feat/menu-logos`, 5 Oct), notes for the FE review.** The menu's case studies by
 logo (`customer-logo/`, Super Bock's made from its study's artwork), 25 menu icons re-cropped to their
 ink (sprite regenerated), the products' badges in Products and Docs (`data/product-badges`, a new
