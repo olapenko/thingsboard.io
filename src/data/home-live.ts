@@ -120,7 +120,7 @@ const LIVE_ECOSYSTEM: Record<
 	string,
 	{ name?: string; href?: string; description?: string | string[]; tiles?: Record<string, string> }
 > = {
-	'Mobile App': { name: 'Mobile App Builder', href: '/products/mobile/' },
+	'Mobile App': { href: '/products/mobile/' },
 	'IoT Hub': {
 		description: [
 			'One marketplace, two ways in - install what others built, or publish your own.',
