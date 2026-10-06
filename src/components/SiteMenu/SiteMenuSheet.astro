@@ -2,16 +2,24 @@
 import { Icon } from 'astro-icon/components';
 import Button from '@components/ui/Button.astro';
 import SiteMenuBody from '@components/SiteMenu/SiteMenuBody.astro';
-import { MENU_ENTRIES, MENU_SECTIONS, isHere } from '@components/SiteMenu/menu-model';
+import GitHubButton from '@components/Landing/GitHubButton.astro';
+import { MENU_ENTRIES, MENU_SECTIONS, inSection, isHere } from '@components/SiteMenu/menu-model';
+import type { Products } from '@models/site.models';
 
 /**
- * THE SHEET: the menu below 1281, under the bar, the height of the screen — the one panel at a
- * phone's width. The panel's rail becomes the first view, the sections and the plain links as one
- * list; a section opens as a view of its own showing what the panel shows for it (`SiteMenuBody`:
- * the heading and its "All …" page, the groups, the section's stories and promotions), with a row
- * back to the list. One view at a time, so a section is never a fold inside a long scroll, and
- * nothing in it is a step smaller than on the desktop. Every row runs edge to edge, and the step
- * between views moves both at once, the section over the list.
+ * THE SHEET: the menu below 1200, under the bar, the height of the screen — the one panel at a
+ * phone's or a tablet's width. The row becomes a list, the sections and the plain links in one;
+ * a section shows what the panel shows for it (`SiteMenuBody`: the heading and its "All …" page,
+ * the groups, the section's stories and promotions).
+ *
+ * Two layouts of the same views, by the room (`MENU_SPLIT_QUERY`). On a phone, one view at a time:
+ * the list, then a section as a view of its own with a row back, so a section is never a fold inside
+ * a long scroll; every row runs edge to edge, and the step between views moves both at once, the
+ * section over the list. On a tablet, SPLIT: the list stays as a sidebar and the section shows beside
+ * it, opened with the sheet on the section the page is in (else the first), switched by a tap with
+ * no step back; at 768 the list alone left half the screen empty and every section a screen away.
+ *
+ * Under the list, GitHub: the bar shows it only beside the row, so under 1200 this is where it is.
  *
  * No search field: where the page has search, the bar above keeps its control at every width, one
  * tap from the open sheet, and a second field under it would be the same control twice; where the
@@ -20,10 +28,17 @@ import { MENU_ENTRIES, MENU_SECTIONS, isHere } from '@components/SiteMenu/menu-m
  * analytics names as the bar's (`_Sheet` on the ids, which must stay unique on the page). No theme
  * row: the theme follows the system, and its switch is the footer's.
  *
- * `SiteMenu`'s script drives it: the views, focus, Escape (back a view, then close), and the page
+ * `SiteMenu`'s script drives it: the views, focus, Escape (on a phone back a view, then close; split,
+ * close), and the page
  * made inert underneath while it is open. Without a script the bar's Menu is a link to the sheet,
  * which then lays every section out in one scroll (the `<noscript>` rule at the end).
  */
+interface Props {
+	/** The repository the GitHub link points at, as the bar's does. */
+	gitHubPlatform?: Products;
+}
+
+const { gitHubPlatform } = Astro.props;
 const pathname = Astro.url.pathname;
 ---
 
@@ -40,7 +55,7 @@ const pathname = Astro.url.pathname;
 								class="sm__sheet-row"
 								data-sm-open-view={sub.id}
 								aria-controls={`sm-sheet-${sub.id}`}
-								data-current={isHere(pathname, item.href) || undefined}
+								data-current={inSection(pathname, { item, sub }) || undefined}
 							>
 								{item.label}
 								<Icon name="tabler:chevron-right" class="sm__sheet-chev" aria-hidden="true" />
@@ -58,6 +73,9 @@ const pathname = Astro.url.pathname;
 					</li>
 				))}
 			</ul>
+			<div class="sm__sheet-more">
+				<GitHubButton platform={gitHubPlatform} place="menu" />
+			</div>
 		</div>
 
 		{MENU_SECTIONS.map((entry) => (
