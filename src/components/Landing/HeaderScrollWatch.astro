@@ -9,6 +9,12 @@
 //   white ink on a ground of the hero's own colour (`--tb-hero-ground`), and takes the light surface
 //   only where the page under it turns light, so the swap from white ink to dark happens with the
 //   page's own and never over the hero.
+//
+// And, from the two, `data-surface="dark"` on the cluster of buttons while the ink is white: the kit's
+// buttons there (Sign in, the star count, Menu) take their dark look from it, as the kit does
+// everywhere. The condition is `bar-over-dark-hero`'s (`_variables.scss`), kept in step here because
+// an attribute is the one thing a stylesheet cannot set. `HeaderContent` renders it for the first
+// paint, when the bar is at the top of the page.
 ---
 
 <script is:inline>
@@ -30,6 +36,21 @@
 		).observe(sentinel);
 
 		if (!header.querySelector('[data-header-hero="dark"]')) return;
+
+		const cluster = header.querySelector('.head-buttons');
+		function syncSurface() {
+			if (!cluster) return;
+			const white =
+				!header.hasAttribute('data-sm-open') &&
+				(!header.hasAttribute('data-header-scrolled') || header.hasAttribute('data-header-over-hero'));
+			if (white) cluster.setAttribute('data-surface', 'dark');
+			else cluster.removeAttribute('data-surface');
+		}
+		new MutationObserver(syncSurface).observe(header, {
+			attributes: true,
+			attributeFilter: ['data-sm-open', 'data-header-scrolled', 'data-header-over-hero'],
+		});
+		syncSurface();
 
 		// An opaque ground darker than a mid grey: the hero's, or a band's that continues it.
 		function darkGround(el) {
