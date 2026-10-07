@@ -4,7 +4,7 @@ import HeaderScrollWatch from '@components/Landing/HeaderScrollWatch.astro';
 import SearchButton from '@components/SearchButton.astro';
 import SiteSearch from '@components/SiteSearch.astro';
 import GitHubButton from '@components/Landing/GitHubButton.astro';
-import NButton from '@components/Landing/NButton.astro';
+import Button from '@components/ui/Button.astro';
 import CloudRegionDialog from '@components/Landing/CloudRegionDialog.astro';
 import { Icon } from 'astro-icon/components';
 import { Products } from '@models/site.models';
@@ -35,32 +35,37 @@ const currentYear = new Date().getFullYear();
     shifts nothing. */}
 <SiteMenu model={menu} />
 
-<div class="head-buttons print:hidden" data-header-look={look} data-header-hero={hero}>
+{/* `data-surface="dark"` for the first paint over a dark hero, where the ink is white; from then on
+    `HeaderScrollWatch` keeps it in step with the ink, and the kit's buttons here take their dark look from it. */}
+<div
+	class="head-buttons print:hidden"
+	data-header-look={look}
+	data-header-hero={hero}
+	data-surface={hero === 'dark' ? 'dark' : undefined}
+>
 	{search && (
 		<div class="icon-buttons">
 			<SearchButton />
 		</div>
 	)}
 	<GitHubButton platform={gitHubPlatform} />
-	{/* Both open the `CloudRegionDialog`; the hrefs are the no-script fallback. */}
-	<a
-		class="region-signin__trigger"
+	{/* Both open the `CloudRegionDialog`; the hrefs are the no-script fallback. The pair on the kit at
+	    the bar's 40 (2026-10-07): Sign in a secondary at the REGULAR weight — the weight Menu and the
+	    star count carry, so the three quiet controls read as one family and Try for free is the one
+	    call in the bar. The sheet's foot sets the same pair at the kit's 44. */}
+	<Button
+		variant="secondary"
+		size="sm"
+		weight="regular"
+		class="signin"
 		href="https://thingsboard.cloud/login"
-		target="_blank"
-		rel="noopener noreferrer"
-		data-cloud-auth="signin"
+		attrs={{ 'data-cloud-auth': 'signin', target: '_blank', rel: 'noopener noreferrer' }}
 	>
 		Sign in
-	</a>
-	<NButton
-		id="Menu_TryItNow"
-		href="/installations/choose-region/"
-		variant="filled"
-		class="try gtm_button"
-		data-cloud-auth="signup"
-	>
+	</Button>
+	<Button size="sm" to="cloud-signup" id="Menu_TryItNow" class="try gtm_button">
 		Try for free
-	</NButton>
+	</Button>
 	{/* Menu: opens `SiteMenu`'s sheet below 1200, where the row is gone. Without a script, the link
 	    under it takes its place at every width and opens the sheet as its target. */}
 	<button type="button" data-sm-toggle aria-controls="sm-sheet" class="burger" aria-expanded="false">
@@ -180,12 +185,13 @@ const currentYear = new Date().getFullYear();
 
 <style lang="scss" is:global>
 	@use '../../styles/variables' as *;
+	@use '../../styles/button' as *;
 
 	// Wordmark, the page's icons and Menu; the account pair moves to the foot of the menu sheet.
 	@mixin compact-bar {
 		.head-buttons {
-			.region-signin__trigger,
-			.n-button {
+			.signin,
+			.try {
 				display: none;
 			}
 		}
@@ -279,54 +285,24 @@ const currentYear = new Date().getFullYear();
 				align-items: center;
 			}
 
-			.n-button {
-				min-width: 90px;
-				// Match the 40px sign-in control beside it; the `md` ramp is 47px.
-				height: 40px;
-				min-height: 40px;
-				padding: 0 18px;
-				font-size: 14px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
+			// The call keeps a cell wider than its words, so it does not shrink beside the pair.
+			.try {
+				--btn-min-w: 90px;
 
 				@media screen and (min-width: 1500px) {
-					min-width: 110px;
-				}
-
-				// One fill everywhere; hover darkens via NButton's filled overlay.
-				&.try {
-					background-color: var(--color-brand);
-					color: var(--color-brand-contrast);
-					font-weight: $font-weight-bold;
-
-					&:hover {
-						color: var(--color-brand-contrast);
-					}
+					--btn-min-w: 110px;
 				}
 			}
-		}
 
-		.region-signin__trigger {
-			display: inline-flex;
-			align-items: center;
-			height: 40px;
-			padding: 0 16px;
-			border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-			border-radius: 4px;
-			color: inherit;
-			font-size: 14px;
-			line-height: 1;
-			white-space: nowrap;
-			text-decoration: none;
-			transition:
-				background-color 0.15s ease,
-				border-color 0.15s ease;
-
-			&:hover,
-			&:focus-visible {
-				background-color: color-mix(in srgb, currentColor 12%, transparent);
-				border-color: color-mix(in srgb, currentColor 55%, transparent);
+			// The kit's buttons take their dark look from `data-surface` (`HeaderScrollWatch`) and
+			// would ease into it over the kit's 0.15s; here they step with the rest of the ink, at
+			// the ground's parity point, for the reason `--tb-ink-at` gives above. The fill still
+			// eases, so a hover is a hover.
+			.ui-btn {
+				transition:
+					color 0s linear var(--tb-ink-at),
+					border-color 0s linear var(--tb-ink-at),
+					background-color 0.15s ease;
 			}
 		}
 
@@ -372,31 +348,16 @@ const currentYear = new Date().getFullYear();
 	}
 
 	// Same pill as the sign-in control beside it, so the cluster reads as one row.
+	// Menu on the kit's secondary at the bar's 40, regular (2026-10-07), with its own 14px padding —
+	// the mixin, since the two-state label is markup `ui/Button` cannot render. Hidden until the row
+	// folds into it (`$menu-row-from`).
 	.burger {
-		display: none;
-		align-items: center;
-		justify-content: center;
-		gap: 8px;
-		height: 40px;
-		padding: 0 14px;
-		border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-		border-radius: 4px;
-		background: none;
-		color: inherit;
-		font: inherit;
-		font-size: 14px;
-		line-height: 1;
-		white-space: nowrap;
-		cursor: pointer;
-		transition:
-			background-color 0.15s ease,
-			border-color 0.15s ease;
+		@include ui-button(secondary, sm);
 
-		&:hover,
-		&:focus-visible {
-			background-color: color-mix(in srgb, currentColor 12%, transparent);
-			border-color: color-mix(in srgb, currentColor 55%, transparent);
-		}
+		--btn-px: 14px;
+
+		display: none;
+		font-weight: $font-weight-normal;
 
 		svg {
 			width: 20px;
@@ -542,8 +503,8 @@ const currentYear = new Date().getFullYear();
 	}
 
 	// A hero page's call to action keeps the wider cell at every width.
-	header.header:has([data-header-hero]) .n-button {
-		min-width: 110px;
+	header.header:has([data-header-hero]) .try {
+		--btn-min-w: 110px;
 	}
 
 	// The bar over a hero takes no clearance, BUT the promo banner's band is still reserved, so the

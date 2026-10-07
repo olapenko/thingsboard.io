@@ -5,7 +5,7 @@ the live reference is `/internal/library/kit/` (every component, variant, size a
 
 | Component | What it is |
 | --- | --- |
-| `Button`, `ButtonGroup` | primary · secondary · tertiary; xs 32 · sm 40 · md 44 · lg 48 · xl 56 (44 to the touch); a row that stacks below its own width of 400 or 480 |
+| `Button`, `ButtonGroup` | primary · secondary · tertiary; xs 32 · sm 40 · md 44 · lg 48 · xl 56 (44 to the touch); bold, or `weight="regular"` for a quiet control among its kind (the bar's Sign in); a row that stacks below its own width of 400 or 480 |
 | `Link` | standalone (label + chevron) or inline (always underlined); tones accent · ink · muted |
 | `Mark` | the squircle tile: 36 · 40 · 48 · 64 · 72 · 80 · 88; one of `icon`, `logo`, `product` (`@data/marks`) |
 | `Chip`, `ChipGroup` | link · toggle · tag; a group is a list named by its label |

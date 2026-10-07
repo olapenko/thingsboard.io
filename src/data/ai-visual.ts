@@ -574,9 +574,10 @@ export const AI_AGENT_SESSION: AgentStep[] = [
 	 *
 	 * The mark is an uppercase TB in figlet's "small" cut (2026-09-25; the lowercase "tb" before it read
 	 * as a word, not the brand). Four rows, like the one it replaced, so nothing under it moves. PLAIN
-	 * ASCII ON PURPOSE: the terminal's Ubuntu Mono is loaded for Latin only, so a block or box glyph
-	 * (`█`, `╗`) would come from a wider fallback face and shear the art. Kept to 11 columns: on a
-	 * phone the log holds ~52, and the widest status line needs 33 plus the four-cell gap.
+	 * ASCII ON PURPOSE: the terminal is set on the system mono stack, a different face on every
+	 * platform, and a block or box glyph (`█`, `╗`) is the first thing those faces disagree on — some
+	 * take it from a wider fallback and shear the art. Kept to 11 columns: on a phone the log holds
+	 * ~52, and the widest status line needs 33 plus the four-cell gap.
 	 */
 	{
 		role: 'banner',

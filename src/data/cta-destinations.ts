@@ -3,14 +3,18 @@
  *
  * CLOUD: every "Try for free" / "Start for free" opens the region dialog, so a Cloud account is one
  * decision away: pick North America or Europe, and the sign-up form is next. `data-cloud-auth`
- * is what the dialog listens for; the href is only the fallback when there is no script.
+ * is what the dialog listens for; the href is only the fallback when there is no script — and that
+ * fallback is the region page, not the US sign-up form (adopted from main's #681, 2026-10-07): a
+ * direct `thingsboard.cloud/signup` would pick North America for a reader who never saw the
+ * choice, which is the one thing every sign-up button here exists to prevent. The header's and the
+ * hero's "Try for free" already pointed there, so now the same words land in one place everywhere.
  *
  * ON-PREMISES: every "Install" goes straight to the installation guide, where the platforms are
  * listed and each has its steps. `/installations/`, the catalogue of every product, is secondary:
  * the footer links it, and so do the few places that offer every installation option by name.
  */
 export const CLOUD_SIGNUP = {
-	href: 'https://thingsboard.cloud/signup',
+	href: '/installations/choose-region/',
 	attrs: { 'data-cloud-auth': 'signup' } as Record<string, string>,
 };
 
