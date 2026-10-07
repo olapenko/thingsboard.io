@@ -14,6 +14,12 @@ and is never merged back. What a review decides is rebuilt as a `feat/` branch o
 | `feat/<topic>` | One layer for `handoff`. Lowercase; deleted when merged. | PR into `handoff` |
 | `exp/<topic>` | An experiment for the sandbox. | PR into `lab`, or dropped |
 
+`main` is in active development upstream while the redesign is built, so parts of `handoff`
+will be out of step with it at any time. That is expected: every sync's new commits
+(`old-main..main`) are reviewed one by one by the design team, and each is adopted into `handoff`
+as it is, redesigned on the kit, or skipped — never merged in blind. `handoff` is the candidate the
+FE team works from, and their work may diverge from it; what they take is their call.
+
 Delivery to the real repo is `main..handoff`, one PR or patch per layer, in order. An upstream
 sync is `main` ← upstream, then `main` → `handoff`, then `handoff` → `lab`: `scripts/sync-upstream.sh`
 does the three in their worktrees and stops on the first conflict; `--push` pushes them after.
