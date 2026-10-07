@@ -400,12 +400,24 @@ const docsProducts: [string, string][] = Object.values(productVersions)
 			}
 		};
 
-		document.addEventListener('keydown', (e) => {
-			if (e.key === 'Escape' && isOpen()) {
+		// Escape closes — caught in the CAPTURE phase: Google's input handles the key itself and it
+		// never bubbles to the document, so a reader with the caret in the field could not leave with
+		// Escape (2026-10-07). While Google's suggestions are open, the first Escape is theirs and
+		// dismisses them; the next one closes the dialog.
+		document.addEventListener(
+			'keydown',
+			(e) => {
+				if (e.key !== 'Escape' || !isOpen()) return;
+				// Shown, not `offsetParent`: the dropdown is pinned `fixed` while the dialog is open, and a
+				// fixed element has no offsetParent whether it shows or not.
+				const suggestions = document.querySelector<HTMLElement>('.gssb_c');
+				if (suggestions && getComputedStyle(suggestions).display !== 'none' && suggestions.getClientRects().length)
+					return;
 				e.preventDefault();
 				close();
-			}
-		});
+			},
+			{ capture: true }
+		);
 
 		// Warm cse.js and the panel on hover or focus of a trigger, so the click feels instant; the
 		// listeners go on the first interaction, so they do not run for the rest of the page's life.
@@ -454,6 +466,7 @@ const docsProducts: [string, string][] = Object.values(productVersions)
 
 <style is:global lang="scss">
 	@use '../styles/variables' as *;
+	@use '../styles/kbd' as *;
 
 	// The layer. Built by the script and appended to <body>, so nothing here is scoped.
 	#tb-search-modal {
@@ -625,13 +638,9 @@ const docsProducts: [string, string][] = Object.values(productVersions)
 		}
 	}
 
+	// The kit's key hint, by its mixin: this markup is built in the script above.
 	.tb-search-close-key {
-		padding: 1px 6px;
-		border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-		border-radius: 4px;
-		font: inherit;
-		font-size: 12px;
-		line-height: 18px;
+		@include ui-kbd;
 	}
 
 	.tb-search-close-word {
@@ -813,19 +822,38 @@ const docsProducts: [string, string][] = Object.values(productVersions)
 			}
 		}
 
-		// The clear button Google puts after the text.
+		// The clear button Google puts after the text: its "×" glyph becomes Tabler's `x` at 20px, the kit's
+		// icon, as a mask in the muted ink (2026-10-07; the glyph set small and thin at 20px).
 		.gsst_a {
+			// Tabler `x` (MIT), 24 on 24, stroke 2.
+			--tb-icon-x: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6l-12 12'/%3E%3Cpath d='M6 6l12 12'/%3E%3C/svg%3E");
+
+			display: inline-flex !important;
+			align-items: center;
 			padding: 0 6px !important;
+			color: var(--color-text-secondary, #5b616e);
+
+			&:hover {
+				color: var(--color-text, #17181c);
+			}
 
 			.gscb_a {
-				color: var(--color-text-secondary, #5b616e) !important;
-				font-size: 20px !important;
+				display: block;
+				width: 20px;
+				height: 20px;
+				font-size: 0 !important;
+				background-color: currentColor;
+				-webkit-mask: var(--tb-icon-x) center / contain no-repeat;
+				mask: var(--tb-icon-x) center / contain no-repeat;
 			}
 		}
 
 		// The submit: the kit's primary, at the field's height, at every width — Google's own sheet drops
 		// it on a narrow screen, which left a phone with no visible way to search but the keyboard's Go.
-		// "Search" beside the magnifier where the row has room.
+		// "Search" beside the magnifier where the row has room. The fill is the kit's `--accent-fill`,
+		// the same brand blue on either ground — `--color-primary` was the dark theme's pale tint, and
+		// white words on it washed out (2026-10-07). By hand rather than the mixin: every value needs
+		// `!important` over Google's sheet.
 		// Its cell keeps the button 8px off the field (the shared `td` reset above zeroes Google's own).
 		table.gsc-search-box td.gsc-search-button {
 			display: table-cell !important;
@@ -834,6 +862,9 @@ const docsProducts: [string, string][] = Object.values(productVersions)
 		}
 
 		.gsc-search-button-v2 {
+			// Tabler `search` (MIT), 24 on 24, stroke 2.
+			--tb-icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0'/%3E%3Cpath d='M21 21l-6 -6'/%3E%3C/svg%3E");
+
 			display: inline-flex !important;
 			align-items: center;
 			justify-content: center;
@@ -844,8 +875,8 @@ const docsProducts: [string, string][] = Object.values(productVersions)
 			padding: 0 16px !important;
 			border: 0 !important;
 			border-radius: $radius-md !important;
-			background: var(--color-primary) !important;
-			color: #fff !important;
+			background: var(--accent-fill, var(--color-brand)) !important;
+			color: var(--accent-on-fill, #fff) !important;
 			cursor: pointer;
 
 			&:hover {
@@ -861,10 +892,21 @@ const docsProducts: [string, string][] = Object.values(productVersions)
 				outline-offset: 3px !important;
 			}
 
+			// Tabler's magnifier, the kit's icon set, in the label's ink — as a mask filled with
+			// `currentColor`, since the button's markup is Google's and its own glyph is hidden. 20px, the
+			// kit's icon at this size; on the flex line with the word, so the two centre together.
 			svg {
-				width: 18px !important;
-				height: 18px !important;
-				fill: #fff !important;
+				display: none !important;
+			}
+
+			&::before {
+				content: '';
+				flex: none;
+				width: 20px;
+				height: 20px;
+				background-color: currentColor;
+				-webkit-mask: var(--tb-icon-search) center / contain no-repeat;
+				mask: var(--tb-icon-search) center / contain no-repeat;
 			}
 
 			@media (width >= 560px) {

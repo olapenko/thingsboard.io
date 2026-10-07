@@ -15,6 +15,7 @@ the live reference is `/internal/library/kit/` (every component, variant, size a
 | `Card`, `CardGrid`, `LinkCard` | tile · row · panel; surface · ghost · inverse; `href` makes the whole card the link; grids of 2, 3 or 4 |
 | `Band` | a section's ground, padding step and measure; sets `data-surface` |
 | `Dialog` | the modal shell on a native `<dialog>` (`@util/dialog`) |
+| `Kbd` | a key hint ("Ctrl K", "Esc"): the key's name in a hairline box, `currentColor`, 20 tall; `ui-kbd` in `_kbd.scss` for script-built markup |
 
 Built on them, in `Landing/`: `SectionHeader`, `PageIntro`, `RegionChoice`, `InstallOptions`, `Bookend`,
 and the product and pricing pages' blocks: `ProductMatrix` (any number of columns, `true` is a check),
