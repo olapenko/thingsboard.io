@@ -32,7 +32,7 @@ per pattern, with `kit.css` split along the section comments:
 | Pattern | Astro component | Markup contract |
 |---|---|---|
 | `.shot` + `.ring` / `.patch` | `BlogShot.astro` | `<div class="shot"><img …><div class="ring" style="left:…%;top:…%;width:…%;height:…%"></div></div>` |
-| `.panel` | `BlogPanel.astro` | wraps one `.shot`; `--dark`, `--wide`, `--tall` modifiers |
+| `.panel` | `BlogPanel.astro` | wraps one `.shot`; `--dark`, `--wide`, `--tall` modifiers; `--bleed` holds a bare `<img>` edge to edge, no shadow, no lightbox |
 | `.compare` | reuse `UseCase/ImageComparison.astro` | already on the site; `kit.js` has the same drag logic |
 | `.video` | `BlogVideo.astro` | `<figure class="video"><video autoplay muted loop playsinline …></video><figcaption>` |
 | `.grid` + `.block` / `.card` | `BlogGrid.astro` | `--3`, `--tight`; child `.wide` spans; `.sub` for the small heading |
@@ -64,6 +64,8 @@ The `.blog-content` rules in the site's blog template still apply inside the com
   percent of the image box, so they survive any rendered size. The patch is a review-time
   tool: once a post is final it is a candidate to bake into the image, since the pipeline can
   paint the same rectangle at crop time (a fill-rect in `pngcrop.py`, about ten lines).
+- A capture whose own background already frames it (the Go to… search over the app wallpaper)
+  goes in a `.panel--bleed`: the image is the panel, edge to edge, nothing else.
 - Dialogs are **cut out of their screenshot** and placed on a `.panel` gradient. Light panels are
   pale blue-to-teal; `.panel--dark` is the product teal (#00695c) into steel blue, for a
   dialog that needs weight.
