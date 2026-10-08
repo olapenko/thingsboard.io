@@ -38,7 +38,7 @@ per pattern, with `kit.css` split along the section comments:
 | `.grid` + `.block` / `.card` | `BlogGrid.astro` | `--3`, `--tight`; child `.wide` spans; `.sub` for the small heading |
 | `.stepper` | `BlogSteps.astro` | `<ol class="stepper"><li><span class="sub">…</span><p>…</p></li>` — horizontal, numbered by CSS counter; stacks on phones |
 | `.schema` | `BlogSchema.astro` (under review) | boxes + arrows, see below |
-| `.cta` | existing `BlogCTA.astro` | the kit version is a restyle of it |
+| `.cta` | existing `BlogCTA.astro` | the kit version is a restyle of it, with its own hover and focus states (the template only underlines links on hover) |
 
 **Keeping it light.** `kit.css` is about 180 lines and `kit.js` about 100, with no
 dependencies. When splitting into Astro components, keep it that way: one `<style is:global>`
