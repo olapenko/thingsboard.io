@@ -1,13 +1,12 @@
 ---
 import Band from '@components/ui/Band.astro';
 import Button from '@components/ui/Button.astro';
-import CardGrid from '@components/ui/CardGrid.astro';
 import Link from '@components/ui/Link.astro';
 import Mark from '@components/ui/Mark.astro';
 import ProductFaq from '@components/Landing/ProductFaq.astro';
 import CertSeal from '@components/TrustCenter/CertSeal.astro';
 import ItemList from '@components/TrustCenter/ItemList.astro';
-import TcCard from '@components/TrustCenter/TcCard.astro';
+import Tag from '@components/TrustCenter/Tag.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
 import { DOC_GROUPS, DOCS, docHref } from '@data/trust-center/documents';
 import { TC_FAQ } from '@data/trust-center/faq';
@@ -16,7 +15,12 @@ import { CERT_VALIDATOR, CERTIFICATES } from '@data/trust-center/overview';
 import { ACCESS, VERIFICATION } from '@data/trust-center/status';
 
 /**
- * The Trust Center's overview, build v3.
+ * The Trust Center's overview, the LANDING version (exp/trust-center-landing): no section bar, and a
+ * hero that carries the proof and the two actions — the ISO seals, each a link to its certificate,
+ * with the way to verify them, and Contact and Report as buttons. So that nothing is said twice, the
+ * Certifications band and the "Get in touch" band are gone from the body.
+ *
+ * Build v3 notes, still true below the hero:
  *
  * - The hero is the intro alone; the certificates are the first band's, not the hero's.
  * - "What we cover" lists the four sections, each with its line and its pages: every section has a
@@ -31,11 +35,38 @@ const groups = DOC_GROUPS.map((name, gi) => ({ name, docs: DOCS.filter((d) => d.
 ---
 
 <TrustCenterLayout
+	bar={false}
 	title="Trust Center"
 	eyebrow="Security, compliance and privacy"
 	lede="Security is built into every layer of ThingsBoard, from device connections to the way we develop and run the platform. Your data stays isolated, encrypted in transit and under your control."
 	description="Security, compliance and privacy at ThingsBoard: certifications, documents, data protection by deployment, and how to report a vulnerability."
 >
+	<div slot="hero" class="tc-landing__actions">
+		<Button href={tc('contact')}>Contact us</Button>
+		<Button href={tc('report-vulnerability')} variant="secondary">
+			Report a vulnerability
+		</Button>
+	</div>
+	<div slot="visual" class="tc-landing__proof">
+		<ul class="tc-landing__seals">
+			{CERTIFICATES.map((cert) => (
+				<li>
+					<a class="tc-landing__seal" href={cert.href}>
+						<CertSeal number={cert.number} size={96} />
+						<Tag tag={VERIFICATION.certified} />
+						<span class="ui-sr">{cert.title}</span>
+					</a>
+				</li>
+			))}
+		</ul>
+		<p class="tc-landing__verify">
+			Certified by Swiss Approval North America.
+			<Link href={CERT_VALIDATOR} size="sm" external>
+				Verify
+			</Link>
+		</p>
+	</div>
+
 	<Band pad={{ top: 'md', bottom: 'lg' }} labelledby="topics">
 		<div class="tc-section">
 			<h2 class="tc-h2" id="topics">
@@ -63,27 +94,6 @@ const groups = DOC_GROUPS.map((name, gi) => ({ name, docs: DOCS.filter((d) => d.
 					</li>
 				))}
 			</ul>
-		</div>
-	</Band>
-
-	<Band ground="tint" pad="lg" labelledby="certifications">
-		<div class="tc-section">
-			<div class="tc-section__head">
-				<h2 class="tc-h2" id="certifications">
-					Certifications
-				</h2>
-				<p class="tc-copy">Issued by Swiss Approval North America on 9 September 2026, audited every year.</p>
-			</div>
-			<CardGrid cols={2}>
-				{CERTIFICATES.map((cert) => (
-					<TcCard layout="row" href={cert.href} title={cert.title} text={cert.subtitle} tag={VERIFICATION.certified}>
-						<CertSeal slot="lead" number={cert.number} />
-					</TcCard>
-				))}
-			</CardGrid>
-			<Link href={CERT_VALIDATOR} size="sm" external>
-				Verify the certificates
-			</Link>
 		</div>
 	</Band>
 
@@ -118,34 +128,6 @@ const groups = DOC_GROUPS.map((name, gi) => ({ name, docs: DOCS.filter((d) => d.
 		</div>
 	</Band>
 
-	<Band ground="tint" pad="lg" labelledby="get-in-touch">
-		<div class="tc-section">
-			<h2 class="tc-h2" id="get-in-touch">
-				Get in touch
-			</h2>
-			<CardGrid cols={2}>
-				<TcCard
-					title="Found a vulnerability?"
-					text="Report it to us privately instead of opening a public issue, so we can fix it before anyone can exploit it. We reply within three business days with an investigation plan and keep you updated until the fix is out."
-				>
-					<Mark slot="lead" size={48} icon="tabler:bug" accent={HUES.brand} fill="solid" />
-					<Button slot="footer" href={tc('report-vulnerability')} size="sm">
-						Report a vulnerability
-					</Button>
-				</TcCard>
-				<TcCard
-					title="A question about security, compliance or privacy?"
-					text="Ask us, or request documents under NDA. We reply by email."
-				>
-					<Mark slot="lead" size={48} icon="tabler:message-circle" accent={HUES.brand} fill="solid" />
-					<Button slot="footer" href={tc('contact')} size="sm" variant="secondary">
-						Contact us
-					</Button>
-				</TcCard>
-			</CardGrid>
-		</div>
-	</Band>
-
 	<Band pad="lg" labelledby="faq">
 		<div class="tc-section">
 			<h2 class="tc-h2" id="faq">
@@ -158,6 +140,66 @@ const groups = DOC_GROUPS.map((name, gi) => ({ name, docs: DOCS.filter((d) => d.
 
 <style is:global lang="scss">
 	@use '../../styles/variables' as *;
+
+	// The hero's two actions, as the product pages' heroes set theirs.
+	.tc-landing__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-3;
+	}
+
+	// The proof on the hero's right: the two seals side by side, each a link to its certificate,
+	// with the issuer and the way to verify under them.
+	.tc-landing__proof {
+		display: grid;
+		justify-items: center;
+		gap: $spacing-6;
+
+		@include media-down(lg) {
+			justify-items: start;
+
+			.tc-landing__verify {
+				justify-items: start;
+				text-align: left;
+			}
+		}
+	}
+
+	.tc-landing__seals {
+		display: flex;
+		gap: $spacing-8;
+		padding: 0;
+		list-style: none;
+	}
+
+	.tc-landing__seal {
+		display: grid;
+		justify-items: center;
+		gap: $spacing-8;
+		color: var(--color-text);
+		text-decoration: none;
+
+		&:hover .tc-seal__disc {
+			box-shadow:
+				0 0 0 2px var(--accent-fill),
+				0 8px 20px -8px rgba(23, 24, 28, 0.3);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 6px;
+			border-radius: $radius-md;
+		}
+	}
+
+	.tc-landing__verify {
+		@include type-small;
+		display: grid;
+		justify-items: center;
+		gap: $spacing-1;
+		color: var(--color-text-secondary);
+		text-align: center;
+	}
 
 	.tc-docgroups {
 		display: grid;
