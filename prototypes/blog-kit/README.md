@@ -23,9 +23,10 @@ prototypes/blog-kit/
     ├── kit-demo.html        every component once, light and dark (+ kit-demo/videos.json for its clips)
     └── guide.html           the guide as a page, generated; linked from the demo
 
-Sources (raw captures, recordings, the sources zip) and the encoded clips are git-ignored; the
-manifests and the processed images are committed, so the pages render from a clean checkout
-except for the clips, which `prepare-videos.py` regenerates from the sources.
+Sources (raw captures, recordings, the sources zip) are git-ignored; the manifests, the
+processed images and a post's encoded clips are committed, so a post renders from a clean
+checkout. The demo's clips are ignored (they are large and only illustrative);
+`prepare-videos.py` regenerates any clip from its manifest.
 ```
 
 Open either example by serving this folder (`python3 -m http.server`, then
@@ -331,8 +332,10 @@ width for a region the size of a dialog (the 4.4 Go to… clip, on a `--dark` pa
 section's highlight).
 
 `kit.js` pauses the clip when it scrolls out of view and, under `prefers-reduced-motion`,
-removes autoplay and shows a play button over the poster. Encoded clips are not committed
-(`examples/**/video/` is ignored); `prepare-videos.py` regenerates them from the manifest.
+removes autoplay and shows a play button over the poster. A post's encoded clips are
+committed with it, like its images (the 4.4 Go to… clip is about 420 KB in three files); raw
+recordings and the demo's clips are ignored, and `prepare-videos.py` regenerates any clip
+from its manifest.
 
 ## The prototype artifact
 
