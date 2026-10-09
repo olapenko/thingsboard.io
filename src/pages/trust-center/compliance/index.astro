@@ -1,5 +1,6 @@
 ---
 import Band from '@components/ui/Band.astro';
+import Button from '@components/ui/Button.astro';
 import CardGrid from '@components/ui/CardGrid.astro';
 import Link from '@components/ui/Link.astro';
 import Mark from '@components/ui/Mark.astro';
@@ -7,20 +8,37 @@ import CertSeal from '@components/TrustCenter/CertSeal.astro';
 import Facts from '@components/TrustCenter/Facts.astro';
 import TcCard from '@components/TrustCenter/TcCard.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
-import { extLink, link } from '@data/trust-center/html';
-import { tc } from '@data/trust-center/nav';
+import { requestHref } from '@data/trust-center/documents';
+import { extLink, link, mailLink } from '@data/trust-center/html';
+import { SECURITY_EMAIL, tc } from '@data/trust-center/nav';
 import { CERT_VALIDATOR, CERTIFICATES, PRIVACY } from '@data/trust-center/overview';
 import { VERIFICATION } from '@data/trust-center/status';
 
-// Compliance. The certificates open the page on a tint, verified; the certification body's row names the
-// issuer and how to verify, not the dates (each ISO page has its own, edit 1); the pentest and the
-// data centers are a line and a link each (edits 6 and 12). GDPR and CCPA are cards on the tint,
-// marked as declared, not certified.
+// Compliance: the section's one page, the two certificates, GDPR and CCPA anchored on it (they were
+// pages of their own). The certificates open the page on a tint, verified, each card going to its
+// part; what the two have in common (the body, the validity, the scope) is stated once above them,
+// so each certificate keeps only its own facts: the Status rows went with it, since the cards say
+// Certified, the validity says when, and the body's row says by whom (edit 1, on one page now). The
+// pentest and the data centers are a line and a link each (edits 6 and 12). GDPR and CCPA are cards
+// on the tint, declared rather than certified, and their parts under it; CCPA's requests go through
+// GDPR's procedure, so its row links there rather than restating the address, and the one request
+// button is GDPR's.
 
-const FACTS = [
+const ANCHORS = [
+	{ label: 'ISO/IEC 27001:2022', href: '#iso-27001' },
+	{ label: 'ISO 9001:2015', href: '#iso-9001' },
+	{ label: 'GDPR', href: '#gdpr' },
+	{ label: 'CCPA', href: '#ccpa' },
+];
+
+const CERT_FACTS = [
 	{
 		term: 'Certification body',
 		html: `Swiss Approval North America (IAS-accredited, IAF MLA), with a surveillance audit every year. Verify the certificates at ${extLink(CERT_VALIDATOR, 'swissapproval.ch/certificate-validator')}.`,
+	},
+	{
+		term: 'Validity',
+		html: '9 September 2026 – 8 September 2027, within a three-year cycle running to 8 September 2029.',
 	},
 	{
 		term: 'Certified scope',
@@ -28,19 +46,70 @@ const FACTS = [
 	},
 	{
 		term: 'Penetration testing',
-		html: `An independent test every year. ${link(`${tc('appsec')}#penetration-testing`, 'The latest test')}`,
+		html: `An independent test every year. ${link(`${tc('security')}#penetration-testing`, 'The latest test')}`,
 	},
 	{
 		term: 'Data centers',
 		html: `ThingsBoard Cloud and Private Cloud run in certified data centers. ${link(tc('cloud'), 'Certifications by deployment')}`,
 	},
 ];
+
+const ISO_27001 = [
+	{ term: 'Registration No', html: '372-02-270-00460' },
+	{
+		term: 'Statement of Applicability',
+		html: '93 Annex A controls: 91 implemented, 1 implemented partially (A.8.12) and 1 not applicable (A.8.30). Available under NDA.',
+	},
+	{
+		id: 'what-it-covers',
+		term: 'What it covers',
+		html: "Our management system, meaning how we build, maintain and support the software. It doesn't certify the product itself, and it doesn't cover your own installation.",
+	},
+	{
+		term: 'For your vendor assessment',
+		html: `Supplier evidence in your own ISMS (A.5.19–A.5.23). ${link('#compliant-solution', 'Using our certificates in your audit')}`,
+	},
+];
+
+const ISO_9001 = [
+	{ term: 'Registration No', html: '372-02-100-02170 · IAF Code 33' },
+	{ term: 'For procurement', html: 'Use it as supplier evidence under clause 8.4 of your own QMS.' },
+];
+
+const GDPR = [
+	{
+		term: 'Scope of application',
+		html: 'We apply data minimization and storage limitation to all personal data we process, wherever the person lives.',
+	},
+	{ term: 'Legal basis', html: 'When we process data on your behalf, the Data Processing Addendum applies.' },
+	{
+		id: 'data-subject-requests',
+		term: 'Data subject requests',
+		html: `We handle requests to access, correct or delete data under a documented procedure, and complete erasure requests within 30 days. Write to ${mailLink(SECURITY_EMAIL)}.`,
+	},
+	{
+		term: 'Breach notification',
+		html: 'Breaches go through our incident process. We notify affected parties and regulators as the law and our contracts require.',
+	},
+];
+
+const CCPA = [
+	{
+		term: 'Consumer rights',
+		html: `We handle requests to know, delete and correct personal information through the same procedure as ${link('#data-subject-requests', 'GDPR requests')}.`,
+	},
+	{ term: 'Sale of data', html: 'We do not sell personal information.' },
+];
+
+const [iso27001, iso9001] = CERTIFICATES;
+const [gdpr, ccpa] = PRIVACY;
 ---
 
 <TrustCenterLayout
 	title="Compliance"
 	lede="Independent certification of how we build and run ThingsBoard, and how we meet privacy law."
 	description="ThingsBoard's ISO/IEC 27001 and ISO 9001 certifications, their scope and verification, and how we meet GDPR and CCPA."
+	anchors={ANCHORS}
 >
 	<Band ground="tint" pad={{ top: 'md', bottom: 'lg' }}>
 		<div class="tc-section">
@@ -57,11 +126,46 @@ const FACTS = [
 		</div>
 	</Band>
 
-	<Band pad="lg">
-		<Facts rows={FACTS} />
+	<Band as="div" pad="lg">
+		<div class="tc-stack">
+			<Facts rows={CERT_FACTS} />
+
+			<section class="tc-section" id="iso-27001" aria-labelledby="iso-27001-title">
+				<div class="tc-mark-head">
+					<CertSeal number={iso27001.number} size={48} />
+					<div class="tc-mark-head__text">
+						<h2 class="tc-h2" id="iso-27001-title">
+							{iso27001.title}
+						</h2>
+						<p class="tc-copy">Information security management system, including Amendment 1:2024.</p>
+					</div>
+				</div>
+				<Facts rows={ISO_27001} />
+				<div class="tc-actions-row">
+					<Button href={requestHref(['statement-of-applicability', 'internal-audit-report-2026'])} variant="secondary">
+						Request the SoA and audit report
+					</Button>
+				</div>
+			</section>
+
+			<section class="tc-section" id="iso-9001" aria-labelledby="iso-9001-title">
+				<div class="tc-mark-head">
+					<CertSeal number={iso9001.number} size={48} />
+					<div class="tc-mark-head__text">
+						<h2 class="tc-h2" id="iso-9001-title">
+							{iso9001.title}
+						</h2>
+						<p class="tc-copy">
+							Quality management system, run as one integrated system together with information security.
+						</p>
+					</div>
+				</div>
+				<Facts rows={ISO_9001} />
+			</section>
+		</div>
 	</Band>
 
-	<Band ground="tint" pad="lg" labelledby="compliant-solution">
+	<Band ground="tint" pad="lg" labelledby="compliant-solution-title">
 		<div class="tc-section" id="compliant-solution">
 			<div class="tc-section__head">
 				<h2 class="tc-h2" id="compliant-solution-title">
@@ -84,6 +188,40 @@ const FACTS = [
 					</TcCard>
 				))}
 			</CardGrid>
+		</div>
+	</Band>
+
+	<Band as="div" pad="lg">
+		<div class="tc-stack">
+			<section class="tc-section" id="gdpr" aria-labelledby="gdpr-title">
+				<div class="tc-mark-head">
+					<Mark size={48} icon={gdpr.icon} accent={gdpr.accent} fill="solid" />
+					<h2 class="tc-h2" id="gdpr-title">
+						{gdpr.title}
+					</h2>
+				</div>
+				<Facts rows={GDPR} />
+				<div class="tc-actions-row">
+					<Button href={`${tc('contact')}?subject=dsr`} variant="secondary">
+						Make a data subject request
+					</Button>
+				</div>
+			</section>
+
+			<section class="tc-section" id="ccpa" aria-labelledby="ccpa-title">
+				<div class="tc-mark-head">
+					<Mark size={48} icon={ccpa.icon} accent={ccpa.accent} fill="solid" />
+					<h2 class="tc-h2" id="ccpa-title">
+						{ccpa.title}
+					</h2>
+				</div>
+				<Facts rows={CCPA} />
+			</section>
+
+			<p class="tc-copy">
+				Related: <a href="/products/paas/dpa/">Data Processing Addendum</a> ·{' '}
+				<a href="/products/paas/privacy-policy/">Privacy Policy</a> · <a href={tc('subprocessors')}>Sub-processors</a>
+			</p>
 		</div>
 	</Band>
 </TrustCenterLayout>

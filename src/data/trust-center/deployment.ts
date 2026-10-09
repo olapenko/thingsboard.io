@@ -3,14 +3,14 @@ import { tc } from '@data/trust-center/nav';
 
 /**
  * The Deployment pages' facts, from the draft, with the review's repetition edits. Each fact here is
- * its home: the overview, the FAQ and the Security pages link to it rather than restating it.
+ * its home: the overview, the FAQ and the Security page link to it rather than restating it.
  *
  * - Cloud: the encryption row is gone (identical in both columns and not specific to either; the
  *   ports live on Product security, edit 3); staff access is written once (edit 9).
- * - On-premises: what is built in links to the Security pages (edit 4); security fixes keep the
+ * - On-premises: what is built in links to the Security page (edit 4); security fixes keep the
  *   on-premises how-to and link the policy (edit 5); the per-product note moved to Commitments
- *   (edit 14).
- * - Commitments: the NDA turnaround, the uptime SLA and leaving Private Cloud are cut (edits 7, 8,
+ *   (edit 14), on the Deployment hub.
+ * - Commitments (the Deployment hub's sections): the NDA turnaround, the uptime SLA and leaving Private Cloud are cut (edits 7, 8,
  *   10); the matrix loses the row identical in every column (edit 4) and merges Cloud and Private
  *   Cloud, which agreed in 13 of 14 rows (edit 15).
  */

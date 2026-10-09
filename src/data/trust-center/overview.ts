@@ -1,71 +1,70 @@
+import {
+	ACCESS_CONTROLS,
+	DATA_CONTROLS,
+	DEV_CONTROLS,
+	PRODUCT_CONTROLS,
+	type Control,
+} from '@data/trust-center/controls';
+import { link } from '@data/trust-center/html';
 import { HUES, tc } from '@data/trust-center/nav';
 
 /**
  * The overview's and the hubs' summaries, from the draft's tiles, with the review's edits.
  *
  * Build v3 gave Security and Deployment hubs, so each topic now lives on its section's hub rather
- * than on the overview, which lists the sections instead (`SECTIONS` in `@data/trust-center/nav`):
- * the four Security topics with their points are the Security hub; the deployments and Commitment
- * and responsibility are the Deployment hub's cards. The draft's Compliance tile is gone: its points
- * are the Compliance hub's facts.
+ * than on the overview, which lists the sections instead (`SECTIONS` in `@data/trust-center/nav`).
+ * The four Security pages are now the Security hub's sections; the deployments are the Deployment
+ * hub's cards, with Commitment and responsibility on the hub under them. The draft's Compliance tile
+ * is gone: its points are the Compliance page's facts.
  */
 
-export interface Topic {
+export interface SecurityTopic {
+	/** The section's anchor on the Security page. */
+	id: string;
 	title: string;
-	subtitle: string;
 	icon: string;
-	href: string;
-	points: string[];
+	/** The section's opening line: the lede of the page it was. */
+	lede: string;
+	controls: Control[];
+	/** A closing line, HTML. */
+	note?: string;
 }
 
-export const SECURITY_TOPICS: Topic[] = [
+/**
+ * The Security page's four sections, each a page of its own until they merged: its mark, the line
+ * that was the page's lede, and its controls. The tiles' points are gone with the tiles: the
+ * controls under them say the same in full.
+ */
+export const SECURITY_TOPICS: SecurityTopic[] = [
 	{
+		id: 'product',
 		title: 'Product security',
-		subtitle: 'Security built into the product',
 		icon: 'tabler:device-desktop',
-		href: tc('product'),
-		points: [
-			'Encrypted transport for every device protocol',
-			'X.509 device credentials and mutual TLS',
-			'AES-256 encrypted secrets storage',
-			'Custom domains with automatic SSL',
-		],
+		lede: "How the platform protects device connections, credentials and secrets, so you don't have to build this layer yourself.",
+		controls: PRODUCT_CONTROLS,
+		note: `Full documentation for every feature is in the ${link('/docs/pe/user-guide/security/overview/', 'Security section')} of the docs.`,
 	},
 	{
+		id: 'data',
 		title: 'Data security',
-		subtitle: 'Your data stays protected',
 		icon: 'tabler:database',
-		href: tc('data'),
-		points: [
-			'Tenant isolation by architecture',
-			'Encrypted in transit with TLS',
-			'North America or EU on Cloud; APAC too on Private Cloud',
-			'Export anytime via API, no lock-in',
-		],
+		lede: 'What happens to the data your devices send to the platform, from the moment it arrives until you delete it.',
+		controls: DATA_CONTROLS,
 	},
 	{
+		id: 'access',
 		title: 'Access control',
-		subtitle: 'You decide who sees what',
 		icon: 'tabler:lock',
-		href: tc('access'),
-		points: [
-			'2FA enforceable for all users',
-			'SSO with OAuth 2.0 and OpenID Connect',
-			'Role-based access with entity groups',
-			'Password, lockout and session policies',
-		],
+		lede: 'Who can sign in, what each user can see, and a record of what they did. We built these controls into the platform; you decide how strictly to apply them in your tenant.',
+		controls: ACCESS_CONTROLS,
 	},
 	{
+		id: 'dev',
 		title: 'Dev security',
-		subtitle: 'Built through a secure process',
 		icon: 'tabler:code',
-		href: tc('appsec'),
-		points: [
-			'Mandatory code review before merge',
-			'Weekly code and dependency scanning',
-			'Annual external penetration test',
-			'Fixed CVEs listed in release notes',
-		],
+		lede: 'How we build, test and release the software you run. These practices come from years of delivering production IoT solutions on our own platform.',
+		controls: DEV_CONTROLS,
+		note: `Found a weakness in our software? ${link(tc('report-vulnerability'), 'Report it privately')}, and we'll respond within three business days.`,
 	},
 ];
 
@@ -74,9 +73,14 @@ export const CERTIFICATES = [
 		title: 'ISO/IEC 27001:2022',
 		number: '27001',
 		subtitle: 'Information security management system',
-		href: tc('compliance/iso-27001'),
+		href: `${tc('compliance')}#iso-27001`,
 	},
-	{ title: 'ISO 9001:2015', number: '9001', subtitle: 'Quality management system', href: tc('compliance/iso-9001') },
+	{
+		title: 'ISO 9001:2015',
+		number: '9001',
+		subtitle: 'Quality management system',
+		href: `${tc('compliance')}#iso-9001`,
+	},
 ];
 
 /**
@@ -87,14 +91,14 @@ export const PRIVACY = [
 	{
 		title: 'GDPR',
 		subtitle: 'Applied to all personal data we process',
-		href: tc('compliance/gdpr'),
+		href: `${tc('compliance')}#gdpr`,
 		icon: 'simple-icons:europeanunion',
 		accent: '#003399',
 	},
 	{
 		title: 'CCPA',
 		subtitle: "California residents' privacy rights",
-		href: tc('compliance/ccpa'),
+		href: `${tc('compliance')}#ccpa`,
 		icon: 'tabler:user-shield',
 		accent: HUES.violet,
 	},
@@ -105,30 +109,20 @@ export const CERT_VALIDATOR = 'https://swissapproval.ch/certificate-validator/';
 /**
  * The Deployment hub's cards. The two deployments carry the products' own marks, as the footer and
  * the product pages draw them: the ThingsBoard mark in the brand blue for Cloud, in the on-premises
- * green for the platform you run yourself.
+ * green for the platform you run yourself. Commitment and responsibility is not a card: it is the
+ * hub's own sections, under the cards.
  */
-export const DEPLOYMENTS: {
-	title: string;
-	text: string;
-	href: string;
-	mark: { logo: 'thingsboard'; accent: string } | { icon: string; accent: string };
-}[] = [
+export const DEPLOYMENTS: { title: string; text: string; href: string; accent: string }[] = [
 	{
 		title: 'ThingsBoard Cloud and Private Cloud',
 		text: 'We host and run the platform, so you can focus on your solution.',
 		href: tc('cloud'),
-		mark: { logo: 'thingsboard', accent: HUES.brand },
+		accent: HUES.brand,
 	},
 	{
 		title: 'On-premises',
 		text: 'You run the platform; we provide the product code, security fixes and guides.',
 		href: tc('onprem'),
-		mark: { logo: 'thingsboard', accent: 'onprem' },
-	},
-	{
-		title: 'Commitment and responsibility',
-		text: 'What we promise, and what ThingsBoard handles in each deployment model.',
-		href: tc('commitments'),
-		mark: { icon: 'tabler:arrows-exchange', accent: HUES.teal },
+		accent: 'onprem',
 	},
 ];

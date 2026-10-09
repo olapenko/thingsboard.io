@@ -2,16 +2,21 @@
 import BaseLayout from '@layouts/BaseLayout.astro';
 import PageIntro from '@components/Landing/PageIntro.astro';
 import Band from '@components/ui/Band.astro';
+import Link from '@components/ui/Link.astro';
 import SectionNav from '@components/TrustCenter/SectionNav.astro';
-import SectionPages from '@components/TrustCenter/SectionPages.astro';
-import { LAST_UPDATED, sectionFor } from '@data/trust-center/nav';
+import { LAST_UPDATED, SECTIONS, sectionFor } from '@data/trust-center/nav';
 import './trust-center.scss';
 
-// Every Trust Center page (build v3): the section bar directly under the site's bar, then a short
-// hero on the section's hue — the section's pages as pills, the h1 and the lede, and on the right
-// whatever the page puts in the `visual` slot — then the page's own bands, then the date the content
-// was last updated. The section's hue is the page's accent: the kit's buttons, links and description
-// tags inside take it, as the On-premises page takes green.
+// Every Trust Center page: the section bar directly under the site's bar, then a short hero on the
+// section's hue — what is on the page, the h1 and the lede, and on the right whatever the page puts
+// in the `visual` slot — then the page's own bands, then the date the content was last updated. The
+// section's hue is the page's accent: the kit's buttons, links and description tags inside take it,
+// as the On-premises page takes green.
+//
+// A page made of a section's merged pages lists its parts at the top of the hero (`anchors`, "On
+// this page"): plain links that scroll away with the hero, so the sticky header stays two rows. A
+// page under its section's own (Cloud, On-premises, Sub-processors, a document) has the way back
+// where the eyebrow stands: `PageIntro`'s eyebrow is text, so it is the kit's back link instead.
 //
 // The page composes its body from `ui/Band`s: white for running content, the tint for cards (a
 // white card reads on a tint, not on white).
@@ -22,16 +27,19 @@ interface Props {
 	/** The browser title, where it should differ from the h1. */
 	metaTitle?: string;
 	description?: string;
-	/** Over the h1, where the section's pages are not listed there. Default: the section's name. */
+	/** Over the h1. Default: the section's name, or "Trust Center" on the section's own page. */
 	eyebrow?: string;
 	lede?: string;
+	/** The page's sections, listed "On this page" at the top of the hero. */
+	anchors?: { label: string; href: string }[];
 }
 
-const { title, metaTitle, description, lede } = Astro.props;
+const { title, metaTitle, description, lede, anchors = [] } = Astro.props;
 const section = sectionFor(Astro.url.pathname);
-const listed = section.pages.length > 1;
-// The pills name the section already; a page of a single-page section is named by its eyebrow.
-const eyebrow = listed
+const path = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : `${Astro.url.pathname}/`;
+// The section this page sits under, when it is not the section's own page.
+const parent = section.key !== 'overview' && SECTIONS.includes(section) && section.href !== path ? section : undefined;
+const eyebrow = parent
 	? undefined
 	: (Astro.props.eyebrow ?? (title === section.label ? 'Trust Center' : section.label));
 const hasVisual = Astro.slots.has('visual');
@@ -58,8 +66,30 @@ const hueVars = [
 		<Band ground="fade" hue={section.hue} strength={10} wave pad={{ top: 'md', bottom: 'md' }} class="tc-hero">
 			<div class:list={['tc-hero__inner', hasVisual && 'tc-hero__inner--visual']}>
 				<div class="tc-hero__text">
-					{listed && <SectionPages section={section} />}
-					<PageIntro eyebrow={eyebrow} title={title} lede={lede} />
+					{anchors.length > 0 && (
+						<nav class="tc-anchors" aria-labelledby="tc-anchors-label">
+							<p class="tc-anchors__label" id="tc-anchors-label">
+								On this page
+							</p>
+							<ul class="tc-anchors__list">
+								{anchors.map((a) => (
+									<li>
+										<a class="tc-anchors__link" href={a.href}>
+											{a.label}
+										</a>
+									</li>
+								))}
+							</ul>
+						</nav>
+					)}
+					<div class="tc-hero__intro">
+						{parent && (
+							<Link href={parent.href} dir="back" size="sm" class="tc-hero__back">
+								{parent.label}
+							</Link>
+						)}
+						<PageIntro eyebrow={eyebrow} title={title} lede={lede} />
+					</div>
 					<slot name="hero" />
 				</div>
 				{hasVisual && (

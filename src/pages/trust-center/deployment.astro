@@ -1,32 +1,113 @@
 ---
+import { Icon } from 'astro-icon/components';
 import Band from '@components/ui/Band.astro';
 import CardGrid from '@components/ui/CardGrid.astro';
 import Mark from '@components/ui/Mark.astro';
+import ProductMatrix from '@components/Landing/ProductMatrix.astro';
+import Facts from '@components/TrustCenter/Facts.astro';
 import TcCard from '@components/TrustCenter/TcCard.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
+import {
+	RESPONSIBILITY_COLUMNS,
+	RESPONSIBILITY_GROUPS,
+	SUPPORT_BY_MODEL,
+	YOU_CONFIGURE,
+} from '@data/trust-center/deployment';
+import { mailLink } from '@data/trust-center/html';
+import { SECURITY_EMAIL, tc } from '@data/trust-center/nav';
 import { DEPLOYMENTS } from '@data/trust-center/overview';
 
-// The Deployment hub (build v3; a plain label until then): the two deployments under their products'
-// own marks, and who handles what. The draft's "same security features" line, which opened the
-// overview's deployment band, is this hub's lede.
+// The Deployment hub: the two deployments under their products' own marks (each a page of its own),
+// then Commitment and responsibility, which was a third page: what we commit to, who handles what,
+// and what is built for you to configure, anchored and listed "On this page". The draft's "same
+// security features" line, which opened the overview's deployment band, is the lede. The commitments
+// the Cloud page and Documents state in full (the SLA, leaving, the NDA turnaround) are links; the
+// matrix is two columns, since Cloud and Private Cloud agree everywhere but the region (edits 7, 8,
+// 10, 15).
+
+const ANCHORS = [
+	{ label: 'Our commitments', href: '#commitments' },
+	{ label: 'What ThingsBoard handles', href: '#who-handles-what' },
+	{ label: 'Built for you to configure', href: '#you-configure' },
+];
+
+const COMMITMENTS = [
+	{
+		term: 'Security questionnaires',
+		html: 'We give you the information you need to complete your security questionnaire.',
+	},
+	{
+		term: 'Support',
+		html: SUPPORT_BY_MODEL.map((s) => `<b>${s.model}:</b> ${s.text}`).join('<br><br>'),
+	},
+];
 ---
 
 <TrustCenterLayout
 	title="Deployment"
 	lede="Whether you use ThingsBoard Cloud, Private Cloud or run the platform on-premises, you get the same security features and the same engineering practices behind every release."
 	description="How security works in each ThingsBoard deployment: Cloud, Private Cloud and on-premises, and who handles what."
+	anchors={ANCHORS}
 >
 	<Band ground="tint" pad={{ top: 'md', bottom: 'lg' }}>
-		<CardGrid cols={3}>
+		<CardGrid cols={2}>
 			{DEPLOYMENTS.map((d) => (
 				<TcCard href={d.href} title={d.title} text={d.text}>
-					{'logo' in d.mark ? (
-						<Mark slot="lead" size={64} logo={d.mark.logo} accent={d.mark.accent} />
-					) : (
-						<Mark slot="lead" size={64} icon={d.mark.icon} accent={d.mark.accent} fill="solid" />
-					)}
+					<Mark slot="lead" size={64} logo="thingsboard" accent={d.accent} />
 				</TcCard>
 			))}
 		</CardGrid>
+	</Band>
+
+	<Band as="div" pad="lg">
+		<div class="tc-stack">
+			<section class="tc-section" id="commitments" aria-labelledby="commitments-title">
+				<h2 class="tc-h2" id="commitments-title">
+					Our commitments
+				</h2>
+				<Facts rows={COMMITMENTS} />
+				<p class="tc-copy">
+					Documents under NDA arrive <a href={tc('documents')}>within two business days</a>; Private Cloud's uptime SLA
+					and what happens when you leave are on the <a href={tc('cloud')}>Cloud page</a>.
+				</p>
+			</section>
+			<section class="tc-section" id="who-handles-what" aria-labelledby="who-handles-what-title">
+				<h2 class="tc-h2" id="who-handles-what-title">
+					What ThingsBoard handles
+				</h2>
+				<ProductMatrix
+					caption="Who handles each security responsibility, ThingsBoard or you, on Cloud and Private Cloud and on-premises"
+					firstLabel="Responsibility"
+					columns={RESPONSIBILITY_COLUMNS}
+					groups={RESPONSIBILITY_GROUPS}
+				/>
+			</section>
+		</div>
+	</Band>
+
+	<Band ground="tint" pad="lg" labelledby="you-configure-title">
+		<div class="tc-section" id="you-configure">
+			<div class="tc-section__head">
+				<h2 class="tc-h2" id="you-configure-title">
+					Built for you to configure
+				</h2>
+				<p class="tc-copy">
+					We built these controls into the platform, so you can tune security to your own needs in every deployment
+					instead of building it from scratch:
+				</p>
+			</div>
+			<ul class="tc-checks">
+				{YOU_CONFIGURE.map((item) => (
+					<li>
+						<Icon name="tabler:check" aria-hidden="true" />
+						{item}
+					</li>
+				))}
+			</ul>
+			<p class="tc-copy">
+				ThingsBoard Edge, IoT Gateway, TBMQ, Trendz and the mobile apps split responsibility differently. Write to{' '}
+				<Fragment set:html={mailLink(SECURITY_EMAIL)} /> for a breakdown by product.
+			</p>
+		</div>
 	</Band>
 </TrustCenterLayout>

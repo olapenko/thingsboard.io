@@ -41,7 +41,7 @@ export const TC_FAQ = [
 			{
 				id: 'iso-scope',
 				question: 'What does your ISO/IEC 27001 certificate cover?',
-				answer: `<p>How we build and run ThingsBoard, not a customer's own installation. ${a(`${tc('compliance/iso-27001')}#what-it-covers`, 'What it covers')}</p>`,
+				answer: `<p>How we build and run ThingsBoard, not a customer's own installation. ${a(`${tc('compliance')}#what-it-covers`, 'What it covers')}</p>`,
 			},
 			{
 				id: 'certify-own',
@@ -56,7 +56,7 @@ export const TC_FAQ = [
 			{
 				id: 'gdpr-ccpa',
 				question: 'Do you comply with GDPR and CCPA?',
-				answer: `<p>Yes, through our own privacy program, and we declare our compliance. ${a(tc('compliance/gdpr'), 'GDPR')} · ${a(tc('compliance/ccpa'), 'CCPA')}</p>`,
+				answer: `<p>Yes, through our own privacy program, and we declare our compliance. ${a(`${tc('compliance')}#gdpr`, 'GDPR')} · ${a(`${tc('compliance')}#ccpa`, 'CCPA')}</p>`,
 			},
 		],
 	},
@@ -108,7 +108,7 @@ export const TC_FAQ = [
 			{
 				id: 'responsibility',
 				question: 'Who is responsible for security in an on-premises deployment?',
-				answer: `<p>You run the infrastructure; we are responsible for the product code, security fixes and the guides. ${a(tc('commitments'), 'Who handles what')}</p>`,
+				answer: `<p>You run the infrastructure; we are responsible for the product code, security fixes and the guides. ${a(`${tc('deployment')}#who-handles-what`, 'Who handles what')}</p>`,
 			},
 			{
 				id: 'fixes',
@@ -134,12 +134,12 @@ export const TC_FAQ = [
 			{
 				id: 'encryption',
 				question: 'Is my data encrypted?',
-				answer: `<p>In transit over TLS; stored secrets with AES-256, and passwords as BCrypt hashes. ${a(tc('data'), 'Data security')}</p>`,
+				answer: `<p>In transit over TLS; stored secrets with AES-256, and passwords as BCrypt hashes. ${a(`${tc('security')}#data`, 'Data security')}</p>`,
 			},
 			{
 				id: '2fa-sso',
 				question: 'Can we enforce 2FA and single sign-on?',
-				answer: `<p>Yes: 2FA can be required for all users, and single sign-on works over OAuth 2.0 and OpenID Connect. ${a(tc('access'), 'Access control')}</p>`,
+				answer: `<p>Yes: 2FA can be required for all users, and single sign-on works over OAuth 2.0 and OpenID Connect. ${a(`${tc('security')}#access`, 'Access control')}</p>`,
 			},
 			{
 				id: 'ai-training',

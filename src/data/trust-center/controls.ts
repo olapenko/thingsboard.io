@@ -1,12 +1,12 @@
 import { tc } from '@data/trust-center/nav';
 
 /**
- * The four Security pages' controls, from the draft (research/trust-center/CONTENT.md), with the
- * review's repetition edits:
+ * The controls of the Security page's four sections (four pages until they merged), from the draft
+ * (research/trust-center/CONTENT.md), with the review's repetition edits:
  *
  * - Data security keeps only what is about the data itself. Region, isolation, backups, retention,
  *   deletion, data center attestations and staff access depend on the deployment and live on its
- *   pages, so one row points there (edit 2). GDPR's 30-day erasure moved to the GDPR page.
+ *   pages, so one row points there (edit 2). GDPR's 30-day erasure moved to GDPR, on the Compliance page.
  * - Encryption in transit keeps its TLS sentence and drops the ports, which Product security lists
  *   (edit 3); the plain-connection note gains its recommendation.
  * - Export keeps "every deployment, through the REST API"; the Private Cloud dump is Cloud's
@@ -75,7 +75,7 @@ export const DATA_CONTROLS: Control[] = [
 		id: 'encryption-in-transit',
 		title: 'Encryption in transit',
 		kind: 'configurable',
-		html: `Users and devices connect over TLS; the protocols and ports are under <a href="${tc('product')}#encrypted-device-transport">Encrypted device transport</a>. Unencrypted device connection is available by default for testing or PoC purposes and can be disabled. Turn it off in production.`,
+		html: `Users and devices connect over TLS; the protocols and ports are under <a href="${tc('security')}#encrypted-device-transport">Encrypted device transport</a>. Unencrypted device connection is available by default for testing or PoC purposes and can be disabled. Turn it off in production.`,
 	},
 	{
 		id: 'secrets-and-passwords',

@@ -2,8 +2,12 @@
  * The Trust Center's sections, as agreed in the review: the tree of revision 3, drawn as a section
  * bar under the site's bar (build v3). Five sections, each with a page of its own: Security and
  * Deployment gained hubs in v3 (they were plain labels), so a section's tab always lands on its
- * overview. A section's pages are listed in its hero, not in a second sticky row. Contact and Report
- * sit apart as buttons. Every page keeps the draft's slug.
+ * overview. Contact and Report sit apart as buttons.
+ *
+ * Short sibling pages are one page now: Compliance holds the two certificates, GDPR and CCPA;
+ * Security its four topics; the Deployment hub its commitments and who handles what, each an
+ * anchored section listed "On this page" in the hero. What stays a page of its own (Sub-processors,
+ * Cloud, On-premises, a document) is a page under its section, with the way back over its h1.
  *
  * Each section has a hue, from the product pages' rotation, which colours its hero, its marks and
  * its accent (buttons, links, the description tags) on every one of its pages, as green does the
@@ -29,7 +33,10 @@ export interface Section {
 	summary: string;
 	hue: string;
 	icon: string;
-	/** The section's pages, its hub first, listed in its hero; empty for a section of one page. */
+	/**
+	 * What the section holds, as the overview lists it under the section: an anchored part of the
+	 * section's page, or a page of its own. A page listed here belongs to the section (`sectionFor`).
+	 */
 	pages: NavPage[];
 	/** Every page under this path belongs to the section too (the document pages). */
 	prefix?: string;
@@ -61,11 +68,10 @@ export const SECTIONS: Section[] = [
 		hue: HUES.violet,
 		icon: 'tabler:certificate',
 		pages: [
-			{ label: 'Compliance', href: tc('compliance') },
-			{ label: 'ISO/IEC 27001:2022', href: tc('compliance/iso-27001') },
-			{ label: 'ISO 9001:2015', href: tc('compliance/iso-9001') },
-			{ label: 'GDPR', href: tc('compliance/gdpr') },
-			{ label: 'CCPA', href: tc('compliance/ccpa') },
+			{ label: 'ISO/IEC 27001:2022', href: `${tc('compliance')}#iso-27001` },
+			{ label: 'ISO 9001:2015', href: `${tc('compliance')}#iso-9001` },
+			{ label: 'GDPR', href: `${tc('compliance')}#gdpr` },
+			{ label: 'CCPA', href: `${tc('compliance')}#ccpa` },
 			{ label: 'Sub-processors', href: tc('subprocessors') },
 		],
 	},
@@ -77,11 +83,10 @@ export const SECTIONS: Section[] = [
 		hue: HUES.blue,
 		icon: 'tabler:lock',
 		pages: [
-			{ label: 'Security', href: tc('security') },
-			{ label: 'Product security', href: tc('product') },
-			{ label: 'Data security', href: tc('data') },
-			{ label: 'Access control', href: tc('access') },
-			{ label: 'Dev security', href: tc('appsec') },
+			{ label: 'Product security', href: `${tc('security')}#product` },
+			{ label: 'Data security', href: `${tc('security')}#data` },
+			{ label: 'Access control', href: `${tc('security')}#access` },
+			{ label: 'Dev security', href: `${tc('security')}#dev` },
 		],
 	},
 	{
@@ -92,10 +97,9 @@ export const SECTIONS: Section[] = [
 		hue: HUES.teal,
 		icon: 'tabler:cloud',
 		pages: [
-			{ label: 'Deployment', href: tc('deployment') },
 			{ label: 'Cloud and Private Cloud', href: tc('cloud') },
 			{ label: 'On-premises', href: tc('onprem') },
-			{ label: 'Commitment and responsibility', href: tc('commitments') },
+			{ label: 'Commitment and responsibility', href: `${tc('deployment')}#commitments` },
 		],
 	},
 	{
@@ -126,13 +130,13 @@ export const TC_ACTIONS: NavPage[] = [
 	{ label: 'Report a vulnerability', href: tc('report-vulnerability') },
 ];
 
-/** The section a path belongs to. */
+/** The section a path belongs to: its own page, a page it lists (an anchor's page is its own), or under its prefix. */
 export function sectionFor(pathname: string): Section {
 	const path = pathname.endsWith('/') ? pathname : `${pathname}/`;
+	const listed = (s: Section) => s.pages.some((p) => p.href.split('#')[0] === path);
 	return (
-		SECTIONS.find(
-			(s) => s.href === path || s.pages.some((p) => p.href === path) || (s.prefix && path.startsWith(s.prefix))
-		) ?? (TC_ACTIONS.some((a) => a.href === path) ? CONTACT_SECTION : SECTIONS[0])
+		SECTIONS.find((s) => s.href === path || listed(s) || (s.prefix && path.startsWith(s.prefix))) ??
+		(TC_ACTIONS.some((a) => a.href === path) ? CONTACT_SECTION : SECTIONS[0])
 	);
 }
 
