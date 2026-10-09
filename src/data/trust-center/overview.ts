@@ -72,10 +72,32 @@ export const SECURITY_TOPICS: Topic[] = [
 export const CERTIFICATES = [
 	{
 		title: 'ISO/IEC 27001:2022',
+		number: '27001',
 		subtitle: 'Information security management system',
 		href: tc('compliance/iso-27001'),
 	},
-	{ title: 'ISO 9001:2015', subtitle: 'Quality management system', href: tc('compliance/iso-9001') },
+	{ title: 'ISO 9001:2015', number: '9001', subtitle: 'Quality management system', href: tc('compliance/iso-9001') },
+];
+
+/**
+ * The regulations we declare compliance with. GDPR takes the EU's circle of stars, the mark it is
+ * known by; the CCPA has no such mark, so it takes the kit's privacy glyph.
+ */
+export const PRIVACY = [
+	{
+		title: 'GDPR',
+		subtitle: 'Applied to all personal data we process',
+		href: tc('compliance/gdpr'),
+		icon: 'simple-icons:europeanunion',
+		accent: '#003399',
+	},
+	{
+		title: 'CCPA',
+		subtitle: "California residents' privacy rights",
+		href: tc('compliance/ccpa'),
+		icon: 'tabler:user-shield',
+		accent: HUES.violet,
+	},
 ];
 
 export const CERT_VALIDATOR = 'https://swissapproval.ch/certificate-validator/';
