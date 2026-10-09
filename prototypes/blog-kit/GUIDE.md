@@ -13,6 +13,10 @@ Three roles, so the guide is in three parts:
 
 Then how to deliver sources, and a pre-publish checklist.
 
+Typography in this guide: bold opens a rule, italic marks an inline highlight (a UI name, a
+*Best / Acceptable / Not* label, a menu entry), code marks a file or a class. **Decide**
+whether that convention carries into the contributor docs.
+
 Where it should live once agreed: next to the blog authoring docs in the site repo (the
 `edit-doc` skill for docs has the same role), linked from the post template. **Decide.**
 
@@ -53,9 +57,12 @@ Where it should live once agreed: next to the blog authoring docs in the site re
 
 ### 1.2 Size and zoom
 
-The article column is 828px wide. A full-width screenshot is scaled to that, so what matters
-is how big the UI text ends up on the page, not how many pixels the file has. Two numbers pull
-against each other: rendered text size is 14px × zoom × 828 / capture width, and the laid-out
+The article column is 828px wide. A full-width screenshot is scaled to that, so legibility is
+about how big the UI text ends up on the page, and sharpness is about how many pixels the file
+has. Treat them separately: zoom sets the text size, the device pixel ratio sets the pixel
+count. Capture at DPR 2 whenever you can (1.1), so a 1280 × 800 viewport yields a 2560 × 1600
+file at every zoom below; that is what keeps the image sharp on retina and gives the lightbox
+real pixels to show. Two numbers then pull against each other: rendered text size is 14px × zoom × 828 / capture width, and the laid-out
 width is capture width / zoom. Text at 12px or more therefore means a layout of about 960
 logical px or less, which is narrower than a whole screen with the full sidebar wants. So the
 rule is a range, chosen by how much of the screen is in the frame:
@@ -106,7 +113,7 @@ taller than wide when they take the column.
 - **The cursor is the narrator.** Move it slowly and in straight lines, pause before clicking,
   never circle or shake it to "point". Keep it out of the frame when it has nothing to do.
 - **No typing character by character**: paste, or type a short term and let the result be the
-  point (the Go to… search is the exception, where typing is the feature; keep it to a word).
+  point. When typing is the feature, keep it to a word.
 - **No scrolling** unless the scroll is the feature; scroll jitter is the first thing a viewer
   notices.
 - **Tools:** macOS ⌘⇧5 (choose *Record Selected Portion*, drag to the window) is enough.
