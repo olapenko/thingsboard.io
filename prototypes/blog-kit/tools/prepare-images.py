@@ -11,10 +11,17 @@ folder and one entry per image:
                   { "raw": "dash_2.png", "out": "dash-filter.png",
                     "crop": [30, 29, 696, 537], "note": "dialog only" } ] }
 
-`crop` is (left, top, width, height) in source pixels. Each output image's natural size
-is written to the width/height attributes of the <img> that references it, so the page
-reserves the right box before the file loads; CSS scales the image down to the column,
-which is how a 1x screenshot wider than the column still renders sharp on retina.
+`crop` is (left, top, width, height) in source pixels. `patch` is a list of rectangles to
+paint before cropping, each [left, top, width, height] in source pixels with an optional
+"#rrggbb" fifth item (default: the colour of the pixel at the rectangle's top-left corner,
+i.e. the surface around what it hides). It is the baked-in form of the page's `.patch`
+overlay: use the overlay while a post is in review, move it here when it settles, so the
+lightbox and any 2x file carry the fix too.
+
+Each output image's natural size is written to the width/height attributes of the <img>
+that references it, so the page reserves the right box before the file loads; CSS scales
+the image down to the column, which is how a 1x screenshot wider than the column still
+renders sharp on retina.
 
 Raw originals are not committed (they come from the shared Drive folder); the
 processed images are, so a page renders without rerunning this. Rerun after swapping
@@ -50,9 +57,13 @@ def main(manifest_path: str) -> int:
 
     for e in m['images']:
         src, dst = raw_dir / e['raw'], out_dir / e['out']
-        if 'crop' in e:
-            left, top, w, h = e['crop']
-            w, h = pngcrop.crop(str(src), str(dst), left, top, w, h)
+        if 'crop' in e or 'patch' in e:
+            w, h, bpp, rows = pngcrop.read(src.read_bytes())
+            for rect in e.get('patch', []):
+                pngcrop.fill(rows, bpp, *rect)
+            if 'crop' in e:
+                w, h, rows = pngcrop.cut(rows, bpp, *e['crop'])
+            dst.write_bytes(pngcrop.write(w, h, bpp, rows))
         else:
             dst.write_bytes(src.read_bytes())
             w, h, _, _ = pngcrop.read(dst.read_bytes())

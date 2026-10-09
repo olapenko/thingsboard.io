@@ -36,9 +36,9 @@
 .ring { position: absolute; pointer-events: none; }
 .ring::before { content: ''; position: absolute; inset: -8px; border: 2px solid var(--accent-ring); border-radius: 12px; box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent-ring) 18%, transparent), 0 0 0 16px color-mix(in srgb, var(--accent-ring) 7%, transparent), 0 0 24px 10px color-mix(in srgb, var(--accent-ring) 12%, transparent); }
 .ring--pill::before { border-radius: 999px; }
-/* Candidate to bake into the image: once a patch is final, the image pipeline can paint the
-   rectangle at crop time (a fill-rect in pngcrop.py, ~10 lines) so the fix lives in the asset
-   and the overlay is only needed while a post is in review. */
+/* Review-time only. Once a patch is final it moves into the asset: a `patch` entry in the
+   post's images.json paints the same rectangle at crop time (tools/prepare-images.py), so the
+   lightbox and the 2x file show the fix too and the overlay is removed. */
 .patch { position: absolute; background: #fff; pointer-events: none; }
 
 /* Lightbox. Same markup and classes as the blog template's own (.blog-lightbox), so the site
@@ -57,18 +57,20 @@
 .blog-lightbox__close { position: absolute; top: 20px; right: 24px; border: none; background: none; color: #fff; opacity: .7; font-size: 36px; line-height: 1; cursor: pointer; transition: opacity .15s; }
 .blog-lightbox__close:hover { opacity: 1; }
 
-/* .panel: a gradient surface that holds a smaller shot, e.g. a dialog cut out of its screenshot */
+/* .panel: a gradient surface that holds a smaller .shot or .video: a dialog cut out of its
+   screenshot at the default width, or (--wide) a whole screen with a small margin, which is how
+   a full-screen capture or recording with no browser frame of its own gets one. */
 .panel { --p1: #e9f1fb; --p2: #e4f3ef; display: grid; place-items: center; padding: 24px; border-radius: var(--radius-shot); background: linear-gradient(135deg, var(--p1), var(--p2)); }
-.panel .shot { width: 100%; max-width: 520px; }
-.panel--wide .shot { max-width: 92%; }
+.panel :is(.shot, .video) { width: 100%; max-width: 520px; }
+.panel--wide :is(.shot, .video) { max-width: 92%; }
 .panel--tall { padding-block: 40px; }
+.panel--tall :is(.shot, .video) { max-width: 86%; }
 /* --bleed: the image is the panel. No padding, no .shot (so no shadow and no lightbox), the
    panel's rounding clips it. For captures whose own background does the framing. */
 .panel--bleed { padding: 0; overflow: hidden; background: var(--color-bg-light); }
 .panel--bleed img { display: block; width: 100%; height: auto; }
-.panel--tall .shot { max-width: 86%; }
 .panel--dark { --p1: #00403a; --p2: #0f5d8f; background: linear-gradient(135deg, var(--p1), #0b5a6c 55%, var(--p2)); }
-.panel--dark .shot { box-shadow: 0 2px 4px rgba(0, 0, 0, .25), 0 18px 40px -10px rgba(0, 0, 0, .55); }
+.panel--dark :is(.shot, .video) { box-shadow: 0 2px 4px rgba(0, 0, 0, .25), 0 18px 40px -10px rgba(0, 0, 0, .55); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .panel { --p1: #1c2733; --p2: #1a2a28; } }
 :root[data-theme='dark'] .panel { --p1: #1c2733; --p2: #1a2a28; }
 
@@ -201,13 +203,16 @@
 .cta a.outline:hover { border-color: var(--color-text); background: var(--color-bg-light); }
 .cta a:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
-/* .video: a short looped screen recording, presented like a .shot. Markup:
-   <figure class="video"><video autoplay muted loop playsinline preload="metadata"
-     poster="…poster.webp" width="1600" height="1008"><source src="…webm" type="video/webm">
-     <source src="…mp4" type="video/mp4"></video><figcaption>…</figcaption></figure>
+/* .video: a short looped screen recording, the .shot of moving things and placed the same
+   two ways: on its own at column width (a window capture that frames itself), or inside a
+   .panel (a full-screen recording has no frame; the panel gives it one, --wide for a whole
+   screen, the default width for a dialog-sized clip). Markup:
+   <figure><div class="video"><video autoplay muted loop playsinline preload="metadata"
+     poster="…poster.jpg" width="1600" height="1008"><source src="…webm" type="video/webm">
+     <source src="…mp4" type="video/mp4"></video></div><figcaption>…</figcaption></figure>
    kit.js pauses it off-screen and respects prefers-reduced-motion (poster only, click to play). */
-.video video { display: block; width: 100%; height: auto; border-radius: var(--radius-shot); box-shadow: var(--shadow-shot); background: var(--color-bg-light); }   /* poster + width/height reserve the box */
+.video { position: relative; border-radius: var(--radius-shot); box-shadow: var(--shadow-shot); background: var(--color-bg-light); }   /* the wrapper is the surface, like .shot */
+.video video { display: block; width: 100%; height: auto; border-radius: var(--radius-shot); }   /* poster + width/height reserve the box */
 .video--paused video { cursor: pointer; }
 .video__play { position: absolute; inset: 0; margin: auto; width: 56px; height: 56px; border-radius: 50%; border: none; background: rgba(23, 24, 28, .72); color: #fff; display: grid; place-items: center; cursor: pointer; }
 .video__play svg { width: 22px; height: 22px; margin-left: 3px; }
-.video__frame { position: relative; }

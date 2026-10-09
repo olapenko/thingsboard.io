@@ -70,10 +70,27 @@ def write(w: int, h: int, bpp: int, rows: list[bytearray]) -> bytes:
     return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', idat) + chunk(b'IEND', b'')
 
 
-def crop(src: str, dst: str, left: int, top: int, width: int, height: int) -> tuple[int, int]:
-    w, h, bpp, rows = read(open(src, 'rb').read())
+def cut(rows: list[bytearray], bpp: int, left: int, top: int, width: int, height: int) -> tuple[int, int, list[bytearray]]:
+    """Return (width, height, rows) of the rectangle, clamped to the image."""
+    w, h = len(rows[0]) // bpp, len(rows)
     width = min(width, w - left)
     height = min(height, h - top)
-    out = [r[left * bpp : (left + width) * bpp] for r in rows[top : top + height]]
+    return width, height, [r[left * bpp : (left + width) * bpp] for r in rows[top : top + height]]
+
+
+def fill(rows: list[bytearray], bpp: int, left: int, top: int, width: int, height: int, color: str | None = None) -> None:
+    """Paint a rectangle in place: `color` is "#rrggbb", or None to use the pixel at (left, top),
+    which is the surface the patch sits on when the rectangle has a margin around what it hides."""
+    if color:
+        px = bytes.fromhex(color.lstrip('#')) + (b'\xff' if bpp == 4 else b'')
+    else:
+        px = bytes(rows[top][left * bpp : (left + 1) * bpp])
+    for r in rows[top : top + height]:
+        r[left * bpp : (left + width) * bpp] = px * width
+
+
+def crop(src: str, dst: str, left: int, top: int, width: int, height: int) -> tuple[int, int]:
+    w, h, bpp, rows = read(open(src, 'rb').read())
+    width, height, out = cut(rows, bpp, left, top, width, height)
     open(dst, 'wb').write(write(width, height, bpp, out))
     return width, height

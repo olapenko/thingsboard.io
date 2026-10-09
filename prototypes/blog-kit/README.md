@@ -7,7 +7,8 @@ reused and grown post by post.
 ```
 prototypes/blog-kit/
 ├── kit.css                  the components (standalone CSS, scoped by class)
-├── kit.js                   slider + video behaviour (progressive, optional)
+├── kit.js                   loading, lightbox, slider and video behaviour (progressive, optional)
+├── GUIDE.md                 draft authoring guide: shooting, cropping, choosing a visual, delivering sources
 ├── tools/
 │   ├── prepare-images.py    crop screenshots from a manifest, write width/height into the page
 │   ├── pngcrop.py           dependency-free PNG cropper used by the above
@@ -32,15 +33,15 @@ per pattern, with `kit.css` split along the section comments:
 | Pattern | Astro component | Markup contract |
 |---|---|---|
 | `.shot` + `.ring` / `.patch` | `BlogShot.astro` | `<div class="shot"><img …><div class="ring" style="left:…%;top:…%;width:…%;height:…%"></div></div>` |
-| `.panel` | `BlogPanel.astro` | wraps one `.shot`; `--dark`, `--wide`, `--tall` modifiers; `--bleed` holds a bare `<img>` edge to edge, no shadow, no lightbox |
+| `.panel` | `BlogPanel.astro` | wraps one `.shot` or `.video`; `--dark`, `--tall`, `--wide` (a whole screen with a small margin, in a full-row block); `--bleed` holds a bare `<img>` edge to edge, no shadow, no lightbox |
 | `.compare` | reuse `UseCase/ImageComparison.astro` | already on the site; `kit.js` has the same drag logic |
-| `.video` | `BlogVideo.astro` | `<figure class="video"><video autoplay muted loop playsinline …></video><figcaption>` |
+| `.video` | `BlogVideo.astro` | `<figure><div class="video"><video autoplay muted loop playsinline …></video></div><figcaption>`; the `.video` wrapper is the shadowed surface, on its own or inside a `.panel` |
 | `.grid` + `.block` / `.card` | `BlogGrid.astro` | `--3`, `--tight`; child `.wide` spans; `.sub` for the small heading |
 | `.stepper` | `BlogSteps.astro` | `<ol class="stepper"><li><span class="sub">…</span><p>…</p></li>` — horizontal, numbered by CSS counter; stacks on phones |
 | `.schema` | `BlogSchema.astro` (under review) | boxes + arrows, see below |
 | `.cta` | existing `BlogCTA.astro` | the kit version is a restyle of it, with its own hover and focus states (the template only underlines links on hover) |
 
-**Keeping it light.** `kit.css` is about 180 lines and `kit.js` about 100, with no
+**Keeping it light.** `kit.css` is about 220 lines and `kit.js` about 110, with no
 dependencies. When splitting into Astro components, keep it that way: one `<style is:global>`
 per component containing only its section (slotted markdown keeps the parent scope hash, which
 is why the existing Blog components are global too), the two dark blocks collapsed to one
@@ -62,10 +63,15 @@ The `.blog-content` rules in the site's blog template still apply inside the com
   wide, soft glow so it cannot be mistaken for a focus state; `.patch` paints over a region with
   the UI's own white (used to hide a red "nothing configured" line). Both are positioned in
   percent of the image box, so they survive any rendered size. The patch is a review-time
-  tool: once a post is final it is a candidate to bake into the image, since the pipeline can
-  paint the same rectangle at crop time (a fill-rect in `pngcrop.py`, about ten lines).
+  tool: once a post is final, the same rectangle goes into the post's `images.json` as a
+  `patch` entry and the pipeline bakes it into the asset (so the lightbox and any 2x file carry
+  the fix too), and the overlay is removed. The 4.4 filter dialog is done this way.
 - A capture whose own background already frames it (the Go to… search over the app wallpaper)
   goes in a `.panel--bleed`: the image is the panel, edge to edge, nothing else.
+- A **whole screen captured without the browser frame** (a DevTools capture, a full-screen
+  recording) has no frame of its own; it goes on a `.panel--wide` in a full-row block and the
+  panel frames it. A window capture that frames itself takes the column on its own. The same
+  two placements apply to `.video`.
 - Dialogs are **cut out of their screenshot** and placed on a `.panel` gradient. Light panels are
   pale blue-to-teal; `.panel--dark` is the product teal (#00695c) into steel blue, for a
   dialog that needs weight.
@@ -226,8 +232,16 @@ width, height in source pixels), writes it to `out`, and sets `width`/`height` o
 that references it. The processed images are committed, so a page renders without the
 originals; rerun after replacing one or changing a crop.
 
-Planned, not built: a `patch` entry per image (`[x, y, w, h, "#fff"]`) painted at crop time,
-so a `.patch` overlay that has settled during review moves into the asset.
+`patch` is a list of rectangles painted before the crop, each `[left, top, width, height]` in
+source pixels with an optional `"#rrggbb"` fifth item; without it the rectangle takes the colour
+of its own top-left pixel, which is the surface around what it hides as long as the rectangle
+has a margin. It is the baked-in form of the page's `.patch` overlay: overlay while the post is
+in review, manifest entry once it settles. To convert, take the overlay's percentages of the
+output image, multiply by its size, and add the crop offset:
+
+```json
+{ "raw": "dash_2.png", "out": "dash-filter.png", "crop": [30, 29, 696, 537], "patch": [[278, 266, 200, 31]] }
+```
 
 Cropping guidance that came out of the 4.4 review: crop at natural boundaries and never
 through an element; take a dialog two pixels inside its edge so no backdrop survives the
@@ -271,18 +285,32 @@ notifications, and **end on the frame you started on** so the loop is seamless.
 Markup:
 
 ```html
-<figure class="video">
-  <video autoplay muted loop playsinline preload="metadata" poster="video/name.jpg" width="1600" height="1008">
-    <source src="video/name.webm" type="video/webm">
-    <source src="video/name.mp4" type="video/mp4">
-  </video>
+<figure>
+  <div class="video">
+    <video autoplay muted loop playsinline preload="metadata" poster="video/name.jpg" width="1600" height="1008">
+      <source src="video/name.webm" type="video/webm">
+      <source src="video/name.mp4" type="video/mp4">
+    </video>
+  </div>
   <figcaption>…</figcaption>
 </figure>
 ```
 
+Two placements, the same as a screenshot: the `.video` on its own takes the column (a window
+recording that frames itself); inside a `<div class="panel panel--dark panel--wide">` it gets
+the panel's margin and gradient, which is how a full-screen recording with no browser bar gets
+a frame. The default panel width suits a dialog-sized clip.
+
 `kit.js` pauses the clip when it scrolls out of view and, under `prefers-reduced-motion`,
 removes autoplay and shows a play button over the poster. Video files are not committed in the
 examples (`examples/**/video/` is ignored); run the script to regenerate them.
+
+## Authoring guide
+
+`GUIDE.md` is the draft of the guide for the people who write posts and shoot the product:
+browser setup and capture size, data hygiene, video recording, cropping and annotation rules,
+which component fits which content, and how to deliver source files for the pipeline. It is
+written to be moved into the site's contributor docs once agreed.
 
 ## Adding a component
 

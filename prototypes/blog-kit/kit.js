@@ -5,7 +5,8 @@
  *                  blog template's .blog-lightbox so the site keeps one implementation
  *   3. .compare  — before/after slider (same logic as src/components/UseCase/ImageComparison.astro)
  *   4. .video    — looped clips pause off-screen; with prefers-reduced-motion they show the poster
- *                  and a play button instead of autoplaying.
+ *                  and a play button instead of autoplaying. The .video wrapper is the frame,
+ *                  on its own or inside a .panel.
  * In Astro, each block goes into its component's <script>; nothing here is page-specific.
  */
 (function () {
@@ -82,30 +83,22 @@
 	if (!videos.length) return;
 
 	videos.forEach(function (v) {
-		var frame = v.parentElement;
-		if (!frame.classList.contains('video__frame')) {
-			// wrap once so the play button can sit over the video
-			frame = document.createElement('div');
-			frame.className = 'video__frame';
-			v.replaceWith(frame);
-			frame.appendChild(v);
-		}
-		if (reduce) {
-			v.removeAttribute('autoplay');
-			v.pause();
-			var btn = document.createElement('button');
-			btn.type = 'button';
-			btn.className = 'video__play';
-			btn.setAttribute('aria-label', 'Play');
-			btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
-			frame.appendChild(btn);
-			frame.parentElement.classList.add('video--paused');
-			btn.addEventListener('click', function () {
-				btn.remove();
-				frame.parentElement.classList.remove('video--paused');
-				v.play();
-			});
-		}
+		if (!reduce) return;
+		var box = v.closest('.video');   // positioned, so the play button sits over the clip
+		v.removeAttribute('autoplay');
+		v.pause();
+		var btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'video__play';
+		btn.setAttribute('aria-label', 'Play');
+		btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+		box.appendChild(btn);
+		box.classList.add('video--paused');
+		btn.addEventListener('click', function () {
+			btn.remove();
+			box.classList.remove('video--paused');
+			v.play();
+		});
 	});
 
 	if (reduce || !('IntersectionObserver' in window)) return;
