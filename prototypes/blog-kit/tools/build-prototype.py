@@ -71,7 +71,7 @@ def main(out: str) -> None:
     d = (EX / 'kit-demo.html').read_text()
     d = (d.replace('href="../kit.css"', 'href="kit.css"').replace('src="../kit.js"', 'src="kit.js"')
           .replace('thingsboard-4-4/images/', 'images/').replace('thingsboard-4-4/video/', 'video/').replace('kit-demo/video/', 'video/'))
-    d = d.replace('</head>\n<body>\n', '</head>\n<body>\n' + nav('demo.html', '.toggle { top: 48px; }'))
+    d = d.replace('</head>\n<body>\n', '</head>\n<body>\n' + nav('demo.html', '.kit-nav { top: 36px; } .blog-content section, .review-head { scroll-margin-top: 92px; }'))
     assert '../' not in d and 'proto-nav' in d
     (pub / 'demo.html').write_text(d)
 
