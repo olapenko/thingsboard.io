@@ -15,6 +15,7 @@ prototypes/blog-kit/
 │   ├── inspect-captures.py  read a delivery (folder or zip): size, DPR, backdrop, sidebar, pairs, a suggested slot per capture
 │   ├── prepare-videos.py    run prepare-video.sh for every clip in videos.json, write width/height into the pages
 │   ├── prepare-video.sh     ffmpeg pipeline for one looped clip (crop, trim, scale, H.264 + VP9 + poster)
+│   ├── tabler.py            prints a Tabler icon (the site's icon set) as inline SVG for a tile or a card
 │   ├── build-guide.py       renders GUIDE.md to examples/guide.html
 │   ├── build-prototype.py   assembles the three pages and their media into one folder for the shared artifact
 │   └── capture-window.js    bookmarklet: opens the page in a chrome-free popup sized 1280 × 800 for a capture
@@ -235,7 +236,10 @@ Markup:
 
 Families: `grey blue teal purple yellow green pink`, on both `.sbox--` and `.sarrow--`. The
 arrow takes the family of the box it leaves. `.stile--48` is the same tile at card-icon size,
-so icon cards and diagrams share one palette.
+so icon cards and diagrams share one palette. **Icons are Tabler**, the site's icon set
+(`@iconify-json/tabler` is already a dependency): `tools/tabler.py key lock cpu` prints each as
+an inline `<svg>` to paste into a tile, `--list` searches names. No hand-drawn paths, no other
+sets, so blog icons match the docs and the landing pages.
 
 ## Image pipeline
 

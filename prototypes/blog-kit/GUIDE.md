@@ -320,6 +320,9 @@ then what is not done.
 - **No chrome beyond the panel**: blocks with nothing around them; cards only for a repeated
   unit the border groups. *Acceptable:* a bordered card grid for API-style items. *Not:*
   fills, a card around a shot, or a panel inside a card.
+- **Icons are Tabler**, the site's set, one per card tile or diagram box, on the family's tile
+  colour. *Acceptable:* the plain rounded square when nothing specific fits. *Not:* icons from
+  another set, hand-drawn paths, emoji, or a product logo as an icon.
 
 #### Captures
 
