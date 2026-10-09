@@ -250,11 +250,16 @@ not done.
 
 #### Surfaces
 
+- **A cut-out goes on a panel.** A dialog, a detail, or a whole screen or clip captured
+  without a browser frame sits on a `.panel`; a window capture that frames itself takes the
+  column bare. *Acceptable:* a bare shot for a small detail when the section already has two
+  panels. *Not:* a dialog floating on the page with only a shadow, or a panel around a
+  full-width capture that did not need one.
 - **Light panels, with one dark per section as the highlight.** *Acceptable:* no dark panel
   at all. *Not:* a section where every panel is dark; there is no highlight left.
-- **No chrome unless it carries meaning**: blocks with nothing around them; cards only for a
-  repeated unit the border groups. *Acceptable:* a bordered card grid for API-style items.
-  *Not:* fills, or a shot inside a card inside a panel.
+- **No chrome beyond the panel**: blocks with nothing around them; cards only for a repeated
+  unit the border groups. *Acceptable:* a bordered card grid for API-style items. *Not:*
+  fills, a card around a shot, or a panel inside a card.
 
 #### Captures
 
