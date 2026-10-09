@@ -1,0 +1,74 @@
+---
+import Button from '@components/ui/Button.astro';
+import Field from '@components/ui/Field.astro';
+import { TRUST_CENTER_ENDPOINT } from '@data/trust-center/forms';
+
+// Notice of changes to the sub-processor list, as a subscription on the list itself (the draft had
+// it as a contact-form subject). One field and its button, as the footer's newsletter is built.
+// Not connected: see the INTEGRATION NOTE in `@data/trust-center/forms`. Until an endpoint is set,
+// a valid address shows the confirmation with a line saying nothing was sent.
+---
+
+<section class="tc-section" aria-labelledby="sp-updates-title">
+	<div class="tc-section__head">
+		<h2 class="tc-h3" id="sp-updates-title">
+			Get notified of changes
+		</h2>
+		<p class="tc-copy">We email you when vendors are added to or removed from this list.</p>
+	</div>
+	<form class="tc-subscribe" method="post" novalidate data-tc-subscribe data-endpoint={TRUST_CENTER_ENDPOINT}>
+		<input type="hidden" name="form_id" value="subprocessor_updates" />
+		<Field
+			name="email"
+			id="sp-updates-email"
+			type="email"
+			size="md"
+			label="Email"
+			placeholder="you@company.com"
+			autocomplete="email"
+			attrs={{ spellcheck: 'false', autocapitalize: 'off' }}
+		>
+			<Button slot="end" type="submit" attached="start">
+				Notify me
+			</Button>
+		</Field>
+	</form>
+	<p class="tc-copy tc-subscribe__done" role="status" hidden data-tc-subscribe-done></p>
+</section>
+
+<script>
+	import { validateAll, wireValidation, type FieldControl, type Problem } from '@util/form-validate';
+
+	const check = (el: FieldControl): Problem => {
+		const value = el.value.trim();
+		if (!value) return { kind: 'required', message: 'Enter your email so we can let you know.' };
+		if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,63}$/.test(value)) {
+			return { kind: 'format', message: 'Enter an email like name@company.com.' };
+		}
+		return null;
+	};
+
+	document.querySelectorAll<HTMLFormElement>('[data-tc-subscribe]').forEach((form) => {
+		const email = form.querySelector<HTMLInputElement>('input[type="email"]');
+		const done = form.parentElement?.querySelector<HTMLElement>('[data-tc-subscribe-done]');
+		if (!email || !done) return;
+		const fields = [email];
+		const markAttempted = wireValidation(fields, check);
+
+		form.addEventListener('submit', (e) => {
+			markAttempted();
+			if (!validateAll(fields, check)) {
+				e.preventDefault();
+				return;
+			}
+			if (form.dataset.endpoint) {
+				form.action = form.dataset.endpoint;
+				return;
+			}
+			e.preventDefault();
+			done.textContent = `We'll email ${email.value.trim()} when the list changes. This form isn't connected yet, so nothing was sent.`;
+			done.hidden = false;
+			form.hidden = true;
+		});
+	});
+</script>

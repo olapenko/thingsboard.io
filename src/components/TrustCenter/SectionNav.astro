@@ -1,0 +1,78 @@
+---
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import { SECTIONS, TC_ACTIONS, type Section } from '@data/trust-center/nav';
+
+// The Trust Center's section bar, under every page's hero (review, revision 6): five sections in a
+// row, the current one in its hue; on a section with several pages, a second row of its pages; the
+// two actions at the end of the first row as buttons. It sticks under the site's bar while the page
+// scrolls. On a phone each row scrolls sideways rather than wrapping.
+//
+// Links, not `ui/Tabs`: these go to other pages, and tabs switch panels in place. The look follows
+// the kit's list tabs (a tint of the accent under the current one) and its link chips (the pills).
+
+interface Props {
+	section: Section;
+}
+
+const { section } = Astro.props;
+const path = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : `${Astro.url.pathname}/`;
+---
+
+<nav class="tc-bar" aria-label="Trust Center">
+	<div class="tc-bar__inner">
+		<div class="tc-bar__row">
+			<ul class="tc-bar__sections">
+				{SECTIONS.map((s) => (
+					<li>
+						<a
+							class="tc-bar__section"
+							href={s.href}
+							style={`--tc-tab-hue: ${s.hue}`}
+							aria-current={s.key === section.key ? (s.href === path ? 'page' : 'true') : undefined}
+						>
+							<Icon name={s.icon} class="tc-bar__icon" aria-hidden="true" />
+							{s.label}
+						</a>
+					</li>
+				))}
+			</ul>
+			<div class="tc-bar__actions">
+				{TC_ACTIONS.map((action, i) => (
+					<Button
+						href={action.href}
+						size="sm"
+						variant={i === 0 ? 'secondary' : 'tertiary'}
+						accent="brand"
+						attrs={action.href === path ? { 'aria-current': 'page' } : {}}
+					>
+						{action.label}
+					</Button>
+				))}
+			</div>
+		</div>
+		{section.pages.length > 1 && (
+			<ul class="tc-bar__pages" aria-label={`${section.label} pages`}>
+				{section.pages.map((p) => (
+					<li>
+						<a class="tc-bar__page" href={p.href} aria-current={p.href === path ? 'page' : undefined}>
+							{p.label}
+						</a>
+					</li>
+				))}
+			</ul>
+		)}
+	</div>
+</nav>
+
+<script>
+	// On a narrow screen a row scrolls sideways: bring the current section and page into view, without
+	// scrolling the page itself.
+	document.querySelectorAll<HTMLElement>('.tc-bar').forEach((bar) => {
+		bar.querySelectorAll<HTMLElement>('[aria-current]').forEach((el) => {
+			const row = el.closest<HTMLElement>('.tc-bar__row, .tc-bar__pages');
+			if (!row || row.scrollWidth <= row.clientWidth) return;
+			row.scrollLeft = el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2;
+		});
+	});
+</script>

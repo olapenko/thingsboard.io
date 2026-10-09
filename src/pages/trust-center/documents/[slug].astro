@@ -1,0 +1,58 @@
+---
+import Tag from '@components/TrustCenter/Tag.astro';
+import Band from '@components/ui/Band.astro';
+import Button from '@components/ui/Button.astro';
+import Link from '@components/ui/Link.astro';
+import Facts from '@components/TrustCenter/Facts.astro';
+import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
+import { ACCESS_LABEL, askHref, DOCS, requestHref, type TrustDoc } from '@data/trust-center/documents';
+import { ACCESS } from '@data/trust-center/status';
+import { tc } from '@data/trust-center/nav';
+
+// A document's own page, for every document that is not a page of its own (`u`). It names no
+// internal owner (the review: public page, public metadata), and its one button does what it says:
+// opens the file, requests it under NDA, or asks about a planned one.
+
+export function getStaticPaths() {
+	return DOCS.filter((d) => !d.u).map((d) => ({ params: { slug: d.slug }, props: { doc: d } }));
+}
+
+const { doc } = Astro.props as { doc: TrustDoc };
+
+const ACCESS_NOTE: Record<TrustDoc['access'], string> = {
+	public: 'Open to everyone.',
+	nda: 'Shared after we sign a mutual NDA, usually within two business days.',
+	planned: 'Not published yet.',
+};
+
+const FACTS = [
+	{ term: 'Access', html: `<b>${ACCESS_LABEL[doc.access]}.</b> ${ACCESS_NOTE[doc.access]}` },
+	{ term: 'Category', html: doc.category },
+	{ term: 'Version', html: doc.version },
+];
+---
+
+<TrustCenterLayout title={doc.name} eyebrow="Documents" lede={doc.description} description={doc.description}>
+	<div slot="hero" class="tc-hero-tags">
+		<Tag tag={ACCESS[doc.access]} />
+	</div>
+	<Band pad={{ top: 'sm', bottom: 'lg' }}>
+		<div class="tc-stack">
+			<section class="tc-section" aria-label="Document">
+				<Facts rows={FACTS} />
+				<div class="tc-actions-row">
+					{doc.access === 'public' && doc.f && (
+						<Button href={doc.f} external>
+							Open the document
+						</Button>
+					)}
+					{doc.access === 'nda' && <Button href={requestHref([doc.slug])}>Request under NDA</Button>}
+					{doc.access === 'planned' && <Button href={askHref(doc)}>Ask about it</Button>}
+					<Link href={tc('documents')} dir="back" size="sm">
+						All documents
+					</Link>
+				</div>
+			</section>
+		</div>
+	</Band>
+</TrustCenterLayout>

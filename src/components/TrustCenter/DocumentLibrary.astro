@@ -1,0 +1,248 @@
+---
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import Chip from '@components/ui/Chip.astro';
+import ItemList, { type Item } from '@components/TrustCenter/ItemList.astro';
+import { askHref, DOC_GROUPS, DOCS, docHref, type TrustDoc } from '@data/trust-center/documents';
+import { tc } from '@data/trust-center/nav';
+import { ACCESS } from '@data/trust-center/status';
+
+// The document library: every document, by group, on the one list, with filters, and the review's
+// main build fix — requesting from the list. Tick the documents under NDA you need, then one Request
+// opens the form with them listed.
+//
+// It is a GET form to the contact page, so with no script the ticks still arrive (as repeated
+// `docs`); the script adds the filters, the count and the comma-joined address the other pages use.
+
+const FILTERS: { value: string; label: string }[] = [
+	{ value: 'all', label: 'All' },
+	{ value: 'public', label: 'Public' },
+	{ value: 'nda', label: 'Under NDA' },
+	{ value: 'planned', label: 'Planned' },
+];
+
+const groups = [
+	...DOC_GROUPS.map((name, gi) => ({ name, docs: DOCS.filter((d) => d.group === gi) })),
+	{ name: 'Questionnaires', docs: DOCS.filter((d) => d.group === undefined) },
+];
+
+const toItem = (d: TrustDoc): Item => {
+	const open = d.access === 'public' ? (d.f ?? d.u) : undefined;
+	return {
+		title: d.name,
+		href: docHref(d),
+		tags: [ACCESS[d.access]],
+		html: d.description,
+		actions:
+			d.access === 'public' && open
+				? [{ label: 'Open', href: open, external: /^https?:/.test(open) }]
+				: d.access === 'planned'
+					? [{ label: 'Ask about it', href: askHref(d) }]
+					: [],
+		pick: d.access === 'nda' ? { name: 'docs', value: d.slug, label: `Request ${d.name}` } : undefined,
+		attrs: { 'data-access': d.access, 'data-name': d.name.toLowerCase() },
+	};
+};
+
+const slug = (name: string) => `lib-${name.replace(/\W+/g, '-').toLowerCase()}`;
+---
+
+<form class="tc-library" method="get" action={tc('contact')} data-tc-library>
+	<input type="hidden" name="subject" value="nda" />
+
+	<div class="tc-library__tools">
+		<div class="tc-library__filters" role="group" aria-label="Show documents">
+			{FILTERS.map((f, i) => (
+				<Chip kind="toggle" size="sm" pressed={i === 0} attrs={{ 'data-filter': f.value }}>
+					{f.label}
+				</Chip>
+			))}
+		</div>
+		<label class="tc-library__search">
+			<Icon name="tabler:search" aria-hidden="true" />
+			<span class="ui-sr">Filter documents by name</span>
+			<input type="search" placeholder="Filter by name" autocomplete="off" data-search />
+		</label>
+	</div>
+
+	{groups.map((g) => (
+		<section class="tc-library__group" data-group aria-labelledby={slug(g.name)}>
+			<h2 class="tc-library__group-title" id={slug(g.name)}>
+				{g.name}
+			</h2>
+			<ItemList items={g.docs.map(toItem)} />
+		</section>
+	))}
+	<p class="tc-copy" hidden data-empty>
+		No documents match. Clear the filter to see them all.
+	</p>
+
+	<div class="tc-library__request" data-request>
+		<p class="tc-library__count" aria-live="polite" data-count>
+			Tick the documents under NDA you need, and request them together.
+		</p>
+		<Button type="submit" size="sm" attrs={{ 'data-submit': '' }}>
+			Request documents
+		</Button>
+	</div>
+</form>
+
+<script>
+	document.querySelectorAll<HTMLFormElement>('[data-tc-library]').forEach((form) => {
+		const chips = [...form.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+		const search = form.querySelector<HTMLInputElement>('[data-search]');
+		const count = form.querySelector<HTMLElement>('[data-count]');
+		const submit = form.querySelector<HTMLButtonElement>('[data-submit]');
+		const empty = form.querySelector<HTMLElement>('[data-empty]');
+		const picks = [...form.querySelectorAll<HTMLInputElement>('input[name="docs"]')];
+		let filter = 'all';
+
+		const render = () => {
+			const q = (search?.value ?? '').trim().toLowerCase();
+			let shown = 0;
+			form.querySelectorAll<HTMLElement>('[data-group]').forEach((group) => {
+				let n = 0;
+				group.querySelectorAll<HTMLElement>('.tc-item').forEach((row) => {
+					const ok = (filter === 'all' || row.dataset.access === filter) && (!q || row.dataset.name!.includes(q));
+					row.hidden = !ok;
+					if (ok) n++;
+				});
+				group.hidden = n === 0;
+				shown += n;
+			});
+			if (empty) empty.hidden = shown > 0;
+		};
+
+		const sync = () => {
+			const n = picks.filter((p) => p.checked).length;
+			if (count) {
+				count.textContent =
+					n === 0
+						? 'Tick the documents under NDA you need, and request them together.'
+						: `${n} document${n === 1 ? '' : 's'} selected.`;
+			}
+			if (submit) submit.disabled = n === 0;
+			form.classList.toggle('has-picks', n > 0);
+		};
+
+		chips.forEach((chip) =>
+			chip.addEventListener('click', () => {
+				filter = chip.dataset.filter ?? 'all';
+				chips.forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
+				render();
+			})
+		);
+		search?.addEventListener('input', render);
+		picks.forEach((p) => p.addEventListener('change', sync));
+
+		// The address the other pages link with: one `docs`, comma-joined.
+		form.addEventListener('submit', (e) => {
+			e.preventDefault();
+			const slugs = picks.filter((p) => p.checked).map((p) => p.value);
+			if (!slugs.length) return;
+			window.location.href = `${form.action}?subject=nda&docs=${slugs.map(encodeURIComponent).join(',')}`;
+		});
+
+		sync();
+	});
+</script>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	.tc-library {
+		display: grid;
+		gap: $spacing-10;
+	}
+
+	.tc-library__tools {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: $spacing-3 $spacing-6;
+	}
+
+	.tc-library__filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-2;
+	}
+
+	// The filter box: a search input in the kit field's edge (`#868d9a`, 3:1 on white), 40 tall.
+	.tc-library__search {
+		display: flex;
+		align-items: center;
+		gap: $spacing-2;
+		flex: 0 1 260px;
+		min-height: 40px;
+		padding: 0 $spacing-3;
+		border: 1px solid #868d9a;
+		border-radius: $radius-md;
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+
+		svg {
+			width: 18px;
+			height: 18px;
+			flex: none;
+		}
+
+		input {
+			@include type-small;
+			width: 100%;
+			min-width: 0;
+			border: 0;
+			outline: none;
+			background: transparent;
+			color: var(--color-text);
+		}
+
+		&:focus-within {
+			border-color: var(--accent-fill);
+			outline: 3px solid color-mix(in srgb, var(--accent-fill) 18%, transparent);
+		}
+	}
+
+	.tc-library__group {
+		display: grid;
+		gap: $spacing-3;
+	}
+
+	.tc-library__group-title {
+		@include type-tile-lg;
+		color: var(--color-text);
+	}
+
+	// The request bar holds its place under the list, and rides along the bottom of the screen once a
+	// document is ticked, so the action is in reach wherever the reader is in the list.
+	.tc-library__request {
+		z-index: 2;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: $spacing-3 $spacing-6;
+		padding: $spacing-3 $spacing-4;
+		border: 1px solid var(--color-border-light);
+		border-radius: $radius-lg;
+		background: var(--color-bg);
+		box-shadow: 0 6px 24px rgba(23, 24, 28, 0.08);
+	}
+
+	.tc-library.has-picks .tc-library__request {
+		position: sticky;
+		bottom: $spacing-4;
+		border-color: var(--accent-fill);
+	}
+
+	.tc-library__count {
+		@include type-small;
+		color: var(--color-text-secondary);
+
+		.has-picks & {
+			@include type-small-strong;
+			color: var(--color-text);
+		}
+	}
+</style>

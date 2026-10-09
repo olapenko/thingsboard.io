@@ -1,0 +1,31 @@
+---
+import ItemList, { type Item } from '@components/TrustCenter/ItemList.astro';
+import type { DeploymentDoc } from '@data/trust-center/deployment';
+import { requestHref } from '@data/trust-center/documents';
+import { tc } from '@data/trust-center/nav';
+import { ACCESS } from '@data/trust-center/status';
+
+// A deployment page's documents on the one list: the name, its access as a verdict tag, and what a
+// reader can do with it. A public document opens; one under NDA is requested through the form with
+// it ticked; one the draft offers with nowhere to send the reader yet is asked for.
+
+interface Props {
+	items: DeploymentDoc[];
+	/** The contact form's subject for "Ask for it". */
+	askSubject?: string;
+}
+
+const { askSubject = 'other' } = Astro.props;
+const askHref = (name: string) => `${tc('contact')}?subject=${askSubject}&about=${encodeURIComponent(name)}`;
+
+const items: Item[] = Astro.props.items.map((doc) => ({
+	title: doc.name,
+	tags: [ACCESS[doc.access]],
+	actions:
+		doc.access === 'nda' && doc.nda
+			? [{ label: 'Request', href: requestHref([doc.nda]) }]
+			: doc.links.map((l) => ({ label: l.label, href: l.href ?? askHref(doc.name), external: l.external })),
+}));
+---
+
+<ItemList items={items} />

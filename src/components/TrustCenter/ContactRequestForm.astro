@@ -1,0 +1,626 @@
+---
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import Card from '@components/ui/Card.astro';
+import Field from '@components/ui/Field.astro';
+import { DOCS, NDA_DOCS } from '@data/trust-center/documents';
+import { CONTACT_SUBJECTS, TRUST_CENTER_ENDPOINT } from '@data/trust-center/forms';
+
+/**
+ * The Trust Center's contact form: questions about security, compliance and privacy, and requests
+ * for documents under NDA. Built as the site's Contact us form is (`ContactForm.astro`): a kit
+ * `Card` panel holding kit `Field`s, a native select in the field's clothes, and `@util/form-validate`
+ * for the errors.
+ *
+ * The subject drives the rest: its `prompt` becomes the message's placeholder, "Request documents
+ * under NDA" shows the documents and makes the message optional, and a data subject request (a
+ * person, not a vendor) makes Company optional and drops "Work" from the email's label.
+ *
+ * Prefill from the query, as other pages link here (`requestHref`, `askHref` in
+ * `@data/trust-center/documents`): `subject=<value>`; `docs=a,b` ticks those documents under NDA, or,
+ * for a planned document under another subject, asks when it will be available; `about=<text>`
+ * asks for "the <text>" when nothing else filled the message.
+ *
+ * Not connected: see the INTEGRATION NOTE in `@data/trust-center/forms`. With no endpoint, a valid
+ * request shows the thank-you state in the card and says nothing was sent.
+ */
+
+// The message's placeholder before a subject is picked: the catch-all subject's own prompt.
+const DEFAULT_PROMPT = CONTACT_SUBJECTS.find((s) => s.value === 'other')?.prompt ?? 'How can we help?';
+
+// Planned documents by slug, for the "when will it be available?" prefill.
+const PLANNED = Object.fromEntries(DOCS.filter((d) => d.access === 'planned').map((d) => [d.slug, d.name]));
+---
+
+<Card
+	as="form"
+	role="panel"
+	class="tc-form-card"
+	attrs={{
+		id: 'tc-contact-form',
+		method: 'post',
+		novalidate: 'novalidate',
+		'data-endpoint': TRUST_CENTER_ENDPOINT,
+		'data-planned': JSON.stringify(PLANNED),
+	}}
+>
+	<div class="tc-form-body" id="tcc-body">
+		<fieldset class="tc-form-fields">
+			<legend class="ui-sr">Your details and request</legend>
+
+			<Field
+				name="firstName"
+				id="tcc-first-name"
+				label="First name"
+				maxLength={50}
+				autocomplete="given-name"
+				attrs={{ autocapitalize: 'words' }}
+			/>
+
+			<Field
+				name="lastName"
+				id="tcc-last-name"
+				label="Last name"
+				maxLength={50}
+				autocomplete="family-name"
+				attrs={{ autocapitalize: 'words' }}
+			/>
+
+			{/* "Work email" and a required Company, except for a data subject request (the script). */}
+			<Field
+				name="email"
+				id="tcc-email"
+				label="Work email"
+				type="email"
+				maxLength={80}
+				autocomplete="email"
+				inputmode="email"
+				attrs={{ autocapitalize: 'off', spellcheck: 'false' }}
+			/>
+
+			<Field name="company" id="tcc-company" label="Company" maxLength={80} autocomplete="organization" />
+
+			{/* The subject, as a native select in the kit field's clothes (`ui/Field` has no select). */}
+			<div class="ui-field ui-field--lg tc-form-full">
+				<label class="ui-field__label" for="tcc-subject">
+					Subject
+				</label>
+				<div class="ui-field__row tc-form-select">
+					<select
+						class="ui-field__control tc-form-select__control is-empty"
+						id="tcc-subject"
+						name="subject"
+						required
+						aria-invalid="false"
+					>
+						<option value="" selected>
+							Select a subject
+						</option>
+						{CONTACT_SUBJECTS.map((s) => (
+							<option
+								value={s.value}
+								data-prompt={s.prompt}
+								data-message-optional={s.messageOptional ? '' : undefined}
+								data-personal={s.personal ? '' : undefined}
+							>
+								{s.label}
+							</option>
+						))}
+					</select>
+					<Icon name="tabler:chevron-down" class="tc-form-select__chevron" aria-hidden="true" />
+				</div>
+				<div class="ui-field__foot">
+					<p class="ui-field__error" id="tcc-subject-error" hidden></p>
+				</div>
+			</div>
+
+			{/* Only for "Request documents under NDA": at least one. The boxes are unnamed; what is sent is
+			    the hidden `documents` field below, the ticked slugs as one comma list. */}
+			<div class="ui-field tc-form-full tc-form-docs" id="tcc-docs-field" hidden>
+				<fieldset class="tc-form-docs__set" aria-describedby="tcc-docs-hint">
+					<legend class="ui-field__label tc-form-docs__legend">Documents you need</legend>
+					<p class="ui-field__hint tc-form-docs__hint" id="tcc-docs-hint">
+						We send you our mutual NDA first. Once it's signed, you get the documents within two business days.
+					</p>
+					<ul class="tc-form-checks">
+						{NDA_DOCS.map((d) => (
+							<li>
+								<label class="tc-form-check" for={`tcc-doc-${d.slug}`}>
+									<input class="tc-form-check__box" type="checkbox" id={`tcc-doc-${d.slug}`} value={d.slug} data-doc />
+									<span>{d.name}</span>
+								</label>
+							</li>
+						))}
+					</ul>
+				</fieldset>
+				<div class="ui-field__foot">
+					<p class="ui-field__error" id="tcc-docs-error" hidden></p>
+				</div>
+			</div>
+
+			<Field
+				name="message"
+				id="tcc-message"
+				label="Message"
+				type="textarea"
+				placeholder={DEFAULT_PROMPT}
+				rows={5}
+				maxLength={3000}
+				counter
+				class="tc-form-full"
+				attrs={{ 'data-default-prompt': DEFAULT_PROMPT }}
+			/>
+
+			<input type="hidden" name="form_id" value="trust_center" />
+			<input type="hidden" name="path" id="tcc-path" value="" />
+			<input type="hidden" name="documents" id="tcc-documents" value="" />
+		</fieldset>
+
+		<div class="tc-form-actions">
+			{/* lg, 48 tall beside the 48px fields, at the Contact us form's 200px floor. */}
+			<Button type="submit" size="lg" id="tcc-submit" loadingLabel="Sending…" attrs={{ style: '--btn-min-w: 200px' }}>
+				Submit
+			</Button>
+			{/* prettier-ignore */}
+			<p class="tc-form-note">We use these details only to answer your request. See our <a href="/products/paas/privacy-policy/">Privacy Policy</a>.</p>
+		</div>
+	</div>
+
+	{/* The thank-you state, in the same card. Its text is filled with `textContent` only. */}
+	<div class="tc-form-done" id="tcc-done" hidden>
+		<h2 class="tc-form-done__title" id="tcc-done-title" tabindex="-1"></h2>
+		<p class="tc-form-done__text" id="tcc-done-text"></p>
+		<p class="tc-form-done__note">This form isn't connected yet, so nothing was sent.</p>
+		<div class="tc-form-done__actions">
+			<Button variant="secondary" id="tcc-again">
+				Send another request
+			</Button>
+		</div>
+	</div>
+</Card>
+
+<script>
+	import {
+		clearFieldError,
+		validateAll,
+		wireCounter,
+		wireValidation,
+		type FieldControl,
+		type Problem,
+	} from '@util/form-validate';
+
+	// Block obvious XSS payloads before the request is sent, as the Contact us form does: a WAF in
+	// front of the endpoint would otherwise answer with a dead-end "you have been blocked" page.
+	const XSS_PATTERN =
+		/<\s*\/?\s*(?:script|iframe|object|embed)\b|javascript\s*:|on(?:click|error|load|focus|blur|mouseover|mouseout|change|submit|input|toggle|animationend)\s*=/i;
+
+	const isValidEmail = (email: string) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/.test(email);
+
+	// Each message says what to do, not what went wrong, and starts with the verb.
+	const REQUIRED: Record<string, string> = {
+		firstName: 'Enter your first name.',
+		lastName: 'Enter your last name.',
+		email: 'Enter your email so we can reply.',
+		company: "Enter the company you're asking for.",
+		subject: 'Choose a subject.',
+		message: 'Tell us a little about what you need.',
+	};
+
+	const listOf = (names: string[]) =>
+		names.length < 3 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+
+	const optionalMark = () => {
+		const mark = document.createElement('span');
+		mark.className = 'ui-field__optional';
+		mark.textContent = '(optional)';
+		return mark;
+	};
+
+	const strong = (text: string) => {
+		const el = document.createElement('strong');
+		el.textContent = text;
+		return el;
+	};
+
+	function init(form: HTMLFormElement) {
+		const q = <T extends Element>(selector: string) => form.querySelector<T>(selector);
+		const body = q<HTMLElement>('#tcc-body');
+		const done = q<HTMLElement>('#tcc-done');
+		const doneTitle = q<HTMLElement>('#tcc-done-title');
+		const doneText = q<HTMLElement>('#tcc-done-text');
+		const again = q<HTMLButtonElement>('#tcc-again');
+		const submit = q<HTMLButtonElement>('#tcc-submit');
+		const firstName = q<HTMLInputElement>('#tcc-first-name');
+		const lastName = q<HTMLInputElement>('#tcc-last-name');
+		const email = q<HTMLInputElement>('#tcc-email');
+		const company = q<HTMLInputElement>('#tcc-company');
+		const select = q<HTMLSelectElement>('#tcc-subject');
+		const message = q<HTMLTextAreaElement>('#tcc-message');
+		const docsField = q<HTMLElement>('#tcc-docs-field');
+		const docsError = q<HTMLElement>('#tcc-docs-error');
+		const pathInput = q<HTMLInputElement>('#tcc-path');
+		const docsInput = q<HTMLInputElement>('#tcc-documents');
+		if (!body || !done || !doneTitle || !doneText || !again || !submit || !firstName || !lastName) return;
+		if (!email || !company || !select || !message || !docsField || !docsError || !pathInput || !docsInput) return;
+
+		const boxes = Array.from(form.querySelectorAll<HTMLInputElement>('input[data-doc]'));
+		const labelOf = (el: HTMLElement) => q<HTMLLabelElement>(`label[for="${el.id}"]`);
+		const subject = () => select.selectedOptions[0] as HTMLOptionElement | undefined;
+		const isPersonal = () => subject()?.dataset.personal !== undefined;
+		const setLabel = (el: HTMLElement, text: string, optional: boolean) =>
+			labelOf(el)?.replaceChildren(text, ...(optional ? [' ', optionalMark()] : []));
+
+		// In the page's order, so the first invalid one is the one focused. A select has everything
+		// `form-validate` touches (value, id, `required`, dataset, aria); its type just doesn't list it.
+		const fields = [firstName, lastName, email, company, select as unknown as FieldControl, message];
+
+		// ── The form's rules ────────────────────────────────────────────────────
+		const check = (el: FieldControl): Problem => {
+			const val = el.value.trim();
+			if (val === '') return el.required ? { kind: 'required', message: REQUIRED[el.name] } : null;
+			if (el.type === 'email' && !isValidEmail(val)) {
+				const example = isPersonal() ? 'name@example.com' : 'name@company.com';
+				return { kind: 'format', message: `Enter an email like ${example}.` };
+			}
+			if (XSS_PATTERN.test(val)) return { kind: 'format', message: 'Remove any HTML or script tags.' };
+			return null;
+		};
+
+		// Reward early, punish late, as `form-validate` has it, except that its "attempted" is one-way
+		// and this form can start over ("Send another request"). So the form keeps its own: until a
+		// submit, an empty field is never wrong, and the util checks every field it is left.
+		let attempted = false;
+		const lateCheck = (el: FieldControl): Problem => (!attempted && el.value.trim() === '' ? null : check(el));
+		wireValidation(fields, lateCheck)();
+
+		// ── The documents: at least one, under NDA ──────────────────────────────
+		const docsChecked = () => boxes.some((box) => box.checked);
+
+		const setDocsError = (show: boolean) => {
+			docsError.textContent = show ? 'Choose at least one document.' : '';
+			docsError.hidden = !show;
+			boxes.forEach((box) =>
+				show ? box.setAttribute('aria-describedby', docsError.id) : box.removeAttribute('aria-describedby')
+			);
+		};
+
+		boxes.forEach((box) =>
+			box.addEventListener('change', () => {
+				if (docsChecked()) setDocsError(false);
+			})
+		);
+
+		// ── The subject ─────────────────────────────────────────────────────────
+		const applySubject = () => {
+			const option = subject();
+			const personal = isPersonal();
+			const messageOptional = option?.dataset.messageOptional !== undefined;
+			const nda = select.value === 'nda';
+
+			select.classList.toggle('is-empty', select.value === '');
+			message.placeholder = option?.dataset.prompt || message.dataset.defaultPrompt || '';
+
+			// A person asking about their own data: any address, and no company.
+			setLabel(email, personal ? 'Email' : 'Work email', false);
+			setLabel(company, 'Company', personal);
+			company.required = !personal;
+			setLabel(message, 'Message', messageOptional);
+			message.required = !messageOptional;
+
+			docsField.hidden = !nda;
+			if (!nda) setDocsError(false);
+
+			// An error the new subject no longer asks for goes with it; a new one waits for the submit.
+			[email, company, message].forEach((el) => {
+				if (el.dataset.error && !check(el)) clearFieldError(el);
+			});
+		};
+
+		// ── Prefill from the link ───────────────────────────────────────────────
+		const prefill = () => {
+			const params = new URLSearchParams(window.location.search);
+
+			const wanted = params.get('subject')?.trim().toLowerCase();
+			const match = Array.from(select.options).find((o) => o.value && o.value.toLowerCase() === wanted);
+			if (match) select.value = match.value;
+
+			// Comma-joined from the site's links, or one `docs` per tick from the library without a script.
+			const docs = params
+				.getAll('docs')
+				.join(',')
+				.split(',')
+				.map((slug) => slug.trim())
+				.filter(Boolean);
+			if (select.value === 'nda') {
+				boxes.forEach((box) => {
+					if (docs.includes(box.value)) box.checked = true;
+				});
+			} else {
+				// A planned document has nothing to sign for yet: the reader asks when it will be out.
+				const planned: Record<string, string> = JSON.parse(form.dataset.planned || '{}');
+				const names = docs.map((slug) => planned[slug]).filter(Boolean);
+				if (names.length) {
+					const pronoun = names.length > 1 ? 'they' : 'it';
+					message.value = `I'm interested in your ${listOf(names)}. When will ${pronoun} be available?`;
+				}
+			}
+
+			const about = params
+				.get('about')
+				?.trim()
+				.replace(/[.\s]+$/, '')
+				.slice(0, 200);
+			if (about && message.value.trim() === '') message.value = `Please send me the ${about}.`;
+		};
+
+		// ── Submit ──────────────────────────────────────────────────────────────
+		// `aria-busy` turns the kit's button to its spinner and "Sending…" at the same width; the label
+		// stays explicit, as both of the button's lines are hidden from screen readers while it is busy.
+		const setSending = (sending: boolean) => {
+			if (sending) submit.setAttribute('aria-busy', 'true');
+			else submit.removeAttribute('aria-busy');
+			submit.disabled = sending;
+			if (sending) submit.setAttribute('aria-label', 'Sending your request');
+			else submit.removeAttribute('aria-label');
+		};
+
+		const showDone = () => {
+			const address = strong(email.value.trim());
+			doneTitle.textContent = `Thank you, ${firstName.value.trim()}!`;
+			if (select.value === 'nda') {
+				doneText.replaceChildren(
+					"We'll send our mutual NDA to ",
+					address,
+					". Once it's signed, you'll get the documents within two business days."
+				);
+			} else {
+				doneText.replaceChildren("We'll reply to ", address, '.');
+			}
+			body.hidden = true;
+			done.hidden = false;
+			doneTitle.focus();
+		};
+
+		form.addEventListener('submit', (e) => {
+			attempted = true;
+			const nda = select.value === 'nda';
+			const fieldsOk = validateAll(fields, check);
+			const docsOk = !nda || docsChecked();
+			setDocsError(!docsOk);
+
+			if (!fieldsOk || !docsOk) {
+				e.preventDefault();
+				// The documents sit between the subject and the message: theirs is the first error to
+				// visit unless a field above them has one.
+				if (!docsOk) {
+					const firstInvalid = fields.find((el) => el.getAttribute('aria-invalid') === 'true');
+					if (!firstInvalid || firstInvalid === message) boxes[0]?.focus();
+				}
+				return;
+			}
+
+			const endpoint = form.dataset.endpoint;
+			if (endpoint) {
+				form.action = endpoint;
+				form.method = 'post';
+				pathInput.value = window.location.pathname;
+				const ticked = boxes.filter((box) => box.checked).map((box) => box.value);
+				docsInput.value = nda ? ticked.join(',') : '';
+				docsInput.disabled = !nda;
+				setSending(true);
+				return;
+			}
+
+			e.preventDefault();
+			showDone();
+		});
+
+		// Back to an empty form: the subject's logic again, no errors, the counter recounted.
+		again.addEventListener('click', () => {
+			form.reset();
+			attempted = false;
+			fields.forEach(clearFieldError);
+			setDocsError(false);
+			applySubject();
+			wireCounter(message);
+			done.hidden = true;
+			body.hidden = false;
+			firstName.focus();
+		});
+
+		// Coming back with the browser's Back button restores the page mid-send: a working button again.
+		window.addEventListener('pageshow', (e) => {
+			if (e.persisted) setSending(false);
+		});
+
+		prefill();
+		applySubject();
+		select.addEventListener('change', applySubject);
+		// After the prefill, so the counter starts from what is already there.
+		wireCounter(message);
+	}
+
+	document.querySelectorAll<HTMLFormElement>('#tc-contact-form').forEach(init);
+</script>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	// The box, its padding and its lift are `ui/Card`'s panel; this is only the form inside it.
+	.tc-form-card {
+		margin: 0;
+
+		:where(p, h2, ul, fieldset, legend) {
+			margin: 0;
+		}
+
+		.tc-form-fields {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: $spacing-4;
+			min-width: 0;
+			padding: 0;
+			border: 0;
+
+			@include media-down(md) {
+				grid-template-columns: minmax(0, 1fr);
+			}
+		}
+
+		.tc-form-full {
+			grid-column: 1 / -1;
+		}
+
+		// ── The subject ─────────────────────────────────────────────────────────
+		.tc-form-select {
+			position: relative;
+		}
+
+		// Three classes deep, so the room for the chevron outlasts the kit's focus and error padding.
+		.tc-form-select .tc-form-select__control {
+			padding-right: 44px;
+			cursor: pointer;
+			appearance: none;
+
+			&.is-empty {
+				color: var(--color-text-muted);
+			}
+
+			// The open list takes the OS's chrome, not the page's: keep its options readable.
+			option {
+				color: var(--color-text);
+				background: var(--color-bg-surface);
+			}
+		}
+
+		.tc-form-select__chevron {
+			position: absolute;
+			top: 50%;
+			right: 14px;
+			width: 20px;
+			height: 20px;
+			transform: translateY(-50%);
+			color: var(--color-text-secondary);
+			pointer-events: none;
+		}
+
+		// ── The documents ───────────────────────────────────────────────────────
+		.tc-form-docs__set {
+			min-width: 0;
+			padding: 0;
+			border: 0;
+		}
+
+		.tc-form-docs__legend {
+			padding: 0;
+		}
+
+		// After the legend by margin, not gap: a fieldset's legend sits outside its layout.
+		.tc-form-docs__hint {
+			margin-top: 6px;
+		}
+
+		.tc-form-checks {
+			display: grid;
+			column-gap: $spacing-6;
+			margin-top: $spacing-2;
+			padding: 0;
+			list-style: none;
+
+			@include media-up(md) {
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+			}
+		}
+
+		// A real checkbox in its label: the whole row is the target, 44 tall at least.
+		.tc-form-check {
+			display: flex;
+			align-items: flex-start;
+			gap: $spacing-3;
+			min-height: 44px;
+			padding: 10px 0;
+			box-sizing: border-box;
+			@include type-body;
+			color: var(--color-text);
+			cursor: pointer;
+		}
+
+		.tc-form-check__box {
+			flex: none;
+			width: 18px;
+			height: 18px;
+			// Centred on the first line of the 24px label.
+			margin: 3px 0 0;
+			accent-color: var(--accent-fill);
+			cursor: pointer;
+
+			&:focus {
+				outline: none;
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--focus-ring);
+				outline-offset: 2px;
+			}
+		}
+
+		// ── The foot ────────────────────────────────────────────────────────────
+		.tc-form-actions {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: $spacing-3 $spacing-5;
+			margin-top: $spacing-8;
+
+			@include media-down(md) {
+				flex-direction: column;
+				align-items: stretch;
+				text-align: center;
+			}
+		}
+
+		.tc-form-note {
+			flex: 1 1 260px;
+			@include type-small;
+			color: var(--color-text-secondary);
+		}
+
+		// ── Thank you ───────────────────────────────────────────────────────────
+		.tc-form-done {
+			display: grid;
+			gap: $spacing-3;
+
+			&[hidden] {
+				display: none;
+			}
+		}
+
+		.tc-form-done__title {
+			@include type-card;
+			color: var(--color-text);
+
+			// Focus lands here by script, to announce the state; it is not a control to show a ring on.
+			&:focus {
+				outline: none;
+			}
+		}
+
+		.tc-form-done__text {
+			@include type-body;
+			color: var(--color-text);
+
+			strong {
+				font-weight: $font-weight-medium;
+			}
+		}
+
+		.tc-form-done__note {
+			@include type-small;
+			color: var(--color-text-muted);
+		}
+
+		.tc-form-done__actions {
+			margin-top: $spacing-3;
+		}
+	}
+</style>

@@ -1,0 +1,63 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import PageIntro from '@components/Landing/PageIntro.astro';
+import Band from '@components/ui/Band.astro';
+import SectionNav from '@components/TrustCenter/SectionNav.astro';
+import { LAST_UPDATED, sectionFor } from '@data/trust-center/nav';
+import './trust-center.scss';
+
+// Every Trust Center page: a short hero on its section's hue (the wave on a fade, the site's bar
+// floating over it), the section bar under it, then the page's own bands, then the date the content
+// was last updated. The section's hue is the page's accent: the kit's buttons, links and description
+// tags inside take it, as the On-premises page takes green.
+//
+// The page composes its body from `ui/Band`s: white for running content, the tint for cards (a
+// white card reads on a tint, not on white). The `hero` slot sits under the lede, inside the hero:
+// the overview's and Compliance's certificates.
+
+interface Props {
+	/** The page's h1. */
+	title: string;
+	/** The browser title, where it should differ from the h1. */
+	metaTitle?: string;
+	description?: string;
+	/** Over the h1. Default: the section's name. */
+	eyebrow?: string;
+	lede?: string;
+}
+
+const { title, metaTitle, description, lede } = Astro.props;
+const section = sectionFor(Astro.url.pathname);
+// A section's own page is titled with the section's name, so its eyebrow names the Trust Center.
+const eyebrow = Astro.props.eyebrow ?? (title === section.label ? 'Trust Center' : section.label);
+const hueVars = [
+	`--tc-hue: ${section.hue}`,
+	`--accent-fill: ${section.hue}`,
+	`--accent-ink: ${section.hue}`,
+	`--accent-light: color-mix(in srgb, ${section.hue} 30%, #fff)`,
+	'--accent-on-fill: #fff',
+].join('; ');
+---
+
+{/* A draft: its forms are not connected and its facts are not signed off, so it stays out of search. */}
+<BaseLayout
+	title={metaTitle ?? (title === 'Trust Center' ? title : `${title} · Trust Center`)}
+	description={description}
+	hero="light"
+	forceLightTheme
+	noIndex
+>
+	<div class="tc" data-section={section.key} style={hueVars}>
+		<Band ground="fade" hue={section.hue} strength={10} wave pad={{ top: 'none', bottom: 'md' }} class="tc-hero">
+			<div class="tc-hero__inner">
+				<PageIntro eyebrow={eyebrow} title={title} lede={lede} />
+				<slot name="hero" />
+			</div>
+		</Band>
+		<SectionNav section={section} />
+		<slot />
+		<Band pad={{ top: 'sm', bottom: 'md' }} class="tc-foot">
+			<p class="tc-foot__updated">Last updated {LAST_UPDATED}</p>
+		</Band>
+	</div>
+</BaseLayout>

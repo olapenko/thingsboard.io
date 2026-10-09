@@ -1,0 +1,124 @@
+---
+import { Icon } from 'astro-icon/components';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
+import Tag from '@components/TrustCenter/Tag.astro';
+import type { TagLook } from '@data/trust-center/status';
+import { NEW_TAB_NOTE, newTabAttrs } from '@util/external-links';
+
+// The Trust Center's one list: a row per item — a title (a heading where it is a section of the
+// page, a link where it goes somewhere), its tags, a line or two of text, and what you can do with
+// it. Controls, documents, guides and vendors all render here, so the pages share one pattern
+// instead of a table each (review, build v1: 14 patterns to 4).
+//
+// `compact` is a list of one-line items in two columns (the configuration guides). A row's `pick`
+// puts a checkbox before it (the library's request); `attrs` go on the row for a page's script.
+
+export interface ItemAction {
+	label: string;
+	href: string;
+	external?: boolean;
+}
+
+export interface Item {
+	title: string;
+	/** The row's anchor. */
+	id?: string;
+	/** The title is a heading at this level: the item is a section of the page (a control). */
+	level?: 2 | 3;
+	/** The title is a link. */
+	href?: string;
+	external?: boolean;
+	tags?: TagLook[];
+	/** Running text, HTML (`<b>`, `<br>`, links). */
+	html?: string;
+	actions?: ItemAction[];
+	/** A leading mark: a tabler icon, in the section's hue. */
+	icon?: string;
+	pick?: { name: string; value: string; label: string };
+	attrs?: Record<string, string | undefined>;
+}
+
+interface Props {
+	items: Item[];
+	compact?: boolean;
+	/** Compact: two columns from 750 (default), or one where the list already sits in a column. */
+	columns?: 1 | 2;
+	label?: string;
+	class?: string;
+}
+
+const { items, compact = false, columns = 2, label, class: className } = Astro.props;
+---
+
+<ul
+	class:list={['tc-items', compact && 'tc-items--compact', compact && columns === 1 && 'tc-items--one', className]}
+	aria-label={label}
+>
+	{items.map((item) => {
+		const Heading = item.level ? (`h${item.level}` as 'h2') : 'span';
+		const titleId = item.id ? `${item.id}-title` : undefined;
+		return (
+			<li
+				class:list={['tc-item', (item.pick || item.icon) && 'tc-item--lead']}
+				id={item.id}
+				aria-labelledby={item.level ? titleId : undefined}
+				{...item.attrs}
+			>
+				{item.pick && (
+					<span class="tc-item__lead">
+						<input
+							type="checkbox"
+							class="tc-item__pick"
+							name={item.pick.name}
+							value={item.pick.value}
+							id={`pick-${item.pick.value}`}
+							aria-label={item.pick.label}
+						/>
+					</span>
+				)}
+				{item.icon && !item.pick && (
+					<span class="tc-item__lead">
+						<Mark size={36} icon={item.icon} fill="wash" />
+					</span>
+				)}
+				<div class="tc-item__main">
+					<div class="tc-item__head">
+						<Heading class="tc-item__title" id={titleId}>
+							{item.href ? (
+								<a href={item.href} {...newTabAttrs(!!item.external)}>
+									{item.title}
+									{item.external && (
+										<>
+											<Icon name="tabler:arrow-up-right" class="tc-item__out" aria-hidden="true" />
+											<span class="ui-sr">{NEW_TAB_NOTE}</span>
+										</>
+									)}
+								</a>
+							) : (
+								item.title
+							)}
+						</Heading>
+						{item.tags && item.tags.length > 0 && (
+							<span class="tc-item__tags">
+								{item.tags.map((tag) => (
+									<Tag tag={tag} />
+								))}
+							</span>
+						)}
+					</div>
+					{item.html && <p class="tc-item__text" set:html={item.html} />}
+				</div>
+				{item.actions && item.actions.length > 0 && (
+					<div class="tc-item__actions">
+						{item.actions.map((a) => (
+							<Link href={a.href} size="sm" external={a.external} srSuffix={`: ${item.title}`}>
+								{a.label}
+							</Link>
+						))}
+					</div>
+				)}
+			</li>
+		);
+	})}
+</ul>
