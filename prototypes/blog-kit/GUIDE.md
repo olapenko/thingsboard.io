@@ -25,8 +25,8 @@ Where it should live once agreed: next to the blog authoring docs in the site re
 - **Chrome, light theme, English UI, on a retina (2x) display.** The kit shows light
   screenshots on both page themes, so one capture serves both. On Windows, set display scaling
   to 200 % and hide scrollbars (Windows draws 17px grey ones; macOS overlay scrollbars are
-  invisible until you scroll). The 4.4 captures were 1x with Windows scrollbars, which is why
-  they needed a lightbox.
+  invisible until you scroll). A 1x capture cannot be made sharp later; it can only be shown
+  smaller or opened in the lightbox.
 - **Capture the viewport only, never the browser.** For screenshots the clean way is Chrome
   DevTools device mode: add a custom device with the width and height below and a device pixel
   ratio of 2, then *Capture screenshot* from the device toolbar's menu. It writes a PNG of
@@ -40,8 +40,8 @@ Where it should live once agreed: next to the blog authoring docs in the site re
   If one is wanted, several unrelated extensions share the name "Window Resizer"; pick one
   that is open source and asks only for the windows permission, and check that in the store
   listing before installing. **Decide** whether to recommend one by name.
-- **No noise.** No notifications (clear the demo tenant's bell; the 99+ badge shows in one 4.4
-  capture), no browser extensions' injected UI, no DevTools panel inside the capture, no
+- **No noise.** No notification badges (clear the demo tenant's bell first), no browser
+  extensions' injected UI, no DevTools panel inside the capture, no
   cursor unless it is the subject of a clip, no hover states left on by accident, no tooltips
   unless the tooltip is the point.
 
@@ -177,7 +177,40 @@ addition with its own rules, not a per-post composition. **Decide.**
 | Features with a visual each, side by side | `.grid` of `.block`s, two columns | three columns of screenshots |
 | The ask at the end | `.cta`, once | a CTA per section |
 
-### 3.2 Do and don't
+### 3.2 Screenshot, clip or slider
+
+The default is a screenshot. A clip costs five to ten times the bytes, autoplays, and asks
+for attention a still does not; it earns that only when the still cannot carry the point.
+
+**A screenshot** when the feature is a state: a new page, a setting, a dialog, a result, a
+chart, anything the reader needs to *read*. Text in a still is legible and stays put; in a
+clip it is gone before the eye gets there. A still also prints, opens at full size in the
+lightbox, and shows the same thing to everyone.
+
+**A clip** when the feature is a motion, and the motion is the information:
+
+- an interaction the reader will perform: a drag (resizing a panel, reordering widgets),
+  search-as-you-type, switching a mode and watching the layout respond;
+- a sequence of three or more states where what matters is that they follow each other,
+  and three screenshots would make the reader reconstruct the motion;
+- an animation or transition the product itself makes, when it is the feature;
+- speed or smoothness, when that is the claim.
+
+**A slider** when the same screen exists in two versions and the point is the difference:
+before/after of a redesign, two modes of one layout. Same capture size and position for both.
+
+**Not a clip** when the motion is incidental (a dialog opening, a page loading), when the
+clip would need narration to be understood (there is no audio), when the content changes
+faster than it can be read, or when the clip would just pan across a still.
+
+The test: pause the clip anywhere. If every frame is a screenshot you would have used, use
+the screenshot. If the point lives between the frames, it is a clip. Either way, at most two
+clips in a post, each with a poster so it degrades to a still.
+
+Never a GIF: large, 256 colours, no pause, no poster. The video pipeline produces a loop that
+looks like a GIF and weighs a tenth of one.
+
+### 3.3 Do and don't
 
 - **One visual per section**, after the paragraph that names what to look at. Two visuals back
   to back with no text between them read as a gallery, and galleries get skimmed.
@@ -200,13 +233,13 @@ addition with its own rules, not a per-post composition. **Decide.**
   border groups a repeated unit; no fills.
 - **Don't repeat a screen.** If the same dashboard appears in three sections, two of them need
   a different crop or no visual.
-- **Don't ship a mock-up or a composite** (two screens pasted into one image). Where the 4.4
-  post needed settings beside a map, it was a single composed capture, and it is the weakest
-  image in the post.
+- **Don't ship a mock-up or a composite** (two screens pasted into one image). When two things
+  have to be seen together, that is a grid of two blocks, a before/after, or a clip that moves
+  from one to the other.
 - **Don't put text in images.** No labels, arrows or numbers baked into a screenshot.
 - **Light theme only**, one tenant, one zoom, one window size per post.
 
-### 3.3 The cover image
+### 3.4 The cover image
 
 The post's `featuredImage` is the listing card and the social preview; its spec (size,
 template, where the product shot goes on it) is not in this kit. The 4.3 post's cover is
@@ -217,7 +250,7 @@ whether covers get a template in the kit or stay a design deliverable.
 
 ## 4. Delivering sources
 
-What the pipeline needs, and the convention the 4.4 post settled on:
+What the pipeline needs:
 
 - **A Drive folder per post** with `images/` and `video/`. Originals only: PNG at the captured
   resolution, uncropped, unannotated, uncompressed; `.mov` or `.mp4` as recorded (trimmed at the
@@ -225,14 +258,13 @@ What the pipeline needs, and the convention the 4.4 post settled on:
   in chat.
 - **One file per visual, named for its slot**: lowercase, hyphens, `section-subject.png`:
   `agents-list.png`, `agents-install-dialog.png`, `dash-filter-dialog.png`. Pairs share a stem
-  with a suffix: `ui-old.png` / `ui-new.png`, `sidebar-full.png` / `sidebar-compact.png`.
-  (The 4.4 folder had `agent 1.png`, `Dash_3.png`, `WL.png`; the manifest maps them, but names
-  that say what they are save a round of questions.)
+  with a suffix: `ui-old.png` / `ui-new.png`, `sidebar-full.png` / `sidebar-compact.png`. A
+  name that says what the capture is saves a round of questions; a number does not.
 - **A visuals list with the copy.** Each slot in reading order, with the file, the treatment
   and the caption if wanted: `agents-list.png — ring the Agents menu entry`,
   `goto.mov — clip on a panel`, `sidebar-full.png / sidebar-compact.png — before/after`.
-  The 4.4 post did this with placeholder lines in a Google Doc; that was a one-off, not the
-  format to keep. **Decide** the handoff: a `visuals.md` next to the images in the Drive
+  Placeholder lines in a shared document were used once and are not the format to keep.
+  **Decide** the handoff: a `visuals.md` next to the images in the Drive
   folder, or the post's draft MDX on a branch with the slots inline where the images will go,
   which is what the pipeline reads anyway.
 - **Replacing a capture**: same file name, and say what changed in the visuals list, so the
@@ -264,8 +296,8 @@ The outline this was drafted from had capture quality, aspect ratio, data, cropp
 annotation, component choice, and delivery. Added here: the browser-chrome-free capture route
 (device mode, full screen, app window) so no resizer is needed; a size rule derived from text
 legibility in the column rather than a fixed zoom; privacy and third-party attribution; alt
-text and captions as accessibility, not decoration; recording rules for the loop point and the
-cursor; the "no text in images, no composites" rules; a quantity rule (one visual per section,
+text and captions as accessibility, not decoration; a screenshot-versus-clip rule with a test;
+recording rules for the loop point and the cursor; the "no text in images, no composites" rules; a quantity rule (one visual per section,
 two clips per post); the cover image as an open item; the visuals list as the handoff, with
 the format still to decide; the dark panel as a highlight; and a pre-publish checklist. Zoom insets are named so the question is answered once.
 
