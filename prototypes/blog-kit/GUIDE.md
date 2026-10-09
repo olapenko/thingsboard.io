@@ -1,4 +1,4 @@
-# Visuals for blog posts — authoring guide (draft)
+# Authoring guide (draft)
 
 For the people who write release posts and shoot the product, and for whoever processes the
 captures with the kit's pipelines. The components themselves are documented in `README.md`;

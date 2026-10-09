@@ -76,7 +76,7 @@ def main(out: str) -> None:
     h = (EX / 'thingsboard-4-4' / 'index.html').read_text()
     style = re.search(r'<style>.*?</style>', h, re.S).group(0)
     body = re.search(r'<body>(.*)</body>', h, re.S).group(1)
-    page = ('<title>ThingsBoard 4.4 Blog Prototype</title>\n<link rel="stylesheet" href="kit.css" />\n' + style + '\n'
+    page = ('<title>Post preview · Blog visual kit</title>\n<link rel="stylesheet" href="kit.css" />\n' + style + '\n'
             + '<style>\n' + bar_css + '\n\t.header { top: 48px !important; }\n</style>\n' + bar + THEME_JS + body)
     page = page.replace('<script src="../../kit.js"></script>', '<script src="kit.js"></script>')
     page = page.replace('Reference page for the blog visual kit (see ../../README.md). Copy follows the draft; captions, author and date are placeholders.',

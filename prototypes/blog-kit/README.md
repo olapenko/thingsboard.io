@@ -20,7 +20,7 @@ prototypes/blog-kit/
     ├── thingsboard-4-4/     the 4.4 release post as a static page (reference implementation)
     │   ├── images.json      crops and patches for its screenshots
     │   └── videos.json      crops and trims for its clips
-    ├── kit-demo.html        every component once, light and dark (+ kit-demo/videos.json for its clips)
+    ├── kit-demo.html        the Components page: every component once, light and dark (+ kit-demo/videos.json for its clips)
     └── guide.html           the guide as a page, generated; linked from the demo
 
 Sources (raw captures, recordings, the sources zip) are git-ignored; the manifests, the
