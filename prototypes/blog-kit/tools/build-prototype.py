@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Assemble the prototype for sharing: the 4.4 page, the demo and the guide, with kit.css,
-kit.js and every image and clip, in one flat folder with a "Prototype" strip linking the three.
+kit.js and every image and clip, in one flat folder. The demo and the guide carry the kit's
+top bar already; the post page gets the same bar (markup and CSS lifted from the demo).
 
     tools/build-prototype.py <out-dir>
 
@@ -20,22 +21,35 @@ from pathlib import Path
 KIT = Path(__file__).resolve().parent.parent
 EX = KIT / 'examples'
 
-NAV_CSS = """<style>
-	.proto-nav { position: sticky; top: 0; z-index: 60; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; padding: 8px max(20px, calc((100% - 1200px) / 2 + 20px)); background: #0f161d; color: #c9ced6; font: 500 13px/1.4 ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif; }
-	.proto-nav strong { color: #fff; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 11px; margin-right: 6px; }
-	.proto-nav a { color: #c9ced6; text-decoration: none; padding: 2px 0; border-bottom: 1px solid transparent; }
-	.proto-nav a:hover { color: #fff; }
-	.proto-nav a[aria-current] { color: #fff; border-bottom-color: #78b4f5; }
-	{extra}
-</style>
+PAGES = [('index.html', 'Post preview'), ('demo.html', 'Components'), ('guide.html', 'Guide')]
+
+
+def rewrite_links(page: str) -> str:
+    """The examples link each other relative to examples/; the flat folder has three files."""
+    return page.replace('href="thingsboard-4-4/"', 'href="index.html"').replace('href="kit-demo.html"', 'href="demo.html"')
+
+
+def bar_for_post(demo: str) -> tuple[str, str]:
+    """The demo's top bar (markup + its CSS block) with the post link current, for index.html."""
+    css = re.search(r'/\* kit-bar:.*?/\* /kit-bar \*/', demo, re.S).group(0)
+    bar = re.search(r'<header class="kit-bar">.*?</header>', demo, re.S).group(0)
+    bar = bar.replace('<a href="kit-demo.html" aria-current="page">', '<a href="kit-demo.html">').replace('<a href="thingsboard-4-4/">', '<a href="thingsboard-4-4/" aria-current="page">')
+    return css, rewrite_links(bar)
+
+
+THEME_JS = """<script>
+	(function () {
+		var root = document.documentElement, btn = document.getElementById('kit-theme');
+		try { var saved = localStorage.getItem('kit-theme'); if (saved) root.dataset.theme = saved; } catch (e) {}
+		if (!btn) return;
+		btn.addEventListener('click', function () {
+			var dark = root.dataset.theme === 'dark' || (!root.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+			root.dataset.theme = dark ? 'light' : 'dark';
+			try { localStorage.setItem('kit-theme', root.dataset.theme); } catch (e) {}
+		});
+	})();
+</script>
 """
-PAGES = [('index.html', 'The 4.4 post'), ('demo.html', 'Kit demo'), ('guide.html', 'Guide')]
-CUR = ' aria-current="page"'
-
-
-def nav(current: str, extra_css: str) -> str:
-    links = ''.join(f'<a href="{h}"{CUR if h == current else ""}>{t}</a>' for h, t in PAGES)
-    return NAV_CSS.replace('{extra}', extra_css) + f'<nav class="proto-nav" aria-label="Prototype"><strong>Prototype</strong>{links}</nav>\n'
 
 
 def copy_tree(src: Path, dst: Path) -> None:
@@ -55,30 +69,29 @@ def main(out: str) -> None:
         if folder.is_dir():
             copy_tree(folder, pub / 'video')
 
-    # the post: keep its inline shell styles, drop in the kit link and the strip; the shell's
-    # sticky header moves down by the strip's height
+    # the post: keep its inline shell styles, add the kit link, the shared top bar and its
+    # CSS; the shell's own sticky header moves down by the bar's height
+    demo = (EX / 'kit-demo.html').read_text()
+    bar_css, bar = bar_for_post(demo)
     h = (EX / 'thingsboard-4-4' / 'index.html').read_text()
     style = re.search(r'<style>.*?</style>', h, re.S).group(0)
     body = re.search(r'<body>(.*)</body>', h, re.S).group(1)
     page = ('<title>ThingsBoard 4.4 Blog Prototype</title>\n<link rel="stylesheet" href="kit.css" />\n' + style + '\n'
-            + nav('index.html', '.header { top: var(--proto-nav-h, 36px) !important; }') + body)
+            + '<style>\n' + bar_css + '\n\t.header { top: 48px !important; }\n</style>\n' + bar + THEME_JS + body)
     page = page.replace('<script src="../../kit.js"></script>', '<script src="kit.js"></script>')
     page = page.replace('Reference page for the blog visual kit (see ../../README.md). Copy follows the draft; captions, author and date are placeholders.',
                         'Reference page for the blog visual kit. Copy follows the draft; captions, author and date are placeholders. <a href="demo.html">Open the kit demo &rarr;</a>')
     assert '../' not in page, 'a relative path survived in index.html'
     (pub / 'index.html').write_text(page)
 
-    d = (EX / 'kit-demo.html').read_text()
-    d = (d.replace('href="../kit.css"', 'href="kit.css"').replace('src="../kit.js"', 'src="kit.js"')
+    d = (demo.replace('href="../kit.css"', 'href="kit.css"').replace('src="../kit.js"', 'src="kit.js"')
           .replace('thingsboard-4-4/images/', 'images/').replace('thingsboard-4-4/video/', 'video/').replace('kit-demo/video/', 'video/'))
-    d = d.replace('</head>\n<body>\n', '</head>\n<body>\n' + nav('demo.html', '.kit-nav { top: 36px; } .blog-content section, .review-head { scroll-margin-top: 92px; }'))
-    assert '../' not in d and 'proto-nav' in d
+    d = rewrite_links(d)
+    assert '../' not in d and 'kit-bar' in d
     (pub / 'demo.html').write_text(d)
 
-    g = (EX / 'guide.html').read_text()
-    g = g.replace('href="kit-demo.html"', 'href="demo.html"').replace('href="thingsboard-4-4/"', 'href="index.html"')
-    g = g.replace('</head>\n<body>\n', '</head>\n<body>\n' + nav('guide.html', '.toggle { top: 48px; }'))
-    assert '../' not in g and 'proto-nav' in g and 'kit-demo.html' not in g
+    g = rewrite_links((EX / 'guide.html').read_text())
+    assert '../' not in g and 'kit-bar' in g and 'kit-demo.html' not in g
     (pub / 'guide.html').write_text(g)
     print('built', sorted(os.listdir(pub)))
 

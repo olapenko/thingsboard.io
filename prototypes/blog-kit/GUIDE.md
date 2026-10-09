@@ -127,9 +127,9 @@ between 3:2 and 16:10 and never taller than wide when they take the column.
 
 ### 2.2 Rings
 
-A ring marks one element the reader has to find. Use it when the subject is a small part of a
-large screen (a menu entry, a switch, a button in a toolbar) and the paragraph cannot point to
-it by position alone.
+A ring marks the one element the reader has to find. Use it when the subject is a small part
+of a large screen (a menu entry, a switch, a button in a toolbar) and the paragraph cannot
+point to it by position alone.
 
 - **One ring per image.** If two things need marking, that is two images or one crop.
 - **Not on a crop that already isolates the subject**: a dialog on a panel is the subject; a
@@ -138,8 +138,8 @@ it by position alone.
   is drawn 8px outside the element with a wide glow so it reads as an annotation, not a focus
   state; do not tighten it.
 - Never combine a ring with an arrow, a number, or bold text in the caption pointing at the
-  same thing. Text in images is not done at all: captions and the paragraph do the explaining,
-  which also keeps the image translatable and accessible.
+  same thing. Text inside images is not done at all: the caption and the paragraph do the
+  explaining, which also keeps the image translatable and accessible.
 
 ### 2.3 Patches
 
@@ -168,7 +168,7 @@ composition. **Decide.**
 
 ### 3.1 Which component for what
 
-| You want to show | Use | Not |
+| You want to show | Use | Not this |
 |---|---|---|
 | A screen or a state | `.shot`, column width | a mock-up, a Figma frame |
 | A small element on a big screen | `.shot` + one `.ring` | two rings, an arrow |
@@ -222,14 +222,14 @@ looks like a GIF and weighs a tenth of one.
 
 ### 3.3 Rules
 
-Each rule gives the best case, what is acceptable when the best is not possible, and what is
-not done.
+Each rule states the best case first, then what is acceptable when the best is out of reach,
+then what is not done.
 
 #### Rhythm
 
-- **One visual per section**, after the paragraph that names what to look at. *Acceptable:*
-  two, when they are a pair in a grid of two blocks with their own headings. *Not:* visuals
-  back to back with no text between them; a gallery gets skimmed.
+- **One visual per section**, after the paragraph that says what to look at. *Acceptable:*
+  two, as a pair of grid blocks with their own headings. *Not:* visuals back to back with no
+  text between them; a gallery gets skimmed.
 - **Every screen appears once.** *Acceptable:* the same screen twice when the second is a
   different crop with its own point. *Not:* the same dashboard in three sections.
 - **At most two clips in a post**, and a slider only for a real pair (3.2). *Not:* a clip
@@ -237,15 +237,15 @@ not done.
 
 #### Text beside the visual
 
-- **A feature list is tiles**: a short heading, one sentence and a visual per block, two
-  columns. *Acceptable:* text-only cards with an icon tile when there is nothing to show.
-  *Not:* three columns of screenshots, or a visual with no sentence near it saying why it is
-  there.
+- **A list of features is a grid of tiles**: a short heading, one sentence and a visual per
+  block, two columns. *Acceptable:* text-only cards with an icon tile when there is nothing
+  to show. *Not:* three columns of screenshots, or a visual with no sentence beside it saying
+  why it is there.
 - **The paragraph says what to look at; the caption, if any, says where.** *Acceptable:* no
   caption when a block heading sits beside the visual. *Not:* a caption that restates the
   paragraph, a bold lead-in, or a heading inside a caption.
-- **Alt text on every image**: one sentence that says what the screen shows and, when there
-  is a ring, what is marked. *Acceptable:* the caption's wording, when there is a caption.
+- **Alt text on every image**: one sentence saying what the screen shows and, when there is
+  a ring, what is marked. *Acceptable:* the caption's wording, when there is a caption.
   *Not:* "screenshot of", the feature name alone, or an empty alt on a content image.
 
 #### Surfaces
@@ -253,8 +253,8 @@ not done.
 - **A cut-out goes on a panel.** A dialog, a detail, or a whole screen or clip captured
   without a browser frame sits on a `.panel`; a window capture that frames itself takes the
   column bare. *Acceptable:* a bare shot for a small detail when the section already has two
-  panels. *Not:* a dialog floating on the page with only a shadow, or a panel around a
-  full-width capture that did not need one.
+  panels. *Not:* a dialog floating on the page with nothing but a shadow, or a panel around
+  a full-width capture that did not need one.
 - **Light panels, with one dark per section as the highlight.** *Acceptable:* no dark panel
   at all. *Not:* a section where every panel is dark; there is no highlight left.
 - **No chrome beyond the panel**: blocks with nothing around them; cards only for a repeated
@@ -263,7 +263,7 @@ not done.
 
 #### Captures
 
-- **One tenant, one zoom, one window size, light theme**, for every capture in the post.
+- **One tenant, one zoom, one window size, light theme** for every capture in a post.
   *Acceptable:* a higher zoom for a detail that is cut out and shown near 1:1. *Not:* 1x and
   2x captures of the same screen, or two themes in one post.
 - **The real product screen, as captured.** *Not:* mock-ups, composites of two screens
