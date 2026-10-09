@@ -47,32 +47,41 @@ const { href } = Astro.props;
 const standalone = variant === 'standalone';
 // Whatever opens the new tab, `external` or a `target` passed through, a screen reader hears it.
 const newTab = external || attrs.target === '_blank';
+// Inside an inline link any whitespace is underlined ("Cookie Policy ."), so none reaches the
+// anchor: the label loses the caller's edges (`<Link>` on three lines), and the template below
+// breaks its lines only inside `{…}`, which Astro does not emit. Prettier would put each child on
+// a line of its own, hence the guard. The label is rendered in the template, not awaited up here:
+// an await would let a later component's icon render first and carry the sprite's `<symbol>`.
+const label = Astro.slots.render('default').then((html) => html.trim());
 ---
 
-<a
-	id={id}
-	href={href}
-	class:list={[
-		'ui-link',
-		`ui-link--${variant}`,
-		standalone && `ui-link--${size}`,
-		`ui-link--${tone}`,
-		standalone && dir === 'back' && 'ui-link--back',
-		className,
-	]}
-	{...newTabAttrs(external)}
-	{...attrs}
->
-	{/* One line: inside an inline link any whitespace would be underlined. */}
-	{standalone && dir === 'back' && <Icon name="tabler:chevron-left" class="ui-link__glyph" aria-hidden="true" />}
-	<slot />
-	{srSuffix && <span class="ui-sr">{` ${srSuffix}`}</span>}
-	{standalone && dir === 'forward' && !external && (
-		<Icon name="tabler:chevron-right" class="ui-link__glyph" aria-hidden="true" />
-	)}
-	{external && <Icon name="tabler:arrow-up-right" class="ui-link__glyph ui-link__glyph--out" aria-hidden="true" />}
-	{newTab && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
-</a>
+{
+	// prettier-ignore
+	<a
+		id={id}
+		href={href}
+		class:list={[
+			'ui-link',
+			`ui-link--${variant}`,
+			standalone && `ui-link--${size}`,
+			`ui-link--${tone}`,
+			standalone && dir === 'back' && 'ui-link--back',
+			className,
+		]}
+		{...newTabAttrs(external)}
+		{...attrs}
+	>{
+		standalone && dir === 'back' && <Icon name="tabler:chevron-left" class="ui-link__glyph" aria-hidden="true" />
+	}<Fragment set:html={label} />{
+		srSuffix && <span class="ui-sr">{` ${srSuffix}`}</span>
+	}{
+		standalone && dir === 'forward' && !external && <Icon name="tabler:chevron-right" class="ui-link__glyph" aria-hidden="true" />
+	}{
+		external && <Icon name="tabler:arrow-up-right" class="ui-link__glyph ui-link__glyph--out" aria-hidden="true" />
+	}{
+		newTab && <span class="ui-sr">{NEW_TAB_NOTE}</span>
+	}</a>
+}
 
 <style is:global lang="scss">
 	@use '../../styles/variables' as *;
