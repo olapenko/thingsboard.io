@@ -6,9 +6,9 @@ the prototype artifact. No dependencies. Rerun after editing GUIDE.md:
 
 The Markdown subset the guide uses: # to #### headings, paragraphs, "- " and "1. " lists
 with two-space continuation lines, | tables |, --- rules, **bold**, *italic*, `code` and
-[text](url). The page shell (tokens, type, the top bar, the theme toggle, the sidebar) is
-lifted from kit-demo.html at build time so the two pages stay in step; the sidebar lists the
-guide's own sections.
+[text](url). The page shell (tokens, type, the top bar, the theme toggle, the contents block)
+is lifted from kit-demo.html at build time so the two pages stay in step; the contents block
+under the heading lists the guide's own sections.
 """
 from __future__ import annotations
 
@@ -22,9 +22,10 @@ SRC, DEMO, OUT = ROOT / 'GUIDE.md', ROOT / 'examples' / 'kit-demo.html', ROOT / 
 GUIDE_CSS = """
 	/* guide prose, on top of the demo shell */
 	.guide h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 16px; }
-	.guide h2 { font-size: 1.5rem; line-height: 1.3; margin: 48px 0 12px; padding-top: 40px; border-top: 1px solid var(--color-border); scroll-margin-top: 100px; }
-	.guide h3 { font-size: 1.125rem; line-height: 1.3; margin: 28px 0 8px; scroll-margin-top: 100px; }
-	@media (width >= 1140px) { .guide h2, .guide h3 { scroll-margin-top: 64px; } }
+	.guide h2 { font-size: 1.5rem; line-height: 1.3; margin: 48px 0 12px; padding-top: 40px; border-top: 1px solid var(--color-border); scroll-margin-top: 64px; }
+	.guide h3 { font-size: 1.125rem; line-height: 1.3; margin: 28px 0 8px; scroll-margin-top: 64px; }
+	.guide .lede { margin-bottom: 20px; }
+	.guide .kit-nav { margin-bottom: 32px; }
 	.guide h4 { font-size: .9375rem; line-height: 1.3; margin: 20px 0 6px; color: var(--color-text); }
 	.guide p { color: var(--color-text-secondary); line-height: 1.8; margin: 0 0 20px; }
 	.guide ul, .guide ol { color: var(--color-text-secondary); line-height: 1.7; margin: 0 0 20px; padding-left: 22px; }
@@ -119,7 +120,7 @@ def side_nav(body: str) -> str:
         def plain(t: str) -> str:
             return re.sub(r'^\d+\.\d+ ', '', re.sub('<[^>]+>', '', t))
         links = ''.join(f'<a href="#{i}">{plain(t)}</a>' for i, t in h3s) or f'<a href="#{hid}">{label}</a>'
-        groups.append(f'<span class="group" data-label="{html.escape(label, quote=True)}">{links}</span>')
+        groups.append(f'<span class="group" data-label="{html.escape(label, quote=True)}"><span class="links">{links}</span></span>')
     return '<nav class="kit-nav" aria-label="Sections">' + ''.join(groups) + '</nav>'
 
 
@@ -132,7 +133,7 @@ def main() -> None:
     body = render(SRC.read_text())
     # the first heading becomes the page title; a line under it says where the guide lives
     title = re.search(r'<h1[^>]*>(.*?)</h1>', body).group(1)
-    body = body.replace('</h1>', '</h1>\n<p class="lede">Source: GUIDE.md on the kit branch, rendered by tools/build-guide.py. Items marked Decide need a call before the guide is final.</p>', 1)
+    body = body.replace('</h1>', '</h1>\n<p class="lede">Source: GUIDE.md on the kit branch, rendered by tools/build-guide.py. Items marked Decide need a call before the guide is final.</p>\n' + side_nav(body), 1)
     page = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -144,7 +145,6 @@ def main() -> None:
 <body>
 {bar}
 <div class="page">
-{side_nav(body)}
 <main class="guide">
 {body}
 </main>
