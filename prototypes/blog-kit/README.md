@@ -51,8 +51,16 @@ per pattern, with `kit.css` split along the section comments:
 | `.stepper` | `BlogSteps.astro` | `<ol class="stepper"><li><span class="sub">…</span><p>…</p></li>` — horizontal, numbered by CSS counter; stacks on phones |
 | `.schema` | `BlogSchema.astro` (under review) | boxes + arrows, see below |
 | `.cta` | existing `BlogCTA.astro` | the kit version is a restyle of it, with its own hover and focus states (the template only underlines links on hover) |
+| `.btn` (review) | existing `BlogButton.astro` | the CTA's button on its own in the text; `--primary`, `--outline` |
+| `.note` (review) | existing `BlogNote.astro` | `<div class="note"><span class="note__label">Tip</span><p>…</p></div>`; `--warn` in the notice colour; replaces bold "Tip:" paragraphs and the blockquote-as-note |
+| `.quote` (review) | new | `<blockquote class="quote"><p>…</p><cite>…</cite></blockquote>`, the register of a quotation, not a note |
+| `.feature` (review) | new | one row of text beside any kit visual, `--flip` alternates sides; the inline-styled feature rows of two posts |
+| `.table-wrap` (review) | new, or a template rule | scroll wrapper for the template's tables; `--compare` on the table makes the first column the row header |
+| `.stepper--vertical` (review) | `BlogSteps.astro` | the rail at every width, each step with a paragraph and a visual; the "Step N" headings of the how-to posts |
+| `.qa` (review) | new | `<dl class="qa"><dt>…</dt><dd><p>…</p></dd>` for the interview posts |
+| `.glance` (review) | new | what's in this release, as links to its sections, after the intro |
 
-**Keeping it light.** `kit.css` is about 220 lines and `kit.js` about 110, with no
+**Keeping it light.** `kit.css` is about 230 lines (about 280 with the review block) and `kit.js` about 110, with no
 dependencies. When splitting into Astro components, keep it that way: one `<style is:global>`
 per component containing only its section (slotted markdown keeps the parent scope hash, which
 is why the existing Blog components are global too), the two dark blocks collapsed to one
@@ -352,6 +360,35 @@ which component fits which content, and how to deliver source files for the pipe
 written to be moved into the site's contributor docs once agreed. `tools/build-guide.py`
 renders it to `examples/guide.html` (no dependencies; rerun after editing) so it reads next
 to the demo and ships in the prototype artifact.
+
+## What the blog uses today, and what the kit answers with
+
+A survey of the 51 posts (`src/content/blog`) and the template (`src/pages/blog/[...slug].astro`,
+`src/components/Blog/`) found, beyond what the kit already covers:
+
+| In the posts | How many | Today | Kit |
+|---|---|---|---|
+| Notes and tips | 13 posts as bold "Tip:" paragraphs, 1 with `BlogNote`/`BlogCallout` | three ways, one of them a 4 %-tint blockquote | `.note`, `.note--warn` |
+| Quotes (pull, customer, partner) | 7 posts | the template's blockquote, which looks like a note | `.quote` |
+| Text beside image rows | 2 posts | raw `<div style>` grids, gradients and 12px radii inline | `.feature`, `.feature--flip`; `.grid` of blocks for the two-column ones |
+| Tables | 2 posts, plus one shipped as a screenshot | styled by the template, no scroll wrapper, break the column on phones | `.table-wrap`, `.table--compare` |
+| "Step N" sequences | 5 posts as `###` headings, 13 with numbered lists | headings | `.stepper` (short) and `.stepper--vertical` (with visuals) |
+| Interviews | 2 posts | bold "Q:" paragraphs | `.qa` |
+| Release-post structure | 9 posts | intro, one `##` per feature, "Final thoughts"; nothing lists what is in the release | `.glance` after the intro, `.cta` at the end |
+| A single button in the text | 1 post | `BlogButton`, inline-styled with hover handlers | `.btn` |
+| Image captions | 1 `<figure>`, 1 plain paragraph, 0 of the template's italic rule | three ways, mostly none | the kit's `<figure>` + `<figcaption>`, or a block heading beside the visual |
+| Two images side by side | 1 post | inline flex | `.grid` of two `.shot`s |
+| YouTube | 2 posts | `YouTubeVideo` with consent | keep; `.video` is for self-hosted loops only |
+| Code blocks | 5 posts | Expressive Code | nothing to add |
+| Downloads | 2 posts | `<a download>` | nothing to add; a link |
+
+Also found, for the editor rather than the kit: the bold lead-in in list items uses three
+separators (`**X**:`, `**X:**`, `**X** —`); emoji headings and UTM-tagged docs links appear in
+one release post only; the lightbox binds every `.blog-content img`, including the YouTube
+poster and decorative images, which `data-no-lightbox` would fix once it is in the template.
+
+The review rows above are in `kit.css` under "FOR REVIEW" and in the demo under the same
+heading; none is used in a post. Keep, drop or merge them before they are integrated.
 
 ## Adding a component
 
