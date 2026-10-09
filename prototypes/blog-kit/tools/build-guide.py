@@ -51,7 +51,7 @@ def inline(s: str) -> str:
     s = re.sub(r'`([^`]+)`', r'<code>\1</code>', s)
     s = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', s)
     s = re.sub(r'(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])', r'<em>\1</em>', s)
-    s = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', s)
+    s = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', lambda m: f'<a href="{m.group(2).replace("examples/", "")}">{m.group(1)}</a>', s)   # links are written from the kit root; the page lives in examples/
     s = re.sub(r'<strong>Decide(:?)</strong>', r'<span class="badge badge--decide">Decide</span>\1', s)   # open decisions as badges
     return s
 

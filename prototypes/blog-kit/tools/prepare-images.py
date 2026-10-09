@@ -83,9 +83,11 @@ def main(manifest_path: str) -> int:
         for path, html in pages.items():
             pages[path], n = set_size(html, 'img', e['out'], w, h)
             refs += n
-        print(f'{e["out"]:24s} {w}x{h}' + ('' if refs else '   (not referenced in any page)'))
+        print(f'{e["out"]:24s} {w}x{h} {dst.stat().st_size // 1024:5d} KB' + ('' if refs else '   (not referenced in any page)'))
     for path, html in pages.items():
         path.write_text(html)
+    total = sum((out_dir / e['out']).stat().st_size for e in m['images'])
+    print(f'{len(m["images"])} images, {total / 1024 / 1024:.1f} MB before the site\'s optimisation')
     return 0
 
 

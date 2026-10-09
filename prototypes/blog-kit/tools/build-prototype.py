@@ -26,7 +26,7 @@ PAGES = [('index.html', 'Post preview'), ('demo.html', 'Components'), ('guide.ht
 
 def rewrite_links(page: str) -> str:
     """The examples link each other relative to examples/; the flat folder has three files."""
-    return page.replace('href="thingsboard-4-4/"', 'href="index.html"').replace('href="kit-demo.html"', 'href="demo.html"')
+    return page.replace('href="thingsboard-4-4/"', 'href="index.html"').replace('href="kit-demo.html', 'href="demo.html')   # keeps #anchors
 
 
 def bar_for_post(demo: str) -> tuple[str, str]:

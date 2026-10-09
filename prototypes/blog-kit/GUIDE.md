@@ -13,6 +13,23 @@ Three roles, so the guide is in three parts:
 
 Then how to deliver sources, and a pre-publish checklist.
 
+## The short version
+
+For the author who shoots once a release. The rest of the guide is for whoever processes.
+
+- Chrome, light theme, English, the demo tenant with real-looking data, no empty states, no
+  notifications, nothing real (emails, keys, customers).
+- Viewport 1280 × 800, DPR 2 if you can (DevTools device mode gives it on any monitor), zoom
+  150 % with the compact sidebar, 125 % only when the full sidebar must be in frame, higher
+  for a dialog you will have cut out. Never the browser chrome.
+- Shoot whole screens and whole dialogs; do not crop, ring, patch or resize. The pipeline does
+  that from the originals.
+- A clip only when the motion is the point: one interaction, 5–20 s, slow cursor, start and
+  end on the same screen, as recorded.
+- Deliver one zip, `<post>-sources.zip`, with `images/`, `video/` and a `visuals.md` (template:
+  `examples/visuals.template.md`) that says what each capture shows and what matters in it,
+  and the build it was shot on.
+
 Typography in this guide: bold opens a rule, italic marks an inline highlight (a UI name, a
 *Best / Acceptable / Not* label, a menu entry), code marks a file or a class. **Decide**
 whether that convention carries into the contributor docs.
@@ -125,6 +142,17 @@ taller than wide when they take the column.
 
 ## 2. Processing
 
+### 2.0 Reading a delivery
+
+Captures are not labelled by the author; the processor reads them. `tools/inspect-captures.py
+<folder or zip>` prints, for each file, the pixel size, the likely device pixel ratio, whether a
+dimmed backdrop surrounds the subject (a dialog on its page), whether a sidebar column sits on
+the left and which kind, the text size the capture would reach in the column, same-size pairs
+(a before/after candidate), and a suggested slot. It is a starting point for `images.json`,
+read from pixels, and it is wrong sometimes: a composite or an unusual crop comes out as "look
+at it". The `visuals.md` in the zip says what each capture shows and what matters in it; the
+inspector says what it is.
+
 ### 2.1 Cropping
 
 - **Crop at natural boundaries**: the edge of a dialog, a card, a widget, a panel. Never
@@ -182,21 +210,21 @@ composition. **Decide.**
 
 ### 3.1 Which component for what
 
-| You want to show | Use | Not this |
-|---|---|---|
-| A screen or a state | `.shot`, column width | a mock-up, a Figma frame |
-| A small element on a big screen | `.shot` + one `.ring` | two rings, an arrow |
-| A dialog or a detail | `.panel` (`--dark` for at most one per section) | a full screen with the dialog lost in it |
-| A whole screen captured without the browser frame | `.panel--wide` in a full-row block | the same screen unframed; it floats |
-| A capture whose own background frames it | `.panel--bleed` | a shadow and a lightbox on top of it |
-| An interaction (drag, search-as-you-type, navigation) | a clip in a `.shot`, on its own or on a panel | three screenshots of the steps |
-| The same screen before and after a redesign | `.compare`, identical size and scroll position | two screenshots side by side |
-| Parallel, text-only items (API additions) | `.grid.grid--tight` of `.card--icon`, two columns | cards for things that have a screenshot |
-| A sequence where the order is the information | `.stepper` for 3–4 short steps, numbered `.card--muted` for longer ones | a bulleted list pretending to be steps |
-| A data flow or a pipeline | `.schema`, one or two rows | a screenshot of a diagram |
-| Values to compare (versions, limits, support) | a table | a paragraph of numbers |
-| Features with a visual each, side by side | `.grid` of `.block`s, two columns | three columns of screenshots |
-| The ask at the end | `.cta`, once | a CTA per section |
+| You want to show | Use | Not this | See it |
+|---|---|---|---|
+| A screen or a state | `.shot`, column width | a mock-up, a Figma frame | [Screenshot](examples/kit-demo.html#shot) |
+| A small element on a big screen | `.shot` + one `.ring` | two rings, an arrow | [Screenshot](examples/kit-demo.html#shot) |
+| A dialog or a detail | `.panel` (`--dark` for at most one per section) | a full screen with the dialog lost in it | [Panel](examples/kit-demo.html#panel) |
+| A whole screen captured without the browser frame | `.panel--wide` in a full-row block | the same screen unframed; it floats | [Panel](examples/kit-demo.html#panel) |
+| A capture whose own background frames it | `.panel--bleed` | a shadow and a lightbox on top of it | [Panel](examples/kit-demo.html#panel) |
+| An interaction (drag, search-as-you-type, navigation) | a clip in a `.shot`, on its own or on a panel | three screenshots of the steps | [Looped clip](examples/kit-demo.html#video) |
+| The same screen before and after a redesign | `.compare`, identical size and scroll position | two screenshots side by side | [Before and after](examples/kit-demo.html#compare) |
+| Parallel, text-only items (API additions) | `.grid.grid--tight` of `.card--icon`, two columns | cards for things that have a screenshot | [Cards](examples/kit-demo.html#cards) |
+| A sequence where the order is the information | `.stepper` for 3–4 short steps, numbered `.card--muted` for longer ones | a bulleted list pretending to be steps | [Steps](examples/kit-demo.html#steps) |
+| A data flow or a pipeline | `.schema`, one or two rows | a screenshot of a diagram | [Diagram](examples/kit-demo.html#schema) |
+| Values to compare (versions, limits, support) | a table | a paragraph of numbers | [Table](examples/kit-demo.html#table) |
+| Features with a visual each, side by side | `.grid` of `.block`s, two columns | three columns of screenshots | [Layouts](examples/kit-demo.html#grid) |
+| The ask at the end | `.cta`, once | a CTA per section | [Call to action](examples/kit-demo.html#cta) |
 
 ### 3.2 Screenshot, clip or slider
 
@@ -230,6 +258,10 @@ faster than it can be read, or when the clip would just pan across a still.
 The test: pause the clip anywhere. If every frame is a screenshot you would have used, use
 the screenshot. If the point lives between the frames, it is a clip. Either way, at most two
 clips in a post, each with a poster so it degrades to a still.
+
+Budget for the whole post: under 6 MB of media before the site's optimisation, which about
+halves images and leaves clips alone. Both pipelines print their totals. Over budget, drop a
+visual or shorten a clip; do not lower quality.
 
 Never a GIF: large, 256 colours, no pause, no poster. The video pipeline produces a loop that
 looks like a GIF and weighs a tenth of one.
@@ -324,6 +356,13 @@ What the pipeline needs:
 - **What the author does not do**: crop, ring, patch, resize, convert, or compress. All of
   that is the manifest (`images.json`) and the pipeline, so it is reproducible and reviewable,
   and so the raw capture is there when a crop has to change.
+- **When the UI changes after the capture.** Release posts are shot on a release candidate,
+  and screens change before the release. The visuals list names the build each delivery was
+  shot on. Any screen whose layout, labels or colours changed after that build is re-shot
+  before publishing; a screen that merely gained data behind it is not. The release manager
+  decides which screens changed, the author re-shoots them with the same viewport and zoom, and
+  the pipeline reruns on the new zip. *Not:* patching a changed label, or publishing a capture
+  of a build the reader will never see.
 - The processed set is committed with the post; the zip stays out of git, in the post's
   shared folder. **Decide** whether that folder is the default home for the zip or whether
   sources go somewhere versioned.
@@ -336,7 +375,10 @@ What the pipeline needs:
 - No real data, no empty states, no error text, no browser chrome, attribution kept on maps.
 - Patches are baked and the overlays removed; the lightbox opens the fixed file.
 - One zoom and window size across the post; before/after pairs line up.
-- Clips loop cleanly, are under 2 MB each, and there are no more than two.
+- Clips loop cleanly, are under 2 MB each, and there are no more than two; the post's media is
+  under 6 MB in total (the pipelines print it).
+- Every screen is from the build the post describes; screens that changed after the capture
+  were re-shot.
 - Captions short, no bold lead-ins; the paragraph before each visual says what to look at.
 - Dark theme checked (panels, cards, diagram), phone width checked (grids stack, stepper
   vertical, sliders still draggable).
@@ -344,21 +386,22 @@ What the pipeline needs:
 
 ---
 
-## Draft notes (drop this section when the guide is adopted)
+## Changelog
 
-### What the first outline did not cover, and where it landed
+Drafts are dated here; the section goes when the guide is adopted into the contributor docs.
 
-The outline this was drafted from had capture quality, aspect ratio, data, cropping and
-annotation, component choice, and delivery. Added here: the browser-chrome-free capture route
-(device mode, full screen, app window) so no resizer is needed; a size rule derived from text
-legibility in the column rather than a fixed zoom; privacy and third-party attribution; alt
-text and captions as accessibility, not decoration; a screenshot-versus-clip rule with a test;
-recording rules for the loop point and the cursor; the "no text in images, no composites" rules; a quantity rule (one visual per section,
-two clips per post); the cover image as an open item; one zip per post as the handover, with
-the visuals list inside it; the dark panel as a highlight; retina as the best case rather than a requirement; and a
-pre-publish checklist. Zoom insets have a rule, so the question is answered once.
+- **2026-10-09** — first draft, from an outline that had capture quality, aspect ratio, data,
+  cropping and annotation, component choice and delivery. Added: the chrome-free capture route
+  (device mode, full screen, app window); zoom and DPR as separate concerns, with the zoom rule
+  as a range by framing; privacy and third-party attribution; alt text and captions as
+  accessibility; a screenshot-versus-clip rule with a test; recording rules (loop point,
+  cursor); no text in images, no composites; one visual per section, two clips per post; one
+  zip per post with a visuals list inside, and a template for it; captures read by the
+  inspector rather than labelled by the author; a re-shoot policy; a media budget; the dark
+  panel as the highlight; retina as the best case; the short version; a pre-publish
+  checklist. Open decisions carry a badge.
 
-Sources checked for the general rules: Google's developer documentation style guide on
-images (use them sparingly, crop to what matters, alt text, no personal data), New Relic's
+Sources checked for the general rules: Google's developer documentation style guide on images
+(use them sparingly, crop to what matters, alt text, no personal data), New Relic's
 image-annotation guide (callouts clear of the element, almost never text in the image), and
 Chrome's device mode documentation (custom device size, DPR, viewport capture).

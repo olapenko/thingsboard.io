@@ -12,15 +12,18 @@ prototypes/blog-kit/
 ├── tools/
 │   ├── prepare-images.py    crop and patch screenshots from images.json, write width/height into the pages
 │   ├── pngcrop.py           dependency-free PNG cropper and fill used by the above
+│   ├── inspect-captures.py  read a delivery (folder or zip): size, DPR, backdrop, sidebar, pairs, a suggested slot per capture
 │   ├── prepare-videos.py    run prepare-video.sh for every clip in videos.json, write width/height into the pages
 │   ├── prepare-video.sh     ffmpeg pipeline for one looped clip (crop, trim, scale, H.264 + VP9 + poster)
 │   ├── build-guide.py       renders GUIDE.md to examples/guide.html
-│   └── build-prototype.py   assembles the three pages and their media into one folder for the shared artifact
+│   ├── build-prototype.py   assembles the three pages and their media into one folder for the shared artifact
+│   └── capture-window.js    bookmarklet: opens the page in a chrome-free popup sized 1280 × 800 for a capture
 └── examples/
     ├── thingsboard-4-4/     the 4.4 release post as a static page (reference implementation)
     │   ├── images.json      crops and patches for its screenshots
     │   └── videos.json      crops and trims for its clips
     ├── kit-demo.html        the Components page: every component once, light and dark (+ kit-demo/videos.json for its clips)
+    ├── visuals.template.md  the visuals list an author puts in the sources zip
     └── guide.html           the guide as a page, generated; linked from the demo
 
 Sources (raw captures, recordings, the sources zip) are git-ignored; the manifests, the
@@ -248,7 +251,10 @@ place with members matched by file name, or a folder of originals:
   ] }
 ```
 
-`tools/prepare-images.py examples/<post>/images.json` crops each original (`crop` is left, top,
+`tools/inspect-captures.py <folder or zip>` reads a delivery first and prints what each capture
+is (size, likely DPR, dialog backdrop, sidebar, same-size pairs, the text size it would reach
+in the column) with a suggested slot; the manifest is written from that, not from the author's
+labels. Then `tools/prepare-images.py examples/<post>/images.json` crops each original (`crop` is left, top,
 width, height in source pixels), writes it to `out`, and sets `width`/`height` on every `<img>`
 that references it, adding the attributes when a hand-written tag lacks them. `html` can be a
 list of pages when more than one shows the same files (the demo reuses the 4.4 screenshots), so
