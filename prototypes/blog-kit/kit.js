@@ -14,7 +14,7 @@
 	document.documentElement.classList.add('kit-js');
 
 	// ── loading ───────────────────────────────────────────────────────────────
-	document.querySelectorAll('.shot > img, .compare img').forEach(function (img) {   // direct child: an .inset image is decorative
+	document.querySelectorAll('.shot > img, .compare img').forEach(function (img) {
 		var done = function () { img.classList.add('is-loaded'); };
 		if (img.complete && img.naturalWidth) { done(); return; }
 		img.addEventListener('load', done, { once: true });
