@@ -10,7 +10,7 @@ prototypes/blog-kit/
 ├── kit.js                   loading, lightbox, slider and video behaviour (progressive, optional)
 ├── GUIDE.md                 draft authoring guide: shooting, cropping, choosing a visual, delivering sources
 ├── tools/
-│   ├── prepare-images.py    crop and patch screenshots from a manifest, write width/height into the page
+│   ├── prepare-images.py    crop and patch screenshots from a manifest (a zip or a folder), write width/height into the page
 │   ├── pngcrop.py           dependency-free PNG cropper and fill used by the above
 │   ├── prepare-video.sh     ffmpeg pipeline for looped clips
 │   └── build-guide.py       renders GUIDE.md to examples/guide.html
@@ -229,11 +229,12 @@ the API cards in the 4.4 post use it, so icons and diagrams share one palette.
 
 ## Image pipeline
 
-Originals live in the shared Drive folder for the post, not in git. Per post there is an
-`images.json` manifest next to the page:
+Originals arrive as one zip per post (`GUIDE.md`, "Delivering sources") and stay out of
+git. Per post there is an `images.json` manifest next to the page; `raw` is that zip, read in
+place with members matched by file name, or a folder of originals:
 
 ```json
-{ "html": "index.html", "raw": "images/raw", "out": "images",
+{ "html": "index.html", "raw": "thingsboard-4-4-sources.zip", "out": "images",
   "images": [
     { "raw": "agent 1.png", "out": "agents-list.png" },
     { "raw": "dash_2.png",  "out": "dash-filter.png", "crop": [30, 29, 696, 537], "note": "dialog only" }

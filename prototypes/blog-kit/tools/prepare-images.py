@@ -3,10 +3,12 @@
 
     tools/prepare-images.py examples/<post>/images.json
 
-The manifest lives next to the post and names the html, the raw folder, the output
-folder and one entry per image:
+The manifest lives next to the post and names the html, the raw sources, the output
+folder and one entry per image. `raw` is a folder of originals or, the default handover,
+the post's sources zip read in place (members are matched by file name, whatever folder
+they sit in inside the zip; nothing is unpacked):
 
-    { "html": "index.html", "raw": "images/raw", "out": "images",
+    { "html": "index.html", "raw": "sources.zip", "out": "images",
       "images": [ { "raw": "agent 1.png", "out": "agents-list.png" },
                   { "raw": "dash_2.png", "out": "dash-filter.png",
                     "crop": [30, 29, 696, 537], "note": "dialog only" } ] }
@@ -23,9 +25,8 @@ that references it, so the page reserves the right box before the file loads; CS
 the image down to the column, which is how a 1x screenshot wider than the column still
 renders sharp on retina.
 
-Raw originals are not committed (they come from the shared Drive folder); the
-processed images are, so a page renders without rerunning this. Rerun after swapping
-an original or changing a crop.
+Raw originals (the zip or the folder) are not committed; the processed images are,
+so a page renders without rerunning this. Rerun after a new zip or a changed crop.
 
 Cropping uses pngcrop.py (pure Python): macOS `sips --cropOffset` ignores its offset.
 """
@@ -34,7 +35,8 @@ from __future__ import annotations
 import json
 import re
 import sys
-from pathlib import Path
+import zipfile
+from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pngcrop  # noqa: E402
@@ -45,28 +47,37 @@ def main(manifest_path: str) -> int:
     base = mpath.parent
     m = json.loads(mpath.read_text())
     html_path = base / m['html']
-    raw_dir = base / m['raw']
+    raw = base / m['raw']
     out_dir = base / m['out']
     out_dir.mkdir(parents=True, exist_ok=True)
     html = html_path.read_text()
 
-    missing = [e['raw'] for e in m['images'] if not (raw_dir / e['raw']).exists()]
+    if raw.suffix == '.zip':
+        zf = zipfile.ZipFile(raw)
+        members = {PurePosixPath(n).name: n for n in zf.namelist()
+                   if not n.endswith('/') and not n.startswith('__MACOSX') and not PurePosixPath(n).name.startswith('.')}
+        read_raw = lambda name: zf.read(members[name])
+        have = members.keys()
+    else:
+        read_raw = lambda name: (raw / name).read_bytes()
+        have = {p.name for p in raw.iterdir()} if raw.is_dir() else set()
+    missing = [e['raw'] for e in m['images'] if e['raw'] not in have]
     if missing:
-        print('missing in', raw_dir, ':', ', '.join(missing))
+        print('missing in', raw, ':', ', '.join(missing))
         return 1
 
     for e in m['images']:
-        src, dst = raw_dir / e['raw'], out_dir / e['out']
+        data, dst = read_raw(e['raw']), out_dir / e['out']
         if 'crop' in e or 'patch' in e:
-            w, h, bpp, rows = pngcrop.read(src.read_bytes())
+            w, h, bpp, rows = pngcrop.read(data)
             for rect in e.get('patch', []):
                 pngcrop.fill(rows, bpp, *rect)
             if 'crop' in e:
                 w, h, rows = pngcrop.cut(rows, bpp, *e['crop'])
             dst.write_bytes(pngcrop.write(w, h, bpp, rows))
         else:
-            dst.write_bytes(src.read_bytes())
-            w, h, _, _ = pngcrop.read(dst.read_bytes())
+            dst.write_bytes(data)
+            w, h, _, _ = pngcrop.read(data)
         html, n = re.subn(
             rf'(src="[^"]*/{re.escape(e["out"])}"[^>]*?)width="[^"]*" height="[^"]*"',
             rf'\1width="{w}" height="{h}"', html)

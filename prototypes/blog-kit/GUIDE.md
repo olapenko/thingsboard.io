@@ -279,27 +279,35 @@ whether covers get a template in the kit or stay a design deliverable.
 
 What the pipeline needs:
 
-- **A Drive folder per post** with `images/` and `video/`. Originals only: PNG at the captured
-  resolution, uncropped, unannotated, uncompressed; `.mov` or `.mp4` as recorded (trimmed at the
-  ends is fine). Nothing pasted into a document (editors recompress images) and nothing sent
-  in chat.
+- **One zip per post**, `<post-slug>-sources.zip`, with `images/` and `video/` inside.
+  Originals only: PNG at the captured resolution, uncropped, unannotated, uncompressed;
+  `.mov` or `.mp4` as recorded (trimmed at the ends is fine). A zip is one file, so any
+  channel moves it intact, and the image pipeline reads it in place: `raw` in the post's
+  `images.json` points at the zip and nothing is unpacked by hand. A shared folder is where
+  an author collects captures, not how they are handed over: files cannot be pulled out of
+  one as files without a download step each, and its *Download all* produces a zip anyway.
+  *Acceptable:* the shared folder itself, when whoever processes the post has it mounted with
+  Drive for desktop and points `raw` at the mounted path. *Not:* images pasted into a
+  document (editors recompress them), or loose files in a chat thread.
 - **One file per visual, named for its slot**: lowercase, hyphens, `section-subject.png`:
   `agents-list.png`, `agents-install-dialog.png`, `dash-filter-dialog.png`. Pairs share a stem
   with a suffix: `ui-old.png` / `ui-new.png`, `sidebar-full.png` / `sidebar-compact.png`. A
   name that says what the capture is saves a round of questions; a number does not.
-- **A visuals list with the copy.** Each slot in reading order, with the file, the treatment
-  and the caption if wanted: `agents-list.png — ring the Agents menu entry`,
+- **A `visuals.md` in the zip, next to the copy.** Each slot in reading order, with the file,
+  the treatment and the caption if wanted: `agents-list.png — ring the Agents menu entry`,
   `goto.mov — clip on a panel`, `sidebar-full.png / sidebar-compact.png — before/after`.
-  Placeholder lines in a shared document were used once and are not the format to keep.
-  **Decide** the handoff: a `visuals.md` next to the images in the Drive
-  folder, or the post's draft MDX on a branch with the slots inline where the images will go,
-  which is what the pipeline reads anyway.
-- **Replacing a capture**: same file name, and say what changed in the visuals list, so the
-  crop and the ring can be checked rather than redone.
+  *Acceptable:* the slots inline in the draft MDX on a branch, where the images will go, when
+  the author works in the repo. *Not:* placeholder lines in a shared document; that was tried
+  once and the copy and the files drift apart.
+- **Replacing a capture**: a new zip with a date suffix (`…-sources-2026-10-09.zip`), the full
+  set again under the same names, and a line in `visuals.md` saying what changed, so the crop
+  and the ring can be checked rather than redone. Point `raw` at the new zip and rerun.
 - **What the author does not do**: crop, ring, patch, resize, convert, or compress. All of
   that is the manifest (`images.json`) and the pipeline, so it is reproducible and reviewable,
   and so the raw capture is there when a crop has to change.
-- The processed set is committed with the post; raw stays in Drive.
+- The processed set is committed with the post; the zip stays out of git, in the post's
+  shared folder. **Decide** whether that folder is the default home for the zip or whether
+  sources go somewhere versioned.
 
 ---
 
@@ -325,8 +333,8 @@ annotation, component choice, and delivery. Added here: the browser-chrome-free 
 legibility in the column rather than a fixed zoom; privacy and third-party attribution; alt
 text and captions as accessibility, not decoration; a screenshot-versus-clip rule with a test;
 recording rules for the loop point and the cursor; the "no text in images, no composites" rules; a quantity rule (one visual per section,
-two clips per post); the cover image as an open item; the visuals list as the handoff, with
-the format still to decide; the dark panel as a highlight; retina as the best case rather than a requirement; and a
+two clips per post); the cover image as an open item; one zip per post as the handover, with
+the visuals list inside it; the dark panel as a highlight; retina as the best case rather than a requirement; and a
 pre-publish checklist. Zoom insets have a work-in-progress component and a rule, so the
 question is answered once.
 
