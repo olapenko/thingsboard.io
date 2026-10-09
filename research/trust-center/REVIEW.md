@@ -1,5 +1,10 @@
 # Trust Center draft: structure analysis and UX review
 
+> **Revision 1, kept for reference.** The living review, with the decisions taken since, is the
+> artifact **Trust Center Review**: https://claude.ai/artifact/FCqgipQ6VgyRcaiDVCrc97. Since this
+> revision: navigation is added from the start, edits are surgical (repetitions only; §5 is parked),
+> UX findings move to the build, and the PE finding below was wrong (see §4, row 1).
+
 Reviewed 2026-10-09 against the draft captured in [CONTENT.md](CONTENT.md) (draft dated 1 Oct 2026)
 and against the site on `handoff` (59aea93ec). This covers structure, flows and content. It leaves
 the draft's visual design out: the rebuild should use the site's UI kit, not the mock.
@@ -17,9 +22,9 @@ certificate does not cover the product or your installation). The structure is w
 2. **The most common task is the hardest one.** A vendor assessor who wants the SoA, the pentest
    summary and a questionnaire needs four or five clicks per document. The labels promise a request
    but lead to a detail page. The questionnaires sit on a Documents page nothing links to (§3.1).
-3. **Some claims need sign-off before anything ships.** Three security features described as
-   built into every deployment are PE-only (secrets storage, roles, enforced 2FA). Four statements
-   contradict other statements in the draft or in the DPA (§4).
+3. **Some claims need sign-off before anything ships.** Four statements contradict other
+   statements in the draft or in the DPA (§4). *(Revision 1 also listed three features as PE-only;
+   that was wrong, see §4 row 1.)*
 4. **The page set is wide and shallow.** There are 17 views plus 17 document pages. Several are 2–4
    rows long (CCPA, ISO 9001, Product security), and the hub carries about 1,500 words, 18 document
    rows and 23 FAQs. Seven pages plus a hub would hold the same content with less repetition (§5).
@@ -269,7 +274,7 @@ security card links to the docs.
 
 | # | Claim | Where | Problem | Owner |
 |---|---|---|---|---|
-| 1 | "the same security features" on Cloud, Private Cloud and on-premises; on-premises "Built into the product: 2FA, OAuth 2.0 SSO, role-based access control, API keys, an audit log, AES-256 secrets storage" | Overview, On-premises, Commitments matrix | On-premises includes **Community Edition**. On the docs, secrets storage is a PE feature (`peFeature` banner on the CE page), roles exist only in the PE/Cloud docs (`pe/user-guide/roles`), and enforced 2FA is PE-only from 4.3. Every docs link in the draft points at `/docs/pe/`. Say which edition | Product |
+| 1 | ~~"the same security features" on every deployment~~ | Overview, On-premises | **Withdrawn.** From 4.4, CE and PE are one source-available ThingsBoard and advanced security is free in every deployment (blog, 29 Sep 2026). The stale text is the docs' `peFeature` banner ("available in ThingsBoard Professional and ThingsBoard Cloud only", 62 CE pages): a definite fix on the site | Site |
 | 2 | "Production data is never used in tests" | Dev security | Sub-processors lists **netcup** for "Development instances for Private Cloud", and the list's lede says vendors on it "may have access to customer or personal data" | Security |
 | 3 | "Customer data never goes into public AI services" | FAQ | OpenAI, Google (Gemini) and Anthropic are listed as sub-processors that "may have access to customer or personal data". State which data reaches them and on what terms | Security / Legal |
 | 4 | "We notify customers of material changes to this list, as set out in the DPA" | Sub-processors | The DPA (`/products/paas/dpa/`, §5.1) says the processor shall not appoint a subprocessor unless the Company authorizes it. It has no notification clause | Legal |
