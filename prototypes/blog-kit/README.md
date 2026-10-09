@@ -262,13 +262,15 @@ redesigned UI in the 4.4 post is planned as one). Checked against a 20 s, 1600×
 H.264 capture of IoT Hub:
 
 ```
-tools/prepare-video.sh clip.mov examples/<post>/video/name [max-width] [crop]
+tools/prepare-video.sh clip.mov examples/<post>/video/name [max-width] [crop] [trim]
 ```
 
 What it does, and why:
 
-1. **Crop** (optional, `w:h:x:y`) to the app window: a macOS recording with the desktop wallpaper
-   around it should lose the wallpaper here, not in the post.
+1. **Crop** (optional, `w:h:x:y`, or `-` to skip) to the app window: a macOS recording with the
+   desktop wallpaper around it should lose the wallpaper here, not in the post. **Trim**
+   (optional, `start-end` in seconds, either side open) drops a slow start or a cursor dash at
+   the end, so the raw recording stays untouched.
 2. **Scale** to at most 1600px wide (2x the column), even dimensions, **30 fps**, `yuv420p` so
    Safari plays it.
 3. **Strip audio** (`-an`): a looped UI clip never has sound, and a muted autoplay is the only
@@ -301,9 +303,10 @@ Markup:
 ```
 
 Two placements, the same as a screenshot: the `.video` on its own takes the column (a window
-recording that frames itself); inside a `<div class="panel panel--dark panel--wide">` it gets
-the panel's margin and gradient, which is how a full-screen recording with no browser bar gets
-a frame. The default panel width suits a dialog-sized clip.
+recording that frames itself); inside a `.panel` it gets the panel's margin and gradient, which
+is how a recording with no browser bar gets a frame: `--wide` for a whole screen, the default
+width for a region the size of a dialog (the 4.4 Go to… clip, on a `--dark` panel as the
+section's highlight).
 
 `kit.js` pauses the clip when it scrolls out of view and, under `prefers-reduced-motion`,
 removes autoplay and shows a play button over the poster. Video files are not committed in the
