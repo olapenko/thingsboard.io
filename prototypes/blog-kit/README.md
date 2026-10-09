@@ -43,10 +43,9 @@ per pattern, with `kit.css` split along the section comments:
 
 | Pattern | Astro component | Markup contract |
 |---|---|---|
-| `.shot` + `.ring` / `.patch` | `BlogShot.astro` | `<div class="shot"><img …><div class="ring" style="left:…%;top:…%;width:…%;height:…%"></div></div>` |
-| `.panel` | `BlogPanel.astro` | wraps one `.shot` or `.video`; `--dark`, `--tall`, `--wide` (a whole screen with a small margin, in a full-row block); `--bleed` holds a bare `<img>` edge to edge, no shadow, no lightbox |
+| `.shot` + `.ring` / `.patch` | `BlogShot.astro` | the media frame: `<div class="shot"><img …><div class="ring" style="left:…%;top:…%;width:…%;height:…%"></div></div>`, or `<div class="shot"><video …></video></div>` for a looped clip (a `video` prop on the component) |
+| `.panel` | `BlogPanel.astro` | wraps one `.shot`, still or clip; `--dark`, `--tall`, `--wide` (a whole screen with a small margin, in a full-row block); `--bleed` holds a bare `<img>` edge to edge, no shadow, no lightbox |
 | `.compare` | extend `UseCase/ImageComparison.astro` | already on the site; `kit.js` has the same drag logic plus the tags and the `--vertical` axis switch (added on request, see below), which the site component would gain |
-| `.video` | `BlogVideo.astro` | `<figure><div class="video"><video autoplay muted loop playsinline …></video></div><figcaption>`; the `.video` wrapper is the shadowed surface, on its own or inside a `.panel` |
 | `.grid` + `.block` / `.card` | `BlogGrid.astro` | `--3`, `--tight`; child `.wide` spans; `.sub` for the small heading |
 | `.stepper` | `BlogSteps.astro` | `<ol class="stepper"><li><span class="sub">…</span><p>…</p></li>` — horizontal, numbered by CSS counter; stacks on phones |
 | `.schema` | `BlogSchema.astro` (under review) | boxes + arrows, see below |
@@ -84,14 +83,14 @@ The `.blog-content` rules in the site's blog template still apply inside the com
   percent of the image box, so they survive any rendered size. The patch is a review-time
   tool: once a post is final, the same rectangle goes into the post's `images.json` as a
   `patch` entry and the pipeline bakes it into the asset (so the lightbox and any 2x file carry
-  the fix too), and the overlay is removed. The 4.4 filter dialog is done this way.
+  the fix too), and the overlay is removed.
 - A capture whose own background already frames it (a search box over the app wallpaper, as
   in the demo's Bleed example) goes in a `.panel--bleed`: the image is the panel, edge to edge,
   nothing else.
 - A **whole screen captured without the browser frame** (a DevTools capture, a full-screen
   recording) has no frame of its own; it goes on a `.panel--wide` in a full-row block and the
-  panel frames it. A window capture that frames itself takes the column on its own. The same
-  two placements apply to `.video`.
+  panel frames it. A window capture that frames itself takes the column on its own. A clip is
+  placed the same two ways, since it is a `.shot` too.
 - Dialogs are **cut out of their screenshot** and placed on a `.panel` gradient. Light panels are
   pale blue-to-teal and the default; `.panel--dark` is the product teal (#00695c) into steel
   blue and is the **highlight**: when a section has several panels, at most one is dark, the
@@ -113,7 +112,7 @@ handles that in three steps, and the first two need no JavaScript:
    its aspect ratio before the file arrives, so nothing shifts when it lands, and the `.ring` and
    `.patch` overlays, which are placed in percent of that box, are right from the first paint.
    `prepare-images.py` writes the attributes; a hand-written image without them is a bug.
-2. **The wrapper shows its own surface until then.** `.shot`, `.compare` and `.video` have a
+2. **The wrapper shows its own surface until then.** `.shot` and `.compare` have a
    light background, so a pending image reads as a quiet placeholder rather than a hole. Below
    the fold, images are `loading="lazy"` and `decoding="async"`; the first screenshot of a post
    is eager because it is usually the largest paint.
@@ -121,8 +120,8 @@ handles that in three steps, and the first two need no JavaScript:
    class `kit-js` on `<html>` gates the hidden state, so without the script nothing is hidden.
    A failed image is marked loaded too, so its alt text shows instead of an empty box.
 
-**Lightbox.** The 4.4 captures are 1x, so the column shows them downscaled; the lightbox lets
-a reader see the real pixels. `kit.js` opens any `.shot` image at its natural size in an
+**Lightbox.** A 1x capture is shown downscaled in the column; the lightbox lets a reader see
+the real pixels. `kit.js` opens any `.shot` image at its natural size in an
 overlay, or at `data-full="…"` when a larger file exists (the way to serve a 2x original
 without paying for it inline). `data-no-lightbox` opts out at any scope: on an image, on a
 wrapper (a figure, a grid, a panel), on `.blog-content` for a whole post, or on `<html>` to
@@ -232,8 +231,8 @@ Markup:
 ```
 
 Families: `grey blue teal purple yellow green pink`, on both `.sbox--` and `.sarrow--`. The
-arrow takes the family of the box it leaves. `.stile--48` is the same tile at card-icon size;
-the API cards in the 4.4 post use it, so icons and diagrams share one palette.
+arrow takes the family of the box it leaves. `.stile--48` is the same tile at card-icon size,
+so icon cards and diagrams share one palette.
 
 ## Image pipeline
 
@@ -267,7 +266,7 @@ output image, multiply by its size, and add the crop offset:
 { "raw": "dash_2.png", "out": "dash-filter.png", "crop": [30, 29, 696, 537], "patch": [[278, 266, 200, 31]] }
 ```
 
-Cropping guidance that came out of the 4.4 review: crop at natural boundaries and never
+Cropping guidance (the rules are in `GUIDE.md`, 2.1): crop at natural boundaries and never
 through an element; take a dialog two pixels inside its edge so no backdrop survives the
 rounding; drop any stroke or contrast line that lands on the crop edge; keep enough of the
 surrounding UI that the screen is recognisable.
@@ -277,14 +276,15 @@ On the real site these PNGs go through Astro's image pipeline like any other blo
 
 ## Video pipeline
 
-Short looped screen recordings replace screenshots where a feature is an interaction (the
-Go to… search in the 4.4 post). Like the images, clips are driven by a manifest next to the
-page, `videos.json`, so a crop or a trim is recorded and reproducible rather than typed once:
+Short looped screen recordings replace screenshots where a feature is an interaction (a
+search-as-you-type, a drag; `GUIDE.md`, 3.2). Like the images, clips are driven by a manifest
+next to the page, `videos.json`, so a crop or a trim is recorded and reproducible rather than
+typed once:
 
 ```json
 { "html": "index.html", "raw": "video/raw", "out": "video",
-  "videos": [ { "raw": "Screen Recording 2026-10-09 at 15.02.23.mov", "out": "goto", "trim": "0-13.8",
-                "note": "cut before the cursor leaves the frame" } ] }
+  "videos": [ { "raw": "search.mov", "out": "search", "trim": "0-12.5", "note": "cut before the cursor leaves the frame" },
+              { "raw": "window.mov", "out": "window", "crop": "1390:886:108:74", "note": "the app window only" } ] }
 ```
 
 `tools/prepare-videos.py examples/<post>/videos.json` runs the encoder below for each entry
@@ -323,7 +323,7 @@ Markup:
 
 ```html
 <figure>
-  <div class="video">
+  <div class="shot">
     <video autoplay muted loop playsinline preload="metadata" poster="video/name.jpg" width="1600" height="1008">
       <source src="video/name.webm" type="video/webm">
       <source src="video/name.mp4" type="video/mp4">
@@ -333,15 +333,14 @@ Markup:
 </figure>
 ```
 
-Two placements, the same as a screenshot: the `.video` on its own takes the column (a window
-recording that frames itself); inside a `.panel` it gets the panel's margin and gradient, which
+A clip is a `.shot` whose child is a `<video>`, so it is placed like a screenshot: on its own it
+takes the column (a window recording that frames itself); inside a `.panel` it gets the panel's margin and gradient, which
 is how a recording with no browser bar gets a frame: `--wide` for a whole screen, the default
-width for a region the size of a dialog (the 4.4 Go to… clip, on a `--dark` panel as the
-section's highlight).
+width for a region the size of a dialog.
 
 `kit.js` pauses the clip when it scrolls out of view and, under `prefers-reduced-motion`,
 removes autoplay and shows a play button over the poster. A post's encoded clips are
-committed with it, like its images (the 4.4 Go to… clip is about 420 KB in three files); raw
+committed with it, like its images (a 14 s dialog-sized clip is about 400 KB in three files); raw
 recordings and the demo's clips are ignored, and `prepare-videos.py` regenerates any clip
 from its manifest.
 
@@ -378,7 +377,7 @@ A survey of the 51 posts (`src/content/blog`) and the template (`src/pages/blog/
 | A single button in the text | 1 post | `BlogButton`, inline-styled with hover handlers | `.btn` |
 | Image captions | 1 `<figure>`, 1 plain paragraph, 0 of the template's italic rule | three ways, mostly none | the kit's `<figure>` + `<figcaption>`, or a block heading beside the visual |
 | Two images side by side | 1 post | inline flex | `.grid` of two `.shot`s |
-| YouTube | 2 posts | `YouTubeVideo` with consent | keep; `.video` is for self-hosted loops only |
+| YouTube | 2 posts | `YouTubeVideo` with consent | keep; a `.shot` with a `<video>` is for self-hosted loops only |
 | Code blocks | 5 posts | Expressive Code | nothing to add |
 | Downloads | 2 posts | `<a download>` | nothing to add; a link |
 

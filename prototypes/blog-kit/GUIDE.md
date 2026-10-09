@@ -175,7 +175,7 @@ composition. **Decide.**
 | A dialog or a detail | `.panel` (`--tall` for a short crop; `--dark` for at most one per section) | a full screen with the dialog lost in it |
 | A whole screen captured without the browser frame | `.panel--wide` in a full-row block | the same screen unframed; it floats |
 | A capture whose own background frames it | `.panel--bleed` | a shadow and a lightbox on top of it |
-| An interaction (drag, search-as-you-type, navigation) | `.video`, on its own or on a panel | three screenshots of the steps |
+| An interaction (drag, search-as-you-type, navigation) | a clip in a `.shot`, on its own or on a panel | three screenshots of the steps |
 | The same screen before and after a redesign | `.compare`, identical size and scroll position | two screenshots side by side |
 | Parallel, text-only items (API additions) | `.grid.grid--tight` of `.card--icon`, two columns | cards for things that have a screenshot |
 | A sequence where the order is the information | `.stepper` for 3–4 short steps, numbered `.card--muted` for longer ones | a bulleted list pretending to be steps |
