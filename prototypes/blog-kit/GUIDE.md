@@ -165,7 +165,7 @@ addition with its own rules, not a per-post composition. **Decide.**
 |---|---|---|
 | A screen or a state | `.shot`, column width | a mock-up, a Figma frame |
 | A small element on a big screen | `.shot` + one `.ring` | two rings, an arrow |
-| A dialog or a detail | `.panel` (`--dark` when it needs weight, `--tall` for a short crop) | a full screen with the dialog lost in it |
+| A dialog or a detail | `.panel` (`--tall` for a short crop; `--dark` for at most one per section) | a full screen with the dialog lost in it |
 | A whole screen captured without the browser frame | `.panel--wide` in a full-row block | the same screen unframed; it floats |
 | A capture whose own background frames it | `.panel--bleed` | a shadow and a lightbox on top of it |
 | An interaction (drag, search-as-you-type, navigation) | `.video`, on its own or on a panel | three screenshots of the steps |
@@ -183,6 +183,9 @@ addition with its own rules, not a per-post composition. **Decide.**
   to back with no text between them read as a gallery, and galleries get skimmed.
 - **An image for a state, a clip for a motion.** If a screenshot can carry the point, it does;
   a clip costs bytes and attention. One or two clips per post at most.
+- **Dark panels are the highlight, not the default.** Light is the surface; when a section
+  has several panels, at most one is dark, and it marks the one that matters most. A post
+  full of dark panels has no highlight left.
 - **A comparison slider is for the same screen twice.** Same window size, same zoom, same
   scroll position, same data; otherwise the handle reveals differences that are not the point.
 - **Pair text with visuals as tiles** when a section has several features: a short heading, one
@@ -218,19 +221,22 @@ What the pipeline needs, and the convention the 4.4 post settled on:
 
 - **A Drive folder per post** with `images/` and `video/`. Originals only: PNG at the captured
   resolution, uncropped, unannotated, uncompressed; `.mov` or `.mp4` as recorded (trimmed at the
-  ends is fine). Nothing pasted into the doc (Docs recompresses) and nothing sent in chat.
+  ends is fine). Nothing pasted into a document (editors recompress images) and nothing sent
+  in chat.
 - **One file per visual, named for its slot**: lowercase, hyphens, `section-subject.png`:
   `agents-list.png`, `agents-install-dialog.png`, `dash-filter-dialog.png`. Pairs share a stem
   with a suffix: `ui-old.png` / `ui-new.png`, `sidebar-full.png` / `sidebar-compact.png`.
   (The 4.4 folder had `agent 1.png`, `Dash_3.png`, `WL.png`; the manifest maps them, but names
   that say what they are save a round of questions.)
-- **A placeholder line in the Google Doc where the visual goes**, in square brackets, naming
-  the file and the treatment: `[visual: agents-list.png — ring the Agents menu entry]`,
-  `[clip: goto.mov — on a dark panel]`, `[compare: sidebar-full.png / sidebar-compact.png]`.
-  Captions, if wanted, go on the same line. Reviewer comments in the doc are picked up with
-  the copy.
-- **Replacing a capture**: same file name, and say what changed in the doc comment or the
-  folder, so the crop and the ring can be checked rather than redone.
+- **A visuals list with the copy.** Each slot in reading order, with the file, the treatment
+  and the caption if wanted: `agents-list.png — ring the Agents menu entry`,
+  `goto.mov — clip on a panel`, `sidebar-full.png / sidebar-compact.png — before/after`.
+  The 4.4 post did this with placeholder lines in a Google Doc; that was a one-off, not the
+  format to keep. **Decide** the handoff: a `visuals.md` next to the images in the Drive
+  folder, or the post's draft MDX on a branch with the slots inline where the images will go,
+  which is what the pipeline reads anyway.
+- **Replacing a capture**: same file name, and say what changed in the visuals list, so the
+  crop and the ring can be checked rather than redone.
 - **What the author does not do**: crop, ring, patch, resize, convert, or compress. All of
   that is the manifest (`images.json`) and the pipeline, so it is reproducible and reviewable,
   and so the raw capture is there when a crop has to change.
@@ -260,8 +266,8 @@ annotation, component choice, and delivery. Added here: the browser-chrome-free 
 legibility in the column rather than a fixed zoom; privacy and third-party attribution; alt
 text and captions as accessibility, not decoration; recording rules for the loop point and the
 cursor; the "no text in images, no composites" rules; a quantity rule (one visual per section,
-two clips per post); the cover image as an open item; the placeholder convention in the doc;
-and a pre-publish checklist. Zoom insets are named so the question is answered once.
+two clips per post); the cover image as an open item; the visuals list as the handoff, with
+the format still to decide; the dark panel as a highlight; and a pre-publish checklist. Zoom insets are named so the question is answered once.
 
 Sources checked for the general rules: Google's developer documentation style guide on
 images (use them sparingly, crop to what matters, alt text, no personal data), New Relic's

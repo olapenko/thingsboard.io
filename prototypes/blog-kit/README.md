@@ -10,12 +10,14 @@ prototypes/blog-kit/
 ├── kit.js                   loading, lightbox, slider and video behaviour (progressive, optional)
 ├── GUIDE.md                 draft authoring guide: shooting, cropping, choosing a visual, delivering sources
 ├── tools/
-│   ├── prepare-images.py    crop screenshots from a manifest, write width/height into the page
-│   ├── pngcrop.py           dependency-free PNG cropper used by the above
-│   └── prepare-video.sh     ffmpeg pipeline for looped clips
+│   ├── prepare-images.py    crop and patch screenshots from a manifest, write width/height into the page
+│   ├── pngcrop.py           dependency-free PNG cropper and fill used by the above
+│   ├── prepare-video.sh     ffmpeg pipeline for looped clips
+│   └── build-guide.py       renders GUIDE.md to examples/guide.html
 └── examples/
     ├── thingsboard-4-4/     the 4.4 release post as a static page (reference implementation)
-    └── kit-demo.html        every component once, light and dark
+    ├── kit-demo.html        every component once, light and dark
+    └── guide.html           the guide as a page, generated; linked from the demo
 ```
 
 Open either example by serving this folder (`python3 -m http.server`, then
@@ -73,8 +75,9 @@ The `.blog-content` rules in the site's blog template still apply inside the com
   panel frames it. A window capture that frames itself takes the column on its own. The same
   two placements apply to `.video`.
 - Dialogs are **cut out of their screenshot** and placed on a `.panel` gradient. Light panels are
-  pale blue-to-teal; `.panel--dark` is the product teal (#00695c) into steel blue, for a
-  dialog that needs weight.
+  pale blue-to-teal and the default; `.panel--dark` is the product teal (#00695c) into steel
+  blue and is the **highlight**: when a section has several panels, at most one is dark, the
+  one that matters most. A post full of dark panels has no highlight left.
 - **Captions are optional.** When the text already sits beside the visual (a `.grid` block with
   a `.sub` heading), there is no caption. Figures that stand alone keep a short `<figcaption>`
   with no bold lead-in.
@@ -310,7 +313,9 @@ examples (`examples/**/video/` is ignored); run the script to regenerate them.
 `GUIDE.md` is the draft of the guide for the people who write posts and shoot the product:
 browser setup and capture size, data hygiene, video recording, cropping and annotation rules,
 which component fits which content, and how to deliver source files for the pipeline. It is
-written to be moved into the site's contributor docs once agreed.
+written to be moved into the site's contributor docs once agreed. `tools/build-guide.py`
+renders it to `examples/guide.html` (no dependencies; rerun after editing) so it reads next
+to the demo and ships in the prototype artifact.
 
 ## Adding a component
 
@@ -318,3 +323,11 @@ Keep the kit small. Before adding a pattern, check whether `.grid` + `.block` wi
 existing visuals covers it. When something new is needed: one section comment in `kit.css`
 that names the pattern and its markup, tokens for every colour with the two dark blocks, a
 demo in `examples/kit-demo.html`, and a row in the table above.
+
+**Considered and not added.** A top/bottom comparison slider (a horizontal divider). The
+product's screens are laid out in columns (sidebar, content, settings pane), so the existing
+vertical divider dragged sideways cuts between regions and compares like with like; a
+horizontal one cuts through every widget in a row and compares nothing cleanly. Two screens
+side by side is a `.grid` of two blocks, already there. If a real case appears (a toolbar or a
+header row that changed), it is a `.compare--vertical` variant: `clip-path: inset(0 0 X% 0)`
+and the handle turned, a few lines, so there is nothing to pre-build.
