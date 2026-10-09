@@ -156,14 +156,11 @@ data is always better.
 
 ### 2.4 Zoom insets
 
-The kit has a `.inset`, work in progress and not used in a post yet: it magnifies a region of
-the same image in a corner of the shot, with the ring on the region it comes from, and hides
-on phones. *Best:* crop the detail into a panel and let the paragraph say where it lives; the
-panel is the zoom and works at every width. *Acceptable:* an inset, when the detail is too
-small to read at column width and cropping it out would lose the context the reader needs,
-such as one control inside a dense table; one per image, always with the ring on the source.
-*Not:* an inset where a panel crop was possible, two insets on one image, or an inset without
-its ring. **Decide** whether it ships.
+There is no magnifier in the kit. *Best:* crop the detail into a panel and let the paragraph
+say where it lives on the screen; the panel is the zoom and works at every width. If a real
+inset (a region of the shot magnified in its corner, with a ring on the source) turns out to
+be needed, it is a kit addition with its own rules and a convincing example, not a per-post
+composition. **Decide.**
 
 ---
 
@@ -340,8 +337,7 @@ text and captions as accessibility, not decoration; a screenshot-versus-clip rul
 recording rules for the loop point and the cursor; the "no text in images, no composites" rules; a quantity rule (one visual per section,
 two clips per post); the cover image as an open item; one zip per post as the handover, with
 the visuals list inside it; the dark panel as a highlight; retina as the best case rather than a requirement; and a
-pre-publish checklist. Zoom insets have a work-in-progress component and a rule, so the
-question is answered once.
+pre-publish checklist. Zoom insets have a rule, so the question is answered once.
 
 Sources checked for the general rules: Google's developer documentation style guide on
 images (use them sparingly, crop to what matters, alt text, no personal data), New Relic's
