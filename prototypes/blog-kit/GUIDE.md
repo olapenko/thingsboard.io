@@ -54,21 +54,28 @@ Where it should live once agreed: next to the blog authoring docs in the site re
 ### 1.2 Size and zoom
 
 The article column is 828px wide. A full-width screenshot is scaled to that, so what matters
-is how big the UI text ends up on the page, not how many pixels the file has. The rule:
-**UI text in the post should render at 11px or larger.** ThingsBoard's body text is 14px, so a
-full-width capture should be at most about 1050 CSS pixels wide, or it must be cropped.
+is how big the UI text ends up on the page, not how many pixels the file has. Two numbers pull
+against each other: rendered text size is 14px × zoom × 828 / capture width, and the laid-out
+width is capture width / zoom. Text at 12px or more therefore means a layout of about 960
+logical px or less, which is narrower than a whole screen with the full sidebar wants. So the
+rule is a range, chosen by how much of the screen is in the frame:
 
 | What you are showing | Viewport (CSS px) | Chrome zoom | Result in the column |
 |---|---|---|---|
-| A whole screen, full width | 1280 × 800 | 125 % | 1024px of UI scaled to 828: text ≈ 11px |
-| A whole screen on a wide panel | 1280 × 800 | 125 % | about 10px; the lightbox has the rest |
-| A dialog or a detail, cut out later | 1280 × 800 | 150–200 % | the crop is shown near 1:1, text 14px+ |
+| A whole screen with the full sidebar in frame | 1280 × 800 | 125 % | the only zoom where the sidebar stays expanded; text ≈ 11px, the floor; the lightbox has the rest |
+| A whole screen, compact sidebar (the default for dashboards and list pages) | 1280 × 800 | 150 % | the content area still fits; text ≈ 13.5px |
+| The content area only, sidebar cropped out later | 1280 × 800 | 150–175 % | the crop is shown near full width; text 13–15px |
+| A dialog or a detail, cut out later | 1280 × 800 | 175–200 % | the crop is shown near 1:1, text 14px+ |
 | Before/after pair | identical for both | identical | the slider needs the same scale and scroll position |
 
-Check that the sidebar stays expanded at the zoom you pick; if the layout collapses, drop to
-110 %. One window size and one zoom per post, so screens look like one product. 16:10
-(1280 × 800) is the ratio for whole screens; dialogs are whatever they are; crops should land
-between 3:2 and 16:10 and never taller than wide when they take the column.
+*Best:* 150 % with the compact sidebar for anything that is not about the sidebar; the full
+sidebar only when the sidebar is the subject. *Acceptable:* 125 % when the full sidebar has to
+be in frame; the text sits at the 11px floor and the lightbox carries the detail. *Not:* below
+125 % for a full-width capture, or a zoom at which the layout collapses (check that the page
+still lays out as a desktop page; if it does not, drop a step). One viewport and one zoom per
+kind of capture, so screens look like one product. 16:10 (1280 × 800) is the ratio for whole
+screens; dialogs are whatever they are; crops should land between 3:2 and 16:10 and never
+taller than wide when they take the column.
 
 ### 1.3 Data on the screen
 
