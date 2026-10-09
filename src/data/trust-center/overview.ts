@@ -1,9 +1,13 @@
-import { tc } from '@data/trust-center/nav';
+import { HUES, tc } from '@data/trust-center/nav';
 
 /**
- * The overview's six topics, from the draft's tiles, with the review's edits. The Compliance topic
- * no longer repeats the two certificates the strip above it names (edit 1), and Data security no
- * longer offers APAC on ThingsBoard Cloud, which has none (the Cloud page's table wins).
+ * The overview's and the hubs' summaries, from the draft's tiles, with the review's edits.
+ *
+ * Build v3 gave Security and Deployment hubs, so each topic now lives on its section's hub rather
+ * than on the overview, which lists the sections instead (`SECTIONS` in `@data/trust-center/nav`):
+ * the four Security topics with their points are the Security hub; the deployments and Commitment
+ * and responsibility are the Deployment hub's cards. The draft's Compliance tile is gone: its points
+ * are the Compliance hub's facts.
  */
 
 export interface Topic {
@@ -14,17 +18,17 @@ export interface Topic {
 	points: string[];
 }
 
-export const TOPICS: Topic[] = [
+export const SECURITY_TOPICS: Topic[] = [
 	{
-		title: 'Compliance',
-		subtitle: 'Independently verified security',
-		icon: 'tabler:shield-check',
-		href: tc('compliance'),
+		title: 'Product security',
+		subtitle: 'Security built into the product',
+		icon: 'tabler:device-desktop',
+		href: tc('product'),
 		points: [
-			'Certified by Swiss Approval North America, IAF-accredited',
-			'Certificates you can verify online',
-			'Annual surveillance audits',
-			'GDPR and CCPA, self-declared',
+			'Encrypted transport for every device protocol',
+			'X.509 device credentials and mutual TLS',
+			'AES-256 encrypted secrets storage',
+			'Custom domains with automatic SSL',
 		],
 	},
 	{
@@ -37,18 +41,6 @@ export const TOPICS: Topic[] = [
 			'Encrypted in transit with TLS',
 			'North America or EU on Cloud; APAC too on Private Cloud',
 			'Export anytime via API, no lock-in',
-		],
-	},
-	{
-		title: 'Product security',
-		subtitle: 'Security built into the product',
-		icon: 'tabler:device-desktop',
-		href: tc('product'),
-		points: [
-			'Encrypted transport for every device protocol',
-			'X.509 device credentials and mutual TLS',
-			'AES-256 encrypted secrets storage',
-			'Custom domains with automatic SSL',
 		],
 	},
 	{
@@ -75,18 +67,6 @@ export const TOPICS: Topic[] = [
 			'Fixed CVEs listed in release notes',
 		],
 	},
-	{
-		title: 'Commitment and responsibility',
-		subtitle: 'What we promise and what we handle',
-		icon: 'tabler:arrows-exchange',
-		href: tc('commitments'),
-		points: [
-			'NDA documents within two business days',
-			'Support response times for every plan',
-			'Private Cloud uptime SLA up to 99.95%',
-			'What ThingsBoard handles in each deployment model',
-		],
-	},
 ];
 
 export const CERTIFICATES = [
@@ -100,18 +80,33 @@ export const CERTIFICATES = [
 
 export const CERT_VALIDATOR = 'https://swissapproval.ch/certificate-validator/';
 
-/** The two deployments, each one line and a link (edit 2: their facts live on their pages). */
-export const DEPLOYMENTS = [
+/**
+ * The Deployment hub's cards. The two deployments carry the products' own marks, as the footer and
+ * the product pages draw them: the ThingsBoard mark in the brand blue for Cloud, in the on-premises
+ * green for the platform you run yourself.
+ */
+export const DEPLOYMENTS: {
+	title: string;
+	text: string;
+	href: string;
+	mark: { logo: 'thingsboard'; accent: string } | { icon: string; accent: string };
+}[] = [
 	{
 		title: 'ThingsBoard Cloud and Private Cloud',
 		text: 'We host and run the platform, so you can focus on your solution.',
-		icon: 'tabler:cloud',
 		href: tc('cloud'),
+		mark: { logo: 'thingsboard', accent: HUES.brand },
 	},
 	{
 		title: 'On-premises',
 		text: 'You run the platform; we provide the product code, security fixes and guides.',
-		icon: 'tabler:server',
 		href: tc('onprem'),
+		mark: { logo: 'thingsboard', accent: 'onprem' },
+	},
+	{
+		title: 'Commitment and responsibility',
+		text: 'What we promise, and what ThingsBoard handles in each deployment model.',
+		href: tc('commitments'),
+		mark: { icon: 'tabler:arrows-exchange', accent: HUES.teal },
 	},
 ];

@@ -1,7 +1,9 @@
 /**
  * The Trust Center's sections, as agreed in the review: the tree of revision 3, drawn as a section
- * bar (revision 6). Five sections, the second row of tabs listing a section's pages; Contact and
- * Report sit apart as buttons. Every page keeps the draft's slug.
+ * bar under the site's bar (build v3). Five sections, each with a page of its own: Security and
+ * Deployment gained hubs in v3 (they were plain labels), so a section's tab always lands on its
+ * overview. A section's pages are listed in its hero, not in a second sticky row. Contact and Report
+ * sit apart as buttons. Every page keeps the draft's slug.
  *
  * Each section has a hue, from the product pages' rotation, which colours its hero, its marks and
  * its accent (buttons, links, the description tags) on every one of its pages, as green does the
@@ -21,11 +23,13 @@ export interface NavPage {
 export interface Section {
 	key: 'overview' | 'compliance' | 'security' | 'deployment' | 'documents' | 'contact';
 	label: string;
-	/** Where the section's tab goes: its own page, or its first page when it has none. */
+	/** The section's own page (its hub). */
 	href: string;
+	/** One line on the overview. */
+	summary: string;
 	hue: string;
 	icon: string;
-	/** The second row; empty for a section of one page. */
+	/** The section's pages, its hub first, listed in its hero; empty for a section of one page. */
 	pages: NavPage[];
 	/** Every page under this path belongs to the section too (the document pages). */
 	prefix?: string;
@@ -40,11 +44,20 @@ export const HUES = {
 };
 
 export const SECTIONS: Section[] = [
-	{ key: 'overview', label: 'Overview', href: tc(), hue: HUES.brand, icon: 'tabler:shield-check', pages: [] },
+	{
+		key: 'overview',
+		label: 'Overview',
+		href: tc(),
+		summary: '',
+		hue: HUES.brand,
+		icon: 'tabler:shield-check',
+		pages: [],
+	},
 	{
 		key: 'compliance',
 		label: 'Compliance',
 		href: tc('compliance'),
+		summary: 'Certified to ISO/IEC 27001 and ISO 9001, with GDPR and CCPA self-declared.',
 		hue: HUES.violet,
 		icon: 'tabler:certificate',
 		pages: [
@@ -59,10 +72,12 @@ export const SECTIONS: Section[] = [
 	{
 		key: 'security',
 		label: 'Security',
-		href: tc('product'),
+		href: tc('security'),
+		summary: 'How the platform protects devices, data and users, and how we build and release it.',
 		hue: HUES.blue,
 		icon: 'tabler:lock',
 		pages: [
+			{ label: 'Security', href: tc('security') },
 			{ label: 'Product security', href: tc('product') },
 			{ label: 'Data security', href: tc('data') },
 			{ label: 'Access control', href: tc('access') },
@@ -72,10 +87,12 @@ export const SECTIONS: Section[] = [
 	{
 		key: 'deployment',
 		label: 'Deployment',
-		href: tc('cloud'),
+		href: tc('deployment'),
+		summary: 'What we run and what you run, on ThingsBoard Cloud, Private Cloud and on-premises.',
 		hue: HUES.teal,
 		icon: 'tabler:cloud',
 		pages: [
+			{ label: 'Deployment', href: tc('deployment') },
 			{ label: 'Cloud and Private Cloud', href: tc('cloud') },
 			{ label: 'On-premises', href: tc('onprem') },
 			{ label: 'Commitment and responsibility', href: tc('commitments') },
@@ -85,6 +102,7 @@ export const SECTIONS: Section[] = [
 		key: 'documents',
 		label: 'Documents',
 		href: tc('documents'),
+		summary: 'Policies, reports and certificates: open to everyone, or under NDA within two business days.',
 		hue: HUES.orange,
 		icon: 'tabler:file-text',
 		pages: [],
@@ -97,6 +115,7 @@ export const CONTACT_SECTION: Section = {
 	key: 'contact',
 	label: 'Get in touch',
 	href: tc('contact'),
+	summary: '',
 	hue: HUES.brand,
 	icon: 'tabler:message-circle',
 	pages: [],

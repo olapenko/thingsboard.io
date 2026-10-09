@@ -3,17 +3,18 @@ import BaseLayout from '@layouts/BaseLayout.astro';
 import PageIntro from '@components/Landing/PageIntro.astro';
 import Band from '@components/ui/Band.astro';
 import SectionNav from '@components/TrustCenter/SectionNav.astro';
+import SectionPages from '@components/TrustCenter/SectionPages.astro';
 import { LAST_UPDATED, sectionFor } from '@data/trust-center/nav';
 import './trust-center.scss';
 
-// Every Trust Center page: a short hero on its section's hue (the wave on a fade, the site's bar
-// floating over it), the section bar under it, then the page's own bands, then the date the content
+// Every Trust Center page (build v3): the section bar directly under the site's bar, then a short
+// hero on the section's hue — the section's pages as pills, the h1 and the lede, and on the right
+// whatever the page puts in the `visual` slot — then the page's own bands, then the date the content
 // was last updated. The section's hue is the page's accent: the kit's buttons, links and description
 // tags inside take it, as the On-premises page takes green.
 //
 // The page composes its body from `ui/Band`s: white for running content, the tint for cards (a
-// white card reads on a tint, not on white). The `hero` slot sits under the lede, inside the hero:
-// the overview's and Compliance's certificates.
+// white card reads on a tint, not on white).
 
 interface Props {
 	/** The page's h1. */
@@ -21,15 +22,19 @@ interface Props {
 	/** The browser title, where it should differ from the h1. */
 	metaTitle?: string;
 	description?: string;
-	/** Over the h1. Default: the section's name. */
+	/** Over the h1, where the section's pages are not listed there. Default: the section's name. */
 	eyebrow?: string;
 	lede?: string;
 }
 
 const { title, metaTitle, description, lede } = Astro.props;
 const section = sectionFor(Astro.url.pathname);
-// A section's own page is titled with the section's name, so its eyebrow names the Trust Center.
-const eyebrow = Astro.props.eyebrow ?? (title === section.label ? 'Trust Center' : section.label);
+const listed = section.pages.length > 1;
+// The pills name the section already; a page of a single-page section is named by its eyebrow.
+const eyebrow = listed
+	? undefined
+	: (Astro.props.eyebrow ?? (title === section.label ? 'Trust Center' : section.label));
+const hasVisual = Astro.slots.has('visual');
 const hueVars = [
 	`--tc-hue: ${section.hue}`,
 	`--accent-fill: ${section.hue}`,
@@ -43,18 +48,25 @@ const hueVars = [
 <BaseLayout
 	title={metaTitle ?? (title === 'Trust Center' ? title : `${title} · Trust Center`)}
 	description={description}
-	hero="light"
 	forceLightTheme
 	noIndex
 >
 	<div class="tc" data-section={section.key} style={hueVars}>
-		<Band ground="fade" hue={section.hue} strength={10} wave pad={{ top: 'none', bottom: 'md' }} class="tc-hero">
-			<div class="tc-hero__inner">
-				<PageIntro eyebrow={eyebrow} title={title} lede={lede} />
-				<slot name="hero" />
+		<SectionNav section={section} />
+		<Band ground="fade" hue={section.hue} strength={10} wave pad={{ top: 'md', bottom: 'md' }} class="tc-hero">
+			<div class:list={['tc-hero__inner', hasVisual && 'tc-hero__inner--visual']}>
+				<div class="tc-hero__text">
+					{listed && <SectionPages section={section} />}
+					<PageIntro eyebrow={eyebrow} title={title} lede={lede} />
+					<slot name="hero" />
+				</div>
+				{hasVisual && (
+					<div class="tc-hero__visual">
+						<slot name="visual" />
+					</div>
+				)}
 			</div>
 		</Band>
-		<SectionNav section={section} />
 		<slot />
 		<Band pad={{ top: 'sm', bottom: 'md' }} class="tc-foot">
 			<p class="tc-foot__updated">Last updated {LAST_UPDATED}</p>

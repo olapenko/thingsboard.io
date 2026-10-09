@@ -3,13 +3,15 @@ import { Icon } from 'astro-icon/components';
 import Button from '@components/ui/Button.astro';
 import { SECTIONS, TC_ACTIONS, type Section } from '@data/trust-center/nav';
 
-// The Trust Center's section bar, under every page's hero (review, revision 6): five sections in a
-// row, the current one in its hue; on a section with several pages, a second row of its pages; the
-// two actions at the end of the first row as buttons. It sticks under the site's bar while the page
-// scrolls. On a phone each row scrolls sideways rather than wrapping.
+// The Trust Center's section bar: one row, directly under the site's bar and sticking to it, so the
+// two read as one header (build v3; under the hero, in v2, it sat oddly mid-page). The Trust
+// Center's name leads it and is the way to the overview; then the four sections, the current one in
+// its hue; the two actions at the end as buttons. A section's own pages are not
+// a second row here: they are listed in the section's hero (`SectionPages`), so no page carries a
+// third bar of tabs. On a phone the row scrolls sideways, the current section brought into view.
 //
 // Links, not `ui/Tabs`: these go to other pages, and tabs switch panels in place. The look follows
-// the kit's list tabs (a tint of the accent under the current one) and its link chips (the pills).
+// the kit's list tabs, a tint of the accent under the current one.
 
 interface Props {
 	section: Section;
@@ -22,8 +24,11 @@ const path = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : `${Astro.ur
 <nav class="tc-bar" aria-label="Trust Center">
 	<div class="tc-bar__inner">
 		<div class="tc-bar__row">
+			<a class="tc-bar__home" href={SECTIONS[0].href} aria-current={section.key === 'overview' ? 'page' : undefined}>
+				Trust Center
+			</a>
 			<ul class="tc-bar__sections">
-				{SECTIONS.map((s) => (
+				{SECTIONS.filter((s) => s.key !== 'overview').map((s) => (
 					<li>
 						<a
 							class="tc-bar__section"
@@ -51,28 +56,15 @@ const path = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : `${Astro.ur
 				))}
 			</div>
 		</div>
-		{section.pages.length > 1 && (
-			<ul class="tc-bar__pages" aria-label={`${section.label} pages`}>
-				{section.pages.map((p) => (
-					<li>
-						<a class="tc-bar__page" href={p.href} aria-current={p.href === path ? 'page' : undefined}>
-							{p.label}
-						</a>
-					</li>
-				))}
-			</ul>
-		)}
 	</div>
 </nav>
 
 <script>
-	// On a narrow screen a row scrolls sideways: bring the current section and page into view, without
+	// On a narrow screen the row scrolls sideways: bring the current section into view, without
 	// scrolling the page itself.
-	document.querySelectorAll<HTMLElement>('.tc-bar').forEach((bar) => {
-		bar.querySelectorAll<HTMLElement>('[aria-current]').forEach((el) => {
-			const row = el.closest<HTMLElement>('.tc-bar__row, .tc-bar__pages');
-			if (!row || row.scrollWidth <= row.clientWidth) return;
-			row.scrollLeft = el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2;
-		});
+	document.querySelectorAll<HTMLElement>('.tc-bar__row').forEach((row) => {
+		const el = row.querySelector<HTMLElement>('.tc-bar__section[aria-current]');
+		if (!el || row.scrollWidth <= row.clientWidth) return;
+		row.scrollLeft = el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2;
 	});
 </script>
