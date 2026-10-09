@@ -1,4 +1,4 @@
-# Authoring guide (draft)
+# Authoring guide
 
 For the people who write release posts and shoot the product, and for whoever processes the
 captures with the kit's pipelines. The components themselves are documented in `README.md`;
@@ -172,7 +172,7 @@ composition. **Decide.**
 |---|---|---|
 | A screen or a state | `.shot`, column width | a mock-up, a Figma frame |
 | A small element on a big screen | `.shot` + one `.ring` | two rings, an arrow |
-| A dialog or a detail | `.panel` (`--tall` for a short crop; `--dark` for at most one per section) | a full screen with the dialog lost in it |
+| A dialog or a detail | `.panel` (`--dark` for at most one per section) | a full screen with the dialog lost in it |
 | A whole screen captured without the browser frame | `.panel--wide` in a full-row block | the same screen unframed; it floats |
 | A capture whose own background frames it | `.panel--bleed` | a shadow and a lightbox on top of it |
 | An interaction (drag, search-as-you-type, navigation) | a clip in a `.shot`, on its own or on a panel | three screenshots of the steps |

@@ -135,7 +135,7 @@ def main() -> None:
     # the first heading becomes the page title; a line under it says where the guide lives
     title = re.search(r'<h1[^>]*>(.*?)</h1>', body).group(1)
     h1 = re.search(r'<h1[^>]*>.*?</h1>', body).group(0)
-    body = body.replace(h1, '<header class="page-head">' + h1 + '\n<p class="lede">Source: GUIDE.md on the kit branch, rendered by tools/build-guide.py. Items marked Decide need a call before the guide is final.</p></header>\n' + side_nav(body) + '\n<div class="guide-body">', 1) + '\n</div>'
+    body = body.replace(h1, '<header class="page-head">' + h1.replace('</h1>', ' <span class="badge">draft</span></h1>') + '\n<p class="lede">Source: GUIDE.md on the kit branch, rendered by tools/build-guide.py. Items marked Decide need a call before the guide is final.</p></header>\n' + side_nav(body) + '\n<div class="guide-body">', 1) + '\n</div>'
     page = f"""<!doctype html>
 <html lang="en">
 <head>

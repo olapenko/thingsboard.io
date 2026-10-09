@@ -44,7 +44,7 @@ per pattern, with `kit.css` split along the section comments:
 | Pattern | Astro component | Markup contract |
 |---|---|---|
 | `.shot` + `.ring` / `.patch` | `BlogShot.astro` | the media frame: `<div class="shot"><img …><div class="ring" style="left:…%;top:…%;width:…%;height:…%"></div></div>`, or `<div class="shot"><video …></video></div>` for a looped clip (a `video` prop on the component) |
-| `.panel` | `BlogPanel.astro` | wraps one `.shot`, still or clip; `--dark`, `--tall`, `--wide` (a whole screen with a small margin, in a full-row block); `--bleed` holds a bare `<img>` edge to edge, no shadow, no lightbox |
+| `.panel` | `BlogPanel.astro` | wraps one `.shot`, still or clip; `--dark`, `--wide` (a whole screen with a small margin, in a full-row block); `--bleed` holds a bare `<img>` edge to edge, no shadow, no lightbox |
 | `.compare` | extend `UseCase/ImageComparison.astro` | already on the site; `kit.js` has the same drag logic plus the tags and the `--vertical` axis switch (added on request, see below), which the site component would gain |
 | `.grid` + `.block` / `.card` | `BlogGrid.astro` | `--3`, `--tight`; child `.wide` spans; `.sub` for the small heading |
 | `.stepper` | `BlogSteps.astro` | `<ol class="stepper"><li><span class="sub">…</span><p>…</p></li>` — horizontal, numbered by CSS counter; stacks on phones |
