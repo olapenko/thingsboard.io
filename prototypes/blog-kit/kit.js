@@ -14,7 +14,7 @@
 	document.documentElement.classList.add('kit-js');
 
 	// ── loading ───────────────────────────────────────────────────────────────
-	document.querySelectorAll('.shot img, .compare img').forEach(function (img) {
+	document.querySelectorAll('.shot > img, .compare img').forEach(function (img) {   // direct child: an .inset image is decorative
 		var done = function () { img.classList.add('is-loaded'); };
 		if (img.complete && img.naturalWidth) { done(); return; }
 		img.addEventListener('load', done, { once: true });
@@ -24,7 +24,7 @@
 	// ── lightbox ──────────────────────────────────────────────────────────────
 	// data-no-lightbox on the image or on any ancestor opts it out; on <html> or .blog-content it
 	// switches the lightbox off for the whole page
-	var shots = Array.prototype.filter.call(document.querySelectorAll('.shot img'), function (img) { return !img.closest('[data-no-lightbox]'); });
+	var shots = Array.prototype.filter.call(document.querySelectorAll('.shot > img'), function (img) { return !img.closest('[data-no-lightbox]'); });
 	if (shots.length) {
 		var overlay = document.createElement('div');
 		overlay.className = 'blog-lightbox print:hidden';

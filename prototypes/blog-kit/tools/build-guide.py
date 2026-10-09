@@ -4,7 +4,7 @@ the prototype artifact. No dependencies. Rerun after editing GUIDE.md:
 
     tools/build-guide.py
 
-The Markdown subset the guide uses: # / ## / ### headings, paragraphs, "- " and "1. " lists
+The Markdown subset the guide uses: # to #### headings, paragraphs, "- " and "1. " lists
 with two-space continuation lines, | tables |, --- rules, **bold**, *italic*, `code` and
 [text](url). The page shell (tokens, type, toggle) is lifted from kit-demo.html at build time
 so the two pages stay in step.
@@ -23,6 +23,7 @@ GUIDE_CSS = """
 	.guide h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 16px; }
 	.guide h2 { font-size: 1.5rem; line-height: 1.3; margin: 48px 0 12px; padding-top: 40px; border-top: 1px solid var(--color-border); scroll-margin-top: 24px; }
 	.guide h3 { font-size: 1.125rem; line-height: 1.3; margin: 28px 0 8px; scroll-margin-top: 24px; }
+	.guide h4 { font-size: .9375rem; line-height: 1.3; margin: 20px 0 6px; color: var(--color-text); }
 	.guide p { color: var(--color-text-secondary); line-height: 1.8; margin: 0 0 20px; }
 	.guide ul, .guide ol { color: var(--color-text-secondary); line-height: 1.7; margin: 0 0 20px; padding-left: 22px; }
 	.guide li { margin: 0 0 8px; }
@@ -68,7 +69,7 @@ def render(md: str) -> str:
         ln = lines[i]
         if not ln.strip():
             flush(); i += 1; continue
-        m = re.match(r'(#{1,3}) (.*)', ln)
+        m = re.match(r'(#{1,4}) (.*)', ln)
         if m:
             flush()
             lvl, text = len(m.group(1)), m.group(2)

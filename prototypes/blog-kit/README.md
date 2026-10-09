@@ -34,7 +34,8 @@ per pattern, with `kit.css` split along the section comments:
 
 | Pattern | Astro component | Markup contract |
 |---|---|---|
-| `.shot` + `.ring` / `.patch` | `BlogShot.astro` | `<div class="shot"><img …><div class="ring" style="left:…%;top:…%;width:…%;height:…%"></div></div>` |
+| `.shot` + `.ring` / `.patch` | `BlogShot.astro` | `<div class="shot"><img …><div class="ring" style="left:…%;top:…%;width:…%;height:…%"></div></div>`; or the region once on the shot as `--x/--y/--w/--h` and a bare `.ring` |
+| `.inset` (WIP) | not yet | a magnified corner detail of the same image: `<div class="inset inset--tr" style="--zoom: 2.4"><img src="same.png" alt="" aria-hidden="true"></div>` inside a `.shot` that carries `--x/--y/--w/--h`; hidden on phones; not used in a post |
 | `.panel` | `BlogPanel.astro` | wraps one `.shot` or `.video`; `--dark`, `--tall`, `--wide` (a whole screen with a small margin, in a full-row block); `--bleed` holds a bare `<img>` edge to edge, no shadow, no lightbox |
 | `.compare` | reuse `UseCase/ImageComparison.astro` | already on the site; `kit.js` has the same drag logic |
 | `.video` | `BlogVideo.astro` | `<figure><div class="video"><video autoplay muted loop playsinline …></video></div><figcaption>`; the `.video` wrapper is the shadowed surface, on its own or inside a `.panel` |
@@ -43,7 +44,7 @@ per pattern, with `kit.css` split along the section comments:
 | `.schema` | `BlogSchema.astro` (under review) | boxes + arrows, see below |
 | `.cta` | existing `BlogCTA.astro` | the kit version is a restyle of it, with its own hover and focus states (the template only underlines links on hover) |
 
-**Keeping it light.** `kit.css` is about 220 lines and `kit.js` about 110, with no
+**Keeping it light.** `kit.css` is about 230 lines and `kit.js` about 110, with no
 dependencies. When splitting into Astro components, keep it that way: one `<style is:global>`
 per component containing only its section (slotted markdown keeps the parent scope hash, which
 is why the existing Blog components are global too), the two dark blocks collapsed to one
@@ -68,6 +69,15 @@ The `.blog-content` rules in the site's blog template still apply inside the com
   tool: once a post is final, the same rectangle goes into the post's `images.json` as a
   `patch` entry and the pipeline bakes it into the asset (so the lightbox and any 2x file carry
   the fix too), and the overlay is removed. The 4.4 filter dialog is done this way.
+- **A zoom inset is the last resort, and work in progress.** `.inset` magnifies a region of the
+  same image in a corner of the shot, with the ring on the source, for a control too small to
+  read at column width when cropping it out would lose its context. The region is set once on
+  the `.shot` (`--x/--y/--w/--h`, percent of the image box) so ring and inset agree; `--zoom`
+  sets the magnification and the box is the region times the zoom, which keeps the aspect
+  right without knowing the image's. The inner image is the same file, decorative, and not a
+  lightbox target (the kit scopes lightbox and fade-in to the shot's direct child image). It
+  hides on phones. Open: a connector line, and whether it ships; a panel crop is the first
+  choice.
 - A capture whose own background already frames it (the Go to… search over the app wallpaper)
   goes in a `.panel--bleed`: the image is the panel, edge to edge, nothing else.
 - A **whole screen captured without the browser frame** (a DevTools capture, a full-screen

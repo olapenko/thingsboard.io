@@ -22,11 +22,17 @@ Where it should live once agreed: next to the blog authoring docs in the site re
 
 ### 1.1 Set up the browser once
 
-- **Chrome, light theme, English UI, on a retina (2x) display.** The kit shows light
-  screenshots on both page themes, so one capture serves both. On Windows, set display scaling
-  to 200 % and hide scrollbars (Windows draws 17px grey ones; macOS overlay scrollbars are
-  invisible until you scroll). A 1x capture cannot be made sharp later; it can only be shown
-  smaller or opened in the lightbox.
+- **Chrome, light theme, English UI.** The kit shows light screenshots on both page themes,
+  so one capture serves both. Hide scrollbars where the OS draws them (Windows draws 17px grey
+  ones; macOS overlay scrollbars are invisible until you scroll).
+- **Retina (2x) is the best case, not a requirement.** *Best:* a 2x capture, which stays sharp
+  on a retina reader's screen after scaling to the column. For screenshots this does not need
+  a retina display: DevTools device mode renders at the device pixel ratio you set, so DPR 2
+  on any monitor gives a 2x file. Recordings follow the physical display, so a 1x monitor
+  records 1x. *Acceptable:* a 1x capture at least a third wider than the slot it fills (a
+  1280px capture for the 828px column), so it is scaled down and never up; it reads a little
+  soft on retina and opens in the lightbox at its real size. A 1x capture cannot be made sharp
+  later, so when in doubt capture larger.
 - **Capture the viewport only, never the browser.** For screenshots the clean way is Chrome
   DevTools device mode: add a custom device with the width and height below and a device pixel
   ratio of 2, then *Capture screenshot* from the device toolbar's menu. It writes a PNG of
@@ -150,10 +156,14 @@ data is always better.
 
 ### 2.4 Zoom insets
 
-There is no magnifier or "zoom box" in the kit. When a detail is too small to read, crop it
-into a panel and let the paragraph say where it lives on the screen; the panel is the zoom.
-If a real inset (the detail enlarged over the full screen) turns out to be needed, it is a kit
-addition with its own rules, not a per-post composition. **Decide.**
+The kit has a `.inset`, work in progress and not used in a post yet: it magnifies a region of
+the same image in a corner of the shot, with the ring on the region it comes from, and hides
+on phones. *Best:* crop the detail into a panel and let the paragraph say where it lives; the
+panel is the zoom and works at every width. *Acceptable:* an inset, when the detail is too
+small to read at column width and cropping it out would lose the context the reader needs,
+such as one control inside a dense table; one per image, always with the ring on the source.
+*Not:* an inset where a panel crop was possible, two insets on one image, or an inset without
+its ring. **Decide** whether it ships.
 
 ---
 
@@ -210,34 +220,51 @@ clips in a post, each with a poster so it degrades to a still.
 Never a GIF: large, 256 colours, no pause, no poster. The video pipeline produces a loop that
 looks like a GIF and weighs a tenth of one.
 
-### 3.3 Do and don't
+### 3.3 Rules
 
-- **One visual per section**, after the paragraph that names what to look at. Two visuals back
-  to back with no text between them read as a gallery, and galleries get skimmed.
-- **An image for a state, a clip for a motion.** If a screenshot can carry the point, it does;
-  a clip costs bytes and attention. One or two clips per post at most.
-- **Dark panels are the highlight, not the default.** Light is the surface; when a section
-  has several panels, at most one is dark, and it marks the one that matters most. A post
-  full of dark panels has no highlight left.
-- **A comparison slider is for the same screen twice.** Same window size, same zoom, same
-  scroll position, same data; otherwise the handle reveals differences that are not the point.
-- **Pair text with visuals as tiles** when a section has several features: a short heading, one
-  sentence, one visual per block, two columns. Not three; screenshots need the width.
-- **Captions are optional and short.** When the text already sits beside the visual (a block
-  with a heading) there is no caption. A standalone figure gets one line that says where to
-  look, with no bold lead-in and no heading in it; what the feature *is* belongs in the
-  paragraph.
-- **Alt text on every image**: one sentence saying what the screen shows (*Add filter dialog
-  with the And / Or switch*), not *screenshot of*. For a clip the caption carries this.
-- **No chrome unless it carries meaning**: blocks have none; cards are bordered because the
-  border groups a repeated unit; no fills.
-- **Don't repeat a screen.** If the same dashboard appears in three sections, two of them need
-  a different crop or no visual.
-- **Don't ship a mock-up or a composite** (two screens pasted into one image). When two things
-  have to be seen together, that is a grid of two blocks, a before/after, or a clip that moves
-  from one to the other.
-- **Don't put text in images.** No labels, arrows or numbers baked into a screenshot.
-- **Light theme only**, one tenant, one zoom, one window size per post.
+Each rule gives the best case, what is acceptable when the best is not possible, and what is
+not done.
+
+#### Rhythm
+
+- **One visual per section**, after the paragraph that names what to look at. *Acceptable:*
+  two, when they are a pair in a grid of two blocks with their own headings. *Not:* visuals
+  back to back with no text between them; a gallery gets skimmed.
+- **Every screen appears once.** *Acceptable:* the same screen twice when the second is a
+  different crop with its own point. *Not:* the same dashboard in three sections.
+- **At most two clips in a post**, and a slider only for a real pair (3.2). *Not:* a clip
+  where a still would do, or a slider for two different screens.
+
+#### Text beside the visual
+
+- **A feature list is tiles**: a short heading, one sentence and a visual per block, two
+  columns. *Acceptable:* text-only cards with an icon tile when there is nothing to show.
+  *Not:* three columns of screenshots, or a visual with no sentence near it saying why it is
+  there.
+- **The paragraph says what to look at; the caption, if any, says where.** *Acceptable:* no
+  caption when a block heading sits beside the visual. *Not:* a caption that restates the
+  paragraph, a bold lead-in, or a heading inside a caption.
+- **Alt text on every image**: one sentence that says what the screen shows and, when there
+  is a ring, what is marked. *Acceptable:* the caption's wording, when there is a caption.
+  *Not:* "screenshot of", the feature name alone, or an empty alt on a content image.
+
+#### Surfaces
+
+- **Light panels, with one dark per section as the highlight.** *Acceptable:* no dark panel
+  at all. *Not:* a section where every panel is dark; there is no highlight left.
+- **No chrome unless it carries meaning**: blocks with nothing around them; cards only for a
+  repeated unit the border groups. *Acceptable:* a bordered card grid for API-style items.
+  *Not:* fills, or a shot inside a card inside a panel.
+
+#### Captures
+
+- **One tenant, one zoom, one window size, light theme**, for every capture in the post.
+  *Acceptable:* a higher zoom for a detail that is cut out and shown near 1:1. *Not:* 1x and
+  2x captures of the same screen, or two themes in one post.
+- **The real product screen, as captured.** *Not:* mock-ups, composites of two screens
+  pasted together, or text, arrows and numbers baked into the image. When two things have to
+  be seen together, that is a grid of two blocks, a before/after, or a clip that moves from
+  one to the other.
 
 ### 3.4 The cover image
 
@@ -299,7 +326,9 @@ legibility in the column rather than a fixed zoom; privacy and third-party attri
 text and captions as accessibility, not decoration; a screenshot-versus-clip rule with a test;
 recording rules for the loop point and the cursor; the "no text in images, no composites" rules; a quantity rule (one visual per section,
 two clips per post); the cover image as an open item; the visuals list as the handoff, with
-the format still to decide; the dark panel as a highlight; and a pre-publish checklist. Zoom insets are named so the question is answered once.
+the format still to decide; the dark panel as a highlight; retina as the best case rather than a requirement; and a
+pre-publish checklist. Zoom insets have a work-in-progress component and a rule, so the
+question is answered once.
 
 Sources checked for the general rules: Google's developer documentation style guide on
 images (use them sparingly, crop to what matters, alt text, no personal data), New Relic's
