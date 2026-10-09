@@ -6,12 +6,19 @@
  * - toggle: switches a filter on or off, `aria-pressed`, the scheme fill when on;
  * - tag: static text on a tint ("Nearest to you"), 22 tall.
  *
+ * A TAG states something about what it sits on (a status, an access level), so it has four looks,
+ * strongest first: `solid` (the fill, white text), `tint` (10% of the fill, the ink), `outline` (a
+ * hairline in the ink) and `dashed` (a dashed hairline, for what is not there yet). Its colour is the
+ * scheme's, or a one-off `accent` (a status colour, a section's hue) for that tag alone, as `Button`
+ * and `Mark` take one. An `icon` leads the label, so the colour is never the only signal.
+ *
  * Never the page's main action, which is a `Button`. A row of chips that switches panels is a tab
  * set and renders `ui/Tabs`.
  */
 import { Icon } from 'astro-icon/components';
 import SmartImage from '@components/SmartImage.astro';
 import { NEW_TAB_NOTE } from '@util/external-links';
+import { accentAttrs, type Accent } from '@util/ui-kit';
 
 interface Props {
 	/** Default: link with an href, tag without. */
@@ -21,16 +28,20 @@ interface Props {
 	href?: string;
 	/** Toggle: on or off. */
 	pressed?: boolean;
-	/** A tabler name, before the label. */
+	/** A tabler name, before the label (a tag's too: 14px). */
 	icon?: string;
 	/** A wordmark image (`/src/assets/…`), before the label, 20 tall (16 at sm). */
 	logo?: string;
 	/** Secondary text after the label, in the regular weight and the muted grey. */
 	note?: string;
-	/** Tag: 10% of the scheme's fill, or the ink at 6%. */
+	/** Tag: the scheme's colour (or `accent`'s), or the ink's. */
 	tone?: 'accent' | 'neutral';
-	/** Tag: the scheme's fill with white text. */
+	/** Tag: solid · tint (default) · outline · dashed. */
+	look?: 'solid' | 'tint' | 'outline' | 'dashed';
+	/** Tag: the same as `look="solid"`. */
 	solid?: boolean;
+	/** Tag: a scheme, or a colour for this tag alone (a status, a section's hue). Dark enough to be text. */
+	accent?: Accent;
 	class?: string;
 	attrs?: Record<string, string | undefined>;
 }
@@ -44,6 +55,7 @@ const {
 	note,
 	tone = 'accent',
 	solid = false,
+	accent,
 	class: className,
 	attrs = {},
 } = Astro.props;
@@ -58,6 +70,7 @@ const element =
 			? { type: 'button' as const, 'aria-pressed': pressed ? ('true' as const) : ('false' as const) }
 			: {};
 const interactive = kind !== 'tag';
+const look = Astro.props.look ?? (solid ? 'solid' : 'tint');
 // A link chip that a `target` sends to a new tab says so to a screen reader.
 const newTab = kind === 'link' && attrs.target === '_blank';
 ---
@@ -66,13 +79,14 @@ const newTab = kind === 'link' && attrs.target === '_blank';
 	class:list={[
 		'ui-chip',
 		`ui-chip--${kind}`,
-		interactive ? `ui-chip--${size}` : `ui-chip--tag-${solid ? 'solid' : tone}`,
+		interactive ? `ui-chip--${size}` : [`ui-chip--tag-${tone}`, `ui-chip--look-${look}`],
 		className,
 	]}
+	{...(interactive ? {} : accentAttrs(accent, 'chip'))}
 	{...element}
 	{...attrs}
 >
-	{interactive && icon && <Icon name={icon} class="ui-chip__icon" aria-hidden="true" />}
+	{icon && <Icon name={icon} class="ui-chip__icon" aria-hidden="true" />}
 	{kind === 'link' && logo && (
 		<SmartImage src={logo} alt="" width="90" height="18" loading="lazy" class="ui-chip__logo" />
 	)}
@@ -218,38 +232,83 @@ const newTab = kind === 'link' && attrs.target === '_blank';
 		}
 	}
 
-	// TAG: static, 22 tall, no border.
+	// TAG: static, 22 tall. Its colour is the scheme's, or the tag's own `accent` (`--chip-*`).
 	.ui-chip--tag {
+		--_fill: var(--chip-fill, var(--accent-fill));
+		--_ink: var(--chip-ink, var(--accent-ink));
+
+		gap: 4px;
 		height: 22px;
 		padding: 0 $spacing-2;
 		border-radius: $radius-full;
 		font-size: 12px;
 		font-weight: $font-weight-medium;
 		line-height: 1;
-	}
 
-	.ui-chip--tag-accent {
-		background: color-mix(in srgb, var(--accent-fill) 10%, transparent);
-		color: var(--accent-ink);
-
-		@include on-dark {
-			background: color-mix(in srgb, var(--accent-light) 16%, transparent);
-			color: var(--accent-light);
+		.ui-chip__icon {
+			width: 14px;
+			height: 14px;
+			margin-inline-start: -2px;
 		}
 	}
 
 	.ui-chip--tag-neutral {
-		background: rgba(23, 24, 28, 0.06);
-		color: var(--color-text, #17181c);
+		--_fill: #17181c;
+		--_ink: var(--color-text, #17181c);
+	}
+
+	.ui-chip--look-tint {
+		background: color-mix(in srgb, var(--_fill) 10%, transparent);
+		color: var(--_ink);
+
+		&.ui-chip--tag-neutral {
+			background: rgba(23, 24, 28, 0.06);
+		}
 
 		@include on-dark {
-			background: rgba(255, 255, 255, 0.1);
+			background: color-mix(in srgb, var(--chip-light, var(--accent-light)) 16%, transparent);
+			color: var(--chip-light, var(--accent-light));
+
+			&.ui-chip--tag-neutral {
+				background: rgba(255, 255, 255, 0.1);
+				color: #fff;
+			}
+		}
+	}
+
+	.ui-chip--look-solid {
+		background: var(--_fill);
+		color: var(--chip-on-fill, var(--accent-on-fill, #fff));
+
+		&.ui-chip--tag-neutral {
 			color: #fff;
 		}
 	}
 
-	.ui-chip--tag-solid {
-		background: var(--accent-fill);
-		color: var(--accent-on-fill);
+	.ui-chip--look-outline {
+		border: 1px solid color-mix(in srgb, var(--_ink) 45%, transparent);
+		color: var(--_ink);
+
+		@include on-dark {
+			border-color: rgba(255, 255, 255, 0.4);
+			color: #fff;
+		}
+	}
+
+	// Dashed: not there yet. Always in the secondary grey, whatever its colour, so it reads as absent.
+	.ui-chip--look-dashed {
+		border: 1px dashed #868d9a;
+		color: var(--color-text-secondary, #{$color-text-secondary});
+
+		@include on-dark {
+			border-color: rgba(255, 255, 255, 0.4);
+			color: rgba(255, 255, 255, 0.72);
+		}
+	}
+
+	@media (forced-colors: active) {
+		.ui-chip--tag {
+			border-color: CanvasText;
+		}
 	}
 </style>

@@ -8,7 +8,7 @@ the live reference is `/internal/library/kit/` (every component, variant, size a
 | `Button`, `ButtonGroup` | primary · secondary · tertiary; xs 32 · sm 40 · md 44 · lg 48 · xl 56 (44 to the touch); bold, or `weight="regular"` for a quiet control among its kind (the bar's Sign in); a row that stacks below its own width of 400 or 480 |
 | `Link` | standalone (label + chevron) or inline (always underlined); tones accent · ink · muted |
 | `Mark` | the squircle tile: 36 · 40 · 48 · 64 · 72 · 80 · 88; one of `icon`, `logo`, `product` (`@data/marks`) |
-| `Chip`, `ChipGroup` | link · toggle · tag; a group is a list named by its label |
+| `Chip`, `ChipGroup` | link · toggle · tag; a tag is solid · tint · outline · dashed, in the scheme or its own `accent` (a status, a section's hue), with an icon; a group is a list named by its label |
 | `Tabs`, `TabPanel` | segmented · list · grid, one script (`@util/tabs`); `tabs:change` bubbles and can be cancelled; `setTab` for a caller that drives them |
 | `Segmented` | the pill as a toggle: it sets a value (`segmented:select`, `@util/segmented`), or paints one a script put on `<html>` before paint (`initialFromRoot`); Tabs' segmented look is this |
 | `Field` | label, control, hint, error, counter; an attached button in the `end` slot (`@util/form-validate`) |
