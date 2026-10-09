@@ -27,7 +27,7 @@ trim="${5:-}"
 
 vf="scale='min(${maxw},iw)':-2:flags=lanczos,fps=30,format=yuv420p"
 if [[ -n "$crop" ]]; then vf="crop=${crop},${vf}"; fi
-cut=()
+cut=()   # expanded as ${cut[@]+"${cut[@]}"} below: macOS bash 3.2 treats an empty array as unbound under set -u
 if [[ -n "$trim" ]]; then
 	start="${trim%-*}"; end="${trim#*-}"
 	[[ -n "$start" ]] && cut+=(-ss "$start")
@@ -35,12 +35,12 @@ if [[ -n "$trim" ]]; then
 fi
 
 # H.264: plays everywhere (Safari included). crf 26 is visually lossless for UI at 2x.
-ffmpeg -v error -y -i "$in" "${cut[@]}" -an -vf "$vf" \
+ffmpeg -v error -y -i "$in" ${cut[@]+"${cut[@]}"} -an -vf "$vf" \
 	-c:v libx264 -profile:v high -preset slow -crf 26 -movflags +faststart -pix_fmt yuv420p \
 	"${out}.mp4"
 
 # VP9: typically 30–40 % smaller; listed first in <source> so capable browsers prefer it.
-ffmpeg -v error -y -i "$in" "${cut[@]}" -an -vf "$vf" \
+ffmpeg -v error -y -i "$in" ${cut[@]+"${cut[@]}"} -an -vf "$vf" \
 	-c:v libvpx-vp9 -b:v 0 -crf 38 -row-mt 1 -deadline good -cpu-used 2 \
 	"${out}.webm"
 

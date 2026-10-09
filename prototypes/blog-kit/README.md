@@ -10,14 +10,22 @@ prototypes/blog-kit/
 ├── kit.js                   loading, lightbox, slider and video behaviour (progressive, optional)
 ├── GUIDE.md                 draft authoring guide: shooting, cropping, choosing a visual, delivering sources
 ├── tools/
-│   ├── prepare-images.py    crop and patch screenshots from a manifest (a zip or a folder), write width/height into the page
+│   ├── prepare-images.py    crop and patch screenshots from images.json, write width/height into the pages
 │   ├── pngcrop.py           dependency-free PNG cropper and fill used by the above
-│   ├── prepare-video.sh     ffmpeg pipeline for looped clips
-│   └── build-guide.py       renders GUIDE.md to examples/guide.html
+│   ├── prepare-videos.py    run prepare-video.sh for every clip in videos.json, write width/height into the pages
+│   ├── prepare-video.sh     ffmpeg pipeline for one looped clip (crop, trim, scale, H.264 + VP9 + poster)
+│   ├── build-guide.py       renders GUIDE.md to examples/guide.html
+│   └── build-prototype.py   assembles the three pages and their media into one folder for the shared artifact
 └── examples/
     ├── thingsboard-4-4/     the 4.4 release post as a static page (reference implementation)
-    ├── kit-demo.html        every component once, light and dark
+    │   ├── images.json      crops and patches for its screenshots
+    │   └── videos.json      crops and trims for its clips
+    ├── kit-demo.html        every component once, light and dark (+ kit-demo/videos.json for its clips)
     └── guide.html           the guide as a page, generated; linked from the demo
+
+Sources (raw captures, recordings, the sources zip) and the encoded clips are git-ignored; the
+manifests and the processed images are committed, so the pages render from a clean checkout
+except for the clips, which `prepare-videos.py` regenerates from the sources.
 ```
 
 Open either example by serving this folder (`python3 -m http.server`, then
@@ -36,7 +44,7 @@ per pattern, with `kit.css` split along the section comments:
 |---|---|---|
 | `.shot` + `.ring` / `.patch` | `BlogShot.astro` | `<div class="shot"><img …><div class="ring" style="left:…%;top:…%;width:…%;height:…%"></div></div>` |
 | `.panel` | `BlogPanel.astro` | wraps one `.shot` or `.video`; `--dark`, `--tall`, `--wide` (a whole screen with a small margin, in a full-row block); `--bleed` holds a bare `<img>` edge to edge, no shadow, no lightbox |
-| `.compare` | reuse `UseCase/ImageComparison.astro` | already on the site; `kit.js` has the same drag logic; `--vertical` turns the divider horizontal (added on request, see below) |
+| `.compare` | extend `UseCase/ImageComparison.astro` | already on the site; `kit.js` has the same drag logic plus the tags and the `--vertical` axis switch (added on request, see below), which the site component would gain |
 | `.video` | `BlogVideo.astro` | `<figure><div class="video"><video autoplay muted loop playsinline …></video></div><figcaption>`; the `.video` wrapper is the shadowed surface, on its own or inside a `.panel` |
 | `.grid` + `.block` / `.card` | `BlogGrid.astro` | `--3`, `--tight`; child `.wide` spans; `.sub` for the small heading |
 | `.stepper` | `BlogSteps.astro` | `<ol class="stepper"><li><span class="sub">…</span><p>…</p></li>` — horizontal, numbered by CSS counter; stacks on phones |
@@ -58,9 +66,9 @@ The `.blog-content` rules in the site's blog template still apply inside the com
 
 - Screenshots are **real product screens**, never mock-ups: 6px rounding (the same radius the blog
   gives inline images), a soft layered shadow, no border or hairline.
-- A screenshot is served **at its natural pixel size** and scaled down by CSS. A 1x capture wider
-  than the 828px column renders sharp on retina; anything narrower than the column should be
-  captured at 2x.
+- A screenshot is served **at its natural pixel size** and scaled down by CSS, never up. A 2x
+  capture is the best case (sharp on retina after scaling); a 1x capture at least a third wider
+  than its slot is acceptable and opens at its real size in the lightbox (`GUIDE.md`, 1.1).
 - **Annotations are overlays, not UI.** `.ring` is drawn 8px outside the element it marks with a
   wide, soft glow so it cannot be mistaken for a focus state; `.patch` paints over a region with
   the UI's own white (used to hide a red "nothing configured" line). Both are positioned in
@@ -68,8 +76,9 @@ The `.blog-content` rules in the site's blog template still apply inside the com
   tool: once a post is final, the same rectangle goes into the post's `images.json` as a
   `patch` entry and the pipeline bakes it into the asset (so the lightbox and any 2x file carry
   the fix too), and the overlay is removed. The 4.4 filter dialog is done this way.
-- A capture whose own background already frames it (the Go to… search over the app wallpaper)
-  goes in a `.panel--bleed`: the image is the panel, edge to edge, nothing else.
+- A capture whose own background already frames it (a search box over the app wallpaper, as
+  in the demo's Bleed example) goes in a `.panel--bleed`: the image is the panel, edge to edge,
+  nothing else.
 - A **whole screen captured without the browser frame** (a DevTools capture, a full-screen
   recording) has no frame of its own; it goes on a `.panel--wide` in a full-row block and the
   panel frames it. A window capture that frames itself takes the column on its own. The same
@@ -232,8 +241,10 @@ place with members matched by file name, or a folder of originals:
 ```
 
 `tools/prepare-images.py examples/<post>/images.json` crops each original (`crop` is left, top,
-width, height in source pixels), writes it to `out`, and sets `width`/`height` on the `<img>`
-that references it. The processed images are committed, so a page renders without the
+width, height in source pixels), writes it to `out`, and sets `width`/`height` on every `<img>`
+that references it, adding the attributes when a hand-written tag lacks them. `html` can be a
+list of pages when more than one shows the same files (the demo reuses the 4.4 screenshots), so
+their sizes cannot drift. The processed images are committed, so a page renders without the
 originals; rerun after replacing one or changing a crop.
 
 `patch` is a list of rectangles painted before the crop, each `[left, top, width, height]` in
@@ -258,8 +269,19 @@ On the real site these PNGs go through Astro's image pipeline like any other blo
 ## Video pipeline
 
 Short looped screen recordings replace screenshots where a feature is an interaction (the
-redesigned UI in the 4.4 post is planned as one). Checked against a 20 s, 1600×1008, 30 fps
-H.264 capture of IoT Hub:
+Go to… search in the 4.4 post). Like the images, clips are driven by a manifest next to the
+page, `videos.json`, so a crop or a trim is recorded and reproducible rather than typed once:
+
+```json
+{ "html": "index.html", "raw": "video/raw", "out": "video",
+  "videos": [ { "raw": "Screen Recording 2026-10-09 at 15.02.23.mov", "out": "goto", "trim": "0-13.8",
+                "note": "cut before the cursor leaves the frame" } ] }
+```
+
+`tools/prepare-videos.py examples/<post>/videos.json` runs the encoder below for each entry
+(`crop` as `w:h:x:y`, `trim` as `start-end` seconds, `maxWidth` default 1600; `raw` is a folder
+or the sources zip) and writes the clip's size to the `<video>` that carries its poster. The
+encoder is one shell script, usable on its own:
 
 ```
 tools/prepare-video.sh clip.mov examples/<post>/video/name [max-width] [crop] [trim]
@@ -309,8 +331,15 @@ width for a region the size of a dialog (the 4.4 Go to… clip, on a `--dark` pa
 section's highlight).
 
 `kit.js` pauses the clip when it scrolls out of view and, under `prefers-reduced-motion`,
-removes autoplay and shows a play button over the poster. Video files are not committed in the
-examples (`examples/**/video/` is ignored); run the script to regenerate them.
+removes autoplay and shows a play button over the poster. Encoded clips are not committed
+(`examples/**/video/` is ignored); `prepare-videos.py` regenerates them from the manifest.
+
+## The prototype artifact
+
+`tools/build-prototype.py <out-dir>` assembles the 4.4 page, the demo and the guide with
+`kit.css`, `kit.js` and all media into one flat folder, adds a "Prototype" strip linking the
+three, and rewrites the relative paths. That folder is what gets published as the shared
+artifact; anyone with the branch can rebuild it.
 
 ## Authoring guide
 

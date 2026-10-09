@@ -20,10 +20,10 @@ i.e. the surface around what it hides). It is the baked-in form of the page's `.
 overlay: use the overlay while a post is in review, move it here when it settles, so the
 lightbox and any 2x file carry the fix too.
 
-Each output image's natural size is written to the width/height attributes of the <img>
-that references it, so the page reserves the right box before the file loads; CSS scales
-the image down to the column, which is how a 1x screenshot wider than the column still
-renders sharp on retina.
+Each output image's natural size is written to the width/height attributes of every <img>
+that references it (added when a hand-written tag has none), so the page reserves the right
+box before the file loads; CSS scales the image down to the column. `html` may be a list of
+pages when several show the same files, so their sizes cannot drift apart.
 
 Raw originals (the zip or the folder) are not committed; the processed images are,
 so a page renders without rerunning this. Rerun after a new zip or a changed crop.
@@ -40,17 +40,18 @@ from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pngcrop  # noqa: E402
+from htmlsize import set_size  # noqa: E402
+
 
 
 def main(manifest_path: str) -> int:
     mpath = Path(manifest_path).resolve()
     base = mpath.parent
     m = json.loads(mpath.read_text())
-    html_path = base / m['html']
+    pages = {base / p: (base / p).read_text() for p in ([m['html']] if isinstance(m['html'], str) else m['html'])}
     raw = base / m['raw']
     out_dir = base / m['out']
     out_dir.mkdir(parents=True, exist_ok=True)
-    html = html_path.read_text()
 
     if raw.suffix == '.zip':
         zf = zipfile.ZipFile(raw)
@@ -78,11 +79,13 @@ def main(manifest_path: str) -> int:
         else:
             dst.write_bytes(data)
             w, h, _, _ = pngcrop.read(data)
-        html, n = re.subn(
-            rf'(src="[^"]*/{re.escape(e["out"])}"[^>]*?)width="[^"]*" height="[^"]*"',
-            rf'\1width="{w}" height="{h}"', html)
-        print(f'{e["out"]:24s} {w}x{h}' + ('' if n else '   (not referenced in the page)'))
-    html_path.write_text(html)
+        refs = 0
+        for path, html in pages.items():
+            pages[path], n = set_size(html, 'img', e['out'], w, h)
+            refs += n
+        print(f'{e["out"]:24s} {w}x{h}' + ('' if refs else '   (not referenced in any page)'))
+    for path, html in pages.items():
+        path.write_text(html)
     return 0
 
 

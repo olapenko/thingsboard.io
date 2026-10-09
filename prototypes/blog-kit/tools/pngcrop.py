@@ -30,7 +30,8 @@ def read(data: bytes) -> tuple[int, int, int, list[bytearray]]:
     ihdr = next(c for k, c in _chunks(data) if k == b'IHDR')
     w, h, depth, ctype, _, _, interlace = struct.unpack('>IIBBBBB', ihdr)
     if depth != 8 or interlace != 0 or ctype not in (2, 6):
-        raise ValueError(f'unsupported PNG: depth={depth} color={ctype} interlace={interlace}')
+        raise ValueError(f'unsupported PNG (depth={depth} color type={ctype} interlace={interlace}): '
+                         're-export the capture as a plain 24/32-bit, non-interlaced PNG')
     bpp = 3 if ctype == 2 else 4
     raw = zlib.decompress(b''.join(c for k, c in _chunks(data) if k == b'IDAT'))
     stride = w * bpp

@@ -91,9 +91,9 @@ between 3:2 and 16:10 and never taller than wide when they take the column.
 
 ### 1.4 Recording a clip
 
-- **One interaction per clip, 5–20 seconds, 30 fps, 2x**, the viewport only (full screen or
-  app window, see 1.1). The pipeline scales to 1600px wide and strips audio; a clip over 2 MB
-  after processing is shortened, not degraded.
+- **One interaction per clip, 5–20 seconds, 30 fps**, 2x where the display allows (1.1), the
+  viewport only (full screen or app window, see 1.1). The pipeline scales to 1600px wide and
+  strips audio; a clip over 2 MB after processing is shortened, not degraded.
 - **Loop point.** Start and end on the same screen, hold still for about a second at both ends.
   A loop that jumps reads as a glitch.
 - **The cursor is the narrator.** Move it slowly and in straight lines, pause before clicking,
@@ -102,10 +102,10 @@ between 3:2 and 16:10 and never taller than wide when they take the column.
   point (the Go to… search is the exception, where typing is the feature; keep it to a word).
 - **No scrolling** unless the scroll is the feature; scroll jitter is the first thing a viewer
   notices.
-- **Tools:** macOS ⌘⇧5 (choose *Record Selected Portion*, drag to the window) is enough; trim
-  the ends in QuickTime (Edit → Trim) before delivering. Screen Studio or CleanShot add cursor
-  smoothing and are fine but not required. Deliver the `.mov` as recorded; the pipeline does
-  the rest (`README.md`, "Video pipeline").
+- **Tools:** macOS ⌘⇧5 (choose *Record Selected Portion*, drag to the window) is enough.
+  Screen Studio or CleanShot add cursor smoothing and are fine but not required. Deliver the
+  `.mov` as recorded, slow start and all: the trim is a manifest entry, so the raw file stays
+  whole and the cut can move (`README.md`, "Video pipeline").
 
 ---
 
@@ -330,7 +330,9 @@ What the pipeline needs:
 
 ---
 
-## What the first outline did not cover, and where it landed
+## Draft notes (drop this section when the guide is adopted)
+
+### What the first outline did not cover, and where it landed
 
 The outline this was drafted from had capture quality, aspect ratio, data, cropping and
 annotation, component choice, and delivery. Added here: the browser-chrome-free capture route
