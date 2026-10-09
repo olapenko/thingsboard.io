@@ -65,14 +65,16 @@
 		var handle = c.querySelector('.compare__handle');
 		if (!overlay || !handle) return;
 		var dragging = false;
-		function update(x) {
+		var vertical = c.classList.contains('compare--vertical');
+		function update(e) {
 			var r = c.getBoundingClientRect();
-			var pos = Math.max(0, Math.min(100, ((x - r.left) / r.width) * 100));
-			overlay.style.clipPath = 'inset(0 ' + (100 - pos) + '% 0 0)';
-			handle.style.left = pos + '%';
+			var pos = vertical ? ((e.clientY - r.top) / r.height) * 100 : ((e.clientX - r.left) / r.width) * 100;
+			pos = Math.max(0, Math.min(100, pos));
+			overlay.style.clipPath = vertical ? 'inset(0 0 ' + (100 - pos) + '% 0)' : 'inset(0 ' + (100 - pos) + '% 0 0)';
+			handle.style[vertical ? 'top' : 'left'] = pos + '%';
 		}
-		c.addEventListener('pointerdown', function (e) { dragging = true; c.setPointerCapture(e.pointerId); update(e.clientX); });
-		c.addEventListener('pointermove', function (e) { if (!dragging) return; e.preventDefault(); update(e.clientX); });
+		c.addEventListener('pointerdown', function (e) { dragging = true; c.setPointerCapture(e.pointerId); update(e); });
+		c.addEventListener('pointermove', function (e) { if (!dragging) return; e.preventDefault(); update(e); });
 		c.addEventListener('pointerup', function () { dragging = false; });
 		c.addEventListener('pointercancel', function () { dragging = false; });
 	});

@@ -36,7 +36,7 @@ per pattern, with `kit.css` split along the section comments:
 |---|---|---|
 | `.shot` + `.ring` / `.patch` | `BlogShot.astro` | `<div class="shot"><img …><div class="ring" style="left:…%;top:…%;width:…%;height:…%"></div></div>` |
 | `.panel` | `BlogPanel.astro` | wraps one `.shot` or `.video`; `--dark`, `--tall`, `--wide` (a whole screen with a small margin, in a full-row block); `--bleed` holds a bare `<img>` edge to edge, no shadow, no lightbox |
-| `.compare` | reuse `UseCase/ImageComparison.astro` | already on the site; `kit.js` has the same drag logic |
+| `.compare` | reuse `UseCase/ImageComparison.astro` | already on the site; `kit.js` has the same drag logic; `--vertical` turns the divider horizontal (added on request, see below) |
 | `.video` | `BlogVideo.astro` | `<figure><div class="video"><video autoplay muted loop playsinline …></video></div><figcaption>`; the `.video` wrapper is the shadowed surface, on its own or inside a `.panel` |
 | `.grid` + `.block` / `.card` | `BlogGrid.astro` | `--3`, `--tight`; child `.wide` spans; `.sub` for the small heading |
 | `.stepper` | `BlogSteps.astro` | `<ol class="stepper"><li><span class="sub">…</span><p>…</p></li>` — horizontal, numbered by CSS counter; stacks on phones |
@@ -325,10 +325,9 @@ existing visuals covers it. When something new is needed: one section comment in
 that names the pattern and its markup, tokens for every colour with the two dark blocks, a
 demo in `examples/kit-demo.html`, and a row in the table above.
 
-**Considered and not added.** A top/bottom comparison slider (a horizontal divider). The
-product's screens are laid out in columns (sidebar, content, settings pane), so the existing
-vertical divider dragged sideways cuts between regions and compares like with like; a
-horizontal one cuts through every widget in a row and compares nothing cleanly. Two screens
-side by side is a `.grid` of two blocks, already there. If a real case appears (a toolbar or a
-header row that changed), it is a `.compare--vertical` variant: `clip-path: inset(0 0 X% 0)`
-and the handle turned, a few lines, so there is nothing to pre-build.
+**Added on request, with a reservation.** `.compare--vertical` turns the divider horizontal
+(drag up and down): six lines of CSS and an axis switch in `kit.js`. The product's screens are
+laid out in columns (sidebar, content, settings pane), so the default divider dragged sideways
+cuts between regions and compares like with like; a horizontal one cuts through every widget
+in a row and compares nothing cleanly. It is there for the one case it fits, a toolbar or a
+header row that changed; two different screens side by side remain a `.grid` of two blocks.

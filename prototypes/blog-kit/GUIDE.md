@@ -205,6 +205,9 @@ lightbox, and shows the same thing to everyone.
 
 **A slider** when the same screen exists in two versions and the point is the difference:
 before/after of a redesign, two modes of one layout. Same capture size and position for both.
+The default divider is vertical and drags sideways; the horizontal one (`--vertical`) exists
+for a toolbar or a header row that changed and is otherwise not the one to pick, since it cuts
+through every widget in a row.
 
 **Not a clip** when the motion is incidental (a dialog opening, a page loading), when the
 clip would need narration to be understood (there is no audio), when the content changes
