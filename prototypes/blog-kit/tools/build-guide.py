@@ -25,6 +25,7 @@ GUIDE_CSS = """
 	.guide h2 { font-size: 1.5rem; line-height: 1.3; margin: 48px 0 12px; padding-top: 40px; border-top: 1px solid var(--color-border); scroll-margin-top: 64px; }
 	.guide h3 { font-size: 1.125rem; line-height: 1.3; margin: 28px 0 8px; scroll-margin-top: 64px; }
 	.guide .lede { margin: 0; }
+	.guide .badge--decide { vertical-align: 1px; margin: 0 2px 0 0; color: var(--color-notice); border-color: color-mix(in srgb, var(--color-notice) 45%, transparent); }
 	.guide .page-head { margin-bottom: 20px; }
 	.guide .kit-nav { margin-bottom: 32px; }
 	.guide h4 { font-size: .9375rem; line-height: 1.3; margin: 20px 0 6px; color: var(--color-text); }
@@ -51,6 +52,7 @@ def inline(s: str) -> str:
     s = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', s)
     s = re.sub(r'(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])', r'<em>\1</em>', s)
     s = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', s)
+    s = re.sub(r'<strong>Decide(:?)</strong>', r'<span class="badge badge--decide">Decide</span>\1', s)   # open decisions as badges
     return s
 
 
