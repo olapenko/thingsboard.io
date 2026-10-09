@@ -1,6 +1,7 @@
 ---
 import DocLink from '@components/DocLink.astro';
-import { Products } from '~/models/site.models';
+import { SOURCE_AVAILABLE_FROM_VER } from '@data/versions';
+import { Products } from '@models/site.models';
 
 /**
  * In-content product callout, authored inline in MDX.
@@ -15,18 +16,28 @@ type Variant = 'peFeature' | 'ce' | 'pe' | 'cloud' | 'trendz';
 
 interface Props {
 	/** Banner color variant:
-	 *  'peFeature' — green (PE), renders only on CE pages, shows standard PE/Cloud links;
+	 *  'peFeature' — green, renders only on CE pages. Marks a feature Community Edition
+	 *    lacks but ThingsBoard {@link SOURCE_AVAILABLE_FROM_VER}+ and Cloud have — from
+	 *    that release CE and PE are one product, so there is no "Professional" edition to
+	 *    name. Links the page's `/docs/pe/` twin, labelled with that version, and the Cloud
+	 *    installation page. It names no Community Grant: the grant leaves out integrations,
+	 *    the scheduler, reporting and white-labeling (the paid Professional Pack adds them),
+	 *    so "free with the grant" would be wrong on most callers; the CE docs notice
+	 *    (`@data/docsAnnouncements`) links the program already;
 	 *  'ce' | 'pe' | 'cloud' | 'trendz' — matching product color, always renders. */
 	variant: Variant;
 	/** Current product context. Required for variant='peFeature'. */
 	product?: Products;
-	/** Path to the corresponding docs page (without leading/trailing slash).
-	 *  Used to generate links to PE and Cloud versions. Defaults to 'installation'.
+	/** Path of the corresponding `/docs/pe/` page (without leading/trailing slash) — the
+	 *  current product's docs, linked from the version. Defaults to 'installation'.
 	 *  Ignored when a default slot is provided (the slot replaces the standard sentence). */
 	path?: string;
+	/** What the `peFeature` sentence names in place of "This feature", e.g. 'AI Assistant'.
+	 *  Prefer it to a slot override, which copies the licensing sentence into the page. */
+	feature?: string;
 }
 
-const { variant, product, path } = Astro.props;
+const { variant, product, path, feature = 'This feature' } = Astro.props;
 
 const show = variant === 'peFeature' ? product === Products.CE : true;
 const linkPath = path || 'installation';
@@ -42,7 +53,7 @@ const hasSlotOverride = Astro.slots.has('default');
 				{hasSlotOverride ? (
 					<slot />
 				) : variant === 'peFeature' ? (
-					<>This feature is available in <DocLink product={Products.PE} path={linkPath} target="_blank">ThingsBoard Professional</DocLink> and <a href="/installations/?product=thingsboard-cloud" target="_blank" rel="noopener noreferrer" class="tb-banner-ext"><b>ThingsBoard Cloud</b></a> only. </>
+					<>{feature} is not part of Community Edition. It is available in <DocLink product={Products.PE} path={linkPath} target="_blank">ThingsBoard {SOURCE_AVAILABLE_FROM_VER}</DocLink> and later, and in <a href="/installations/?product=thingsboard-cloud" target="_blank" rel="noopener noreferrer" class="tb-banner-ext"><b>ThingsBoard Cloud</b></a>.</>
 				) : null}
 			</p>
 		</div>
