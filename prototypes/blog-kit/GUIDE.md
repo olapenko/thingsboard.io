@@ -226,6 +226,20 @@ composition. **Decide.**
 | Features with a visual each, side by side | `.grid` of `.block`s, two columns | three columns of screenshots | [Layouts](examples/kit-demo.html#grid) |
 | The ask at the end | `.cta`, once | a CTA per section | [Call to action](examples/kit-demo.html#cta) |
 
+Under review, not used in a post yet. They answer things the posts build by hand today; keep,
+drop or merge them before they are integrated.
+
+| You want to show | Use | Not this | See it |
+|---|---|---|---|
+| A tip, a requirement, a caveat the reader may skip | `.note`, `--warn` for a warning | a bold "Tip:" paragraph, a blockquote | [Note](examples/kit-demo.html#note) |
+| A customer's or a partner's words, a pull quote | `.quote` with a `cite` | the note-tinted blockquote | [Quote](examples/kit-demo.html#quote) |
+| A few features one at a time, each with a visual | `.feature` rows, sides alternating with `--flip` | a grid of tiles when there are only two or three, inline-styled rows | [Feature row](examples/kit-demo.html#feature) |
+| Values in rows and columns, wider than the column | a table in `.table-wrap`; `--compare` for edition and version tables | a table that breaks the column on phones, a table shipped as a screenshot | [Table](examples/kit-demo.html#table) |
+| A sequence where each step has a paragraph and a visual | `.stepper--vertical` | "Step N" headings | [Vertical steps](examples/kit-demo.html#steps-vertical) |
+| An interview | `.qa`, a definition list | bold "Q:" paragraphs | [Interview](examples/kit-demo.html#qa) |
+| What is in this release, after the intro | `.glance`, links to the sections | nothing, which is the case today | [At a glance](examples/kit-demo.html#glance) |
+| One link that deserves a button, in the flow of the text | `.btn`, `--primary` or `--outline` | an inline-styled button | [Button](examples/kit-demo.html#btn) |
+
 ### 3.2 Screenshot, clip or slider
 
 The default is a screenshot. A clip costs five to ten times the bytes, autoplays, and asks
@@ -375,6 +389,7 @@ What the pipeline needs:
 - No real data, no empty states, no error text, no browser chrome, attribution kept on maps.
 - Patches are baked and the overlays removed; the lightbox opens the fixed file.
 - One zoom and window size across the post; before/after pairs line up.
+- Nothing from the "under review" set is used unless it has been accepted into the kit.
 - Clips loop cleanly, are under 2 MB each, and there are no more than two; the post's media is
   under 6 MB in total (the pipelines print it).
 - Every screen is from the build the post describes; screens that changed after the capture
