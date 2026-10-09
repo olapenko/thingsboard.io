@@ -86,8 +86,6 @@ handles that in three steps, and the first two need no JavaScript:
    its aspect ratio before the file arrives, so nothing shifts when it lands, and the `.ring` and
    `.patch` overlays, which are placed in percent of that box, are right from the first paint.
    `prepare-images.py` writes the attributes; a hand-written image without them is a bug.
-   The sidebar crops rely on the same thing: they are sized by height, and their width comes
-   from the attribute ratio, so the row does not reflow.
 2. **The wrapper shows its own surface until then.** `.shot`, `.compare` and `.video` have a
    light background, so a pending image reads as a quiet placeholder rather than a hole. Below
    the fold, images are `loading="lazy"` and `decoding="async"`; the first screenshot of a post
@@ -101,8 +99,7 @@ a reader see the real pixels. `kit.js` opens any `.shot` image at its natural si
 overlay, or at `data-full="…"` when a larger file exists (the way to serve a 2x original
 without paying for it inline). `data-no-lightbox` opts out at any scope: on an image, on a
 wrapper (a figure, a grid, a panel), on `.blog-content` for a whole post, or on `<html>` to
-switch the lightbox off for the page; the zoom cursor follows the same rule. The sidebar
-strips in the 4.4 post use it per image. The overlay uses the blog template's own markup and classes (`.blog-lightbox`,
+switch the lightbox off for the page; the zoom cursor follows the same rule. The overlay uses the blog template's own markup and classes (`.blog-lightbox`,
 `.blog-lightbox__close`), so on the site this is not a second lightbox: the template already
 opens every `.blog-content img` the same way. The integration choice is to keep the template's
 and add the `data-no-lightbox` / `data-full` handling to it, or to replace it with the kit's;
