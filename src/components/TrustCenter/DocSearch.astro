@@ -1,0 +1,134 @@
+---
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import Chip from '@components/ui/Chip.astro';
+import Field from '@components/ui/Field.astro';
+import { DOCS } from '@data/trust-center/documents';
+import { tc } from '@data/trust-center/nav';
+
+/**
+ * The documents search, the same on the hub and the Documents page: the query, a category, the two
+ * access toggles (the rows' own icons: Public, On request) and Search. One toggle or none; none
+ * means both. It is a form that opens the Documents page with `?q=&category=&access=`; on that page
+ * (`live`) it fills itself from the address and `DocLibrary` filters the list in place instead.
+ */
+
+interface Props {
+	/** The Documents page: filled from the address, filtering in place. */
+	live?: boolean;
+}
+
+const { live = false } = Astro.props;
+const id = live ? 'tc-library' : 'tc-hub';
+const CATEGORIES = [...new Set(DOCS.map((d) => d.category))];
+const ACCESS = [
+	{ value: 'public', label: 'Public', icon: 'tabler:world' },
+	{ value: 'request', label: 'On request', icon: 'tabler:lock' },
+];
+---
+
+<form
+	class="tc-docsearch"
+	action={tc('documents')}
+	method="get"
+	role="search"
+	data-doc-search
+	data-live={live ? '' : undefined}
+>
+	<Field
+		name="q"
+		id={`${id}-q`}
+		label="Search documents"
+		labelHidden
+		optional
+		placeholder="Search documents, e.g. backup policy"
+		size="md"
+		class="tc-docsearch__q"
+		attrs={{ autocomplete: 'off', 'data-doc-query': '' }}
+	/>
+	<div class="tc-docsearch__filters">
+		<div class="ui-field ui-field--md tc-docsearch__category">
+			<label class="ui-field__label ui-sr" for={`${id}-category`}>
+				Category
+			</label>
+			<div class="ui-field__row tc-select">
+				<select class="ui-field__control tc-select__control" id={`${id}-category`} name="category" data-doc-category>
+					<option value="">All categories</option>
+					{CATEGORIES.map((c) => (
+						<option value={c}>{c}</option>
+					))}
+				</select>
+				<Icon name="tabler:chevron-down" class="tc-select__chevron" aria-hidden="true" />
+			</div>
+		</div>
+		<ul class="tc-docsearch__access" role="group" aria-label="Access">
+			{ACCESS.map((a) => (
+				<li>
+					<Chip
+						kind="toggle"
+						size="md"
+						icon={a.icon}
+						class={`tc-docsearch__toggle tc-docsearch__toggle--${a.value}`}
+						attrs={{ 'data-access-value': a.value }}
+					>
+						{a.label}
+					</Chip>
+				</li>
+			))}
+		</ul>
+		<input type="hidden" name="access" value="" disabled data-access-input />
+	</div>
+	<Button type="submit" size="md" icon="tabler:search" class="tc-docsearch__submit">
+		Search
+	</Button>
+</form>
+
+<script>
+	// One access toggle or none; the hidden field carries it. On the Documents page the form fills
+	// itself from the address first. Every change is announced (`docsearch`) for the list to follow.
+	document.querySelectorAll<HTMLFormElement>('[data-doc-search]').forEach((form) => {
+		const query = form.querySelector<HTMLInputElement>('[data-doc-query]');
+		const category = form.querySelector<HTMLSelectElement>('[data-doc-category]');
+		const toggles = [...form.querySelectorAll<HTMLButtonElement>('[data-access-value]')];
+		const access = form.querySelector<HTMLInputElement>('[data-access-input]');
+		const announce = () => form.dispatchEvent(new CustomEvent('docsearch'));
+
+		const setAccess = (value: string) => {
+			const known = toggles.some((b) => b.dataset.accessValue === value) ? value : '';
+			toggles.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.accessValue === known)));
+			if (access) {
+				access.value = known;
+				access.disabled = known === '';
+			}
+		};
+
+		if ('live' in form.dataset) {
+			const params = new URLSearchParams(window.location.search);
+			if (query) query.value = params.get('q') ?? '';
+			const cat = params.get('category') ?? '';
+			if (category && [...category.options].some((o) => o.value === cat)) category.value = cat;
+			setAccess(params.get('access') ?? '');
+		}
+
+		toggles.forEach((button) => {
+			button.addEventListener('click', () => {
+				setAccess(button.getAttribute('aria-pressed') === 'true' ? '' : (button.dataset.accessValue ?? ''));
+				announce();
+			});
+		});
+		category?.addEventListener('change', announce);
+		query?.addEventListener('input', announce);
+
+		// Off the Documents page the form goes there; empty fields stay out of the address.
+		form.addEventListener('submit', () => {
+			if ('live' in form.dataset) return;
+			if (query && !query.value.trim()) query.disabled = true;
+			if (category && !category.value) category.disabled = true;
+		});
+		window.addEventListener('pageshow', () => {
+			if (query) query.disabled = false;
+			if (category) category.disabled = false;
+		});
+		announce();
+	});
+</script>

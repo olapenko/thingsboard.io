@@ -1,66 +1,17 @@
 ---
-import { Icon } from 'astro-icon/components';
-import Button from '@components/ui/Button.astro';
-import Chip from '@components/ui/Chip.astro';
-import Field from '@components/ui/Field.astro';
 import DocItem from '@components/TrustCenter/DocItem.astro';
+import DocSearch from '@components/TrustCenter/DocSearch.astro';
 import { DOCS, docAction, docHref } from '@data/trust-center/documents';
 
 /**
- * The Documents page's library: the search (a field, a category and the Search button), the access
- * chips, and one flat list of all 20 documents, each row the shared `DocItem` with the category
- * under the name. Category and access are two filters; the list narrows by both and the query.
+ * The Documents page's library: the documents search (`DocSearch`, live here) and one flat list of
+ * all 20 documents, each row the shared `DocItem` with the category under the name. The query, the
+ * category and the access toggle narrow the list together.
  */
-
-const FILTERS = [
-	{ value: 'all', label: 'All' },
-	{ value: 'public', label: 'Public' },
-	{ value: 'nda', label: 'NDA' },
-	{ value: 'pending', label: 'Planned' },
-];
-const CATEGORIES = [...new Set(DOCS.map((d) => d.category))];
 ---
 
 <div class="tc-library" data-doc-filter>
-	<form class="tc-toolbar" role="search" data-doc-search>
-		<Field
-			name="q"
-			id="tc-library-q"
-			label="Search documents"
-			labelHidden
-			optional
-			placeholder="Search documents, e.g. backup policy"
-			size="md"
-			class="tc-toolbar__search"
-			attrs={{ 'data-doc-query': '', autocomplete: 'off' }}
-		/>
-		<div class="ui-field ui-field--md tc-toolbar__category">
-			<label class="ui-field__label ui-sr" for="tc-library-category">
-				Category
-			</label>
-			<div class="ui-field__row tc-select">
-				<select class="ui-field__control tc-select__control" id="tc-library-category" name="category" data-doc-category>
-					<option value="">All categories</option>
-					{CATEGORIES.map((c) => (
-						<option value={c}>{c}</option>
-					))}
-				</select>
-				<Icon name="tabler:chevron-down" class="tc-select__chevron" aria-hidden="true" />
-			</div>
-		</div>
-		<Button type="submit" size="md" icon="tabler:search">
-			Search
-		</Button>
-	</form>
-	<ul class="tc-toolbar__filters tc-library__access" role="group" aria-label="Access level">
-		{FILTERS.map((f, i) => (
-			<li>
-				<Chip kind="toggle" size="sm" pressed={i === 0} attrs={{ 'data-doc-filter-value': f.value }}>
-					{f.label}
-				</Chip>
-			</li>
-		))}
-	</ul>
+	<DocSearch live />
 	<ul class="tc-doclist" data-doc-list>
 		{DOCS.map((d) => (
 			<DocItem
@@ -83,34 +34,31 @@ const CATEGORIES = [...new Set(DOCS.map((d) => d.category))];
 </div>
 
 <script>
-	// The list narrows as you type or pick; Search does the same and keeps the query in the address
-	// (`?q=…&category=…&access=…`), which is also how the hub's search arrives here.
+	// The list follows the search as you type or pick; Search does the same. The state stays in the
+	// address (`?q=…&category=…&access=…`), which is also how the hub's search arrives here.
 	document.querySelectorAll<HTMLElement>('[data-doc-filter]').forEach((root) => {
 		const form = root.querySelector<HTMLFormElement>('[data-doc-search]');
 		const query = root.querySelector<HTMLInputElement>('[data-doc-query]');
 		const category = root.querySelector<HTMLSelectElement>('[data-doc-category]');
-		const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-doc-filter-value]')];
+		const access = root.querySelector<HTMLInputElement>('[data-access-input]');
 		const rows = [...root.querySelectorAll<HTMLElement>('.tc-doc')];
 		const empty = root.querySelector<HTMLElement>('[data-doc-empty]');
-		let access = 'all';
 
-		const params = new URLSearchParams(window.location.search);
-		const fromAccess = params.get('access') ?? '';
-		if (toggles.some((b) => b.dataset.docFilterValue === fromAccess)) access = fromAccess;
-		toggles.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.docFilterValue === access)));
-		if (query) query.value = params.get('q') ?? '';
-		const fromCategory = params.get('category') ?? '';
-		if (category && [...category.options].some((o) => o.value === fromCategory)) category.value = fromCategory;
+		const state = () => ({
+			q: (query?.value ?? '').trim(),
+			category: category?.value ?? '',
+			access: access && !access.disabled ? access.value : '',
+		});
 
 		const render = () => {
-			const q = (query?.value ?? '').trim().toLowerCase();
-			const cat = category?.value ?? '';
+			const { q, category: cat, access: acc } = state();
+			const needle = q.toLowerCase();
 			let shown = 0;
 			rows.forEach((row) => {
 				const show =
-					(access === 'all' || row.dataset.access === access) &&
+					(acc === '' || (acc === 'public' ? row.dataset.access === 'public' : row.dataset.access !== 'public')) &&
 					(cat === '' || row.dataset.category === cat) &&
-					(q === '' || (row.dataset.text ?? '').includes(q));
+					(needle === '' || (row.dataset.text ?? '').includes(needle));
 				row.hidden = !show;
 				if (show) shown += 1;
 			});
@@ -119,26 +67,15 @@ const CATEGORIES = [...new Set(DOCS.map((d) => d.category))];
 
 		const remember = () => {
 			const next = new URLSearchParams();
-			const q = (query?.value ?? '').trim();
-			if (q) next.set('q', q);
-			if (category?.value) next.set('category', category.value);
-			if (access !== 'all') next.set('access', access);
+			Object.entries(state()).forEach(([key, value]) => value && next.set(key, value));
 			const search = next.toString();
 			window.history.replaceState(null, '', search ? `?${search}` : window.location.pathname);
 		};
 
-		toggles.forEach((button) => {
-			button.addEventListener('click', () => {
-				access = button.dataset.docFilterValue ?? 'all';
-				toggles.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
-				render();
-				remember();
-			});
-		});
-		query?.addEventListener('input', render);
-		category?.addEventListener('change', () => {
-			render();
-			remember();
+		form?.addEventListener('docsearch', render);
+		form?.addEventListener('change', remember);
+		form?.addEventListener('click', (event) => {
+			if ((event.target as HTMLElement).closest('[data-access-value]')) remember();
 		});
 		form?.addEventListener('submit', (event) => {
 			event.preventDefault();
