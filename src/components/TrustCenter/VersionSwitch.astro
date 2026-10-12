@@ -1,0 +1,340 @@
+---
+/**
+ * TEMP-VERSION-SWITCH: a switch between the Trust Center versions under test, in the dev server
+ * only (`TrustCenterLayout` renders it under `import.meta.env.DEV`, so a build has none of it: its
+ * style and script are inline, and render only with it).
+ *
+ * The homepage's running-order switch on lab, for versions that are branches: each version runs on
+ * its own port (`@data/trust-center/versions`), so a switch is a link to the same page on another
+ * port, and the version this page belongs to is the port it is served from.
+ *
+ * - KEEPS YOUR PLACE. The part under the reading line goes along as the hash. Between the two shapes
+ *   of page set it is translated: Data security, read on `/security/` in an anchors version, opens
+ *   `/data/` in v3, and the other way round (`PARTS`).
+ * - STEPS WITH `[` AND `]`, wrapping, as the running-order switch does.
+ * - FOLDS AWAY to a tab on the left edge, remembered per version (the storage is the port's).
+ *
+ * Bottom-left, the corner lab's island takes: the dev toolbar is bottom-centre, the chat launcher
+ * bottom-right, and the cookie card, while it shows, pushes the switch up above it.
+ */
+import { Icon } from 'astro-icon/components';
+import { PARTS, TC_VERSIONS } from '@data/trust-center/versions';
+
+const { hostname, pathname, port } = Astro.url;
+const current = TC_VERSIONS.find((v) => String(v.port) === port);
+const data = {
+	current: current?.id ?? null,
+	versions: TC_VERSIONS.map(({ id, port, shape }) => ({ id, port, shape })),
+	parts: PARTS,
+};
+---
+
+<div class="tcv" data-tcv data-open="true">
+	<script is:inline>
+		(function (root) {
+			try {
+				if (localStorage.getItem('tc-version-switch:open') === 'false') root.dataset.open = 'false';
+			} catch {
+				// No storage: the switch opens, which is the default anyway.
+			}
+		})(document.currentScript.parentElement);
+	</script>
+	<script is:inline type="application/json" data-tcv-data set:html={JSON.stringify(data)}></script>
+	<div class="tcv__bar" role="group" aria-label="Trust Center versions">
+		<span class="tcv__caption" aria-hidden="true">
+			Trust Center
+		</span>
+		<ul class="tcv__list">
+			{TC_VERSIONS.map((v) => (
+				<li>
+					<a
+						class:list={['tcv__link', v.id === current?.id && 'is-here']}
+						href={`http://${hostname}:${v.port}${pathname}`}
+						data-tcv-switch={v.id}
+						aria-current={v.id === current?.id ? 'page' : undefined}
+						title={`${v.label} · ${v.branch} · port ${v.port}. ${v.note}`}
+					>
+						{v.label}
+					</a>
+				</li>
+			))}
+		</ul>
+		<span class="tcv__sep" aria-hidden="true"></span>
+		<button
+			class="tcv__btn"
+			type="button"
+			data-tcv-toggle
+			aria-label="Hide the version switch"
+			title="Hide. [ and ] step between versions."
+		>
+			<Icon name="tabler:chevron-left" aria-hidden="true" />
+		</button>
+	</div>
+	<button
+		class="tcv__tab"
+		type="button"
+		data-tcv-toggle
+		aria-label="Show the version switch"
+		title="Trust Center versions"
+	>
+		<Icon name="tabler:versions" aria-hidden="true" />
+	</button>
+
+	<style is:inline>
+		.tcv {
+			--tcv-ink: #171c22;
+			--tcv-muted: #5b616e;
+			--tcv-accent: #3d50f5;
+			--tcv-hover: rgba(23, 28, 34, 0.06);
+			--tcv-h: 36px;
+			font-family: var(--font-family, Ubuntu, system-ui, sans-serif);
+			font-size: 12.5px;
+			font-weight: 500;
+			line-height: 1;
+			letter-spacing: 0;
+		}
+		.tcv__bar,
+		.tcv__tab {
+			position: fixed;
+			z-index: 10000;
+			bottom: calc(12px + var(--tcv-lift, 0px));
+			box-sizing: border-box;
+			height: var(--tcv-h);
+			margin: 0;
+			border: 1px solid rgba(23, 28, 34, 0.1);
+			background: rgba(255, 255, 255, 0.94);
+			box-shadow:
+				0 1px 2px rgba(23, 28, 34, 0.06),
+				0 6px 20px rgba(23, 28, 34, 0.1);
+			backdrop-filter: blur(8px);
+			transition:
+				opacity 0.15s ease,
+				transform 0.15s ease,
+				visibility 0.15s;
+		}
+		.tcv__bar {
+			left: 12px;
+			display: flex;
+			align-items: center;
+			gap: 2px;
+			max-width: calc(100vw - 24px);
+			padding: 0 3px;
+			overflow-x: auto;
+			scrollbar-width: none;
+			border-radius: 999px;
+		}
+		.tcv__caption {
+			flex: none;
+			padding: 0 6px 0 9px;
+			color: var(--tcv-muted);
+		}
+		.tcv__list {
+			display: flex;
+			gap: 2px;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+		.tcv__list li {
+			margin: 0;
+			padding: 0;
+		}
+		.tcv__link,
+		.tcv__btn {
+			box-sizing: border-box;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			height: 28px;
+			margin: 0;
+			border: 0;
+			border-radius: 999px;
+			font: inherit;
+			text-decoration: none;
+			white-space: nowrap;
+			transition:
+				background-color 0.15s ease,
+				color 0.15s ease;
+		}
+		.tcv__link {
+			padding: 0 11px;
+			color: var(--tcv-ink);
+		}
+		.tcv__link:hover {
+			background: var(--tcv-hover);
+			color: var(--tcv-ink);
+			text-decoration: none;
+		}
+		.tcv__link.is-here {
+			background: var(--tcv-accent);
+			color: #fff;
+		}
+		.tcv__sep {
+			flex: none;
+			width: 1px;
+			height: 14px;
+			margin: 0 3px;
+			background: rgba(23, 28, 34, 0.12);
+		}
+		.tcv__btn {
+			flex: none;
+			width: 28px;
+			padding: 0;
+			background: none;
+			color: var(--tcv-muted);
+			cursor: pointer;
+		}
+		.tcv__btn:hover {
+			background: var(--tcv-hover);
+			color: var(--tcv-ink);
+		}
+		.tcv svg {
+			display: block;
+			flex: none;
+			width: 16px;
+			height: 16px;
+		}
+		.tcv__tab {
+			left: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 26px;
+			padding: 0;
+			border-left: 0;
+			border-radius: 0 10px 10px 0;
+			color: var(--tcv-muted);
+			cursor: pointer;
+		}
+		.tcv__tab:hover {
+			background: #fff;
+			color: var(--tcv-ink);
+		}
+		:is(.tcv__link, .tcv__btn, .tcv__tab):focus-visible {
+			outline: 2px solid var(--tcv-accent);
+			outline-offset: 2px;
+		}
+		.tcv__tab,
+		.tcv[data-open='false'] .tcv__bar {
+			opacity: 0;
+			visibility: hidden;
+			pointer-events: none;
+		}
+		.tcv__tab {
+			transform: translateX(-100%);
+		}
+		.tcv[data-open='false'] .tcv__bar {
+			transform: translateX(-12px) scale(0.96);
+		}
+		.tcv[data-open='false'] .tcv__tab {
+			opacity: 1;
+			visibility: visible;
+			pointer-events: auto;
+			transform: none;
+		}
+		/* On a phone the caption goes, so the versions clear the chat launcher in the other corner. */
+		@media (max-width: 479px) {
+			.tcv__caption {
+				display: none;
+			}
+			.tcv__link {
+				padding: 0 8px;
+			}
+		}
+		@media print {
+			.tcv {
+				display: none;
+			}
+		}
+	</style>
+
+	<script is:inline>
+		(function () {
+			const root = document.querySelector('[data-tcv]');
+			const raw = root && root.querySelector('[data-tcv-data]');
+			if (!root || !raw) return;
+			const { current, versions, parts } = JSON.parse(raw.textContent);
+			const here = versions.find((v) => v.id === current);
+			const KEY = 'tc-version-switch:open';
+
+			// The cookie card holds this corner until a choice is made: stand above it, come down after.
+			const card = document.querySelector('#cookie-consent .cc__card');
+			if (card) {
+				const lift = () => {
+					const up = document.documentElement.hasAttribute('data-cc-card') && !card.hidden;
+					root.style.setProperty('--tcv-lift', up ? `${Math.ceil(card.getBoundingClientRect().height) + 16}px` : '0px');
+				};
+				lift();
+				new ResizeObserver(lift).observe(card);
+				new MutationObserver(lift).observe(document.documentElement, { attributeFilter: ['data-cc-card'] });
+			}
+
+			root.querySelectorAll('[data-tcv-toggle]').forEach((button) =>
+				button.addEventListener('click', () => {
+					const open = root.dataset.open === 'false';
+					root.dataset.open = String(open);
+					try {
+						localStorage.setItem(KEY, String(open));
+					} catch {
+						// The state lasts this page only.
+					}
+					root.querySelector(open ? '[data-tcv-toggle].tcv__btn' : '.tcv__tab')?.focus();
+				})
+			);
+
+			/** The part under the reading line (a third down the window): an anchored section or a heading. */
+			const partInView = () => {
+				if (window.scrollY < 8) return '';
+				const line = window.innerHeight / 3;
+				let id = '';
+				for (const el of document.querySelectorAll('main .tc-section[id], main section[id], main h2[id]')) {
+					if (el.id.endsWith('-title')) continue;
+					if (el.getBoundingClientRect().top <= line) id = el.id;
+				}
+				return id;
+			};
+
+			/** This page and the part in view, as an address in a version of the other shape when it differs. */
+			const destination = (to) => {
+				const path = location.pathname.replace(/\/?$/, '/');
+				const part = partInView();
+				const same = path + (part ? `#${part}` : '');
+				if (!here || here.shape === to.shape) return same;
+				if (to.shape === 'anchors') {
+					const onPage = parts.filter((p) => p.page.split('#')[0] === path);
+					const hit = onPage.find((p) => p.page.split('#')[1] === part) ?? onPage[0];
+					return hit ? hit.part : same;
+				}
+				const hit = part && parts.find((p) => p.part === `${path}#${part}`);
+				return hit ? hit.page : same;
+			};
+
+			const go = (to) => {
+				location.href = `${location.protocol}//${location.hostname}:${to.port}${destination(to)}`;
+			};
+
+			root.querySelectorAll('[data-tcv-switch]').forEach((a) =>
+				a.addEventListener('click', (e) => {
+					if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+					const to = versions.find((v) => v.id === a.dataset.tcvSwitch);
+					if (!to || to.id === current) return e.preventDefault();
+					e.preventDefault();
+					go(to);
+				})
+			);
+
+			// `[` and `]` step through the versions, wrapping; never while typing.
+			document.addEventListener('keydown', (e) => {
+				if ((e.key !== '[' && e.key !== ']') || e.metaKey || e.ctrlKey || e.altKey) return;
+				const t = e.target;
+				if (t instanceof HTMLElement && (t.isContentEditable || t.closest('input, textarea, select'))) return;
+				const i = Math.max(
+					0,
+					versions.findIndex((v) => v.id === current)
+				);
+				const n = versions.length;
+				go(versions[(i + (e.key === ']' ? 1 : n - 1)) % n]);
+			});
+		})();
+	</script>
+</div>
