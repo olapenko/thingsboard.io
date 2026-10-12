@@ -1,0 +1,911 @@
+---
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import Chip from '@components/ui/Chip.astro';
+import Dialog from '@components/ui/Dialog.astro';
+import Field from '@components/ui/Field.astro';
+import Tag from '@components/TrustCenter/Tag.astro';
+import { askHref } from '@data/trust-center/documents';
+import {
+	ASSESSMENT_PACK,
+	ASSESSMENT_PACK_SUMMARY,
+	DOC_TYPES,
+	LIBRARY,
+	type LibraryDoc,
+} from '@data/trust-center/documents-proposed';
+import { tc } from '@data/trust-center/nav';
+import { ACCESS } from '@data/trust-center/status';
+
+/**
+ * PROPOSED document library (review of 2026-10-12), beside the current one, for comparison.
+ *
+ * - One flat list, no group headers. Each document has one TYPE (`DOC_TYPES`), shown on the row and
+ *   used as the only filter, with counts, so a filtered list is one run of rows, never a scatter of
+ *   headers with a row each. Access is not a filter: the row's tag and its action say it.
+ * - The row's action IS the request: a public document opens, one under NDA is added to the request
+ *   (a toggle, "Add to request" / "Added"), a planned one is asked about. No document pages.
+ * - Once something is added, a tray rides the bottom of the screen: the count, the names, Clear and
+ *   Request. Request opens the form in a dialog on this page, with the chosen documents listed and
+ *   removable, so nothing is picked twice and the reader never leaves the list.
+ * - The assessment pack adds the five documents assessors ask for first; "all under NDA" adds the rest.
+ * - Search reads the name, the description, the type and the words readers use (pentest, BCP, SoA).
+ * - Addresses: `#<slug>` scrolls to a row and marks it; `?request=a,b` arrives with those added, and
+ *   the address keeps the current request, so a reload or a shared link keeps it too.
+ *
+ * Not connected, like the other Trust Center forms: a valid request shows the done state and says
+ * nothing was sent.
+ */
+
+const TYPE = Object.fromEntries(DOC_TYPES.map((t) => [t.id, t]));
+const counts = DOC_TYPES.map((t) => ({ ...t, n: LIBRARY.filter((d) => d.type === t.id).length }));
+const ndaCount = LIBRARY.filter((d) => d.access === 'nda').length;
+
+const opens = (d: LibraryDoc) => (d.access === 'public' ? (d.f ?? d.u) : undefined);
+const isExternal = (href: string) => /^https?:/.test(href);
+const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.type].label].join(' ').toLowerCase();
+---
+
+<div class="tc-lib" data-tc-lib data-pack={JSON.stringify(ASSESSMENT_PACK)}>
+	<div class="tc-lib__pack">
+		<span class="tc-lib__pack-icon" aria-hidden="true">
+			<Icon name="tabler:briefcase" />
+		</span>
+		<div class="tc-lib__pack-body">
+			<p class="tc-lib__pack-title">Preparing a vendor assessment?</p>
+			<p class="tc-lib__pack-text">Start with what assessors ask for first: {ASSESSMENT_PACK_SUMMARY}.</p>
+		</div>
+		<div class="tc-lib__pack-actions">
+			<Button size="sm" icon="tabler:plus" attrs={{ 'data-add-pack': '' }}>
+				Add these {ASSESSMENT_PACK.length}
+			</Button>
+			<Button variant="tertiary" size="sm" attrs={{ 'data-add-all': '' }}>
+				All {ndaCount} under NDA
+			</Button>
+		</div>
+	</div>
+
+	<div class="tc-lib__tools">
+		<label class="tc-lib__search">
+			<Icon name="tabler:search" aria-hidden="true" />
+			<span class="ui-sr">Search documents</span>
+			<input type="search" placeholder="Search: pentest, SoA, DPA…" autocomplete="off" data-search />
+		</label>
+		<div class="tc-lib__types" role="group" aria-label="Show documents of one type">
+			<Chip kind="toggle" size="sm" pressed note={String(LIBRARY.length)} attrs={{ 'data-type': 'all' }}>
+				All
+			</Chip>
+			{counts.map((t) => (
+				<Chip kind="toggle" size="sm" note={String(t.n)} attrs={{ 'data-type': t.id }}>
+					{t.label}
+				</Chip>
+			))}
+		</div>
+	</div>
+	<p class="ui-sr" aria-live="polite" data-status></p>
+
+	<ul class="tc-lib__list" role="list">
+		{LIBRARY.map((d) => {
+			const open = opens(d);
+			return (
+				<li class="tc-lib__row" id={d.slug} data-type={d.type} data-access={d.access} data-search={haystack(d)}>
+					<span class="tc-lib__icon" aria-hidden="true">
+						<Icon name={TYPE[d.type].icon} />
+					</span>
+					<div class="tc-lib__main">
+						<h3 class="tc-lib__name">{d.name}</h3>
+						<p class="tc-lib__text">{d.description}</p>
+						<p class="tc-lib__meta">
+							<span>{TYPE[d.type].label}</span>
+							{d.version !== '—' && <span>{d.version}</span>}
+							{d.privateCloud && <span>Private Cloud customers</span>}
+						</p>
+					</div>
+					<div class="tc-lib__access">
+						<Tag tag={ACCESS[d.access]} />
+					</div>
+					<div class="tc-lib__action">
+						{open && (
+							<Button href={open} variant="secondary" size="sm" external={isExternal(open)} srSuffix={`: ${d.name}`}>
+								Open
+							</Button>
+						)}
+						{d.access === 'nda' && (
+							<button type="button" class="tc-lib__add" aria-pressed="false" data-add={d.slug} data-name={d.name}>
+								<Icon name="tabler:plus" class="tc-lib__add-off" aria-hidden="true" />
+								<Icon name="tabler:check" class="tc-lib__add-on" aria-hidden="true" />
+								<span class="tc-lib__add-off">Add to request</span>
+								<span class="tc-lib__add-on">Added</span>
+								<span class="ui-sr">: {d.name}</span>
+							</button>
+						)}
+						{d.access === 'planned' && (
+							<Button href={askHref(d)} variant="tertiary" size="sm" srSuffix={`: ${d.name}`}>
+								Ask about it
+							</Button>
+						)}
+					</div>
+				</li>
+			);
+		})}
+	</ul>
+	<div class="tc-lib__empty" hidden data-empty>
+		<p>No documents match. If you need something that isn't listed, ask us.</p>
+		<div class="tc-lib__empty-actions">
+			<Button size="sm" href={`${tc('contact')}?subject=other`} attrs={{ 'data-ask': '' }}>
+				Ask us
+			</Button>
+			<Button variant="secondary" size="sm" attrs={{ 'data-reset': '' }}>
+				Show all documents
+			</Button>
+		</div>
+	</div>
+
+	<div class="tc-lib__tray" hidden data-tray>
+		<div class="tc-lib__tray-body">
+			<p class="tc-lib__tray-count" data-count></p>
+			<p class="tc-lib__tray-names" data-names></p>
+		</div>
+		<div class="tc-lib__tray-actions">
+			<Button variant="tertiary" size="sm" accent="neutral" attrs={{ 'data-clear': '' }}>
+				Clear
+			</Button>
+			<Button size="sm" attrs={{ 'data-request': '' }}>
+				Request
+			</Button>
+		</div>
+	</div>
+</div>
+
+<Dialog
+	id="tc-request"
+	size="md"
+	title="Request documents under NDA"
+	lede="We send you our mutual NDA first. Once it's signed, you get the documents within two business days."
+>
+	<form class="tc-req" novalidate data-req>
+		<fieldset class="tc-req__docs-set">
+			<legend class="tc-req__legend" data-req-legend>
+				Documents
+			</legend>
+			<ul class="tc-req__docs" role="list" data-req-docs></ul>
+			<p class="ui-field__error" id="tcr-docs-error" hidden>
+				Add at least one document from the list.
+			</p>
+		</fieldset>
+		<div class="tc-req__fields">
+			<Field name="firstName" id="tcr-first-name" label="First name" maxLength={50} autocomplete="given-name" />
+			<Field name="lastName" id="tcr-last-name" label="Last name" maxLength={50} autocomplete="family-name" />
+			<Field
+				name="email"
+				id="tcr-email"
+				label="Work email"
+				type="email"
+				maxLength={80}
+				autocomplete="email"
+				inputmode="email"
+				attrs={{ autocapitalize: 'off', spellcheck: 'false' }}
+			/>
+			<Field name="company" id="tcr-company" label="Company" maxLength={80} autocomplete="organization" />
+			<Field
+				name="message"
+				id="tcr-message"
+				label="What it's for"
+				type="textarea"
+				rows={3}
+				optional
+				maxLength={1000}
+				counter
+				placeholder="The project or vendor assessment you need them for."
+				class="tc-req__full"
+			/>
+		</div>
+		<div class="tc-req__submit">
+			<Button type="submit" size="lg">
+				Send request
+			</Button>
+			{/* prettier-ignore */}
+			<p class="tc-req__note">We use these details only to answer your request. See our <a href="/products/paas/privacy-policy/">Privacy Policy</a>.</p>
+		</div>
+	</form>
+	<div class="tc-req__done" hidden data-req-done>
+		<Icon name="tabler:circle-check" class="tc-req__done-icon" aria-hidden="true" />
+		<h3 class="tc-req__done-title" tabindex="-1" data-req-done-title>
+			Request received
+		</h3>
+		<p class="tc-req__done-text" data-req-done-text></p>
+		<p class="tc-req__done-note">This prototype isn't connected, so nothing was sent.</p>
+		<Button variant="secondary" attrs={{ 'data-req-close': '' }}>
+			Back to the documents
+		</Button>
+	</div>
+</Dialog>
+
+<script>
+	import { openDialog } from '@util/dialog';
+	import { clearFieldError, validateAll, wireValidation, type FieldControl, type Problem } from '@util/form-validate';
+
+	const root = document.querySelector<HTMLElement>('[data-tc-lib]');
+	const dialog = document.querySelector<HTMLDialogElement>('#tc-request');
+
+	if (root && dialog) {
+		const q = <T extends Element>(sel: string, from: ParentNode = root) => from.querySelector<T>(sel)!;
+		const rows = [...root.querySelectorAll<HTMLElement>('.tc-lib__row')];
+		const adds = [...root.querySelectorAll<HTMLButtonElement>('[data-add]')];
+		const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-type]')];
+		const search = q<HTMLInputElement>('[data-search]');
+		const status = q<HTMLElement>('[data-status]');
+		const empty = q<HTMLElement>('[data-empty]');
+		const ask = q<HTMLAnchorElement>('[data-ask]');
+		const tray = q<HTMLElement>('[data-tray]');
+		const count = q<HTMLElement>('[data-count]');
+		const names = q<HTMLElement>('[data-names]');
+		const nameOf = new Map(adds.map((b) => [b.dataset.add!, b.dataset.name!]));
+		const order = adds.map((b) => b.dataset.add!);
+
+		const picked = new Set<string>();
+		let type = 'all';
+
+		const plural = (n: number) => `${n} document${n === 1 ? '' : 's'}`;
+
+		// ── Filtering ─────────────────────────────────────────────────────────
+		const filter = () => {
+			const words = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+			let shown = 0;
+			rows.forEach((row) => {
+				const ok = (type === 'all' || row.dataset.type === type) && words.every((w) => row.dataset.search!.includes(w));
+				row.hidden = !ok;
+				if (ok) shown++;
+			});
+			empty.hidden = shown > 0;
+			// "Ask us" carries what was searched for, as the contact form's `about` prefill.
+			const query = search.value.trim();
+			ask.href = `${ask.pathname}?subject=other${query ? `&about=${encodeURIComponent(query)}` : ''}`;
+			status.textContent = shown === rows.length ? '' : `Showing ${plural(shown)} of ${rows.length}.`;
+		};
+
+		chips.forEach((chip) =>
+			chip.addEventListener('click', () => {
+				type = chip.dataset.type ?? 'all';
+				chips.forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
+				filter();
+			})
+		);
+		search.addEventListener('input', filter);
+		q<HTMLButtonElement>('[data-reset]').addEventListener('click', () => {
+			search.value = '';
+			chips[0].click();
+			search.focus();
+		});
+
+		// ── The request ───────────────────────────────────────────────────────
+		const sync = () => {
+			adds.forEach((b) => b.setAttribute('aria-pressed', String(picked.has(b.dataset.add!))));
+			const list = order.filter((s) => picked.has(s)).map((s) => nameOf.get(s)!);
+			tray.hidden = list.length === 0;
+			// "under NDA" only where the tray has room for it; on a phone the Request beside it says enough.
+			const nda = document.createElement('span');
+			nda.className = 'tc-lib__tray-nda';
+			nda.textContent = ' under NDA';
+			count.replaceChildren(plural(list.length), nda);
+			names.textContent = list.join(' · ');
+			// The address carries the request, so a reload or a shared link keeps it.
+			// Commas left as they are, so the address reads as the list it is.
+			const url = new URL(location.href);
+			url.searchParams.delete('request');
+			const params = [
+				url.searchParams.toString(),
+				list.length ? `request=${order.filter((s) => picked.has(s)).join(',')}` : '',
+			]
+				.filter(Boolean)
+				.join('&');
+			history.replaceState(history.state, '', `${url.pathname}${params ? `?${params}` : ''}${url.hash}`);
+			renderDocs();
+		};
+
+		const add = (slugs: string[]) => {
+			slugs.forEach((s) => nameOf.has(s) && picked.add(s));
+			sync();
+		};
+
+		adds.forEach((b) =>
+			b.addEventListener('click', () => {
+				const s = b.dataset.add!;
+				if (picked.has(s)) picked.delete(s);
+				else picked.add(s);
+				sync();
+			})
+		);
+		q<HTMLButtonElement>('[data-add-pack]').addEventListener('click', () => add(JSON.parse(root.dataset.pack ?? '[]')));
+		q<HTMLButtonElement>('[data-add-all]').addEventListener('click', () => add(order));
+		q<HTMLButtonElement>('[data-clear]').addEventListener('click', () => {
+			picked.clear();
+			sync();
+		});
+
+		// ── The dialog's form ─────────────────────────────────────────────────
+		const form = q<HTMLFormElement>('[data-req]', dialog);
+		const docsList = q<HTMLUListElement>('[data-req-docs]', dialog);
+		const legend = q<HTMLElement>('[data-req-legend]', dialog);
+		const docsError = q<HTMLElement>('#tcr-docs-error', dialog);
+		const done = q<HTMLElement>('[data-req-done]', dialog);
+		const doneTitle = q<HTMLElement>('[data-req-done-title]', dialog);
+		const doneText = q<HTMLElement>('[data-req-done-text]', dialog);
+		const fields = ['#tcr-first-name', '#tcr-last-name', '#tcr-email', '#tcr-company', '#tcr-message'].map((id) =>
+			q<FieldControl>(id, dialog)
+		);
+
+		function renderDocs() {
+			const list = order.filter((s) => picked.has(s));
+			legend.textContent = `Documents (${list.length})`;
+			docsList.replaceChildren(
+				...list.map((s) => {
+					const li = document.createElement('li');
+					li.className = 'tc-req__doc';
+					const name = document.createElement('span');
+					name.textContent = nameOf.get(s)!;
+					const remove = document.createElement('button');
+					remove.type = 'button';
+					remove.className = 'tc-req__remove';
+					remove.setAttribute('aria-label', `Remove ${nameOf.get(s)}`);
+					remove.textContent = '×';
+					remove.addEventListener('click', () => {
+						picked.delete(s);
+						sync();
+						(docsList.querySelector('button') ?? fields[0]).focus();
+					});
+					li.append(name, remove);
+					return li;
+				})
+			);
+			if (list.length) docsError.hidden = true;
+		}
+
+		const REQUIRED: Record<string, string> = {
+			firstName: 'Enter your first name.',
+			lastName: 'Enter your last name.',
+			email: 'Enter your email so we can reply.',
+			company: "Enter the company you're asking for.",
+		};
+		const check = (el: FieldControl): Problem => {
+			const value = el.value.trim();
+			if (el.name === 'message') return null;
+			if (!value) return { kind: 'required', message: REQUIRED[el.name] };
+			if (el.name === 'email' && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/.test(value))
+				return { kind: 'format', message: 'Enter an email like name@company.com.' };
+			return null;
+		};
+		const attempt = wireValidation(fields, check);
+
+		q<HTMLButtonElement>('[data-request]').addEventListener('click', (e) => {
+			form.hidden = false;
+			done.hidden = true;
+			openDialog(dialog, { opener: e.currentTarget as HTMLElement, focus: fields[0] });
+		});
+
+		form.addEventListener('submit', (e) => {
+			e.preventDefault();
+			attempt();
+			const docsOk = picked.size > 0;
+			docsError.hidden = docsOk;
+			if (!validateAll(fields, check) || !docsOk) return;
+			doneText.textContent = `We'll email ${fields[2].value.trim()} our mutual NDA. Once it's signed, you get ${plural(picked.size)} within two business days.`;
+			form.hidden = true;
+			done.hidden = false;
+			doneTitle.focus();
+		});
+
+		// Once a request is sent, closing the dialog (its button, the ×, Escape) starts a fresh one.
+		q<HTMLButtonElement>('[data-req-close]', dialog).addEventListener('click', () => dialog.close());
+		dialog.addEventListener('close', () => {
+			if (done.hidden) return;
+			form.reset();
+			fields.forEach(clearFieldError);
+			picked.clear();
+			sync();
+		});
+
+		// ── Arriving ──────────────────────────────────────────────────────────
+		const wanted = new URL(location.href).searchParams.get('request');
+		if (wanted) add(wanted.split(','));
+		else sync();
+		filter();
+		// A row's address lands on it once the page has settled (the web font, the tray), not where the
+		// browser first put it, and not where a reload would restore the page to.
+		const target = rows.find((row) => `#${row.id}` === decodeURIComponent(location.hash));
+		if (target) {
+			history.scrollRestoration = 'manual';
+			const land = () => target.scrollIntoView({ block: 'start' });
+			land();
+			document.fonts.ready.then(land);
+			window.addEventListener('load', land, { once: true });
+		}
+	}
+</script>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	// One column that never grows past the page: the tray's names line is nowrap.
+	.tc-lib {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: $spacing-8;
+	}
+
+	// ── The pack ──
+	.tc-lib__pack {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		gap: $spacing-3 $spacing-5;
+		padding: $spacing-5 $spacing-6;
+		border-radius: $radius-lg;
+		background: color-mix(in srgb, var(--accent-fill) 7%, var(--color-bg));
+
+		@include media-down(md) {
+			grid-template-columns: auto minmax(0, 1fr);
+			padding: $spacing-4;
+
+			.tc-lib__pack-actions {
+				grid-column: 1 / -1;
+			}
+		}
+	}
+
+	.tc-lib__pack-icon,
+	.tc-lib__icon {
+		display: grid;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 12px;
+
+		svg {
+			width: 22px;
+			height: 22px;
+		}
+	}
+
+	.tc-lib__pack-icon {
+		background: var(--accent-fill);
+		color: #fff;
+	}
+
+	.tc-lib__pack-title {
+		@include type-tile;
+		margin: 0;
+	}
+
+	.tc-lib__pack-text {
+		@include type-small;
+		margin: $spacing-1 0 0;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-lib__pack-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-2;
+	}
+
+	// ── The tools ──
+	.tc-lib__tools {
+		display: grid;
+		gap: $spacing-4;
+	}
+
+	.tc-lib__types {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-2;
+	}
+
+	.tc-lib__search {
+		display: flex;
+		align-items: center;
+		gap: $spacing-2;
+		max-width: 420px;
+		min-height: 44px;
+		padding: 0 $spacing-3;
+		border: 1px solid #868d9a;
+		border-radius: $radius-md;
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+
+		svg {
+			width: 18px;
+			height: 18px;
+			flex: none;
+		}
+
+		input {
+			@include type-body;
+			width: 100%;
+			min-width: 0;
+			border: 0;
+			outline: none;
+			background: transparent;
+			color: var(--color-text);
+		}
+
+		&:focus-within {
+			border-color: var(--accent-fill);
+			outline: 3px solid color-mix(in srgb, var(--accent-fill) 18%, transparent);
+		}
+	}
+
+	// ── The list ──
+	.tc-lib__list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.tc-lib__row {
+		display: grid;
+		grid-template-columns: 40px minmax(0, 1fr) 128px 160px;
+		align-items: start;
+		gap: $spacing-2 $spacing-5;
+		margin: 0;
+		padding: $spacing-5 $spacing-3;
+		border-bottom: 1px solid var(--color-border-light);
+		scroll-margin-top: 160px;
+
+		&:target {
+			animation: tc-lib-mark 2.4s ease-out;
+		}
+
+		// On a phone the name and description take the width beside the icon, then the access tag and
+		// the action share one line under them.
+		@include media-down(md) {
+			grid-template-columns: 40px minmax(0, 1fr) auto;
+			align-items: center;
+			padding-inline: 0;
+
+			.tc-lib__icon {
+				align-self: start;
+			}
+
+			.tc-lib__main {
+				grid-column: 2 / -1;
+			}
+
+			.tc-lib__access {
+				grid-column: 2;
+				padding-top: 0;
+			}
+
+			.tc-lib__action {
+				grid-column: 3;
+			}
+		}
+	}
+
+	@keyframes tc-lib-mark {
+		0%,
+		40% {
+			background: color-mix(in srgb, var(--accent-fill) 12%, transparent);
+		}
+		100% {
+			background: transparent;
+		}
+	}
+
+	.tc-lib__icon {
+		background: color-mix(in srgb, var(--accent-fill) 10%, var(--color-bg));
+		color: var(--accent-ink);
+	}
+
+	.tc-lib__name {
+		@include type-tile;
+		margin: 0;
+	}
+
+	.tc-lib__text {
+		@include type-small;
+		margin: $spacing-1 0 0;
+		color: var(--color-text-secondary);
+
+		@include media-down(md) {
+			display: -webkit-box;
+			overflow: hidden;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 2;
+		}
+	}
+
+	.tc-lib__meta {
+		@include type-small;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0 $spacing-2;
+		margin: $spacing-2 0 0;
+		color: var(--color-text-muted);
+
+		span + span::before {
+			content: '·';
+			margin-right: $spacing-2;
+		}
+	}
+
+	.tc-lib__access {
+		padding-top: 3px;
+	}
+
+	.tc-lib__action {
+		display: flex;
+		justify-content: flex-end;
+
+		@include media-down(md) {
+			justify-content: flex-start;
+		}
+	}
+
+	// The add toggle: a secondary button that fills once added, its label and icon swapped by state.
+	.tc-lib__add {
+		@include type-small-strong;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		min-width: 152px;
+		height: 32px;
+		padding: 0 $spacing-3;
+		border: 1px solid var(--accent-fill);
+		border-radius: $radius-md;
+		background: var(--color-bg);
+		color: var(--accent-ink);
+		cursor: pointer;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		svg {
+			width: 16px;
+			height: 16px;
+		}
+
+		&:hover {
+			background: color-mix(in srgb, var(--accent-fill) 8%, var(--color-bg));
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--accent-fill);
+			outline-offset: 2px;
+		}
+
+		.tc-lib__add-on {
+			display: none;
+		}
+
+		&[aria-pressed='true'] {
+			background: var(--accent-fill);
+			color: #fff;
+
+			.tc-lib__add-on {
+				display: inline;
+			}
+
+			svg.tc-lib__add-on {
+				display: block;
+			}
+
+			.tc-lib__add-off {
+				display: none;
+			}
+		}
+	}
+
+	.tc-lib__empty-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-2;
+	}
+
+	.tc-lib__empty {
+		display: grid;
+		justify-items: start;
+		gap: $spacing-3;
+
+		&[hidden] {
+			display: none;
+		}
+
+		p {
+			@include type-body;
+			margin: 0;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	// ── The tray ──
+	.tc-lib__tray {
+		position: sticky;
+		bottom: $spacing-4;
+		z-index: 3;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: $spacing-3 $spacing-6;
+		padding: $spacing-3 $spacing-3 $spacing-3 $spacing-5;
+		border: 1px solid var(--accent-fill);
+		border-radius: $radius-lg;
+		background: var(--color-bg);
+		box-shadow: 0 8px 28px rgba(23, 24, 28, 0.14);
+
+		&[hidden] {
+			display: none;
+		}
+
+		// Clear of the chat launcher in the bottom-right corner.
+		@include media-down(md) {
+			bottom: 72px;
+			column-gap: $spacing-2;
+			padding: $spacing-3;
+		}
+	}
+
+	// Narrow enough that Clear and Request stay beside it on a phone; the names line truncates.
+	.tc-lib__tray-body {
+		min-width: 0;
+		flex: 1 1 100px;
+	}
+
+	.tc-lib__tray-count {
+		@include type-small-strong;
+		margin: 0;
+	}
+
+	.tc-lib__tray-nda {
+		@include media-down(md) {
+			display: none;
+		}
+	}
+
+	.tc-lib__tray-names {
+		@include type-small;
+		margin: 2px 0 0;
+		overflow: hidden;
+		color: var(--color-text-secondary);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.tc-lib__tray-actions {
+		display: flex;
+		gap: $spacing-2;
+	}
+
+	// ── The request dialog ──
+	.tc-req {
+		display: grid;
+		gap: $spacing-6;
+		text-align: left;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.tc-req__docs-set {
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.tc-req__legend {
+		@include type-small-strong;
+		margin-bottom: $spacing-2;
+		padding: 0;
+	}
+
+	.tc-req__docs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-2;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.tc-req__doc {
+		@include type-small;
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		margin: 0;
+		padding: 2px 2px 2px $spacing-3;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--accent-fill) 10%, var(--color-bg));
+		color: var(--color-text);
+	}
+
+	.tc-req__remove {
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		border: 0;
+		border-radius: 50%;
+		background: none;
+		color: var(--color-text-muted);
+		font-size: 18px;
+		line-height: 1;
+		cursor: pointer;
+
+		&:hover {
+			background: rgba(23, 24, 28, 0.08);
+			color: var(--color-text);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--accent-fill);
+		}
+	}
+
+	.tc-req__fields {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-4;
+
+		.tc-req__full {
+			grid-column: 1 / -1;
+		}
+
+		@media (max-width: 559px) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.tc-req__submit {
+		display: grid;
+		justify-items: start;
+		gap: $spacing-3;
+	}
+
+	.tc-req__note {
+		@include type-small;
+		margin: 0;
+		color: var(--color-text-muted);
+	}
+
+	.tc-req__done {
+		display: grid;
+		justify-items: center;
+		gap: $spacing-3;
+		padding: $spacing-4 0;
+		text-align: center;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.tc-req__done-icon {
+		width: 48px;
+		height: 48px;
+		color: #0d7a5f;
+	}
+
+	.tc-req__done-title {
+		@include type-tile-lg;
+		margin: 0;
+		outline: none;
+	}
+
+	.tc-req__done-text,
+	.tc-req__done-note {
+		@include type-small;
+		max-width: 40ch;
+		margin: 0;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-req__done-note {
+		color: var(--color-text-muted);
+	}
+</style>
