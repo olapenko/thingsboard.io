@@ -1,0 +1,73 @@
+---
+import { Icon } from 'astro-icon/components';
+import Link from '@components/ui/Link.astro';
+import { isOffSite, type Access } from '@data/trust-center/documents';
+import { newTabAttrs } from '@util/external-links';
+
+/**
+ * One document, the same everywhere it is listed (the hub, the Documents page, Cloud and
+ * On-premises): an access icon before its name (a globe for public, a lock for what has to be
+ * requested; the hover names it: Public, NDA required, Shared on request), and its actions at the end
+ * of the row. A public document is "View"; the others
+ * are "Request", straight to the contact form with the document ticked.
+ */
+
+export interface DocItemAction {
+	label: string;
+	href: string;
+	/** A link the draft left dead (`href="#"`): drawn, goes nowhere. */
+	dead?: boolean;
+}
+
+interface Props {
+	name: string;
+	/** Where the name goes (the document's page); a name without one is plain text. */
+	href?: string;
+	/** A line under the name, such as the category. */
+	meta?: string;
+	access: Access;
+	actions: DocItemAction[];
+	attrs?: Record<string, string | undefined>;
+}
+
+const { name, href, meta, access, actions, attrs = {} } = Astro.props;
+
+const ACCESS_NOTE: Record<Access, { icon: string; note: string }> = {
+	public: { icon: 'tabler:world', note: 'Public' },
+	nda: { icon: 'tabler:lock', note: 'NDA required' },
+	pending: { icon: 'tabler:lock', note: 'Shared on request' },
+};
+const badge = ACCESS_NOTE[access];
+---
+
+<li class="tc-doc" {...attrs}>
+	<div class="tc-doc__text">
+		<span class="tc-access">
+			<Icon name={badge.icon} aria-hidden="true" />
+			<span class="tc-access__tip">{badge.note}</span>
+		</span>
+		<span class="tc-doc__body">
+			{href ? (
+				<a class="tc-doc__name" href={href} {...newTabAttrs(isOffSite(href))}>
+					{name}
+				</a>
+			) : (
+				<span class="tc-doc__name">{name}</span>
+			)}
+			{meta && <span class="tc-doc__meta">{meta}</span>}
+		</span>
+	</div>
+	<div class="tc-doc__actions">
+		{actions.map((action) =>
+			action.dead ? (
+				<a class="tc-dead" href="#" data-dead aria-disabled="true">
+					{action.label}
+				</a>
+			) : (
+				<Link href={action.href} size="sm" external={isOffSite(action.href)} srSuffix={name}>
+					{action.label}
+				</Link>
+			)
+		)}
+	</div>
+</li>

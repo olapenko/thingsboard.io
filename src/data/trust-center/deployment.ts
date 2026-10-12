@@ -116,23 +116,23 @@ export const CLOUD_DOCS: DocRow[] = [
 	{
 		name: 'Terms of Use (North America and EU)',
 		access: 'public',
-		actions: [{ label: 'Open', href: '/products/paas/terms-of-use/' }],
+		actions: [{ label: 'View', href: '/products/paas/terms-of-use/' }],
 	},
 	{
 		name: 'Privacy Policy (North America and EU)',
 		access: 'public',
-		actions: [{ label: 'Open', href: '/products/paas/privacy-policy/' }],
+		actions: [{ label: 'View', href: '/products/paas/privacy-policy/' }],
 	},
 	{
 		name: 'Data Processing Addendum (DPA)',
 		access: 'public',
-		actions: [{ label: 'Open', href: '/products/paas/dpa/' }],
+		actions: [{ label: 'View', href: '/products/paas/dpa/' }],
 	},
-	{ name: 'Sub-processors', access: 'public', actions: [{ label: 'Open', href: tc('subprocessors') }] },
+	{ name: 'Sub-processors', access: 'public', actions: [{ label: 'View', href: tc('subprocessors') }] },
 	{
 		name: 'AWS attestations (SOC 2, ISO 27001)',
 		access: 'public',
-		actions: [{ label: 'Open', href: 'https://aws.amazon.com/artifact/' }],
+		actions: [{ label: 'View', href: 'https://aws.amazon.com/artifact/' }],
 	},
 	{
 		name: 'Business Continuity Plan',
@@ -225,17 +225,17 @@ export const ONPREM_DOCS: DocRow[] = [
 	{
 		name: 'Installation guides (Docker, Kubernetes, Ubuntu, cloud marketplaces)',
 		access: 'public',
-		actions: [{ label: 'Open', href: '/docs/pe/installation/' }],
+		actions: [{ label: 'View', href: '/docs/pe/installation/' }],
 	},
-	{ name: 'Release policy', access: 'public', actions: [{ label: 'Open', href: '/docs/pe/releases/release-policy/' }] },
-	{ name: 'Release notes', access: 'public', actions: [{ label: 'Open', href: '/docs/pe/releases/releases-table/' }] },
+	{ name: 'Release policy', access: 'public', actions: [{ label: 'View', href: '/docs/pe/releases/release-policy/' }] },
+	{ name: 'Release notes', access: 'public', actions: [{ label: 'View', href: '/docs/pe/releases/releases-table/' }] },
 	{
 		name: 'License server network requirements',
 		access: 'public',
-		actions: [{ label: 'Open', href: '#', dead: true }],
+		actions: [{ label: 'View', href: '#', dead: true }],
 	},
-	{ name: 'EULA and license terms', access: 'public', actions: [{ label: 'Open', href: '#', dead: true }] },
-	{ name: 'Support policy', access: 'public', actions: [{ label: 'Open', href: '#', dead: true }] },
+	{ name: 'EULA and license terms', access: 'public', actions: [{ label: 'View', href: '#', dead: true }] },
+	{ name: 'Support policy', access: 'public', actions: [{ label: 'View', href: '#', dead: true }] },
 ];
 
 /** On On-premises and Commitments alike. */

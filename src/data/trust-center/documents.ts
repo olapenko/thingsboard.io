@@ -287,3 +287,10 @@ export const NDA_DOC_OPTIONS: { value: string; label: string }[] = [
 	{ value: 'dpa-private-cloud', label: 'DPA for Private Cloud' },
 	{ value: 'private-cloud-architecture', label: 'Private Cloud cluster architecture and read-only metrics' },
 ];
+
+/** A document's action in a list: a public one is viewed, the rest are requested on the contact form. */
+export const docAction = (d: TcDoc): { label: string; href: string; dead?: boolean } => {
+	if (d.access !== 'public') return { label: 'Request', href: docActionHref(d) };
+	const href = d.url ?? d.file;
+	return href ? { label: 'View', href } : { label: 'View', href: '#', dead: true };
+};

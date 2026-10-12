@@ -1,87 +1,47 @@
 ---
-import { Icon } from 'astro-icon/components';
 import Button from '@components/ui/Button.astro';
-import Chip from '@components/ui/Chip.astro';
 import Field from '@components/ui/Field.astro';
 import Link from '@components/ui/Link.astro';
-import { DOC_GROUPS, HUB_DOCS, docHref, isOffSite } from '@data/trust-center/documents';
+import DocItem from '@components/TrustCenter/DocItem.astro';
+import { DOC_GROUPS, HUB_DOCS, docAction, docHref } from '@data/trust-center/documents';
 import { tc } from '@data/trust-center/nav';
-import { newTabAttrs } from '@util/external-links';
 
 /**
- * The hub's documents, as drafted: the filter field, All · Public · Under NDA, and the 18 documents
- * in their four groups, each group headed with its count. A row opens the file (public, "View"), the
- * page the document is ("View"), or the document's own page (NDA, "Request").
+ * The hub's documents, as drafted: the 18 documents in their four groups, each row the shared
+ * `DocItem` (the name opens the document's page, "View" the document, "Request" the contact form).
  *
- * The hub shows the highlights; the search happens on the Documents page. The field and the access
- * chips are one form that opens the library with the query (`?q=…&access=…`), where `DocLibrary`
- * applies it. The list here stays as it is.
+ * The hub shows the highlights; the search happens on the Documents page. The field is a form that
+ * opens the library with the query (`?q=…`), where `DocLibrary` applies it.
  */
 
-const FILTERS = [
-	{ value: 'all', label: 'All' },
-	{ value: 'public', label: 'Public' },
-	{ value: 'nda', label: 'Under NDA' },
-];
-
 const groups = DOC_GROUPS.map((name, i) => ({ name, docs: HUB_DOCS.filter((d) => d.group === i) }));
-
-const actionOf = (d: (typeof HUB_DOCS)[number]) => {
-	if (d.url) return { label: 'View', icon: isOffSite(d.url) ? 'tabler:arrow-up-right' : 'tabler:chevron-right' };
-	if (d.access === 'public') return { label: 'View', icon: 'tabler:arrow-up-right' };
-	return { label: 'Request', icon: 'tabler:lock' };
-};
 ---
 
 <div class="tc-hubdocs">
-	<form class="tc-toolbar" action={tc('documents')} method="get" data-hub-search>
+	<form class="tc-toolbar" action={tc('documents')} method="get" role="search">
 		<Field
 			name="q"
 			id="tc-hub-q"
-			label="Filter documents"
+			label="Search documents"
 			labelHidden
 			optional
-			placeholder="Filter documents…"
+			placeholder="Search documents, e.g. backup policy"
 			size="md"
 			class="tc-toolbar__search"
 			attrs={{ autocomplete: 'off' }}
 		/>
-		<ul class="tc-toolbar__filters" role="group" aria-label="Access level">
-			{FILTERS.map((f, i) => (
-				<li>
-					<Chip kind="toggle" size="sm" pressed={i === 0} attrs={{ 'data-hub-filter-value': f.value }}>
-						{f.label}
-					</Chip>
-				</li>
-			))}
-		</ul>
-		<input type="hidden" name="access" value="" data-hub-access />
-		<Button type="submit" size="md" variant="secondary" icon="tabler:search">
+		<Button type="submit" size="md" icon="tabler:search">
 			Search
 		</Button>
 	</form>
 	<div class="tc-docgroups">
 		{groups.map((group) => (
 			<section class="tc-docgroup">
-				<h3 class="tc-docgroup__title">
-					{group.name} <span class="tc-docgroup__count">· {group.docs.length}</span>
-				</h3>
-				<ul class="tc-docgroup__list">
-					{group.docs.map((d) => {
-						const href = d.file ?? docHref(d);
-						const action = actionOf(d);
-						return (
-							<li class="tc-docrow">
-								<a class="tc-docrow__link" href={href} {...newTabAttrs(isOffSite(href))}>
-									<span class="tc-docrow__name">{d.name}</span>
-									<span class:list={['tc-docrow__action', d.access === 'nda' && 'tc-docrow__action--nda']}>
-										{action.label}
-										<Icon name={action.icon} aria-hidden="true" />
-									</span>
-								</a>
-							</li>
-						);
-					})}
+				<h3 class="tc-docgroup__title">{group.name}</h3>
+				<ul class="tc-doclist">
+					{group.docs.map((d) => (
+						<DocItem name={d.name} href={docHref(d)} access={d.access} actions={[docAction(d)]} />
+					))}
 				</ul>
 			</section>
 		))}
@@ -90,22 +50,3 @@ const actionOf = (d: (typeof HUB_DOCS)[number]) => {
 		<Link href={tc('documents')}>All documents</Link>
 	</div>
 </div>
-
-<script>
-	// The access chips set the hidden field the form sends; "All" sends nothing.
-	document.querySelectorAll<HTMLFormElement>('[data-hub-search]').forEach((form) => {
-		const toggles = [...form.querySelectorAll<HTMLButtonElement>('[data-hub-filter-value]')];
-		const access = form.querySelector<HTMLInputElement>('[data-hub-access]');
-		toggles.forEach((button) => {
-			button.addEventListener('click', () => {
-				const value = button.dataset.hubFilterValue ?? 'all';
-				toggles.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
-				if (access) {
-					access.value = value === 'all' ? '' : value;
-					access.disabled = access.value === '';
-				}
-			});
-		});
-		if (access) access.disabled = true;
-	});
-</script>

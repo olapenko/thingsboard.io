@@ -1,18 +1,15 @@
 ---
-import { Icon } from 'astro-icon/components';
-import DataTable from '@components/DataTable.astro';
-import Link from '@components/ui/Link.astro';
-import StatusChip from '@components/TrustCenter/StatusChip.astro';
-import { isOffSite } from '@data/trust-center/documents';
+import DocItem from '@components/TrustCenter/DocItem.astro';
 import type { DocRow } from '@data/trust-center/deployment';
 
 /**
- * The deployment pages' document tables, as drafted: Document · Access · the action. A public
- * document opens (on the site or off it), an NDA one is requested on the contact form, and a link
- * the draft left dead stays a dead link.
+ * The deployment pages' documents, as drafted, in the same rows as everywhere else (`DocItem`): a
+ * public document opens (on the site or off it), an NDA one is requested on the contact form, and a
+ * link the draft left dead stays a dead link.
  */
 
 interface Props {
+	/** What the list is, for screen readers. */
 	caption: string;
 	rows: DocRow[];
 }
@@ -20,34 +17,8 @@ interface Props {
 const { caption, rows } = Astro.props;
 ---
 
-<DataTable
-	caption={caption}
-	columns={[{ label: 'Document' }, { label: 'Access' }, { srLabel: 'Action' }]}
-	colgroup={false}
-	class="tc-doctable"
->
+<ul class="tc-doclist" aria-label={caption}>
 	{rows.map((row) => (
-		<tr>
-			<th scope="row">{row.name}</th>
-			<td>
-				<StatusChip tone={row.access === 'public' ? 'ok' : 'nda'}>
-					{row.access === 'public' ? 'Public' : 'NDA'}
-				</StatusChip>
-			</td>
-			<td class="tc-doctable__actions">
-				{row.actions.map((action) =>
-					action.dead ? (
-						<a class="tc-dead" href="#" data-dead aria-disabled="true">
-							{action.label}
-						</a>
-					) : (
-						<Link href={action.href} size="sm" external={isOffSite(action.href)}>
-							{action.label === 'Request' && <Icon name="tabler:lock" class="tc-lock" aria-hidden="true" />}
-							{action.label}
-						</Link>
-					)
-				)}
-			</td>
-		</tr>
+		<DocItem name={row.name} access={row.access} actions={row.actions} />
 	))}
-</DataTable>
+</ul>

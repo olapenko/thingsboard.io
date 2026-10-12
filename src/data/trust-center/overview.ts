@@ -174,7 +174,7 @@ export const DEPLOYMENT_CARDS: DeploymentCard[] = [
 	},
 ];
 
-export const HUB_DOCUMENTS_INTRO = `Public documents are open to everyone. Documents that describe our weak spots, such as the Statement of Applicability and the pentest summary, are shared under a mutual NDA. See also the <a href="${tc('subprocessors')}">list of sub-processors</a>.`;
+export const HUB_DOCUMENTS_INTRO = `Public documents are open to everyone. Documents that describe our weak spots, such as the Statement of Applicability and the pentest summary, are shared under a mutual NDA.`;
 
 export const VULNERABILITY_BANNER = {
 	title: 'Found a vulnerability?',

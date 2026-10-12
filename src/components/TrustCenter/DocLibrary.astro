@@ -1,15 +1,13 @@
 ---
-import { Icon } from 'astro-icon/components';
 import Chip from '@components/ui/Chip.astro';
 import Field from '@components/ui/Field.astro';
-import StatusChip from '@components/TrustCenter/StatusChip.astro';
-import { ACCESS_LABEL, DOCS, docHref, isOffSite, type Access } from '@data/trust-center/documents';
-import { newTabAttrs } from '@util/external-links';
+import DocItem from '@components/TrustCenter/DocItem.astro';
+import { DOCS, docAction, docHref } from '@data/trust-center/documents';
 
 /**
  * The Documents page's library, as drafted: a filter field, the access filters (Questionnaires
- * filters by category, the others by access) and one flat list of all 20 documents, each a link to
- * its page ("Details") or, for a document that is a page already, to that page ("View").
+ * filters by category, the others by access) and one flat list of all 20 documents, each row the
+ * shared `DocItem` with the category under the name.
  */
 
 const FILTERS = [
@@ -19,7 +17,6 @@ const FILTERS = [
 	{ value: 'pending', label: 'Planned' },
 	{ value: 'qnr', label: 'Questionnaires' },
 ];
-const TONE: Record<Access, 'ok' | 'nda' | 'warn'> = { public: 'ok', nda: 'nda', pending: 'warn' };
 ---
 
 <div class="tc-library" data-doc-filter>
@@ -27,10 +24,10 @@ const TONE: Record<Access, 'ok' | 'nda' | 'warn'> = { public: 'ok', nda: 'nda', 
 		<Field
 			name="q"
 			id="tc-library-q"
-			label="Filter documents"
+			label="Search documents"
 			labelHidden
 			optional
-			placeholder="Filter documents…"
+			placeholder="Search documents, e.g. backup policy"
 			size="md"
 			class="tc-toolbar__search"
 			attrs={{ 'data-doc-query': '', autocomplete: 'off' }}
@@ -46,30 +43,20 @@ const TONE: Record<Access, 'ok' | 'nda' | 'warn'> = { public: 'ok', nda: 'nda', 
 		</ul>
 	</div>
 	<ul class="tc-doclist" data-doc-list>
-		{DOCS.map((d) => {
-			const href = docHref(d);
-			const offSite = isOffSite(href);
-			return (
-				<li
-					class="tc-doclist__row"
-					data-access={d.access}
-					data-category={d.category}
-					data-text={`${d.name} ${d.category}`.toLowerCase()}
-				>
-					<a class="tc-doclist__link" href={href} {...newTabAttrs(offSite)}>
-						<span class="tc-doclist__text">
-							<span class="tc-doclist__name">{d.name}</span>
-							<span class="tc-doclist__cat">{d.category}</span>
-						</span>
-						<StatusChip tone={TONE[d.access]}>{ACCESS_LABEL[d.access]}</StatusChip>
-						<span class="tc-doclist__action">
-							{d.url ? 'View' : 'Details'}
-							<Icon name={offSite ? 'tabler:arrow-up-right' : 'tabler:chevron-right'} aria-hidden="true" />
-						</span>
-					</a>
-				</li>
-			);
-		})}
+		{DOCS.map((d) => (
+			<DocItem
+				name={d.name}
+				href={docHref(d)}
+				meta={d.category}
+				access={d.access}
+				actions={[docAction(d)]}
+				attrs={{
+					'data-access': d.access,
+					'data-category': d.category,
+					'data-text': `${d.name} ${d.category}`.toLowerCase(),
+				}}
+			/>
+		))}
 	</ul>
 	<p class="tc-empty" data-doc-empty hidden>
 		Nothing matches that filter.
@@ -82,7 +69,7 @@ const TONE: Record<Access, 'ok' | 'nda' | 'warn'> = { public: 'ok', nda: 'nda', 
 	document.querySelectorAll<HTMLElement>('[data-doc-filter]').forEach((root) => {
 		const query = root.querySelector<HTMLInputElement>('[data-doc-query]');
 		const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-doc-filter-value]')];
-		const rows = [...root.querySelectorAll<HTMLElement>('.tc-doclist__row')];
+		const rows = [...root.querySelectorAll<HTMLElement>('.tc-doc')];
 		const empty = root.querySelector<HTMLElement>('[data-doc-empty]');
 		let filter = 'all';
 
