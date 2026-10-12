@@ -78,7 +78,7 @@ export interface LibraryDoc {
 	href?: string;
 	/** A provider's document, not ours: who publishes it. */
 	provider?: string;
-	/** A certificate's issue date, as a reader reads it ("Sep 2026"). */
+	/** A certificate's issue date, as a reader reads it ("September 2026"): the end of its description. */
 	issued?: string;
 	/** Not written yet: sent on request once it is. */
 	planned?: boolean;
@@ -160,7 +160,20 @@ const NAME: Record<string, string> = {
 	'data-protection-policy': 'Data Protection Policy',
 };
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS = [
+	'January',
+	'February',
+	'March',
+	'April',
+	'May',
+	'June',
+	'July',
+	'August',
+	'September',
+	'October',
+	'November',
+	'December',
+];
 /** The draft keeps a certificate's issue date as its version, "09.09.2026". */
 const issuedOf = (version: string) => {
 	const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(version);
@@ -184,7 +197,7 @@ const FROM_DOCS: LibraryDoc[] = DOCS.map((d) => ({
 const dataCenters = (slug: string, provider: string, name: string, href: string): LibraryDoc => ({
 	slug,
 	name: `${name} data center certifications`,
-	description: `${provider}'s own certifications (ISO 27001, PCI DSS and others) for the data centers a Private Cloud on ${name} runs in. They cover ${provider}, not ThingsBoard.`,
+	description: `${provider}'s own certifications (ISO 27001, PCI DSS and others) for its data centers, where a Private Cloud on ${name} runs.`,
 	tier: 'open',
 	type: 'certificates',
 	appliesTo: ['private-cloud'],
@@ -198,8 +211,7 @@ const EXTRA_DOCS: LibraryDoc[] = [
 	{
 		slug: 'aws-attestations',
 		name: 'AWS attestations (SOC 2, ISO 27001)',
-		description:
-			'The reports AWS publishes for the infrastructure ThingsBoard Cloud runs on, in AWS Artifact. They cover AWS, not ThingsBoard.',
+		description: "AWS's own reports on the infrastructure ThingsBoard Cloud runs on, in AWS Artifact.",
 		tier: 'open',
 		type: 'certificates',
 		appliesTo: ['cloud'],

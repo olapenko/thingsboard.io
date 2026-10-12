@@ -41,7 +41,7 @@ export const TC_FAQ = [
 			{
 				id: 'iso-scope',
 				question: 'What does your ISO/IEC 27001 certificate cover?',
-				answer: `<p>How we build and run ThingsBoard, not a customer's own installation. ${a(`${tc('compliance')}#what-it-covers`, 'What it covers')}</p>`,
+				answer: `<p>How we build and run ThingsBoard. A customer's own installation is outside its scope. ${a(`${tc('compliance')}#what-it-covers`, 'What it covers')}</p>`,
 			},
 			{
 				id: 'certify-own',

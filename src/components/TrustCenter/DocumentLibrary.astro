@@ -270,33 +270,22 @@ const FOR_FACETS = [
 										</span>
 									)}
 								</h3>
-								<p class="tc-lib__text">{d.description}</p>
-								<div class="tc-lib__tags">
-									<Chip kind="tag" tone="accent">
-										{TYPE[d.type].one}
-									</Chip>
-									{d.appliesTo.map((a) => (
-										<Chip kind="tag" tone="neutral" look="outline" icon={DEPLOYMENT[a].icon}>
-											{DEPLOYMENT[a].label}
-										</Chip>
-									))}
-									{d.issued && (
-										<Chip kind="tag" tone="neutral" look="outline">
-											Issued {d.issued}
-										</Chip>
-									)}
-									{d.planned && (
-										<Chip kind="tag" tone="neutral" look="dashed">
-											Planned
-										</Chip>
-									)}
-									{d.provider && (
-										<Chip kind="tag" tone="neutral" look="outline">
-											By {d.provider}
-										</Chip>
-									)}
-								</div>
+								<p class="tc-lib__text">
+									{d.description}
+									{d.issued && ` Issued ${d.issued}.`}
+								</p>
 							</div>
+							<ul class="tc-lib__facts" role="list">
+								<li class="tc-lib__fact tc-lib__fact--type">{TYPE[d.type].one}</li>
+								{d.appliesTo.map((a) => (
+									<li class="tc-lib__fact">
+										<Icon name={DEPLOYMENT[a].icon} aria-hidden="true" />
+										{DEPLOYMENT[a].label}
+									</li>
+								))}
+								{d.planned && <li class="tc-lib__fact">Planned</li>}
+								{d.provider && <li class="tc-lib__fact">By {d.provider}</li>}
+							</ul>
 							<div class="tc-lib__act">
 								{tier ? (
 									<Button
@@ -1046,12 +1035,24 @@ const FOR_FACETS = [
 		list-style: none;
 	}
 
-	// The document, then at the end what you do with it: Open or Request, one size, one column.
+	// The document, then at the end what you do with it: Open or Request, one size, one column. Its
+	// facts (type, deployments) sit under the description; with the chip filters, where the list has
+	// the page's width, they take a column of their own between the text and the action.
 	.tc-lib__row {
 		display: grid;
+		grid-template-areas:
+			'main act'
+			'facts act';
 		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: start;
-		gap: $spacing-3 $spacing-6;
+		gap: $spacing-2 $spacing-6;
+
+		@include media-up(md) {
+			:root:not([data-tc-filters='rail']) & {
+				grid-template-areas: 'main facts act';
+				grid-template-columns: minmax(0, 1fr) 152px auto;
+			}
+		}
 		margin: 0;
 		padding: $spacing-4 0;
 		border-bottom: 1px solid var(--color-border-light);
@@ -1143,11 +1144,51 @@ const FOR_FACETS = [
 		}
 	}
 
-	.tc-lib__tags {
+	.tc-lib__main {
+		grid-area: main;
+		min-width: 0;
+	}
+
+	.tc-lib__act {
+		grid-area: act;
+	}
+
+	// The facts: quiet text, no chips. The type in the text's grey, a deployment with its filter's
+	// icon in the muted grey; in a line under the description, or a stack in their own column.
+	.tc-lib__facts {
+		@include type-small;
+		grid-area: facts;
 		display: flex;
 		flex-wrap: wrap;
-		gap: $spacing-1 $spacing-2;
-		margin-top: $spacing-2;
+		gap: 2px $spacing-4;
+		margin: 0;
+		padding: 0;
+		color: var(--color-text-muted);
+		list-style: none;
+
+		@include media-up(md) {
+			:root:not([data-tc-filters='rail']) & {
+				flex-direction: column;
+				padding-top: 3px;
+			}
+		}
+	}
+
+	.tc-lib__fact {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		margin: 0;
+
+		svg {
+			flex: none;
+			width: 15px;
+			height: 15px;
+		}
+	}
+
+	.tc-lib__fact--type {
+		color: var(--color-text-secondary);
 	}
 
 	.tc-lib__empty {
