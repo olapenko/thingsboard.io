@@ -10,19 +10,21 @@ export const OVERVIEW_LEDE =
 export const DEPLOYMENTS_LEAD =
 	'Whether you use ThingsBoard Cloud, Private Cloud or run the platform on-premises, you get the same security features and the same engineering practices behind every release.';
 
-/** The hub's certification cards. They are not links in the draft. */
+/** The hub's certifications, in the hero: each seal a link to its certificate's page. */
 export const HUB_CERTIFICATIONS = [
 	{
 		title: 'ISO/IEC 27001:2022',
 		number: '27001',
 		issued: '9 Sep 2026',
 		registration: '372-02-270-00460',
+		href: tc('compliance/iso-27001'),
 	},
 	{
 		title: 'ISO 9001:2015',
 		number: '9001',
 		issued: '9 Sep 2026',
 		registration: '372-02-100-02170',
+		href: tc('compliance/iso-9001'),
 	},
 ];
 
