@@ -1,0 +1,130 @@
+---
+/**
+ * TEMP-FEATURE-SWITCH: a page's features under test, in the dev server only (a page renders it under
+ * `import.meta.env.DEV`; its style and script are inline, so a build has none of it).
+ *
+ * It sits right above the version switch (`VersionSwitch`, whose classes it shares, so the two read
+ * as one stack in the corner) and holds one group per feature: its name, then its versions. Picking
+ * one sets `data-tc-<feature>="<version>"` on `<html>`, which the page's styles read; the first
+ * version is the page's default, the one it has with no attribute at all, so a build shows that one.
+ * Remembered per feature in `localStorage` and set before paint, so a reload does not flash the
+ * default first.
+ */
+export interface Feature {
+	id: string;
+	label: string;
+	/** The first is the default. */
+	options: { value: string; label: string }[];
+}
+
+interface Props {
+	features: Feature[];
+}
+
+const { features } = Astro.props;
+const data = features.map((f) => ({ id: f.id, values: f.options.map((o) => o.value) }));
+---
+
+<div class="tcv tcv--features" data-tcf>
+	<script is:inline type="application/json" data-tcf-data set:html={JSON.stringify(data)}></script>
+	<script is:inline>
+		(function (features) {
+			features.forEach(function (f) {
+				var v = null;
+				try {
+					v = localStorage.getItem('tc-feature:' + f.id);
+				} catch {
+					// No storage: the default.
+				}
+				document.documentElement.setAttribute('data-tc-' + f.id, f.values.indexOf(v) >= 0 ? v : f.values[0]);
+			});
+		})(JSON.parse(document.currentScript.previousElementSibling.textContent));
+	</script>
+	<div class="tcv__bar" role="group" aria-label="Page features">
+		{features.map((f, i) => (
+			<>
+				{i > 0 && <span class="tcv__sep" aria-hidden="true" />}
+				<span class="tcv__caption" id={`tcf-${f.id}`}>
+					{f.label}
+				</span>
+				<span class="tcv__group" role="group" aria-labelledby={`tcf-${f.id}`}>
+					{f.options.map((o) => (
+						<button
+							type="button"
+							class="tcv__link"
+							data-tcf-feature={f.id}
+							data-tcf-value={o.value}
+							aria-pressed="false"
+						>
+							{o.label}
+						</button>
+					))}
+				</span>
+			</>
+		))}
+	</div>
+
+	<style is:inline>
+		.tcv--features .tcv__bar {
+			bottom: calc(12px + 36px + 8px + var(--tcv-lift, 0px));
+		}
+		/* Folding the version switch folds this one too: the corner is clear for the page under it. */
+		:root:has(.tcv[data-open='false']) .tcv--features .tcv__bar {
+			opacity: 0;
+			visibility: hidden;
+			pointer-events: none;
+		}
+		.tcv__group {
+			display: flex;
+			gap: 2px;
+		}
+		button.tcv__link {
+			border: 0;
+			background: none;
+			cursor: pointer;
+		}
+		button.tcv__link[aria-pressed='true'] {
+			background: var(--tcv-accent);
+			color: #fff;
+		}
+	</style>
+
+	<script is:inline>
+		(function () {
+			const root = document.querySelector('[data-tcf]');
+			if (!root) return;
+			const buttons = [...root.querySelectorAll('[data-tcf-feature]')];
+			const mark = () =>
+				buttons.forEach((b) =>
+					b.setAttribute(
+						'aria-pressed',
+						String(document.documentElement.getAttribute(`data-tc-${b.dataset.tcfFeature}`) === b.dataset.tcfValue)
+					)
+				);
+			buttons.forEach((b) =>
+				b.addEventListener('click', () => {
+					document.documentElement.setAttribute(`data-tc-${b.dataset.tcfFeature}`, b.dataset.tcfValue);
+					try {
+						localStorage.setItem(`tc-feature:${b.dataset.tcfFeature}`, b.dataset.tcfValue);
+					} catch {
+						// The choice lasts this page only.
+					}
+					mark();
+				})
+			);
+			mark();
+
+			// The cookie card holds this corner until a choice is made: stand above it, come down after.
+			const card = document.querySelector('#cookie-consent .cc__card');
+			if (card) {
+				const lift = () => {
+					const up = document.documentElement.hasAttribute('data-cc-card') && !card.hidden;
+					root.style.setProperty('--tcv-lift', up ? `${Math.ceil(card.getBoundingClientRect().height) + 16}px` : '0px');
+				};
+				lift();
+				new ResizeObserver(lift).observe(card);
+				new MutationObserver(lift).observe(document.documentElement, { attributeFilter: ['data-cc-card'] });
+			}
+		})();
+	</script>
+</div>

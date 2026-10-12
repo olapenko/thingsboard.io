@@ -1,43 +1,40 @@
 import { DOCS } from '@data/trust-center/documents';
 import { tc } from '@data/trust-center/nav';
-import { ACCESS, type TagLook } from '@data/trust-center/status';
+import type { TagLook } from '@data/trust-center/status';
 
 /**
- * PROPOSED: the document library as the review of 2026-10-12 suggests it, beside the current one
- * (`/trust-center/documents/proposed/`). It reads the same `DOCS` and adds only what the proposal
- * needs, so the two libraries cannot drift apart while both exist:
+ * The Trust Center's document library (`/trust-center/documents/`), from the review of 2026-10-12.
+ * It reads the draft's `DOCS` and adds what the library needs:
  *
- * - ONE taxonomy, by what a document IS (`DOC_TYPES`), replacing the four groups and the seven
+ * - ONE taxonomy, by what a document IS (`DOC_TYPES`), replacing the draft's four groups and seven
  *   categories, which crossed topic (Security, Governance) with type (Reports, Questionnaires).
  * - PRODUCT-WIDE: every document a security reviewer, auditor or lawyer would cite, whichever
  *   deployment it concerns, including the ones the Cloud and On-premises pages listed on their own
- *   (`EXTRA_DOCS`). Product documentation (installation guides, release notes, network
- *   requirements, configuration guides) stays on the deployment pages as guides.
- * - APPLIES TO: each document names the deployments it concerns (`APPLIES_TO`); none means every
- *   deployment. Taken from where the deployment pages listed it; the owner to confirm.
- * - Two more access states: a hosting provider's attestation (`external`: theirs, not ours, so it
- *   never reads as a ThingsBoard SOC 2) and a document we have but have not published
- *   (`request`: asked for through the form, as the draft's "Ask for it" did).
- * - Search words a reader actually types (`KEYWORDS`): pentest, BCP, SoA, SOC 2.
- * - A clearer name for the internal data protection policy, which read as a second Privacy Policy.
- * - The vendor assessment pack: what an assessor asks for first, added in one click.
+ *   (`EXTRA_DOCS`). Product documentation stays on the deployment pages as guides.
+ * - APPLIES TO: the deployments a document concerns (`APPLIES_TO`); none means every deployment.
+ *   Taken from where the deployment pages listed it; the owner to confirm.
+ * - TIERS, not access states: a document opens (`open`: ours or a provider's page or file), or is
+ *   requested, either under a mutual NDA (`nda`) or simply sent on request (`request`, which a
+ *   planned document joins). The list marks the two requested tiers next to the name and says no
+ *   more; what each tier means is said once, on the request form.
+ * - No versions: they are the owner's bookkeeping, not the reader's. A certificate shows when it
+ *   was issued, the one date a reader acts on.
+ * - Search words readers type (`KEYWORDS`), a clearer name for the internal data protection policy,
+ *   and the vendor assessment pack.
  *
- * No document has a page of its own in this version: a public one opens its file or page, one under
- * NDA is added to the request, a planned or unpublished one is asked about, a provider's opens at
- * the provider. A row's address is `#<slug>`. New descriptions say only what the draft's names and
- * the deployment pages say.
+ * New descriptions say only what the draft's names and the deployment pages say.
  */
 
 export type DocType = 'certificates' | 'evidence' | 'policies' | 'legal' | 'questionnaires';
-export type LibraryAccess = 'public' | 'nda' | 'planned' | 'request' | 'external';
 export type Deployment = 'cloud' | 'private-cloud' | 'onprem';
+export type Tier = 'open' | 'request' | 'nda';
 
-export const DOC_TYPES: { id: DocType; label: string; icon: string }[] = [
-	{ id: 'certificates', label: 'Certificates', icon: 'tabler:certificate' },
-	{ id: 'evidence', label: 'Audit evidence', icon: 'tabler:clipboard-check' },
-	{ id: 'policies', label: 'Policies', icon: 'tabler:file-text' },
-	{ id: 'legal', label: 'Legal', icon: 'tabler:scale' },
-	{ id: 'questionnaires', label: 'Questionnaires', icon: 'tabler:list-check' },
+export const DOC_TYPES: { id: DocType; label: string; one: string }[] = [
+	{ id: 'certificates', label: 'Certificates', one: 'Certificate' },
+	{ id: 'evidence', label: 'Audit evidence', one: 'Audit evidence' },
+	{ id: 'policies', label: 'Policies', one: 'Policy' },
+	{ id: 'legal', label: 'Legal', one: 'Legal' },
+	{ id: 'questionnaires', label: 'Questionnaires', one: 'Questionnaire' },
 ];
 
 export const DEPLOYMENTS: { id: Deployment; label: string; short: string; icon: string }[] = [
@@ -46,31 +43,45 @@ export const DEPLOYMENTS: { id: Deployment; label: string; short: string; icon: 
 	{ id: 'onprem', label: 'On-premises', short: 'On-prem', icon: 'tabler:server' },
 ];
 
-export const LIBRARY_ACCESS: Record<LibraryAccess, TagLook> = {
-	...ACCESS,
-	request: { label: 'On request', icon: 'tabler:mail', look: 'dashed', tone: 'neutral' },
-	external: { label: 'Third party', icon: 'tabler:building', look: 'outline', tone: 'neutral' },
+/** The two requested tiers: the mark next to a name, its label (on hover, and read out), and what the form says. */
+export const TIERS: Record<Exclude<Tier, 'open'>, { label: string; icon: string; form: string; group: string }> = {
+	nda: {
+		label: 'Requires a mutual NDA',
+		icon: 'tabler:lock',
+		group: 'Under a mutual NDA',
+		form: "We send you our mutual NDA first. Once it's signed, you get these within two business days.",
+	},
+	request: {
+		label: 'Sent on request',
+		icon: 'tabler:mail',
+		group: 'Sent on request',
+		form: 'We send these to you directly, without an NDA.',
+	},
+};
+
+/** A requested tier as a tag, where a list shows tags rather than marks (the deployment pages). */
+export const TIER_TAG: Record<Exclude<Tier, 'open'>, TagLook> = {
+	nda: { label: 'NDA', icon: TIERS.nda.icon, look: 'outline', tone: 'neutral' },
+	request: { label: 'On request', icon: TIERS.request.icon, look: 'outline', tone: 'neutral' },
 };
 
 export interface LibraryDoc {
 	slug: string;
 	name: string;
 	description: string;
-	/** Shown when it says something: not "—", "current" or "living". */
-	version: string;
-	access: LibraryAccess;
+	tier: Tier;
 	type: DocType;
 	/** The deployments it concerns; empty: every deployment. */
 	appliesTo: Deployment[];
 	keywords: string;
-	/** What a public document opens: its file or its page. */
+	/** What an open document opens: its file or its page. */
 	href?: string;
-	/** Where a provider's attestation lives, one link per provider. */
-	links?: { label: string; href: string }[];
-	/** The contact form's subject for asking about it. */
-	askSubject?: string;
-	/** A third party's document: who publishes it. */
+	/** A provider's document, not ours: who publishes it. */
 	provider?: string;
+	/** A certificate's issue date, as a reader reads it ("Sep 2026"). */
+	issued?: string;
+	/** Not written yet: sent on request once it is. */
+	planned?: boolean;
 }
 
 const TYPE_OF: Record<string, DocType> = {
@@ -131,6 +142,17 @@ const KEYWORDS: Record<string, string> = {
 	'sub-processor-list': 'subprocessors vendors',
 	'caiq-lite': 'csa caiq questionnaire',
 	'sig-lite': 'sig shared assessments questionnaire',
+	'aws-attestations': 'aws soc 2 soc2 iso 27001 artifact hosting infrastructure',
+	'data-centers-aws': 'aws data center iso 27001 pci dss soc 2 hosting',
+	'data-centers-azure': 'azure microsoft data center iso 27001 pci dss soc 2 hosting',
+	'data-centers-gcp': 'gcp google cloud data center iso 27001 pci dss soc 2 hosting',
+	'private-cloud-architecture': 'architecture diagram metrics private cloud',
+	'release-policy': 'lts support window patch security fixes versions',
+	'support-policy': 'support sla response times plans',
+	'terms-of-use': 'terms of service tos contract',
+	'dpa-private-cloud': 'dpa private cloud processor gdpr',
+	'private-cloud-sla': 'sla uptime availability service credits',
+	eula: 'license agreement eula self-hosted',
 };
 
 /** Names that read better in a list of their own type. */
@@ -138,21 +160,38 @@ const NAME: Record<string, string> = {
 	'data-protection-policy': 'Data Protection Policy',
 };
 
-const hidden = new Set(['—', 'current', 'living']);
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** The draft keeps a certificate's issue date as its version, "09.09.2026". */
+const issuedOf = (version: string) => {
+	const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(version);
+	return m ? `${MONTHS[Number(m[2]) - 1]} ${m[3]}` : undefined;
+};
 
 /** From the draft's library (`DOCS`). */
 const FROM_DOCS: LibraryDoc[] = DOCS.map((d) => ({
 	slug: d.slug,
 	name: NAME[d.slug] ?? d.name,
 	description: d.description,
-	version: hidden.has(d.version) ? '' : d.version,
-	access: d.access,
+	tier: d.access === 'public' ? 'open' : d.access === 'nda' ? 'nda' : 'request',
 	type: TYPE_OF[d.slug] ?? 'policies',
 	appliesTo: APPLIES_TO[d.slug] ?? [],
 	keywords: KEYWORDS[d.slug] ?? '',
 	href: d.access === 'public' ? (d.f ?? d.u) : undefined,
-	askSubject: d.category === 'Questionnaires' ? 'questionnaire' : 'other',
+	issued: TYPE_OF[d.slug] === 'certificates' ? issuedOf(d.version) : undefined,
+	planned: d.access === 'planned' || undefined,
 }));
+
+const dataCenters = (slug: string, provider: string, name: string, href: string): LibraryDoc => ({
+	slug,
+	name: `${name} data center certifications`,
+	description: `${provider}'s own certifications (ISO 27001, PCI DSS and others) for the data centers a Private Cloud on ${name} runs in. They cover ${provider}, not ThingsBoard.`,
+	tier: 'open',
+	type: 'certificates',
+	appliesTo: ['private-cloud'],
+	keywords: KEYWORDS[slug] ?? '',
+	href,
+	provider,
+});
 
 /** What the deployment pages and the request form listed and the draft's library did not. */
 const EXTRA_DOCS: LibraryDoc[] = [
@@ -161,104 +200,80 @@ const EXTRA_DOCS: LibraryDoc[] = [
 		name: 'AWS attestations (SOC 2, ISO 27001)',
 		description:
 			'The reports AWS publishes for the infrastructure ThingsBoard Cloud runs on, in AWS Artifact. They cover AWS, not ThingsBoard.',
-		version: '',
-		access: 'external',
+		tier: 'open',
 		type: 'certificates',
 		appliesTo: ['cloud'],
+		keywords: KEYWORDS['aws-attestations'],
+		href: 'https://aws.amazon.com/artifact/',
 		provider: 'AWS',
-		keywords: 'aws soc 2 soc2 iso 27001 artifact hosting infrastructure',
-		links: [{ label: 'AWS Artifact', href: 'https://aws.amazon.com/artifact/' }],
 	},
-	{
-		slug: 'data-center-certifications',
-		name: 'Data center certifications (ISO 27001, PCI DSS)',
-		description:
-			"The cloud providers' own certifications for the data centers a Private Cloud runs in. They cover the provider, not ThingsBoard.",
-		version: '',
-		access: 'external',
-		type: 'certificates',
-		appliesTo: ['private-cloud'],
-		provider: 'AWS, Azure and GCP',
-		keywords: 'aws azure gcp data center iso 27001 pci dss soc 2 hosting',
-		links: [
-			{ label: 'AWS', href: 'https://aws.amazon.com/compliance/programs/' },
-			{ label: 'Azure', href: 'https://learn.microsoft.com/en-us/azure/compliance/' },
-			{ label: 'GCP', href: 'https://cloud.google.com/security/compliance' },
-		],
-	},
+	dataCenters('data-centers-aws', 'AWS', 'AWS', 'https://aws.amazon.com/compliance/programs/'),
+	dataCenters('data-centers-azure', 'Microsoft', 'Azure', 'https://learn.microsoft.com/en-us/azure/compliance/'),
+	dataCenters('data-centers-gcp', 'Google', 'Google Cloud', 'https://cloud.google.com/security/compliance'),
 	{
 		slug: 'private-cloud-architecture',
 		name: 'Private Cloud cluster architecture',
 		description: 'How a Private Cloud cluster is built, with its read-only metrics.',
-		version: '',
-		access: 'nda',
+		tier: 'nda',
 		type: 'evidence',
 		appliesTo: ['private-cloud'],
-		keywords: 'architecture diagram metrics private cloud',
+		keywords: KEYWORDS['private-cloud-architecture'],
 	},
 	{
 		slug: 'release-policy',
 		name: 'Release policy',
 		description: 'How long each release is supported, and how security fixes reach the releases you run.',
-		version: '',
-		access: 'public',
+		tier: 'open',
 		type: 'policies',
 		appliesTo: ['onprem'],
-		keywords: 'lts support window patch security fixes versions',
+		keywords: KEYWORDS['release-policy'],
 		href: '/docs/pe/releases/release-policy/',
 	},
 	{
 		slug: 'support-policy',
 		name: 'Support policy',
 		description: 'What support comes with each plan, and how to reach it.',
-		version: '',
-		access: 'request',
+		tier: 'request',
 		type: 'policies',
 		appliesTo: ['onprem'],
-		keywords: 'support sla response times plans',
-		askSubject: 'other',
+		keywords: KEYWORDS['support-policy'],
 	},
 	{
 		slug: 'terms-of-use',
 		name: 'Terms of Use (North America and EU)',
 		description: 'The terms for using ThingsBoard Cloud in North America and the EU.',
-		version: '',
-		access: 'public',
+		tier: 'open',
 		type: 'legal',
 		appliesTo: ['cloud'],
-		keywords: 'terms of service tos contract',
+		keywords: KEYWORDS['terms-of-use'],
 		href: '/products/paas/terms-of-use/',
 	},
 	{
 		slug: 'dpa-private-cloud',
 		name: 'DPA for Private Cloud',
 		description: 'The Data Processing Addendum for Private Cloud customers.',
-		version: '',
-		access: 'nda',
+		tier: 'nda',
 		type: 'legal',
 		appliesTo: ['private-cloud'],
-		keywords: 'dpa private cloud processor gdpr',
+		keywords: KEYWORDS['dpa-private-cloud'],
 	},
 	{
 		slug: 'private-cloud-sla',
 		name: 'Private Cloud SLA and service description',
 		description: 'The uptime formula, service credits and exclusions for Private Cloud.',
-		version: '',
-		access: 'request',
+		tier: 'request',
 		type: 'legal',
 		appliesTo: ['private-cloud'],
-		keywords: 'sla uptime availability service credits',
-		askSubject: 'cloud',
+		keywords: KEYWORDS['private-cloud-sla'],
 	},
 	{
 		slug: 'eula',
 		name: 'EULA and license terms',
 		description: 'The license agreement for running ThingsBoard on your own infrastructure.',
-		version: '',
-		access: 'public',
+		tier: 'open',
 		type: 'legal',
 		appliesTo: ['onprem'],
-		keywords: 'license agreement eula self-hosted',
+		keywords: KEYWORDS.eula,
 		href: '/legal/license-agreement/',
 	},
 ];
@@ -284,85 +299,20 @@ export const LIBRARY: LibraryDoc[] = [...FROM_DOCS, ...EXTRA_DOCS]
 	.sort((a, b) => order(a.d.type) - order(b.d.type) || a.i - b.i)
 	.map(({ d }) => d);
 
-/**
- * The contact form, asking about a document: a planned one by its slug (the form asks when it will
- * be available), an unpublished one by its name (the form asks for it).
- */
-export const askAbout = (d: LibraryDoc): string =>
-	d.access === 'planned'
-		? `${tc('contact')}?subject=${d.askSubject ?? 'other'}&docs=${d.slug}`
-		: `${tc('contact')}?subject=${d.askSubject ?? 'other'}&about=${encodeURIComponent(d.name)}`;
-
 /** The documents that concern this deployment alone or with others: not the ones for every deployment. */
 export const documentsFor = (deployment: Deployment): LibraryDoc[] =>
 	LIBRARY.filter((d) => d.appliesTo.includes(deployment));
 
-/** The proposed library's address, and a document's own address in it. */
-export const LIBRARY_PATH = `${tc('documents')}proposed/`;
+/** The library, and a requested document's own address: the library with it in the request. */
+export const LIBRARY_PATH = tc('documents');
 export const docPath = (slug: string): string => `${LIBRARY_PATH}${slug}/`;
 
 /** The library shown for one deployment. */
 export const libraryFor = (deployment: Deployment): string => `${LIBRARY_PATH}?for=${deployment}`;
 
-/** How a reader gets a document, in a few words under its action. */
-export const howToGet = (d: LibraryDoc): string =>
-	({
-		public: 'Public',
-		nda: 'Under mutual NDA',
-		request: 'Not published yet',
-		planned: 'Planned',
-		external: d.provider?.includes(',') ? "Each provider's own page" : `${d.provider}'s own report`,
-	})[d.access];
-
-/** The same, as a sentence, in a document's details. */
-export const howToGetSentence = (d: LibraryDoc): string =>
-	({
-		public: 'Public: open to everyone.',
-		nda: 'Under NDA: we send our mutual NDA first, then the documents within two business days.',
-		request: 'Not published on the site yet. Ask us for it.',
-		planned: 'Planned: not available yet. Ask us when it will be.',
-		external: `Published by ${d.provider}, not by ThingsBoard: it covers the provider's own infrastructure.`,
-	})[d.access];
-
-/** The deployments a document applies to, in words. */
-export const scopeOf = (
-	d: LibraryDoc,
-	words: { all: string; suffix: string } = { all: '', suffix: ' only' }
-): string => {
-	const names = d.appliesTo.map((a) => DEPLOYMENTS.find((x) => x.id === a)!.label);
-	return names.length ? `${names.join(' and ')}${words.suffix}` : words.all;
-};
-
-/** Where the Trust Center says more about what a document covers. */
-const COMPLIANCE = tc('compliance');
-const ISO_27001 = { label: 'ISO/IEC 27001 on the Compliance page', href: `${COMPLIANCE}#iso-27001` };
-const GDPR = { label: 'GDPR on the Compliance page', href: `${COMPLIANCE}#gdpr` };
-const DEV = { label: 'Dev security on the Security page', href: `${tc('security')}#dev` };
-const CLOUD = { label: 'Cloud and Private Cloud', href: tc('cloud') };
-const ONPREM = { label: 'On-premises', href: tc('onprem') };
-export const RELATED: Record<string, { label: string; href: string }> = {
-	'iso-27001-certificate': ISO_27001,
-	'iso-9001-certificate': { label: 'ISO 9001 on the Compliance page', href: `${COMPLIANCE}#iso-9001` },
-	'statement-of-applicability': ISO_27001,
-	'risk-assessment-report': ISO_27001,
-	'internal-audit-report-2026': ISO_27001,
-	'pentest-executive-summary': DEV,
-	'secure-development-policy': DEV,
-	'change-management-procedure': DEV,
-	'privacy-policy': GDPR,
-	'data-processing-addendum': GDPR,
-	'data-protection-policy': GDPR,
-	'aws-attestations': CLOUD,
-	'data-center-certifications': CLOUD,
-	'private-cloud-architecture': CLOUD,
-	'private-cloud-sla': CLOUD,
-	'dpa-private-cloud': CLOUD,
-	'bcp-drp': CLOUD,
-	'backup-policy': CLOUD,
-	'release-policy': ONPREM,
-	'support-policy': ONPREM,
-	eula: ONPREM,
-};
+/** The library with these documents in the request: how every other page asks for documents. */
+export const requestIn = (slugs: string[], deployment?: Deployment): string =>
+	`${LIBRARY_PATH}?${deployment ? `for=${deployment}&` : ''}request=${slugs.join(',')}${slugs.length === 1 ? `#${slugs[0]}` : ''}`;
 
 /** Product documentation the On-premises page listed with its documents: guides, not library rows. */
 export const ONPREM_PRODUCT_DOCS: { name: string; href?: string; askSubject?: string }[] = [

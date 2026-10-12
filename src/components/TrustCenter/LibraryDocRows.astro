@@ -2,18 +2,18 @@
 import ItemList, { type Item, type ItemAction } from '@components/TrustCenter/ItemList.astro';
 import Link from '@components/ui/Link.astro';
 import {
-	askAbout,
 	DEPLOYMENTS,
-	LIBRARY_ACCESS,
 	libraryFor,
+	requestIn,
+	TIER_TAG,
 	type Deployment,
 	type LibraryDoc,
-} from '@data/trust-center/documents-proposed';
+} from '@data/trust-center/library';
 
-// PROPOSED (review of 2026-10-12): a deployment page's documents as a view of the product-wide
-// library, not a list of its own. The rows are the library's documents for this deployment; one
-// under NDA is requested in the library, which opens with it added, and the link under the list
-// opens the library on this deployment, with the documents for every deployment too.
+// A deployment page's documents as a view of the library, not a list of its own. An open document
+// opens; a requested one is marked with its tier and requested in the library, which opens with it
+// ticked. The link under the list opens the library on this deployment, with the documents for every
+// deployment too.
 
 interface Props {
 	items: LibraryDoc[];
@@ -22,21 +22,22 @@ interface Props {
 
 const { items, deployment } = Astro.props;
 const label = DEPLOYMENTS.find((d) => d.id === deployment)?.label ?? '';
-const library = libraryFor(deployment);
 
-const actionsOf = (d: LibraryDoc): ItemAction[] => {
-	if (d.href) return [{ label: 'Open', href: d.href, external: /^https?:/.test(d.href) }];
-	if (d.links) return d.links.map((l) => ({ label: l.label, href: l.href, external: true }));
-	if (d.access === 'nda') return [{ label: 'Request', href: `${library}&request=${d.slug}#${d.slug}` }];
-	return [{ label: d.access === 'planned' ? 'Ask about it' : 'Ask for it', href: askAbout(d) }];
-};
+const actionsOf = (d: LibraryDoc): ItemAction[] =>
+	d.href
+		? [{ label: 'Open', href: d.href, external: /^https?:/.test(d.href) }]
+		: [{ label: 'Request', href: requestIn([d.slug], deployment) }];
 
-const rows: Item[] = items.map((d) => ({ title: d.name, tags: [LIBRARY_ACCESS[d.access]], actions: actionsOf(d) }));
+const rows: Item[] = items.map((d) => ({
+	title: d.name,
+	tags: d.tier === 'open' ? [] : [TIER_TAG[d.tier]],
+	actions: actionsOf(d),
+}));
 ---
 
 <ItemList items={rows} />
 <p class="tc-copy">
-	<Link href={library} size="sm">
+	<Link href={libraryFor(deployment)} size="sm">
 		All documents that apply to {label}
 	</Link>
 </p>

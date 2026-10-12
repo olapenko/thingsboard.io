@@ -2,250 +2,927 @@
 import { Icon } from 'astro-icon/components';
 import Button from '@components/ui/Button.astro';
 import Chip from '@components/ui/Chip.astro';
-import Link from '@components/ui/Link.astro';
-import Tag from '@components/TrustCenter/Tag.astro';
-import { askHref, DOC_GROUPS, DOCS, docHref, type TrustDoc } from '@data/trust-center/documents';
-import { tc } from '@data/trust-center/nav';
-import { ACCESS } from '@data/trust-center/status';
+import Dialog from '@components/ui/Dialog.astro';
+import Field from '@components/ui/Field.astro';
+import {
+	ASSESSMENT_PACK,
+	ASSESSMENT_PACK_SUMMARY,
+	DEPLOYMENTS,
+	DOC_TYPES,
+	LIBRARY,
+	LIBRARY_PATH,
+	TIERS,
+	type LibraryDoc,
+} from '@data/trust-center/library';
+import { NEW_TAB_NOTE, newTabAttrs } from '@util/external-links';
 
-// The document library: every document in one table, a body per group, with filters, and the
-// review's main build fix — requesting from the list. Tick the documents under NDA you need, then
-// one Request opens the form with them listed.
-//
-// The table carries what a document's own page says (its category and version, beside the
-// description and the access), so the list answers without opening each page. A document under NDA
-// leads its row with a checkbox; a public or planned one, which cannot be requested, leads with a
-// glyph of the same size (a file, a file with a clock), so every name starts on one line.
-//
-// It is a GET form to the contact page, so with no script the ticks still arrive (as repeated
-// `docs`); the script adds the filters, the count and the comma-joined address the other pages use.
+/**
+ * The document library (review of 2026-10-12, round 4).
+ *
+ * A ROW is the document and what it takes to get it, nothing else:
+ * - An OPEN document's name is its link, in the link colour, to its page or file (↗ when it leaves
+ *   the site). No button, no label: no mark means it opens.
+ * - A REQUESTED document has a checkbox in the lead column, its name is the checkbox's label, and a
+ *   mark sits after the name: a lock for a mutual NDA, an envelope for sent on request. The mark's
+ *   label shows on hover and is read out; the legend over the list says it for touch. What each tier
+ *   means is said once, on the request form, next to the documents it applies to.
+ * - Under two lines of description, ONE tag area: the type, the deployments when not every one (with
+ *   the deployment icons the Deployment filter uses), a certificate's issue date, Planned, and the
+ *   publisher when it is not ThingsBoard. No versions: they are internal.
+ *
+ * FILTERS come in two versions, switched by the internal controls (`FeatureSwitch`, `data-tc-filters`
+ * on `<html>`): CHIPS (the default) in two rows over the list, which keeps the list the page's full
+ * width, or a SIDEBAR in the rail, where other Trust Center pages keep "On this page", with two
+ * selects below 1024. Both drive one state: Type and Deployment, with counts that follow the other
+ * filter and the search.
+ *
+ * REQUESTING: ticked documents gather in a tray that rides the bottom of the screen; Request opens
+ * the form in a dialog with them listed by tier. Every other page asks for documents by linking here
+ * with them ticked (`requestIn`). A requested document's own address (`documents/<slug>/`) lands here
+ * with it ticked.
+ *
+ * STATE in the address, so back, reload and a shared link keep it: `?q=`, `type=`, `for=`,
+ * `request=a,b`; `#<slug>` lands on a row.
+ *
+ * PARKED (the user to decide): the vendor assessment pack's banner, off by default; the internal
+ * controls show it (`data-tc-pack="on"`).
+ */
 
-const FILTERS: { value: string; label: string }[] = [
-	{ value: 'all', label: 'All' },
-	{ value: 'public', label: 'Public' },
-	{ value: 'nda', label: 'Under NDA' },
-	{ value: 'planned', label: 'Planned' },
+interface Props {
+	/** The requested document whose address this is: it arrives in the request. */
+	open?: string;
+}
+
+const { open } = Astro.props;
+
+const TYPE = Object.fromEntries(DOC_TYPES.map((t) => [t.id, t]));
+const DEPLOYMENT = Object.fromEntries(DEPLOYMENTS.map((d) => [d.id, d]));
+const ndaCount = LIBRARY.filter((d) => d.tier === 'nda').length;
+const isExternal = (href: string) => /^https?:/.test(href);
+// Not the type's name: "audit" would find every piece of audit evidence. The type is the filter's job.
+const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, d.provider ?? ''].join(' ').toLowerCase();
+const countOf = (pred: (d: LibraryDoc) => boolean) => String(LIBRARY.filter(pred).length);
+
+const TYPE_FACETS = [
+	{ value: 'all', label: 'All', count: String(LIBRARY.length) },
+	...DOC_TYPES.map((t) => ({ value: t.id, label: t.label, count: countOf((d) => d.type === t.id) })),
 ];
-
-const groups = [
-	...DOC_GROUPS.map((name, gi) => ({ name, docs: DOCS.filter((d) => d.group === gi) })),
-	{ name: 'Questionnaires', docs: DOCS.filter((d) => d.group === undefined) },
+const FOR_FACETS = [
+	{ value: 'all', label: 'All deployments', icon: undefined, count: String(LIBRARY.length) },
+	...DEPLOYMENTS.map((d) => ({
+		value: d.id,
+		label: d.label,
+		icon: d.icon,
+		count: countOf((x) => x.appliesTo.length === 0 || x.appliesTo.includes(d.id)),
+	})),
 ];
-
-// What a row offers beside its checkbox: open a public document, ask about a planned one.
-const actionOf = (d: TrustDoc): { label: string; href: string; external: boolean } | undefined => {
-	const open = d.access === 'public' ? (d.f ?? d.u) : undefined;
-	if (open) return { label: 'Open', href: open, external: /^https?:/.test(open) };
-	if (d.access === 'planned') return { label: 'Ask about it', href: askHref(d), external: false };
-	return undefined;
-};
-
-const GLYPH: Record<Exclude<TrustDoc['access'], 'nda'>, string> = {
-	public: 'tabler:file-text',
-	planned: 'tabler:file-time',
-};
-
-const slug = (name: string) => `lib-${name.replace(/\W+/g, '-').toLowerCase()}`;
 ---
 
-<form class="tc-library" method="get" action={tc('contact')} data-tc-library>
-	<input type="hidden" name="subject" value="nda" />
-
-	<div class="tc-library__tools">
-		<div class="tc-library__filters" role="group" aria-label="Show documents">
-			{FILTERS.map((f, i) => (
-				<Chip kind="toggle" size="sm" pressed={i === 0} attrs={{ 'data-filter': f.value }}>
-					{f.label}
-				</Chip>
-			))}
+<div
+	class="tc-lib"
+	data-tc-lib
+	data-pack={JSON.stringify(ASSESSMENT_PACK)}
+	data-open={open}
+	data-library={LIBRARY_PATH}
+>
+	{/* PARKED: shown only by the internal controls. */}
+	<div class="tc-lib__pack">
+		<span class="tc-lib__pack-icon" aria-hidden="true">
+			<Icon name="tabler:briefcase" />
+		</span>
+		<div class="tc-lib__pack-body">
+			<p class="tc-lib__pack-title">Preparing a vendor assessment?</p>
+			<p class="tc-lib__pack-text">Start with what assessors ask for first: {ASSESSMENT_PACK_SUMMARY}.</p>
 		</div>
-		<label class="tc-library__search">
-			<Icon name="tabler:search" aria-hidden="true" />
-			<span class="ui-sr">Filter documents by name</span>
-			<input type="search" placeholder="Filter by name" autocomplete="off" data-search />
-		</label>
+		<div class="tc-lib__pack-actions">
+			<Button size="sm" icon="tabler:plus" attrs={{ 'data-add-pack': '' }}>
+				Add these {ASSESSMENT_PACK.length}
+			</Button>
+			<Button variant="tertiary" size="sm" attrs={{ 'data-add-all': '' }}>
+				All {ndaCount} under NDA
+			</Button>
+		</div>
 	</div>
 
-	<table class="tc-doctable">
-		<caption class="ui-sr">Documents, by group, with their category, version and access</caption>
-		<colgroup>
-			<col class="tc-doctable__col-lead" />
-			<col />
-			<col class="tc-doctable__col-category" />
-			<col class="tc-doctable__col-version" />
-			<col class="tc-doctable__col-access" />
-			<col class="tc-doctable__col-action" />
-		</colgroup>
-		<thead>
-			<tr>
-				<th scope="col">
-					<span class="ui-sr">Request</span>
-				</th>
-				<th scope="col">Document</th>
-				<th scope="col">Category</th>
-				<th scope="col">Version</th>
-				<th scope="col">Access</th>
-				<th scope="col">
-					<span class="ui-sr">Action</span>
-				</th>
-			</tr>
-		</thead>
-		{groups.map((g) => (
-			<tbody data-group>
-				<tr class="tc-doctable__group">
-					<th scope="rowgroup" colspan="6" id={slug(g.name)}>
-						{g.name}
-					</th>
-				</tr>
-				{g.docs.map((d) => {
-					const action = actionOf(d);
+	<div class="tc-lib__layout">
+		<aside class="tc-lib__rail" aria-label="Filter documents">
+			<div class="tc-lib__rail-inner">
+				<p class="tc-aside__label" id="tc-lib-type">
+					Type
+				</p>
+				<ul class="tc-lib__facets" role="list" aria-labelledby="tc-lib-type">
+					{TYPE_FACETS.map((f) => (
+						<li>
+							<button
+								type="button"
+								class="tc-lib__facet"
+								data-facet="type"
+								data-value={f.value}
+								aria-pressed={f.value === 'all' ? 'true' : 'false'}
+							>
+								<span class="tc-lib__facet-label">{f.value === 'all' ? 'All documents' : f.label}</span>
+								<span class="tc-lib__count" data-count>
+									{f.count}
+								</span>
+							</button>
+						</li>
+					))}
+				</ul>
+				<p class="tc-aside__label" id="tc-lib-for">
+					Deployment
+				</p>
+				<ul class="tc-lib__facets" role="list" aria-labelledby="tc-lib-for">
+					{FOR_FACETS.map((f) => (
+						<li>
+							<button
+								type="button"
+								class="tc-lib__facet"
+								data-facet="for"
+								data-value={f.value}
+								aria-pressed={f.value === 'all' ? 'true' : 'false'}
+							>
+								{f.icon && <Icon name={f.icon} aria-hidden="true" />}
+								<span class="tc-lib__facet-label">{f.label}</span>
+								<span class="tc-lib__count" data-count>
+									{f.count}
+								</span>
+							</button>
+						</li>
+					))}
+				</ul>
+			</div>
+		</aside>
+
+		<div class="tc-lib__body">
+			<div class="tc-lib__tools">
+				<label class="tc-lib__search">
+					<Icon name="tabler:search" aria-hidden="true" />
+					<span class="ui-sr">Search documents</span>
+					<input type="search" placeholder="Search: pentest, SoA, DPA…" autocomplete="off" data-search />
+				</label>
+				<label class="tc-lib__select">
+					<span class="ui-sr">Type</span>
+					<select data-select="type">
+						{TYPE_FACETS.map((f) => (
+							<option value={f.value}>{f.value === 'all' ? 'All types' : f.label}</option>
+						))}
+					</select>
+					<Icon name="tabler:chevron-down" aria-hidden="true" />
+				</label>
+				<label class="tc-lib__select">
+					<span class="ui-sr">Deployment</span>
+					<select data-select="for">
+						{FOR_FACETS.map((f) => (
+							<option value={f.value}>{f.label}</option>
+						))}
+					</select>
+					<Icon name="tabler:chevron-down" aria-hidden="true" />
+				</label>
+			</div>
+
+			<div class="tc-lib__chips">
+				<div class="tc-lib__chip-row" role="group" aria-labelledby="tc-lib-chips-type">
+					<span class="tc-lib__chip-label" id="tc-lib-chips-type">
+						Type
+					</span>
+					<div class="tc-lib__chip-set">
+						{TYPE_FACETS.map((f) => (
+							<Chip
+								kind="toggle"
+								size="sm"
+								pressed={f.value === 'all'}
+								note={f.count}
+								attrs={{ 'data-facet': 'type', 'data-value': f.value }}
+							>
+								{f.label}
+							</Chip>
+						))}
+					</div>
+				</div>
+				<div class="tc-lib__chip-row" role="group" aria-labelledby="tc-lib-chips-for">
+					<span class="tc-lib__chip-label" id="tc-lib-chips-for">
+						Deployment
+					</span>
+					<div class="tc-lib__chip-set">
+						{FOR_FACETS.map((f) => (
+							<Chip
+								kind="toggle"
+								size="sm"
+								icon={f.icon}
+								pressed={f.value === 'all'}
+								note={f.count}
+								attrs={{ 'data-facet': 'for', 'data-value': f.value }}
+							>
+								{f.value === 'all' ? 'All' : f.label}
+							</Chip>
+						))}
+					</div>
+				</div>
+			</div>
+
+			<div class="tc-lib__result">
+				<p class="tc-lib__result-text" aria-live="polite" data-result>
+					{LIBRARY.length} documents
+				</p>
+				<button type="button" class="tc-lib__clear" hidden data-clear-filters>
+					Clear filters
+				</button>
+				<p class="tc-lib__legend">
+					<span>
+						<Icon name={TIERS.nda.icon} aria-hidden="true" />
+						{TIERS.nda.label}
+					</span>
+					<span>
+						<Icon name={TIERS.request.icon} aria-hidden="true" />
+						{TIERS.request.label}
+					</span>
+				</p>
+			</div>
+
+			<ul class="tc-lib__list" role="list">
+				{LIBRARY.map((d) => {
+					const external = d.href ? isExternal(d.href) : false;
+					const tier = d.tier === 'open' ? undefined : TIERS[d.tier];
 					return (
-						<tr class="tc-doctable__row" data-access={d.access} data-name={d.name.toLowerCase()}>
-							<td class="tc-doctable__lead">
-								{d.access === 'nda' ? (
+						<li
+							class="tc-lib__row"
+							id={d.slug}
+							data-type={d.type}
+							data-tier={d.tier}
+							data-applies={d.appliesTo.join(' ')}
+							data-search={haystack(d)}
+						>
+							<div class="tc-lib__lead">
+								{tier && (
 									<input
 										type="checkbox"
-										class="tc-doctable__pick"
-										name="docs"
-										value={d.slug}
+										class="tc-lib__pick"
 										id={`pick-${d.slug}`}
-										aria-label={`Request ${d.name}`}
+										value={d.slug}
+										data-pick
+										data-name={d.name}
+										data-tier={d.tier}
 									/>
-								) : (
-									<Icon name={GLYPH[d.access]} class="tc-doctable__glyph" aria-hidden="true" />
 								)}
-							</td>
-							<th scope="row" class="tc-doctable__doc">
-								<a class="tc-doctable__name" href={docHref(d)}>
-									{d.name}
-								</a>
-								<p class="tc-doctable__text">{d.description}</p>
-							</th>
-							<td class="tc-doctable__meta" data-label="Category">
-								{d.category}
-							</td>
-							<td class="tc-doctable__meta" data-label="Version">
-								{d.version}
-							</td>
-							<td class="tc-doctable__access">
-								<Tag tag={ACCESS[d.access]} />
-							</td>
-							<td class="tc-doctable__action">
-								{action && (
-									<Link href={action.href} size="sm" external={action.external} srSuffix={`: ${d.name}`}>
-										{action.label}
-									</Link>
-								)}
-							</td>
-						</tr>
+							</div>
+							<div class="tc-lib__main">
+								<h3 class="tc-lib__name">
+									{tier ? (
+										<label for={`pick-${d.slug}`}>{d.name}</label>
+									) : (
+										<a href={d.href} class="tc-lib__open" {...newTabAttrs(external)}>
+											{d.name}
+											{external && <Icon name="tabler:arrow-up-right" class="tc-lib__out" aria-hidden="true" />}
+											{external && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
+										</a>
+									)}
+									{tier && (
+										<span class="tc-lib__mark" title={tier.label}>
+											<Icon name={tier.icon} aria-hidden="true" />
+											<span class="ui-sr">{tier.label}</span>
+										</span>
+									)}
+								</h3>
+								<p class="tc-lib__text">{d.description}</p>
+								<div class="tc-lib__tags">
+									<Chip kind="tag" tone="accent">
+										{TYPE[d.type].one}
+									</Chip>
+									{d.appliesTo.map((a) => (
+										<Chip kind="tag" tone="neutral" look="outline" icon={DEPLOYMENT[a].icon}>
+											{DEPLOYMENT[a].label}
+										</Chip>
+									))}
+									{d.issued && (
+										<Chip kind="tag" tone="neutral" look="outline">
+											Issued {d.issued}
+										</Chip>
+									)}
+									{d.planned && (
+										<Chip kind="tag" tone="neutral" look="dashed">
+											Planned
+										</Chip>
+									)}
+									{d.provider && (
+										<Chip kind="tag" tone="neutral" look="outline">
+											By {d.provider}
+										</Chip>
+									)}
+								</div>
+							</div>
+						</li>
 					);
 				})}
-			</tbody>
-		))}
-	</table>
-	<p class="tc-copy" hidden data-empty>
-		No documents match. Clear the filter to see them all.
-	</p>
+			</ul>
+			<div class="tc-lib__empty" hidden data-empty>
+				<p>No documents match. If you need something that isn't listed, ask us.</p>
+				<div class="tc-lib__empty-actions">
+					<Button size="sm" href="/trust-center/contact/?subject=other" attrs={{ 'data-ask': '' }}>
+						Ask us
+					</Button>
+					<Button variant="secondary" size="sm" attrs={{ 'data-reset': '' }}>
+						Show all documents
+					</Button>
+				</div>
+			</div>
+		</div>
+	</div>
 
-	<div class="tc-library__request" data-request>
-		<p class="tc-library__count" aria-live="polite" data-count>
-			Tick the documents under NDA you need, and request them together.
+	<div class="tc-lib__tray" hidden data-tray>
+		<div class="tc-lib__tray-body">
+			<p class="tc-lib__tray-count" data-tray-count></p>
+			<p class="tc-lib__tray-names" data-names></p>
+		</div>
+		<div class="tc-lib__tray-actions">
+			<Button variant="tertiary" size="sm" accent="neutral" attrs={{ 'data-clear': '' }}>
+				Clear
+			</Button>
+			<Button size="sm" attrs={{ 'data-request': '' }}>
+				Request
+			</Button>
+		</div>
+	</div>
+</div>
+
+<Dialog
+	id="tc-request"
+	size="md"
+	title="Request documents"
+	lede="Tell us who you are, and we send you the documents below."
+>
+	<form class="tc-req" novalidate data-req>
+		<div class="tc-req__tiers" data-req-tiers></div>
+		<p class="ui-field__error" id="tcr-docs-error" hidden>
+			Select at least one document from the list.
 		</p>
-		<Button type="submit" size="sm" attrs={{ 'data-submit': '' }}>
-			Request documents
+		<div class="tc-req__fields">
+			<Field name="firstName" id="tcr-first-name" label="First name" maxLength={50} autocomplete="given-name" />
+			<Field name="lastName" id="tcr-last-name" label="Last name" maxLength={50} autocomplete="family-name" />
+			<Field
+				name="email"
+				id="tcr-email"
+				label="Work email"
+				type="email"
+				maxLength={80}
+				autocomplete="email"
+				inputmode="email"
+				attrs={{ autocapitalize: 'off', spellcheck: 'false' }}
+			/>
+			<Field name="company" id="tcr-company" label="Company" maxLength={80} autocomplete="organization" />
+			<Field
+				name="message"
+				id="tcr-message"
+				label="What it's for"
+				type="textarea"
+				rows={3}
+				optional
+				maxLength={1000}
+				counter
+				placeholder="The project or vendor assessment you need them for."
+				class="tc-req__full"
+			/>
+		</div>
+		<div class="tc-req__submit">
+			<Button type="submit" size="lg">
+				Send request
+			</Button>
+			{/* prettier-ignore */}
+			<p class="tc-req__note">We use these details only to answer your request. See our <a href="/products/paas/privacy-policy/">Privacy Policy</a>.</p>
+		</div>
+	</form>
+	<div class="tc-req__done" hidden data-req-done>
+		<Icon name="tabler:circle-check" class="tc-req__done-icon" aria-hidden="true" />
+		<h3 class="tc-req__done-title" tabindex="-1" data-req-done-title>
+			Request received
+		</h3>
+		<p class="tc-req__done-text" data-req-done-text></p>
+		<p class="tc-req__done-note">This prototype isn't connected, so nothing was sent.</p>
+		<Button variant="secondary" attrs={{ 'data-req-close': '' }}>
+			Back to the documents
 		</Button>
 	</div>
-</form>
+	<script is:inline type="application/json" data-tiers set:html={JSON.stringify(TIERS)}></script>
+</Dialog>
 
 <script>
-	document.querySelectorAll<HTMLFormElement>('[data-tc-library]').forEach((form) => {
-		const chips = [...form.querySelectorAll<HTMLButtonElement>('[data-filter]')];
-		const search = form.querySelector<HTMLInputElement>('[data-search]');
-		const count = form.querySelector<HTMLElement>('[data-count]');
-		const submit = form.querySelector<HTMLButtonElement>('[data-submit]');
-		const empty = form.querySelector<HTMLElement>('[data-empty]');
-		const picks = [...form.querySelectorAll<HTMLInputElement>('input[name="docs"]')];
-		let filter = 'all';
+	import { openDialog } from '@util/dialog';
+	import { clearFieldError, validateAll, wireValidation, type FieldControl, type Problem } from '@util/form-validate';
 
-		const render = () => {
-			const q = (search?.value ?? '').trim().toLowerCase();
+	type TierInfo = { label: string; group: string; form: string };
+
+	const root = document.querySelector<HTMLElement>('[data-tc-lib]');
+	const dialog = document.querySelector<HTMLDialogElement>('#tc-request');
+
+	if (root && dialog) {
+		const q = <T extends Element>(sel: string, from: ParentNode = root) => from.querySelector<T>(sel)!;
+		const rows = [...root.querySelectorAll<HTMLElement>('.tc-lib__row')];
+		const picks = [...root.querySelectorAll<HTMLInputElement>('[data-pick]')];
+		const facets = [...root.querySelectorAll<HTMLButtonElement>('[data-facet]')];
+		const selects = [...root.querySelectorAll<HTMLSelectElement>('[data-select]')];
+		const search = q<HTMLInputElement>('[data-search]');
+		const result = q<HTMLElement>('[data-result]');
+		const clearFilters = q<HTMLButtonElement>('[data-clear-filters]');
+		const empty = q<HTMLElement>('[data-empty]');
+		const ask = q<HTMLAnchorElement>('[data-ask]');
+		const tray = q<HTMLElement>('[data-tray]');
+		const trayCount = q<HTMLElement>('[data-tray-count]');
+		const names = q<HTMLElement>('[data-names]');
+		const nameOf = new Map(picks.map((p) => [p.value, p.dataset.name!]));
+		const tierOf = new Map(picks.map((p) => [p.value, p.dataset.tier as 'nda' | 'request']));
+		const order = picks.map((p) => p.value);
+		const TIERS = JSON.parse(q<HTMLElement>('[data-tiers]', dialog).textContent!) as Record<
+			'nda' | 'request',
+			TierInfo
+		>;
+		const LIBRARY_PATH = root.dataset.library!;
+
+		const picked = new Set<string>();
+		const state = { type: 'all', for: 'all' };
+		const plural = (n: number) => `${n} document${n === 1 ? '' : 's'}`;
+		const FOR_NAME: Record<string, string> = {
+			cloud: 'Cloud',
+			'private-cloud': 'Private Cloud',
+			onprem: 'On-premises',
+		};
+
+		// ── The address ───────────────────────────────────────────────────────
+		/** The query that keeps the list's state: the search, the filters and the request. */
+		const query = () =>
+			[
+				search.value.trim() ? `q=${encodeURIComponent(search.value.trim())}` : '',
+				state.type !== 'all' ? `type=${state.type}` : '',
+				state.for !== 'all' ? `for=${state.for}` : '',
+				picked.size ? `request=${order.filter((s) => picked.has(s)).join(',')}` : '',
+			]
+				.filter(Boolean)
+				.join('&');
+		const writeUrl = () => {
+			const params = query();
+			history.replaceState(history.state, '', `${LIBRARY_PATH}${params ? `?${params}` : ''}${location.hash}`);
+		};
+
+		// ── Filtering ─────────────────────────────────────────────────────────
+		const words = () => search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+		const matches = (row: HTMLElement, by: { type: string; for: string; words: string[] }) =>
+			(by.type === 'all' || row.dataset.type === by.type) &&
+			(by.for === 'all' || !row.dataset.applies || row.dataset.applies.split(' ').includes(by.for)) &&
+			by.words.every((w) => row.dataset.search!.includes(w));
+
+		const filter = () => {
+			const w = words();
 			let shown = 0;
-			form.querySelectorAll<HTMLElement>('[data-group]').forEach((group) => {
-				let n = 0;
-				group.querySelectorAll<HTMLElement>('.tc-doctable__row').forEach((row) => {
-					const ok = (filter === 'all' || row.dataset.access === filter) && (!q || row.dataset.name!.includes(q));
-					row.hidden = !ok;
-					if (ok) n++;
-				});
-				group.hidden = n === 0;
-				shown += n;
+			rows.forEach((row) => {
+				const ok = matches(row, { ...state, words: w });
+				row.hidden = !ok;
+				if (ok) shown++;
 			});
-			if (empty) empty.hidden = shown > 0;
+			// Each filter's counts follow the other filter and the search, so a filter never promises rows it hides.
+			facets.forEach((f) => {
+				const facet = f.dataset.facet as 'type' | 'for';
+				const n = rows.filter((row) => matches(row, { ...state, [facet]: f.dataset.value!, words: w })).length;
+				const count = f.querySelector('[data-count], .ui-chip__note');
+				if (count) count.textContent = String(n);
+				f.classList.toggle('is-none', n === 0);
+				f.setAttribute('aria-pressed', String(state[facet] === f.dataset.value));
+			});
+			selects.forEach((s) => {
+				const facet = s.dataset.select as 'type' | 'for';
+				s.value = state[facet];
+				[...s.options].forEach((o) => {
+					const n = rows.filter((row) => matches(row, { ...state, [facet]: o.value, words: w })).length;
+					o.textContent = `${o.textContent!.replace(/ \(\d+\)$/, '')} (${n})`;
+				});
+			});
+			result.textContent = `${plural(shown)}${state.for !== 'all' ? ` for ${FOR_NAME[state.for]}` : ''}`;
+			clearFilters.hidden = state.type === 'all' && state.for === 'all' && w.length === 0;
+			empty.hidden = shown > 0;
+			// "Ask us" carries what was searched for, as the contact form's `about` prefill.
+			const asked = search.value.trim();
+			ask.href = `${ask.pathname}?subject=other${asked ? `&about=${encodeURIComponent(asked)}` : ''}`;
+			writeUrl();
 		};
 
+		const setFilter = (facet: 'type' | 'for', value: string) => {
+			state[facet] = value;
+			filter();
+		};
+		facets.forEach((f) =>
+			f.addEventListener('click', () => setFilter(f.dataset.facet as 'type' | 'for', f.dataset.value!))
+		);
+		selects.forEach((s) => s.addEventListener('change', () => setFilter(s.dataset.select as 'type' | 'for', s.value)));
+		search.addEventListener('input', filter);
+		const reset = () => {
+			search.value = '';
+			state.type = 'all';
+			state.for = 'all';
+			filter();
+			search.focus();
+		};
+		clearFilters.addEventListener('click', reset);
+		q<HTMLButtonElement>('[data-reset]').addEventListener('click', reset);
+
+		// ── The request ───────────────────────────────────────────────────────
 		const sync = () => {
-			const n = picks.filter((p) => p.checked).length;
-			if (count) {
-				count.textContent =
-					n === 0
-						? 'Tick the documents under NDA you need, and request them together.'
-						: `${n} document${n === 1 ? '' : 's'} selected.`;
-			}
-			if (submit) submit.disabled = n === 0;
-			form.classList.toggle('has-picks', n > 0);
+			picks.forEach((p) => (p.checked = picked.has(p.value)));
+			const list = order.filter((s) => picked.has(s)).map((s) => nameOf.get(s)!);
+			tray.hidden = list.length === 0;
+			trayCount.textContent = `${plural(list.length)} selected`;
+			names.textContent = list.join(' · ');
+			writeUrl();
+			renderDocs();
+		};
+		const add = (slugs: string[]) => {
+			slugs.forEach((s) => nameOf.has(s) && picked.add(s));
+			sync();
 		};
 
-		chips.forEach((chip) =>
-			chip.addEventListener('click', () => {
-				filter = chip.dataset.filter ?? 'all';
-				chips.forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
-				render();
+		picks.forEach((p) =>
+			p.addEventListener('change', () => {
+				if (p.checked) picked.add(p.value);
+				else picked.delete(p.value);
+				sync();
 			})
 		);
-		search?.addEventListener('input', render);
-		picks.forEach((p) => p.addEventListener('change', sync));
-
-		// The address the other pages link with: one `docs`, comma-joined.
-		form.addEventListener('submit', (e) => {
-			e.preventDefault();
-			const slugs = picks.filter((p) => p.checked).map((p) => p.value);
-			if (!slugs.length) return;
-			window.location.href = `${form.action}?subject=nda&docs=${slugs.map(encodeURIComponent).join(',')}`;
+		q<HTMLButtonElement>('[data-add-pack]').addEventListener('click', () => add(JSON.parse(root.dataset.pack ?? '[]')));
+		q<HTMLButtonElement>('[data-add-all]').addEventListener('click', () =>
+			add(order.filter((s) => tierOf.get(s) === 'nda'))
+		);
+		q<HTMLButtonElement>('[data-clear]').addEventListener('click', () => {
+			picked.clear();
+			sync();
 		});
 
-		sync();
-	});
+		// ── The request dialog's form: the documents by tier, each tier's terms said once ──
+		const form = q<HTMLFormElement>('[data-req]', dialog);
+		const tiersBox = q<HTMLElement>('[data-req-tiers]', dialog);
+		const docsError = q<HTMLElement>('#tcr-docs-error', dialog);
+		const done = q<HTMLElement>('[data-req-done]', dialog);
+		const doneTitle = q<HTMLElement>('[data-req-done-title]', dialog);
+		const doneText = q<HTMLElement>('[data-req-done-text]', dialog);
+		const fields = ['#tcr-first-name', '#tcr-last-name', '#tcr-email', '#tcr-company', '#tcr-message'].map((id) =>
+			q<FieldControl>(id, dialog)
+		);
+		const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string) => {
+			const node = document.createElement(tag);
+			node.className = className;
+			if (text) node.textContent = text;
+			return node;
+		};
+
+		function renderDocs() {
+			const groups = (['nda', 'request'] as const)
+				.map((tier) => ({ tier, slugs: order.filter((s) => picked.has(s) && tierOf.get(s) === tier) }))
+				.filter((g) => g.slugs.length);
+			tiersBox.replaceChildren(
+				...groups.map(({ tier, slugs }) => {
+					const set = el('fieldset', 'tc-req__tier');
+					set.append(
+						el('legend', 'tc-req__legend', `${TIERS[tier].group} (${slugs.length})`),
+						el('p', 'tc-req__terms', TIERS[tier].form)
+					);
+					const list = el('ul', 'tc-req__docs');
+					list.setAttribute('role', 'list');
+					slugs.forEach((s) => {
+						const li = el('li', 'tc-req__doc');
+						const remove = el('button', 'tc-req__remove', '×');
+						remove.setAttribute('type', 'button');
+						remove.setAttribute('aria-label', `Remove ${nameOf.get(s)}`);
+						remove.addEventListener('click', () => {
+							picked.delete(s);
+							sync();
+							(tiersBox.querySelector('button') ?? fields[0]).focus();
+						});
+						li.append(el('span', '', nameOf.get(s)), remove);
+						list.append(li);
+					});
+					set.append(list);
+					return set;
+				})
+			);
+			if (picked.size) docsError.hidden = true;
+		}
+
+		const REQUIRED: Record<string, string> = {
+			firstName: 'Enter your first name.',
+			lastName: 'Enter your last name.',
+			email: 'Enter your email so we can reply.',
+			company: "Enter the company you're asking for.",
+		};
+		const check = (field: FieldControl): Problem => {
+			const value = field.value.trim();
+			if (field.name === 'message') return null;
+			if (!value) return { kind: 'required', message: REQUIRED[field.name] };
+			if (field.name === 'email' && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/.test(value))
+				return { kind: 'format', message: 'Enter an email like name@company.com.' };
+			return null;
+		};
+		const attempt = wireValidation(fields, check);
+
+		q<HTMLButtonElement>('[data-request]').addEventListener('click', (e) => {
+			form.hidden = false;
+			done.hidden = true;
+			openDialog(dialog, { opener: e.currentTarget as HTMLElement, focus: fields[0] });
+		});
+
+		form.addEventListener('submit', (e) => {
+			e.preventDefault();
+			attempt();
+			const docsOk = picked.size > 0;
+			docsError.hidden = docsOk;
+			if (!validateAll(fields, check) || !docsOk) return;
+			const nda = order.filter((s) => picked.has(s) && tierOf.get(s) === 'nda').length;
+			const email = fields[2].value.trim();
+			doneText.textContent = nda
+				? `We'll email ${email} our mutual NDA first. Once it's signed, you get ${plural(picked.size)} within two business days.`
+				: `We'll email ${plural(picked.size)} to ${email}.`;
+			form.hidden = true;
+			done.hidden = false;
+			doneTitle.focus();
+		});
+
+		// Once a request is sent, closing the dialog (its button, the ×, Escape) starts a fresh one.
+		q<HTMLButtonElement>('[data-req-close]', dialog).addEventListener('click', () => dialog.close());
+		dialog.addEventListener('close', () => {
+			if (done.hidden) return;
+			form.reset();
+			fields.forEach(clearFieldError);
+			picked.clear();
+			sync();
+		});
+
+		// ── Arriving ──────────────────────────────────────────────────────────
+		const params = new URL(location.href).searchParams;
+		const valid = (facet: 'type' | 'for', v: string | null) =>
+			v && facets.some((f) => f.dataset.facet === facet && f.dataset.value === v) ? v : 'all';
+		search.value = params.get('q') ?? '';
+		state.type = valid('type', params.get('type'));
+		state.for = valid('for', params.get('for'));
+		// A requested document's own address arrives with it in the request; the address then becomes
+		// the library's, with the request in it, so ticking more keeps one honest address.
+		const arriving = root.dataset.open;
+		if (arriving) {
+			if (location.hash === '') history.replaceState(history.state, '', `${location.pathname}#${arriving}`);
+			// The document's name was the title for the link's preview; on the page it is the library again.
+			document.title = 'Documents · Trust Center | ThingsBoard';
+		}
+		const wanted = [...(params.get('request')?.split(',') ?? []), ...(arriving ? [arriving] : [])];
+		add(wanted);
+		filter();
+
+		// A row's address lands on it once the page has settled (the web font, the tray), not where the
+		// browser first put it, and not where a reload would restore the page to.
+		const target = rows.find((row) => `#${row.id}` === decodeURIComponent(location.hash));
+		if (target) {
+			history.scrollRestoration = 'manual';
+			target.classList.add('is-arrived');
+			const land = () => target.scrollIntoView({ block: 'start' });
+			land();
+			document.fonts.ready.then(land);
+			window.addEventListener('load', land, { once: true });
+		}
+	}
 </script>
 
 <style is:global lang="scss">
 	@use '../../styles/variables' as *;
 
-	.tc-library {
+	// One column that never grows past the page: the tray's names line is nowrap.
+	.tc-lib {
 		display: grid;
-		gap: $spacing-10;
+		grid-template-columns: minmax(0, 1fr);
+		gap: $spacing-8;
 	}
 
-	.tc-library__tools {
-		display: flex;
-		flex-wrap: wrap;
+	// ── The pack (parked: the internal controls show it) ──
+	.tc-lib__pack {
+		display: none;
+		grid-template-columns: auto minmax(0, 1fr) auto;
 		align-items: center;
-		justify-content: space-between;
-		gap: $spacing-3 $spacing-6;
+		gap: $spacing-3 $spacing-5;
+		padding: $spacing-5 $spacing-6;
+		border-radius: $radius-lg;
+		background: color-mix(in srgb, var(--accent-fill) 7%, var(--color-bg));
+
+		:root[data-tc-pack='on'] & {
+			display: grid;
+		}
 	}
 
-	.tc-library__filters {
+	.tc-lib__pack-icon {
+		display: grid;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 12px;
+		background: var(--accent-fill);
+		color: #fff;
+
+		svg {
+			width: 22px;
+			height: 22px;
+		}
+	}
+
+	.tc-lib__pack-title {
+		@include type-tile;
+		margin: 0;
+	}
+
+	.tc-lib__pack-text {
+		@include type-small;
+		margin: $spacing-1 0 0;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-lib__pack-actions {
 		display: flex;
 		flex-wrap: wrap;
 		gap: $spacing-2;
 	}
 
-	// The filter box: a search input in the kit field's edge (`#868d9a`, 3:1 on white), 40 tall.
-	.tc-library__search {
+	// ── Filters: chips (the default) or the sidebar ──
+	// With chips the list takes the page's width; with the sidebar it shares it with the rail, as the
+	// other Trust Center pages with parts do, and below 1024 the sidebar becomes two selects.
+	.tc-lib__layout {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+
+		:root[data-tc-filters='rail'] & {
+			@include media-up(lg) {
+				grid-template-columns: 200px minmax(0, 1fr);
+				gap: $spacing-12;
+			}
+		}
+	}
+
+	.tc-lib__rail,
+	.tc-lib__select {
+		display: none;
+	}
+
+	:root[data-tc-filters='rail'] {
+		.tc-lib__chips {
+			display: none;
+		}
+
+		@include media-up(lg) {
+			.tc-lib__rail {
+				display: block;
+			}
+		}
+
+		@include media-down(lg) {
+			.tc-lib__select {
+				display: flex;
+			}
+		}
+	}
+
+	.tc-lib__rail-inner {
+		position: sticky;
+		top: calc(var(--home-header-h, #{$header-height}) + 57px + #{$spacing-8});
+		display: grid;
+		gap: $spacing-3;
+
+		.tc-aside__label:not(:first-child) {
+			margin-top: $spacing-5;
+		}
+	}
+
+	.tc-lib__facets {
+		display: grid;
+		margin: 0;
+		padding: 0;
+		border-left: 1px solid var(--color-border-light);
+		list-style: none;
+
+		li {
+			margin: 0;
+		}
+	}
+
+	.tc-lib__facet {
+		@include type-small;
 		display: flex;
 		align-items: center;
 		gap: $spacing-2;
-		flex: 0 1 260px;
-		min-height: 40px;
+		width: 100%;
+		margin: 0 0 0 -1px;
+		padding: 6px 0 6px $spacing-4;
+		border: 0;
+		border-left: 2px solid transparent;
+		background: none;
+		color: var(--color-text-secondary);
+		text-align: left;
+		cursor: pointer;
+
+		svg {
+			flex: none;
+			width: 16px;
+			height: 16px;
+			color: var(--color-text-muted);
+		}
+
+		&:hover {
+			color: var(--color-text);
+		}
+
+		&[aria-pressed='true'] {
+			@include type-small-strong;
+			border-left-color: var(--tc-hue);
+			color: var(--tc-hue);
+
+			svg {
+				color: inherit;
+			}
+		}
+
+		&.is-none:not([aria-pressed='true']) {
+			color: var(--color-text-muted);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring, var(--accent-fill));
+			outline-offset: 2px;
+		}
+	}
+
+	.tc-lib__count {
+		margin-left: auto;
+		color: var(--color-text-muted);
+		font-variant-numeric: tabular-nums;
+	}
+
+	// The chip rows: a label, then the kit's toggle chips with their counts. On a phone a row scrolls
+	// sideways rather than wrapping into a block.
+	.tc-lib__chips {
+		display: grid;
+		gap: $spacing-3;
+		margin-top: $spacing-4;
+	}
+
+	.tc-lib__chip-row {
+		display: grid;
+		grid-template-columns: 96px minmax(0, 1fr);
+		align-items: center;
+		gap: $spacing-3;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: $spacing-2;
+		}
+	}
+
+	.tc-lib__chip-label {
+		@include type-small-strong;
+		color: var(--color-text-muted);
+	}
+
+	.tc-lib__chip-set {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-2;
+
+		@include media-down(md) {
+			flex-wrap: nowrap;
+			margin-inline: -$spacing-5;
+			padding-inline: $spacing-5;
+			overflow-x: auto;
+			scrollbar-width: none;
+
+			> * {
+				flex: none;
+			}
+		}
+	}
+
+	// ── The search, and the sidebar's selects below 1024 ──
+	.tc-lib__tools {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-2;
+
+		.tc-lib__search {
+			grid-column: 1 / -1;
+		}
+
+		@include media-up(md) {
+			:root[data-tc-filters='rail'] & {
+				grid-template-columns: minmax(0, 1fr) auto auto;
+
+				.tc-lib__search {
+					grid-column: auto;
+				}
+			}
+		}
+	}
+
+	.tc-lib__search,
+	.tc-lib__select {
+		position: relative;
+		align-items: center;
+		gap: $spacing-2;
+		min-height: 44px;
 		padding: 0 $spacing-3;
 		border: 1px solid #868d9a;
 		border-radius: $radius-md;
@@ -258,8 +935,9 @@ const slug = (name: string) => `lib-${name.replace(/\W+/g, '-').toLowerCase()}`;
 			flex: none;
 		}
 
-		input {
-			@include type-small;
+		input,
+		select {
+			@include type-body;
 			width: 100%;
 			min-width: 0;
 			border: 0;
@@ -274,208 +952,413 @@ const slug = (name: string) => `lib-${name.replace(/\W+/g, '-').toLowerCase()}`;
 		}
 	}
 
-	// ── The table ──
-	//
-	// Ruled rows on white, a light header, and a header row per group in the group heading's size.
-	// The lead column is the checkbox's or the glyph's, 20 wide either way, so names line up. Below
-	// 750 a row is lines: the name and description beside the lead, then category, version and access
-	// on one line, then the action.
+	.tc-lib__search {
+		display: flex;
+	}
 
-	.tc-doctable {
-		width: 100%;
-		border-collapse: collapse;
-		table-layout: fixed;
+	.tc-lib__select {
+		padding-right: $spacing-2;
 
-		th,
-		td {
-			padding: $spacing-4 $spacing-3;
-			border-bottom: 1px solid var(--color-border-light);
-			text-align: left;
-			vertical-align: top;
+		select {
+			padding-right: $spacing-6;
+			appearance: none;
+			cursor: pointer;
 		}
 
-		thead th {
-			@include type-small-strong;
-			padding-block: $spacing-2;
-			border-bottom-color: var(--color-border);
-			color: var(--color-text-muted);
+		svg {
+			position: absolute;
+			right: $spacing-3;
+			pointer-events: none;
 		}
 	}
 
-	.tc-doctable__col-lead {
-		width: 44px;
+	// ── The result line: the count, Clear filters, and the marks' legend ──
+	.tc-lib__result {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: $spacing-2 $spacing-4;
+		margin-top: $spacing-5;
+		padding-bottom: $spacing-3;
+		border-bottom: 1px solid var(--color-border);
 	}
 
-	.tc-doctable__col-category {
-		width: 120px;
+	.tc-lib__result-text {
+		@include type-small-strong;
+		margin: 0;
+		color: var(--color-text-secondary);
 	}
 
-	.tc-doctable__col-version {
-		width: 104px;
+	.tc-lib__clear {
+		@include type-small-strong;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--accent-ink);
+		cursor: pointer;
+
+		&:hover {
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+
+		&[hidden] {
+			display: none;
+		}
 	}
 
-	.tc-doctable__col-access {
-		width: 132px;
+	// The site's paragraph margins outrank a single class here: the result line's own selector holds it right.
+	.tc-lib__result .tc-lib__legend {
+		@include type-small;
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-1 $spacing-4;
+		margin: 0 0 0 auto;
+		color: var(--color-text-muted);
+
+		span {
+			display: inline-flex;
+			align-items: center;
+			gap: $spacing-1;
+		}
+
+		svg {
+			width: 16px;
+			height: 16px;
+		}
 	}
 
-	.tc-doctable__col-action {
-		width: 136px;
+	// ── The list ──
+	.tc-lib__list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
 	}
 
-	.tc-doctable__group th {
-		@include type-tile-lg;
-		padding: $spacing-10 $spacing-3 $spacing-3;
-		color: var(--color-text);
+	.tc-lib__row {
+		display: grid;
+		grid-template-columns: 32px minmax(0, 1fr);
+		align-items: start;
+		gap: 0 $spacing-2;
+		margin: 0;
+		padding: $spacing-4 0;
+		border-bottom: 1px solid var(--color-border-light);
+		scroll-margin-top: 160px;
+
+		&.is-arrived {
+			animation: tc-lib-mark 2.4s ease-out;
+		}
 	}
 
-	tbody:first-of-type .tc-doctable__group th {
-		padding-top: $spacing-6;
+	@keyframes tc-lib-mark {
+		0%,
+		40% {
+			background: color-mix(in srgb, var(--accent-fill) 10%, transparent);
+		}
+		100% {
+			background: transparent;
+		}
 	}
 
-	.tc-doctable__lead {
-		padding-right: 0;
+	.tc-lib__lead {
+		padding-top: 3px;
 	}
 
-	.tc-doctable__pick,
-	.tc-doctable__glyph {
+	.tc-lib__pick {
 		display: block;
 		width: 20px;
 		height: 20px;
-		margin: 2px 0 0;
-	}
-
-	.tc-doctable__pick {
+		margin: 0;
 		accent-color: var(--accent-fill);
 		cursor: pointer;
 	}
 
-	.tc-doctable__glyph {
-		color: var(--color-text-muted);
-	}
-
-	.tc-doctable__doc {
-		font-weight: inherit;
-	}
-
-	.tc-doctable__name {
+	.tc-lib__name {
 		@include type-tile;
-		color: var(--color-text);
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0 $spacing-2;
+		margin: 0;
+
+		label {
+			color: var(--color-text);
+			cursor: pointer;
+		}
+	}
+
+	// An open document's name is its link: the link colour says it opens.
+	.tc-lib__open {
+		color: var(--accent-ink);
 		text-decoration: none;
 
 		&:hover {
-			color: var(--accent-ink);
 			text-decoration: underline;
 			text-underline-offset: 3px;
 		}
 	}
 
-	.tc-doctable__text {
+	.tc-lib__out {
+		width: 16px;
+		height: 16px;
+		margin-left: 2px;
+		vertical-align: -2px;
+	}
+
+	// A requested tier's mark after the name: its label on hover, and read out.
+	.tc-lib__mark {
+		display: inline-grid;
+		place-items: center;
+		color: var(--color-text-muted);
+		cursor: help;
+
+		svg {
+			width: 16px;
+			height: 16px;
+		}
+	}
+
+	.tc-lib__text {
 		@include type-small;
-		margin-top: $spacing-1;
+		display: -webkit-box;
+		margin: 2px 0 0;
+		overflow: hidden;
 		color: var(--color-text-secondary);
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
 	}
 
-	.tc-doctable__meta {
-		@include type-small;
-		padding-top: calc(#{$spacing-4} + 2px);
-		color: var(--color-text-secondary);
+	.tc-lib__tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-1 $spacing-2;
+		margin-top: $spacing-2;
 	}
 
-	.tc-doctable__access,
-	.tc-doctable__action {
-		padding-top: calc(#{$spacing-4} + 1px);
-	}
+	.tc-lib__empty {
+		display: grid;
+		justify-items: start;
+		gap: $spacing-3;
+		padding-top: $spacing-6;
 
-	@include media-down(md) {
-		.tc-doctable {
-			table-layout: auto;
-
-			colgroup,
-			thead {
-				display: none;
-			}
-
-			tbody,
-			tr,
-			th,
-			td {
-				display: block;
-			}
-		}
-
-		.tc-doctable__group th {
-			padding-inline: 0;
-		}
-
-		// The lead hangs in the gutter; the name and description take the full line, then category,
-		// version and access share one, and the action closes the row.
-		.tc-doctable .tc-doctable__row {
-			position: relative;
-			display: flex;
-			flex-wrap: wrap;
-			align-items: center;
-			gap: $spacing-2 $spacing-4;
-			padding: $spacing-4 0 $spacing-4 32px;
-			border-bottom: 1px solid var(--color-border-light);
-
-			> th,
-			> td {
-				padding: 0;
-				border: 0;
-			}
-
-			> .tc-doctable__lead {
-				position: absolute;
-				top: $spacing-4;
-				left: 0;
-			}
-
-			> .tc-doctable__doc,
-			> .tc-doctable__action {
-				flex-basis: 100%;
-			}
-		}
-
-		// The label before a value; the cell's own leading space separates them.
-		.tc-doctable__meta::before {
-			content: attr(data-label) ':';
-			color: var(--color-text-muted);
-		}
-
-		.tc-doctable__action:not(:has(a)) {
+		&[hidden] {
 			display: none;
 		}
+
+		p {
+			@include type-body;
+			margin: 0;
+			color: var(--color-text-secondary);
+		}
 	}
 
-	// The request bar holds its place under the list, and rides along the bottom of the screen once a
-	// document is ticked, so the action is in reach wherever the reader is in the list.
-	.tc-library__request {
-		z-index: 2;
+	.tc-lib__empty-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-2;
+	}
+
+	// ── The tray ──
+	.tc-lib__tray {
+		position: sticky;
+		bottom: $spacing-4;
+		z-index: 3;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
 		gap: $spacing-3 $spacing-6;
-		padding: $spacing-3 $spacing-4;
-		border: 1px solid var(--color-border-light);
+		padding: $spacing-3 $spacing-3 $spacing-3 $spacing-5;
+		border: 1px solid var(--accent-fill);
 		border-radius: $radius-lg;
 		background: var(--color-bg);
-		box-shadow: 0 6px 24px rgba(23, 24, 28, 0.08);
+		box-shadow: 0 8px 28px rgba(23, 24, 28, 0.14);
+
+		&[hidden] {
+			display: none;
+		}
+
+		// Under the list, not the rail.
+		:root[data-tc-filters='rail'] & {
+			@include media-up(lg) {
+				margin-left: calc(200px + #{$spacing-12});
+			}
+		}
+
+		// Clear of the chat launcher in the bottom-right corner.
+		@include media-down(md) {
+			bottom: 72px;
+			column-gap: $spacing-2;
+			padding: $spacing-3;
+		}
 	}
 
-	.tc-library.has-picks .tc-library__request {
-		position: sticky;
-		bottom: $spacing-4;
-		border-color: var(--accent-fill);
+	// Narrow enough that Clear and Request stay beside it on a phone; the names line truncates.
+	.tc-lib__tray-body {
+		min-width: 0;
+		flex: 1 1 100px;
 	}
 
-	.tc-library__count {
+	.tc-lib__tray-count {
+		@include type-small-strong;
+		margin: 0;
+	}
+
+	.tc-lib__tray-names {
 		@include type-small;
+		margin: 2px 0 0;
+		overflow: hidden;
 		color: var(--color-text-secondary);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 
-		.has-picks & {
-			@include type-small-strong;
+	.tc-lib__tray-actions {
+		display: flex;
+		gap: $spacing-2;
+	}
+
+	// ── The request dialog ──
+	.tc-req {
+		display: grid;
+		gap: $spacing-6;
+		text-align: left;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.tc-req__tiers {
+		display: grid;
+		gap: $spacing-5;
+
+		&:empty {
+			display: none;
+		}
+	}
+
+	.tc-req__tier {
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.tc-req__legend {
+		@include type-small-strong;
+		padding: 0;
+	}
+
+	.tc-req__terms {
+		@include type-small;
+		margin: 2px 0 $spacing-2;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-req__docs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-2;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.tc-req__doc {
+		@include type-small;
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		margin: 0;
+		padding: 2px 2px 2px $spacing-3;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--accent-fill) 10%, var(--color-bg));
+		color: var(--color-text);
+	}
+
+	.tc-req__remove {
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		border: 0;
+		border-radius: 50%;
+		background: none;
+		color: var(--color-text-muted);
+		font-size: 18px;
+		line-height: 1;
+		cursor: pointer;
+
+		&:hover {
+			background: rgba(23, 28, 34, 0.08);
 			color: var(--color-text);
 		}
+
+		&:focus-visible {
+			outline: 2px solid var(--accent-fill);
+		}
+	}
+
+	.tc-req__fields {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-4;
+
+		.tc-req__full {
+			grid-column: 1 / -1;
+		}
+
+		@media (max-width: 559px) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.tc-req__submit {
+		display: grid;
+		justify-items: start;
+		gap: $spacing-3;
+	}
+
+	.tc-req__note {
+		@include type-small;
+		margin: 0;
+		color: var(--color-text-muted);
+	}
+
+	.tc-req__done {
+		display: grid;
+		justify-items: center;
+		gap: $spacing-3;
+		padding: $spacing-4 0;
+		text-align: center;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.tc-req__done-icon {
+		width: 48px;
+		height: 48px;
+		color: #0d7a5f;
+	}
+
+	.tc-req__done-title {
+		@include type-tile-lg;
+		margin: 0;
+		outline: none;
+	}
+
+	.tc-req__done-text,
+	.tc-req__done-note {
+		@include type-small;
+		max-width: 40ch;
+		margin: 0;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-req__done-note {
+		color: var(--color-text-muted);
 	}
 </style>

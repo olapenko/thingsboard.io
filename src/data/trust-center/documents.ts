@@ -7,7 +7,8 @@ import { tc } from '@data/trust-center/nav';
  *
  * `u`: the document is a page of its own, and its row links there instead of a document page.
  * `f`: the file a public document's button opens.
- * `g`: its group on the overview (`DOC_GROUPS`); questionnaires have none.
+ * `group`: its group in the draft's library, kept as the draft had it; the library types by `DOC_TYPES`
+ *   in `@data/trust-center/library` instead.
  */
 
 export type DocAccess = 'public' | 'nda' | 'planned';
@@ -226,19 +227,6 @@ export const DOCS: TrustDoc[] = [
 	},
 ];
 
-export const DOC_GROUPS = [
-	'Governance & compliance',
-	'Security & development',
-	'Legal & privacy',
-	'Reports & resilience',
-];
-
-export const ACCESS_LABEL: Record<DocAccess, string> = {
-	public: 'Public',
-	nda: 'Under NDA',
-	planned: 'Planned',
-};
-
 /** Two documents the request form offers that only Private Cloud customers need. */
 export const PRIVATE_CLOUD_NDA_DOCS: Pick<TrustDoc, 'slug' | 'name'>[] = [
 	{ slug: 'dpa-private-cloud', name: 'DPA for Private Cloud' },
@@ -250,14 +238,3 @@ export const NDA_DOCS: Pick<TrustDoc, 'slug' | 'name'>[] = [
 	...DOCS.filter((d) => d.access === 'nda').map(({ slug, name }) => ({ slug, name })),
 	...PRIVATE_CLOUD_NDA_DOCS,
 ];
-
-/** A document's own page, or the page that is the document. */
-export const docHref = (d: TrustDoc): string => d.u ?? tc(`documents/${d.slug}`);
-
-/** The request form with these documents ticked. */
-export const requestHref = (slugs: string[]): string =>
-	`${tc('contact')}?subject=nda&docs=${slugs.map(encodeURIComponent).join(',')}`;
-
-/** The contact form, asking about a planned document. */
-export const askHref = (d: TrustDoc): string =>
-	`${tc('contact')}?subject=${d.category === 'Questionnaires' ? 'questionnaire' : 'other'}&docs=${d.slug}`;
