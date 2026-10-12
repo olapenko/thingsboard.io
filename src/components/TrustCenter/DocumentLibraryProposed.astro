@@ -1,20 +1,22 @@
 ---
 import { Icon } from 'astro-icon/components';
 import Button from '@components/ui/Button.astro';
-import Chip from '@components/ui/Chip.astro';
 import Dialog from '@components/ui/Dialog.astro';
 import Field from '@components/ui/Field.astro';
 import Link from '@components/ui/Link.astro';
-import Segmented from '@components/ui/Segmented.astro';
-import Tag from '@components/TrustCenter/Tag.astro';
 import {
 	ASSESSMENT_PACK,
 	ASSESSMENT_PACK_SUMMARY,
 	askAbout,
 	DEPLOYMENTS,
 	DOC_TYPES,
+	docPath,
+	howToGet,
+	howToGetSentence,
 	LIBRARY,
-	LIBRARY_ACCESS,
+	LIBRARY_PATH,
+	RELATED,
+	scopeOf,
 	type LibraryDoc,
 } from '@data/trust-center/documents-proposed';
 import { tc } from '@data/trust-center/nav';
@@ -22,169 +24,297 @@ import { tc } from '@data/trust-center/nav';
 /**
  * PROPOSED document library (review of 2026-10-12), beside the current one, for comparison.
  *
- * - One flat list, no group headers. Each document has one TYPE (`DOC_TYPES`), shown on the row and
- *   used as the only filter, with counts, so a filtered list is one run of rows, never a scatter of
- *   headers with a row each. Access is not a filter: the row's tag and its action say it.
- * - The row's action IS the request: a public document opens, one under NDA is added to the request
- *   (a toggle, "Add to request" / "Added"), a planned one is asked about. No document pages.
- * - Once something is added, a tray rides the bottom of the screen: the count, the names, Clear and
- *   Request. Request opens the form in a dialog on this page, with the chosen documents listed and
- *   removable, so nothing is picked twice and the reader never leaves the list.
- * - Product-wide, with what each document applies to on its row. "Show documents for" picks a
- *   deployment: the documents for every deployment stay, the other deployments' go, and the type
- *   counts follow. `?for=<deployment>` arrives with it picked, so a deployment page links its view.
- * - The assessment pack adds the five documents assessors ask for first; "all under NDA" adds the rest.
- * - Search reads the name, the description, the type and the words readers use (pentest, BCP, SoA).
- * - Addresses: `#<slug>` scrolls to a row and marks it; `?request=a,b` arrives with those added, and
- *   the address keeps the current request, so a reload or a shared link keeps it too.
+ * LAYOUT. The filters are the page's rail, where every other Trust Center page with parts keeps its
+ * "On this page": TYPE and DEPLOYMENT, each a list with counts that follow the other filter and the
+ * search. Below 1024 the rail becomes two selects beside the search. The list column carries the
+ * search, the result line (with Clear filters) and the rows.
  *
- * Not connected, like the other Trust Center forms: a valid request shows the done state and says
- * nothing was sent.
+ * A ROW answers three questions, each in one place:
+ * - What is it: the anchor icon is the document's TYPE, the same glyph as its filter in the rail, so
+ *   the rail is the legend. The list runs in type order, so a change of icon is where a type starts:
+ *   a grouping that never breaks a filtered list into headers.
+ * - What is in it and what it covers: the name (its details), two lines of description, and a quiet
+ *   meta line: the version, the deployments when not all ("Cloud only"), the publisher when not us.
+ * - How to get it: ONE column, the action and under it its condition in words: Open / Public; Add to
+ *   request / Under mutual NDA; Ask for it / Not published yet; Ask about it / Planned; the
+ *   provider's links / its own report. Access, publication and provenance were three notions in one
+ *   tag column; here each is the condition of the thing you can do, and none is a coloured tag.
+ *
+ * DETAILS. A document's name opens its details over the list, at its own address
+ * (`proposed/<slug>/`): back closes them, the list keeps its filters, its scroll and the request,
+ * and the address shares as the document (`DocumentsProposedPage` gives it the document's title).
+ * Arriving at that address opens the details over the list it belongs to.
+ *
+ * STATE in the address, so back, reload and a shared link keep it: `?q=`, `type=`, `for=`,
+ * `request=a,b`; `#<slug>` lands on a row.
+ *
+ * The request: a document under NDA is added from its row or its details; a tray then rides the
+ * bottom of the screen, and Request opens the form in a dialog with the documents listed and
+ * removable. Not connected, like the other Trust Center forms.
+ *
+ * PARKED (2026-10-12, the user to decide later): the vendor assessment pack's banner, with "All under
+ * NDA". Its placement over the toolbar did not work; `SHOW_PACK` brings it back as it was.
  */
 
-const TYPE = Object.fromEntries(DOC_TYPES.map((t) => [t.id, t]));
-const counts = DOC_TYPES.map((t) => ({ ...t, n: LIBRARY.filter((d) => d.type === t.id).length }));
-const ndaCount = LIBRARY.filter((d) => d.access === 'nda').length;
+interface Props {
+	/** The document whose details are open on arrival: its own address. */
+	open?: string;
+}
 
-const DEPLOYMENT = Object.fromEntries(DEPLOYMENTS.map((d) => [d.id, d]));
-const appliesLabel = (d: LibraryDoc) => {
-	const names = d.appliesTo.map((a) => DEPLOYMENT[a].label);
-	return names.length ? `${names.join(' and ')} only` : '';
-};
-const FOR_OPTIONS = [
-	{ label: 'All deployments', shortLabel: 'All', value: 'all' },
-	...DEPLOYMENTS.map((d) => ({ label: d.label, shortLabel: d.short, value: d.id })),
-];
+const { open } = Astro.props;
+
+const SHOW_PACK = false;
+
+const TYPE = Object.fromEntries(DOC_TYPES.map((t) => [t.id, t]));
+const ndaCount = LIBRARY.filter((d) => d.access === 'nda').length;
 const isExternal = (href: string) => /^https?:/.test(href);
-const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.type].label].join(' ').toLowerCase();
+// Not the type's name: "audit" would find every piece of audit evidence. The type is the rail's job.
+const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, d.provider ?? ''].join(' ').toLowerCase();
+const openDoc = open ? LIBRARY.find((d) => d.slug === open) : undefined;
+
+const TYPE_FACETS = [
+	{ value: 'all', label: 'All documents', icon: 'tabler:layout-list' },
+	...DOC_TYPES.map((t) => ({ value: t.id, label: t.label, icon: t.icon })),
+];
+const FOR_FACETS = [
+	{ value: 'all', label: 'All deployments', icon: 'tabler:stack-2' },
+	...DEPLOYMENTS.map((d) => ({ value: d.id, label: d.label, icon: d.icon })),
+];
 ---
 
-<div class="tc-lib" data-tc-lib data-pack={JSON.stringify(ASSESSMENT_PACK)}>
-	<div class="tc-lib__pack">
-		<span class="tc-lib__pack-icon" aria-hidden="true">
-			<Icon name="tabler:briefcase" />
-		</span>
-		<div class="tc-lib__pack-body">
-			<p class="tc-lib__pack-title">Preparing a vendor assessment?</p>
-			<p class="tc-lib__pack-text">Start with what assessors ask for first: {ASSESSMENT_PACK_SUMMARY}.</p>
-		</div>
-		<div class="tc-lib__pack-actions">
-			<Button size="sm" icon="tabler:plus" attrs={{ 'data-add-pack': '' }}>
-				Add these {ASSESSMENT_PACK.length}
-			</Button>
-			<Button variant="tertiary" size="sm" attrs={{ 'data-add-all': '' }}>
-				All {ndaCount} under NDA
-			</Button>
-		</div>
-	</div>
-
-	<div class="tc-lib__tools">
-		<div class="tc-lib__for">
-			<span class="tc-lib__for-label" aria-hidden="true">
-				Show documents for
+<div
+	class="tc-lib"
+	data-tc-lib
+	data-pack={JSON.stringify(ASSESSMENT_PACK)}
+	data-open={openDoc?.slug}
+	data-library={LIBRARY_PATH}
+>
+	{SHOW_PACK && (
+		<div class="tc-lib__pack">
+			<span class="tc-lib__pack-icon" aria-hidden="true">
+				<Icon name="tabler:briefcase" />
 			</span>
-			<Segmented label="Show documents for" name="for" size="sm" options={FOR_OPTIONS} class="tc-lib__for-seg" />
+			<div class="tc-lib__pack-body">
+				<p class="tc-lib__pack-title">Preparing a vendor assessment?</p>
+				<p class="tc-lib__pack-text">Start with what assessors ask for first: {ASSESSMENT_PACK_SUMMARY}.</p>
+			</div>
+			<div class="tc-lib__pack-actions">
+				<Button size="sm" icon="tabler:plus" attrs={{ 'data-add-pack': '' }}>
+					Add these {ASSESSMENT_PACK.length}
+				</Button>
+				<Button variant="tertiary" size="sm" attrs={{ 'data-add-all': '' }}>
+					All {ndaCount} under NDA
+				</Button>
+			</div>
 		</div>
-		<label class="tc-lib__search">
-			<Icon name="tabler:search" aria-hidden="true" />
-			<span class="ui-sr">Search documents</span>
-			<input type="search" placeholder="Search: pentest, SoA, DPA…" autocomplete="off" data-search />
-		</label>
-		<div class="tc-lib__types" role="group" aria-label="Show documents of one type">
-			<Chip kind="toggle" size="sm" pressed note={String(LIBRARY.length)} attrs={{ 'data-type': 'all' }}>
-				All
-			</Chip>
-			{counts.map((t) => (
-				<Chip kind="toggle" size="sm" note={String(t.n)} attrs={{ 'data-type': t.id }}>
-					{t.label}
-				</Chip>
-			))}
-		</div>
-	</div>
-	<p class="ui-sr" aria-live="polite" data-status></p>
+	)}
 
-	<ul class="tc-lib__list" role="list">
-		{LIBRARY.map((d) => {
-			const applies = appliesLabel(d);
-			return (
-				<li
-					class="tc-lib__row"
-					id={d.slug}
-					data-type={d.type}
-					data-access={d.access}
-					data-applies={d.appliesTo.join(' ')}
-					data-search={haystack(d)}
-				>
-					<span class="tc-lib__icon" aria-hidden="true">
-						<Icon name={TYPE[d.type].icon} />
-					</span>
-					<div class="tc-lib__main">
-						<h3 class="tc-lib__name">{d.name}</h3>
-						<p class="tc-lib__text">{d.description}</p>
-						<p class="tc-lib__meta">
-							<span>{TYPE[d.type].label}</span>
-							{d.version && <span>{d.version}</span>}
-							{applies && <span class="tc-lib__applies">{applies}</span>}
-						</p>
-					</div>
-					<div class="tc-lib__access">
-						<Tag tag={LIBRARY_ACCESS[d.access]} />
-					</div>
-					<div class="tc-lib__action">
-						{d.href && (
-							<Button
-								href={d.href}
-								variant="secondary"
-								size="sm"
-								external={isExternal(d.href)}
-								srSuffix={`: ${d.name}`}
+	<div class="tc-lib__layout">
+		<aside class="tc-lib__rail" aria-label="Filter documents">
+			<div class="tc-lib__rail-inner">
+				<p class="tc-aside__label" id="tc-lib-type">
+					Type
+				</p>
+				<ul class="tc-lib__facets" role="list" aria-labelledby="tc-lib-type">
+					{TYPE_FACETS.map((f) => (
+						<li>
+							<button
+								type="button"
+								class="tc-lib__facet"
+								data-facet="type"
+								data-value={f.value}
+								aria-pressed={f.value === 'all' ? 'true' : 'false'}
 							>
-								Open
-							</Button>
-						)}
-						{d.links && (
-							<span class="tc-lib__links">
-								{d.links.map((l) => (
-									<Link href={l.href} size="sm" external srSuffix={`: ${d.name}`}>
-										{l.label}
-									</Link>
-								))}
-							</span>
-						)}
-						{d.access === 'nda' && (
-							<button type="button" class="tc-lib__add" aria-pressed="false" data-add={d.slug} data-name={d.name}>
-								<Icon name="tabler:plus" class="tc-lib__add-off" aria-hidden="true" />
-								<Icon name="tabler:check" class="tc-lib__add-on" aria-hidden="true" />
-								<span class="tc-lib__add-off">Add to request</span>
-								<span class="tc-lib__add-on">Added</span>
-								<span class="ui-sr">: {d.name}</span>
+								<Icon name={f.icon} aria-hidden="true" />
+								<span class="tc-lib__facet-label">{f.label}</span>
+								<span class="tc-lib__count" data-count />
 							</button>
-						)}
-						{(d.access === 'planned' || d.access === 'request') && (
-							<Button href={askAbout(d)} variant="tertiary" size="sm" srSuffix={`: ${d.name}`}>
-								{d.access === 'planned' ? 'Ask about it' : 'Ask for it'}
-							</Button>
-						)}
-					</div>
-				</li>
-			);
-		})}
-	</ul>
-	<div class="tc-lib__empty" hidden data-empty>
-		<p>No documents match. If you need something that isn't listed, ask us.</p>
-		<div class="tc-lib__empty-actions">
-			<Button size="sm" href={`${tc('contact')}?subject=other`} attrs={{ 'data-ask': '' }}>
-				Ask us
-			</Button>
-			<Button variant="secondary" size="sm" attrs={{ 'data-reset': '' }}>
-				Show all documents
-			</Button>
+						</li>
+					))}
+				</ul>
+				<p class="tc-aside__label" id="tc-lib-for">
+					Deployment
+				</p>
+				<ul class="tc-lib__facets" role="list" aria-labelledby="tc-lib-for">
+					{FOR_FACETS.map((f) => (
+						<li>
+							<button
+								type="button"
+								class="tc-lib__facet"
+								data-facet="for"
+								data-value={f.value}
+								aria-pressed={f.value === 'all' ? 'true' : 'false'}
+							>
+								<Icon name={f.icon} aria-hidden="true" />
+								<span class="tc-lib__facet-label">{f.label}</span>
+								<span class="tc-lib__count" data-count />
+							</button>
+						</li>
+					))}
+				</ul>
+			</div>
+		</aside>
+
+		<div class="tc-lib__body">
+			<div class="tc-lib__tools">
+				<label class="tc-lib__search">
+					<Icon name="tabler:search" aria-hidden="true" />
+					<span class="ui-sr">Search documents</span>
+					<input type="search" placeholder="Search: pentest, SoA, DPA…" autocomplete="off" data-search />
+				</label>
+				<label class="tc-lib__select">
+					<span class="ui-sr">Type</span>
+					<select data-select="type">
+						{TYPE_FACETS.map((f) => (
+							<option value={f.value}>{f.value === 'all' ? 'All types' : f.label}</option>
+						))}
+					</select>
+					<Icon name="tabler:chevron-down" aria-hidden="true" />
+				</label>
+				<label class="tc-lib__select">
+					<span class="ui-sr">Deployment</span>
+					<select data-select="for">
+						{FOR_FACETS.map((f) => (
+							<option value={f.value}>{f.label}</option>
+						))}
+					</select>
+					<Icon name="tabler:chevron-down" aria-hidden="true" />
+				</label>
+			</div>
+			<div class="tc-lib__result">
+				<p class="tc-lib__result-text" aria-live="polite" data-result></p>
+				<button type="button" class="tc-lib__clear" hidden data-clear-filters>
+					Clear filters
+				</button>
+			</div>
+
+			<ul class="tc-lib__list" role="list">
+				{LIBRARY.map((d) => {
+					const scope = scopeOf(d);
+					const related = RELATED[d.slug];
+					const action = (
+						<>
+							{d.href && (
+								<Button
+									href={d.href}
+									variant="secondary"
+									size="sm"
+									external={isExternal(d.href)}
+									srSuffix={`: ${d.name}`}
+								>
+									Open
+								</Button>
+							)}
+							{d.links && (
+								<span class="tc-lib__links">
+									{d.links.map((l) => (
+										<Link href={l.href} size="sm" external srSuffix={`: ${d.name}`}>
+											{l.label}
+										</Link>
+									))}
+								</span>
+							)}
+							{d.access === 'nda' && (
+								<button type="button" class="tc-lib__add" aria-pressed="false" data-add={d.slug} data-name={d.name}>
+									<Icon name="tabler:plus" class="tc-lib__add-off" aria-hidden="true" />
+									<Icon name="tabler:check" class="tc-lib__add-on" aria-hidden="true" />
+									<span class="tc-lib__add-off">Add to request</span>
+									<span class="tc-lib__add-on">Added</span>
+									<span class="ui-sr">: {d.name}</span>
+								</button>
+							)}
+							{(d.access === 'planned' || d.access === 'request') && (
+								<Button href={askAbout(d)} variant="tertiary" size="sm" flush srSuffix={`: ${d.name}`}>
+									{d.access === 'planned' ? 'Ask about it' : 'Ask for it'}
+								</Button>
+							)}
+						</>
+					);
+					return (
+						<li
+							class="tc-lib__row"
+							id={d.slug}
+							data-type={d.type}
+							data-access={d.access}
+							data-applies={d.appliesTo.join(' ')}
+							data-search={haystack(d)}
+						>
+							<span class="tc-lib__icon" title={TYPE[d.type].label} aria-hidden="true">
+								<Icon name={TYPE[d.type].icon} />
+							</span>
+							<div class="tc-lib__main">
+								<h3 class="tc-lib__name">
+									<a href={docPath(d.slug)} data-doc-link={d.slug} data-name={d.name}>
+										{d.name}
+									</a>
+								</h3>
+								<p class="tc-lib__text">{d.description}</p>
+								<p class="tc-lib__meta">
+									<span class="ui-sr">{TYPE[d.type].label}</span>
+									{d.version && <span>{d.version}</span>}
+									{scope && <span>{scope}</span>}
+									{d.provider && <span>By {d.provider}</span>}
+								</p>
+							</div>
+							<div class="tc-lib__get">
+								<div class="tc-lib__action">{action}</div>
+								<p class="tc-lib__how">{howToGet(d)}</p>
+							</div>
+							<template data-detail={d.slug}>
+								<p class="tc-doc__type">
+									<Icon name={TYPE[d.type].icon} aria-hidden="true" />
+									{TYPE[d.type].label}
+								</p>
+								<p class="tc-doc__lede">{d.description}</p>
+								<dl class="tc-doc__facts">
+									<div>
+										<dt>Access</dt>
+										<dd>{howToGetSentence(d)}</dd>
+									</div>
+									<div>
+										<dt>Applies to</dt>
+										<dd>{scopeOf(d, { all: 'Every deployment', suffix: '' })}</dd>
+									</div>
+									{d.version && (
+										<div>
+											<dt>Version</dt>
+											<dd>{d.version}</dd>
+										</div>
+									)}
+								</dl>
+								{related && (
+									<p class="tc-doc__related">
+										More: <a href={related.href}>{related.label}</a>
+									</p>
+								)}
+								<div class="tc-doc__actions">
+									<div class="tc-doc__action">{action}</div>
+									<button type="button" class="tc-doc__copy" data-copy-link={docPath(d.slug)}>
+										Copy link
+									</button>
+								</div>
+							</template>
+						</li>
+					);
+				})}
+			</ul>
+			<div class="tc-lib__empty" hidden data-empty>
+				<p>No documents match. If you need something that isn't listed, ask us.</p>
+				<div class="tc-lib__empty-actions">
+					<Button size="sm" href={`${tc('contact')}?subject=other`} attrs={{ 'data-ask': '' }}>
+						Ask us
+					</Button>
+					<Button variant="secondary" size="sm" attrs={{ 'data-reset': '' }}>
+						Show all documents
+					</Button>
+				</div>
+			</div>
 		</div>
 	</div>
 
 	<div class="tc-lib__tray" hidden data-tray>
 		<div class="tc-lib__tray-body">
-			<p class="tc-lib__tray-count" data-count></p>
+			<p class="tc-lib__tray-count" data-tray-count></p>
 			<p class="tc-lib__tray-names" data-names></p>
 		</div>
 		<div class="tc-lib__tray-actions">
@@ -197,6 +327,10 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 		</div>
 	</div>
 </div>
+
+<Dialog id="tc-doc" size="md" title={openDoc?.name ?? 'Document'} titleId="tc-doc-title">
+	<div class="tc-doc" data-doc-body></div>
+</Dialog>
 
 <Dialog
 	id="tc-request"
@@ -264,143 +398,231 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 
 <script>
 	import { openDialog } from '@util/dialog';
-	import { setSegmented } from '@util/segmented';
 	import { clearFieldError, validateAll, wireValidation, type FieldControl, type Problem } from '@util/form-validate';
 
 	const root = document.querySelector<HTMLElement>('[data-tc-lib]');
 	const dialog = document.querySelector<HTMLDialogElement>('#tc-request');
+	const docDialog = document.querySelector<HTMLDialogElement>('#tc-doc');
 
-	if (root && dialog) {
+	if (root && dialog && docDialog) {
 		const q = <T extends Element>(sel: string, from: ParentNode = root) => from.querySelector<T>(sel)!;
 		const rows = [...root.querySelectorAll<HTMLElement>('.tc-lib__row')];
-		const adds = [...root.querySelectorAll<HTMLButtonElement>('[data-add]')];
-		const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-type]')];
+		const rowAdds = [...root.querySelectorAll<HTMLButtonElement>('.tc-lib__row > .tc-lib__get [data-add]')];
+		const facets = [...root.querySelectorAll<HTMLButtonElement>('[data-facet]')];
+		const selects = [...root.querySelectorAll<HTMLSelectElement>('[data-select]')];
 		const search = q<HTMLInputElement>('[data-search]');
-		const status = q<HTMLElement>('[data-status]');
+		const result = q<HTMLElement>('[data-result]');
+		const clearFilters = q<HTMLButtonElement>('[data-clear-filters]');
 		const empty = q<HTMLElement>('[data-empty]');
 		const ask = q<HTMLAnchorElement>('[data-ask]');
 		const tray = q<HTMLElement>('[data-tray]');
-		const count = q<HTMLElement>('[data-count]');
+		const trayCount = q<HTMLElement>('[data-tray-count]');
 		const names = q<HTMLElement>('[data-names]');
-		const nameOf = new Map(adds.map((b) => [b.dataset.add!, b.dataset.name!]));
-		const order = adds.map((b) => b.dataset.add!);
-
-		const forGroup = q<HTMLElement>('[data-segmented-name="for"]');
-		const DEPLOYMENT_IDS = [...forGroup.querySelectorAll<HTMLButtonElement>('.ui-seg__opt')].map(
-			(o) => o.dataset.value!
-		);
+		const nameOf = new Map(rowAdds.map((b) => [b.dataset.add!, b.dataset.name!]));
+		const order = rowAdds.map((b) => b.dataset.add!);
+		const LIBRARY_PATH = root.dataset.library!;
 
 		const picked = new Set<string>();
-		let type = 'all';
-		let forValue = 'all';
+		const state = { type: 'all', for: 'all' };
+		const plural = (n: number) => `${n} document${n === 1 ? '' : 's'}`;
+		const FOR_NAME = Object.fromEntries(
+			facets
+				.filter((f) => f.dataset.facet === 'for')
+				.map((f) => [f.dataset.value!, f.querySelector('.tc-lib__facet-label')!.textContent!])
+		);
 
-		/** The address carries the deployment and the request, so a reload or a shared link keeps both. */
-		const writeUrl = () => {
-			// Commas left as they are, so the address reads as the list it is.
-			const url = new URL(location.href);
-			url.searchParams.delete('request');
-			url.searchParams.delete('for');
-			const params = [
-				url.searchParams.toString(),
-				forValue !== 'all' ? `for=${forValue}` : '',
+		// ── The address ───────────────────────────────────────────────────────
+		/** The query that keeps the list's state: the search, the filters and the request. */
+		const query = () =>
+			[
+				search.value.trim() ? `q=${encodeURIComponent(search.value.trim())}` : '',
+				state.type !== 'all' ? `type=${state.type}` : '',
+				state.for !== 'all' ? `for=${state.for}` : '',
 				picked.size ? `request=${order.filter((s) => picked.has(s)).join(',')}` : '',
 			]
 				.filter(Boolean)
 				.join('&');
-			history.replaceState(history.state, '', `${url.pathname}${params ? `?${params}` : ''}${url.hash}`);
+		const writeUrl = () => {
+			const params = query();
+			history.replaceState(history.state, '', `${location.pathname}${params ? `?${params}` : ''}${location.hash}`);
 		};
 
-		const plural = (n: number) => `${n} document${n === 1 ? '' : 's'}`;
-
 		// ── Filtering ─────────────────────────────────────────────────────────
+		const words = () => search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+		const matches = (row: HTMLElement, by: { type: string; for: string; words: string[] }) =>
+			(by.type === 'all' || row.dataset.type === by.type) &&
+			(by.for === 'all' || !row.dataset.applies || row.dataset.applies.split(' ').includes(by.for)) &&
+			by.words.every((w) => row.dataset.search!.includes(w));
+
 		const filter = () => {
-			const words = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-			// A document for every deployment has no `applies`; it shows whichever deployment is picked.
-			const forOk = (row: HTMLElement) =>
-				forValue === 'all' || !row.dataset.applies || row.dataset.applies.split(' ').includes(forValue);
-			const textOk = (row: HTMLElement) => words.every((w) => row.dataset.search!.includes(w));
+			const w = words();
 			let shown = 0;
-			const perType = new Map<string, number>();
 			rows.forEach((row) => {
-				const inScope = forOk(row) && textOk(row);
-				if (inScope) perType.set(row.dataset.type!, (perType.get(row.dataset.type!) ?? 0) + 1);
-				const ok = inScope && (type === 'all' || row.dataset.type === type);
+				const ok = matches(row, { ...state, words: w });
 				row.hidden = !ok;
 				if (ok) shown++;
 			});
-			// The type counts follow the deployment and the search, so a chip never promises rows it hides.
-			chips.forEach((chip) => {
-				const note = chip.querySelector('.ui-chip__note');
-				const t = chip.dataset.type!;
-				if (note)
-					note.textContent = String(
-						t === 'all' ? [...perType.values()].reduce((a, b) => a + b, 0) : (perType.get(t) ?? 0)
-					);
+			// Each list's counts follow the other list and the search, so a filter never promises rows it hides.
+			facets.forEach((f) => {
+				const by = { ...state, [f.dataset.facet!]: f.dataset.value!, words: w };
+				const n = rows.filter((row) => matches(row, by)).length;
+				f.querySelector('[data-count]')!.textContent = String(n);
+				f.classList.toggle('is-none', n === 0);
+				f.setAttribute('aria-pressed', String(state[f.dataset.facet as 'type' | 'for'] === f.dataset.value));
 			});
-			writeUrl();
+			selects.forEach((s) => {
+				const facet = s.dataset.select as 'type' | 'for';
+				s.value = state[facet];
+				[...s.options].forEach((o) => {
+					const f = facets.find((x) => x.dataset.facet === facet && x.dataset.value === o.value);
+					const label = o.textContent!.replace(/ \(\d+\)$/, '');
+					o.textContent = `${label} (${f?.querySelector('[data-count]')!.textContent})`;
+				});
+			});
+			const filtered = state.type !== 'all' || state.for !== 'all' || w.length > 0;
+			result.textContent = `${plural(shown)}${state.for !== 'all' ? ` for ${FOR_NAME[state.for]}` : ''}`;
+			clearFilters.hidden = !filtered;
 			empty.hidden = shown > 0;
 			// "Ask us" carries what was searched for, as the contact form's `about` prefill.
-			const query = search.value.trim();
-			ask.href = `${ask.pathname}?subject=other${query ? `&about=${encodeURIComponent(query)}` : ''}`;
-			status.textContent = shown === rows.length ? '' : `Showing ${plural(shown)} of ${rows.length}.`;
+			const asked = search.value.trim();
+			ask.href = `${ask.pathname}?subject=other${asked ? `&about=${encodeURIComponent(asked)}` : ''}`;
+			writeUrl();
 		};
 
-		chips.forEach((chip) =>
-			chip.addEventListener('click', () => {
-				type = chip.dataset.type ?? 'all';
-				chips.forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
-				filter();
-			})
-		);
-		search.addEventListener('input', filter);
-		forGroup.addEventListener('segmented:select', (e) => {
-			forValue = (e as CustomEvent<{ value: string }>).detail.value;
+		const setFilter = (facet: 'type' | 'for', value: string) => {
+			state[facet] = value;
 			filter();
-		});
-		q<HTMLButtonElement>('[data-reset]').addEventListener('click', () => {
+		};
+		facets.forEach((f) =>
+			f.addEventListener('click', () => setFilter(f.dataset.facet as 'type' | 'for', f.dataset.value!))
+		);
+		selects.forEach((s) => s.addEventListener('change', () => setFilter(s.dataset.select as 'type' | 'for', s.value)));
+		search.addEventListener('input', filter);
+		const reset = () => {
 			search.value = '';
-			forValue = 'all';
-			setSegmented(forGroup, 'all');
-			chips[0].click();
+			state.type = 'all';
+			state.for = 'all';
+			filter();
 			search.focus();
-		});
+		};
+		clearFilters.addEventListener('click', reset);
+		q<HTMLButtonElement>('[data-reset]').addEventListener('click', reset);
 
 		// ── The request ───────────────────────────────────────────────────────
 		const sync = () => {
-			adds.forEach((b) => b.setAttribute('aria-pressed', String(picked.has(b.dataset.add!))));
+			document
+				.querySelectorAll<HTMLButtonElement>('[data-add]')
+				.forEach((b) => b.setAttribute('aria-pressed', String(picked.has(b.dataset.add!))));
 			const list = order.filter((s) => picked.has(s)).map((s) => nameOf.get(s)!);
 			tray.hidden = list.length === 0;
 			// "under NDA" only where the tray has room for it; on a phone the Request beside it says enough.
 			const nda = document.createElement('span');
 			nda.className = 'tc-lib__tray-nda';
 			nda.textContent = ' under NDA';
-			count.replaceChildren(plural(list.length), nda);
+			trayCount.replaceChildren(plural(list.length), nda);
 			names.textContent = list.join(' · ');
 			writeUrl();
 			renderDocs();
 		};
-
 		const add = (slugs: string[]) => {
 			slugs.forEach((s) => nameOf.has(s) && picked.add(s));
 			sync();
 		};
 
-		adds.forEach((b) =>
-			b.addEventListener('click', () => {
-				const s = b.dataset.add!;
-				if (picked.has(s)) picked.delete(s);
-				else picked.add(s);
-				sync();
-			})
-		);
-		q<HTMLButtonElement>('[data-add-pack]').addEventListener('click', () => add(JSON.parse(root.dataset.pack ?? '[]')));
-		q<HTMLButtonElement>('[data-add-all]').addEventListener('click', () => add(order));
+		// Rows and the open details both carry add buttons: one listener for all of them.
+		document.addEventListener('click', (e) => {
+			const b = (e.target as Element).closest<HTMLButtonElement>('[data-add]');
+			if (!b) return;
+			const s = b.dataset.add!;
+			if (picked.has(s)) picked.delete(s);
+			else picked.add(s);
+			sync();
+		});
+		root.querySelector('[data-add-pack]')?.addEventListener('click', () => add(JSON.parse(root.dataset.pack ?? '[]')));
+		root.querySelector('[data-add-all]')?.addEventListener('click', () => add(order));
 		q<HTMLButtonElement>('[data-clear]').addEventListener('click', () => {
 			picked.clear();
 			sync();
 		});
 
-		// ── The dialog's form ─────────────────────────────────────────────────
+		// ── A document's details, at its own address ──────────────────────────
+		const docTitle = q<HTMLElement>('#tc-doc-title', docDialog);
+		const docBody = q<HTMLElement>('[data-doc-body]', docDialog);
+		/** Whether opening the details added a history entry, which closing then takes back. */
+		let pushed = false;
+		/** Closing because the address already changed (back): leave history alone. */
+		let fromHistory = false;
+		const listUrl = () => {
+			const params = query();
+			return `${LIBRARY_PATH}${params ? `?${params}` : ''}`;
+		};
+		const slugFromPath = () =>
+			location.pathname.startsWith(LIBRARY_PATH) ? location.pathname.slice(LIBRARY_PATH.length).replace(/\/$/, '') : '';
+
+		const showDoc = (slug: string, opener?: HTMLElement | null) => {
+			const template = root.querySelector<HTMLTemplateElement>(`template[data-detail="${CSS.escape(slug)}"]`);
+			const link = root.querySelector<HTMLAnchorElement>(`[data-doc-link="${CSS.escape(slug)}"]`);
+			if (!template || !link) return;
+			docTitle.textContent = link.dataset.name!;
+			document.title = `${link.dataset.name} · Trust Center | ThingsBoard`;
+			docBody.replaceChildren(template.content.cloneNode(true));
+			sync();
+			if (!docDialog.open) openDialog(docDialog, { opener: opener ?? link });
+		};
+
+		root.addEventListener('click', (e) => {
+			const link = (e.target as Element).closest<HTMLAnchorElement>('[data-doc-link]');
+			if (!link || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+			e.preventDefault();
+			const params = query();
+			history.pushState({ doc: link.dataset.docLink }, '', `${link.pathname}${params ? `?${params}` : ''}`);
+			pushed = true;
+			showDoc(link.dataset.docLink!, link);
+		});
+
+		const listTitle = root.dataset.open ? 'Documents · Trust Center | ThingsBoard' : document.title;
+		docDialog.addEventListener('close', () => {
+			document.title = listTitle;
+			if (fromHistory) {
+				fromHistory = false;
+				return;
+			}
+			if (pushed) {
+				pushed = false;
+				history.back();
+			} else {
+				// Arrived at the document's address: closing shows the list at the list's address.
+				history.replaceState(null, '', listUrl());
+			}
+		});
+
+		window.addEventListener('popstate', () => {
+			const slug = slugFromPath();
+			if (slug) {
+				pushed = false;
+				showDoc(slug);
+			} else if (docDialog.open) {
+				fromHistory = true;
+				pushed = false;
+				docDialog.close();
+			}
+			// The entry back in history predates what changed while the details were open (a document
+			// added from them): the address takes the list's state as it is now.
+			if (!slug) writeUrl();
+		});
+
+		docDialog.addEventListener('click', (e) => {
+			const copy = (e.target as Element).closest<HTMLButtonElement>('[data-copy-link]');
+			if (!copy) return;
+			const url = `${location.origin}${copy.dataset.copyLink}`;
+			const copied = () => {
+				copy.textContent = 'Link copied';
+				setTimeout(() => (copy.textContent = 'Copy link'), 2000);
+			};
+			navigator.clipboard?.writeText(url).then(copied, () => window.prompt('Copy this link', url));
+		});
+
+		// ── The request dialog's form ─────────────────────────────────────────
 		const form = q<HTMLFormElement>('[data-req]', dialog);
 		const docsList = q<HTMLUListElement>('[data-req-docs]', dialog);
 		const legend = q<HTMLElement>('[data-req-legend]', dialog);
@@ -484,15 +706,16 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 
 		// ── Arriving ──────────────────────────────────────────────────────────
 		const params = new URL(location.href).searchParams;
-		const wantedFor = params.get('for');
-		if (wantedFor && DEPLOYMENT_IDS.includes(wantedFor)) {
-			forValue = wantedFor;
-			setSegmented(forGroup, wantedFor);
-		}
+		const valid = (facet: 'type' | 'for', v: string | null) =>
+			v && facets.some((f) => f.dataset.facet === facet && f.dataset.value === v) ? v : 'all';
+		search.value = params.get('q') ?? '';
+		state.type = valid('type', params.get('type'));
+		state.for = valid('for', params.get('for'));
 		const wanted = params.get('request');
 		if (wanted) add(wanted.split(','));
 		else sync();
 		filter();
+
 		// A row's address lands on it once the page has settled (the web font, the tray), not where the
 		// browser first put it, and not where a reload would restore the page to.
 		const target = rows.find((row) => `#${row.id}` === decodeURIComponent(location.hash));
@@ -503,6 +726,9 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 			document.fonts.ready.then(land);
 			window.addEventListener('load', land, { once: true });
 		}
+
+		// A document's own address opens its details over the list.
+		if (root.dataset.open) showDoc(root.dataset.open);
 	}
 </script>
 
@@ -516,7 +742,7 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 		gap: $spacing-8;
 	}
 
-	// ── The pack ──
+	// ── The pack (parked) ──
 	.tc-lib__pack {
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr) auto;
@@ -525,32 +751,14 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 		padding: $spacing-5 $spacing-6;
 		border-radius: $radius-lg;
 		background: color-mix(in srgb, var(--accent-fill) 7%, var(--color-bg));
-
-		@include media-down(md) {
-			grid-template-columns: auto minmax(0, 1fr);
-			padding: $spacing-4;
-
-			.tc-lib__pack-actions {
-				grid-column: 1 / -1;
-			}
-		}
 	}
 
-	.tc-lib__pack-icon,
-	.tc-lib__icon {
+	.tc-lib__pack-icon {
 		display: grid;
 		place-items: center;
 		width: 40px;
 		height: 40px;
 		border-radius: 12px;
-
-		svg {
-			width: 22px;
-			height: 22px;
-		}
-	}
-
-	.tc-lib__pack-icon {
 		background: var(--accent-fill);
 		color: #fff;
 	}
@@ -569,57 +777,135 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 	.tc-lib__pack-actions {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: center;
 		gap: $spacing-2;
 	}
 
-	// ── The tools ──
-	.tc-lib__tools {
+	// ── The rail and the body ──
+	// The rail is where the other Trust Center pages keep "On this page": the same width, the same
+	// rule, the current one marked in the section's hue.
+	.tc-lib__layout {
 		display: grid;
-		gap: $spacing-4;
-	}
+		grid-template-columns: minmax(0, 1fr);
 
-	.tc-lib__for {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: $spacing-2 $spacing-4;
-	}
-
-	.tc-lib__for-label {
-		@include type-small-strong;
-		color: var(--color-text-secondary);
-	}
-
-	.tc-lib__for-seg {
-		@include media-down(md) {
-			flex: 1 1 100%;
+		@include media-up(lg) {
+			grid-template-columns: 200px minmax(0, 1fr);
+			gap: $spacing-12;
 		}
 	}
 
-	.tc-lib__links {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: $spacing-1 $spacing-4;
-		padding-top: 5px;
+	.tc-lib__rail {
+		display: none;
+
+		@include media-up(lg) {
+			display: block;
+		}
 	}
 
-	.tc-lib__applies {
-		color: var(--color-text-secondary);
+	.tc-lib__rail-inner {
+		position: sticky;
+		top: calc(var(--home-header-h, #{$header-height}) + 57px + #{$spacing-8});
+		display: grid;
+		gap: $spacing-3;
+
+		.tc-aside__label:not(:first-child) {
+			margin-top: $spacing-5;
+		}
 	}
 
-	.tc-lib__types {
-		display: flex;
-		flex-wrap: wrap;
-		gap: $spacing-2;
+	.tc-lib__facets {
+		display: grid;
+		margin: 0;
+		padding: 0;
+		border-left: 1px solid var(--color-border-light);
+		list-style: none;
+
+		li {
+			margin: 0;
+		}
 	}
 
-	.tc-lib__search {
+	.tc-lib__facet {
+		@include type-small;
 		display: flex;
 		align-items: center;
 		gap: $spacing-2;
-		max-width: 420px;
+		width: 100%;
+		margin: 0 0 0 -1px;
+		padding: 6px 0 6px $spacing-4;
+		border: 0;
+		border-left: 2px solid transparent;
+		background: none;
+		color: var(--color-text-secondary);
+		text-align: left;
+		cursor: pointer;
+
+		svg {
+			flex: none;
+			width: 16px;
+			height: 16px;
+			color: var(--color-text-muted);
+		}
+
+		&:hover {
+			color: var(--color-text);
+		}
+
+		&[aria-pressed='true'] {
+			@include type-small-strong;
+			border-left-color: var(--tc-hue);
+			color: var(--tc-hue);
+
+			svg {
+				color: inherit;
+			}
+		}
+
+		&.is-none:not([aria-pressed='true']) {
+			color: var(--color-text-muted);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring, var(--accent-fill));
+			outline-offset: 2px;
+		}
+	}
+
+	.tc-lib__count {
+		margin-left: auto;
+		color: var(--color-text-muted);
+		font-variant-numeric: tabular-nums;
+	}
+
+	// ── The tools: the search, and below 1024 the two filters as selects beside it ──
+	// Phone: the search across, the two selects side by side under it.
+	.tc-lib__tools {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-2;
+
+		.tc-lib__search {
+			grid-column: 1 / -1;
+		}
+
+		@include media-up(md) {
+			grid-template-columns: minmax(0, 1fr) auto auto;
+
+			.tc-lib__search {
+				grid-column: auto;
+			}
+		}
+
+		@include media-up(lg) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.tc-lib__search,
+	.tc-lib__select {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: $spacing-2;
 		min-height: 44px;
 		padding: 0 $spacing-3;
 		border: 1px solid #868d9a;
@@ -633,7 +919,8 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 			flex: none;
 		}
 
-		input {
+		input,
+		select {
 			@include type-body;
 			width: 100%;
 			min-width: 0;
@@ -649,21 +936,74 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 		}
 	}
 
+	.tc-lib__select {
+		padding-right: $spacing-2;
+
+		select {
+			padding-right: $spacing-6;
+			appearance: none;
+			cursor: pointer;
+		}
+
+		svg {
+			position: absolute;
+			right: $spacing-3;
+			pointer-events: none;
+		}
+
+		@include media-up(lg) {
+			display: none;
+		}
+	}
+
+	.tc-lib__result {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: $spacing-4;
+		margin-top: $spacing-5;
+		padding-bottom: $spacing-3;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.tc-lib__result-text {
+		@include type-small-strong;
+		margin: 0;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-lib__clear {
+		@include type-small-strong;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--accent-ink);
+		cursor: pointer;
+
+		&:hover {
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
 	// ── The list ──
 	.tc-lib__list {
 		margin: 0;
 		padding: 0;
 		list-style: none;
-		border-top: 1px solid var(--color-border);
 	}
 
 	.tc-lib__row {
 		display: grid;
-		grid-template-columns: 40px minmax(0, 1fr) 128px 160px;
+		grid-template-columns: 32px minmax(0, 1fr) 168px;
 		align-items: start;
 		gap: $spacing-2 $spacing-5;
 		margin: 0;
-		padding: $spacing-5 $spacing-3;
+		padding: $spacing-4 0;
 		border-bottom: 1px solid var(--color-border-light);
 		scroll-margin-top: 160px;
 
@@ -671,28 +1011,19 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 			animation: tc-lib-mark 2.4s ease-out;
 		}
 
-		// On a phone the name and description take the width beside the icon, then the access tag and
-		// the action share one line under them.
+		// On a phone the action and its condition share one line under the text.
 		@include media-down(md) {
-			grid-template-columns: 40px minmax(0, 1fr) auto;
-			align-items: center;
-			padding-inline: 0;
+			grid-template-columns: 32px minmax(0, 1fr);
 
-			.tc-lib__icon {
-				align-self: start;
-			}
-
-			.tc-lib__main {
-				grid-column: 2 / -1;
-			}
-
-			.tc-lib__access {
+			.tc-lib__get {
 				grid-column: 2;
-				padding-top: 0;
+				flex-direction: row;
+				align-items: center;
+				gap: $spacing-3;
 			}
 
-			.tc-lib__action {
-				grid-column: 3;
+			.tc-lib__how {
+				margin: 0;
 			}
 		}
 	}
@@ -700,34 +1031,53 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 	@keyframes tc-lib-mark {
 		0%,
 		40% {
-			background: color-mix(in srgb, var(--accent-fill) 12%, transparent);
+			background: color-mix(in srgb, var(--accent-fill) 10%, transparent);
 		}
 		100% {
 			background: transparent;
 		}
 	}
 
+	// The anchor: the document's type, one hue for all, so the glyph and not a colour tells them apart.
 	.tc-lib__icon {
-		background: color-mix(in srgb, var(--accent-fill) 10%, var(--color-bg));
+		display: grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--accent-fill) 8%, var(--color-bg));
 		color: var(--accent-ink);
+
+		svg {
+			width: 18px;
+			height: 18px;
+		}
 	}
 
 	.tc-lib__name {
 		@include type-tile;
 		margin: 0;
+
+		a {
+			color: var(--color-text);
+			text-decoration: none;
+
+			&:hover {
+				color: var(--accent-ink);
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
+		}
 	}
 
 	.tc-lib__text {
 		@include type-small;
-		margin: $spacing-1 0 0;
+		display: -webkit-box;
+		margin: 2px 0 0;
+		overflow: hidden;
 		color: var(--color-text-secondary);
-
-		@include media-down(md) {
-			display: -webkit-box;
-			overflow: hidden;
-			-webkit-box-orient: vertical;
-			-webkit-line-clamp: 2;
-		}
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
 	}
 
 	.tc-lib__meta {
@@ -735,26 +1085,38 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0 $spacing-2;
-		margin: $spacing-2 0 0;
+		margin: $spacing-1 0 0;
 		color: var(--color-text-muted);
 
-		span + span::before {
+		&:not(:has(span:not(.ui-sr))) {
+			display: none;
+		}
+
+		span:not(.ui-sr) + span::before {
 			content: '·';
 			margin-right: $spacing-2;
 		}
 	}
 
-	.tc-lib__access {
-		padding-top: 3px;
+	// How to get it: the action, and under it its condition in words.
+	.tc-lib__get {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
 	}
 
-	.tc-lib__action {
-		display: flex;
-		justify-content: flex-end;
+	.tc-lib__how {
+		@include type-small;
+		margin: 6px 0 0;
+		color: var(--color-text-muted);
+	}
 
-		@include media-down(md) {
-			justify-content: flex-start;
-		}
+	.tc-lib__links {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-1 $spacing-4;
+		min-height: 32px;
 	}
 
 	// The add toggle: a secondary button that fills once added, its label and icon swapped by state.
@@ -812,16 +1174,11 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 		}
 	}
 
-	.tc-lib__empty-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: $spacing-2;
-	}
-
 	.tc-lib__empty {
 		display: grid;
 		justify-items: start;
 		gap: $spacing-3;
+		padding-top: $spacing-6;
 
 		&[hidden] {
 			display: none;
@@ -832,6 +1189,12 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 			margin: 0;
 			color: var(--color-text-secondary);
 		}
+	}
+
+	.tc-lib__empty-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-2;
 	}
 
 	// ── The tray ──
@@ -852,6 +1215,11 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 
 		&[hidden] {
 			display: none;
+		}
+
+		// Under the list, not the rail.
+		@include media-up(lg) {
+			margin-left: calc(200px + #{$spacing-12});
 		}
 
 		// Clear of the chat launcher in the bottom-right corner.
@@ -891,6 +1259,93 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 	.tc-lib__tray-actions {
 		display: flex;
 		gap: $spacing-2;
+	}
+
+	// ── A document's details ──
+	.tc-doc {
+		display: grid;
+		gap: $spacing-4;
+		text-align: left;
+	}
+
+	.tc-doc__type {
+		@include type-small-strong;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin: 0;
+		color: var(--accent-ink);
+
+		svg {
+			width: 16px;
+			height: 16px;
+		}
+	}
+
+	.tc-doc__lede {
+		@include type-body;
+		margin: 0;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-doc__facts {
+		display: grid;
+		margin: 0;
+		border-top: 1px solid var(--color-border-light);
+
+		> div {
+			display: grid;
+			grid-template-columns: 112px minmax(0, 1fr);
+			gap: $spacing-4;
+			padding: $spacing-3 0;
+			border-bottom: 1px solid var(--color-border-light);
+		}
+
+		dt {
+			@include type-small-strong;
+			color: var(--color-text-muted);
+		}
+
+		dd {
+			@include type-small;
+			margin: 0;
+			color: var(--color-text);
+		}
+	}
+
+	.tc-doc__related {
+		@include type-small;
+		margin: 0;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-doc__actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: $spacing-3;
+		padding-top: $spacing-2;
+	}
+
+	.tc-doc__action {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-3;
+	}
+
+	.tc-doc__copy {
+		@include type-small-strong;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--accent-ink);
+		cursor: pointer;
+
+		&:hover {
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
 	}
 
 	// ── The request dialog ──
@@ -952,7 +1407,7 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 		cursor: pointer;
 
 		&:hover {
-			background: rgba(23, 24, 28, 0.08);
+			background: rgba(23, 28, 34, 0.08);
 			color: var(--color-text);
 		}
 

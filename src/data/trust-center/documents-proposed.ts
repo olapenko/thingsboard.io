@@ -69,6 +69,8 @@ export interface LibraryDoc {
 	links?: { label: string; href: string }[];
 	/** The contact form's subject for asking about it. */
 	askSubject?: string;
+	/** A third party's document: who publishes it. */
+	provider?: string;
 }
 
 const TYPE_OF: Record<string, DocType> = {
@@ -163,6 +165,7 @@ const EXTRA_DOCS: LibraryDoc[] = [
 		access: 'external',
 		type: 'certificates',
 		appliesTo: ['cloud'],
+		provider: 'AWS',
 		keywords: 'aws soc 2 soc2 iso 27001 artifact hosting infrastructure',
 		links: [{ label: 'AWS Artifact', href: 'https://aws.amazon.com/artifact/' }],
 	},
@@ -175,6 +178,7 @@ const EXTRA_DOCS: LibraryDoc[] = [
 		access: 'external',
 		type: 'certificates',
 		appliesTo: ['private-cloud'],
+		provider: 'AWS, Azure and GCP',
 		keywords: 'aws azure gcp data center iso 27001 pci dss soc 2 hosting',
 		links: [
 			{ label: 'AWS', href: 'https://aws.amazon.com/compliance/programs/' },
@@ -293,8 +297,72 @@ export const askAbout = (d: LibraryDoc): string =>
 export const documentsFor = (deployment: Deployment): LibraryDoc[] =>
 	LIBRARY.filter((d) => d.appliesTo.includes(deployment));
 
+/** The proposed library's address, and a document's own address in it. */
+export const LIBRARY_PATH = `${tc('documents')}proposed/`;
+export const docPath = (slug: string): string => `${LIBRARY_PATH}${slug}/`;
+
 /** The library shown for one deployment. */
-export const libraryFor = (deployment: Deployment): string => `${tc('documents')}proposed/?for=${deployment}`;
+export const libraryFor = (deployment: Deployment): string => `${LIBRARY_PATH}?for=${deployment}`;
+
+/** How a reader gets a document, in a few words under its action. */
+export const howToGet = (d: LibraryDoc): string =>
+	({
+		public: 'Public',
+		nda: 'Under mutual NDA',
+		request: 'Not published yet',
+		planned: 'Planned',
+		external: d.provider?.includes(',') ? "Each provider's own page" : `${d.provider}'s own report`,
+	})[d.access];
+
+/** The same, as a sentence, in a document's details. */
+export const howToGetSentence = (d: LibraryDoc): string =>
+	({
+		public: 'Public: open to everyone.',
+		nda: 'Under NDA: we send our mutual NDA first, then the documents within two business days.',
+		request: 'Not published on the site yet. Ask us for it.',
+		planned: 'Planned: not available yet. Ask us when it will be.',
+		external: `Published by ${d.provider}, not by ThingsBoard: it covers the provider's own infrastructure.`,
+	})[d.access];
+
+/** The deployments a document applies to, in words. */
+export const scopeOf = (
+	d: LibraryDoc,
+	words: { all: string; suffix: string } = { all: '', suffix: ' only' }
+): string => {
+	const names = d.appliesTo.map((a) => DEPLOYMENTS.find((x) => x.id === a)!.label);
+	return names.length ? `${names.join(' and ')}${words.suffix}` : words.all;
+};
+
+/** Where the Trust Center says more about what a document covers. */
+const COMPLIANCE = tc('compliance');
+const ISO_27001 = { label: 'ISO/IEC 27001 on the Compliance page', href: `${COMPLIANCE}#iso-27001` };
+const GDPR = { label: 'GDPR on the Compliance page', href: `${COMPLIANCE}#gdpr` };
+const DEV = { label: 'Dev security on the Security page', href: `${tc('security')}#dev` };
+const CLOUD = { label: 'Cloud and Private Cloud', href: tc('cloud') };
+const ONPREM = { label: 'On-premises', href: tc('onprem') };
+export const RELATED: Record<string, { label: string; href: string }> = {
+	'iso-27001-certificate': ISO_27001,
+	'iso-9001-certificate': { label: 'ISO 9001 on the Compliance page', href: `${COMPLIANCE}#iso-9001` },
+	'statement-of-applicability': ISO_27001,
+	'risk-assessment-report': ISO_27001,
+	'internal-audit-report-2026': ISO_27001,
+	'pentest-executive-summary': DEV,
+	'secure-development-policy': DEV,
+	'change-management-procedure': DEV,
+	'privacy-policy': GDPR,
+	'data-processing-addendum': GDPR,
+	'data-protection-policy': GDPR,
+	'aws-attestations': CLOUD,
+	'data-center-certifications': CLOUD,
+	'private-cloud-architecture': CLOUD,
+	'private-cloud-sla': CLOUD,
+	'dpa-private-cloud': CLOUD,
+	'bcp-drp': CLOUD,
+	'backup-policy': CLOUD,
+	'release-policy': ONPREM,
+	'support-policy': ONPREM,
+	eula: ONPREM,
+};
 
 /** Product documentation the On-premises page listed with its documents: guides, not library rows. */
 export const ONPREM_PRODUCT_DOCS: { name: string; href?: string; askSubject?: string }[] = [
