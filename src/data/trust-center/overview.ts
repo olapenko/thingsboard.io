@@ -114,7 +114,7 @@ export const TILES: Tile[] = [
 export interface DeploymentCard {
 	title: string;
 	icon: string;
-	/** The site's colour for the deployment: brand blue for Cloud, green for on-premises. */
+	/** The mark's colour: the site's brand blue for Cloud, its green for on-premises. Links stay brand. */
 	accent: 'brand' | 'onprem';
 	text: string;
 	rows: { label: string; html: string }[];
