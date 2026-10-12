@@ -145,7 +145,7 @@ export const DEPLOYMENT_CARDS: DeploymentCard[] = [
 				html: 'Authorized engineers only, and only to handle your request; role-based and logged.',
 			},
 		],
-		link: 'Cloud and Private Cloud in detail',
+		link: 'Learn more',
 		href: tc('cloud'),
 	},
 	{
@@ -162,7 +162,7 @@ export const DEPLOYMENT_CARDS: DeploymentCard[] = [
 			},
 			{ label: 'Release support', html: 'LTS releases: 18 months. Standard releases: 6 months.' },
 		],
-		link: 'On-premises in detail',
+		link: 'Learn more',
 		href: tc('onprem'),
 	},
 ];
