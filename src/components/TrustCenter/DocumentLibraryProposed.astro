@@ -4,17 +4,20 @@ import Button from '@components/ui/Button.astro';
 import Chip from '@components/ui/Chip.astro';
 import Dialog from '@components/ui/Dialog.astro';
 import Field from '@components/ui/Field.astro';
+import Link from '@components/ui/Link.astro';
+import Segmented from '@components/ui/Segmented.astro';
 import Tag from '@components/TrustCenter/Tag.astro';
-import { askHref } from '@data/trust-center/documents';
 import {
 	ASSESSMENT_PACK,
 	ASSESSMENT_PACK_SUMMARY,
+	askAbout,
+	DEPLOYMENTS,
 	DOC_TYPES,
 	LIBRARY,
+	LIBRARY_ACCESS,
 	type LibraryDoc,
 } from '@data/trust-center/documents-proposed';
 import { tc } from '@data/trust-center/nav';
-import { ACCESS } from '@data/trust-center/status';
 
 /**
  * PROPOSED document library (review of 2026-10-12), beside the current one, for comparison.
@@ -27,6 +30,9 @@ import { ACCESS } from '@data/trust-center/status';
  * - Once something is added, a tray rides the bottom of the screen: the count, the names, Clear and
  *   Request. Request opens the form in a dialog on this page, with the chosen documents listed and
  *   removable, so nothing is picked twice and the reader never leaves the list.
+ * - Product-wide, with what each document applies to on its row. "Show documents for" picks a
+ *   deployment: the documents for every deployment stay, the other deployments' go, and the type
+ *   counts follow. `?for=<deployment>` arrives with it picked, so a deployment page links its view.
  * - The assessment pack adds the five documents assessors ask for first; "all under NDA" adds the rest.
  * - Search reads the name, the description, the type and the words readers use (pentest, BCP, SoA).
  * - Addresses: `#<slug>` scrolls to a row and marks it; `?request=a,b` arrives with those added, and
@@ -40,7 +46,15 @@ const TYPE = Object.fromEntries(DOC_TYPES.map((t) => [t.id, t]));
 const counts = DOC_TYPES.map((t) => ({ ...t, n: LIBRARY.filter((d) => d.type === t.id).length }));
 const ndaCount = LIBRARY.filter((d) => d.access === 'nda').length;
 
-const opens = (d: LibraryDoc) => (d.access === 'public' ? (d.f ?? d.u) : undefined);
+const DEPLOYMENT = Object.fromEntries(DEPLOYMENTS.map((d) => [d.id, d]));
+const appliesLabel = (d: LibraryDoc) => {
+	const names = d.appliesTo.map((a) => DEPLOYMENT[a].label);
+	return names.length ? `${names.join(' and ')} only` : '';
+};
+const FOR_OPTIONS = [
+	{ label: 'All deployments', shortLabel: 'All', value: 'all' },
+	...DEPLOYMENTS.map((d) => ({ label: d.label, shortLabel: d.short, value: d.id })),
+];
 const isExternal = (href: string) => /^https?:/.test(href);
 const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.type].label].join(' ').toLowerCase();
 ---
@@ -65,6 +79,12 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 	</div>
 
 	<div class="tc-lib__tools">
+		<div class="tc-lib__for">
+			<span class="tc-lib__for-label" aria-hidden="true">
+				Show documents for
+			</span>
+			<Segmented label="Show documents for" name="for" size="sm" options={FOR_OPTIONS} class="tc-lib__for-seg" />
+		</div>
 		<label class="tc-lib__search">
 			<Icon name="tabler:search" aria-hidden="true" />
 			<span class="ui-sr">Search documents</span>
@@ -85,9 +105,16 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 
 	<ul class="tc-lib__list" role="list">
 		{LIBRARY.map((d) => {
-			const open = opens(d);
+			const applies = appliesLabel(d);
 			return (
-				<li class="tc-lib__row" id={d.slug} data-type={d.type} data-access={d.access} data-search={haystack(d)}>
+				<li
+					class="tc-lib__row"
+					id={d.slug}
+					data-type={d.type}
+					data-access={d.access}
+					data-applies={d.appliesTo.join(' ')}
+					data-search={haystack(d)}
+				>
 					<span class="tc-lib__icon" aria-hidden="true">
 						<Icon name={TYPE[d.type].icon} />
 					</span>
@@ -96,18 +123,33 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 						<p class="tc-lib__text">{d.description}</p>
 						<p class="tc-lib__meta">
 							<span>{TYPE[d.type].label}</span>
-							{d.version !== '—' && <span>{d.version}</span>}
-							{d.privateCloud && <span>Private Cloud customers</span>}
+							{d.version && <span>{d.version}</span>}
+							{applies && <span class="tc-lib__applies">{applies}</span>}
 						</p>
 					</div>
 					<div class="tc-lib__access">
-						<Tag tag={ACCESS[d.access]} />
+						<Tag tag={LIBRARY_ACCESS[d.access]} />
 					</div>
 					<div class="tc-lib__action">
-						{open && (
-							<Button href={open} variant="secondary" size="sm" external={isExternal(open)} srSuffix={`: ${d.name}`}>
+						{d.href && (
+							<Button
+								href={d.href}
+								variant="secondary"
+								size="sm"
+								external={isExternal(d.href)}
+								srSuffix={`: ${d.name}`}
+							>
 								Open
 							</Button>
+						)}
+						{d.links && (
+							<span class="tc-lib__links">
+								{d.links.map((l) => (
+									<Link href={l.href} size="sm" external srSuffix={`: ${d.name}`}>
+										{l.label}
+									</Link>
+								))}
+							</span>
 						)}
 						{d.access === 'nda' && (
 							<button type="button" class="tc-lib__add" aria-pressed="false" data-add={d.slug} data-name={d.name}>
@@ -118,9 +160,9 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 								<span class="ui-sr">: {d.name}</span>
 							</button>
 						)}
-						{d.access === 'planned' && (
-							<Button href={askHref(d)} variant="tertiary" size="sm" srSuffix={`: ${d.name}`}>
-								Ask about it
+						{(d.access === 'planned' || d.access === 'request') && (
+							<Button href={askAbout(d)} variant="tertiary" size="sm" srSuffix={`: ${d.name}`}>
+								{d.access === 'planned' ? 'Ask about it' : 'Ask for it'}
 							</Button>
 						)}
 					</div>
@@ -222,6 +264,7 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 
 <script>
 	import { openDialog } from '@util/dialog';
+	import { setSegmented } from '@util/segmented';
 	import { clearFieldError, validateAll, wireValidation, type FieldControl, type Problem } from '@util/form-validate';
 
 	const root = document.querySelector<HTMLElement>('[data-tc-lib]');
@@ -242,20 +285,59 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 		const nameOf = new Map(adds.map((b) => [b.dataset.add!, b.dataset.name!]));
 		const order = adds.map((b) => b.dataset.add!);
 
+		const forGroup = q<HTMLElement>('[data-segmented-name="for"]');
+		const DEPLOYMENT_IDS = [...forGroup.querySelectorAll<HTMLButtonElement>('.ui-seg__opt')].map(
+			(o) => o.dataset.value!
+		);
+
 		const picked = new Set<string>();
 		let type = 'all';
+		let forValue = 'all';
+
+		/** The address carries the deployment and the request, so a reload or a shared link keeps both. */
+		const writeUrl = () => {
+			// Commas left as they are, so the address reads as the list it is.
+			const url = new URL(location.href);
+			url.searchParams.delete('request');
+			url.searchParams.delete('for');
+			const params = [
+				url.searchParams.toString(),
+				forValue !== 'all' ? `for=${forValue}` : '',
+				picked.size ? `request=${order.filter((s) => picked.has(s)).join(',')}` : '',
+			]
+				.filter(Boolean)
+				.join('&');
+			history.replaceState(history.state, '', `${url.pathname}${params ? `?${params}` : ''}${url.hash}`);
+		};
 
 		const plural = (n: number) => `${n} document${n === 1 ? '' : 's'}`;
 
 		// ── Filtering ─────────────────────────────────────────────────────────
 		const filter = () => {
 			const words = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+			// A document for every deployment has no `applies`; it shows whichever deployment is picked.
+			const forOk = (row: HTMLElement) =>
+				forValue === 'all' || !row.dataset.applies || row.dataset.applies.split(' ').includes(forValue);
+			const textOk = (row: HTMLElement) => words.every((w) => row.dataset.search!.includes(w));
 			let shown = 0;
+			const perType = new Map<string, number>();
 			rows.forEach((row) => {
-				const ok = (type === 'all' || row.dataset.type === type) && words.every((w) => row.dataset.search!.includes(w));
+				const inScope = forOk(row) && textOk(row);
+				if (inScope) perType.set(row.dataset.type!, (perType.get(row.dataset.type!) ?? 0) + 1);
+				const ok = inScope && (type === 'all' || row.dataset.type === type);
 				row.hidden = !ok;
 				if (ok) shown++;
 			});
+			// The type counts follow the deployment and the search, so a chip never promises rows it hides.
+			chips.forEach((chip) => {
+				const note = chip.querySelector('.ui-chip__note');
+				const t = chip.dataset.type!;
+				if (note)
+					note.textContent = String(
+						t === 'all' ? [...perType.values()].reduce((a, b) => a + b, 0) : (perType.get(t) ?? 0)
+					);
+			});
+			writeUrl();
 			empty.hidden = shown > 0;
 			// "Ask us" carries what was searched for, as the contact form's `about` prefill.
 			const query = search.value.trim();
@@ -271,8 +353,14 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 			})
 		);
 		search.addEventListener('input', filter);
+		forGroup.addEventListener('segmented:select', (e) => {
+			forValue = (e as CustomEvent<{ value: string }>).detail.value;
+			filter();
+		});
 		q<HTMLButtonElement>('[data-reset]').addEventListener('click', () => {
 			search.value = '';
+			forValue = 'all';
+			setSegmented(forGroup, 'all');
 			chips[0].click();
 			search.focus();
 		});
@@ -288,17 +376,7 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 			nda.textContent = ' under NDA';
 			count.replaceChildren(plural(list.length), nda);
 			names.textContent = list.join(' · ');
-			// The address carries the request, so a reload or a shared link keeps it.
-			// Commas left as they are, so the address reads as the list it is.
-			const url = new URL(location.href);
-			url.searchParams.delete('request');
-			const params = [
-				url.searchParams.toString(),
-				list.length ? `request=${order.filter((s) => picked.has(s)).join(',')}` : '',
-			]
-				.filter(Boolean)
-				.join('&');
-			history.replaceState(history.state, '', `${url.pathname}${params ? `?${params}` : ''}${url.hash}`);
+			writeUrl();
 			renderDocs();
 		};
 
@@ -405,7 +483,13 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 		});
 
 		// ── Arriving ──────────────────────────────────────────────────────────
-		const wanted = new URL(location.href).searchParams.get('request');
+		const params = new URL(location.href).searchParams;
+		const wantedFor = params.get('for');
+		if (wantedFor && DEPLOYMENT_IDS.includes(wantedFor)) {
+			forValue = wantedFor;
+			setSegmented(forGroup, wantedFor);
+		}
+		const wanted = params.get('request');
 		if (wanted) add(wanted.split(','));
 		else sync();
 		filter();
@@ -493,6 +577,36 @@ const haystack = (d: LibraryDoc) => [d.name, d.description, d.keywords, TYPE[d.t
 	.tc-lib__tools {
 		display: grid;
 		gap: $spacing-4;
+	}
+
+	.tc-lib__for {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: $spacing-2 $spacing-4;
+	}
+
+	.tc-lib__for-label {
+		@include type-small-strong;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-lib__for-seg {
+		@include media-down(md) {
+			flex: 1 1 100%;
+		}
+	}
+
+	.tc-lib__links {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: $spacing-1 $spacing-4;
+		padding-top: 5px;
+	}
+
+	.tc-lib__applies {
+		color: var(--color-text-secondary);
 	}
 
 	.tc-lib__types {
