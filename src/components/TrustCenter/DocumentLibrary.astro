@@ -228,16 +228,6 @@ const FOR_FACETS = [
 				<button type="button" class="tc-lib__clear" hidden data-clear-filters>
 					Clear filters
 				</button>
-				<p class="tc-lib__legend">
-					<span>
-						<Icon name={TIERS.request.icon} aria-hidden="true" />
-						{TIERS.request.label}
-					</span>
-					<span style={`--mark: ${TIERS.nda.color}`}>
-						<Icon name={TIERS.nda.icon} aria-hidden="true" />
-						{TIERS.nda.label}
-					</span>
-				</p>
 			</div>
 
 			<ul class="tc-lib__list" role="list">
@@ -264,11 +254,18 @@ const FOR_FACETS = [
 										</a>
 									)}
 									{tier && (
-										<span class="tc-lib__mark" title={tier.label} style={tier.color && `--mark: ${tier.color}`}>
+										<span
+											class="tc-lib__mark"
+											role="img"
+											tabindex="0"
+											aria-label={tier.label}
+											data-tip={tier.label}
+											style={tier.color && `--mark: ${tier.color}`}
+										>
 											<Icon name={tier.icon} aria-hidden="true" />
-											<span class="ui-sr">{tier.label}</span>
 										</span>
 									)}
+									{d.planned && <span class="tc-lib__planned">Planned</span>}
 								</h3>
 								<p class="tc-lib__text">
 									{d.description}
@@ -276,15 +273,25 @@ const FOR_FACETS = [
 								</p>
 							</div>
 							<ul class="tc-lib__facts" role="list">
-								<li class="tc-lib__fact tc-lib__fact--type">{TYPE[d.type].one}</li>
+								<li>
+									<Chip kind="tag" tone="neutral" look="outline">
+										{TYPE[d.type].one}
+									</Chip>
+								</li>
 								{d.appliesTo.map((a) => (
-									<li class="tc-lib__fact">
-										<Icon name={DEPLOYMENT[a].icon} aria-hidden="true" />
-										{DEPLOYMENT[a].label}
+									<li>
+										<Chip kind="tag" tone="neutral" look="outline" icon={DEPLOYMENT[a].icon}>
+											{DEPLOYMENT[a].label}
+										</Chip>
 									</li>
 								))}
-								{d.planned && <li class="tc-lib__fact">Planned</li>}
-								{d.provider && <li class="tc-lib__fact">By {d.provider}</li>}
+								{d.provider && (
+									<li>
+										<Chip kind="tag" tone="neutral" look="outline">
+											By {d.provider}
+										</Chip>
+									</li>
+								)}
 							</ul>
 							<div class="tc-lib__act">
 								{tier ? (
@@ -1003,31 +1010,6 @@ const FOR_FACETS = [
 		}
 	}
 
-	// The site's paragraph margins outrank a single class here: the result line's own selector holds it right.
-	.tc-lib__legend span[style] svg {
-		color: var(--mark);
-	}
-
-	.tc-lib__result .tc-lib__legend {
-		@include type-small;
-		display: flex;
-		flex-wrap: wrap;
-		gap: $spacing-1 $spacing-4;
-		margin: 0 0 0 auto;
-		color: var(--color-text-muted);
-
-		span {
-			display: inline-flex;
-			align-items: center;
-			gap: $spacing-1;
-		}
-
-		svg {
-			width: 16px;
-			height: 16px;
-		}
-	}
-
 	// ── The list ──
 	.tc-lib__list {
 		margin: 0;
@@ -1045,7 +1027,11 @@ const FOR_FACETS = [
 			'facts act';
 		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: start;
-		gap: $spacing-2 $spacing-6;
+		gap: $spacing-3 $spacing-6;
+		margin: 0;
+		padding: $spacing-5 0;
+		border-bottom: 1px solid var(--color-border-light);
+		scroll-margin-top: 160px;
 
 		@include media-up(md) {
 			:root:not([data-tc-filters='rail']) & {
@@ -1053,10 +1039,6 @@ const FOR_FACETS = [
 				grid-template-columns: minmax(0, 1fr) 152px auto;
 			}
 		}
-		margin: 0;
-		padding: $spacing-4 0;
-		border-bottom: 1px solid var(--color-border-light);
-		scroll-margin-top: 160px;
 
 		&.is-arrived {
 			animation: tc-lib-mark 2.4s ease-out;
@@ -1095,10 +1077,13 @@ const FOR_FACETS = [
 		}
 	}
 
-	// A requested tier's mark after the name: its label on hover, and read out.
+	// The lock after a requested document's name: grey on request, red for a mutual NDA. Its label is a
+	// tooltip on hover and on focus (a tap focuses it), and its accessible name; no legend over the list.
 	.tc-lib__mark {
+		position: relative;
 		display: inline-grid;
 		place-items: center;
+		border-radius: 4px;
 		color: var(--mark, var(--color-text-muted));
 		cursor: help;
 
@@ -1106,12 +1091,53 @@ const FOR_FACETS = [
 			width: 16px;
 			height: 16px;
 		}
+
+		&::after {
+			content: attr(data-tip);
+			position: absolute;
+			bottom: calc(100% + 8px);
+			left: 50%;
+			z-index: 5;
+			padding: 6px 10px;
+			border-radius: $radius-md;
+			background: #17181c;
+			color: #fff;
+			font-size: 12.5px;
+			font-weight: $font-weight-medium;
+			line-height: 1.2;
+			white-space: nowrap;
+			opacity: 0;
+			pointer-events: none;
+			transform: translate(-50%, 4px);
+			transition:
+				opacity 0.12s ease,
+				transform 0.12s ease;
+		}
+
+		&:hover::after,
+		&:focus-visible::after {
+			opacity: 1;
+			transform: translate(-50%, 0);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring, var(--accent-fill));
+			outline-offset: 2px;
+		}
 	}
 
-	.tc-lib__text {
+	// Planned: part of the name's line, as the document's state, in the quiet grey.
+	.tc-lib__planned {
+		@include type-small;
+		color: var(--color-text-muted);
+		font-weight: $font-weight-medium;
+	}
+
+	// The site's paragraph margins outrank a single class: the row's own selector keeps the gap.
+	.tc-lib__row .tc-lib__text {
 		@include type-small;
 		display: -webkit-box;
-		margin: 2px 0 0;
+		margin: 6px 0 0;
 		overflow: hidden;
 		color: var(--color-text-secondary);
 		-webkit-box-orient: vertical;
@@ -1153,42 +1179,39 @@ const FOR_FACETS = [
 		grid-area: act;
 	}
 
-	// The facts: quiet text, no chips. The type in the text's grey, a deployment with its filter's
-	// icon in the muted grey; in a line under the description, or a stack in their own column.
+	// The facts: the kit's neutral tags, in a stroke or (internal controls, `data-tc-tags="grey"`) on a
+	// grey ground. Under the description, or a stack in their own column beside it.
 	.tc-lib__facts {
-		@include type-small;
 		grid-area: facts;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 2px $spacing-4;
+		align-items: flex-start;
+		gap: 6px;
 		margin: 0;
 		padding: 0;
-		color: var(--color-text-muted);
 		list-style: none;
+
+		li {
+			display: flex;
+			margin: 0;
+		}
+
+		.ui-chip--tag {
+			border-color: rgba(23, 24, 28, 0.16);
+			color: var(--color-text-secondary);
+		}
+
+		:root[data-tc-tags='grey'] & .ui-chip--tag {
+			border-color: transparent;
+			background: rgba(23, 24, 28, 0.06);
+		}
 
 		@include media-up(md) {
 			:root:not([data-tc-filters='rail']) & {
 				flex-direction: column;
-				padding-top: 3px;
+				margin-top: 2px;
 			}
 		}
-	}
-
-	.tc-lib__fact {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		margin: 0;
-
-		svg {
-			flex: none;
-			width: 15px;
-			height: 15px;
-		}
-	}
-
-	.tc-lib__fact--type {
-		color: var(--color-text-secondary);
 	}
 
 	.tc-lib__empty {
