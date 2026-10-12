@@ -1,18 +1,28 @@
-import type { CompareColumn, CompareGroup, CompareRow } from '@data/product-blocks';
+import type { CompareColumn, CompareRow } from '@data/product-blocks';
 
 /**
- * The Deployment pages' facts, from the draft, with the review's repetition edits. Each fact here is
- * its home: the overview, the FAQ and the Security page link to it rather than restating it.
+ * The deployments' facts, from the draft, with the review's repetition edits. Each fact here is its
+ * home: the overview, the FAQ and the Security page link to it rather than restating it.
  *
  * - Cloud: the encryption row is gone (identical in both columns and not specific to either; the
  *   ports live on Product security, edit 3); staff access is written once (edit 9).
  * - On-premises: what is built in links to the Security page (edit 4); security fixes keep the
- *   on-premises how-to and link the policy (edit 5); the per-product note moved to Commitments
- *   (edit 14), on the Deployment hub.
- * - Commitments (the Deployment hub's sections): the NDA turnaround, the uptime SLA and leaving Private Cloud are cut (edits 7, 8,
- *   10); the matrix loses the row identical in every column (edit 4) and merges Cloud and Private
- *   Cloud, which agreed in 13 of 14 rows (edit 15).
+ *   on-premises how-to and link the policy (edit 5).
+ * - What the Deployment hub held (review of 2026-10-12, the hub is gone): who handles what is on
+ *   each deployment's page, as a list of its own (`CLOUD_RESPONSIBILITY`, `ONPREM_RESPONSIBILITY`),
+ *   the per-product note on On-premises (edit 14); support is a row on each page; what you configure
+ *   is Security's, under Access control (`YOU_CONFIGURE`).
  */
+
+/** Support by plan: a row in the Cloud page's comparison, a fact on On-premises. */
+export const SUPPORT_TEXT = {
+	cloud:
+		'Community support on GitHub for Free and Prototype; help desk on Pilot; priority help desk on Startup and Business. Replies within 24 hours, 8:00–20:00 EET, Monday to Friday.',
+	privateCloud:
+		'Support Portal on every plan; priority channel and engineering support on Scale and Enterprise; a dedicated customer success engineer on Enterprise.',
+	onprem:
+		'Community support on Maker and Prototype; help desk on Pilot; priority help desk on Startup (replies within 36 hours) and Business (within 12 hours). Perpetual licenses include the first year of support.',
+};
 
 export const CLOUD_COLUMNS: CompareColumn[] = [
 	{ name: 'ThingsBoard Cloud', icon: 'tabler:cloud' },
@@ -92,6 +102,10 @@ export const CLOUD_ROWS: CompareRow[] = [
 		],
 	},
 	{
+		label: 'Support',
+		values: [SUPPORT_TEXT.cloud, SUPPORT_TEXT.privateCloud],
+	},
+	{
 		label: 'Leaving',
 		values: [
 			'You export your data through the REST API; we delete your tenant after cancellation.',
@@ -136,45 +150,50 @@ export const ONPREM_GUIDES = [
 	{ label: 'Security overview', href: '/docs/pe/user-guide/security/overview/' },
 ];
 
-/** Who handles what: Cloud and Private Cloud in one column, since they agree everywhere but the region. */
-export const RESPONSIBILITY_COLUMNS: CompareColumn[] = [
-	{ name: 'Cloud and Private Cloud', icon: 'tabler:cloud' },
-	{ name: 'On-premises', icon: 'tabler:server' },
+/**
+ * Who handles what, on each deployment's page: what ThingsBoard handles and what you do. The rows of
+ * the hub's matrix, which had Cloud and Private Cloud in one column (they agree everywhere but the
+ * region); in each list its own words.
+ */
+export interface Responsibility {
+	us: string[];
+	you: string[];
+}
+
+const DEVELOPMENT = 'Secure development, testing and product fixes';
+
+/** What runs the platform: ours on Cloud, yours on-premises. */
+const OPERATIONS = [
+	'Network perimeter, firewall and DDoS protection',
+	'OS, Kubernetes and database patching',
+	'Platform upgrades and security patches',
+	'TLS certificates on platform endpoints',
+	'Capacity, scaling and high availability',
+	'Backups and restore',
+	'Disaster recovery and business continuity',
+	'Infrastructure monitoring and alerting',
+	'The platform sysadmin account and platform-wide security settings',
+	'Hardening the deployment',
 ];
 
-const US = 'ThingsBoard';
-const YOU = 'You';
+export const CLOUD_RESPONSIBILITY: Responsibility = {
+	us: [
+		DEVELOPMENT,
+		'Data center security, through our cloud providers',
+		'Hosting region: North America or EU on Cloud, the region you need on Private Cloud',
+		...OPERATIONS,
+	],
+	you: [
+		'Your tenant: who signs in, what each user can see, and how strictly the built-in controls apply',
+		'Your devices: their credentials, provisioning and transport security',
+		'Your data: what you send to the platform, where your rule chains forward it, and how long you keep it',
+	],
+};
 
-export const RESPONSIBILITY_GROUPS: CompareGroup[] = [
-	{
-		title: 'Product',
-		icon: 'tabler:code',
-		color: '#3d50f5',
-		rows: [{ label: 'Secure development, testing and product fixes', values: [US, US] }],
-	},
-	{
-		title: 'Infrastructure and operations',
-		icon: 'tabler:server-cog',
-		color: '#c2410c',
-		rows: [
-			{ label: 'Data center security, through our cloud providers', values: [US, YOU] },
-			{
-				label: 'Hosting region (North America or EU on Cloud; the region you need on Private Cloud)',
-				values: [US, YOU],
-			},
-			{ label: 'Network perimeter, firewall, DDoS protection', values: [US, YOU] },
-			{ label: 'OS, Kubernetes and database patching', values: [US, YOU] },
-			{ label: 'Platform upgrades and security patches', values: [US, YOU] },
-			{ label: 'TLS certificates on platform endpoints', values: [US, YOU] },
-			{ label: 'Capacity, scaling and high availability', values: [US, YOU] },
-			{ label: 'Backups and restore', values: [US, YOU] },
-			{ label: 'Disaster recovery and business continuity', values: [US, YOU] },
-			{ label: 'Infrastructure monitoring and alerting', values: [US, YOU] },
-			{ label: 'Platform sysadmin account and platform-wide security settings', values: [US, YOU] },
-			{ label: 'Hardening the deployment', values: [US, YOU] },
-		],
-	},
-];
+export const ONPREM_RESPONSIBILITY: Responsibility = {
+	us: [DEVELOPMENT, 'Security fixes in patch releases', 'Security configuration guides for every feature'],
+	you: ['Data center security and the hosting region', ...OPERATIONS, 'Your tenants, devices and data, as on Cloud'],
+};
 
 export const YOU_CONFIGURE = [
 	'Manage users, roles and access reviews in your tenant',
@@ -188,21 +207,6 @@ export const YOU_CONFIGURE = [
 	'Export your data at any time',
 	'Follow activity in the audit log',
 	"Meet your industry's requirements, such as HIPAA or 21 CFR Part 11",
-];
-
-export const SUPPORT_BY_MODEL = [
-	{
-		model: 'ThingsBoard Cloud',
-		text: 'Community support on GitHub for Free and Prototype; help desk on Pilot; priority help desk on Startup and Business. Replies within 24 hours, 8:00–20:00 EET, Monday to Friday.',
-	},
-	{
-		model: 'Private Cloud',
-		text: 'Support Portal on every plan; priority channel and engineering support on Scale and Enterprise; a dedicated customer success engineer on Enterprise.',
-	},
-	{
-		model: 'On-premises',
-		text: 'Community support on Maker and Prototype; help desk on Pilot; priority help desk on Startup (replies within 36 hours) and Business (within 12 hours). Perpetual licenses include the first year of support.',
-	},
 ];
 
 export const SUBPROCESSORS: { vendor: string; purpose: string; location: string }[] = [

@@ -5,17 +5,14 @@ import {
 	PRODUCT_CONTROLS,
 	type Control,
 } from '@data/trust-center/controls';
+import { YOU_CONFIGURE } from '@data/trust-center/deployment';
 import { link } from '@data/trust-center/html';
 import { HUES, tc } from '@data/trust-center/nav';
 
 /**
- * The overview's and the hubs' summaries, from the draft's tiles, with the review's edits.
- *
- * Build v3 gave Security and Deployment hubs, so each topic now lives on its section's hub rather
- * than on the overview, which lists the sections instead (`SECTIONS` in `@data/trust-center/nav`).
- * The four Security pages are now the Security hub's sections; the deployments are the Deployment
- * hub's cards, with Commitment and responsibility on the hub under them. The draft's Compliance tile
- * is gone: its points are the Compliance page's facts.
+ * The overview's and the sections' summaries, from the draft's tiles, with the review's edits. The
+ * four Security pages are the Security page's parts; the deployments are the overview's cards, each
+ * going to its own section (Cloud, On-premises).
  */
 
 /**
@@ -29,15 +26,15 @@ export const TOPIC_HUES = {
 	product: '#0891b2',
 	access: '#ea580c',
 	dev: '#db2777',
-	commitments: '#059669',
 };
 
 /**
- * The overview's six topics: the draft's tiles as build v2 carried them, with the review's edits
+ * The overview's five topics: the draft's tiles as build v2 carried them, with the review's edits
  * (the Compliance tile no longer repeats the two certificates the hero shows, edit 1; Data security
- * no longer offers APAC on ThingsBoard Cloud, which has none). The tiles mirror the tree: Compliance,
- * the four Security parts and Commitments. Since the pages merged, each links to its part of its
- * section's page rather than to a page of its own.
+ * no longer offers APAC on ThingsBoard Cloud, which has none). The tiles mirror the tree: Compliance
+ * and the four Security parts, each going to its part of its section's page. The sixth,
+ * Commitment and responsibility, went with the Deployment hub (review of 2026-10-12): the
+ * deployment band under the tiles goes to Cloud and On-premises, where who handles what now is.
  */
 export interface Topic {
 	title: string;
@@ -114,25 +111,14 @@ export const TOPICS: Topic[] = [
 			'Fixed CVEs listed in release notes',
 		],
 	},
-	{
-		title: 'Commitment and responsibility',
-		subtitle: 'What we promise and what we handle',
-		icon: 'tabler:arrows-exchange',
-		hue: TOPIC_HUES.commitments,
-		href: `${tc('deployment')}#commitments`,
-		points: [
-			'NDA documents within two business days',
-			'Support response times for every plan',
-			'Private Cloud uptime SLA up to 99.95%',
-			'What ThingsBoard handles in each deployment model',
-		],
-	},
 ];
 
 export interface SecurityTopic {
 	/** The section's anchor on the Security page. */
 	id: string;
 	title: string;
+	/** Its tile's line at the top of the Security page, as the overview's tile has it. */
+	subtitle: string;
 	icon: string;
 	/** The topic's colour, as its card on the overview has it. */
 	hue: string;
@@ -141,17 +127,20 @@ export interface SecurityTopic {
 	controls: Control[];
 	/** A closing line, HTML. */
 	note?: string;
+	/** A closing check list, under its own h3: Access control's "Built for you to configure". */
+	checks?: { id: string; title: string; lede: string; items: string[] };
 }
 
 /**
  * The Security page's four sections, each a page of its own until they merged: its mark, the line
- * that was the page's lede, and its controls. The tiles' points are gone with the tiles: the
- * controls under them say the same in full.
+ * that was the page's lede, and its controls. Its tile at the top of the page has the overview's
+ * line (`subtitle`) and no points: the controls under it say the same in full.
  */
 export const SECURITY_TOPICS: SecurityTopic[] = [
 	{
 		id: 'product',
 		title: 'Product security',
+		subtitle: 'Security built into the product',
 		icon: 'tabler:device-desktop',
 		hue: TOPIC_HUES.product,
 		lede: "How the platform protects device connections, credentials and secrets, so you don't have to build this layer yourself.",
@@ -161,6 +150,7 @@ export const SECURITY_TOPICS: SecurityTopic[] = [
 	{
 		id: 'data',
 		title: 'Data security',
+		subtitle: 'Your data stays protected',
 		icon: 'tabler:database',
 		hue: TOPIC_HUES.data,
 		lede: 'What happens to the data your devices send to the platform, from the moment it arrives until you delete it.',
@@ -169,14 +159,22 @@ export const SECURITY_TOPICS: SecurityTopic[] = [
 	{
 		id: 'access',
 		title: 'Access control',
+		subtitle: 'You decide who sees what',
 		icon: 'tabler:lock',
 		hue: TOPIC_HUES.access,
 		lede: 'Who can sign in, what each user can see, and a record of what they did. We built these controls into the platform; you decide how strictly to apply them in your tenant.',
 		controls: ACCESS_CONTROLS,
+		checks: {
+			id: 'you-configure',
+			title: 'Built for you to configure',
+			lede: 'In every deployment, these are yours to set, so you can tune security to your own needs:',
+			items: YOU_CONFIGURE,
+		},
 	},
 	{
 		id: 'dev',
 		title: 'Dev security',
+		subtitle: 'Built through a secure process',
 		icon: 'tabler:code',
 		hue: TOPIC_HUES.dev,
 		lede: 'How we build, test and release the software you run. These practices come from years of delivering production IoT solutions on our own platform.',
@@ -224,10 +222,9 @@ export const PRIVACY = [
 export const CERT_VALIDATOR = 'https://swissapproval.ch/certificate-validator/';
 
 /**
- * The deployment cards, on the overview and the Deployment hub. The two deployments carry the
+ * The deployment cards, on the overview. The two deployments carry the
  * products' own marks, as the footer and the product pages draw them: the ThingsBoard mark in the
- * brand blue for Cloud, in the on-premises green for the platform you run yourself. Commitment and
- * responsibility is not a card: it is the hub's own sections, under the cards.
+ * brand blue for Cloud, in the on-premises green for the platform you run yourself.
  *
  * Each card carries the draft's own rows again (edit 2 had cut them to a line): the summary a reader
  * compares the two by, in the draft's words, less the encryption row (identical in both, edit 3).

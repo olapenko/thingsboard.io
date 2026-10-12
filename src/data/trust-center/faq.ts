@@ -108,7 +108,7 @@ export const TC_FAQ = [
 			{
 				id: 'responsibility',
 				question: 'Who is responsible for security in an on-premises deployment?',
-				answer: `<p>You run the infrastructure; we are responsible for the product code, security fixes and the guides. ${a(`${tc('deployment')}#who-handles-what`, 'Who handles what')}</p>`,
+				answer: `<p>You run the infrastructure; we are responsible for the product code, security fixes and the guides. ${a(`${tc('onprem')}#who-handles-what`, 'Who handles what')}</p>`,
 			},
 			{
 				id: 'fixes',

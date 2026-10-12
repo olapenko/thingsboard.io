@@ -1,5 +1,4 @@
 ---
-import { Icon } from 'astro-icon/components';
 import Band from '@components/ui/Band.astro';
 import Button from '@components/ui/Button.astro';
 import CardGrid from '@components/ui/CardGrid.astro';
@@ -10,6 +9,7 @@ import CertSeal from '@components/TrustCenter/CertSeal.astro';
 import ItemList from '@components/TrustCenter/ItemList.astro';
 import Tag from '@components/TrustCenter/Tag.astro';
 import TcCard from '@components/TrustCenter/TcCard.astro';
+import TcTiles from '@components/TrustCenter/TcTiles.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
 import { TC_FAQ } from '@data/trust-center/faq';
 import { DOC_TYPES, LIBRARY, LIBRARY_PATH } from '@data/trust-center/library';
@@ -19,21 +19,23 @@ import { VERIFICATION } from '@data/trust-center/status';
 
 /**
  * The Trust Center's overview, the ANCHORS + CARDS version (exp/trust-center-anchors-cards): the
- * anchors version's pages, the landing version's overview, and build v2's six topics.
+ * anchors version's pages, the landing version's overview, and build v2's topics.
  *
  * - No section bar here (the landing logic). The hero carries the proof, the two actions and the
- *   six topics: the ISO seals, each a link to its part of Compliance, with the way to verify them;
+ *   topics: the ISO seals, each a link to its part of Compliance, with the way to verify them;
  *   Contact and Report as buttons; and across its foot the topics, which list the sections, so no
  *   "What we cover" heading over them (the list keeps the name for screen readers). So that nothing
  *   is said twice, there is no Certifications band and no "Get in touch" band.
- * - The topics are the draft's six tiles as v2 carried them, the review's edits included, each
- *   linking to its part of its section's page: Compliance, the four Security parts, Commitments.
+ * - The topics are the draft's tiles as v2 carried them, the review's edits included, each
+ *   linking to its part of its section's page: Compliance and the four Security parts (`TcTiles`,
+ *   which Compliance and Security use for their own parts). Commitments went with the Deployment
+ *   hub (review of 2026-10-12).
  *   Each topic has its own colour (`TOPIC_HUES`), which its Security part repeats. A tile is one
  *   link on a white card (the hero is a tinted ground), ending in a chevron, and lifts on hover;
  *   its title is an h2, the page's first sections after the h1.
  * - "Cloud and on-premises" is the draft's and v2's deployment band, on white now the hero's wash
- *   sits right above it: the two deployments as the Deployment hub draws them, under their
- *   products' own marks, with the draft's summary rows. Documents takes the tint.
+ *   sits right above it: the two deployments under their
+ *   products' own marks, with the draft's summary rows, each going to its section. Documents takes the tint.
  * - The hero's Report a vulnerability is a neutral secondary button, so Contact stays the one call;
  *   the alert hue (`REPORT_SECTION`) is for the report page itself and the section bar.
  * - Documents list by group with their access; requesting happens in the library.
@@ -79,30 +81,7 @@ const docTypes = DOC_TYPES.map((t) => ({
 			</Link>
 		</p>
 	</div>
-	<ul slot="heroFoot" class="tc-tiles" aria-label="What we cover">
-		{TOPICS.map((topic) => (
-			<li class="tc-tile" style={`--tc-topic-hue: ${topic.hue}`}>
-				<Mark size={48} icon={topic.icon} accent={topic.hue} fill="solid" />
-				<div class="tc-tile__body">
-					<h2 class="tc-topic__title">
-						<a class="tc-tile__link" href={topic.href}>
-							{topic.title}
-							<Icon name="tabler:chevron-right" class="tc-tile__chevron" aria-hidden="true" />
-						</a>
-					</h2>
-					<p class="tc-topic__sub">{topic.subtitle}</p>
-					<ul class="tc-tile__points">
-						{topic.points.map((point) => (
-							<li>
-								<Icon name="tabler:check" aria-hidden="true" />
-								{point}
-							</li>
-						))}
-					</ul>
-				</div>
-			</li>
-		))}
-	</ul>
+	<TcTiles slot="heroFoot" label="What we cover" items={TOPICS} />
 
 	<Band pad="lg" labelledby="deployment">
 		<div class="tc-section">
@@ -217,132 +196,5 @@ const docTypes = DOC_TYPES.map((t) => ({
 		gap: $spacing-1;
 		color: var(--color-text-secondary);
 		text-align: center;
-	}
-
-	// The six topics, across the hero's foot: a white card each on the hero's wash, with the tile's
-	// resting shadow, so they read as six ways in. A tile is one link, its title stretched over it;
-	// hover deepens the shadow, rings it in the topic's colour and steps the chevron forward. The
-	// mark sits over the title, three to a row from 1024, and the check list takes the topic's colour.
-	.tc-tiles {
-		display: grid;
-		gap: $spacing-5;
-		padding: 0;
-		list-style: none;
-
-		@include media-up(md) {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-
-		@include media-up(lg) {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
-	}
-
-	.tc-tile {
-		position: relative;
-		display: grid;
-		gap: $spacing-4;
-		align-content: start;
-		padding: $spacing-6;
-		border: 1px solid transparent;
-		border-radius: $radius-lg;
-		background: var(--color-bg-surface, #fff);
-		box-shadow: var(--elev-tile);
-		transition:
-			border-color 0.2s ease,
-			box-shadow 0.2s ease;
-
-		@media (hover: hover) {
-			&:hover {
-				border-color: color-mix(in srgb, var(--tc-topic-hue) 35%, transparent);
-				box-shadow: var(--elev-tile-hover);
-
-				.tc-tile__link {
-					color: var(--tc-topic-hue);
-				}
-
-				.tc-tile__chevron {
-					color: inherit;
-					transform: translateX(3px);
-				}
-			}
-		}
-
-		&:has(.tc-tile__link:focus-visible) {
-			outline: 2px solid var(--focus-ring);
-			outline-offset: 3px;
-		}
-
-		@media (prefers-reduced-motion: reduce) {
-			transition: none;
-		}
-	}
-
-	// The title is the tile's one link, stretched over it; the ring goes round the tile (above).
-	.tc-tile .tc-tile__link {
-		color: var(--color-text);
-		text-decoration: none;
-
-		&::after {
-			content: '';
-			position: absolute;
-			inset: 0;
-			border-radius: inherit;
-		}
-
-		&:hover {
-			color: var(--tc-topic-hue);
-			text-decoration: none;
-		}
-
-		&:focus-visible {
-			outline: none;
-		}
-	}
-
-	// Grey and tight to the last word, centred on the lowercase letters; on hover it takes the
-	// title's colour and steps forward.
-	.tc-tile__chevron {
-		width: 0.85em;
-		height: 0.85em;
-		margin-left: -0.05em;
-		vertical-align: -0.08em;
-		color: var(--color-text-muted);
-		transition:
-			transform 0.2s ease,
-			color 0.2s ease;
-
-		@media (prefers-reduced-motion: reduce) {
-			transition: none;
-		}
-	}
-
-	.tc-tile__body {
-		display: grid;
-		gap: $spacing-1;
-		min-width: 0;
-	}
-
-	.tc-tile__points {
-		display: grid;
-		gap: $spacing-1;
-		margin-top: $spacing-3;
-		padding: 0;
-		list-style: none;
-
-		li {
-			@include type-small;
-			display: grid;
-			grid-template-columns: 16px minmax(0, 1fr);
-			gap: $spacing-2;
-			color: var(--color-text-secondary);
-		}
-
-		svg {
-			width: 16px;
-			height: 16px;
-			margin-top: 3px;
-			color: var(--tc-topic-hue);
-		}
 	}
 </style>

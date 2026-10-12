@@ -1,0 +1,284 @@
+---
+import { Icon } from 'astro-icon/components';
+import Mark from '@components/ui/Mark.astro';
+import CertSeal from '@components/TrustCenter/CertSeal.astro';
+import Tag from '@components/TrustCenter/Tag.astro';
+import type { TagLook } from '@data/trust-center/status';
+
+/**
+ * Tiles across a hero's foot: what a page holds, each a way to it. A white card each on the hero's
+ * wash, with the tile's resting shadow. A tile is one link, its title stretched over it; hover
+ * deepens the shadow, rings it in the tile's colour and steps the chevron forward.
+ *
+ * - `topics` (the overview): the Trust Center's topics, each going to its section. The titles are
+ *   the page's first headings after the h1, and each tile lists its points; three to a row from
+ *   1024, five as two over three.
+ * - `contents` (Compliance, Security): the page's own parts, in a nav named "On this page", each a
+ *   jump to its part. The parts' headings are below, so the titles here are not headings; compact,
+ *   one row from 1024.
+ *
+ * The lead is a mark (`icon`) or a certificate's seal (`seal`); `tag` is a verdict under the title
+ * (Certified, Self-declared).
+ */
+
+export interface Tile {
+	title: string;
+	subtitle?: string;
+	href: string;
+	/** The tile's colour: its mark, its ring on hover, its checks. Default: the section's. */
+	hue?: string;
+	icon?: string;
+	/** A certificate's number, for its seal in place of a mark. */
+	seal?: string;
+	tag?: TagLook;
+	points?: string[];
+}
+
+interface Props {
+	items: Tile[];
+	kind?: 'topics' | 'contents';
+	/** The list's name, for screen readers. */
+	label: string;
+}
+
+const { items, kind = 'topics', label } = Astro.props;
+const contents = kind === 'contents';
+const Title = contents ? 'span' : 'h2';
+// The chevron keeps to the title's last word: it never wraps onto a line of its own.
+const lead = (title: string) => title.slice(0, title.lastIndexOf(' ') + 1);
+const last = (title: string) => title.slice(title.lastIndexOf(' ') + 1);
+// A page's parts are a nav of their own; the overview's topics are a plain list.
+const Wrap = contents ? 'nav' : 'div';
+---
+
+<Wrap class="tc-tiles-wrap" aria-label={contents ? label : undefined}>
+	<ul
+		class:list={['tc-tiles', `tc-tiles--${kind}`, `tc-tiles--n${items.length}`]}
+		style={`--n: ${items.length}`}
+		aria-label={contents ? undefined : label}
+	>
+		{items.map((tile) => (
+			<li class="tc-tile" style={tile.hue ? `--tc-tile-hue: ${tile.hue}` : undefined}>
+				{tile.seal ? (
+					<CertSeal number={tile.seal} size={48} />
+				) : (
+					tile.icon && <Mark size={48} icon={tile.icon} accent={tile.hue} fill="solid" />
+				)}
+				<div class="tc-tile__body">
+					<Title class="tc-tile__title">
+						<a class="tc-tile__link" href={tile.href}>
+							{lead(tile.title)}
+							<span class="tc-tile__last">
+								{last(tile.title)}
+								<Icon name="tabler:chevron-right" class="tc-tile__chevron" aria-hidden="true" />
+							</span>
+						</a>
+					</Title>
+					{tile.subtitle && <p class="tc-tile__sub">{tile.subtitle}</p>}
+					{tile.tag && (
+						<div class="tc-tile__tag">
+							<Tag tag={tile.tag} />
+						</div>
+					)}
+					{tile.points && (
+						<ul class="tc-tile__points">
+							{tile.points.map((point) => (
+								<li>
+									<Icon name="tabler:check" aria-hidden="true" />
+									{point}
+								</li>
+							))}
+						</ul>
+					)}
+				</div>
+			</li>
+		))}
+	</ul>
+</Wrap>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	.tc-tiles {
+		display: grid;
+		gap: $spacing-5;
+		padding: 0;
+		list-style: none;
+
+		@include media-up(md) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		@include media-up(lg) {
+			&--topics {
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+			}
+
+			// Five topics: two over three.
+			&--topics.tc-tiles--n5 {
+				grid-template-columns: repeat(6, minmax(0, 1fr));
+
+				> li {
+					grid-column: span 2;
+				}
+
+				> li:nth-child(-n + 2) {
+					grid-column: span 3;
+				}
+			}
+
+			&--contents {
+				grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+			}
+		}
+	}
+
+	.tc-tile {
+		--tc-tile-hue: var(--tc-hue);
+		position: relative;
+		display: grid;
+		gap: $spacing-4;
+		align-content: start;
+		padding: $spacing-6;
+		border: 1px solid transparent;
+		border-radius: $radius-lg;
+		background: var(--color-bg-surface, #fff);
+		box-shadow: var(--elev-tile);
+		transition:
+			border-color 0.2s ease,
+			box-shadow 0.2s ease;
+
+		// A page's parts: compact, and the lead's row as tall as a seal with its ribbon, so the titles
+		// line up whether a tile leads with a seal or a mark; the tag at the foot.
+		.tc-tiles--contents & {
+			grid-template-rows: 60px 1fr;
+			padding: $spacing-5;
+
+			// On a phone, one under another: the lead beside the text, so the four stay short.
+			@include media-down(md) {
+				grid-template-columns: 48px minmax(0, 1fr);
+				grid-template-rows: auto;
+				padding: $spacing-4;
+			}
+		}
+
+		// A seal's ribbon hangs below its disc: room for it.
+		.tc-seal {
+			margin-bottom: calc(var(--seal) * 18 / 72);
+		}
+
+		@media (hover: hover) {
+			&:hover {
+				border-color: color-mix(in srgb, var(--tc-tile-hue) 35%, transparent);
+				box-shadow: var(--elev-tile-hover);
+
+				.tc-tile__link {
+					color: var(--tc-tile-hue);
+				}
+
+				.tc-tile__chevron {
+					color: inherit;
+					transform: translateX(3px);
+				}
+			}
+		}
+
+		&:has(.tc-tile__link:focus-visible) {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+		}
+	}
+
+	.tc-tile__body {
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-1;
+		min-width: 0;
+	}
+
+	.tc-tile__title {
+		@include type-tile-lg;
+		display: block;
+	}
+
+	// The title is the tile's one link, stretched over it; the ring goes round the tile (above).
+	.tc-tile .tc-tile__link {
+		color: var(--color-text);
+		text-decoration: none;
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+		}
+
+		&:hover {
+			color: var(--tc-tile-hue);
+			text-decoration: none;
+		}
+
+		&:focus-visible {
+			outline: none;
+		}
+	}
+
+	.tc-tile__last {
+		white-space: nowrap;
+	}
+
+	// Grey and tight to the last word, centred on the lowercase letters; on hover it takes the
+	// title's colour and steps forward.
+	.tc-tile__chevron {
+		width: 0.85em;
+		height: 0.85em;
+		margin-left: -0.05em;
+		vertical-align: -0.08em;
+		color: var(--color-text-muted);
+		transition:
+			transform 0.2s ease,
+			color 0.2s ease;
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+		}
+	}
+
+	.tc-tile__sub {
+		@include type-small;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-tile__tag {
+		display: flex;
+		margin-top: auto;
+		padding-top: $spacing-2;
+	}
+
+	.tc-tile__points {
+		display: grid;
+		gap: $spacing-1;
+		margin-top: $spacing-3;
+		padding: 0;
+		list-style: none;
+
+		li {
+			@include type-small;
+			display: grid;
+			grid-template-columns: 16px minmax(0, 1fr);
+			gap: $spacing-2;
+			color: var(--color-text-secondary);
+		}
+
+		svg {
+			width: 16px;
+			height: 16px;
+			margin-top: 3px;
+			color: var(--tc-tile-hue);
+		}
+	}
+</style>

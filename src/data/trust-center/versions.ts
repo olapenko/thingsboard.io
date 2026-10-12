@@ -56,7 +56,7 @@ export const TC_VERSIONS: TcVersion[] = [
 		branch: 'exp/trust-center-anchors-cards',
 		port: 4350,
 		shape: 'anchors',
-		note: "Anchors' pages, Landing's overview, v2's six topics, a sticky sidebar",
+		note: "Anchors' pages with their parts as tiles, Landing's overview, v2's topics, Cloud and On-premises as sections",
 	},
 ];
 
@@ -70,7 +70,7 @@ export const PARTS: { page: string; part: string }[] = [
 	{ page: '/trust-center/data/', part: '/trust-center/security/#data' },
 	{ page: '/trust-center/access/', part: '/trust-center/security/#access' },
 	{ page: '/trust-center/appsec/', part: '/trust-center/security/#dev' },
-	{ page: '/trust-center/commitments/#commitments', part: '/trust-center/deployment/#commitments' },
-	{ page: '/trust-center/commitments/#who-handles-what', part: '/trust-center/deployment/#who-handles-what' },
-	{ page: '/trust-center/commitments/#you-configure', part: '/trust-center/deployment/#you-configure' },
+	// v4 has no Deployment hub (review of 2026-10-12): its parts are on the pages they moved to.
+	{ page: '/trust-center/commitments/#who-handles-what', part: '/trust-center/onprem/#who-handles-what' },
+	{ page: '/trust-center/commitments/#you-configure', part: '/trust-center/security/#you-configure' },
 ];
