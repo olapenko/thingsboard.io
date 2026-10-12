@@ -47,7 +47,6 @@ export const HUES = {
 	violet: '#7c3aed',
 	blue: '#006bc7',
 	teal: '#007c7b',
-	fuchsia: '#a21caf',
 	/** The alert hue: Report a vulnerability, wherever the way to report appears. */
 	orange: '#c2410c',
 };
@@ -109,7 +108,7 @@ export const SECTIONS: Section[] = [
 		label: 'Documents',
 		href: tc('documents'),
 		summary: 'Policies, reports and certificates: open to everyone, or under NDA within two business days.',
-		hue: HUES.fuchsia,
+		hue: HUES.brand,
 		icon: 'tabler:file-text',
 		pages: [],
 		prefix: tc('documents'),
