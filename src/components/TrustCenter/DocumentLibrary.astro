@@ -31,10 +31,11 @@ import { NEW_TAB_NOTE, newTabAttrs } from '@util/external-links';
  * the Deployment filter's icons. No type tag (the names say it; the Type filter shows one type) and
  * no versions (internal).
  *
- * FILTERS come in two versions, switched by the internal controls (`FeatureSwitch`, `data-tc-filters`
- * on `<html>`): CHIPS (the default) in two rows over the list, which keeps the list the page's full
- * width, or a SIDEBAR in the rail, where other Trust Center pages keep "On this page", with two
- * selects below 1024. Both drive one state: Type and Deployment, with counts that follow the other
+ * FILTERS come in three versions, switched by the internal controls (`FeatureSwitch`,
+ * `data-tc-filters` on `<html>`): CHIPS (the default) in two rows over the list, which keeps the list
+ * the page's full width; a SIDEBAR in the rail, where other Trust Center pages keep "On this page",
+ * with two selects below 1024; or DROPDOWNS, the two selects in one row with the search. All drive
+ * one state: Type and Deployment, with counts that follow the other
  * filter and the search.
  *
  * REQUESTING: added documents gather in a tray that rides the bottom of the screen; Request opens
@@ -776,6 +777,17 @@ const FOR_FACETS = [
 		}
 	}
 
+	// Dropdowns: the two filters as selects in the search's row, at every width; no chips, no rail.
+	:root[data-tc-filters='dropdowns'] {
+		.tc-lib__chips {
+			display: none;
+		}
+
+		.tc-lib__select {
+			display: flex;
+		}
+	}
+
 	.tc-lib__rail-inner {
 		position: sticky;
 		top: calc(var(--home-header-h, #{$header-height}) + 57px + #{$spacing-8});
@@ -894,7 +906,7 @@ const FOR_FACETS = [
 		}
 	}
 
-	// ── The search, and the sidebar's selects below 1024 ──
+	// ── The search, with the selects beside it: the dropdowns version, and the sidebar's below 1024 ──
 	.tc-lib__tools {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -905,13 +917,20 @@ const FOR_FACETS = [
 		}
 
 		@include media-up(md) {
-			:root[data-tc-filters='rail'] & {
+			:root:is([data-tc-filters='rail'], [data-tc-filters='dropdowns']) & {
 				grid-template-columns: minmax(0, 1fr) auto auto;
 
 				.tc-lib__search {
 					grid-column: auto;
 				}
 			}
+		}
+	}
+
+	// In the search's row the selects take the width of their longest option, never less than 190.
+	:root[data-tc-filters='dropdowns'] .tc-lib__select {
+		@include media-up(md) {
+			min-width: 190px;
 		}
 	}
 
@@ -1050,15 +1069,20 @@ const FOR_FACETS = [
 		}
 	}
 
+	// The mark, the name, and Planned when it is: the mark keeps its column, so a long name wraps
+	// beside it, never under it.
 	.tc-lib__name {
 		@include type-tile;
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0 $spacing-2;
+		display: grid;
+		grid-template-columns: 16px minmax(0, max-content) auto;
+		align-items: start;
+		column-gap: $spacing-2;
 		margin: 0;
-
 		color: var(--color-text);
+
+		.tc-lib__mark {
+			margin-top: 2px;
+		}
 	}
 
 	// An open document's name is a link too, in the heading's black, like every other name.
