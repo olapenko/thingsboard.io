@@ -10,6 +10,8 @@ export interface Fact {
 export interface BadgeCard {
 	/** The mark's text in the draft: ISO 27001, ISO 9001, GDPR, CCPA. */
 	mark: string;
+	/** The standard's number, for the seal. */
+	number?: string;
 	title: string;
 	line: string;
 	status: string;
@@ -21,6 +23,7 @@ const VALIDATOR = 'https://swissapproval.ch/certificate-validator/';
 export const ISO_CARDS: BadgeCard[] = [
 	{
 		mark: 'ISO 27001',
+		number: '27001',
 		title: 'ISO/IEC 27001:2022',
 		line: 'Information security management system',
 		status: 'Certified · 9 Sep 2026',
@@ -28,6 +31,7 @@ export const ISO_CARDS: BadgeCard[] = [
 	},
 	{
 		mark: 'ISO 9001',
+		number: '9001',
 		title: 'ISO 9001:2015',
 		line: 'Quality management system',
 		status: 'Certified · 9 Sep 2026',
