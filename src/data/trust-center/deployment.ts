@@ -101,6 +101,19 @@ export const CLOUD_ROWS: CompareRow[] = [
 ];
 
 /** The status pages named in the Uptime row, as links (the draft named them without one). */
+/**
+ * The hosting providers' own certifications for their data centers: linked under the comparison on
+ * the Cloud page, where hosting is. The document library holds ThingsBoard's documents.
+ */
+export const PROVIDER_CERTIFICATIONS = {
+	cloud: { label: 'AWS Artifact', href: 'https://aws.amazon.com/artifact/' },
+	privateCloud: [
+		{ label: 'AWS', href: 'https://aws.amazon.com/compliance/programs/' },
+		{ label: 'Azure', href: 'https://learn.microsoft.com/en-us/azure/compliance/' },
+		{ label: 'Google Cloud', href: 'https://cloud.google.com/security/compliance' },
+	],
+};
+
 export const STATUS_PAGES = [
 	{ label: 'North America', href: 'https://status.thingsboard.cloud/' },
 	{ label: 'EU', href: 'https://status.eu.thingsboard.cloud/' },
