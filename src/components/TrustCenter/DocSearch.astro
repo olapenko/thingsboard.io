@@ -7,15 +7,15 @@ import { DOCS } from '@data/trust-center/documents';
 import { tc } from '@data/trust-center/nav';
 
 /**
- * The documents search, the same on the hub and the Documents page: the query, a category, the two
- * access toggles (the rows' own icons: Public, On request) and Search. One toggle or none; none
- * means both. It is a form that opens the Documents page with `?q=&category=&access=`; on that page
- * (`live`) it fills itself from the address and `DocLibrary` filters the list in place instead.
+ * The documents search. On the hub, the query and Search: a form that opens the Documents page with
+ * `?q=`. On that page (`live`) it adds a category and the two access toggles (the rows' own icons:
+ * Public, On request; one or none, none means both), fills itself from the address, and
+ * `DocLibrary` filters the list in place.
  * The × in the field clears the query; a `docsearch:reset` event on the form clears everything.
  */
 
 interface Props {
-	/** The Documents page: filled from the address, filtering in place. */
+	/** The Documents page: filled from the address, filtering in place, with the filters. */
 	live?: boolean;
 }
 
@@ -29,7 +29,7 @@ const ACCESS = [
 ---
 
 <form
-	class="tc-docsearch"
+	class:list={['tc-docsearch', live && 'tc-docsearch--filters']}
 	action={tc('documents')}
 	method="get"
 	role="search"
@@ -51,38 +51,40 @@ const ACCESS = [
 			<Icon name="tabler:x" aria-hidden="true" />
 		</button>
 	</Field>
-	<div class="tc-docsearch__filters">
-		<div class="ui-field ui-field--md tc-docsearch__category">
-			<label class="ui-field__label ui-sr" for={`${id}-category`}>
-				Category
-			</label>
-			<div class="ui-field__row tc-select">
-				<select class="ui-field__control tc-select__control" id={`${id}-category`} name="category" data-doc-category>
-					<option value="">All categories</option>
-					{CATEGORIES.map((c) => (
-						<option value={c}>{c}</option>
-					))}
-				</select>
-				<Icon name="tabler:chevron-down" class="tc-select__chevron" aria-hidden="true" />
+	{live && (
+		<div class="tc-docsearch__filters">
+			<div class="ui-field ui-field--md tc-docsearch__category">
+				<label class="ui-field__label ui-sr" for={`${id}-category`}>
+					Category
+				</label>
+				<div class="ui-field__row tc-select">
+					<select class="ui-field__control tc-select__control" id={`${id}-category`} name="category" data-doc-category>
+						<option value="">All categories</option>
+						{CATEGORIES.map((c) => (
+							<option value={c}>{c}</option>
+						))}
+					</select>
+					<Icon name="tabler:chevron-down" class="tc-select__chevron" aria-hidden="true" />
+				</div>
 			</div>
+			<ul class="tc-docsearch__access" role="group" aria-label="Access">
+				{ACCESS.map((a) => (
+					<li>
+						<Chip
+							kind="toggle"
+							size="md"
+							icon={a.icon}
+							class={`tc-docsearch__toggle tc-docsearch__toggle--${a.value}`}
+							attrs={{ 'data-access-value': a.value }}
+						>
+							{a.label}
+						</Chip>
+					</li>
+				))}
+			</ul>
+			<input type="hidden" name="access" value="" disabled data-access-input />
 		</div>
-		<ul class="tc-docsearch__access" role="group" aria-label="Access">
-			{ACCESS.map((a) => (
-				<li>
-					<Chip
-						kind="toggle"
-						size="md"
-						icon={a.icon}
-						class={`tc-docsearch__toggle tc-docsearch__toggle--${a.value}`}
-						attrs={{ 'data-access-value': a.value }}
-					>
-						{a.label}
-					</Chip>
-				</li>
-			))}
-		</ul>
-		<input type="hidden" name="access" value="" disabled data-access-input />
-	</div>
+	)}
 	<Button type="submit" size="md" icon="tabler:search" class="tc-docsearch__submit">
 		Search
 	</Button>
