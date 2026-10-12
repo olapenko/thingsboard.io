@@ -15,15 +15,13 @@ export const HUB_CERTIFICATIONS = [
 	{
 		title: 'ISO/IEC 27001:2022',
 		number: '27001',
-		year: '2022',
-		issued: '9 September 2026',
+		issued: '9 Sep 2026',
 		registration: '372-02-270-00460',
 	},
 	{
 		title: 'ISO 9001:2015',
 		number: '9001',
-		year: '2015',
-		issued: '9 September 2026',
+		issued: '9 Sep 2026',
 		registration: '372-02-100-02170',
 	},
 ];
