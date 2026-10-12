@@ -1,0 +1,125 @@
+---
+import { Icon } from 'astro-icon/components';
+import Chip from '@components/ui/Chip.astro';
+import Field from '@components/ui/Field.astro';
+import { DOC_GROUPS, HUB_DOCS, docHref, isOffSite } from '@data/trust-center/documents';
+import { newTabAttrs } from '@util/external-links';
+
+/**
+ * The hub's documents, as drafted: a filter field, All · Public · Under NDA, and the 18 documents in
+ * their four groups, each group headed with its count. A row opens the file (public, "Download"),
+ * the page the document is ("View"), or the document's own page (NDA, "Request").
+ */
+
+const FILTERS = [
+	{ value: 'all', label: 'All' },
+	{ value: 'public', label: 'Public' },
+	{ value: 'nda', label: 'Under NDA' },
+];
+
+const groups = DOC_GROUPS.map((name, i) => ({ name, docs: HUB_DOCS.filter((d) => d.group === i) }));
+
+const actionOf = (d: (typeof HUB_DOCS)[number]) => {
+	if (d.url) return { label: 'View', icon: isOffSite(d.url) ? 'tabler:arrow-up-right' : 'tabler:chevron-right' };
+	if (d.access === 'public') return { label: 'Download', icon: 'tabler:file-download' };
+	return { label: 'Request', icon: 'tabler:lock' };
+};
+---
+
+<div class="tc-hubdocs" data-hub-docs>
+	<div class="tc-toolbar">
+		<Field
+			name="hq"
+			id="tc-hub-q"
+			label="Filter documents"
+			labelHidden
+			optional
+			placeholder="Filter documents…"
+			size="md"
+			class="tc-toolbar__search"
+			attrs={{ 'data-hub-query': '', autocomplete: 'off' }}
+		/>
+		<ul class="tc-toolbar__filters" role="group" aria-label="Access level">
+			{FILTERS.map((f, i) => (
+				<li>
+					<Chip kind="toggle" size="sm" pressed={i === 0} attrs={{ 'data-hub-filter-value': f.value }}>
+						{f.label}
+					</Chip>
+				</li>
+			))}
+		</ul>
+	</div>
+	<div class="tc-docgroups">
+		{groups.map((group) => (
+			<section class="tc-docgroup" data-hub-group>
+				<h3 class="tc-docgroup__title">
+					{group.name}{' '}
+					<span class="tc-docgroup__count">
+						· <span data-hub-count>{group.docs.length}</span>
+					</span>
+				</h3>
+				<ul class="tc-docgroup__list">
+					{group.docs.map((d) => {
+						const href = d.file ?? docHref(d);
+						const action = actionOf(d);
+						return (
+							<li class="tc-docrow" data-access={d.access} data-text={d.name.toLowerCase()}>
+								<a class="tc-docrow__link" href={href} {...newTabAttrs(isOffSite(href))}>
+									<span class="tc-docrow__name">{d.name}</span>
+									<span class:list={['tc-docrow__action', d.access === 'nda' && 'tc-docrow__action--nda']}>
+										{action.label}
+										<Icon name={action.icon} aria-hidden="true" />
+									</span>
+								</a>
+							</li>
+						);
+					})}
+				</ul>
+			</section>
+		))}
+	</div>
+	<p class="tc-empty" data-hub-empty hidden>
+		Nothing matches that filter.
+	</p>
+</div>
+
+<script>
+	// The draft's hub filter: a text match on the name and one access level; a group's count follows
+	// the match, and a group with no match goes with its heading.
+	document.querySelectorAll<HTMLElement>('[data-hub-docs]').forEach((root) => {
+		const query = root.querySelector<HTMLInputElement>('[data-hub-query]');
+		const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-hub-filter-value]')];
+		const groups = [...root.querySelectorAll<HTMLElement>('[data-hub-group]')];
+		const empty = root.querySelector<HTMLElement>('[data-hub-empty]');
+		let filter = 'all';
+
+		const render = () => {
+			const q = (query?.value ?? '').trim().toLowerCase();
+			let shown = 0;
+			groups.forEach((group) => {
+				let inGroup = 0;
+				group.querySelectorAll<HTMLElement>('.tc-docrow').forEach((row) => {
+					const show =
+						(filter === 'all' || row.dataset.access === filter) && (q === '' || (row.dataset.text ?? '').includes(q));
+					row.hidden = !show;
+					if (show) inGroup += 1;
+				});
+				const count = group.querySelector<HTMLElement>('[data-hub-count]');
+				if (count) count.textContent = String(inGroup);
+				group.hidden = inGroup === 0;
+				shown += inGroup;
+			});
+			if (empty) empty.hidden = shown > 0;
+		};
+
+		toggles.forEach((button) => {
+			button.addEventListener('click', () => {
+				filter = button.dataset.hubFilterValue ?? 'all';
+				toggles.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+				render();
+			});
+		});
+		query?.addEventListener('input', render);
+		render();
+	});
+</script>

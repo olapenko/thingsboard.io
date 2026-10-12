@@ -1,0 +1,114 @@
+---
+import { Icon } from 'astro-icon/components';
+import Chip from '@components/ui/Chip.astro';
+import Field from '@components/ui/Field.astro';
+import StatusChip from '@components/TrustCenter/StatusChip.astro';
+import { ACCESS_LABEL, DOCS, docHref, isOffSite, type Access } from '@data/trust-center/documents';
+import { newTabAttrs } from '@util/external-links';
+
+/**
+ * The Documents page's library, as drafted: a filter field, the access filters (Questionnaires
+ * filters by category, the others by access) and one flat list of all 20 documents, each a link to
+ * its page ("Details") or, for a document that is a page already, to that page ("View").
+ */
+
+const FILTERS = [
+	{ value: 'all', label: 'All' },
+	{ value: 'public', label: 'Public' },
+	{ value: 'nda', label: 'NDA' },
+	{ value: 'pending', label: 'Planned' },
+	{ value: 'qnr', label: 'Questionnaires' },
+];
+const TONE: Record<Access, 'ok' | 'nda' | 'warn'> = { public: 'ok', nda: 'nda', pending: 'warn' };
+---
+
+<div class="tc-library" data-doc-filter>
+	<div class="tc-toolbar">
+		<Field
+			name="q"
+			id="tc-library-q"
+			label="Filter documents"
+			labelHidden
+			optional
+			placeholder="Filter documents…"
+			size="md"
+			class="tc-toolbar__search"
+			attrs={{ 'data-doc-query': '', autocomplete: 'off' }}
+		/>
+		<ul class="tc-toolbar__filters" role="group" aria-label="Access level">
+			{FILTERS.map((f, i) => (
+				<li>
+					<Chip kind="toggle" size="sm" pressed={i === 0} attrs={{ 'data-doc-filter-value': f.value }}>
+						{f.label}
+					</Chip>
+				</li>
+			))}
+		</ul>
+	</div>
+	<ul class="tc-doclist" data-doc-list>
+		{DOCS.map((d) => {
+			const href = docHref(d);
+			const offSite = isOffSite(href);
+			return (
+				<li
+					class="tc-doclist__row"
+					data-access={d.access}
+					data-category={d.category}
+					data-text={`${d.name} ${d.category}`.toLowerCase()}
+				>
+					<a class="tc-doclist__link" href={href} {...newTabAttrs(offSite)}>
+						<span class="tc-doclist__text">
+							<span class="tc-doclist__name">{d.name}</span>
+							<span class="tc-doclist__cat">{d.category}</span>
+						</span>
+						<StatusChip tone={TONE[d.access]}>{ACCESS_LABEL[d.access]}</StatusChip>
+						<span class="tc-doclist__action">
+							{d.url ? 'View' : 'Details'}
+							<Icon name={offSite ? 'tabler:arrow-up-right' : 'tabler:chevron-right'} aria-hidden="true" />
+						</span>
+					</a>
+				</li>
+			);
+		})}
+	</ul>
+	<p class="tc-empty" data-doc-empty hidden>
+		Nothing matches that filter.
+	</p>
+</div>
+
+<script>
+	// The draft's filter: a text match on the name and category, and one access filter at a time
+	// (`qnr` is the Questionnaires category rather than an access level).
+	document.querySelectorAll<HTMLElement>('[data-doc-filter]').forEach((root) => {
+		const query = root.querySelector<HTMLInputElement>('[data-doc-query]');
+		const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-doc-filter-value]')];
+		const rows = [...root.querySelectorAll<HTMLElement>('.tc-doclist__row')];
+		const empty = root.querySelector<HTMLElement>('[data-doc-empty]');
+		let filter = 'all';
+
+		const render = () => {
+			const q = (query?.value ?? '').trim().toLowerCase();
+			let shown = 0;
+			rows.forEach((row) => {
+				const byFilter =
+					filter === 'all' ||
+					(filter === 'qnr' ? row.dataset.category === 'Questionnaires' : row.dataset.access === filter);
+				const byQuery = q === '' || (row.dataset.text ?? '').includes(q);
+				const show = byFilter && byQuery;
+				row.hidden = !show;
+				if (show) shown += 1;
+			});
+			if (empty) empty.hidden = shown > 0;
+		};
+
+		toggles.forEach((button) => {
+			button.addEventListener('click', () => {
+				filter = button.dataset.docFilterValue ?? 'all';
+				toggles.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+				render();
+			});
+		});
+		query?.addEventListener('input', render);
+		render();
+	});
+</script>

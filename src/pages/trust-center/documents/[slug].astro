@@ -1,0 +1,87 @@
+---
+import DataTable from '@components/DataTable.astro';
+import Button from '@components/ui/Button.astro';
+import Link from '@components/ui/Link.astro';
+import StatusChip from '@components/TrustCenter/StatusChip.astro';
+import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
+import {
+	ACCESS_ACTION,
+	ACCESS_LABEL,
+	DOCS_WITH_PAGE,
+	docActionHref,
+	isOffSite,
+	type Access,
+	type TcDoc,
+} from '@data/trust-center/documents';
+import { crumbs, tc } from '@data/trust-center/nav';
+
+/**
+ * A document's page, as drafted, for every document that is not a page already: its description,
+ * access, category, version and owner, and one action (Download, Request via NDA, Ask about it).
+ */
+
+export function getStaticPaths() {
+	return DOCS_WITH_PAGE.map((doc) => ({ params: { slug: doc.slug }, props: { doc } }));
+}
+
+const { doc } = Astro.props as { doc: TcDoc };
+const TONE: Record<Access, 'ok' | 'nda' | 'warn'> = { public: 'ok', nda: 'nda', pending: 'warn' };
+const ACCESS_NOTE: Record<Access, string> = {
+	public: '',
+	nda: ' — released after a mutual NDA, usually within two business days',
+	pending: ' — not published yet',
+};
+const action = docActionHref(doc);
+const dead = doc.access === 'public' && !doc.file;
+---
+
+<TrustCenterLayout
+	title={doc.name}
+	lede={doc.description}
+	crumbs={crumbs('documents', doc.name)}
+	description={doc.description}
+>
+	<Link slot="before-title" href={tc('documents')} dir="back" class="tc-back">
+		Documents
+	</Link>
+	<section class="tc-section" aria-label="Document details">
+		<DataTable
+			caption={`${doc.name}: access, category, version and owner`}
+			columns={[{ srLabel: 'Topic' }, { srLabel: 'Details' }]}
+			colgroup={false}
+			headerHidden
+			class="tc-facts"
+		>
+			<tr>
+				<th scope="row">Access</th>
+				<td>
+					<StatusChip tone={TONE[doc.access]}>{ACCESS_LABEL[doc.access]}</StatusChip>
+					{ACCESS_NOTE[doc.access]}
+				</td>
+			</tr>
+			<tr>
+				<th scope="row">Category</th>
+				<td>{doc.category}</td>
+			</tr>
+			<tr>
+				<th scope="row">Version</th>
+				<td>{doc.version}</td>
+			</tr>
+			<tr>
+				<th scope="row">Owner</th>
+				<td>{doc.owner}</td>
+			</tr>
+		</DataTable>
+		<div class="tc-section">
+			{dead ? (
+				<Button href="#" size="md" attrs={{ 'data-dead': '', 'aria-disabled': 'true' }}>
+					{ACCESS_ACTION[doc.access]}
+				</Button>
+			) : (
+				<Button href={action} size="md" external={isOffSite(action)}>
+					{ACCESS_ACTION[doc.access]}
+				</Button>
+			)}
+		</div>
+	</section>
+</TrustCenterLayout>
