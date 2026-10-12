@@ -11,24 +11,24 @@ import {
 	DOC_TYPES,
 	LIBRARY,
 	LIBRARY_PATH,
+	NDA_NOTE,
 	TIERS,
 	type LibraryDoc,
 } from '@data/trust-center/library';
 import { NEW_TAB_NOTE, newTabAttrs } from '@util/external-links';
 
 /**
- * The document library (review of 2026-10-12, round 4).
+ * The document library (review of 2026-10-12, round 5).
  *
- * A ROW is the document and what it takes to get it, nothing else:
- * - An OPEN document's name is its link, in the link colour, to its page or file (↗ when it leaves
- *   the site). No button, no label: no mark means it opens.
- * - A REQUESTED document has a checkbox in the lead column, its name is the checkbox's label, and a
- *   mark sits after the name: a lock for a mutual NDA, an envelope for sent on request. The mark's
- *   label shows on hover and is read out; the legend over the list says it for touch. What each tier
- *   means is said once, on the request form, next to the documents it applies to.
- * - Under two lines of description, ONE tag area: the type, the deployments when not every one (with
- *   the deployment icons the Deployment filter uses), a certificate's issue date, Planned, and the
- *   publisher when it is not ThingsBoard. No versions: they are internal.
+ * A ROW is the document, then at its end what you do with it: OPEN (its page or file) or REQUEST (a
+ * toggle: the document joins the request, and the button says Added). Every name is in the heading's
+ * black; an open document's name links too. A requested document has a lock after its name: red
+ * when it needs a mutual NDA, grey when it is simply on request. The lock's label shows on hover and
+ * is read out; the legend over the list says it for touch.
+ *
+ * Under two lines of description, ONE tag area: the type, the deployments when not every one (with
+ * the deployment icons the Deployment filter uses), a certificate's issue date, Planned, and the
+ * publisher when it is not ThingsBoard. No versions: they are internal.
  *
  * FILTERS come in two versions, switched by the internal controls (`FeatureSwitch`, `data-tc-filters`
  * on `<html>`): CHIPS (the default) in two rows over the list, which keeps the list the page's full
@@ -36,10 +36,11 @@ import { NEW_TAB_NOTE, newTabAttrs } from '@util/external-links';
  * selects below 1024. Both drive one state: Type and Deployment, with counts that follow the other
  * filter and the search.
  *
- * REQUESTING: ticked documents gather in a tray that rides the bottom of the screen; Request opens
- * the form in a dialog with them listed by tier. Every other page asks for documents by linking here
- * with them ticked (`requestIn`). A requested document's own address (`documents/<slug>/`) lands here
- * with it ticked.
+ * REQUESTING: added documents gather in a tray that rides the bottom of the screen; Request opens
+ * ONE form in a dialog, the documents listed (those needing the NDA ringed in its red) and, when any
+ * needs it, one note on what the NDA involves. Every other page asks for documents by linking here
+ * with them added (`requestIn`). A requested document's own address (`documents/<slug>/`) lands here
+ * with it added.
  *
  * STATE in the address, so back, reload and a shared link keep it: `?q=`, `type=`, `for=`,
  * `request=a,b`; `#<slug>` lands on a row.
@@ -229,12 +230,12 @@ const FOR_FACETS = [
 				</button>
 				<p class="tc-lib__legend">
 					<span>
-						<Icon name={TIERS.nda.icon} aria-hidden="true" />
-						{TIERS.nda.label}
-					</span>
-					<span>
 						<Icon name={TIERS.request.icon} aria-hidden="true" />
 						{TIERS.request.label}
+					</span>
+					<span style={`--mark: ${TIERS.nda.color}`}>
+						<Icon name={TIERS.nda.icon} aria-hidden="true" />
+						{TIERS.nda.label}
 					</span>
 				</p>
 			</div>
@@ -252,32 +253,18 @@ const FOR_FACETS = [
 							data-applies={d.appliesTo.join(' ')}
 							data-search={haystack(d)}
 						>
-							<div class="tc-lib__lead">
-								{tier && (
-									<input
-										type="checkbox"
-										class="tc-lib__pick"
-										id={`pick-${d.slug}`}
-										value={d.slug}
-										data-pick
-										data-name={d.name}
-										data-tier={d.tier}
-									/>
-								)}
-							</div>
 							<div class="tc-lib__main">
 								<h3 class="tc-lib__name">
 									{tier ? (
-										<label for={`pick-${d.slug}`}>{d.name}</label>
+										<span>{d.name}</span>
 									) : (
 										<a href={d.href} class="tc-lib__open" {...newTabAttrs(external)}>
 											{d.name}
-											{external && <Icon name="tabler:arrow-up-right" class="tc-lib__out" aria-hidden="true" />}
 											{external && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
 										</a>
 									)}
 									{tier && (
-										<span class="tc-lib__mark" title={tier.label}>
+										<span class="tc-lib__mark" title={tier.label} style={tier.color && `--mark: ${tier.color}`}>
 											<Icon name={tier.icon} aria-hidden="true" />
 											<span class="ui-sr">{tier.label}</span>
 										</span>
@@ -309,6 +296,24 @@ const FOR_FACETS = [
 										</Chip>
 									)}
 								</div>
+							</div>
+							<div class="tc-lib__act">
+								{tier ? (
+									<Button
+										variant="secondary"
+										size="xs"
+										class="tc-lib__req"
+										attrs={{ 'aria-pressed': 'false', 'data-pick': d.slug, 'data-name': d.name, 'data-tier': d.tier }}
+									>
+										<span class="tc-lib__req-off">Request</span>
+										<span class="tc-lib__req-on">Added</span>
+										<span class="ui-sr">: {d.name}</span>
+									</Button>
+								) : (
+									<Button href={d.href} variant="secondary" size="xs" external={external} srSuffix={`: ${d.name}`}>
+										Open
+									</Button>
+								)}
 							</div>
 						</li>
 					);
@@ -351,7 +356,16 @@ const FOR_FACETS = [
 	lede="Tell us who you are, and we send you the documents below."
 >
 	<form class="tc-req" novalidate data-req>
-		<div class="tc-req__tiers" data-req-tiers></div>
+		<fieldset class="tc-req__docs-set">
+			<legend class="tc-req__legend" data-req-legend>
+				Documents
+			</legend>
+			<ul class="tc-req__docs" role="list" data-req-docs></ul>
+		</fieldset>
+		<p class="tc-req__nda" hidden data-req-nda data-note={NDA_NOTE}>
+			<Icon name={TIERS.nda.icon} aria-hidden="true" />
+			<span data-req-nda-text></span>
+		</p>
 		<p class="ui-field__error" id="tcr-docs-error" hidden>
 			Select at least one document from the list.
 		</p>
@@ -401,14 +415,11 @@ const FOR_FACETS = [
 			Back to the documents
 		</Button>
 	</div>
-	<script is:inline type="application/json" data-tiers set:html={JSON.stringify(TIERS)}></script>
 </Dialog>
 
 <script>
 	import { openDialog } from '@util/dialog';
 	import { clearFieldError, validateAll, wireValidation, type FieldControl, type Problem } from '@util/form-validate';
-
-	type TierInfo = { label: string; group: string; form: string };
 
 	const root = document.querySelector<HTMLElement>('[data-tc-lib]');
 	const dialog = document.querySelector<HTMLDialogElement>('#tc-request');
@@ -416,7 +427,7 @@ const FOR_FACETS = [
 	if (root && dialog) {
 		const q = <T extends Element>(sel: string, from: ParentNode = root) => from.querySelector<T>(sel)!;
 		const rows = [...root.querySelectorAll<HTMLElement>('.tc-lib__row')];
-		const picks = [...root.querySelectorAll<HTMLInputElement>('[data-pick]')];
+		const picks = [...root.querySelectorAll<HTMLButtonElement>('[data-pick]')];
 		const facets = [...root.querySelectorAll<HTMLButtonElement>('[data-facet]')];
 		const selects = [...root.querySelectorAll<HTMLSelectElement>('[data-select]')];
 		const search = q<HTMLInputElement>('[data-search]');
@@ -427,13 +438,9 @@ const FOR_FACETS = [
 		const tray = q<HTMLElement>('[data-tray]');
 		const trayCount = q<HTMLElement>('[data-tray-count]');
 		const names = q<HTMLElement>('[data-names]');
-		const nameOf = new Map(picks.map((p) => [p.value, p.dataset.name!]));
-		const tierOf = new Map(picks.map((p) => [p.value, p.dataset.tier as 'nda' | 'request']));
-		const order = picks.map((p) => p.value);
-		const TIERS = JSON.parse(q<HTMLElement>('[data-tiers]', dialog).textContent!) as Record<
-			'nda' | 'request',
-			TierInfo
-		>;
+		const nameOf = new Map(picks.map((p) => [p.dataset.pick!, p.dataset.name!]));
+		const tierOf = new Map(picks.map((p) => [p.dataset.pick!, p.dataset.tier as 'nda' | 'request']));
+		const order = picks.map((p) => p.dataset.pick!);
 		const LIBRARY_PATH = root.dataset.library!;
 
 		const picked = new Set<string>();
@@ -523,10 +530,10 @@ const FOR_FACETS = [
 
 		// ── The request ───────────────────────────────────────────────────────
 		const sync = () => {
-			picks.forEach((p) => (p.checked = picked.has(p.value)));
+			picks.forEach((p) => p.setAttribute('aria-pressed', String(picked.has(p.dataset.pick!))));
 			const list = order.filter((s) => picked.has(s)).map((s) => nameOf.get(s)!);
 			tray.hidden = list.length === 0;
-			trayCount.textContent = `${plural(list.length)} selected`;
+			trayCount.textContent = `${list.length} selected`;
 			names.textContent = list.join(' · ');
 			writeUrl();
 			renderDocs();
@@ -537,9 +544,10 @@ const FOR_FACETS = [
 		};
 
 		picks.forEach((p) =>
-			p.addEventListener('change', () => {
-				if (p.checked) picked.add(p.value);
-				else picked.delete(p.value);
+			p.addEventListener('click', () => {
+				const slug = p.dataset.pick!;
+				if (picked.has(slug)) picked.delete(slug);
+				else picked.add(slug);
 				sync();
 			})
 		);
@@ -554,7 +562,10 @@ const FOR_FACETS = [
 
 		// ── The request dialog's form: the documents by tier, each tier's terms said once ──
 		const form = q<HTMLFormElement>('[data-req]', dialog);
-		const tiersBox = q<HTMLElement>('[data-req-tiers]', dialog);
+		const docsList = q<HTMLUListElement>('[data-req-docs]', dialog);
+		const legend = q<HTMLElement>('[data-req-legend]', dialog);
+		const ndaNote = q<HTMLElement>('[data-req-nda]', dialog);
+		const ndaText = q<HTMLElement>('[data-req-nda-text]', dialog);
 		const docsError = q<HTMLElement>('#tcr-docs-error', dialog);
 		const done = q<HTMLElement>('[data-req-done]', dialog);
 		const doneTitle = q<HTMLElement>('[data-req-done-title]', dialog);
@@ -570,36 +581,29 @@ const FOR_FACETS = [
 		};
 
 		function renderDocs() {
-			const groups = (['nda', 'request'] as const)
-				.map((tier) => ({ tier, slugs: order.filter((s) => picked.has(s) && tierOf.get(s) === tier) }))
-				.filter((g) => g.slugs.length);
-			tiersBox.replaceChildren(
-				...groups.map(({ tier, slugs }) => {
-					const set = el('fieldset', 'tc-req__tier');
-					set.append(
-						el('legend', 'tc-req__legend', `${TIERS[tier].group} (${slugs.length})`),
-						el('p', 'tc-req__terms', TIERS[tier].form)
-					);
-					const list = el('ul', 'tc-req__docs');
-					list.setAttribute('role', 'list');
-					slugs.forEach((s) => {
-						const li = el('li', 'tc-req__doc');
-						const remove = el('button', 'tc-req__remove', '×');
-						remove.setAttribute('type', 'button');
-						remove.setAttribute('aria-label', `Remove ${nameOf.get(s)}`);
-						remove.addEventListener('click', () => {
-							picked.delete(s);
-							sync();
-							(tiersBox.querySelector('button') ?? fields[0]).focus();
-						});
-						li.append(el('span', '', nameOf.get(s)), remove);
-						list.append(li);
+			const list = order.filter((s) => picked.has(s));
+			legend.textContent = `Documents (${list.length})`;
+			docsList.replaceChildren(
+				...list.map((s) => {
+					const li = el('li', `tc-req__doc${tierOf.get(s) === 'nda' ? ' is-nda' : ''}`);
+					const remove = el('button', 'tc-req__remove', '×');
+					remove.setAttribute('type', 'button');
+					remove.setAttribute('aria-label', `Remove ${nameOf.get(s)}`);
+					remove.addEventListener('click', () => {
+						picked.delete(s);
+						sync();
+						(docsList.querySelector('button') ?? fields[0]).focus();
 					});
-					set.append(list);
-					return set;
+					li.append(el('span', '', nameOf.get(s)), remove);
+					return li;
 				})
 			);
-			if (picked.size) docsError.hidden = true;
+			// The NDA, said once, when the request holds a document that needs one.
+			const nda = list.filter((s) => tierOf.get(s) === 'nda').length;
+			ndaNote.hidden = nda === 0;
+			const who = nda === list.length ? (nda === 1 ? 'This document needs' : 'These need') : `${nda} of these need`;
+			ndaText.textContent = `${who} a mutual NDA. ${ndaNote.dataset.note}`;
+			if (list.length) docsError.hidden = true;
 		}
 
 		const REQUIRED: Record<string, string> = {
@@ -685,6 +689,9 @@ const FOR_FACETS = [
 
 <style is:global lang="scss">
 	@use '../../styles/variables' as *;
+
+	// `NDA_RED` in `@data/trust-center/library`.
+	$nda-red: #b42318;
 
 	// One column that never grows past the page: the tray's names line is nowrap.
 	.tc-lib {
@@ -1008,6 +1015,10 @@ const FOR_FACETS = [
 	}
 
 	// The site's paragraph margins outrank a single class here: the result line's own selector holds it right.
+	.tc-lib__legend span[style] svg {
+		color: var(--mark);
+	}
+
 	.tc-lib__result .tc-lib__legend {
 		@include type-small;
 		display: flex;
@@ -1035,11 +1046,12 @@ const FOR_FACETS = [
 		list-style: none;
 	}
 
+	// The document, then at the end what you do with it: Open or Request, one size, one column.
 	.tc-lib__row {
 		display: grid;
-		grid-template-columns: 32px minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: start;
-		gap: 0 $spacing-2;
+		gap: $spacing-3 $spacing-6;
 		margin: 0;
 		padding: $spacing-4 0;
 		border-bottom: 1px solid var(--color-border-light);
@@ -1060,19 +1072,6 @@ const FOR_FACETS = [
 		}
 	}
 
-	.tc-lib__lead {
-		padding-top: 3px;
-	}
-
-	.tc-lib__pick {
-		display: block;
-		width: 20px;
-		height: 20px;
-		margin: 0;
-		accent-color: var(--accent-fill);
-		cursor: pointer;
-	}
-
 	.tc-lib__name {
 		@include type-tile;
 		display: flex;
@@ -1081,15 +1080,12 @@ const FOR_FACETS = [
 		gap: 0 $spacing-2;
 		margin: 0;
 
-		label {
-			color: var(--color-text);
-			cursor: pointer;
-		}
+		color: var(--color-text);
 	}
 
-	// An open document's name is its link: the link colour says it opens.
+	// An open document's name is a link too, in the heading's black, like every other name.
 	.tc-lib__open {
-		color: var(--accent-ink);
+		color: inherit;
 		text-decoration: none;
 
 		&:hover {
@@ -1098,18 +1094,11 @@ const FOR_FACETS = [
 		}
 	}
 
-	.tc-lib__out {
-		width: 16px;
-		height: 16px;
-		margin-left: 2px;
-		vertical-align: -2px;
-	}
-
 	// A requested tier's mark after the name: its label on hover, and read out.
 	.tc-lib__mark {
 		display: inline-grid;
 		place-items: center;
-		color: var(--color-text-muted);
+		color: var(--mark, var(--color-text-muted));
 		cursor: help;
 
 		svg {
@@ -1126,6 +1115,32 @@ const FOR_FACETS = [
 		color: var(--color-text-secondary);
 		-webkit-box-orient: vertical;
 		-webkit-line-clamp: 2;
+	}
+
+	// The action: Open or Request, the same width, so the column is one edge down the list.
+	.tc-lib__act .ui-btn {
+		min-width: 96px;
+	}
+
+	// Request is a toggle: once in the request it fills and says so.
+	.tc-lib__req {
+		.tc-lib__req-on {
+			display: none;
+		}
+
+		&[aria-pressed='true'] {
+			border-color: var(--accent-fill);
+			background: var(--accent-fill);
+			color: #fff;
+
+			.tc-lib__req-on {
+				display: inline;
+			}
+
+			.tc-lib__req-off {
+				display: none;
+			}
+		}
 	}
 
 	.tc-lib__tags {
@@ -1229,16 +1244,7 @@ const FOR_FACETS = [
 		}
 	}
 
-	.tc-req__tiers {
-		display: grid;
-		gap: $spacing-5;
-
-		&:empty {
-			display: none;
-		}
-	}
-
-	.tc-req__tier {
+	.tc-req__docs-set {
 		min-width: 0;
 		margin: 0;
 		padding: 0;
@@ -1248,12 +1254,6 @@ const FOR_FACETS = [
 	.tc-req__legend {
 		@include type-small-strong;
 		padding: 0;
-	}
-
-	.tc-req__terms {
-		@include type-small;
-		margin: 2px 0 $spacing-2;
-		color: var(--color-text-secondary);
 	}
 
 	.tc-req__docs {
@@ -1275,6 +1275,36 @@ const FOR_FACETS = [
 		border-radius: 999px;
 		background: color-mix(in srgb, var(--accent-fill) 10%, var(--color-bg));
 		color: var(--color-text);
+	}
+
+	// A document that needs the NDA carries the NDA's red as its ring.
+	.tc-req__doc.is-nda {
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, #{$nda-red} 55%, transparent);
+	}
+
+	// The NDA, said once: a quiet banner under the documents, with the red lock the list uses.
+	.tc-req__nda {
+		@include type-small;
+		display: flex;
+		gap: $spacing-2;
+		margin: 0;
+		padding: $spacing-3 $spacing-4;
+		border-left: 3px solid #{$nda-red};
+		border-radius: $radius-md;
+		background: color-mix(in srgb, #{$nda-red} 6%, var(--color-bg));
+		color: var(--color-text);
+
+		&[hidden] {
+			display: none;
+		}
+
+		svg {
+			flex: none;
+			width: 18px;
+			height: 18px;
+			margin-top: 1px;
+			color: #{$nda-red};
+		}
 	}
 
 	.tc-req__remove {

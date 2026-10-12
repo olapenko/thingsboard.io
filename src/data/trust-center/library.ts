@@ -14,9 +14,9 @@ import type { TagLook } from '@data/trust-center/status';
  * - APPLIES TO: the deployments a document concerns (`APPLIES_TO`); none means every deployment.
  *   Taken from where the deployment pages listed it; the owner to confirm.
  * - TIERS, not access states: a document opens (`open`: ours or a provider's page or file), or is
- *   requested, either under a mutual NDA (`nda`) or simply sent on request (`request`, which a
- *   planned document joins). The list marks the two requested tiers next to the name and says no
- *   more; what each tier means is said once, on the request form.
+ *   requested, either under a mutual NDA (`nda`) or simply on request (`request`, which a planned
+ *   document joins). Both are a lock after the name, red for the NDA; the request form says what
+ *   the NDA involves, once.
  * - No versions: they are the owner's bookkeeping, not the reader's. A certificate shows when it
  *   was issued, the one date a reader acts on.
  * - Search words readers type (`KEYWORDS`), a clearer name for the internal data protection policy,
@@ -31,7 +31,7 @@ export type Tier = 'open' | 'request' | 'nda';
 
 export const DOC_TYPES: { id: DocType; label: string; one: string }[] = [
 	{ id: 'certificates', label: 'Certificates', one: 'Certificate' },
-	{ id: 'evidence', label: 'Audit evidence', one: 'Audit evidence' },
+	{ id: 'evidence', label: 'Audit', one: 'Audit' },
 	{ id: 'policies', label: 'Policies', one: 'Policy' },
 	{ id: 'legal', label: 'Legal', one: 'Legal' },
 	{ id: 'questionnaires', label: 'Questionnaires', one: 'Questionnaire' },
@@ -43,25 +43,25 @@ export const DEPLOYMENTS: { id: Deployment; label: string; short: string; icon: 
 	{ id: 'onprem', label: 'On-premises', short: 'On-prem', icon: 'tabler:server' },
 ];
 
-/** The two requested tiers: the mark next to a name, its label (on hover, and read out), and what the form says. */
-export const TIERS: Record<Exclude<Tier, 'open'>, { label: string; icon: string; form: string; group: string }> = {
-	nda: {
-		label: 'Requires a mutual NDA',
-		icon: 'tabler:lock',
-		group: 'Under a mutual NDA',
-		form: "We send you our mutual NDA first. Once it's signed, you get these within two business days.",
-	},
-	request: {
-		label: 'Sent on request',
-		icon: 'tabler:mail',
-		group: 'Sent on request',
-		form: 'We send these to you directly, without an NDA.',
-	},
+/** The NDA's red: the one colour in the list, on the lock of a document that needs one (5.9:1 on white). */
+export const NDA_RED = '#b42318';
+
+/**
+ * The two requested tiers share one mark, a lock after the name; a document that needs a mutual NDA
+ * has it in red. Its label shows on hover and is read out. The request form says what the NDA
+ * involves, once, when the request holds a document that needs one (`NDA_NOTE`).
+ */
+export const TIERS: Record<Exclude<Tier, 'open'>, { label: string; icon: string; color?: string }> = {
+	nda: { label: 'Requires a mutual NDA', icon: 'tabler:lock', color: NDA_RED },
+	request: { label: 'On request', icon: 'tabler:lock' },
 };
+
+/** What the request form says, after how many need one, when the request holds documents that need an NDA. */
+export const NDA_NOTE = "We send you our mutual NDA first; once it's signed, you get them within two business days.";
 
 /** A requested tier as a tag, where a list shows tags rather than marks (the deployment pages). */
 export const TIER_TAG: Record<Exclude<Tier, 'open'>, TagLook> = {
-	nda: { label: 'NDA', icon: TIERS.nda.icon, look: 'outline', tone: 'neutral' },
+	nda: { label: 'NDA', icon: TIERS.nda.icon, look: 'outline', accent: NDA_RED },
 	request: { label: 'On request', icon: TIERS.request.icon, look: 'outline', tone: 'neutral' },
 };
 
