@@ -25,12 +25,14 @@ import type { TagLook } from '@data/trust-center/status';
  * New descriptions say only what the draft's names and the deployment pages say.
  */
 
-export type DocType = 'certificates' | 'evidence' | 'policies' | 'legal' | 'questionnaires';
+export type DocType = 'certificates' | 'providers' | 'evidence' | 'policies' | 'legal' | 'questionnaires';
 export type Deployment = 'cloud' | 'private-cloud' | 'onprem';
 export type Tier = 'open' | 'request' | 'nda';
 
 export const DOC_TYPES: { id: DocType; label: string; one: string }[] = [
 	{ id: 'certificates', label: 'Certificates', one: 'Certificate' },
+	// The hosting providers' own attestations, in a type of their own, so Certificates holds ThingsBoard's.
+	{ id: 'providers', label: 'Hosting providers', one: 'Hosting provider' },
 	{ id: 'evidence', label: 'Audit', one: 'Audit' },
 	{ id: 'policies', label: 'Policies', one: 'Policy' },
 	{ id: 'legal', label: 'Legal', one: 'Legal' },
@@ -76,8 +78,9 @@ export interface LibraryDoc {
 	keywords: string;
 	/** What an open document opens: its file or its page. */
 	href?: string;
-	/** A provider's document, not ours: who publishes it. */
+	/** A hosting provider's document: who publishes it, and its logo (`simple-icons`) before the name. */
 	provider?: string;
+	logo?: string;
 	/** A certificate's issue date, as a reader reads it ("September 2026"): the end of its description. */
 	issued?: string;
 	/** Not written yet: sent on request once it is. */
@@ -194,34 +197,54 @@ const FROM_DOCS: LibraryDoc[] = DOCS.map((d) => ({
 	planned: d.access === 'planned' || undefined,
 }));
 
-const dataCenters = (slug: string, provider: string, name: string, href: string): LibraryDoc => ({
+const dataCenters = (slug: string, provider: string, name: string, logo: string, href: string): LibraryDoc => ({
 	slug,
-	name: `${name} data center certifications`,
-	description: `${provider}'s own certifications (ISO 27001, PCI DSS and others) for its data centers, where a Private Cloud on ${name} runs.`,
+	name: `${name}: data center certifications`,
+	description: `${provider}'s own certifications (ISO 27001, PCI DSS) for its data centers, where a Private Cloud on ${name} runs.`,
 	tier: 'open',
-	type: 'certificates',
+	type: 'providers',
 	appliesTo: ['private-cloud'],
 	keywords: KEYWORDS[slug] ?? '',
 	href,
 	provider,
+	logo,
 });
 
 /** What the deployment pages and the request form listed and the draft's library did not. */
 const EXTRA_DOCS: LibraryDoc[] = [
 	{
 		slug: 'aws-attestations',
-		name: 'AWS attestations (SOC 2, ISO 27001)',
+		name: 'AWS: SOC 2 and ISO 27001 reports',
 		description: "AWS's own reports on the infrastructure ThingsBoard Cloud runs on, in AWS Artifact.",
 		tier: 'open',
-		type: 'certificates',
+		type: 'providers',
 		appliesTo: ['cloud'],
 		keywords: KEYWORDS['aws-attestations'],
 		href: 'https://aws.amazon.com/artifact/',
 		provider: 'AWS',
+		logo: 'simple-icons:amazonwebservices',
 	},
-	dataCenters('data-centers-aws', 'AWS', 'AWS', 'https://aws.amazon.com/compliance/programs/'),
-	dataCenters('data-centers-azure', 'Microsoft', 'Azure', 'https://learn.microsoft.com/en-us/azure/compliance/'),
-	dataCenters('data-centers-gcp', 'Google', 'Google Cloud', 'https://cloud.google.com/security/compliance'),
+	dataCenters(
+		'data-centers-aws',
+		'AWS',
+		'AWS',
+		'simple-icons:amazonwebservices',
+		'https://aws.amazon.com/compliance/programs/'
+	),
+	dataCenters(
+		'data-centers-azure',
+		'Microsoft',
+		'Azure',
+		'simple-icons:microsoftazure',
+		'https://learn.microsoft.com/en-us/azure/compliance/'
+	),
+	dataCenters(
+		'data-centers-gcp',
+		'Google',
+		'Google Cloud',
+		'simple-icons:googlecloud',
+		'https://cloud.google.com/security/compliance'
+	),
 	{
 		slug: 'private-cloud-architecture',
 		name: 'Private Cloud cluster architecture',

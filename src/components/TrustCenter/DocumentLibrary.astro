@@ -26,9 +26,10 @@ import { NEW_TAB_NOTE, newTabAttrs } from '@util/external-links';
  * when it needs a mutual NDA, grey when it is simply on request. The lock's label shows on hover and
  * is read out; the legend over the list says it for touch.
  *
- * Under two lines of description, ONE tag area: the type, the deployments when not every one (with
- * the deployment icons the Deployment filter uses), a certificate's issue date, Planned, and the
- * publisher when it is not ThingsBoard. No versions: they are internal.
+ * Under the description, the deployments a document is for when not every one, as quiet tags with
+ * the Deployment filter's icons. No type tag (the names say it; the Type filter shows one type) and
+ * no versions (internal). A hosting provider's document has the provider's logo before its name,
+ * and a type of its own, so Certificates holds ThingsBoard's own.
  *
  * FILTERS come in two versions, switched by the internal controls (`FeatureSwitch`, `data-tc-filters`
  * on `<html>`): CHIPS (the default) in two rows over the list, which keeps the list the page's full
@@ -56,7 +57,6 @@ interface Props {
 
 const { open } = Astro.props;
 
-const TYPE = Object.fromEntries(DOC_TYPES.map((t) => [t.id, t]));
 const DEPLOYMENT = Object.fromEntries(DEPLOYMENTS.map((d) => [d.id, d]));
 const ndaCount = LIBRARY.filter((d) => d.tier === 'nda').length;
 const isExternal = (href: string) => /^https?:/.test(href);
@@ -245,6 +245,7 @@ const FOR_FACETS = [
 						>
 							<div class="tc-lib__main">
 								<h3 class="tc-lib__name">
+									{d.logo && <Icon name={d.logo} class="tc-lib__logo" aria-label={d.provider} role="img" />}
 									{tier ? (
 										<span>{d.name}</span>
 									) : (
@@ -273,11 +274,6 @@ const FOR_FACETS = [
 								</p>
 							</div>
 							<ul class="tc-lib__facts" role="list">
-								<li>
-									<Chip kind="tag" tone="neutral" look="outline">
-										{TYPE[d.type].one}
-									</Chip>
-								</li>
 								{d.appliesTo.map((a) => (
 									<li>
 										<Chip kind="tag" tone="neutral" look="outline" icon={DEPLOYMENT[a].icon}>
@@ -285,13 +281,6 @@ const FOR_FACETS = [
 										</Chip>
 									</li>
 								))}
-								{d.provider && (
-									<li>
-										<Chip kind="tag" tone="neutral" look="outline">
-											By {d.provider}
-										</Chip>
-									</li>
-								)}
 							</ul>
 							<div class="tc-lib__act">
 								{tier ? (
@@ -1203,8 +1192,23 @@ const FOR_FACETS = [
 		grid-area: act;
 	}
 
-	// The facts: the kit's neutral tags, in a stroke or (internal controls, `data-tc-tags="grey"`) on a
-	// grey ground. Under the description, or a stack in their own column beside it.
+	// The facts: the deployments a document is for, when not every one, as the kit's neutral tags with
+	// the Deployment filter's icons, in a stroke or (internal controls, `data-tc-tags="grey"`) on a grey
+	// ground. Under the description, or a stack in their own column beside it. The type is not a tag:
+	// the names say it, the list runs in type order, and the Type filter says which one is shown.
+	// A hosting provider's logo before its document's name: whose document it is, at a glance.
+	.tc-lib__logo {
+		flex: none;
+		width: 20px;
+		height: 20px;
+		color: var(--color-text);
+	}
+
+	// Nothing to say (a document for every deployment): no empty strip under the description.
+	.tc-lib__facts:not(:has(li)) {
+		display: none;
+	}
+
 	.tc-lib__facts {
 		grid-area: facts;
 		display: flex;
