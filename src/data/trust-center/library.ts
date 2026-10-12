@@ -58,6 +58,9 @@ export const TIERS: Record<Exclude<Tier, 'open'>, { label: string; icon: string;
 	request: { label: 'On request', icon: 'tabler:lock' },
 };
 
+/** An open document's mark, before its name like the lock: a grey globe. */
+export const OPEN_MARK = { label: 'Public', icon: 'tabler:world' };
+
 /** What the request form says, after how many need one, when the request holds documents that need an NDA. */
 export const NDA_NOTE = "We send you our mutual NDA first; once it's signed, you get them within two business days.";
 
