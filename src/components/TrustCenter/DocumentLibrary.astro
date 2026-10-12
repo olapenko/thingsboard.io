@@ -4,6 +4,7 @@ import Button from '@components/ui/Button.astro';
 import Chip from '@components/ui/Chip.astro';
 import Dialog from '@components/ui/Dialog.astro';
 import Field from '@components/ui/Field.astro';
+import FilterDropdown from '@components/TrustCenter/FilterDropdown.astro';
 import {
 	ASSESSMENT_PACK,
 	ASSESSMENT_PACK_SUMMARY,
@@ -32,11 +33,10 @@ import { NEW_TAB_NOTE, newTabAttrs } from '@util/external-links';
  * no versions (internal).
  *
  * FILTERS come in three versions, switched by the internal controls (`FeatureSwitch`,
- * `data-tc-filters` on `<html>`): CHIPS (the default) in two rows over the list, which keeps the list
- * the page's full width; a SIDEBAR in the rail, where other Trust Center pages keep "On this page",
- * with two selects below 1024; or DROPDOWNS, the two selects in one row with the search. All drive
- * one state: Type and Deployment, with counts that follow the other
- * filter and the search.
+ * `data-tc-filters` on `<html>`): DROPDOWNS (the default, `FilterDropdown`), the two filters as
+ * custom dropdowns in one row with the search; CHIPS in two rows over the list; or a SIDEBAR in the
+ * rail, where other Trust Center pages keep "On this page", with the dropdowns below 1024. All drive
+ * one state: Type and Deployment, with counts that follow the other filter and the search.
  *
  * REQUESTING: added documents gather in a tray that rides the bottom of the screen; Request opens
  * ONE form in a dialog, the documents listed (those needing the NDA ringed in its red) and, when any
@@ -162,24 +162,17 @@ const FOR_FACETS = [
 					<span class="ui-sr">Search documents</span>
 					<input type="search" placeholder="Search: pentest, SoA, DPA…" autocomplete="off" data-search />
 				</label>
-				<label class="tc-lib__select">
-					<span class="ui-sr">Type</span>
-					<select data-select="type">
-						{TYPE_FACETS.map((f) => (
-							<option value={f.value}>{f.value === 'all' ? 'All types' : f.label}</option>
-						))}
-					</select>
-					<Icon name="tabler:chevron-down" aria-hidden="true" />
-				</label>
-				<label class="tc-lib__select">
-					<span class="ui-sr">Deployment</span>
-					<select data-select="for">
-						{FOR_FACETS.map((f) => (
-							<option value={f.value}>{f.label}</option>
-						))}
-					</select>
-					<Icon name="tabler:chevron-down" aria-hidden="true" />
-				</label>
+				<FilterDropdown
+					facet="type"
+					label="Type"
+					class="tc-lib__select"
+					options={TYPE_FACETS.map((f) => ({
+						value: f.value,
+						label: f.value === 'all' ? 'All types' : f.label,
+						count: f.count,
+					}))}
+				/>
+				<FilterDropdown facet="for" label="Deployment" class="tc-lib__select" options={FOR_FACETS} alignEnd />
 			</div>
 
 			<div class="tc-lib__chips">
@@ -420,7 +413,7 @@ const FOR_FACETS = [
 		const rows = [...root.querySelectorAll<HTMLElement>('.tc-lib__row')];
 		const picks = [...root.querySelectorAll<HTMLButtonElement>('[data-pick]')];
 		const facets = [...root.querySelectorAll<HTMLButtonElement>('[data-facet]')];
-		const selects = [...root.querySelectorAll<HTMLSelectElement>('[data-select]')];
+		const dropdowns = [...root.querySelectorAll<HTMLElement>('[data-dropdown]')];
 		const search = q<HTMLInputElement>('[data-search]');
 		const result = q<HTMLElement>('[data-result]');
 		const clearFilters = q<HTMLButtonElement>('[data-clear-filters]');
@@ -481,15 +474,19 @@ const FOR_FACETS = [
 				const count = f.querySelector('[data-count], .ui-chip__note');
 				if (count) count.textContent = String(n);
 				f.classList.toggle('is-none', n === 0);
-				f.setAttribute('aria-pressed', String(state[facet] === f.dataset.value));
+				// A chip or a sidebar entry is pressed; a dropdown's option is selected.
+				f.setAttribute(
+					f.getAttribute('role') === 'option' ? 'aria-selected' : 'aria-pressed',
+					String(state[facet] === f.dataset.value)
+				);
 			});
-			selects.forEach((s) => {
-				const facet = s.dataset.select as 'type' | 'for';
-				s.value = state[facet];
-				[...s.options].forEach((o) => {
-					const n = rows.filter((row) => matches(row, { ...state, [facet]: o.value, words: w })).length;
-					o.textContent = `${o.textContent!.replace(/ \(\d+\)$/, '')} (${n})`;
-				});
+			// A dropdown's button shows its chosen option and that option's count.
+			dropdowns.forEach((d) => {
+				const chosen = d.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
+				if (!chosen) return;
+				d.toggleAttribute('data-all', chosen.dataset.value === 'all');
+				d.querySelector('[data-dd-value]')!.textContent = chosen.querySelector('.tc-dd__label')!.textContent;
+				d.querySelector('[data-dd-count]')!.textContent = chosen.querySelector('[data-count]')!.textContent;
 			});
 			result.textContent = `${plural(shown)}${state.for !== 'all' ? ` for ${FOR_NAME[state.for]}` : ''}`;
 			clearFilters.hidden = state.type === 'all' && state.for === 'all' && w.length === 0;
@@ -507,7 +504,6 @@ const FOR_FACETS = [
 		facets.forEach((f) =>
 			f.addEventListener('click', () => setFilter(f.dataset.facet as 'type' | 'for', f.dataset.value!))
 		);
-		selects.forEach((s) => s.addEventListener('change', () => setFilter(s.dataset.select as 'type' | 'for', s.value)));
 		search.addEventListener('input', filter);
 		const reset = () => {
 			search.value = '';
@@ -739,9 +735,9 @@ const FOR_FACETS = [
 		gap: $spacing-2;
 	}
 
-	// ── Filters: chips (the default) or the sidebar ──
-	// With chips the list takes the page's width; with the sidebar it shares it with the rail, as the
-	// other Trust Center pages with parts do, and below 1024 the sidebar becomes two selects.
+	// ── Filters: dropdowns (the default), chips or the sidebar ──
+	// With dropdowns or chips the list takes the page's width; with the sidebar it shares it with the
+	// rail, as the other Trust Center pages with parts do, and below 1024 the sidebar is the dropdowns.
 	.tc-lib__layout {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
@@ -755,36 +751,29 @@ const FOR_FACETS = [
 	}
 
 	.tc-lib__rail,
-	.tc-lib__select {
+	.tc-lib__chips {
 		display: none;
 	}
 
-	:root[data-tc-filters='rail'] {
+	:root[data-tc-filters='chips'] {
 		.tc-lib__chips {
-			display: none;
+			display: grid;
 		}
 
+		.tc-lib__select {
+			display: none;
+		}
+	}
+
+	:root[data-tc-filters='rail'] {
 		@include media-up(lg) {
 			.tc-lib__rail {
 				display: block;
 			}
-		}
 
-		@include media-down(lg) {
 			.tc-lib__select {
-				display: flex;
+				display: none;
 			}
-		}
-	}
-
-	// Dropdowns: the two filters as selects in the search's row, at every width; no chips, no rail.
-	:root[data-tc-filters='dropdowns'] {
-		.tc-lib__chips {
-			display: none;
-		}
-
-		.tc-lib__select {
-			display: flex;
 		}
 	}
 
@@ -865,8 +854,8 @@ const FOR_FACETS = [
 
 	// The chip rows: a label, then the kit's toggle chips with their counts. On a phone a row scrolls
 	// sideways rather than wrapping into a block.
+	// Shown by the chips version only (`display` is set there).
 	.tc-lib__chips {
-		display: grid;
 		gap: $spacing-3;
 		margin-top: $spacing-4;
 	}
@@ -906,7 +895,7 @@ const FOR_FACETS = [
 		}
 	}
 
-	// ── The search, with the selects beside it: the dropdowns version, and the sidebar's below 1024 ──
+	// ── The search, and the dropdowns beside it (on a phone, under it, side by side) ──
 	.tc-lib__tools {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -917,26 +906,20 @@ const FOR_FACETS = [
 		}
 
 		@include media-up(md) {
-			:root:is([data-tc-filters='rail'], [data-tc-filters='dropdowns']) & {
-				grid-template-columns: minmax(0, 1fr) auto auto;
+			grid-template-columns: minmax(0, 1fr) minmax(200px, auto) minmax(200px, auto);
 
-				.tc-lib__search {
-					grid-column: auto;
-				}
+			.tc-lib__search {
+				grid-column: auto;
+			}
+
+			:root[data-tc-filters='chips'] & {
+				grid-template-columns: minmax(0, 1fr);
 			}
 		}
 	}
 
-	// In the search's row the selects take the width of their longest option, never less than 190.
-	:root[data-tc-filters='dropdowns'] .tc-lib__select {
-		@include media-up(md) {
-			min-width: 190px;
-		}
-	}
-
-	.tc-lib__search,
-	.tc-lib__select {
-		position: relative;
+	.tc-lib__search {
+		display: flex;
 		align-items: center;
 		gap: $spacing-2;
 		min-height: 44px;
@@ -952,8 +935,7 @@ const FOR_FACETS = [
 			flex: none;
 		}
 
-		input,
-		select {
+		input {
 			@include type-body;
 			width: 100%;
 			min-width: 0;
@@ -966,26 +948,6 @@ const FOR_FACETS = [
 		&:focus-within {
 			border-color: var(--accent-fill);
 			outline: 3px solid color-mix(in srgb, var(--accent-fill) 18%, transparent);
-		}
-	}
-
-	.tc-lib__search {
-		display: flex;
-	}
-
-	.tc-lib__select {
-		padding-right: $spacing-2;
-
-		select {
-			padding-right: $spacing-6;
-			appearance: none;
-			cursor: pointer;
-		}
-
-		svg {
-			position: absolute;
-			right: $spacing-3;
-			pointer-events: none;
 		}
 	}
 
@@ -1031,9 +993,8 @@ const FOR_FACETS = [
 		list-style: none;
 	}
 
-	// The document, then at the end what you do with it: Open or Request, one size, one column. Its
-	// facts (type, deployments) sit under the description; with the chip filters, where the list has
-	// the page's width, they take a column of their own between the text and the action.
+	// The document, then at the end what you do with it: Open or Request, one size, one column. The
+	// deployment tags, when there are any, sit under the description.
 	.tc-lib__row {
 		display: grid;
 		grid-template-areas:
@@ -1046,13 +1007,6 @@ const FOR_FACETS = [
 		padding: $spacing-5 0;
 		border-bottom: 1px solid var(--color-border-light);
 		scroll-margin-top: 160px;
-
-		@include media-up(md) {
-			:root:not([data-tc-filters='rail']) & {
-				grid-template-areas: 'main facts act';
-				grid-template-columns: minmax(0, 1fr) 152px auto;
-			}
-		}
 
 		&.is-arrived {
 			animation: tc-lib-mark 2.4s ease-out;
@@ -1217,7 +1171,7 @@ const FOR_FACETS = [
 
 	// The facts: the deployments a document is for, when not every one, as the kit's neutral tags with
 	// the Deployment filter's icons, in a stroke or (internal controls, `data-tc-tags="grey"`) on a grey
-	// ground. Under the description, or a stack in their own column beside it. The type is not a tag:
+	// ground, under the description. The type is not a tag:
 	// the names say it, the list runs in type order, and the Type filter says which one is shown.
 	// Nothing to say (a document for every deployment): no empty strip under the description.
 	.tc-lib__facts:not(:has(li)) {
@@ -1247,13 +1201,6 @@ const FOR_FACETS = [
 		:root[data-tc-tags='grey'] & .ui-chip--tag {
 			border-color: transparent;
 			background: rgba(23, 24, 28, 0.06);
-		}
-
-		@include media-up(md) {
-			:root:not([data-tc-filters='rail']) & {
-				flex-direction: column;
-				margin-top: 2px;
-			}
 		}
 	}
 

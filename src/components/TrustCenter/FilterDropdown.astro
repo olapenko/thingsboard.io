@@ -1,0 +1,310 @@
+---
+import { Icon } from 'astro-icon/components';
+
+/**
+ * A filter as a custom dropdown: a button in the field's clothes (the search's edge, 44 tall) that
+ * shows the chosen option and its count, and opens a list of the options, each with its icon, its
+ * count and a check on the chosen one. The document library's Type and Deployment, in the search's
+ * row. A candidate for the kit (`ui/`) if another page wants one.
+ *
+ * - The list is an ARIA listbox; its options carry `data-facet` and `data-value`, so the library's
+ *   script, which owns the filter state, picks one by its click as it does a chip, keeps
+ *   `aria-selected` and the counts, and writes the choice back into the button
+ *   (`[data-dd-value]`, `[data-dd-count]`).
+ * - This script only opens and closes: the button or Down/Up opens it on the chosen option; Up, Down,
+ *   Home and End move; Enter or Space picks; Escape and Tab close; a pick, or a press outside,
+ *   closes it, and focus goes back to the button.
+ */
+
+interface Option {
+	value: string;
+	label: string;
+	count: string;
+	icon?: string;
+}
+
+interface Props {
+	facet: 'type' | 'for';
+	/** What is chosen: the button's accessible name starts with it, and names the list. */
+	label: string;
+	/** The list opens from the button's right edge: the last dropdown in a row. */
+	alignEnd?: boolean;
+	options: Option[];
+	class?: string;
+}
+
+const { facet, label, options, alignEnd = false, class: className } = Astro.props;
+const id = `tc-dd-${facet}`;
+const first = options[0];
+// The icon column only when an option has an icon (Deployment has them, Type has none).
+const icons = options.some((o) => o.icon);
+---
+
+<div
+	class:list={['tc-dd', icons && 'tc-dd--icons', alignEnd && 'tc-dd--end', className]}
+	data-dropdown={facet}
+	data-all
+>
+	<button
+		type="button"
+		class="tc-dd__button"
+		id={`${id}-button`}
+		aria-haspopup="listbox"
+		aria-expanded="false"
+		aria-controls={`${id}-list`}
+	>
+		<span class="ui-sr">{label}: </span>
+		<span class="tc-dd__name" aria-hidden="true">
+			{label}
+		</span>
+		<span class="tc-dd__value" data-dd-value>
+			{first.label}
+		</span>
+		<span class="tc-dd__count" data-dd-count>
+			{first.count}
+		</span>
+		<Icon name="tabler:chevron-down" class="tc-dd__chevron" aria-hidden="true" />
+	</button>
+	<ul class="tc-dd__list" role="listbox" id={`${id}-list`} aria-label={label} tabindex="-1" hidden>
+		{options.map((o, i) => (
+			<li
+				class="tc-dd__option"
+				role="option"
+				tabindex="-1"
+				data-facet={facet}
+				data-value={o.value}
+				aria-selected={i === 0 ? 'true' : 'false'}
+			>
+				{icons && (
+					<span class="tc-dd__icon" aria-hidden="true">
+						{o.icon && <Icon name={o.icon} />}
+					</span>
+				)}
+				<span class="tc-dd__label">{o.label}</span>
+				<span class="tc-dd__count" data-count>
+					{o.count}
+				</span>
+				<Icon name="tabler:check" class="tc-dd__check" aria-hidden="true" />
+			</li>
+		))}
+	</ul>
+</div>
+
+<script>
+	document.querySelectorAll<HTMLElement>('[data-dropdown]').forEach((root) => {
+		const button = root.querySelector<HTMLButtonElement>('.tc-dd__button')!;
+		const list = root.querySelector<HTMLElement>('.tc-dd__list')!;
+		const options = [...list.querySelectorAll<HTMLElement>('[role="option"]')];
+		const isOpen = () => !list.hidden;
+
+		const focusOption = (o: HTMLElement | undefined) => o?.focus();
+		const open = () => {
+			list.hidden = false;
+			button.setAttribute('aria-expanded', 'true');
+			focusOption(options.find((o) => o.getAttribute('aria-selected') === 'true') ?? options[0]);
+		};
+		const close = (refocus: boolean) => {
+			if (!isOpen()) return;
+			list.hidden = true;
+			button.setAttribute('aria-expanded', 'false');
+			if (refocus) button.focus();
+		};
+
+		button.addEventListener('click', () => (isOpen() ? close(true) : open()));
+		button.addEventListener('keydown', (e) => {
+			if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+			e.preventDefault();
+			open();
+		});
+
+		// A pick: the library's own click handler has set the filter; this closes the list.
+		options.forEach((o) => o.addEventListener('click', () => close(true)));
+
+		list.addEventListener('keydown', (e) => {
+			const i = options.indexOf(document.activeElement as HTMLElement);
+			const last = options.length - 1;
+			const moves: Record<string, number> = {
+				ArrowDown: Math.min(i + 1, last),
+				ArrowUp: Math.max(i - 1, 0),
+				Home: 0,
+				End: last,
+			};
+			if (e.key in moves) {
+				e.preventDefault();
+				focusOption(options[moves[e.key]]);
+			} else if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				options[i]?.click();
+			} else if (e.key === 'Escape') {
+				e.preventDefault();
+				close(true);
+			} else if (e.key === 'Tab') {
+				close(false);
+			}
+		});
+
+		document.addEventListener('pointerdown', (e) => {
+			if (isOpen() && !root.contains(e.target as Node)) close(false);
+		});
+	});
+</script>
+
+<style is:global lang="scss">
+	@use '../../styles/variables' as *;
+
+	.tc-dd {
+		position: relative;
+		min-width: 0;
+	}
+
+	// The button: the search field's edge and height, the chosen option, its count, a chevron.
+	.tc-dd__button {
+		@include type-body;
+		display: flex;
+		align-items: center;
+		gap: $spacing-2;
+		width: 100%;
+		min-height: 44px;
+		padding: 0 $spacing-3;
+		border: 1px solid #868d9a;
+		border-radius: $radius-md;
+		background: var(--color-bg);
+		color: var(--color-text);
+		text-align: left;
+		cursor: pointer;
+
+		&:focus-visible,
+		&[aria-expanded='true'] {
+			border-color: var(--accent-fill);
+			outline: 3px solid color-mix(in srgb, var(--accent-fill) 18%, transparent);
+		}
+	}
+
+	// On a phone, where "All deployments" does not fit, an unfiltered dropdown shows its name instead
+	// ("Deployment 27"); the library's script keeps `data-all` on the root while "All" is chosen.
+	.tc-dd__name {
+		display: none;
+	}
+
+	@media (max-width: 479px) {
+		.tc-dd[data-all] {
+			.tc-dd__name {
+				display: inline;
+			}
+
+			// Out of sight, still read: the button stays "Type: All types 27" to a screen reader.
+			.tc-dd__value {
+				@include visually-hidden;
+			}
+		}
+	}
+
+	// The last dropdown in a row opens from its right edge, so its list stays on the page.
+	.tc-dd--end .tc-dd__list {
+		right: 0;
+		left: auto;
+	}
+
+	.tc-dd__value {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.tc-dd__count {
+		color: var(--color-text-muted);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.tc-dd__chevron {
+		flex: none;
+		width: 18px;
+		height: 18px;
+		margin-left: auto;
+		color: var(--color-text-muted);
+		transition: transform 0.15s ease;
+
+		[aria-expanded='true'] > & {
+			transform: rotate(180deg);
+		}
+	}
+
+	// The list: a card under the button, at least its width.
+	.tc-dd__list {
+		position: absolute;
+		top: calc(100% + 6px);
+		left: 0;
+		z-index: 30;
+		box-sizing: border-box;
+		min-width: max(100%, 220px);
+		margin: 0;
+		padding: 4px;
+		border: 1px solid var(--color-border-light);
+		border-radius: $radius-lg;
+		background: var(--color-bg);
+		box-shadow: 0 12px 32px rgba(23, 24, 28, 0.14);
+		list-style: none;
+
+		&[hidden] {
+			display: none;
+		}
+
+		&:focus {
+			outline: none;
+		}
+	}
+
+	.tc-dd__option {
+		@include type-small;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto 16px;
+
+		.tc-dd--icons & {
+			grid-template-columns: 18px minmax(0, 1fr) auto 16px;
+		}
+		align-items: center;
+		gap: $spacing-2;
+		margin: 0;
+		padding: 9px $spacing-3;
+		border-radius: $radius-md;
+		color: var(--color-text);
+		white-space: nowrap;
+		cursor: pointer;
+
+		&:hover,
+		&:focus {
+			outline: none;
+			background: rgba(23, 24, 28, 0.05);
+		}
+
+		&:focus-visible {
+			box-shadow: inset 0 0 0 2px var(--accent-fill);
+		}
+
+		&[aria-selected='true'] {
+			@include type-small-strong;
+			color: var(--accent-ink);
+		}
+
+		&.is-none:not([aria-selected='true']) {
+			color: var(--color-text-muted);
+		}
+	}
+
+	.tc-dd__icon svg {
+		display: block;
+		width: 16px;
+		height: 16px;
+		color: var(--color-text-muted);
+	}
+
+	.tc-dd__check {
+		width: 16px;
+		height: 16px;
+		visibility: hidden;
+
+		[aria-selected='true'] > & {
+			visibility: visible;
+		}
+	}
+</style>
