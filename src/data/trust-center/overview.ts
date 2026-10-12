@@ -67,7 +67,7 @@ export const TILES: Tile[] = [
 	{
 		title: 'Product security',
 		subtitle: 'Security built into the product',
-		icon: 'tabler:app-window',
+		icon: 'tabler:cpu',
 		points: [
 			'Encrypted transport for every device protocol',
 			'X.509 device credentials and mutual TLS',
@@ -103,7 +103,7 @@ export const TILES: Tile[] = [
 	{
 		title: 'Commitment and responsibility',
 		subtitle: 'What we promise and what we handle',
-		icon: 'tabler:target',
+		icon: 'tabler:clipboard-check',
 		points: [
 			'NDA documents within two business days',
 			'Support response times for every plan',
