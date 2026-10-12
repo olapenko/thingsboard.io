@@ -1,4 +1,5 @@
 ---
+import Button from '@components/ui/Button.astro';
 import DocItem from '@components/TrustCenter/DocItem.astro';
 import DocSearch from '@components/TrustCenter/DocSearch.astro';
 import { DOCS, docAction, docHref } from '@data/trust-center/documents';
@@ -6,12 +7,28 @@ import { DOCS, docAction, docHref } from '@data/trust-center/documents';
 /**
  * The Documents page's library: the documents search (`DocSearch`, live here) and one flat list of
  * all 20 documents, each row the shared `DocItem` with the category under the name. The query, the
- * category and the access toggle narrow the list together.
+ * category and the access toggle narrow the list together; the line above the list counts what is
+ * shown and clears the filters.
  */
 ---
 
 <div class="tc-library" data-doc-filter>
 	<DocSearch live />
+	<div class="tc-results">
+		<p class="tc-results__count" aria-live="polite" data-doc-count>
+			{DOCS.length} documents
+		</p>
+		<Button
+			variant="tertiary"
+			size="sm"
+			weight="regular"
+			icon="tabler:x"
+			flush
+			attrs={{ 'data-doc-reset': '', hidden: '' }}
+		>
+			Clear filters
+		</Button>
+	</div>
 	<ul class="tc-doclist" data-doc-list>
 		{DOCS.map((d) => (
 			<DocItem
@@ -43,6 +60,8 @@ import { DOCS, docAction, docHref } from '@data/trust-center/documents';
 		const access = root.querySelector<HTMLInputElement>('[data-access-input]');
 		const rows = [...root.querySelectorAll<HTMLElement>('.tc-doc')];
 		const empty = root.querySelector<HTMLElement>('[data-doc-empty]');
+		const count = root.querySelector<HTMLElement>('[data-doc-count]');
+		const reset = root.querySelector<HTMLButtonElement>('[data-doc-reset]');
 
 		const state = () => ({
 			q: (query?.value ?? '').trim(),
@@ -63,6 +82,9 @@ import { DOCS, docAction, docHref } from '@data/trust-center/documents';
 				if (show) shown += 1;
 			});
 			if (empty) empty.hidden = shown > 0;
+			const filtered = Boolean(q || cat || acc);
+			if (count) count.textContent = filtered ? `${shown} of ${rows.length} documents` : `${rows.length} documents`;
+			if (reset) reset.hidden = !filtered;
 		};
 
 		const remember = () => {
@@ -72,10 +94,12 @@ import { DOCS, docAction, docHref } from '@data/trust-center/documents';
 			window.history.replaceState(null, '', search ? `?${search}` : window.location.pathname);
 		};
 
-		form?.addEventListener('docsearch', render);
-		form?.addEventListener('change', remember);
-		form?.addEventListener('click', (event) => {
-			if ((event.target as HTMLElement).closest('[data-access-value]')) remember();
+		form?.addEventListener('docsearch', () => {
+			render();
+			remember();
+		});
+		reset?.addEventListener('click', () => {
+			form?.dispatchEvent(new CustomEvent('docsearch:reset'));
 		});
 		form?.addEventListener('submit', (event) => {
 			event.preventDefault();

@@ -11,6 +11,7 @@ import { tc } from '@data/trust-center/nav';
  * access toggles (the rows' own icons: Public, On request) and Search. One toggle or none; none
  * means both. It is a form that opens the Documents page with `?q=&category=&access=`; on that page
  * (`live`) it fills itself from the address and `DocLibrary` filters the list in place instead.
+ * The × in the field clears the query; a `docsearch:reset` event on the form clears everything.
  */
 
 interface Props {
@@ -45,7 +46,11 @@ const ACCESS = [
 		size="md"
 		class="tc-docsearch__q"
 		attrs={{ autocomplete: 'off', 'data-doc-query': '' }}
-	/>
+	>
+		<button slot="end" type="button" class="tc-docsearch__clear" aria-label="Clear search" hidden data-doc-clear>
+			<Icon name="tabler:x" aria-hidden="true" />
+		</button>
+	</Field>
 	<div class="tc-docsearch__filters">
 		<div class="ui-field ui-field--md tc-docsearch__category">
 			<label class="ui-field__label ui-sr" for={`${id}-category`}>
@@ -91,7 +96,14 @@ const ACCESS = [
 		const category = form.querySelector<HTMLSelectElement>('[data-doc-category]');
 		const toggles = [...form.querySelectorAll<HTMLButtonElement>('[data-access-value]')];
 		const access = form.querySelector<HTMLInputElement>('[data-access-input]');
-		const announce = () => form.dispatchEvent(new CustomEvent('docsearch'));
+		const clear = form.querySelector<HTMLButtonElement>('[data-doc-clear]');
+		const syncClear = () => {
+			if (clear) clear.hidden = !query?.value;
+		};
+		const announce = () => {
+			syncClear();
+			form.dispatchEvent(new CustomEvent('docsearch'));
+		};
 
 		const setAccess = (value: string) => {
 			const known = toggles.some((b) => b.dataset.accessValue === value) ? value : '';
@@ -115,6 +127,19 @@ const ACCESS = [
 				setAccess(button.getAttribute('aria-pressed') === 'true' ? '' : (button.dataset.accessValue ?? ''));
 				announce();
 			});
+		});
+		clear?.addEventListener('click', () => {
+			if (query) {
+				query.value = '';
+				query.focus();
+			}
+			announce();
+		});
+		form.addEventListener('docsearch:reset', () => {
+			if (query) query.value = '';
+			if (category) category.value = '';
+			setAccess('');
+			announce();
 		});
 		category?.addEventListener('change', announce);
 		query?.addEventListener('input', announce);
