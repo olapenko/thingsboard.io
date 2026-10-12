@@ -1,5 +1,4 @@
 import type { CompareColumn, CompareGroup, CompareRow } from '@data/product-blocks';
-import { tc } from '@data/trust-center/nav';
 
 /**
  * The Deployment pages' facts, from the draft, with the review's repetition edits. Each fact here is
@@ -107,59 +106,6 @@ export const STATUS_PAGES = [
 	{ label: 'EU', href: 'https://status.eu.thingsboard.cloud/' },
 ];
 
-/**
- * A document row on a deployment page. `href` null: the draft offers it but has nowhere to send the
- * reader yet, so the row asks for it through the contact form instead of linking nowhere.
- */
-export interface DeploymentDoc {
-	name: string;
-	access: 'public' | 'nda';
-	links: { label: string; href: string | null; external?: boolean }[];
-	/** The NDA document's slug, for the request form. */
-	nda?: string;
-}
-
-export const CLOUD_DOCS: DeploymentDoc[] = [
-	{
-		name: 'Terms of Use (North America and EU)',
-		access: 'public',
-		links: [{ label: 'Open', href: '/products/paas/terms-of-use/' }],
-	},
-	{
-		name: 'Privacy Policy (North America and EU)',
-		access: 'public',
-		links: [{ label: 'Open', href: '/products/paas/privacy-policy/' }],
-	},
-	{ name: 'Data Processing Addendum (DPA)', access: 'public', links: [{ label: 'Open', href: '/products/paas/dpa/' }] },
-	{ name: 'Sub-processors', access: 'public', links: [{ label: 'Open', href: tc('subprocessors') }] },
-	{
-		name: 'AWS attestations (SOC 2, ISO 27001)',
-		access: 'public',
-		links: [{ label: 'AWS Artifact', href: 'https://aws.amazon.com/artifact/', external: true }],
-	},
-	{ name: 'Business Continuity Plan', access: 'nda', links: [], nda: 'bcp-drp' },
-	{ name: 'Backup policy (frequency, retention)', access: 'nda', links: [], nda: 'backup-policy' },
-];
-
-export const PRIVATE_CLOUD_DOCS: DeploymentDoc[] = [
-	{
-		name: 'Private Cloud SLA and service description (uptime formula, service credits, exclusions)',
-		access: 'public',
-		links: [{ label: 'Ask for it', href: null }],
-	},
-	{ name: 'DPA for Private Cloud', access: 'nda', links: [], nda: 'dpa-private-cloud' },
-	{ name: 'Cluster architecture and read-only metrics', access: 'nda', links: [], nda: 'private-cloud-architecture' },
-	{
-		name: 'Data center certifications (ISO 27001, PCI DSS)',
-		access: 'public',
-		links: [
-			{ label: 'AWS', href: 'https://aws.amazon.com/compliance/programs/', external: true },
-			{ label: 'Azure', href: 'https://learn.microsoft.com/en-us/azure/compliance/', external: true },
-			{ label: 'GCP', href: 'https://cloud.google.com/security/compliance', external: true },
-		],
-	},
-];
-
 export const ONPREM_GUIDES = [
 	{ label: 'Password, lockout and session settings', href: '/docs/pe/user-guide/security/' },
 	{ label: 'Two-factor authentication', href: '/docs/pe/user-guide/security/two-factor-authentication/' },
@@ -175,20 +121,6 @@ export const ONPREM_GUIDES = [
 	{ label: 'Audit log', href: '/docs/pe/user-guide/security/audit-log/' },
 	{ label: 'Secrets storage', href: '/docs/pe/user-guide/security/secrets-storage/' },
 	{ label: 'Security overview', href: '/docs/pe/user-guide/security/overview/' },
-];
-
-export const ONPREM_DOCS: DeploymentDoc[] = [
-	{
-		name: 'Installation guides (Docker, Kubernetes, Ubuntu, cloud marketplaces)',
-		access: 'public',
-		links: [{ label: 'Open', href: '/docs/pe/installation/' }],
-	},
-	{ name: 'Release policy', access: 'public', links: [{ label: 'Open', href: '/docs/pe/releases/release-policy/' }] },
-	{ name: 'Release notes', access: 'public', links: [{ label: 'Open', href: '/docs/pe/releases/releases-table/' }] },
-	{ name: 'License server network requirements', access: 'public', links: [{ label: 'Ask for it', href: null }] },
-	// The draft's link went nowhere; the license agreement is on the site.
-	{ name: 'EULA and license terms', access: 'public', links: [{ label: 'Open', href: '/legal/license-agreement/' }] },
-	{ name: 'Support policy', access: 'public', links: [{ label: 'Ask for it', href: null }] },
 ];
 
 /** Who handles what: Cloud and Private Cloud in one column, since they agree everywhere but the region. */
