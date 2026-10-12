@@ -114,6 +114,8 @@ export const TILES: Tile[] = [
 export interface DeploymentCard {
 	title: string;
 	icon: string;
+	/** The site's colour for the deployment: brand blue for Cloud, green for on-premises. */
+	accent: 'brand' | 'onprem';
 	text: string;
 	rows: { label: string; html: string }[];
 	link: string;
@@ -124,6 +126,7 @@ export const DEPLOYMENT_CARDS: DeploymentCard[] = [
 	{
 		title: 'ThingsBoard Cloud and Private Cloud',
 		icon: 'tabler:cloud',
+		accent: 'brand',
 		text: 'We host and run the platform, so you can focus on your solution.',
 		rows: [
 			{
@@ -151,6 +154,7 @@ export const DEPLOYMENT_CARDS: DeploymentCard[] = [
 	{
 		title: 'On-premises',
 		icon: 'tabler:server',
+		accent: 'onprem',
 		text: 'You run the platform; we provide the product code, security fixes and guides.',
 		rows: [
 			{ label: 'You run', html: 'Infrastructure, network, patching, backups and recovery.' },
