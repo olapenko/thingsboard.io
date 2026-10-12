@@ -13,16 +13,18 @@ export const DEPLOYMENTS_LEAD =
 /** The hub's certification cards. They are not links in the draft. */
 export const HUB_CERTIFICATIONS = [
 	{
-		mark: 'ISO 27001',
 		title: 'ISO/IEC 27001:2022',
-		line: 'Information security management system',
-		status: 'Certified · Reg. 372-02-270-00460',
+		number: '27001',
+		year: '2022',
+		issued: '9 September 2026',
+		registration: '372-02-270-00460',
 	},
 	{
-		mark: 'ISO 9001',
 		title: 'ISO 9001:2015',
-		line: 'Quality management system',
-		status: 'Certified · Reg. 372-02-100-02170',
+		number: '9001',
+		year: '2015',
+		issued: '9 September 2026',
+		registration: '372-02-100-02170',
 	},
 ];
 
