@@ -28,6 +28,9 @@ export const HUB_CERTIFICATIONS = [
 	},
 ];
 
+/** The six tiles' mark: a dark grey near the ink, lit by the kit's own sheen. */
+export const TILE_MARK = '#2f3137';
+
 export interface Tile {
 	title: string;
 	subtitle: string;
