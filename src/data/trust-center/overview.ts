@@ -2,10 +2,13 @@ import { tc } from '@data/trust-center/nav';
 
 /** The hub, as drafted: the overview, the certifications, six tiles, two deployment cards and more. */
 
-export const OVERVIEW_PARAGRAPHS = [
-	'Security is built into every layer of ThingsBoard, from device connections to the way we develop and run the platform. Your data stays isolated, encrypted in transit and under your control.',
-	'Whether you use ThingsBoard Cloud, Private Cloud or run the platform on-premises, you get the same security features and the same engineering practices behind every release.',
-];
+/** The draft's Overview: its first paragraph is the hero's lede. */
+export const OVERVIEW_LEDE =
+	'Security is built into every layer of ThingsBoard, from device connections to the way we develop and run the platform. Your data stays isolated, encrypted in transit and under your control.';
+
+/** The Overview's second paragraph, as the Deployments section's lead. */
+export const DEPLOYMENTS_LEAD =
+	'Whether you use ThingsBoard Cloud, Private Cloud or run the platform on-premises, you get the same security features and the same engineering practices behind every release.';
 
 /** The hub's certification cards. They are not links in the draft. */
 export const HUB_CERTIFICATIONS = [
