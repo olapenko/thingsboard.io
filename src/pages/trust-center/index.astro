@@ -1,4 +1,5 @@
 ---
+import { Icon } from 'astro-icon/components';
 import Band from '@components/ui/Band.astro';
 import Button from '@components/ui/Button.astro';
 import CardGrid from '@components/ui/CardGrid.astro';
@@ -7,87 +8,120 @@ import Mark from '@components/ui/Mark.astro';
 import ProductFaq from '@components/Landing/ProductFaq.astro';
 import CertSeal from '@components/TrustCenter/CertSeal.astro';
 import ItemList from '@components/TrustCenter/ItemList.astro';
+import Tag from '@components/TrustCenter/Tag.astro';
 import TcCard from '@components/TrustCenter/TcCard.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
 import { DOC_GROUPS, DOCS, docHref } from '@data/trust-center/documents';
 import { TC_FAQ } from '@data/trust-center/faq';
-import { HUES, SECTIONS, tc } from '@data/trust-center/nav';
-import { CERT_VALIDATOR, CERTIFICATES } from '@data/trust-center/overview';
+import { HUES, REPORT_SECTION, tc } from '@data/trust-center/nav';
+import { CERT_VALIDATOR, CERTIFICATES, DEPLOYMENTS, TOPICS } from '@data/trust-center/overview';
 import { ACCESS, VERIFICATION } from '@data/trust-center/status';
 
 /**
- * The Trust Center's overview, build v3.
+ * The Trust Center's overview, the ANCHORS + CARDS version (exp/trust-center-anchors-cards): the
+ * anchors version's pages, the landing version's overview, and build v2's six topics.
  *
- * - The hero is the intro alone; the certificates are the first band's, not the hero's.
- * - "What we cover" lists the four sections, each with its line and what it holds: the parts of
- *   its page (anchors) and its pages of their own.
- * - Bands alternate white and tint; cards sit only on the tint (the certificates, getting in touch).
+ * - No section bar here (the landing logic). The hero carries the proof, the two actions and the
+ *   six topics: the ISO seals, each a link to its part of Compliance, with the way to verify them;
+ *   Contact and Report as buttons; and across its foot the topics, which list the sections, so no
+ *   "What we cover" heading over them (the list keeps the name for screen readers). So that nothing
+ *   is said twice, there is no Certifications band and no "Get in touch" band.
+ * - The topics are the draft's six tiles as v2 carried them, the review's edits included, each
+ *   linking to its part of its section's page: Compliance, the four Security parts, Commitments.
+ *   Each topic has its own colour (`TOPIC_HUES`), which its Security part repeats. A tile is one
+ *   link on a white card (the hero is a tinted ground), ending in a chevron, and lifts on hover;
+ *   its title is an h2, the page's first sections after the h1.
+ * - "Cloud and on-premises" is the draft's and v2's deployment band, on white now the hero's wash
+ *   sits right above it: the two deployments as the Deployment hub draws them, under their
+ *   products' own marks, with the draft's summary rows. Documents takes the tint.
+ * - The hero's Report a vulnerability is a neutral secondary button, so Contact stays the one call;
+ *   the alert hue (`REPORT_SECTION`) is for the report page itself and the section bar.
  * - Documents list by group with their access; requesting happens in the library.
- * - The FAQ is the product pages' (`ProductFaq`), 21 questions in five topics, all visible.
+ * - The FAQ is the product pages' (`ProductFaq`), 21 questions in five topics.
  */
 
-const sections = SECTIONS.filter((s) => s.key !== 'overview');
 const groups = DOC_GROUPS.map((name, gi) => ({ name, docs: DOCS.filter((d) => d.group === gi) }));
 ---
 
 <TrustCenterLayout
+	bar={false}
 	title="Trust Center"
 	eyebrow="Security, compliance and privacy"
 	lede="Security is built into every layer of ThingsBoard, from device connections to the way we develop and run the platform. Your data stays isolated, encrypted in transit and under your control."
 	description="Security, compliance and privacy at ThingsBoard: certifications, documents, data protection by deployment, and how to report a vulnerability."
 >
-	<Band pad={{ top: 'md', bottom: 'lg' }} labelledby="topics">
-		<div class="tc-section">
-			<h2 class="tc-h2" id="topics">
-				What we cover
-			</h2>
-			<ul class="tc-topics">
-				{sections.map((s) => (
-					<li class="tc-topic" style={`--tc-topic-hue: ${s.hue}`}>
-						<Mark size={48} icon={s.icon} accent={s.hue} fill="solid" />
-						<div class="tc-topic__body">
-							<h3 class="tc-topic__title">
-								<a href={s.href}>{s.label}</a>
-							</h3>
-							<p class="tc-topic__sub">{s.summary}</p>
-							{s.pages.length > 0 && (
-								<ul class="tc-topic__links" aria-label={`In ${s.label}`}>
-									{s.pages.map((p) => (
-										<li>
-											<a href={p.href}>{p.label}</a>
-										</li>
-									))}
-								</ul>
-							)}
-						</div>
-					</li>
-				))}
-			</ul>
-		</div>
-	</Band>
+	<div slot="hero" class="tc-landing__actions">
+		<Button href={tc('contact')}>Contact us</Button>
+		<Button href={REPORT_SECTION.href} variant="secondary" accent="neutral" icon={REPORT_SECTION.icon}>
+			Report a vulnerability
+		</Button>
+	</div>
+	<div slot="visual" class="tc-landing__proof">
+		<ul class="tc-landing__seals">
+			{CERTIFICATES.map((cert) => (
+				<li>
+					<a class="tc-landing__seal" href={cert.href}>
+						<CertSeal number={cert.number} size={96} />
+						<Tag tag={VERIFICATION.certified} />
+						<span class="ui-sr">{cert.title}</span>
+					</a>
+				</li>
+			))}
+		</ul>
+		<p class="tc-landing__verify">
+			Certified by Swiss Approval North America.
+			<Link href={CERT_VALIDATOR} size="sm" external>
+				Verify
+			</Link>
+		</p>
+	</div>
+	<ul slot="heroFoot" class="tc-tiles" aria-label="What we cover">
+		{TOPICS.map((topic) => (
+			<li class="tc-tile" style={`--tc-topic-hue: ${topic.hue}`}>
+				<Mark size={48} icon={topic.icon} accent={topic.hue} fill="solid" />
+				<div class="tc-tile__body">
+					<h2 class="tc-topic__title">
+						<a class="tc-tile__link" href={topic.href}>
+							{topic.title}
+							<Icon name="tabler:chevron-right" class="tc-tile__chevron" aria-hidden="true" />
+						</a>
+					</h2>
+					<p class="tc-topic__sub">{topic.subtitle}</p>
+					<ul class="tc-tile__points">
+						{topic.points.map((point) => (
+							<li>
+								<Icon name="tabler:check" aria-hidden="true" />
+								{point}
+							</li>
+						))}
+					</ul>
+				</div>
+			</li>
+		))}
+	</ul>
 
-	<Band ground="tint" pad="lg" labelledby="certifications">
+	<Band pad="lg" labelledby="deployment">
 		<div class="tc-section">
 			<div class="tc-section__head">
-				<h2 class="tc-h2" id="certifications">
-					Certifications
+				<h2 class="tc-h2" id="deployment">
+					Cloud and on-premises
 				</h2>
-				<p class="tc-copy">Issued by Swiss Approval North America on 9 September 2026, audited every year.</p>
+				<p class="tc-copy">
+					Whether you use ThingsBoard Cloud, Private Cloud or run the platform on-premises, you get the same security
+					features and the same engineering practices behind every release.
+				</p>
 			</div>
 			<CardGrid cols={2}>
-				{CERTIFICATES.map((cert) => (
-					<TcCard layout="row" href={cert.href} title={cert.title} text={cert.subtitle} tag={VERIFICATION.certified}>
-						<CertSeal slot="lead" number={cert.number} />
+				{DEPLOYMENTS.map((d) => (
+					<TcCard href={d.href} title={d.title} text={d.text} facts={d.facts}>
+						<Mark slot="lead" size={64} logo="thingsboard" accent={d.accent} />
 					</TcCard>
 				))}
 			</CardGrid>
-			<Link href={CERT_VALIDATOR} size="sm" external>
-				Verify the certificates
-			</Link>
 		</div>
 	</Band>
 
-	<Band pad="lg" labelledby="documents">
+	<Band ground="tint" pad="lg" labelledby="documents">
 		<div class="tc-section">
 			<div class="tc-section__head">
 				<h2 class="tc-h2" id="documents">
@@ -111,38 +145,10 @@ const groups = DOC_GROUPS.map((name, gi) => ({ name, docs: DOCS.filter((d) => d.
 				))}
 			</div>
 			<div class="tc-actions-row">
-				<Button href={tc('documents')} accent={HUES.orange}>
+				<Button href={tc('documents')} accent={HUES.fuchsia}>
 					Browse and request documents
 				</Button>
 			</div>
-		</div>
-	</Band>
-
-	<Band ground="tint" pad="lg" labelledby="get-in-touch">
-		<div class="tc-section">
-			<h2 class="tc-h2" id="get-in-touch">
-				Get in touch
-			</h2>
-			<CardGrid cols={2}>
-				<TcCard
-					title="Found a vulnerability?"
-					text="Report it to us privately instead of opening a public issue, so we can fix it before anyone can exploit it. We reply within three business days with an investigation plan and keep you updated until the fix is out."
-				>
-					<Mark slot="lead" size={48} icon="tabler:bug" accent={HUES.brand} fill="solid" />
-					<Button slot="footer" href={tc('report-vulnerability')} size="sm">
-						Report a vulnerability
-					</Button>
-				</TcCard>
-				<TcCard
-					title="A question about security, compliance or privacy?"
-					text="Ask us, or request documents under NDA. We reply by email."
-				>
-					<Mark slot="lead" size={48} icon="tabler:message-circle" accent={HUES.brand} fill="solid" />
-					<Button slot="footer" href={tc('contact')} size="sm" variant="secondary">
-						Contact us
-					</Button>
-				</TcCard>
-			</CardGrid>
 		</div>
 	</Band>
 
@@ -158,6 +164,193 @@ const groups = DOC_GROUPS.map((name, gi) => ({ name, docs: DOCS.filter((d) => d.
 
 <style is:global lang="scss">
 	@use '../../styles/variables' as *;
+
+	// The hero's two actions, as the product pages' heroes set theirs.
+	.tc-landing__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-3;
+	}
+
+	// The proof on the hero's right: the two seals side by side, each a link to its certificate,
+	// with the issuer and the way to verify under them.
+	.tc-landing__proof {
+		display: grid;
+		justify-items: center;
+		gap: $spacing-6;
+
+		@include media-down(lg) {
+			justify-items: start;
+
+			.tc-landing__verify {
+				justify-items: start;
+				text-align: left;
+			}
+		}
+	}
+
+	.tc-landing__seals {
+		display: flex;
+		gap: $spacing-8;
+		padding: 0;
+		list-style: none;
+	}
+
+	.tc-landing__seal {
+		display: grid;
+		justify-items: center;
+		gap: $spacing-8;
+		color: var(--color-text);
+		text-decoration: none;
+
+		&:hover .tc-seal__disc {
+			box-shadow:
+				0 0 0 2px var(--accent-fill),
+				0 8px 20px -8px rgba(23, 24, 28, 0.3);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 6px;
+			border-radius: $radius-md;
+		}
+	}
+
+	.tc-landing__verify {
+		@include type-small;
+		display: grid;
+		justify-items: center;
+		gap: $spacing-1;
+		color: var(--color-text-secondary);
+		text-align: center;
+	}
+
+	// The six topics, across the hero's foot: a white card each on the hero's wash, with the tile's
+	// resting shadow, so they read as six ways in. A tile is one link, its title stretched over it;
+	// hover deepens the shadow, rings it in the topic's colour and steps the chevron forward. The
+	// mark sits over the title, three to a row from 1024, and the check list takes the topic's colour.
+	.tc-tiles {
+		display: grid;
+		gap: $spacing-5;
+		padding: 0;
+		list-style: none;
+
+		@include media-up(md) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		@include media-up(lg) {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+
+	.tc-tile {
+		position: relative;
+		display: grid;
+		gap: $spacing-4;
+		align-content: start;
+		padding: $spacing-6;
+		border: 1px solid transparent;
+		border-radius: $radius-lg;
+		background: var(--color-bg-surface, #fff);
+		box-shadow: var(--elev-tile);
+		transition:
+			border-color 0.2s ease,
+			box-shadow 0.2s ease;
+
+		@media (hover: hover) {
+			&:hover {
+				border-color: color-mix(in srgb, var(--tc-topic-hue) 35%, transparent);
+				box-shadow: var(--elev-tile-hover);
+
+				.tc-tile__link {
+					color: var(--tc-topic-hue);
+				}
+
+				.tc-tile__chevron {
+					color: inherit;
+					transform: translateX(3px);
+				}
+			}
+		}
+
+		&:has(.tc-tile__link:focus-visible) {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+		}
+	}
+
+	// The title is the tile's one link, stretched over it; the ring goes round the tile (above).
+	.tc-tile .tc-tile__link {
+		color: var(--color-text);
+		text-decoration: none;
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+		}
+
+		&:hover {
+			color: var(--tc-topic-hue);
+			text-decoration: none;
+		}
+
+		&:focus-visible {
+			outline: none;
+		}
+	}
+
+	// Grey and tight to the last word, centred on the lowercase letters; on hover it takes the
+	// title's colour and steps forward.
+	.tc-tile__chevron {
+		width: 0.85em;
+		height: 0.85em;
+		margin-left: -0.05em;
+		vertical-align: -0.08em;
+		color: var(--color-text-muted);
+		transition:
+			transform 0.2s ease,
+			color 0.2s ease;
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+		}
+	}
+
+	.tc-tile__body {
+		display: grid;
+		gap: $spacing-1;
+		min-width: 0;
+	}
+
+	.tc-tile__points {
+		display: grid;
+		gap: $spacing-1;
+		margin-top: $spacing-3;
+		padding: 0;
+		list-style: none;
+
+		li {
+			@include type-small;
+			display: grid;
+			grid-template-columns: 16px minmax(0, 1fr);
+			gap: $spacing-2;
+			color: var(--color-text-secondary);
+		}
+
+		svg {
+			width: 16px;
+			height: 16px;
+			margin-top: 3px;
+			color: var(--tc-topic-hue);
+		}
+	}
 
 	.tc-docgroups {
 		display: grid;

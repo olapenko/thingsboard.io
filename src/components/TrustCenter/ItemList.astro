@@ -11,8 +11,10 @@ import { NEW_TAB_NOTE, newTabAttrs } from '@util/external-links';
 // it. Controls, documents, guides and vendors all render here, so the pages share one pattern
 // instead of a table each (review, build v1: 14 patterns to 4).
 //
-// `compact` is a list of one-line items in two columns (the configuration guides). A row's `pick`
-// puts a checkbox before it (the library's request); `attrs` go on the row for a page's script.
+// `compact` is a list of one-line items in two columns (the configuration guides). `tagColumn` sets
+// the tags in a column of their own before the title (the controls' kind), so the title's line
+// stays short and the kinds line up down the list. A row's `pick` puts a checkbox before it (the
+// library's request); `attrs` go on the row for a page's script.
 
 export interface ItemAction {
 	label: string;
@@ -44,20 +46,35 @@ interface Props {
 	compact?: boolean;
 	/** Compact: two columns from 750 (default), or one where the list already sits in a column. */
 	columns?: 1 | 2;
+	/** The tags in a first column of their own, rather than after the title. */
+	tagColumn?: boolean;
 	label?: string;
 	class?: string;
 }
 
-const { items, compact = false, columns = 2, label, class: className } = Astro.props;
+const { items, compact = false, columns = 2, tagColumn = false, label, class: className } = Astro.props;
 ---
 
 <ul
-	class:list={['tc-items', compact && 'tc-items--compact', compact && columns === 1 && 'tc-items--one', className]}
+	class:list={[
+		'tc-items',
+		compact && 'tc-items--compact',
+		compact && columns === 1 && 'tc-items--one',
+		tagColumn && 'tc-items--tagcol',
+		className,
+	]}
 	aria-label={label}
 >
 	{items.map((item) => {
 		const Heading = item.level ? (`h${item.level}` as 'h2') : 'span';
 		const titleId = item.id ? `${item.id}-title` : undefined;
+		const tags = item.tags && item.tags.length > 0 && (
+			<span class="tc-item__tags">
+				{item.tags.map((tag) => (
+					<Tag tag={tag} />
+				))}
+			</span>
+		);
 		return (
 			<li
 				class:list={['tc-item', (item.pick || item.icon) && 'tc-item--lead']}
@@ -82,6 +99,7 @@ const { items, compact = false, columns = 2, label, class: className } = Astro.p
 						<Mark size={36} icon={item.icon} fill="wash" />
 					</span>
 				)}
+				{tagColumn && <span class="tc-item__kind">{tags}</span>}
 				<div class="tc-item__main">
 					<div class="tc-item__head">
 						<Heading class="tc-item__title" id={titleId}>
@@ -99,13 +117,7 @@ const { items, compact = false, columns = 2, label, class: className } = Astro.p
 								item.title
 							)}
 						</Heading>
-						{item.tags && item.tags.length > 0 && (
-							<span class="tc-item__tags">
-								{item.tags.map((tag) => (
-									<Tag tag={tag} />
-								))}
-							</span>
-						)}
+						{!tagColumn && tags}
 					</div>
 					{item.html && <p class="tc-item__text" set:html={item.html} />}
 				</div>

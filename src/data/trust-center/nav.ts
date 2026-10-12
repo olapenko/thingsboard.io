@@ -25,7 +25,7 @@ export interface NavPage {
 }
 
 export interface Section {
-	key: 'overview' | 'compliance' | 'security' | 'deployment' | 'documents' | 'contact';
+	key: 'overview' | 'compliance' | 'security' | 'deployment' | 'documents' | 'contact' | 'report';
 	label: string;
 	/** The section's own page (its hub). */
 	href: string;
@@ -47,6 +47,8 @@ export const HUES = {
 	violet: '#7c3aed',
 	blue: '#006bc7',
 	teal: '#007c7b',
+	fuchsia: '#a21caf',
+	/** The alert hue: Report a vulnerability, wherever the way to report appears. */
 	orange: '#c2410c',
 };
 
@@ -107,14 +109,14 @@ export const SECTIONS: Section[] = [
 		label: 'Documents',
 		href: tc('documents'),
 		summary: 'Policies, reports and certificates: open to everyone, or under NDA within two business days.',
-		hue: HUES.orange,
+		hue: HUES.fuchsia,
 		icon: 'tabler:file-text',
 		pages: [],
 		prefix: tc('documents'),
 	},
 ];
 
-/** Contact and Report: not a section of the bar, but their pages need a hue. */
+/** Contact: not a section of the bar, but its page needs a hue. */
 export const CONTACT_SECTION: Section = {
 	key: 'contact',
 	label: 'Get in touch',
@@ -122,6 +124,20 @@ export const CONTACT_SECTION: Section = {
 	summary: '',
 	hue: HUES.brand,
 	icon: 'tabler:message-circle',
+	pages: [],
+};
+
+/**
+ * Report a vulnerability: not a section either, and apart from Contact, so the way to report reads
+ * as an alert in the alert hue on its page, in the section bar and in the overview's hero.
+ */
+export const REPORT_SECTION: Section = {
+	key: 'report',
+	label: 'Report a vulnerability',
+	href: tc('report-vulnerability'),
+	summary: '',
+	hue: HUES.orange,
+	icon: 'tabler:bug',
 	pages: [],
 };
 
@@ -136,7 +152,11 @@ export function sectionFor(pathname: string): Section {
 	const listed = (s: Section) => s.pages.some((p) => p.href.split('#')[0] === path);
 	return (
 		SECTIONS.find((s) => s.href === path || listed(s) || (s.prefix && path.startsWith(s.prefix))) ??
-		(TC_ACTIONS.some((a) => a.href === path) ? CONTACT_SECTION : SECTIONS[0])
+		(path === REPORT_SECTION.href
+			? REPORT_SECTION
+			: TC_ACTIONS.some((a) => a.href === path)
+				? CONTACT_SECTION
+				: SECTIONS[0])
 	);
 }
 

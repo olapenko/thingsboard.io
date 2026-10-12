@@ -1,4 +1,5 @@
 ---
+import { Icon } from 'astro-icon/components';
 import Card from '@components/ui/Card.astro';
 import Tag from '@components/TrustCenter/Tag.astro';
 import type { TagLook } from '@data/trust-center/status';
@@ -11,6 +12,9 @@ import type { TagLook } from '@data/trust-center/status';
 //   the line.
 // - `tile` (a deployment, getting in touch): the lead on top, then the title, the text, and the
 //   footer (a button) at the foot, at the same place in every card of a row.
+//
+// A link card's title ends in a chevron, which steps forward on hover, so the card reads as a way
+// in. `facts` is a short term-and-value list under the text (a deployment's summary rows).
 
 interface Props {
 	layout?: 'row' | 'tile';
@@ -18,10 +22,12 @@ interface Props {
 	href?: string;
 	text?: string;
 	tag?: TagLook;
+	/** Term and value rows under the text; the value is HTML. */
+	facts?: { term: string; html: string }[];
 	class?: string;
 }
 
-const { layout = 'tile', title, href, text, tag, class: className } = Astro.props;
+const { layout = 'tile', title, href, text, tag, facts = [], class: className } = Astro.props;
 ---
 
 <Card
@@ -35,7 +41,18 @@ const { layout = 'tile', title, href, text, tag, class: className } = Astro.prop
 	<div slot="mark" class="tc-card__lead">
 		<slot name="lead" />
 	</div>
+	{href && <Icon slot="title" name="tabler:chevron-right" class="tc-card__chevron" aria-hidden="true" />}
 	{text && <p class="tc-card__text">{text}</p>}
+	{facts.length > 0 && (
+		<dl class="tc-card__facts">
+			{facts.map((f) => (
+				<div class="tc-card__fact">
+					<dt>{f.term}</dt>
+					<dd set:html={f.html} />
+				</div>
+			))}
+		</dl>
+	)}
 	<slot />
 	{(tag || Astro.slots.has('footer')) && (
 		<div slot="footer" class="tc-card__foot">

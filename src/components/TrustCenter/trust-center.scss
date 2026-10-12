@@ -51,10 +51,14 @@
 	min-width: 0;
 }
 
+// Beside the text from 1024; under it below, so the proof is not lost on a phone.
 .tc-hero__visual {
-	@include media-down(lg) {
-		display: none;
-	}
+	min-width: 0;
+}
+
+// Across the hero's foot, under the text and the visual: the overview's topics.
+.tc-hero__foot {
+	margin-top: $spacing-10;
 }
 
 // The intro: the way back to the section (a page under it) sits over the h1 where the eyebrow
@@ -69,13 +73,17 @@
 	justify-self: start;
 }
 
-// "On this page", at the top of a hero: the page's parts as plain links in the section's hue, dotted
-// apart. Not sticky: it goes with the hero.
+// "On this page", under the lede below 1024: the page's parts as plain links in the section's hue,
+// dotted apart. Not sticky: it goes with the hero. From 1024 the sidebar lists them instead.
 .tc-anchors {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
 	gap: $spacing-1 $spacing-4;
+
+	@include media-up(lg) {
+		display: none;
+	}
 
 	// On a phone, one row that scrolls sideways, as the section bar does, rather than three lines.
 	@include media-down(md) {
@@ -127,7 +135,8 @@
 	text-decoration: none;
 	white-space: nowrap;
 
-	&:hover {
+	&:hover,
+	&[aria-current] {
 		text-decoration: underline;
 		text-underline-offset: 3px;
 	}
@@ -136,6 +145,106 @@
 		outline: 2px solid var(--focus-ring);
 		outline-offset: 2px;
 		border-radius: 2px;
+	}
+}
+
+// ── Sidebar: "On this page" beside the bands, from 1024 ────────────────────
+//
+// The bands keep their full-width grounds; the rail is laid over them at the page measure, and the
+// bands' content moves right of it, so the reading column narrows by the sidebar and its gap
+// (1040 to about 790 at the widest measure). The sidebar sticks under the site's bar and the
+// section bar for as long as the bands run.
+
+$tc-aside: 200px;
+$tc-aside-gap: $spacing-12;
+$tc-bar-h: 57px;
+
+.tc-body {
+	position: relative;
+}
+
+.tc-rail {
+	display: none;
+
+	@include media-up(lg) {
+		display: block;
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		pointer-events: none;
+	}
+}
+
+.tc-rail__inner {
+	box-sizing: border-box;
+	height: 100%;
+	max-width: $page-measure-box;
+	margin-inline: auto;
+	padding: $spacing-16 $spacing-5 $spacing-12;
+}
+
+.tc-aside {
+	position: sticky;
+	top: calc(var(--home-header-h, #{$header-height}) + #{$tc-bar-h} + #{$spacing-8});
+	display: grid;
+	gap: $spacing-3;
+	width: $tc-aside;
+	max-height: calc(100vh - var(--home-header-h, #{$header-height}) - #{$tc-bar-h} - #{$spacing-16});
+	overflow-y: auto;
+	pointer-events: auto;
+}
+
+.tc-aside__label {
+	@include type-eyebrow;
+	color: var(--color-text-muted);
+
+	&:not(:first-child) {
+		margin-top: $spacing-5;
+	}
+}
+
+.tc-aside__list {
+	display: grid;
+	padding: 0;
+	border-left: 1px solid var(--color-border-light);
+	list-style: none;
+
+	&--pages {
+		gap: $spacing-2;
+		border-left: 0;
+	}
+}
+
+// A part: a line in the rule, the part in view marked by the section's hue on the rule.
+.tc-aside__link {
+	@include type-small;
+	display: block;
+	margin-left: -1px;
+	padding: $spacing-1 0 $spacing-1 $spacing-4;
+	border-left: 2px solid transparent;
+	color: var(--color-text-secondary);
+	text-decoration: none;
+
+	&:hover {
+		color: var(--color-text);
+	}
+
+	&[aria-current] {
+		@include type-small-strong;
+		border-left-color: var(--tc-hue);
+		color: var(--tc-hue);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--focus-ring);
+		outline-offset: 2px;
+		border-radius: 2px;
+	}
+}
+
+@include media-up(lg) {
+	.tc--aside .tc-body > .ui-band > .ui-band__inner--page {
+		padding-left: calc(#{$spacing-5} + #{$tc-aside} + #{$tc-aside-gap});
 	}
 }
 
@@ -583,6 +692,37 @@ h3.tc-item__title {
 	padding-top: 2px;
 }
 
+// Tags as a first column (the controls' kind): one width down the list, so the kinds line up, as
+// narrow as "Configurable"; the one longer kind ("Depends on deployment", a single control) wraps to
+// two lines inside its pill. The chip sits on the title's first line. Below 750 the kind goes over
+// the title, on one line.
+.tc-items--tagcol .tc-item {
+	grid-template-columns: 7rem minmax(0, 1fr) auto;
+	column-gap: $spacing-5;
+
+	@include media-down(md) {
+		grid-template-columns: minmax(0, 1fr);
+		row-gap: $spacing-3;
+	}
+}
+
+.tc-item__kind {
+	display: flex;
+	padding-top: 2px;
+
+	// The kit's tag is one 22px line; one that wraps here grows to its two lines instead, with the
+	// pill's padding top and bottom.
+	@include media-up(md) {
+		.ui-chip {
+			height: auto;
+			min-height: 22px;
+			padding-block: 3px;
+			line-height: 1.25;
+			white-space: normal;
+		}
+	}
+}
+
 // Compact: one-line items in two columns.
 .tc-items--compact {
 	@include media-up(md) {
@@ -603,6 +743,17 @@ h3.tc-item__title {
 // One column, where the list already sits in one (the overview's document groups).
 .tc-items--one {
 	display: block;
+}
+
+// ── Forms: the contact and vulnerability report panels ─────────────────────
+//
+// A form reads down one column of labels and fields (two to a row at most), so its panel stops at a
+// form's measure rather than running the page's 1040, near the site's Contact us panel (656); it
+// keeps to the page's left edge, under the hero's text.
+
+.tc-form-card,
+.tc-vf-card {
+	max-width: 720px;
 }
 
 // ── Foot ────────────────────────────────────────────────────────────────────
@@ -661,6 +812,71 @@ h3.tc-item__title {
 	display: flex;
 }
 
+// A link card's way in: a grey chevron tight to the title's last word and centred on its lowercase
+// letters, which takes the title's colour and steps forward on hover. It stays with the last word,
+// so it never wraps alone.
+.tc-card__chevron {
+	width: 0.85em;
+	height: 0.85em;
+	margin-left: -0.05em;
+	vertical-align: -0.08em;
+	color: var(--color-text-muted);
+	transition:
+		transform 0.2s ease,
+		color 0.2s ease;
+}
+
+@media (hover: hover) {
+	.ui-card--link:hover .tc-card__chevron {
+		color: inherit;
+		transform: translateX(3px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tc-card__chevron {
+		transition: none;
+	}
+}
+
+// The facts under a card's text: term and value in ruled rows, the term in a column of its own; in
+// a narrow card (the Deployment hub's, beside the sidebar) the term sits over its value instead.
+.tc-card__facts {
+	display: grid;
+	margin-top: $spacing-5;
+	border-top: 1px solid var(--color-border-light);
+	container-type: inline-size;
+}
+
+.tc-card__fact {
+	display: grid;
+	grid-template-columns: 7rem minmax(0, 1fr);
+	gap: $spacing-3;
+	padding: $spacing-3 0;
+	border-bottom: 1px solid var(--color-border-light);
+
+	@container (width < 22rem) {
+		grid-template-columns: minmax(0, 1fr);
+		gap: $spacing-1;
+	}
+
+	dt {
+		@include type-small-strong;
+		color: var(--color-text);
+	}
+
+	dd {
+		@include type-small;
+		margin: 0;
+		color: var(--color-text-secondary);
+
+		b {
+			font-weight: 600;
+			color: var(--color-text);
+		}
+	}
+}
+
 // Tile: the lead on top, then title, text and a footer that lines up across the row.
 .tc-card--tile {
 	.tc-card__lead {
@@ -676,14 +892,15 @@ h3.tc-item__title {
 	}
 }
 
-// Row: lead | title over text | tag, centred on the card.
+// Row: lead | title over text | tag. The lead (a seal and its ribbon, a mark) is pinned to the
+// card's top left, and the tag to the title's first line, however far the title and text wrap.
 .tc-card--row {
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr) auto;
 	grid-template-rows: auto auto;
 	column-gap: $spacing-5;
 	row-gap: $spacing-1;
-	align-items: center;
+	align-items: start;
 
 	.tc-card__lead {
 		grid-row: 1 / 3;
@@ -692,7 +909,7 @@ h3.tc-item__title {
 
 	.ui-card__title {
 		grid-column: 2;
-		align-self: end;
+		align-self: start;
 	}
 
 	.tc-card__text {

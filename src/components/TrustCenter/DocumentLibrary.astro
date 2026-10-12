@@ -2,14 +2,20 @@
 import { Icon } from 'astro-icon/components';
 import Button from '@components/ui/Button.astro';
 import Chip from '@components/ui/Chip.astro';
-import ItemList, { type Item } from '@components/TrustCenter/ItemList.astro';
+import Link from '@components/ui/Link.astro';
+import Tag from '@components/TrustCenter/Tag.astro';
 import { askHref, DOC_GROUPS, DOCS, docHref, type TrustDoc } from '@data/trust-center/documents';
 import { tc } from '@data/trust-center/nav';
 import { ACCESS } from '@data/trust-center/status';
 
-// The document library: every document, by group, on the one list, with filters, and the review's
-// main build fix — requesting from the list. Tick the documents under NDA you need, then one Request
-// opens the form with them listed.
+// The document library: every document in one table, a body per group, with filters, and the
+// review's main build fix — requesting from the list. Tick the documents under NDA you need, then
+// one Request opens the form with them listed.
+//
+// The table carries what a document's own page says (its category and version, beside the
+// description and the access), so the list answers without opening each page. A document under NDA
+// leads its row with a checkbox; a public or planned one, which cannot be requested, leads with a
+// glyph of the same size (a file, a file with a clock), so every name starts on one line.
 //
 // It is a GET form to the contact page, so with no script the ticks still arrive (as repeated
 // `docs`); the script adds the filters, the count and the comma-joined address the other pages use.
@@ -26,22 +32,17 @@ const groups = [
 	{ name: 'Questionnaires', docs: DOCS.filter((d) => d.group === undefined) },
 ];
 
-const toItem = (d: TrustDoc): Item => {
+// What a row offers beside its checkbox: open a public document, ask about a planned one.
+const actionOf = (d: TrustDoc): { label: string; href: string; external: boolean } | undefined => {
 	const open = d.access === 'public' ? (d.f ?? d.u) : undefined;
-	return {
-		title: d.name,
-		href: docHref(d),
-		tags: [ACCESS[d.access]],
-		html: d.description,
-		actions:
-			d.access === 'public' && open
-				? [{ label: 'Open', href: open, external: /^https?:/.test(open) }]
-				: d.access === 'planned'
-					? [{ label: 'Ask about it', href: askHref(d) }]
-					: [],
-		pick: d.access === 'nda' ? { name: 'docs', value: d.slug, label: `Request ${d.name}` } : undefined,
-		attrs: { 'data-access': d.access, 'data-name': d.name.toLowerCase() },
-	};
+	if (open) return { label: 'Open', href: open, external: /^https?:/.test(open) };
+	if (d.access === 'planned') return { label: 'Ask about it', href: askHref(d), external: false };
+	return undefined;
+};
+
+const GLYPH: Record<Exclude<TrustDoc['access'], 'nda'>, string> = {
+	public: 'tabler:file-text',
+	planned: 'tabler:file-time',
 };
 
 const slug = (name: string) => `lib-${name.replace(/\W+/g, '-').toLowerCase()}`;
@@ -65,14 +66,83 @@ const slug = (name: string) => `lib-${name.replace(/\W+/g, '-').toLowerCase()}`;
 		</label>
 	</div>
 
-	{groups.map((g) => (
-		<section class="tc-library__group" data-group aria-labelledby={slug(g.name)}>
-			<h2 class="tc-library__group-title" id={slug(g.name)}>
-				{g.name}
-			</h2>
-			<ItemList items={g.docs.map(toItem)} />
-		</section>
-	))}
+	<table class="tc-doctable">
+		<caption class="ui-sr">Documents, by group, with their category, version and access</caption>
+		<colgroup>
+			<col class="tc-doctable__col-lead" />
+			<col />
+			<col class="tc-doctable__col-category" />
+			<col class="tc-doctable__col-version" />
+			<col class="tc-doctable__col-access" />
+			<col class="tc-doctable__col-action" />
+		</colgroup>
+		<thead>
+			<tr>
+				<th scope="col">
+					<span class="ui-sr">Request</span>
+				</th>
+				<th scope="col">Document</th>
+				<th scope="col">Category</th>
+				<th scope="col">Version</th>
+				<th scope="col">Access</th>
+				<th scope="col">
+					<span class="ui-sr">Action</span>
+				</th>
+			</tr>
+		</thead>
+		{groups.map((g) => (
+			<tbody data-group>
+				<tr class="tc-doctable__group">
+					<th scope="rowgroup" colspan="6" id={slug(g.name)}>
+						{g.name}
+					</th>
+				</tr>
+				{g.docs.map((d) => {
+					const action = actionOf(d);
+					return (
+						<tr class="tc-doctable__row" data-access={d.access} data-name={d.name.toLowerCase()}>
+							<td class="tc-doctable__lead">
+								{d.access === 'nda' ? (
+									<input
+										type="checkbox"
+										class="tc-doctable__pick"
+										name="docs"
+										value={d.slug}
+										id={`pick-${d.slug}`}
+										aria-label={`Request ${d.name}`}
+									/>
+								) : (
+									<Icon name={GLYPH[d.access]} class="tc-doctable__glyph" aria-hidden="true" />
+								)}
+							</td>
+							<th scope="row" class="tc-doctable__doc">
+								<a class="tc-doctable__name" href={docHref(d)}>
+									{d.name}
+								</a>
+								<p class="tc-doctable__text">{d.description}</p>
+							</th>
+							<td class="tc-doctable__meta" data-label="Category">
+								{d.category}
+							</td>
+							<td class="tc-doctable__meta" data-label="Version">
+								{d.version}
+							</td>
+							<td class="tc-doctable__access">
+								<Tag tag={ACCESS[d.access]} />
+							</td>
+							<td class="tc-doctable__action">
+								{action && (
+									<Link href={action.href} size="sm" external={action.external} srSuffix={`: ${d.name}`}>
+										{action.label}
+									</Link>
+								)}
+							</td>
+						</tr>
+					);
+				})}
+			</tbody>
+		))}
+	</table>
 	<p class="tc-copy" hidden data-empty>
 		No documents match. Clear the filter to see them all.
 	</p>
@@ -102,7 +172,7 @@ const slug = (name: string) => `lib-${name.replace(/\W+/g, '-').toLowerCase()}`;
 			let shown = 0;
 			form.querySelectorAll<HTMLElement>('[data-group]').forEach((group) => {
 				let n = 0;
-				group.querySelectorAll<HTMLElement>('.tc-item').forEach((row) => {
+				group.querySelectorAll<HTMLElement>('.tc-doctable__row').forEach((row) => {
 					const ok = (filter === 'all' || row.dataset.access === filter) && (!q || row.dataset.name!.includes(q));
 					row.hidden = !ok;
 					if (ok) n++;
@@ -204,14 +274,177 @@ const slug = (name: string) => `lib-${name.replace(/\W+/g, '-').toLowerCase()}`;
 		}
 	}
 
-	.tc-library__group {
-		display: grid;
-		gap: $spacing-3;
+	// ── The table ──
+	//
+	// Ruled rows on white, a light header, and a header row per group in the group heading's size.
+	// The lead column is the checkbox's or the glyph's, 20 wide either way, so names line up. Below
+	// 750 a row is lines: the name and description beside the lead, then category, version and access
+	// on one line, then the action.
+
+	.tc-doctable {
+		width: 100%;
+		border-collapse: collapse;
+		table-layout: fixed;
+
+		th,
+		td {
+			padding: $spacing-4 $spacing-3;
+			border-bottom: 1px solid var(--color-border-light);
+			text-align: left;
+			vertical-align: top;
+		}
+
+		thead th {
+			@include type-small-strong;
+			padding-block: $spacing-2;
+			border-bottom-color: var(--color-border);
+			color: var(--color-text-muted);
+		}
 	}
 
-	.tc-library__group-title {
+	.tc-doctable__col-lead {
+		width: 44px;
+	}
+
+	.tc-doctable__col-category {
+		width: 120px;
+	}
+
+	.tc-doctable__col-version {
+		width: 104px;
+	}
+
+	.tc-doctable__col-access {
+		width: 132px;
+	}
+
+	.tc-doctable__col-action {
+		width: 136px;
+	}
+
+	.tc-doctable__group th {
 		@include type-tile-lg;
+		padding: $spacing-10 $spacing-3 $spacing-3;
 		color: var(--color-text);
+	}
+
+	tbody:first-of-type .tc-doctable__group th {
+		padding-top: $spacing-6;
+	}
+
+	.tc-doctable__lead {
+		padding-right: 0;
+	}
+
+	.tc-doctable__pick,
+	.tc-doctable__glyph {
+		display: block;
+		width: 20px;
+		height: 20px;
+		margin: 2px 0 0;
+	}
+
+	.tc-doctable__pick {
+		accent-color: var(--accent-fill);
+		cursor: pointer;
+	}
+
+	.tc-doctable__glyph {
+		color: var(--color-text-muted);
+	}
+
+	.tc-doctable__doc {
+		font-weight: inherit;
+	}
+
+	.tc-doctable__name {
+		@include type-tile;
+		color: var(--color-text);
+		text-decoration: none;
+
+		&:hover {
+			color: var(--accent-ink);
+			text-decoration: underline;
+			text-underline-offset: 3px;
+		}
+	}
+
+	.tc-doctable__text {
+		@include type-small;
+		margin-top: $spacing-1;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-doctable__meta {
+		@include type-small;
+		padding-top: calc(#{$spacing-4} + 2px);
+		color: var(--color-text-secondary);
+	}
+
+	.tc-doctable__access,
+	.tc-doctable__action {
+		padding-top: calc(#{$spacing-4} + 1px);
+	}
+
+	@include media-down(md) {
+		.tc-doctable {
+			table-layout: auto;
+
+			colgroup,
+			thead {
+				display: none;
+			}
+
+			tbody,
+			tr,
+			th,
+			td {
+				display: block;
+			}
+		}
+
+		.tc-doctable__group th {
+			padding-inline: 0;
+		}
+
+		// The lead hangs in the gutter; the name and description take the full line, then category,
+		// version and access share one, and the action closes the row.
+		.tc-doctable .tc-doctable__row {
+			position: relative;
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: $spacing-2 $spacing-4;
+			padding: $spacing-4 0 $spacing-4 32px;
+			border-bottom: 1px solid var(--color-border-light);
+
+			> th,
+			> td {
+				padding: 0;
+				border: 0;
+			}
+
+			> .tc-doctable__lead {
+				position: absolute;
+				top: $spacing-4;
+				left: 0;
+			}
+
+			> .tc-doctable__doc,
+			> .tc-doctable__action {
+				flex-basis: 100%;
+			}
+		}
+
+		// The label before a value; the cell's own leading space separates them.
+		.tc-doctable__meta::before {
+			content: attr(data-label) ':';
+			color: var(--color-text-muted);
+		}
+
+		.tc-doctable__action:not(:has(a)) {
+			display: none;
+		}
 	}
 
 	// The request bar holds its place under the list, and rides along the bottom of the screen once a
