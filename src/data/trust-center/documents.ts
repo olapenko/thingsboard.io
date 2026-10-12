@@ -32,7 +32,7 @@ export const DOC_GROUPS = [
 
 export const ACCESS_LABEL: Record<Access, string> = { public: 'Public', nda: 'NDA', pending: 'Planned' };
 export const ACCESS_ACTION: Record<Access, string> = {
-	public: 'Download',
+	public: 'View',
 	nda: 'Request via NDA',
 	pending: 'Ask about it',
 };

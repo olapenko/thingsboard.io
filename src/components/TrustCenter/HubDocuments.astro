@@ -1,14 +1,21 @@
 ---
 import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
 import Chip from '@components/ui/Chip.astro';
 import Field from '@components/ui/Field.astro';
+import Link from '@components/ui/Link.astro';
 import { DOC_GROUPS, HUB_DOCS, docHref, isOffSite } from '@data/trust-center/documents';
+import { tc } from '@data/trust-center/nav';
 import { newTabAttrs } from '@util/external-links';
 
 /**
- * The hub's documents, as drafted: a filter field, All · Public · Under NDA, and the 18 documents in
- * their four groups, each group headed with its count. A row opens the file (public, "Download"),
- * the page the document is ("View"), or the document's own page (NDA, "Request").
+ * The hub's documents, as drafted: the filter field, All · Public · Under NDA, and the 18 documents
+ * in their four groups, each group headed with its count. A row opens the file (public, "View"), the
+ * page the document is ("View"), or the document's own page (NDA, "Request").
+ *
+ * The hub shows the highlights; the search happens on the Documents page. The field and the access
+ * chips are one form that opens the library with the query (`?q=…&access=…`), where `DocLibrary`
+ * applies it. The list here stays as it is.
  */
 
 const FILTERS = [
@@ -21,15 +28,15 @@ const groups = DOC_GROUPS.map((name, i) => ({ name, docs: HUB_DOCS.filter((d) =>
 
 const actionOf = (d: (typeof HUB_DOCS)[number]) => {
 	if (d.url) return { label: 'View', icon: isOffSite(d.url) ? 'tabler:arrow-up-right' : 'tabler:chevron-right' };
-	if (d.access === 'public') return { label: 'Download', icon: 'tabler:file-download' };
+	if (d.access === 'public') return { label: 'View', icon: 'tabler:arrow-up-right' };
 	return { label: 'Request', icon: 'tabler:lock' };
 };
 ---
 
-<div class="tc-hubdocs" data-hub-docs>
-	<div class="tc-toolbar">
+<div class="tc-hubdocs">
+	<form class="tc-toolbar" action={tc('documents')} method="get" data-hub-search>
 		<Field
-			name="hq"
+			name="q"
 			id="tc-hub-q"
 			label="Filter documents"
 			labelHidden
@@ -37,7 +44,7 @@ const actionOf = (d: (typeof HUB_DOCS)[number]) => {
 			placeholder="Filter documents…"
 			size="md"
 			class="tc-toolbar__search"
-			attrs={{ 'data-hub-query': '', autocomplete: 'off' }}
+			attrs={{ autocomplete: 'off' }}
 		/>
 		<ul class="tc-toolbar__filters" role="group" aria-label="Access level">
 			{FILTERS.map((f, i) => (
@@ -48,22 +55,23 @@ const actionOf = (d: (typeof HUB_DOCS)[number]) => {
 				</li>
 			))}
 		</ul>
-	</div>
+		<input type="hidden" name="access" value="" data-hub-access />
+		<Button type="submit" size="md" variant="secondary" icon="tabler:search">
+			Search
+		</Button>
+	</form>
 	<div class="tc-docgroups">
 		{groups.map((group) => (
-			<section class="tc-docgroup" data-hub-group>
+			<section class="tc-docgroup">
 				<h3 class="tc-docgroup__title">
-					{group.name}{' '}
-					<span class="tc-docgroup__count">
-						· <span data-hub-count>{group.docs.length}</span>
-					</span>
+					{group.name} <span class="tc-docgroup__count">· {group.docs.length}</span>
 				</h3>
 				<ul class="tc-docgroup__list">
 					{group.docs.map((d) => {
 						const href = d.file ?? docHref(d);
 						const action = actionOf(d);
 						return (
-							<li class="tc-docrow" data-access={d.access} data-text={d.name.toLowerCase()}>
+							<li class="tc-docrow">
 								<a class="tc-docrow__link" href={href} {...newTabAttrs(isOffSite(href))}>
 									<span class="tc-docrow__name">{d.name}</span>
 									<span class:list={['tc-docrow__action', d.access === 'nda' && 'tc-docrow__action--nda']}>
@@ -78,48 +86,26 @@ const actionOf = (d: (typeof HUB_DOCS)[number]) => {
 			</section>
 		))}
 	</div>
-	<p class="tc-empty" data-hub-empty hidden>
-		Nothing matches that filter.
-	</p>
+	<div class="tc-hubdocs__all">
+		<Link href={tc('documents')}>All documents</Link>
+	</div>
 </div>
 
 <script>
-	// The draft's hub filter: a text match on the name and one access level; a group's count follows
-	// the match, and a group with no match goes with its heading.
-	document.querySelectorAll<HTMLElement>('[data-hub-docs]').forEach((root) => {
-		const query = root.querySelector<HTMLInputElement>('[data-hub-query]');
-		const toggles = [...root.querySelectorAll<HTMLButtonElement>('[data-hub-filter-value]')];
-		const groups = [...root.querySelectorAll<HTMLElement>('[data-hub-group]')];
-		const empty = root.querySelector<HTMLElement>('[data-hub-empty]');
-		let filter = 'all';
-
-		const render = () => {
-			const q = (query?.value ?? '').trim().toLowerCase();
-			let shown = 0;
-			groups.forEach((group) => {
-				let inGroup = 0;
-				group.querySelectorAll<HTMLElement>('.tc-docrow').forEach((row) => {
-					const show =
-						(filter === 'all' || row.dataset.access === filter) && (q === '' || (row.dataset.text ?? '').includes(q));
-					row.hidden = !show;
-					if (show) inGroup += 1;
-				});
-				const count = group.querySelector<HTMLElement>('[data-hub-count]');
-				if (count) count.textContent = String(inGroup);
-				group.hidden = inGroup === 0;
-				shown += inGroup;
-			});
-			if (empty) empty.hidden = shown > 0;
-		};
-
+	// The access chips set the hidden field the form sends; "All" sends nothing.
+	document.querySelectorAll<HTMLFormElement>('[data-hub-search]').forEach((form) => {
+		const toggles = [...form.querySelectorAll<HTMLButtonElement>('[data-hub-filter-value]')];
+		const access = form.querySelector<HTMLInputElement>('[data-hub-access]');
 		toggles.forEach((button) => {
 			button.addEventListener('click', () => {
-				filter = button.dataset.hubFilterValue ?? 'all';
+				const value = button.dataset.hubFilterValue ?? 'all';
 				toggles.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
-				render();
+				if (access) {
+					access.value = value === 'all' ? '' : value;
+					access.disabled = access.value === '';
+				}
 			});
 		});
-		query?.addEventListener('input', render);
-		render();
+		if (access) access.disabled = true;
 	});
 </script>

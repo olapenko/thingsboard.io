@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro';
 import PageIntro from '@components/Landing/PageIntro.astro';
-import PricingBackground from '@components/Pricing/PricingBackground.astro';
+import Band from '@components/ui/Band.astro';
 import Breadcrumb from '@components/TrustCenter/Breadcrumb.astro';
 import { FOOTER_LINE, LAST_UPDATED, type Crumb } from '@data/trust-center/nav';
 import './trust-center.scss';
@@ -9,10 +9,12 @@ import './trust-center.scss';
 /**
  * Every Trust Center page: the shared draft's structure and words, on the site's own page treatment.
  *
- * The frame is Contact us': the pricing wave behind the page, the page measure, `PageIntro` for the
- * h1 and the lede (centred on the two forms, as the draft centres them), and the site's chrome
- * around it. Above the intro, the draft's breadcrumb (`Trust Center › …`) and, where a view had one,
- * its back link (`before-title`). Under the content, the draft's footer line.
+ * The page opens on a hero band, the product pages' idiom: a fade to the brand tint with the wave
+ * field, holding the draft's breadcrumb (`Trust Center › …`), its back link where a view had one,
+ * the h1 and the lede (`PageIntro`, centred on the two forms as the draft centres them), and what a
+ * page puts in its `actions` and `visual` slots (the hub's two buttons and its certificates). The
+ * content follows on the page's own white ground, in the page measure, and ends on the draft's
+ * footer line.
  *
  * A draft: its forms are not connected and its facts are not signed off, so it stays out of search.
  */
@@ -31,17 +33,37 @@ interface Props {
 
 const { title, lede, description, crumbs, align = 'left', metaTitle } = Astro.props;
 const pageTitle = metaTitle ?? (crumbs ? `${title} · Trust Center` : title);
+const hasVisual = Astro.slots.has('visual');
 ---
 
 <BaseLayout forceLightTheme noIndex title={pageTitle} description={description}>
-	<PricingBackground />
-	<div class:list={['tc-page', align === 'center' && 'tc-page--center']}>
-		<header class="tc-intro">
-			{crumbs && <Breadcrumb items={crumbs} />}
-			<slot name="before-title" />
-			<PageIntro title={title} lede={lede} align={align} ledeMeasure={align === 'center' ? 'copy' : 'wide'} />
-			<slot name="intro" />
+	<Band ground="fade" strength={10} wave pad={{ top: 'md', bottom: 'md' }} class="tc-hero" as="div">
+		<header
+			class:list={[
+				'tc-hero__inner',
+				hasVisual && 'tc-hero__inner--visual',
+				align === 'center' && 'tc-hero__inner--center',
+			]}
+		>
+			<div class="tc-hero__text">
+				{crumbs && <Breadcrumb items={crumbs} />}
+				<slot name="before-title" />
+				<PageIntro title={title} lede={lede} align={align} ledeMeasure={align === 'center' ? 'copy' : 'wide'} />
+				<slot name="intro" />
+				{Astro.slots.has('actions') && (
+					<div class="tc-hero__actions">
+						<slot name="actions" />
+					</div>
+				)}
+			</div>
+			{hasVisual && (
+				<div class="tc-hero__visual">
+					<slot name="visual" />
+				</div>
+			)}
 		</header>
+	</Band>
+	<div class:list={['tc-page', align === 'center' && 'tc-page--center']}>
 		<slot />
 		<div class="tc-foot">
 			<p>{FOOTER_LINE}</p>
@@ -56,11 +78,3 @@ const pageTitle = metaTitle ?? (crumbs ? `${title} · Trust Center` : title);
 		a.addEventListener('click', (event) => event.preventDefault());
 	});
 </script>
-
-<style is:global>
-	/* The pricing page's ground, as Contact us lets it through: the wave field is fixed behind the
-	   page, so the body has to be transparent in light mode. */
-	:root:not([data-theme='dark']) body:has(.tc-page) {
-		background-color: transparent;
-	}
-</style>

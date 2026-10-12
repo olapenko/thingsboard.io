@@ -153,7 +153,7 @@ export const PRIVATE_CLOUD_DOCS: DocRow[] = [
 	{
 		name: 'Private Cloud SLA and service description (uptime formula, service credits, exclusions)',
 		access: 'public',
-		actions: [{ label: 'Download', href: '#', dead: true }],
+		actions: [{ label: 'View', href: '#', dead: true }],
 	},
 	{
 		name: 'DPA for Private Cloud',
