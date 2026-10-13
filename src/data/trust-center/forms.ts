@@ -2,11 +2,9 @@
  * The Trust Center's two forms: the contact form's security topics, and the vulnerability report's
  * options.
  *
- * The contact form exists twice, as two prototypes of one decision (`TrustCenter/ContactFormProto`):
- * - SEPARATE, `/trust-center/contact/`: a page of its own with only these topics;
- * - MERGED, `/trust-center/contact/merged/`: the site's Contact us page with these topics added as one
- *   group, the way they would land in `/contact-us/` once ported.
- * Both read this file, so the topics, the documents and the words cannot drift apart between them.
+ * The contact form is a page of its own, `/trust-center/contact/` (`TrustCenter/ContactFormProto`),
+ * with only these topics: chosen over adding them to the site's Contact us as one more group, which
+ * stays possible later (the merged prototype is in git up to 06af87e21).
  *
  * INTEGRATION NOTE: neither form is connected; a valid submit shows the thank-you state and says
  * nothing was sent. Before either goes live:
@@ -69,9 +67,6 @@ export const SECURITY_TOPICS: Record<SecurityTopicKey, SecurityTopic> = {
 };
 
 export const SECURITY_TOPIC_LIST: SecurityTopic[] = Object.values(SECURITY_TOPICS);
-
-/** The topics' group in the site's Contact us select (the merged prototype). */
-export const SECURITY_TOPIC_GROUP = 'Security and compliance';
 
 /** Shown once an NDA document is ticked: the draft's own line. */
 export const NDA_NOTE =

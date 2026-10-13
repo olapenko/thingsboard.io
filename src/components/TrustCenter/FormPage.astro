@@ -7,14 +7,11 @@ import Mark from '@components/ui/Mark.astro';
 import './trust-center.scss';
 
 /**
- * The Trust Center's form pages (the contact form, both prototypes, and the vulnerability report), on
- * the site's Contact us page: the intro and "Looking for something else?" in a 344 column, the form
- * card beside it in 656, over the pricing page's wave field. The grid, the measure and the aside are
- * that page's (`pages/contact-us.astro`), so the three read as one family with it. No Trust Center
- * footer line: an owner and a review date say nothing about a form.
- *
- * `intents` swaps the intro for a link that names one (`?security`), before first paint, the way
- * Contact us swaps it for `?pcorder`: the merged prototype's way in from the Trust Center.
+ * The Trust Center's form pages (the contact form and the vulnerability report), on the site's
+ * Contact us page: the intro and "Looking for something else?" in a 344 column, the form card beside
+ * it in 656, over the pricing page's wave field. The grid, the measure and the aside are that page's
+ * (`pages/contact-us.astro`), so the two read as one family with it. No Trust Center footer line: an
+ * owner and a review date say nothing about a form.
  */
 
 export interface ElsewhereItem {
@@ -27,29 +24,19 @@ export interface ElsewhereItem {
 	accent?: string;
 }
 
-interface IntroWords {
-	eyebrow: string;
-	title: string;
-	lede: string;
-}
-
 interface Props {
 	title: string;
 	lede: string;
-	eyebrow?: string;
 	description: string;
 	/** The browser title, where it should differ from the h1. */
 	metaTitle?: string;
 	/**
 	 * A way back over the intro, "‹ Trust Center": a form page is a step out of the Trust Center, not a
-	 * place in its tree, so one link back rather than a breadcrumb and a kicker. None on the merged
-	 * prototype, which is Contact us.
+	 * place in its tree, so one link back rather than a breadcrumb and a kicker.
 	 */
 	back?: { label: string; href: string };
 	elsewhereTitle?: string;
 	elsewhere?: ElsewhereItem[];
-	/** Intro words by query key, for `?<key>` links. */
-	intents?: Record<string, IntroWords>;
 	/**
 	 * The page's hue: `alert`, the Trust Center's red, on the vulnerability report. It reaches the
 	 * eyebrow, links, the submit, the checks and the wave field behind the page.
@@ -60,13 +47,11 @@ interface Props {
 const {
 	title,
 	lede,
-	eyebrow,
 	description,
 	metaTitle,
 	back,
 	elsewhereTitle = 'Looking for something else?',
 	elsewhere = [],
-	intents,
 	accent,
 } = Astro.props;
 ---
@@ -74,40 +59,16 @@ const {
 <BaseLayout forceLightTheme noIndex title={metaTitle ?? title} description={description}>
 	<PricingBackground hue={accent ? 'var(--color-accent-red)' : undefined} />
 	<div class="tc-fp" data-accent={accent}>
-		<slot name="top" />
 		<header class="tc-fp__intro">
 			{back && (
 				<Link href={back.href} dir="back" size="sm" class="tc-fp__back">
 					{back.label}
 				</Link>
 			)}
-			<PageIntro
-				eyebrow={eyebrow}
-				title={title}
-				lede={lede}
-				ledeMeasure="narrow"
-				partAttrs={{
-					eyebrow: { 'data-intro': 'eyebrow' },
-					title: { 'data-intro': 'title' },
-					subtitle: { 'data-intro': 'lede' },
-				}}
-			/>
+			<PageIntro title={title} lede={lede} ledeMeasure="narrow" />
 			{/* What has to be read before the form, on a phone too, where the aside falls under it. */}
 			<slot name="intro" />
 		</header>
-		{intents && <script is:inline define:vars={{ intents }}>
-			(() => {
-				const params = new URLSearchParams(window.location.search);
-				const key = Object.keys(intents).find((k) => params.has(k));
-				if (!key) return;
-				document.documentElement.dataset.contactIntent = key;
-				const root = document.currentScript.previousElementSibling;
-				['eyebrow', 'title', 'lede'].forEach((part) => {
-					const el = root.querySelector(`[data-intro="${part}"]`);
-					if (el) el.textContent = intents[key][part];
-				});
-			})();
-		</script>}
 		<div class="tc-fp__form">
 			<slot />
 		</div>
@@ -158,9 +119,8 @@ const {
 	.tc-fp {
 		display: grid;
 		grid-template-columns: minmax(0, 344px) minmax(0, 1fr);
-		grid-template-rows: auto auto 1fr;
+		grid-template-rows: auto 1fr;
 		grid-template-areas:
-			'top top'
 			'intro form'
 			'aside form';
 		gap: 0 $spacing-10;
@@ -173,7 +133,7 @@ const {
 		@include media-down(lg) {
 			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: none;
-			grid-template-areas: 'top' 'intro' 'form' 'aside';
+			grid-template-areas: 'intro' 'form' 'aside';
 			padding-top: $spacing-8;
 			padding-bottom: $spacing-16;
 		}
