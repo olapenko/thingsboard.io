@@ -1,7 +1,7 @@
 ---
+import { Icon } from 'astro-icon/components';
 import DataTable from '@components/DataTable.astro';
 import Button from '@components/ui/Button.astro';
-import StatusChip from '@components/TrustCenter/StatusChip.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
 import {
 	ACCESS_ACTION,
@@ -26,12 +26,22 @@ export function getStaticPaths() {
 }
 
 const { doc } = Astro.props as { doc: TcDoc };
-const TONE: Record<Access, 'ok' | 'nda' | 'warn'> = { public: 'ok', nda: 'nda', pending: 'warn' };
+/**
+ * The access field's badge, large: the page's one status, so it reads at a glance. The document
+ * lists' icons (a globe for public, a lock for NDA), a clock for what is planned; the success green
+ * for public, as the hub's "Certified" wears, the ink's tint for the rest. The draft's note under it.
+ */
+const ACCESS_BADGE: Record<Access, { icon: string; tone: 'ok' | 'flat' }> = {
+	public: { icon: 'tabler:world', tone: 'ok' },
+	nda: { icon: 'tabler:lock', tone: 'flat' },
+	pending: { icon: 'tabler:clock', tone: 'flat' },
+};
 const ACCESS_NOTE: Record<Access, string> = {
 	public: '',
-	nda: ' — released after a mutual NDA, usually within two business days',
-	pending: ' — not published yet',
+	nda: 'Released after a mutual NDA, usually within two business days.',
+	pending: 'Not published yet.',
 };
+const badge = ACCESS_BADGE[doc.access];
 const action = docActionHref(doc);
 const dead = doc.access === 'public' && !doc.file;
 ---
@@ -55,8 +65,11 @@ const dead = doc.access === 'public' && !doc.file;
 			<tr>
 				<th scope="row">Access</th>
 				<td>
-					<StatusChip tone={TONE[doc.access]}>{ACCESS_LABEL[doc.access]}</StatusChip>
-					{ACCESS_NOTE[doc.access]}
+					<span class:list={['tc-access-badge', `tc-access-badge--${badge.tone}`]}>
+						<Icon name={badge.icon} aria-hidden="true" />
+						{ACCESS_LABEL[doc.access]}
+					</span>
+					{ACCESS_NOTE[doc.access] && <p class="tc-access-badge__note">{ACCESS_NOTE[doc.access]}</p>}
 				</td>
 			</tr>
 			<tr>
