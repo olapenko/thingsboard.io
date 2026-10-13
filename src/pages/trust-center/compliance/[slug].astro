@@ -4,7 +4,10 @@ import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
 import { CERT_PAGES, type CertPage } from '@data/trust-center/compliance';
 import { crumbs } from '@data/trust-center/nav';
 
-/** The four certificate pages, as drafted: ISO/IEC 27001:2022, ISO 9001:2015, GDPR and CCPA. */
+/**
+ * The four certificate pages, as drafted: ISO/IEC 27001:2022, ISO 9001:2015, GDPR and CCPA. The ISO
+ * pages' registration numbers carry a "Copy" button, for the certificate validator.
+ */
 
 export function getStaticPaths() {
 	return CERT_PAGES.map((page) => ({ params: { slug: page.slug }, props: { page } }));
@@ -21,5 +24,31 @@ const { page } = Astro.props as { page: CertPage };
 >
 	<section class="tc-section" aria-label={`${page.title} details`}>
 		<FactTable caption={`${page.title} details`} rows={page.facts} />
+		{/* What a copy did, for a screen reader: the button's own label changes, but is not announced. */}
+		<span class="ui-sr" role="status" data-copy-status></span>
 	</section>
 </TrustCenterLayout>
+
+<script>
+	// "Copy" beside a registration number (the certificate validator asks for it): the number on the
+	// clipboard, "Copied" for two seconds, and the status line says so.
+	const status = document.querySelector<HTMLElement>('[data-copy-status]');
+	document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => {
+		const label = button.querySelector<HTMLElement>('[data-copy-label]');
+		button.addEventListener('click', () => {
+			navigator.clipboard
+				?.writeText(button.dataset.copy ?? '')
+				.then(() => {
+					button.dataset.copied = '';
+					if (label) label.textContent = 'Copied';
+					if (status) status.textContent = 'Registration number copied';
+					window.setTimeout(() => {
+						delete button.dataset.copied;
+						if (label) label.textContent = 'Copy';
+						if (status) status.textContent = '';
+					}, 2000);
+				})
+				.catch(() => {});
+		});
+	});
+</script>

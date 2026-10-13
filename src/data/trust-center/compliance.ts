@@ -75,11 +75,28 @@ export const COMPLIANCE_LEDE =
 
 const SCOPE = COMPLIANCE_FACTS.find((f) => f.label === 'Certified scope')!.html;
 
-/** Under the two certificate cards: the "Certification body" fact as one line, and the scope as written. */
+/**
+ * Under the two certificate cards: the "Certification body" fact as the text, and the certified
+ * scope as a list beside it: the certificate's own wording split at its commas and semicolons,
+ * the words unchanged, each item capitalised.
+ */
 export const CERTS = {
 	issued: `Issued by Swiss Approval North America (IAS-accredited, IAF MLA) on 9 September 2026 and valid until 8 September 2027, within a three-year cycle to 8 September 2029, with a surveillance audit every year. <a href="${VALIDATOR}" target="_blank" rel="noopener noreferrer">Verify a certificate</a>.`,
-	scope: SCOPE,
+	scopeTitle: 'Certified scope',
+	scope: SCOPE.replace(/\.$/, '')
+		.split(/\s*[;,]\s*/)
+		.map((item) => item.charAt(0).toUpperCase() + item.slice(1)),
 };
+
+/**
+ * A registration number with a button that copies it, for the certificate validator, which asks for
+ * the number. The button works through the certificate page's script (`compliance/[slug].astro`);
+ * as markup, so it sits in the fact table's cell.
+ */
+const COPY_ICON =
+	'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>';
+const regNo = (number: string, rest = '') =>
+	`<span class="tc-regno">${number}</span>${rest} <button type="button" class="tc-copy-btn" data-copy="${number}" aria-label="Copy the registration number ${number}">${COPY_ICON}<span data-copy-label>Copy</span></button>`;
 
 /** The assurance beyond the certificates, from the draft's "Penetration testing" and "Data centers". */
 export const ASSURANCE = [
@@ -200,7 +217,7 @@ export const CERT_PAGES: CertPage[] = [
 		lede: 'Information security management system, including Amendment 1:2024.',
 		facts: [
 			{ label: 'Status', html: CERTIFIED },
-			{ label: 'Registration No', html: '372-02-270-00460' },
+			{ label: 'Registration No', html: regNo('372-02-270-00460') },
 			{ label: 'Validity', html: VALIDITY },
 			{
 				label: 'Statement of Applicability',
@@ -223,7 +240,7 @@ export const CERT_PAGES: CertPage[] = [
 		lede: 'Quality management system, run as one integrated system together with information security.',
 		facts: [
 			{ label: 'Status', html: CERTIFIED },
-			{ label: 'Registration No', html: '372-02-100-02170 · IAF Code 33' },
+			{ label: 'Registration No', html: regNo('372-02-100-02170', ' · IAF Code 33') },
 			{ label: 'Validity', html: VALIDITY },
 			{ label: 'For procurement', html: 'Use it as supplier evidence under clause 8.4 of your own QMS.' },
 		],
