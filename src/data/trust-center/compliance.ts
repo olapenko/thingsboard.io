@@ -1,5 +1,6 @@
 import { SECURITY_TOPICS } from '@data/trust-center/forms';
 import { contactHref, tc } from '@data/trust-center/nav';
+import { TILE_MARK } from '@data/trust-center/overview';
 
 /** The Compliance page and its four certificate pages, as drafted. */
 
@@ -76,12 +77,12 @@ export const COMPLIANCE_FACTS: Fact[] = [
 export const COMPLIANCE_LEDE =
 	'ThingsBoard is certified to ISO/IEC 27001 and ISO 9001, independently tested every year, and meets the GDPR and the CCPA through its own data protection program.';
 
-/** Under the two certificate cards, the validator: a question, then its address as the link. */
+/** Under the two certificate cards, the validator: a question, then its site's name as the link. */
 export const CERTS = {
 	/** Under the cards, beside the registration numbers the validator asks for. */
 	verify: {
 		lead: 'Want to verify a certificate?',
-		label: 'swissapproval.ch/certificate-validator',
+		label: 'swissapproval.ch',
 		href: VALIDATOR,
 	},
 };
@@ -168,12 +169,16 @@ export const PRIVACY = {
 		{
 			title: 'GDPR',
 			icon: 'eu-stars',
+			/** The site's primary blue: the EU's own colour, near enough, from the palette. */
+			accent: 'brand' as const,
 			text: 'For personal data of people in the EU. Transfers outside the EU are covered by standard contractual clauses.',
 			href: tc('compliance/gdpr'),
 		},
 		{
 			title: 'CCPA',
 			icon: 'tabler:user-shield',
+			/** The hub tiles' near-black. */
+			accent: TILE_MARK,
 			text: "For personal information of California residents. We don't sell personal information.",
 			href: tc('compliance/ccpa'),
 		},
