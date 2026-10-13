@@ -1,4 +1,5 @@
 import { SECURITY_TOPICS } from '@data/trust-center/forms';
+import { tablerSvg } from '@data/trust-center/tabler-svg';
 import { contactHref, tc } from '@data/trust-center/nav';
 import { TILE_MARK } from '@data/trust-center/overview';
 
@@ -109,10 +110,13 @@ export const CERT_DETAILS: Fact[] = COMPLIANCE_FACTS.map((fact) =>
  * the number. The button works through the certificate page's script (`compliance/[slug].astro`);
  * as markup, so it sits in the fact table's cell.
  */
-const COPY_ICON =
-	'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>';
+/**
+ * A registration number and its "Copy" button, on one row centred on the line: the number, what
+ * follows it (ISO 9001's IAF code), then the button, whose copy icon gives way to a check while it
+ * says "Copied" (the page's script).
+ */
 const regNo = (number: string, rest = '') =>
-	`<span class="tc-regno">${number}</span>${rest} <button type="button" class="tc-copy-btn" data-copy="${number}" aria-label="Copy the registration number ${number}">${COPY_ICON}<span data-copy-label>Copy</span></button>`;
+	`<span class="tc-regno-row"><span class="tc-regno">${number}${rest}</span><button type="button" class="tc-copy-btn" data-copy="${number}" aria-label="Copy the registration number ${number}">${tablerSvg('tabler:copy', 'tc-copy-btn__copy', 16)}${tablerSvg('tabler:check', 'tc-copy-btn__done', 16)}<span data-copy-label>Copy</span></button></span>`;
 
 /** The draft's "Building a compliant solution" paragraph, as guidance with the controls linked. */
 export const AUDIT = {
@@ -198,7 +202,8 @@ export interface CertPage {
 	facts: Fact[];
 }
 
-const CERTIFIED = '<i class="tc-status">Certified.</i> Issued 9 September 2026 by Swiss Approval North America.';
+/** The ISO pages' status: the large badge, as a document page's access is, the issue under it. */
+const CERTIFIED = `<span class="tc-badge tc-badge--ok">${tablerSvg('tabler:circle-check-filled', 'tc-badge__icon')}Certified</span><p class="tc-badge__note">Issued 9 September 2026 by Swiss Approval North America.</p>`;
 const VALIDITY = `9 September 2026 – 8 September 2027, within a three-year cycle running to 8 September 2029, with annual surveillance audits. <a href="${VALIDATOR}" target="_blank" rel="noopener noreferrer">Verify the certificate</a>.`;
 
 export const CERT_PAGES: CertPage[] = [

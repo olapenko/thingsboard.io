@@ -1,4 +1,4 @@
-import tabler from '@iconify-json/tabler/icons.json';
+import { tablerSvg } from '@data/trust-center/tabler-svg';
 
 /**
  * The three deployment models' icons, the product pages' own: Cloud's `cloud` / `cloud-lock` pair
@@ -21,12 +21,8 @@ const BY_LABEL: Record<string, string> = {
 	'ThingsBoard Cloud and Private Cloud': DEPLOYMENT_ICON.cloud,
 };
 
-/** The icon's markup, for text that is a string (a table cell's, a row's): astro-icon is not there. */
-function glyph(name: string): string {
-	const body = tabler.icons[name.replace('tabler:', '') as keyof typeof tabler.icons]?.body;
-	if (!body) throw new Error(`deployment-marks: no Tabler icon "${name}".`);
-	return `<svg class="tc-lines__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">${body}</svg>`;
-}
+/** The icon's markup: the lines are strings, so astro-icon is not there. */
+const glyph = (name: string): string => tablerSvg(name, 'tc-lines__icon');
 
 const LABELLED = /^\s*<b>([^<]+):<\/b>\s*/;
 
