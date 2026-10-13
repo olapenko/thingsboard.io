@@ -3,9 +3,10 @@ import { tc } from '@data/trust-center/nav';
 
 /**
  * The Trust Center's pages, in one list: what the layout needs to place a page among the others.
- * - "Keep reading" at a page's foot: the next page in its section ("Next in Security"), then the
- *   pages picked for it (`related`: the draft's own "Related:" links first, then ours), three in all.
- *   It is the one way on from a page; the breadcrumb is the way back up.
+ * - "Read next" at a page's foot: the next page in its section ("Next in Security"), then a page
+ *   picked for it (`related`: the draft's own "Related:" links first, then ours), two in all. It is
+ *   the one way on from a page; the breadcrumb is the way back up. It never offers what the bookend
+ *   under it does (the documents, the contact form, the vulnerability report).
  * - A page's own date (`updated`), where one is shown: the Sub-processors list. The hub states the
  *   Trust Center's review once (`TC_UPDATED`); the other pages show no date.
  *
@@ -27,7 +28,7 @@ export const SECTION_LABEL: Record<TcSection, string> = {
 export interface TcPage {
 	href: string;
 	title: string;
-	/** One line for a "Keep reading" card. */
+	/** One line for a "Read next" card. */
 	line: string;
 	icon: string;
 	section?: TcSection;
@@ -211,13 +212,16 @@ export const pageAt = (href: string): TcPage | undefined => byHref.get(href) ?? 
 export const siblingsOf = (page: TcPage | undefined): TcPage[] =>
 	page?.section ? TC_PAGES.filter((p) => p.section === page.section) : [];
 
+/** What the bookend under every page offers, so "Read next" never repeats it. */
+const IN_BOOKEND = [tc('documents'), tc('contact'), tc('report-vulnerability')];
+
 /**
- * "Keep reading": the next page in the section, its line saying so ("Next in Security"; round to the
- * section's first after its last), then the pages picked for it, then the library and Compliance as a
- * last resort; three in all, never the page itself, and never a page the content already links to
- * (`linked`), so the foot doesn't repeat what the page just said.
+ * "Read next": the next page in the section, its line saying so ("Next in Security"; round to the
+ * section's first after its last), then the pages picked for it, then Compliance as a last resort;
+ * two in all, never the page itself, never a page the content already links to (`linked`), so the
+ * foot doesn't repeat what the page just said, and never one the bookend offers (`IN_BOOKEND`).
  */
-export const keepReading = (page: TcPage | undefined, linked: Set<string> = new Set(), count = 3): TcPage[] => {
+export const keepReading = (page: TcPage | undefined, linked: Set<string> = new Set(), count = 2): TcPage[] => {
 	if (!page) return [];
 	const siblings = siblingsOf(page);
 	const at = siblings.findIndex((p) => p.href === page.href);
@@ -226,22 +230,19 @@ export const keepReading = (page: TcPage | undefined, linked: Set<string> = new 
 		following && following.href !== page.href && page.section
 			? { ...following, line: `Next in ${SECTION_LABEL[page.section]}` }
 			: undefined;
-	const picks = [next, ...(page.related ?? []).map(pageAt), byHref.get(tc('documents')), byHref.get(tc('compliance'))];
-	const seen = new Set([page.href, ...linked]);
+	const picks = [next, ...(page.related ?? []).map(pageAt), byHref.get(tc('compliance'))];
+	const seen = new Set([page.href, ...linked, ...IN_BOOKEND]);
 	return picks.filter((p): p is TcPage => !!p && !seen.has(p.href) && !!seen.add(p.href)).slice(0, count);
 };
 
 /**
- * A document page's "Keep reading": two more from its category, NDA or public alike, then the
- * library.
+ * A document page's "Read next": two more from its category, NDA or public alike. The library itself
+ * is the bookend's "Get documents" and the breadcrumb's "Documents".
  */
 export const keepReadingForDoc = (d: TcDoc): TcPage[] => {
 	const more = DOCS_WITH_PAGE.filter((o) => o.slug !== d.slug && o.category === d.category).slice(0, 2);
 	const fill = more.length < 2 ? DOCS_WITH_PAGE.filter((o) => o.slug !== d.slug && !more.includes(o)) : [];
-	return [...more, ...fill]
-		.slice(0, 2)
-		.map(docPage)
-		.concat(byHref.get(tc('documents'))!);
+	return [...more, ...fill].slice(0, 2).map(docPage);
 };
 
 /** "1 Oct 2026", for a page's ISO date. */
