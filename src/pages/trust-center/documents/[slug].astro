@@ -2,18 +2,21 @@
 import { Icon } from 'astro-icon/components';
 import DataTable from '@components/DataTable.astro';
 import Button from '@components/ui/Button.astro';
+import DocItem from '@components/TrustCenter/DocItem.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
 import {
 	ACCESS_ACTION,
 	ACCESS_LABEL,
 	DOCS_WITH_PAGE,
+	docAction,
 	docActionHref,
+	docHref,
 	isOffSite,
 	type Access,
 	type TcDoc,
 } from '@data/trust-center/documents';
 import { crumbs } from '@data/trust-center/nav';
-import { keepReadingForDoc } from '@data/trust-center/pages';
+import { nextDocs } from '@data/trust-center/pages';
 
 /**
  * A document's page, as drafted, for every document that is not a page already: its description,
@@ -44,6 +47,10 @@ const ACCESS_NOTE: Record<Access, string> = {
 };
 const badge = ACCESS_BADGE[doc.access];
 const action = docActionHref(doc);
+// The page's foot: three more documents, as the library's rows. "More in Security" when they all are;
+// a small category fills from its neighbours, and then the heading says so.
+const more = nextDocs(doc);
+const moreTitle = more.every((o) => o.category === doc.category) ? `More in ${doc.category}` : 'More documents';
 const dead = doc.access === 'public' && !doc.file;
 ---
 
@@ -52,7 +59,7 @@ const dead = doc.access === 'public' && !doc.file;
 	lede={doc.description}
 	crumbs={crumbs('documents', doc.name)}
 	description={doc.description}
-	next={keepReadingForDoc(doc)}
+	next={[]}
 >
 	{/* The details at the main measure, the request beside them: what the page is for, in reach. */}
 	<section class="tc-section tc-split" aria-label="Document details">
@@ -97,5 +104,16 @@ const dead = doc.access === 'public' && !doc.file;
 				</Button>
 			)}
 		</div>
+	</section>
+
+	<section class="tc-section tc-keep" aria-labelledby="more-docs-title">
+		<h2 class="tc-h3" id="more-docs-title">
+			{moreTitle}
+		</h2>
+		<ul class="tc-doclist tc-doclist--main">
+			{more.map((o) => (
+				<DocItem name={o.name} href={docHref(o)} access={o.access} actions={[docAction(o)]} />
+			))}
+		</ul>
 	</section>
 </TrustCenterLayout>

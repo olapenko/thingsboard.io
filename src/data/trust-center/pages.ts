@@ -231,19 +231,18 @@ export const keepReading = (page: TcPage | undefined, linked: Set<string> = new 
 };
 
 /**
- * A document page's "Read next": the next three documents in its category, round to the category's
- * first after its last, NDA or public alike; a category with fewer than three others fills from the
+ * A document page's foot: the next three documents in its category, round to the category's first
+ * after its last, NDA or public alike; a category with fewer than three others fills from the
  * documents after it in the library. So every document is suggested about as often as any other,
- * rather than the first of each category every time. The library itself is the breadcrumb's and the
- * bookend's.
+ * rather than the first of each category every time. The page lists them as document rows (name,
+ * access, action), not as page links: the library itself is the breadcrumb's and the bookend's.
  */
-export const keepReadingForDoc = (d: TcDoc): TcPage[] => {
+export const nextDocs = (d: TcDoc): TcDoc[] => {
 	const at = DOCS_WITH_PAGE.findIndex((o) => o.slug === d.slug);
 	// The whole library from the document onwards, wrapping round, the document itself left out.
 	const after = [...DOCS_WITH_PAGE.slice(at + 1), ...DOCS_WITH_PAGE.slice(0, at)];
 	const sameCategory = after.filter((o) => o.category === d.category);
-	const picks = [...sameCategory, ...after.filter((o) => o.category !== d.category)];
-	return picks.slice(0, 3).map(docPage);
+	return [...sameCategory, ...after.filter((o) => o.category !== d.category)].slice(0, 3);
 };
 
 /** "1 Oct 2026", for a page's ISO date. */
