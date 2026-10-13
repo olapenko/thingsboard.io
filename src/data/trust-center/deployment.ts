@@ -11,7 +11,8 @@ import { contactHref, tc } from '@data/trust-center/nav';
 
 export interface DocRow {
 	name: string;
-	access: 'public' | 'nda';
+	/** `pending`: not published yet, so "Ask about it" (the contact form) rather than a dead "View". */
+	access: 'public' | 'nda' | 'pending';
 	/** One action, or several (the data center certifications). */
 	actions: DocAction[];
 }
@@ -22,6 +23,13 @@ export interface DocAction {
 	/** A link the draft left dead (`href="#"`): drawn, goes nowhere. */
 	dead?: boolean;
 }
+
+/**
+ * The draft's four documents with no address yet (its `href="#"`): not published, so they read as
+ * planned, and "Ask about it" opens the contact form on a question. They are not in the library, so
+ * there is no document to tick there.
+ */
+const ASK = contactHref(SECURITY_TOPICS.question.value);
 
 // ── ThingsBoard Cloud and Private Cloud ────────────────────────────────────────
 
@@ -157,8 +165,8 @@ export const PRIVATE_CLOUD_DOCS_INTRO =
 export const PRIVATE_CLOUD_DOCS: DocRow[] = [
 	{
 		name: 'Private Cloud SLA and service description (uptime formula, service credits, exclusions)',
-		access: 'public',
-		actions: [{ label: 'View', href: '#', dead: true }],
+		access: 'pending',
+		actions: [{ label: 'Ask about it', href: ASK }],
 	},
 	{
 		name: 'DPA for Private Cloud',
@@ -236,11 +244,11 @@ export const ONPREM_DOCS: DocRow[] = [
 	{ name: 'Release notes', access: 'public', actions: [{ label: 'View', href: '/docs/pe/releases/releases-table/' }] },
 	{
 		name: 'License server network requirements',
-		access: 'public',
-		actions: [{ label: 'View', href: '#', dead: true }],
+		access: 'pending',
+		actions: [{ label: 'Ask about it', href: ASK }],
 	},
-	{ name: 'EULA and license terms', access: 'public', actions: [{ label: 'View', href: '#', dead: true }] },
-	{ name: 'Support policy', access: 'public', actions: [{ label: 'View', href: '#', dead: true }] },
+	{ name: 'EULA and license terms', access: 'pending', actions: [{ label: 'Ask about it', href: ASK }] },
+	{ name: 'Support policy', access: 'pending', actions: [{ label: 'Ask about it', href: ASK }] },
 ];
 
 /** On On-premises and Commitments alike. */
