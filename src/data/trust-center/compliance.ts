@@ -204,7 +204,8 @@ export interface CertPage {
 
 /** The ISO pages' status: the large badge, as a document page's access is, the issue under it. */
 const CERTIFIED = `<span class="tc-badge tc-badge--ok">${tablerSvg('tabler:circle-check-filled', 'tc-badge__icon')}Certified</span><p class="tc-badge__note">Issued 9 September 2026 by Swiss Approval North America.</p>`;
-const VALIDITY = `9 September 2026 – 8 September 2027, within a three-year cycle running to 8 September 2029, with annual surveillance audits. <a href="${VALIDATOR}" target="_blank" rel="noopener noreferrer">Verify the certificate</a>.`;
+// Without the draft's "Verify the certificate" link: the aside beside the table has it.
+const VALIDITY = `9 September 2026 – 8 September 2027, within a three-year cycle running to 8 September 2029, with annual surveillance audits.`;
 
 export const CERT_PAGES: CertPage[] = [
 	{
