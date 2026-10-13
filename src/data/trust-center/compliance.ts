@@ -16,6 +16,8 @@ export interface BadgeCard {
 	title: string;
 	line: string;
 	status: string;
+	/** The certificate's registration number, for the validator. */
+	registration?: string;
 	href: string;
 }
 
@@ -28,6 +30,7 @@ export const ISO_CARDS: BadgeCard[] = [
 		title: 'ISO/IEC 27001:2022',
 		line: 'Information security management system',
 		status: 'Certified · 9 Sep 2026',
+		registration: '372-02-270-00460',
 		href: tc('compliance/iso-27001'),
 	},
 	{
@@ -36,6 +39,7 @@ export const ISO_CARDS: BadgeCard[] = [
 		title: 'ISO 9001:2015',
 		line: 'Quality management system',
 		status: 'Certified · 9 Sep 2026',
+		registration: '372-02-100-02170',
 		href: tc('compliance/iso-9001'),
 	},
 ];
