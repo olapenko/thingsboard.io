@@ -57,6 +57,8 @@ export const DOCS: TcDoc[] = [
 	},
 	{
 		slug: 'iso-27001-certificate',
+		// One page per certificate: the library opens its Compliance page, which has the file too.
+		url: tc('compliance/iso-27001'),
 		file: 'https://drive.google.com/file/d/1zvMo8-HRlJWvPNRMwr7He7iL-gu7zjuc/view',
 		name: 'ISO/IEC 27001:2022 certificate',
 		category: 'Compliance',
@@ -69,6 +71,8 @@ export const DOCS: TcDoc[] = [
 	},
 	{
 		slug: 'iso-9001-certificate',
+		// One page per certificate: the library opens its Compliance page, which has the file too.
+		url: tc('compliance/iso-9001'),
 		file: 'https://drive.google.com/file/d/1dwljuwvOWOQp3lXSCyfBIfRasdQi7AVM/view',
 		name: 'ISO 9001:2015 certificate',
 		category: 'Compliance',
@@ -349,6 +353,7 @@ export const REQUEST_GROUPS: RequestGroup[] = [...DOC_GROUPS.map((g) => g.name),
 /** A document's action in a list: a public one is viewed, the rest are requested on the contact form. */
 export const docAction = (d: TcDoc): { label: string; href: string; dead?: boolean } => {
 	if (d.access !== 'public') return { label: 'Request', href: docActionHref(d) };
-	const href = d.url ?? d.file;
+	// The file first: a certificate's `url` is its Compliance page, and "View" opens the certificate.
+	const href = d.file ?? d.url;
 	return href ? { label: 'View', href } : { label: 'View', href: '#', dead: true };
 };

@@ -1,12 +1,19 @@
 ---
+import Button from '@components/ui/Button.astro';
+import Link from '@components/ui/Link.astro';
 import FactTable from '@components/TrustCenter/FactTable.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
-import { CERT_PAGES, type CertPage } from '@data/trust-center/compliance';
-import { crumbs } from '@data/trust-center/nav';
+import { CERTS, CERT_PAGES, type CertPage } from '@data/trust-center/compliance';
+import { DOCS } from '@data/trust-center/documents';
+import { crumbs, tc } from '@data/trust-center/nav';
 
 /**
  * The four certificate pages, as drafted: ISO/IEC 27001:2022, ISO 9001:2015, GDPR and CCPA. The ISO
  * pages' registration numbers carry a "Copy" button, for the certificate validator.
+ *
+ * An ISO page is also its certificate's page in the document library (the library entry's `url`
+ * points here; it has no document page of its own), so the certificate opens from here: the file
+ * beside the facts, and the validator under it.
  */
 
 export function getStaticPaths() {
@@ -14,6 +21,7 @@ export function getStaticPaths() {
 }
 
 const { page } = Astro.props as { page: CertPage };
+const certificate = DOCS.find((d) => d.url === tc(`compliance/${page.slug}`) && d.file);
 ---
 
 <TrustCenterLayout
@@ -22,8 +30,18 @@ const { page } = Astro.props as { page: CertPage };
 	crumbs={crumbs('compliance', page.crumb)}
 	description={`${page.title} at ThingsBoard: ${page.lede}`}
 >
-	<section class="tc-section" aria-label={`${page.title} details`}>
+	<section class:list={['tc-section', certificate && 'tc-split']} aria-label={`${page.title} details`}>
 		<FactTable caption={`${page.title} details`} rows={page.facts} />
+		{certificate?.file && (
+			<div class="tc-aside">
+				<Button href={certificate.file} size="md" external>
+					View certificate
+				</Button>
+				<Link href={CERTS.verify.href} size="sm" external>
+					Verify on {CERTS.verify.label}
+				</Link>
+			</div>
+		)}
 		{/* What a copy did, for a screen reader: the button's own label changes, but is not announced. */}
 		<span class="ui-sr" role="status" data-copy-status></span>
 	</section>
