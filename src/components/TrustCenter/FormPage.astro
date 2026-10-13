@@ -4,8 +4,6 @@ import PageIntro from '@components/Landing/PageIntro.astro';
 import PricingBackground from '@components/Pricing/PricingBackground.astro';
 import Link from '@components/ui/Link.astro';
 import Mark from '@components/ui/Mark.astro';
-import Breadcrumb from '@components/TrustCenter/Breadcrumb.astro';
-import type { Crumb } from '@data/trust-center/nav';
 import './trust-center.scss';
 
 /**
@@ -42,8 +40,12 @@ interface Props {
 	description: string;
 	/** The browser title, where it should differ from the h1. */
 	metaTitle?: string;
-	/** The Trust Center's breadcrumb over the intro; none on the merged prototype, which is Contact us. */
-	crumbs?: Crumb[];
+	/**
+	 * A way back over the intro, "‹ Trust Center": a form page is a step out of the Trust Center, not a
+	 * place in its tree, so one link back rather than a breadcrumb and a kicker. None on the merged
+	 * prototype, which is Contact us.
+	 */
+	back?: { label: string; href: string };
 	elsewhereTitle?: string;
 	elsewhere?: ElsewhereItem[];
 	/** Intro words by query key, for `?<key>` links. */
@@ -61,7 +63,7 @@ const {
 	eyebrow,
 	description,
 	metaTitle,
-	crumbs,
+	back,
 	elsewhereTitle = 'Looking for something else?',
 	elsewhere = [],
 	intents,
@@ -74,7 +76,11 @@ const {
 	<div class="tc-fp" data-accent={accent}>
 		<slot name="top" />
 		<header class="tc-fp__intro">
-			{crumbs && <Breadcrumb items={crumbs} />}
+			{back && (
+				<Link href={back.href} dir="back" size="sm" class="tc-fp__back">
+					{back.label}
+				</Link>
+			)}
 			<PageIntro
 				eyebrow={eyebrow}
 				title={title}
@@ -160,13 +166,15 @@ const {
 		gap: 0 $spacing-10;
 		max-width: $page-measure-box;
 		margin: 0 auto;
-		padding: calc(var(--home-header-h, #{$header-height}) + #{$spacing-12}) $spacing-5 $spacing-24;
+		// Contact us adds the header's height to this, its header floating over the page; here the header
+		// is in the page's flow, so the room under it is the step alone (the Trust Center pages' 48, 32).
+		padding: $spacing-12 $spacing-5 $spacing-24;
 
 		@include media-down(lg) {
 			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: none;
 			grid-template-areas: 'top' 'intro' 'form' 'aside';
-			padding-top: calc(var(--home-header-h, #{$header-height}) + #{$spacing-8});
+			padding-top: $spacing-8;
 			padding-bottom: $spacing-16;
 		}
 
@@ -184,7 +192,7 @@ const {
 			margin-bottom: $spacing-8;
 		}
 
-		:global(.tc-crumbs) {
+		:global(.tc-fp__back) {
 			margin-bottom: $spacing-5;
 		}
 
