@@ -1,29 +1,32 @@
 ---
-import { Icon } from 'astro-icon/components';
+import Chip from '@components/ui/Chip.astro';
 import Link from '@components/ui/Link.astro';
 import { STATUS_LABEL, type CatalogRow } from '@data/trust-center/catalogs';
 import { labelledLines } from '@data/trust-center/deployment-marks';
 
 /**
  * A topic page's rows (Product security, Data security, Access control, Dev security), each on the
- * page's two columns: the title and the text at the main measure, and beside them, from lg, what a
- * reader acts on: the status where it asks something of them, and the row's documentation.
+ * page's two columns: the title and the text at the main measure, and beside them, from lg, the
+ * row's documentation.
  *
- * The status is shown only when it is "Configurable": the platform does it, but you decide how, so
- * it is yours to check. "Built in" is what every row is unless it says otherwise, and "Depends on
- * deployment" is what the row's own deployment lines already show; both stay in the data, unshown.
+ * The status shows only when it is "Configurable", as a bright chip beside the title: the platform
+ * does it, but you decide how, so it is yours to check. "Built in" is what every row is unless it
+ * says otherwise, and "Depends on deployment" is what the row's own deployment lines already show;
+ * both stay in the data, unshown.
  *
  * A row's text whose lines open on a label (a deployment, a protocol) becomes a list of those lines,
- * a deployment's with its icon hanging in the margin (`labelledLines`).
+ * a deployment's with its icon in an indent of its own (`labelledLines`).
  */
 
 interface Props {
 	rows: CatalogRow[];
 	/** The list's accessible name. */
 	label: string;
+	/** The rows' heading level: h2 on a topic page, h3 under a section's own h2 (Commitments). */
+	heading?: 'h2' | 'h3';
 }
 
-const { rows, label } = Astro.props;
+const { rows, label, heading: Heading = 'h2' } = Astro.props;
 ---
 
 <ul class="tc-cat" aria-label={label}>
@@ -32,22 +35,21 @@ const { rows, label } = Astro.props;
 		return (
 			<li class="tc-cat__row tc-split">
 				<div class="tc-cat__main">
-					<h2 class="tc-cat__title">{row.title}</h2>
+					<div class="tc-cat__head">
+						<Heading class="tc-cat__title">{row.title}</Heading>
+						{configurable && (
+							<Chip tone="accent" icon="tabler:adjustments-horizontal">
+								{STATUS_LABEL.cfg}
+							</Chip>
+						)}
+					</div>
 					<div class="tc-cat__text" set:html={labelledLines(row.html)} />
 				</div>
-				{(configurable || row.docs) && (
+				{row.docs && (
 					<div class="tc-cat__aside">
-						{configurable && (
-							<p class="tc-cat__status">
-								<Icon name="tabler:adjustments-horizontal" aria-hidden="true" />
-								{STATUS_LABEL.cfg}
-							</p>
-						)}
-						{row.docs && (
-							<Link href={row.docs} size="sm">
-								Documentation
-							</Link>
-						)}
+						<Link href={row.docs} size="sm">
+							Documentation
+						</Link>
 					</div>
 				)}
 			</li>

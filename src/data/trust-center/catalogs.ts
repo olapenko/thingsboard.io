@@ -14,7 +14,8 @@ export const STATUS_LABEL: Record<ControlStatus, string> = {
 
 export interface CatalogRow {
 	title: string;
-	status: ControlStatus;
+	/** The topic pages' rows have one; Commitments' do not. */
+	status?: ControlStatus;
 	html: string;
 	docs?: string;
 }
