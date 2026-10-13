@@ -98,7 +98,7 @@ export const CLOUD_COMPARE: CompareRow[] = [
 		label: 'Uptime',
 		values: [
 			'Live status at status.thingsboard.cloud and status.eu.thingsboard.cloud, also shown to tenant administrators in the UI.',
-			'Contractual SLA: 99.9% on Launch and Growth, 99.95% on Scale, custom on Enterprise. Monitored 24×7.',
+			'Contractual SLA: 99.9% on Launch and Growth, 99.95% on Scale and Enterprise, and a custom SLA on Enterprise on request. Monitored 24×7.',
 		],
 	},
 	{
@@ -275,7 +275,7 @@ export const COMMITMENTS = [
 	},
 	{
 		label: 'Uptime: Private Cloud',
-		html: 'Contractual SLA: <b>99.9%</b> on Launch and Growth, <b>99.95%</b> on Scale, custom on Enterprise.',
+		html: 'Contractual SLA: <b>99.9%</b> on Launch and Growth, <b>99.95%</b> on Scale and Enterprise, and a custom SLA on Enterprise on request.',
 	},
 	{
 		label: 'Leaving Private Cloud',
