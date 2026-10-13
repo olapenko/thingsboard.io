@@ -176,10 +176,8 @@ export const PRIVACY = {
 			text: 'Published sub-processors, with notice of material changes.',
 			link: { label: 'Sub-processors', href: tc('subprocessors') },
 		},
-		{
-			text: 'Security of processing under our certified ISO/IEC 27001 controls.',
-			link: { label: 'ISO 27001', href: tc('compliance/iso-27001') },
-		},
+		// "Security of processing under our certified ISO/IEC 27001 controls" left: the lead says it
+		// ("backed by the same ISO 27001 controls"), and the certificates are the section above.
 		{
 			text: 'Data subject requests and breach notification under documented procedures.',
 			link: { label: 'Make a request', href: contactHref(SECURITY_TOPICS.dsr.value) },
