@@ -1,5 +1,6 @@
 import type { CompareGroup, CompareRow } from '@data/product-blocks';
 import { SECURITY_TOPICS } from '@data/trust-center/forms';
+import { DEPLOYMENT_ICON, deploymentList } from '@data/trust-center/deployment-marks';
 import { contactHref, tc } from '@data/trust-center/nav';
 
 /**
@@ -26,7 +27,10 @@ export interface DocAction {
 
 export const CLOUD_LEDE = `In both models, ThingsBoard runs the platform and the infrastructure under it. ThingsBoard Cloud is multi-tenant; Private Cloud is a dedicated single-tenant instance in the environment and region you choose. In both cases, you focus on your solution, and we take care of running it. Our certifications and everything under <a href="${tc('product')}">Product security</a> apply to both.`;
 
-export const CLOUD_COLUMNS = [{ name: 'ThingsBoard Cloud' }, { name: 'Private Cloud' }];
+export const CLOUD_COLUMNS = [
+	{ name: 'ThingsBoard Cloud', icon: DEPLOYMENT_ICON.cloud },
+	{ name: 'Private Cloud', icon: DEPLOYMENT_ICON.private },
+];
 
 export const CLOUD_COMPARE: CompareRow[] = [
 	{
@@ -255,7 +259,11 @@ export const COMMITMENTS = [
 	},
 	{
 		label: 'Support',
-		html: '<ul class="tc-sublist"><li><b>ThingsBoard Cloud:</b> community support on GitHub for Free and Prototype; help desk on Pilot; priority help desk on Startup and Business. Replies within 24 hours, 8:00–20:00 EET, Monday to Friday.</li><li><b>Private Cloud:</b> Support Portal on every plan; priority channel and engineering support on Scale and Enterprise; a dedicated customer success engineer on Enterprise.</li><li><b>On-premises:</b> community support on Maker and Prototype; help desk on Pilot; priority help desk on Startup (replies within 36 hours) and Business (within 12 hours). Perpetual licenses include the first year of support.</li></ul>',
+		html: deploymentList([
+			'<b>ThingsBoard Cloud:</b> community support on GitHub for Free and Prototype; help desk on Pilot; priority help desk on Startup and Business. Replies within 24 hours, 8:00–20:00 EET, Monday to Friday.',
+			'<b>Private Cloud:</b> Support Portal on every plan; priority channel and engineering support on Scale and Enterprise; a dedicated customer success engineer on Enterprise.',
+			'<b>On-premises:</b> community support on Maker and Prototype; help desk on Pilot; priority help desk on Startup (replies within 36 hours) and Business (within 12 hours). Perpetual licenses include the first year of support.',
+		]),
 	},
 	{
 		label: 'Uptime: Private Cloud',
@@ -268,9 +276,9 @@ export const COMMITMENTS = [
 ];
 
 export const RESPONSIBILITY_COLUMNS = [
-	{ name: 'ThingsBoard Cloud' },
-	{ name: 'Private Cloud' },
-	{ name: 'On-premises' },
+	{ name: 'ThingsBoard Cloud', icon: DEPLOYMENT_ICON.cloud },
+	{ name: 'Private Cloud', icon: DEPLOYMENT_ICON.private },
+	{ name: 'On-premises', icon: DEPLOYMENT_ICON.onprem },
 ];
 
 const TB = '✓ ThingsBoard';

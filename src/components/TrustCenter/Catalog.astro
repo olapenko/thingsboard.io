@@ -1,11 +1,20 @@
 ---
+import { Icon } from 'astro-icon/components';
 import Link from '@components/ui/Link.astro';
-import StatusChip from '@components/TrustCenter/StatusChip.astro';
 import { STATUS_LABEL, type CatalogRow } from '@data/trust-center/catalogs';
+import { labelledLines } from '@data/trust-center/deployment-marks';
 
 /**
- * A topic page's rows (Product security, Data security, Access control, Dev security): the title
- * with its status, the text, and the documentation link where the draft has one.
+ * A topic page's rows (Product security, Data security, Access control, Dev security), each on the
+ * page's two columns: the title and the text at the main measure, and beside them, from lg, what a
+ * reader acts on: the status where it asks something of them, and the row's documentation.
+ *
+ * The status is shown only when it is "Configurable": the platform does it, but you decide how, so
+ * it is yours to check. "Built in" is what every row is unless it says otherwise, and "Depends on
+ * deployment" is what the row's own deployment lines already show; both stay in the data, unshown.
+ *
+ * A row's text whose lines open on a label (a deployment, a protocol) becomes a list of those lines,
+ * a deployment's with its icon hanging in the margin (`labelledLines`).
  */
 
 interface Props {
@@ -15,24 +24,33 @@ interface Props {
 }
 
 const { rows, label } = Astro.props;
-const TONE = { in: 'ok', cfg: 'warn', dep: 'flat' } as const;
 ---
 
 <ul class="tc-cat" aria-label={label}>
-	{rows.map((row) => (
-		<li class="tc-cat__row">
-			<div class="tc-cat__head">
-				<h2 class="tc-cat__title">{row.title}</h2>
-				<StatusChip tone={TONE[row.status]}>{STATUS_LABEL[row.status]}</StatusChip>
-			</div>
-			<p class="tc-cat__text">
-				<Fragment set:html={row.html} />
-				{row.docs && (
-					<Link href={row.docs} size="sm" class="tc-cat__docs">
-						Docs
-					</Link>
+	{rows.map((row) => {
+		const configurable = row.status === 'cfg';
+		return (
+			<li class="tc-cat__row tc-split">
+				<div class="tc-cat__main">
+					<h2 class="tc-cat__title">{row.title}</h2>
+					<div class="tc-cat__text" set:html={labelledLines(row.html)} />
+				</div>
+				{(configurable || row.docs) && (
+					<div class="tc-cat__aside">
+						{configurable && (
+							<p class="tc-cat__status">
+								<Icon name="tabler:adjustments-horizontal" aria-hidden="true" />
+								{STATUS_LABEL.cfg}
+							</p>
+						)}
+						{row.docs && (
+							<Link href={row.docs} size="sm">
+								Documentation
+							</Link>
+						)}
+					</div>
 				)}
-			</p>
-		</li>
-	))}
+			</li>
+		);
+	})}
 </ul>
