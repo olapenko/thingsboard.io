@@ -11,7 +11,7 @@ import { contactHref, tc } from '@data/trust-center/nav';
 
 export interface DocRow {
 	name: string;
-	/** `pending`: not published yet, so "Ask about it" (the contact form) rather than a dead "View". */
+	/** `pending`: not published yet, so "Request" (the contact form) rather than a dead "View". */
 	access: 'public' | 'nda' | 'pending';
 	/** One action, or several (the data center certifications). */
 	actions: DocAction[];
@@ -33,7 +33,8 @@ const ASK = contactHref(SECURITY_TOPICS.documents.value);
 
 // ── ThingsBoard Cloud and Private Cloud ────────────────────────────────────────
 
-export const CLOUD_LEDE = `In both models, ThingsBoard runs the platform and the infrastructure under it. ThingsBoard Cloud is multi-tenant; Private Cloud is a dedicated single-tenant instance in the environment and region you choose. In both cases, you focus on your solution, and we take care of running it. Our certifications and everything under <a href="${tc('product')}">Product security</a> apply to both.`;
+export const CLOUD_LEDE =
+	'In both models, ThingsBoard runs the platform and the infrastructure under it. ThingsBoard Cloud is multi-tenant; Private Cloud is a dedicated single-tenant instance in the environment and region you choose. In both cases, you focus on your solution, and we take care of running it. Our certifications and everything under Product security apply to both.';
 
 export const CLOUD_COLUMNS = [
 	{ name: 'ThingsBoard Cloud', icon: DEPLOYMENT_ICON.cloud },
