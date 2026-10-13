@@ -189,7 +189,7 @@ export const DOCS: TcDoc[] = [
 	{
 		slug: 'data-processing-addendum',
 		url: '/products/paas/dpa/',
-		name: 'Data Processing Addendum (DPA)',
+		name: 'Data Processing Agreement (DPA)',
 		category: 'Legal',
 		access: 'public',
 		version: 'current',
@@ -205,7 +205,7 @@ export const DOCS: TcDoc[] = [
 		access: 'nda',
 		version: '—',
 		owner: 'Legal Counsel',
-		description: 'The Data Processing Addendum for Private Cloud, which has its own privacy terms.',
+		description: 'The Data Processing Agreement for Private Cloud, which has its own privacy terms.',
 	},
 	{
 		slug: 'sub-processor-list',

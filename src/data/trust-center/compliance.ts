@@ -66,22 +66,62 @@ export const BUILDING_COMPLIANT = {
 	],
 };
 
-export const PRIVACY_CARDS: BadgeCard[] = [
-	{
-		mark: 'GDPR',
+const DPA = '/products/paas/dpa/';
+
+/** A point with the page that proves it. */
+export interface Proof {
+	text: string;
+	link: { label: string; href: string };
+}
+
+/**
+ * Compliance's privacy section, drafted here (13 Oct 2026) in place of the draft's two thin rows
+ * ("GDPR · Applied to all personal data we process · Self-declared", "CCPA · California residents'
+ * privacy rights · Self-declared") and their lead ("We meet privacy regulations through our own data
+ * protection program and declare our compliance, for example:"). Every point is a fact one of our
+ * own pages already states: the EU region and that data never moves between regions (the FAQ), the
+ * DPA's standard contractual clauses and its breach notification "without undue delay" (the DPA's
+ * text), the notice of sub-processor changes (Sub-processors), the documented procedure for data
+ * subject requests (the GDPR page). The DPA's Data Protection Officer is left out on purpose.
+ */
+export const PRIVACY = {
+	title: 'Privacy and data protection',
+	lead: 'We protect personal data under the GDPR and the CCPA through our own data protection program, backed by the same ISO 27001 controls.',
+	gdpr: {
 		title: 'GDPR',
-		line: 'Applied to all personal data we process',
-		status: 'Self-declared',
 		href: tc('compliance/gdpr'),
+		points: [
+			{
+				text: 'Data stays in the EU on ThingsBoard Cloud’s EU region, and never moves between regions.',
+				link: { label: 'Cloud and Private Cloud', href: tc('cloud') },
+			},
+			{
+				text: 'A Data Processing Agreement, with standard contractual clauses for transfers outside the EU.',
+				link: { label: 'Read the DPA', href: DPA },
+			},
+			{
+				text: 'Published sub-processors, with notice of material changes.',
+				link: { label: 'Sub-processors', href: tc('subprocessors') },
+			},
+			{
+				text: 'Security of processing under our certified ISO/IEC 27001 controls.',
+				link: { label: 'ISO 27001', href: tc('compliance/iso-27001') },
+			},
+			{
+				text: 'Data subject requests and breach notification under documented procedures.',
+				link: { label: 'GDPR details', href: tc('compliance/gdpr') },
+			},
+		] satisfies Proof[],
 	},
-	{
-		mark: 'CCPA',
+	ccpa: {
 		title: 'CCPA',
-		line: "California residents' privacy rights",
-		status: 'Self-declared',
 		href: tc('compliance/ccpa'),
+		text: "We don't sell personal information, and requests to know, delete or correct it follow the same procedure as GDPR requests.",
+		link: { label: 'CCPA details', href: tc('compliance/ccpa') },
 	},
-];
+	/** Why there is no certificate here, said once instead of a "Self-declared" chip per row. */
+	note: 'Like most companies, we declare our GDPR and CCPA compliance ourselves, and commit to it contractually in our DPA.',
+};
 
 export interface CertPage {
 	slug: string;
@@ -140,7 +180,27 @@ export const CERT_PAGES: CertPage[] = [
 				label: 'Scope of application',
 				html: 'We apply data minimization and storage limitation to all personal data we process, wherever the person lives.',
 			},
-			{ label: 'Legal basis', html: 'When we process data on your behalf, the Data Processing Addendum applies.' },
+			{
+				label: 'Legal basis',
+				// The document's own title, as the site names it everywhere (the draft said "Addendum").
+				html: `When we process data on your behalf, the <a href="${DPA}">Data Processing Agreement</a> applies.`,
+			},
+			{
+				label: 'Data residency',
+				html: `ThingsBoard Cloud runs in two independent regions, North America and the EU, and data never moves between them. Private Cloud runs in North America, the EU or APAC. <a href="${tc('cloud')}">Cloud and Private Cloud</a>.`,
+			},
+			{
+				label: 'International transfers',
+				html: `Our <a href="${DPA}">DPA</a> provides for standard contractual clauses for transfers of personal data outside the EU.`,
+			},
+			{
+				label: 'Sub-processors',
+				html: `Every vendor that may access personal data is listed on our <a href="${tc('subprocessors')}">Sub-processors</a> page; we notify customers of material changes, as the DPA sets out.`,
+			},
+			{
+				label: 'Security of processing',
+				html: `Our information security controls are certified to <a href="${tc('compliance/iso-27001')}">ISO/IEC 27001:2022</a>.`,
+			},
 			{
 				label: 'Data subject requests',
 				html: 'We handle requests to access, correct or delete data under a documented procedure. Write to security@thingsboard.io.',

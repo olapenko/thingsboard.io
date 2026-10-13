@@ -76,7 +76,7 @@ export const TC_FAQ: FaqCategory[] = [
 				id: 'gdpr-ccpa',
 				question: 'Do you comply with GDPR and CCPA?',
 				answer:
-					'<p>Yes. We meet both through our own privacy program and declare our compliance. When we process data on your behalf, the Data Processing Addendum applies. Send data subject requests to security@thingsboard.io.</p>',
+					'<p>Yes. We meet both through our own privacy program and declare our compliance. When we process data on your behalf, the Data Processing Agreement applies. Send data subject requests to security@thingsboard.io.</p>',
 			},
 		],
 	},

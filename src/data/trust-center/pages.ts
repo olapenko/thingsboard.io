@@ -50,7 +50,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'Independently verified security.',
 		icon: 'tabler:rosette-discount-check',
 		section: 'compliance',
-		related: [tc('documents'), tc('appsec')],
+		related: [tc('documents'), tc('appsec'), tc('data'), tc('commitments')],
 	},
 	{
 		href: tc('compliance/iso-27001'),
@@ -181,7 +181,7 @@ export const TC_PAGES: TcPage[] = [
 	// Off the Trust Center, but its pages point to them: the Cloud's legal pages.
 	{
 		href: DPA,
-		title: 'Data Processing Addendum (DPA)',
+		title: 'Data Processing Agreement (DPA)',
 		line: 'Our contractual data protection terms.',
 		icon: 'tabler:file-certificate',
 	},

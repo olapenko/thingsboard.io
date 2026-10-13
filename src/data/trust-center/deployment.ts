@@ -125,7 +125,7 @@ export const CLOUD_DOCS: DocRow[] = [
 		actions: [{ label: 'View', href: '/products/paas/privacy-policy/' }],
 	},
 	{
-		name: 'Data Processing Addendum (DPA)',
+		name: 'Data Processing Agreement (DPA)',
 		access: 'public',
 		actions: [{ label: 'View', href: '/products/paas/dpa/' }],
 	},
