@@ -160,8 +160,11 @@ export const CLOUD_DOCS: DocRow[] = [
 	},
 ];
 
-export const PRIVATE_CLOUD_DOCS_INTRO =
-	'Same set as ThingsBoard Cloud, with its own SBOM, privacy terms and DPA, and no tracking. Only the differences are listed.';
+/**
+ * The draft's line promised "its own SBOM, privacy terms and DPA, and no tracking"; no SBOM or privacy
+ * terms are listed in either column, and tracking is not a document, so it says what the list shows.
+ */
+export const PRIVATE_CLOUD_DOCS_INTRO = 'Same set as ThingsBoard Cloud; only the differences are listed.';
 
 export const PRIVATE_CLOUD_DOCS: DocRow[] = [
 	{
@@ -252,9 +255,11 @@ export const ONPREM_DOCS: DocRow[] = [
 	{ name: 'Support policy', access: 'pending', actions: [{ label: 'Request', href: ASK }] },
 ];
 
-/** On On-premises and Commitments alike. */
-export const PER_PRODUCT_NOTE =
-	'ThingsBoard Edge, IoT Gateway, TBMQ, Trendz and the mobile apps split responsibility differently. Write to <a href="mailto:security@thingsboard.io?subject=Per-product%20security%20breakdown">security@thingsboard.io</a> for a breakdown by product.';
+/**
+ * On On-premises and Commitments alike. The draft's mailto becomes the contact form, as every other
+ * way to reach the team is, on the question topic (the form preselects a topic, not a message).
+ */
+export const PER_PRODUCT_NOTE = `ThingsBoard Edge, IoT Gateway, TBMQ, Trendz and the mobile apps split responsibility differently. <a href="${contactHref(SECURITY_TOPICS.question.value)}">Ask our security team</a> for a breakdown by product.`;
 
 // ── Commitment and responsibility ─────────────────────────────────────────────
 
