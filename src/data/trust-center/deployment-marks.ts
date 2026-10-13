@@ -4,8 +4,8 @@ import tabler from '@iconify-json/tabler/icons.json';
  * The three deployment models' icons, the product pages' own: Cloud's `cloud` / `cloud-lock` pair
  * (one glyph, the lock the only difference) and on-premises' server. They mark the comparison
  * tables' column heads and every line of the draft's text that a deployment's name opens
- * ("<b>Private Cloud:</b> …"), where they replace the bullet and hang in the margin, so the names
- * line up and the words after them start on one edge.
+ * ("<b>Private Cloud:</b> …"), where they replace the bullet in an indent of their own: the text
+ * starts after it, on every line of the list, marked or not, so the names line up.
  */
 export const DEPLOYMENT_ICON = {
 	cloud: 'tabler:cloud',
@@ -25,21 +25,26 @@ const BY_LABEL: Record<string, string> = {
 function glyph(name: string): string {
 	const body = tabler.icons[name.replace('tabler:', '') as keyof typeof tabler.icons]?.body;
 	if (!body) throw new Error(`deployment-marks: no Tabler icon "${name}".`);
-	return `<svg class="tc-lines__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">${body}</svg>`;
+	return `<svg class="tc-lines__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">${body}</svg>`;
 }
 
 const LABELLED = /^\s*<b>([^<]+):<\/b>\s*/;
 
-/** One line of a list: its icon when a deployment's name opens it. */
-function line(html: string): string {
+/** The icon of the deployment whose name opens a line, if one does. */
+function iconOf(html: string): string | undefined {
 	const label = html.match(LABELLED)?.[1];
-	const icon = label ? BY_LABEL[label] : undefined;
-	return icon ? `<li class="tc-lines__item">${glyph(icon)}${html.trim()}</li>` : `<li>${html.trim()}</li>`;
+	return label ? BY_LABEL[label] : undefined;
 }
 
-/** Lines as a list, each deployment's line marked. */
+/**
+ * Lines as a list, each deployment's line marked. When any line is, every line takes the icons'
+ * indent (`tc-lines--marked`), so "Every deployment" lines up with the names beside it.
+ */
 export function deploymentList(lines: string[]): string {
-	return `<ul class="tc-lines">${lines.map(line).join('')}</ul>`;
+	const icons = lines.map(iconOf);
+	const marked = icons.some(Boolean);
+	const items = lines.map((html, i) => `<li>${icons[i] ? glyph(icons[i]) : ''}${html.trim()}</li>`);
+	return `<ul class="${marked ? 'tc-lines tc-lines--marked' : 'tc-lines'}">${items.join('')}</ul>`;
 }
 
 /**
