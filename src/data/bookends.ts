@@ -2,6 +2,7 @@ import { installProducts, type InstallOption } from '@data/installationsHub';
 import { onPremCtas } from '@data/onPremPage';
 import { paasCtas } from '@data/paasPage';
 import { CLOUD_SIGNUP, INSTALL_GUIDE_HREF } from '@data/cta-destinations';
+import { tc } from '@data/trust-center/nav';
 import type { Scheme } from '@util/ui-kit';
 
 /**
@@ -19,7 +20,7 @@ import type { Scheme } from '@util/ui-kit';
  * a region or a guide changed there changes here.
  */
 
-export type BookendId = 'home' | 'cloud' | 'onprem';
+export type BookendId = 'home' | 'cloud' | 'onprem' | 'trust';
 
 /** A button: primary is filled in the page's accent, secondary is the outline beside it. */
 export interface BookendAction {
@@ -81,6 +82,12 @@ export interface BookendSide {
 	line: string;
 	href: string;
 	icon: string;
+	/**
+	 * A `data-accent` for this card alone, its mark then a wash of that hue: the Trust Center's
+	 * accents, set in its stylesheet: `brand` on the contact card, `library` (the accent violet) on the
+	 * documents card, `alert` (the accent red) on "Report a vulnerability".
+	 */
+	accent?: string;
 }
 
 const onPremises = installProducts.find((p) => p.id === 'on-premises');
@@ -198,5 +205,43 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 			tail: onPremCtas.cloud.tail,
 		},
 		note: onPremCtas.legal,
+	},
+
+	// The Trust Center's close, on the hub and every page under it (drafted here, not the draft's): a
+	// centred intro and three ways on, as cards in a row (`ways: 'links'`). The security address is on
+	// the contact and report pages, so the band doesn't offer a fourth way out.
+	// Documents go to the library rather than the request form: choosing what to ask for happens
+	// there. The primary and secondary are the type's; with `links` the cards replace them.
+	trust: {
+		title: 'Can’t find what you need?',
+		lead: 'Our security team answers questions, shares documents under NDA and handles vulnerability reports.',
+		scheme: 'brand',
+		accent: '#3d50f5',
+		band: '#f5f6ff',
+		primary: { text: 'Contact our security team', href: tc('contact'), icon: 'tabler:message-circle' },
+		secondary: { text: 'Report a vulnerability', href: tc('report-vulnerability'), icon: 'tabler:bug' },
+		side: [
+			{
+				title: 'Contact our security team',
+				line: 'Questions, questionnaires and data requests.',
+				href: tc('contact'),
+				icon: 'tabler:message-circle',
+				accent: 'brand',
+			},
+			{
+				title: 'Get documents',
+				line: 'Certificates and policies; request the NDA ones from the library.',
+				href: tc('documents'),
+				icon: 'tabler:file-text',
+				accent: 'library',
+			},
+			{
+				title: 'Report a vulnerability',
+				line: 'Tell us privately. We reply within three business days.',
+				href: tc('report-vulnerability'),
+				icon: 'tabler:bug',
+				accent: 'alert',
+			},
+		],
 	},
 };

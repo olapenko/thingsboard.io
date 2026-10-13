@@ -89,8 +89,6 @@ export interface CertPage {
 	title: string;
 	lede: string;
 	facts: Fact[];
-	/** The "Related:" line under the table, as markup. */
-	related?: string;
 }
 
 const CERTIFIED = '<i class="tc-status">Certified.</i> Issued 9 September 2026 by Swiss Approval North America.';
@@ -119,7 +117,6 @@ export const CERT_PAGES: CertPage[] = [
 				html: 'You can use the certificate and its scope as supplier evidence in your own ISMS (A.5.19–A.5.23). We share the Statement of Applicability and audit reports under NDA.',
 			},
 		],
-		related: `Related: <a href="${tc('documents/statement-of-applicability')}">Statement of Applicability</a> · <a href="${tc('documents/internal-audit-report-2026')}">Internal audit report</a>`,
 	},
 	{
 		slug: 'iso-9001',
@@ -153,7 +150,6 @@ export const CERT_PAGES: CertPage[] = [
 				html: 'Breaches go through our incident process. We notify affected parties and regulators as the law and our contracts require.',
 			},
 		],
-		related: `Related: <a href="/products/paas/dpa/">DPA</a> · <a href="/products/paas/privacy-policy/">Privacy Policy</a> · <a href="${tc('subprocessors')}">Sub-processors</a>`,
 	},
 	{
 		slug: 'ccpa',

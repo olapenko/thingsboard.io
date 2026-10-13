@@ -33,6 +33,9 @@ import {
  *   page adds (a question, the quiet links, a line across, a legal note).
  * - `regions`, `platforms`, `cards`: COLUMNS, an intro (a smaller title, the lead, the buttons)
  *   beside the way in: Cloud's two regions, four On-premises guides, or two tall cards.
+ * - `links`: CENTRED, the title and the lead with no mark and no buttons, then the side cards three
+ *   across as tall cards (one column on a phone): the ways on are the cards themselves (the Trust
+ *   Center's three).
  *
  * `tone` is the ground: `dark` (the bookend indigo, the wave in `--band-wave`) or `light` (the
  * page's own tint, the wave in its accent). `links` and `cross` switch the quiet links and the line
@@ -41,7 +44,7 @@ import {
 
 interface Props {
 	id: BookendId;
-	ways?: 'buttons' | 'regions' | 'platforms' | 'cards';
+	ways?: 'buttons' | 'regions' | 'platforms' | 'cards' | 'links';
 	tone?: 'dark' | 'light';
 	/** Where the homepage's "Talk to an expert" goes; the `live` order passes main's. */
 	expertHref?: string;
@@ -51,8 +54,14 @@ interface Props {
 	cross?: boolean;
 }
 
-const DEFAULT_WAYS = { home: 'buttons', cloud: 'regions', onprem: 'platforms', pricing: 'buttons' } as const;
-const DEFAULT_TONE = { home: 'dark', cloud: 'light', onprem: 'light', pricing: 'light' } as const;
+const DEFAULT_WAYS = {
+	home: 'buttons',
+	cloud: 'regions',
+	onprem: 'platforms',
+	pricing: 'buttons',
+	trust: 'links',
+} as const;
+const DEFAULT_TONE = { home: 'dark', cloud: 'light', onprem: 'light', pricing: 'light', trust: 'light' } as const;
 
 const {
 	id,
@@ -64,12 +73,12 @@ const {
 } = Astro.props;
 const b = BOOKENDS[id];
 const ask = b.ask && expertHref ? { ...b.ask, action: { ...b.ask.action, href: expertHref } } : b.ask;
-const columns = ways !== 'buttons';
+const columns = ways !== 'buttons' && ways !== 'links';
 const dark = tone === 'dark';
 
 // With the regions and side cards (the homepage's): the regions are the path, under the lede, and
-// the other ways on are the side cards; no buttons.
-const side = ways === 'regions' ? b.side : undefined;
+// the other ways on are the side cards; no buttons. With `links`, the side cards are the only way on.
+const side = ways === 'regions' || ways === 'links' ? b.side : undefined;
 // With the cards: the pair under the lede, and two tall cards beside it.
 const cards = ways === 'cards' ? b.cards : undefined;
 const cardHref = (c: { href: string }) => (ask && c.href === b.ask?.action.href ? ask.action.href : c.href);
@@ -106,6 +115,7 @@ const actions: Action[] = side
 			   ground, as main's homepage closes), a product page's app logo knocked out of its colour
 			   on the light ground. The column layout's badge is the product's, a step smaller. */
 			!columns &&
+				ways !== 'links' &&
 				(b.icon ? (
 					<Mark size={80} icon={b.icon} lift={!dark} class="bk__mark" />
 				) : b.badge && !dark ? (
@@ -117,7 +127,7 @@ const actions: Action[] = side
 		{columns && b.badge && <Mark size={48} logo="thingsboard" class="bk__badge" />}
 		<h2 class="bk__title">{b.title}</h2>
 		<p class="bk__lead">{b.lead}</p>
-		{side && (
+		{side && ways === 'regions' && (
 			<>
 				<p class="bk__caption">{b.primary.text}</p>
 				<RegionChoice layout="row" srSuffix="for ThingsBoard Cloud" class="bk__regions" />
@@ -169,15 +179,19 @@ const actions: Action[] = side
 	</div>
 
 	{side && (
-		<ul class="bk__side">
+		<ul class:list={['bk__side', ways === 'links' && 'bk__side--three']}>
 			{side.map((c) => (
 				<LinkCard
 					as="li"
+					layout={ways === 'links' ? 'tall' : 'row'}
+					trailAt={ways === 'links' ? 'title' : 'end'}
 					tone={dark ? 'ghost' : 'surface'}
 					href={c.title === ask?.action.text ? ask.action.href : c.href}
 					title={c.title}
 					line={c.line}
 					icon={c.icon}
+					markFill={c.accent ? 'wash' : undefined}
+					attrs={c.accent ? { 'data-accent': c.accent } : undefined}
 				/>
 			))}
 		</ul>
@@ -370,6 +384,18 @@ const actions: Action[] = side
 		margin: 0;
 		padding: 0;
 		list-style: none;
+	}
+
+	// `links`: the three cards across under the centred intro, their text left-aligned as cards are.
+	.bk__side--three {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: $spacing-4;
+		margin-top: $spacing-10;
+		text-align: left;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+		}
 	}
 
 	.bk__side--row {

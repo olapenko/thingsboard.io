@@ -1,20 +1,26 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro';
+import Bookend from '@components/Landing/Bookend.astro';
 import PageIntro from '@components/Landing/PageIntro.astro';
 import Band from '@components/ui/Band.astro';
+import LinkCard from '@components/ui/LinkCard.astro';
 import Breadcrumb from '@components/TrustCenter/Breadcrumb.astro';
-import { FOOTER_LINE, LAST_UPDATED, type Crumb } from '@data/trust-center/nav';
+import type { Crumb } from '@data/trust-center/nav';
+import { keepReading, pageAt, type TcPage } from '@data/trust-center/pages';
 import './trust-center.scss';
 
 /**
  * Every Trust Center page: the shared draft's structure and words, on the site's own page treatment.
  *
  * The page opens on a hero band, the product pages' idiom: a fade to the brand tint, with the wave
- * field on the hub and the two forms (`wave`), holding the draft's breadcrumb (`Trust Center › …`),
- * the h1 and the lede (`PageIntro`, centred on the two forms as the draft centres them), and what a
- * page puts in its `actions` and `visual` slots (the hub's two buttons and its certificates). The
- * content follows on the page's own white ground, in the page measure, and ends on the draft's
- * footer line.
+ * field on the hub (`wave`), holding the draft's breadcrumb (`Trust Center › …`), the h1 and the
+ * lede (`PageIntro`), and what a page puts in its `actions` and `visual` slots (the hub's two buttons
+ * and its certificates). The content follows on the page's own white ground, in the page measure,
+ * then "Keep reading": three pages to go on to, from the page list (`@data/trust-center/pages`),
+ * found by the page's own address. The page closes on the Trust Center's bookend, as the hub does.
+ *
+ * The draft's footer line ("© … · Owner: IMS Manager · Reviewed at least every six months · Last
+ * updated") is gone from the pages: the hub states the review once, and Sub-processors dates its list.
  *
  * A draft: its forms are not connected and its facts are not signed off, so it stays out of search.
  */
@@ -31,17 +37,30 @@ interface Props {
 	align?: 'left' | 'center';
 	/** The browser title, where it should differ from the h1. */
 	metaTitle?: string;
-	/** The wave field over the hero's wash: the hub and the two forms. Every other page takes the wash alone. */
+	/** The wave field over the hero's wash: the hub. Every other page takes the wash alone. */
 	wave?: boolean;
 	/**
-	 * The hero's wash by section: the brand tint by default (the hub, Compliance, Documents, the forms,
-	 * Cloud), a cooler cyan on the Security pages, the on-premises green on On-premises, and the
-	 * Deployments band's blue-to-green on Commitments. Marks and links keep their own colours.
+	 * The hero's wash by section: the brand tint by default (the hub, Compliance, Documents, Cloud), a
+	 * cooler cyan on the Security pages, the on-premises green on On-premises, and the Deployments
+	 * band's blue-to-green on Commitments. Marks and links keep their own colours.
 	 */
 	family?: 'security' | 'onprem' | 'deployment';
+	/** "Keep reading", where the page knows better than the list (a document's neighbours). */
+	next?: TcPage[];
 }
 
-const { title, lede, eyebrow, description, crumbs, align = 'left', metaTitle, wave = false, family } = Astro.props;
+const {
+	title,
+	lede,
+	eyebrow,
+	description,
+	crumbs,
+	align = 'left',
+	metaTitle,
+	wave = false,
+	family,
+	next,
+} = Astro.props;
 const FAMILY_HUE = {
 	security: 'var(--color-accent-cyan, #0e7490)',
 	onprem: '#178649',
@@ -49,6 +68,12 @@ const FAMILY_HUE = {
 const hue = family && family !== 'deployment' ? FAMILY_HUE[family] : undefined;
 const pageTitle = metaTitle ?? (crumbs ? `${title} · Trust Center` : title);
 const hasVisual = Astro.slots.has('visual');
+
+const page = pageAt(Astro.url.pathname);
+// The content, rendered first, so "Keep reading" can leave out the pages it already links to.
+const body = await Astro.slots.render('default');
+const linked = new Set([...body.matchAll(/href="(\/[^"#?]*)/g)].map((m) => m[1]));
+const reading = next ?? keepReading(page, linked);
 ---
 
 <BaseLayout forceLightTheme noIndex title={pageTitle} description={description}>
@@ -92,12 +117,31 @@ const hasVisual = Astro.slots.has('visual');
 		</header>
 	</Band>
 	<div class:list={['tc-page', align === 'center' && 'tc-page--center']}>
-		<slot />
-		<div class="tc-foot">
-			<p>{FOOTER_LINE}</p>
-			<p>{LAST_UPDATED}</p>
-		</div>
+		<Fragment set:html={body} />
+		{reading.length > 0 && (
+			<section class="tc-section tc-keep" aria-labelledby="tc-keep-title">
+				<h2 class="tc-h3" id="tc-keep-title">
+					Keep reading
+				</h2>
+				<ul class="tc-keep__list">
+					{reading.map((p) => (
+						<LinkCard
+							as="li"
+							layout="tall"
+							trailAt="title"
+							href={p.href}
+							title={p.title}
+							line={p.line}
+							icon={p.icon}
+							markFill={p.accent ? 'wash' : 'neutral'}
+							attrs={p.accent ? { 'data-accent': p.accent } : undefined}
+						/>
+					))}
+				</ul>
+			</section>
+		)}
 	</div>
+	<Bookend id="trust" />
 </BaseLayout>
 
 <script>

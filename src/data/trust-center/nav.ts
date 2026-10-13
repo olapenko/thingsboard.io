@@ -33,7 +33,7 @@ export const CRUMB = {
 	onprem: 'On-premises',
 	subprocessors: 'Sub-processors',
 	commitments: 'Commitment and responsibility',
-	contact: 'Contact form',
+	contact: 'Contact',
 	'report-vulnerability': 'Report a vulnerability',
 } as const;
 
@@ -49,9 +49,5 @@ export const crumbs = (section?: keyof typeof CRUMB, leaf?: string): Crumb[] => 
 	if (leaf) trail.push({ label: leaf });
 	return trail;
 };
-
-/** The draft's footer line, on every view. */
-export const FOOTER_LINE = '© 2026 ThingsBoard Inc · Owner: IMS Manager · Reviewed at least every six months';
-export const LAST_UPDATED = 'Last updated 1 Oct 2026';
 
 export const SECURITY_EMAIL = 'security@thingsboard.io';
