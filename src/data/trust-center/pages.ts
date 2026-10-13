@@ -236,13 +236,19 @@ export const keepReading = (page: TcPage | undefined, linked: Set<string> = new 
 };
 
 /**
- * A document page's "Read next": two more from its category, NDA or public alike. The library itself
- * is the bookend's "Get documents" and the breadcrumb's "Documents".
+ * A document page's "Read next": the next two documents in its category, round to the category's
+ * first after its last, NDA or public alike; a category with fewer than two others fills from the
+ * documents after it in the library. So every document is suggested about as often as any other,
+ * rather than the first of each category every time. The library itself is the breadcrumb's and the
+ * bookend's.
  */
 export const keepReadingForDoc = (d: TcDoc): TcPage[] => {
-	const more = DOCS_WITH_PAGE.filter((o) => o.slug !== d.slug && o.category === d.category).slice(0, 2);
-	const fill = more.length < 2 ? DOCS_WITH_PAGE.filter((o) => o.slug !== d.slug && !more.includes(o)) : [];
-	return [...more, ...fill].slice(0, 2).map(docPage);
+	const at = DOCS_WITH_PAGE.findIndex((o) => o.slug === d.slug);
+	// The whole library from the document onwards, wrapping round, the document itself left out.
+	const after = [...DOCS_WITH_PAGE.slice(at + 1), ...DOCS_WITH_PAGE.slice(0, at)];
+	const sameCategory = after.filter((o) => o.category === d.category);
+	const picks = [...sameCategory, ...after.filter((o) => o.category !== d.category)];
+	return picks.slice(0, 2).map(docPage);
 };
 
 /** "1 Oct 2026", for a page's ISO date. */
