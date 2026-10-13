@@ -12,25 +12,46 @@
 // ── The page's measures ───────────────────────────────────────────────────────
 //
 // One width system on every content page (the hub keeps its own):
-// - full measure (1040): what has columns to compare (the comparison tables), the Documents
-//   library, card grids, bands;
-// - `$tc-main`, two-thirds of it: running text (leads, copy, notes, lists, a topic row's words),
-//   fact tables (a label and its paragraph) and the deployment pages' document lists;
-// - the rest, beside it from lg: an aside (`.tc-aside`, `.tc-cat__aside`): a row's documentation link, a
+// - the full width (up to 1040): what has columns to compare (the comparison tables), the
+//   Documents library, card grids, bands;
+// - `--tc-main`, two-thirds of it: running text (leads, copy, notes, lists, a topic row's words),
+//   fact tables (a label and its paragraph, from lg) and the deployment pages' document lists;
+// - the rest, beside it: an aside (`.tc-aside`, `.tc-cat__aside`): a row's documentation link, a
 //   block's call to action or related pages.
-// The main measure is a length, not a fraction, so text in a split and text on its own end on the
-// same line: the one vertical line on the page, where the words stop and the asides start.
+// Two-thirds of the page's own width (a container query on `.tc-page`, so a band's content, which is
+// the page's, measures the same), and at most 667 (two-thirds of 1040 less the gap). It holds from
+// md, so a tablet gets the two columns too; below md everything takes the full width. Text in a
+// split and text on its own end on the same line: the one vertical line on the page.
 $tc-gap: $spacing-10;
-$tc-main: calc((#{$page-measure} - #{$tc-gap}) * 2 / 3);
+
+.tc-page {
+	--tc-main: 100%;
+
+	container-type: inline-size;
+
+	@include media-up(md) {
+		--tc-main: min(calc((#{$page-measure} - #{$tc-gap}) * 2 / 3), calc((100cqw - #{$tc-gap}) * 2 / 3));
+	}
+}
 
 .tc-split {
 	display: grid;
 	gap: $spacing-4;
 
-	@include media-up(lg) {
-		// A fixed track: `minmax(0, …)` beside a `1fr` is shared out, not filled to its maximum.
-		grid-template-columns: $tc-main minmax(0, 1fr);
+	// A fixed track: `minmax(0, …)` beside a `1fr` is shared out, not filled to its maximum.
+	@include media-up(md) {
+		grid-template-columns: var(--tc-main) minmax(0, 1fr);
 		column-gap: $tc-gap;
+	}
+
+	// A fact table needs the width for its label column and its paragraph, so a split whose main
+	// column is one stays one column until lg.
+	&--from-lg {
+		@include media-up(md) {
+			@include media-down(lg) {
+				grid-template-columns: minmax(0, 1fr);
+			}
+		}
 	}
 
 	> * {
@@ -86,6 +107,13 @@ $tc-main: calc((#{$page-measure} - #{$tc-gap}) * 2 / 3);
 	display: grid;
 	gap: $spacing-8;
 	align-items: center;
+
+	// The hub's seals beside its text from md (at their own width there), in a 440 column from lg.
+	@include media-up(md) {
+		&--visual {
+			grid-template-columns: minmax(0, 1fr) auto;
+		}
+	}
 
 	@include media-up(lg) {
 		&--visual {
@@ -277,7 +305,7 @@ body:has(.tc-band) {
 .tc-copy {
 	@include type-body;
 
-	max-width: $tc-main;
+	max-width: var(--tc-main);
 	color: var(--color-text);
 
 	& + & {
@@ -288,7 +316,7 @@ body:has(.tc-band) {
 .tc-lead {
 	@include type-body;
 
-	max-width: $tc-main;
+	max-width: var(--tc-main);
 	margin-bottom: $spacing-5;
 	color: var(--color-text-secondary);
 }
@@ -296,7 +324,7 @@ body:has(.tc-band) {
 .tc-note {
 	@include type-small;
 
-	max-width: $tc-main;
+	max-width: var(--tc-main);
 	margin-top: $spacing-5;
 	color: var(--color-text-secondary);
 }
@@ -374,7 +402,7 @@ body:has(.tc-band) {
 	padding: 0;
 	list-style: none;
 
-	@include media-up(lg) {
+	@include media-up(md) {
 		flex-wrap: nowrap;
 		justify-content: center;
 	}
@@ -708,7 +736,11 @@ body:has(.tc-band) {
 	@include type-body;
 
 	// Labelled paragraphs, not columns to compare: at the main measure, as running text is.
-	width: min(100%, #{$tc-main});
+	width: 100%;
+
+	@include media-up(lg) {
+		width: min(100%, var(--tc-main));
+	}
 	border-collapse: collapse;
 	text-align: left;
 
@@ -846,13 +878,13 @@ body:has(.tc-band) {
 	color: var(--color-text-secondary);
 }
 
-// Cloud's documents: one section, a column for each model under its icon, side by side from lg.
+// Cloud's documents: one section, a column for each model under its icon, side by side from md.
 .tc-doccols {
 	display: grid;
 	gap: $spacing-10 $tc-gap;
 	align-items: start;
 
-	@include media-up(lg) {
+	@include media-up(md) {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
@@ -924,14 +956,14 @@ body:has(.tc-band) {
 	}
 }
 
-// Beside the words from lg, level with the title; under them below it: the documentation link.
+// Beside the words from md, level with the title; under them below it: the documentation link.
 .tc-cat__aside {
 	display: grid;
 	gap: $spacing-2;
 	justify-items: start;
 	align-content: start;
 
-	@include media-up(lg) {
+	@include media-up(md) {
 		padding-top: 4px;
 	}
 }
@@ -1124,7 +1156,7 @@ body:has(.tc-band) {
 }
 
 .tc-doclist--main {
-	max-width: $tc-main;
+	max-width: var(--tc-main);
 }
 
 .tc-doclist {
@@ -1311,7 +1343,7 @@ a.tc-doc__name:hover {
 		align-items: center;
 		justify-content: space-between;
 		gap: $spacing-4;
-		padding: 10px 0;
+		padding: $spacing-3 0;
 		color: var(--color-text);
 		text-decoration: none;
 
@@ -1347,7 +1379,8 @@ a.tc-doc__name:hover {
 		margin-top: 4px;
 	}
 
-	@include media-up(md) {
+	// Two columns once the main column is wide enough for them.
+	@include media-up(lg) {
 		grid-template-columns: 1fr 1fr;
 		column-gap: $spacing-6;
 	}
@@ -1878,7 +1911,7 @@ a.tc-doc__name:hover {
 // Privacy: the commitments both laws share, at the main measure.
 .tc-privacy__list {
 	gap: $spacing-3;
-	max-width: $tc-main;
+	max-width: var(--tc-main);
 	// Level with the badge beside it.
 	margin-top: 0;
 
