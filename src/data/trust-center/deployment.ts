@@ -26,10 +26,10 @@ export interface DocAction {
 
 /**
  * The draft's four documents with no address yet (its `href="#"`): not published, so they read as
- * planned, and "Ask about it" opens the contact form on a question. They are not in the library, so
- * there is no document to tick there.
+ * planned, and "Request" opens the contact form on "Request documents", as an NDA document's does.
+ * They are not in the library, so there is no document to tick there.
  */
-const ASK = contactHref(SECURITY_TOPICS.question.value);
+const ASK = contactHref(SECURITY_TOPICS.documents.value);
 
 // ── ThingsBoard Cloud and Private Cloud ────────────────────────────────────────
 
@@ -166,7 +166,7 @@ export const PRIVATE_CLOUD_DOCS: DocRow[] = [
 	{
 		name: 'Private Cloud SLA and service description (uptime formula, service credits, exclusions)',
 		access: 'pending',
-		actions: [{ label: 'Ask about it', href: ASK }],
+		actions: [{ label: 'Request', href: ASK }],
 	},
 	{
 		name: 'DPA for Private Cloud',
@@ -245,10 +245,10 @@ export const ONPREM_DOCS: DocRow[] = [
 	{
 		name: 'License server network requirements',
 		access: 'pending',
-		actions: [{ label: 'Ask about it', href: ASK }],
+		actions: [{ label: 'Request', href: ASK }],
 	},
-	{ name: 'EULA and license terms', access: 'pending', actions: [{ label: 'Ask about it', href: ASK }] },
-	{ name: 'Support policy', access: 'pending', actions: [{ label: 'Ask about it', href: ASK }] },
+	{ name: 'EULA and license terms', access: 'pending', actions: [{ label: 'Request', href: ASK }] },
+	{ name: 'Support policy', access: 'pending', actions: [{ label: 'Request', href: ASK }] },
 ];
 
 /** On On-premises and Commitments alike. */

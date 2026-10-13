@@ -40,7 +40,7 @@ export const ACCESS_LABEL: Record<Access, string> = { public: 'Public', nda: 'ND
 export const ACCESS_ACTION: Record<Access, string> = {
 	public: 'View',
 	nda: 'Request via NDA',
-	pending: 'Ask about it',
+	pending: 'Request',
 };
 
 export const DOCS: TcDoc[] = [
