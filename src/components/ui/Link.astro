@@ -45,6 +45,9 @@ const {
 
 const { href } = Astro.props;
 const standalone = variant === 'standalone';
+// Inline, the words are rendered and trimmed here: Prettier puts a link's children on their own
+// lines, and in running text that line break is an underlined space before the arrow or the comma.
+const inlineText = !standalone && Astro.slots.has('default') ? (await Astro.slots.render('default')).trim() : null;
 // Whatever opens the new tab, `external` or a `target` passed through, a screen reader hears it.
 const newTab = external || attrs.target === '_blank';
 ---
@@ -63,15 +66,21 @@ const newTab = external || attrs.target === '_blank';
 	{...newTabAttrs(external)}
 	{...attrs}
 >
-	{/* One line: inside an inline link any whitespace would be underlined. */}
-	{standalone && dir === 'back' && <Icon name="tabler:chevron-left" class="ui-link__glyph" aria-hidden="true" />}
-	<slot />
-	{srSuffix && <span class="ui-sr">{` ${srSuffix}`}</span>}
-	{standalone && dir === 'forward' && !external && (
-		<Icon name="tabler:chevron-right" class="ui-link__glyph" aria-hidden="true" />
-	)}
-	{external && <Icon name="tabler:arrow-up-right" class="ui-link__glyph ui-link__glyph--out" aria-hidden="true" />}
-	{newTab && <span class="ui-sr">{NEW_TAB_NOTE}</span>}
+	{
+		// One expression, so no line break of this template falls between the words and the arrow:
+		// in running text that whitespace is underlined. (Prettier keeps a break inside each end of
+		// the anchor; the first collapses into the space before the link.)
+		[
+			standalone && dir === 'back' && <Icon name="tabler:chevron-left" class="ui-link__glyph" aria-hidden="true" />,
+			inlineText === null ? <slot /> : <Fragment set:html={inlineText} />,
+			srSuffix && <span class="ui-sr">{` ${srSuffix}`}</span>,
+			standalone && dir === 'forward' && !external && (
+				<Icon name="tabler:chevron-right" class="ui-link__glyph" aria-hidden="true" />
+			),
+			external && <Icon name="tabler:arrow-up-right" class="ui-link__glyph ui-link__glyph--out" aria-hidden="true" />,
+			newTab && <span class="ui-sr">{NEW_TAB_NOTE}</span>,
+		]
+	}
 </a>
 
 <style is:global lang="scss">
@@ -181,6 +190,15 @@ const newTab = external || attrs.target === '_blank';
 		width: 1em;
 		height: 1em;
 		margin-inline-start: 4px;
+	}
+
+	// In running text the arrow is an inline box on the baseline, so it rides above the words: a
+	// step smaller, centred on the x-height, closer to the word it follows.
+	.ui-link--inline .ui-link__glyph--out {
+		width: 0.875em;
+		height: 0.875em;
+		margin-inline-start: 2px;
+		vertical-align: -0.1em;
 	}
 
 	[dir='rtl'] .ui-link__glyph:not(.ui-link__glyph--out) {
