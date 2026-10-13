@@ -2,7 +2,6 @@ import type { CompareGroup, CompareRow } from '@data/product-blocks';
 import { SECURITY_TOPICS } from '@data/trust-center/forms';
 import { DEPLOYMENT_ICON, deploymentList } from '@data/trust-center/deployment-marks';
 import { contactHref, tc } from '@data/trust-center/nav';
-import { TILE_MARK } from '@data/trust-center/overview';
 
 /**
  * The three deployment pages, as drafted: ThingsBoard Cloud and Private Cloud (a comparison and two
@@ -24,6 +23,20 @@ export interface DocAction {
 	/** A link the draft left dead (`href="#"`): drawn, goes nowhere. */
 	dead?: boolean;
 }
+
+/**
+ * The comparison tables' group marks: the site's accents (`_theme.scss`), distinct within a table,
+ * one colour per idea across both (operations violet; security the Security pages' cyan; product and
+ * infrastructure the draft's own blue and green). As values, since a mark takes a colour, not a
+ * custom property.
+ */
+const MARK = {
+	blue: '#3d50f5',
+	green: '#178649',
+	violet: '#7b3fe4',
+	cyan: '#0e7490',
+	amber: '#b45309',
+} as const;
 
 /**
  * Rows picked by label from one of the draft's lists, into groups. Every row must land in exactly
@@ -144,26 +157,25 @@ export const CLOUD_COMPARE: CompareRow[] = [
 
 /**
  * The comparison in three groups, the topic pages' own split: who runs it and how available it is,
- * what happens to the data, and how it is protected. The draft's rows, in one run there; one group
- * heading each here, in the hub tiles' near-black.
+ * what happens to the data, and how it is protected. The draft's rows, in one run there.
  */
 export const CLOUD_GROUPS: CompareGroup[] = groupRows(CLOUD_COMPARE, [
 	{
 		title: 'Operations',
 		icon: 'tabler:settings',
-		color: TILE_MARK,
+		color: MARK.violet,
 		labels: ['Who runs it', 'Hosting', 'High availability', 'Uptime', 'Infrastructure access'],
 	},
 	{
 		title: 'Data',
 		icon: 'tabler:database',
-		color: TILE_MARK,
+		color: MARK.blue,
 		labels: ['Data residency', 'Isolation', 'Backups', 'Data retention (TTL)', 'Leaving'],
 	},
 	{
 		title: 'Security',
 		icon: 'tabler:shield-lock',
-		color: TILE_MARK,
+		color: MARK.cyan,
 		labels: ['Encryption in transit', 'Network protection', 'Data center certifications'],
 	},
 ]);
@@ -385,7 +397,7 @@ export const RESPONSIBILITY: CompareGroup[] = groupRows(
 		{
 			title: 'Product',
 			icon: 'tabler:app-window',
-			color: TILE_MARK,
+			color: MARK.blue,
 			labels: [
 				'Secure development, testing and product fixes',
 				'Security features: 2FA, SSO, RBAC, audit log, secrets storage',
@@ -394,7 +406,7 @@ export const RESPONSIBILITY: CompareGroup[] = groupRows(
 		{
 			title: 'Hosting and infrastructure',
 			icon: 'tabler:server',
-			color: TILE_MARK,
+			color: MARK.green,
 			labels: [
 				'Data center security, through our cloud providers',
 				'Hosting region',
@@ -405,7 +417,7 @@ export const RESPONSIBILITY: CompareGroup[] = groupRows(
 		{
 			title: 'Platform operations',
 			icon: 'tabler:settings',
-			color: TILE_MARK,
+			color: MARK.violet,
 			labels: [
 				'OS, Kubernetes and database patching',
 				'Platform upgrades and security patches',
@@ -417,7 +429,7 @@ export const RESPONSIBILITY: CompareGroup[] = groupRows(
 		{
 			title: 'Continuity',
 			icon: 'tabler:lifebuoy',
-			color: TILE_MARK,
+			color: MARK.amber,
 			labels: [
 				'Backups and restore',
 				'Disaster recovery and business continuity',
