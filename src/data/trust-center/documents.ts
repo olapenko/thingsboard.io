@@ -27,13 +27,14 @@ export interface TcDoc {
 
 /**
  * The hub's four groups, in order (a document's `group` is the index), each with its heading's icon:
- * a seal, a shield (not a lock, which the rows use for NDA), a gavel, a report.
+ * a seal (the "Certified" check), a shield with code brackets (security and development, and no
+ * keyhole, which the rows' NDA lock already is), the scales of law, a report with a chart.
  */
 export const DOC_GROUPS = [
 	{ name: 'Governance & compliance', icon: 'tabler:rosette-discount-check' },
-	{ name: 'Security & development', icon: 'tabler:shield-lock' },
-	{ name: 'Legal & privacy', icon: 'tabler:gavel' },
-	{ name: 'Reports & resilience', icon: 'tabler:file-analytics' },
+	{ name: 'Security & development', icon: 'tabler:shield-code' },
+	{ name: 'Legal & privacy', icon: 'tabler:scale' },
+	{ name: 'Reports & resilience', icon: 'tabler:report-analytics' },
 ] as const;
 
 export const ACCESS_LABEL: Record<Access, string> = { public: 'Public', nda: 'NDA', pending: 'Planned' };
