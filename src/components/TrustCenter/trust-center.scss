@@ -9,6 +9,32 @@
 // draft has that the kit does not: a fact table, a catalog row, a document row, a breadcrumb.
 // =============================================================================
 
+// ── The page's measures ───────────────────────────────────────────────────────
+//
+// One width system on every content page (the hub keeps its own):
+// - full measure (1040): tables of both kinds, card grids, bands;
+// - `$tc-main`, two-thirds of it: running text (leads, copy, notes, lists, a topic row's words);
+// - the rest, beside it from lg: an aside (`.tc-split__aside`): a row's documentation link, a
+//   block's call to action or related pages.
+// The main measure is a length, not a fraction, so text in a split and text on its own end on the
+// same line: the one vertical line on the page, where the words stop and the asides start.
+$tc-gap: $spacing-10;
+$tc-main: calc((#{$page-measure} - #{$tc-gap}) * 2 / 3);
+
+.tc-split {
+	display: grid;
+	gap: $spacing-4;
+
+	@include media-up(lg) {
+		grid-template-columns: minmax(0, $tc-main) minmax(0, 1fr);
+		column-gap: $tc-gap;
+	}
+
+	> * {
+		min-width: 0;
+	}
+}
+
 // ── The hero and the page ─────────────────────────────────────────────────────
 
 // The hero band: the site's bar sits above it in flow, so the band's own top step is the room
@@ -233,7 +259,7 @@ body:has(.tc-band) {
 .tc-copy {
 	@include type-body;
 
-	max-width: 84ch;
+	max-width: $tc-main;
 	color: var(--color-text);
 
 	& + & {
@@ -248,7 +274,7 @@ body:has(.tc-band) {
 .tc-lead {
 	@include type-body;
 
-	max-width: 84ch;
+	max-width: $tc-main;
 	margin-bottom: $spacing-5;
 	color: var(--color-text-secondary);
 }
@@ -256,7 +282,7 @@ body:has(.tc-band) {
 .tc-note {
 	@include type-small;
 
-	max-width: 84ch;
+	max-width: $tc-main;
 	margin-top: $spacing-5;
 	color: var(--color-text-secondary);
 }
@@ -701,6 +727,10 @@ body:has(.tc-band) {
 		border-top: 1px solid var(--color-border-light);
 	}
 
+	tbody tr:last-child {
+		border-bottom: 0;
+	}
+
 	th[scope='row'] {
 		width: 26%;
 		padding: $spacing-3 $spacing-4 $spacing-3 0;
@@ -750,6 +780,10 @@ body:has(.tc-band) {
 .tc-cat__row {
 	padding: $spacing-5 0;
 	border-bottom: 1px solid var(--color-border-light);
+
+	&:last-child {
+		border-bottom: 0;
+	}
 }
 
 .tc-cat__head {
@@ -975,14 +1009,6 @@ body:has(.tc-band) {
 	border-top: 1px solid var(--color-border-light);
 }
 
-.tc-doclist__row {
-	border-bottom: 1px solid var(--color-border-light);
-
-	&[hidden] {
-		display: none;
-	}
-}
-
 .tc-doclist__link {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto auto;
@@ -1043,6 +1069,11 @@ body:has(.tc-band) {
 
 	&[hidden] {
 		display: none;
+	}
+
+	// The last row shown, when a filter hides the ones after it.
+	&:nth-last-child(1 of :not([hidden])) {
+		border-bottom: 0;
 	}
 }
 
@@ -1171,6 +1202,17 @@ a.tc-doc__name:hover {
 
 	li {
 		border-bottom: 1px solid var(--color-border-light);
+	}
+
+	li:last-child {
+		border-bottom: 0;
+	}
+
+	// Two columns: the last row's first cell too, when it has a neighbour.
+	@include media-up(md) {
+		li:nth-last-child(2):nth-child(odd) {
+			border-bottom: 0;
+		}
 	}
 
 	a {
@@ -1752,10 +1794,10 @@ a.tc-doc__name:hover {
 	}
 }
 
-// Privacy: the commitments both laws share, at the reading measure.
+// Privacy: the commitments both laws share, at the main measure.
 .tc-privacy__list {
 	gap: $spacing-3;
-	max-width: 84ch;
+	max-width: $tc-main;
 
 	li {
 		@include type-body;
@@ -1931,5 +1973,19 @@ a.tc-doc__name:hover {
 
 	@include media-down(lg) {
 		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+// ── Rules ─────────────────────────────────────────────────────────────────────
+
+// Rules separate rows; none closes a block. The space under a list closes it, and the one full-width
+// rule on a page is Keep reading's. The comparison table is shared with the product pages, so its
+// last row loses its rule here, inside the Trust Center only (on the cells as a table, on the row
+// once it stacks).
+.tc-page .product-matrix tbody tr:last-child {
+	border-bottom: 0;
+
+	> * {
+		border-bottom: 0;
 	}
 }
