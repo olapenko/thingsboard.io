@@ -135,14 +135,6 @@ export const AUDIT = {
 	},
 };
 
-export const BUILDING_COMPLIANT = {
-	title: 'Building a compliant solution on ThingsBoard',
-	paragraphs: [
-		"You can certify the solution you build on ThingsBoard, for example to ISO/IEC 27001. Our ISO certificates count as supplier evidence in your audit, and under NDA we share the Statement of Applicability and audit reports. The platform gives you the controls auditors look for: access control, an audit log, encryption in transit and a choice of data region, so you don't need to build them from scratch.",
-		'We meet privacy regulations through our own data protection program and declare our compliance, for example:',
-	],
-};
-
 const DPA = '/products/paas/dpa/';
 
 /** A point with the page that proves it. */
@@ -298,9 +290,3 @@ export const CERT_PAGES: CertPage[] = [
 		],
 	},
 ];
-
-export const certPage = (slug: string): CertPage => {
-	const page = CERT_PAGES.find((p) => p.slug === slug);
-	if (!page) throw new Error(`trust-center: no certificate page "${slug}".`);
-	return page;
-};
