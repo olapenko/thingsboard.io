@@ -2,6 +2,7 @@ import type { CompareGroup, CompareRow } from '@data/product-blocks';
 import { SECURITY_TOPICS } from '@data/trust-center/forms';
 import { DEPLOYMENT_ICON, deploymentList } from '@data/trust-center/deployment-marks';
 import { contactHref, tc } from '@data/trust-center/nav';
+import { TILE_MARK } from '@data/trust-center/overview';
 
 /**
  * The three deployment pages, as drafted: ThingsBoard Cloud and Private Cloud (a comparison and two
@@ -22,6 +23,21 @@ export interface DocAction {
 	href: string;
 	/** A link the draft left dead (`href="#"`): drawn, goes nowhere. */
 	dead?: boolean;
+}
+
+/**
+ * Rows picked by label from one of the draft's lists, into groups. Every row must land in exactly
+ * one group, so a renamed, dropped or doubled row fails the build rather than vanishing.
+ */
+function groupRows(rows: CompareRow[], groups: (Omit<CompareGroup, 'rows'> & { labels: string[] })[]): CompareGroup[] {
+	const used = groups.flatMap((g) => g.labels);
+	const missing = rows.filter((r) => !used.includes(r.label)).map((r) => r.label);
+	const unknown = used.filter((l) => !rows.some((r) => r.label === l));
+	const doubled = used.filter((l, i) => used.indexOf(l) !== i);
+	if (missing.length || unknown.length || doubled.length) {
+		throw new Error(`[trust-center] comparison groups: missing ${missing}; unknown ${unknown}; doubled ${doubled}`);
+	}
+	return groups.map(({ labels, ...g }) => ({ ...g, rows: labels.map((l) => rows.find((r) => r.label === l)!) }));
 }
 
 /**
@@ -125,6 +141,32 @@ export const CLOUD_COMPARE: CompareRow[] = [
 		],
 	},
 ];
+
+/**
+ * The comparison in three groups, the topic pages' own split: who runs it and how available it is,
+ * what happens to the data, and how it is protected. The draft's rows, in one run there; one group
+ * heading each here, in the hub tiles' near-black.
+ */
+export const CLOUD_GROUPS: CompareGroup[] = groupRows(CLOUD_COMPARE, [
+	{
+		title: 'Operations',
+		icon: 'tabler:settings',
+		color: TILE_MARK,
+		labels: ['Who runs it', 'Hosting', 'High availability', 'Uptime', 'Infrastructure access'],
+	},
+	{
+		title: 'Data',
+		icon: 'tabler:database',
+		color: TILE_MARK,
+		labels: ['Data residency', 'Isolation', 'Backups', 'Data retention (TTL)', 'Leaving'],
+	},
+	{
+		title: 'Security',
+		icon: 'tabler:shield-lock',
+		color: TILE_MARK,
+		labels: ['Encryption in transit', 'Network protection', 'Data center certifications'],
+	},
+]);
 
 export const CLOUD_DOCS: DocRow[] = [
 	{
@@ -298,7 +340,8 @@ export const RESPONSIBILITY_COLUMNS = [
 const TB = '✓ ThingsBoard';
 const YOU = 'You';
 
-export const RESPONSIBILITY: CompareGroup[] = [
+/** The draft's two groups (Product; Infrastructure and operations), the rows' source. */
+const RESPONSIBILITY_DRAFT: CompareGroup[] = [
 	{
 		title: 'Product',
 		icon: 'tabler:app-window',
@@ -331,6 +374,58 @@ export const RESPONSIBILITY: CompareGroup[] = [
 		],
 	},
 ];
+
+/**
+ * What ThingsBoard handles, in four groups rather than the draft's 2 + 12 rows: each answers "who
+ * looks after this?" for one area, and the "You" cells show what on-premises takes on.
+ */
+export const RESPONSIBILITY: CompareGroup[] = groupRows(
+	RESPONSIBILITY_DRAFT.flatMap((g) => g.rows),
+	[
+		{
+			title: 'Product',
+			icon: 'tabler:app-window',
+			color: TILE_MARK,
+			labels: [
+				'Secure development, testing and product fixes',
+				'Security features: 2FA, SSO, RBAC, audit log, secrets storage',
+			],
+		},
+		{
+			title: 'Hosting and infrastructure',
+			icon: 'tabler:server',
+			color: TILE_MARK,
+			labels: [
+				'Data center security, through our cloud providers',
+				'Hosting region',
+				'Network perimeter, firewall, DDoS protection',
+				'Capacity, scaling and high availability',
+			],
+		},
+		{
+			title: 'Platform operations',
+			icon: 'tabler:settings',
+			color: TILE_MARK,
+			labels: [
+				'OS, Kubernetes and database patching',
+				'Platform upgrades and security patches',
+				'TLS certificates on platform endpoints',
+				'Platform sysadmin account and platform-wide security settings',
+				'Hardening the deployment',
+			],
+		},
+		{
+			title: 'Continuity',
+			icon: 'tabler:lifebuoy',
+			color: TILE_MARK,
+			labels: [
+				'Backups and restore',
+				'Disaster recovery and business continuity',
+				'Infrastructure monitoring and alerting',
+			],
+		},
+	]
+);
 
 export const CONFIGURE_INTRO =
 	'We built these controls into the platform, so you can tune security to your own needs in every deployment instead of building it from scratch:';
