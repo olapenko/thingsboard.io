@@ -51,7 +51,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'Independently verified security.',
 		icon: 'tabler:rosette-discount-check',
 		section: 'compliance',
-		related: [tc('documents'), tc('appsec'), tc('data'), tc('commitments')],
+		related: [tc('appsec'), tc('product')],
 	},
 	{
 		href: tc('compliance/iso-27001'),
@@ -73,7 +73,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'Quality management, run as one system with information security.',
 		icon: 'tabler:certificate',
 		section: 'compliance',
-		related: [tc('appsec'), tc('documents')],
+		related: [tc('commitments')],
 	},
 	{
 		href: tc('compliance/gdpr'),
@@ -109,7 +109,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'Security built into the product.',
 		icon: 'tabler:cpu',
 		section: 'security',
-		related: [tc('commitments'), tc('documents')],
+		related: [tc('onprem')],
 	},
 	{
 		href: tc('access'),
@@ -117,7 +117,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'You decide who sees what.',
 		icon: 'tabler:lock',
 		section: 'security',
-		related: [tc('commitments'), tc('product')],
+		related: [tc('data')],
 	},
 	{
 		href: tc('appsec'),
@@ -135,7 +135,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'We host and run the platform, so you can focus on your solution.',
 		icon: 'tabler:cloud',
 		section: 'deployments',
-		related: [tc('subprocessors'), tc('data')],
+		related: [tc('commitments')],
 	},
 	{
 		href: tc('onprem'),
@@ -167,7 +167,7 @@ export const TC_PAGES: TcPage[] = [
 		title: 'Sub-processors',
 		line: 'The vendors that may access customer or personal data.',
 		icon: 'tabler:building',
-		related: [tc('compliance/gdpr'), tc('data'), tc('cloud')],
+		related: [tc('compliance/gdpr'), tc('compliance/ccpa')],
 		// Shown with the list: when it last changed is what a reader of the DPA's notice clause checks.
 		updated: '2026-10-01',
 	},
