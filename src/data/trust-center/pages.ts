@@ -4,7 +4,7 @@ import { tc } from '@data/trust-center/nav';
 /**
  * The Trust Center's pages, in one list: what the layout needs to place a page among the others.
  * - "Read next" at a page's foot: the next page in its section ("Next in Security"), then a page
- *   picked for it (`related`: the draft's own "Related:" links first, then ours), two in all. It is
+ *   picked for it (`related`: the draft's own "Related:" links first, then ours), three in all. It is
  *   the one way on from a page; the breadcrumb is the way back up. It never offers what the bookend
  *   under it does (the documents, the contact form, the vulnerability report).
  * - A page's own date (`updated`), where one is shown: the Sub-processors list. The hub states the
@@ -51,7 +51,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'Independently verified security.',
 		icon: 'tabler:rosette-discount-check',
 		section: 'compliance',
-		related: [tc('appsec'), tc('product')],
+		related: [tc('appsec'), tc('product'), tc('onprem')],
 	},
 	{
 		href: tc('compliance/iso-27001'),
@@ -60,12 +60,7 @@ export const TC_PAGES: TcPage[] = [
 		icon: 'tabler:certificate',
 		section: 'compliance',
 		// The draft's "Related:" line, then ours.
-		related: [
-			tc('documents/statement-of-applicability'),
-			tc('documents/internal-audit-report-2026'),
-			tc('appsec'),
-			tc('commitments'),
-		],
+		related: [tc('documents/statement-of-applicability'), tc('documents/internal-audit-report-2026')],
 	},
 	{
 		href: tc('compliance/iso-9001'),
@@ -73,7 +68,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'Quality management, run as one system with information security.',
 		icon: 'tabler:certificate',
 		section: 'compliance',
-		related: [tc('commitments')],
+		related: [tc('compliance/iso-27001'), tc('documents/change-management-procedure')],
 	},
 	{
 		href: tc('compliance/gdpr'),
@@ -82,7 +77,7 @@ export const TC_PAGES: TcPage[] = [
 		icon: 'tabler:scale',
 		section: 'compliance',
 		// The draft's "Related:" line, then ours.
-		related: [DPA, PRIVACY_POLICY, tc('subprocessors'), tc('data')],
+		related: [DPA, PRIVACY_POLICY, tc('documents/data-protection-policy')],
 	},
 	{
 		href: tc('compliance/ccpa'),
@@ -90,7 +85,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'The same privacy program, under the CCPA.',
 		icon: 'tabler:scale',
 		section: 'compliance',
-		related: [tc('subprocessors'), tc('data')],
+		related: [tc('subprocessors'), PRIVACY_POLICY],
 	},
 
 	// Security: the hub's four security tiles, in their order.
@@ -101,7 +96,7 @@ export const TC_PAGES: TcPage[] = [
 		icon: 'tabler:database',
 		section: 'security',
 		// The draft's "Related:" line, then ours.
-		related: [tc('subprocessors'), tc('cloud'), tc('compliance/gdpr'), tc('commitments')],
+		related: [tc('subprocessors'), tc('cloud')],
 	},
 	{
 		href: tc('product'),
@@ -109,7 +104,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'Security built into the product.',
 		icon: 'tabler:cpu',
 		section: 'security',
-		related: [tc('onprem')],
+		related: [tc('onprem'), tc('cloud')],
 	},
 	{
 		href: tc('access'),
@@ -117,7 +112,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'You decide who sees what.',
 		icon: 'tabler:lock',
 		section: 'security',
-		related: [tc('data')],
+		related: [tc('data'), tc('product')],
 	},
 	{
 		href: tc('appsec'),
@@ -125,7 +120,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'Built through a secure process.',
 		icon: 'tabler:code',
 		section: 'security',
-		related: [tc('report-vulnerability'), tc('compliance/iso-27001')],
+		related: [tc('report-vulnerability'), tc('compliance/iso-27001'), tc('documents/pentest-executive-summary')],
 	},
 
 	// Deployments: the hub's two cards, then who handles what.
@@ -135,7 +130,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'We host and run the platform, so you can focus on your solution.',
 		icon: 'tabler:cloud',
 		section: 'deployments',
-		related: [tc('commitments')],
+		related: [tc('compliance/iso-27001'), tc('access')],
 	},
 	{
 		href: tc('onprem'),
@@ -143,7 +138,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'You run the platform; we provide the product code, security fixes and guides.',
 		icon: 'tabler:server',
 		section: 'deployments',
-		related: [tc('appsec'), tc('product')],
+		related: [tc('appsec'), tc('access')],
 	},
 	{
 		href: tc('commitments'),
@@ -151,7 +146,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'What we promise and what we handle.',
 		icon: 'tabler:clipboard-check',
 		section: 'deployments',
-		related: [tc('access'), tc('documents')],
+		related: [tc('compliance'), tc('compliance/iso-9001')],
 	},
 
 	// On their own: no section, no sibling links.
@@ -160,14 +155,14 @@ export const TC_PAGES: TcPage[] = [
 		title: 'Documents',
 		line: 'Certificates, policies and reports, public or under NDA.',
 		icon: 'tabler:file-text',
-		related: [tc('compliance'), tc('subprocessors'), tc('data'), tc('cloud')],
+		related: [tc('compliance'), tc('data'), tc('commitments')],
 	},
 	{
 		href: tc('subprocessors'),
 		title: 'Sub-processors',
 		line: 'The vendors that may access customer or personal data.',
 		icon: 'tabler:building',
-		related: [tc('compliance/gdpr'), tc('compliance/ccpa')],
+		related: [tc('compliance/gdpr'), tc('compliance/ccpa'), PRIVACY_POLICY],
 		// Shown with the list: when it last changed is what a reader of the DPA's notice clause checks.
 		updated: '2026-10-01',
 	},
@@ -218,10 +213,10 @@ const IN_BOOKEND = [tc('documents'), tc('contact'), tc('report-vulnerability')];
 /**
  * "Read next": the next page in the section, its line saying so ("Next in Security"; round to the
  * section's first after its last), then the pages picked for it, then Compliance as a last resort;
- * two in all, never the page itself, never a page the content already links to (`linked`), so the
+ * three in all (picked so that no page is offered more than three times across the Trust Center), never the page itself, never a page the content already links to (`linked`), so the
  * foot doesn't repeat what the page just said, and never one the bookend offers (`IN_BOOKEND`).
  */
-export const keepReading = (page: TcPage | undefined, linked: Set<string> = new Set(), count = 2): TcPage[] => {
+export const keepReading = (page: TcPage | undefined, linked: Set<string> = new Set(), count = 3): TcPage[] => {
 	if (!page) return [];
 	const siblings = siblingsOf(page);
 	const at = siblings.findIndex((p) => p.href === page.href);
@@ -236,8 +231,8 @@ export const keepReading = (page: TcPage | undefined, linked: Set<string> = new 
 };
 
 /**
- * A document page's "Read next": the next two documents in its category, round to the category's
- * first after its last, NDA or public alike; a category with fewer than two others fills from the
+ * A document page's "Read next": the next three documents in its category, round to the category's
+ * first after its last, NDA or public alike; a category with fewer than three others fills from the
  * documents after it in the library. So every document is suggested about as often as any other,
  * rather than the first of each category every time. The library itself is the breadcrumb's and the
  * bookend's.
@@ -248,7 +243,7 @@ export const keepReadingForDoc = (d: TcDoc): TcPage[] => {
 	const after = [...DOCS_WITH_PAGE.slice(at + 1), ...DOCS_WITH_PAGE.slice(0, at)];
 	const sameCategory = after.filter((o) => o.category === d.category);
 	const picks = [...sameCategory, ...after.filter((o) => o.category !== d.category)];
-	return picks.slice(0, 2).map(docPage);
+	return picks.slice(0, 3).map(docPage);
 };
 
 /** "1 Oct 2026", for a page's ISO date. */
