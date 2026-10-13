@@ -219,7 +219,7 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 		accent: '#3d50f5',
 		band: '#f5f6ff',
 		primary: { text: 'Contact our security team', href: tc('contact'), icon: 'tabler:message-circle' },
-		secondary: { text: 'Report a vulnerability', href: tc('report-vulnerability'), icon: 'tabler:bug' },
+		secondary: { text: 'Report a vulnerability', href: tc('report-vulnerability'), icon: 'tabler:shield-exclamation' },
 		side: [
 			{
 				title: 'Contact our security team',
@@ -239,7 +239,7 @@ export const BOOKENDS: Record<BookendId, Bookend> = {
 				title: 'Report a vulnerability',
 				line: 'Tell us privately. We reply within three business days.',
 				href: tc('report-vulnerability'),
-				icon: 'tabler:bug',
+				icon: 'tabler:shield-exclamation',
 				accent: 'alert',
 			},
 		],

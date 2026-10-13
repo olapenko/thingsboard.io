@@ -170,7 +170,7 @@ export const TC_PAGES: TcPage[] = [
 		href: tc('report-vulnerability'),
 		title: 'Report a vulnerability',
 		line: 'Tell us privately. We reply within three business days.',
-		icon: 'tabler:bug',
+		icon: 'tabler:shield-exclamation',
 		accent: 'alert',
 	},
 
