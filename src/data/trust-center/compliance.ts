@@ -77,12 +77,15 @@ export const COMPLIANCE_FACTS: Fact[] = [
 export const COMPLIANCE_LEDE =
 	'ThingsBoard is certified to ISO/IEC 27001 and ISO 9001, independently tested every year, and meets the GDPR and the CCPA through its own data protection program.';
 
-/** Under the two certificate cards, the validator: a question, then its site's name as the link. */
+/** The certificate validator: Compliance's button beside the fact table, the ISO pages' link. */
 export const CERTS = {
-	/** Under the cards, beside the registration numbers the validator asks for. */
 	verify: {
-		lead: 'Want to verify a certificate?',
-		label: 'swissapproval.ch',
+		/** The button on Compliance. */
+		label: 'Verify a certificate',
+		/** Under the button: where it goes, and what the validator asks for. */
+		note: 'On swissapproval.ch, with the registration number from a card above.',
+		/** The site's name, for the ISO pages' "Verify on …". */
+		site: 'swissapproval.ch',
 		href: VALIDATOR,
 	},
 };
