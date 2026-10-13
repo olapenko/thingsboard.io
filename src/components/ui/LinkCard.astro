@@ -21,6 +21,12 @@ interface Props {
 	tone?: 'surface' | 'ghost';
 	/** `external` also makes the link leave the site (new tab, `rel`, screen-reader text). */
 	trail?: 'chevron' | 'external';
+	/**
+	 * Where the trail sits: at the card's end (`end`, the default), or inline after the title's last
+	 * word (`title`), so it reads with the heading rather than out at the edge (the Trust Center's
+	 * tall cards).
+	 */
+	trailAt?: 'end' | 'title';
 	/** Attributes for the card's link itself (the region dialog's `data-cloud-auth`). */
 	linkAttrs?: Record<string, string | undefined>;
 	as?: 'div' | 'li';
@@ -37,31 +43,52 @@ const {
 	layout = 'row',
 	tone = 'surface',
 	trail = 'chevron',
+	trailAt = 'end',
 	linkAttrs,
 	as = 'div',
 	class: className,
 	attrs = {},
 } = Astro.props;
+// With the trail after the title, the last word and the trail break together, never the trail alone.
+const words = title.trim().split(/\s+/);
+const lastWord = trailAt === 'title' ? (words.pop() ?? '') : '';
+const titleHead = trailAt === 'title' ? (words.length ? `${words.join(' ')} ` : '') : title;
 ---
 
 <Card
 	href={href}
-	title={title}
+	title={titleHead}
 	as={as}
 	tone={tone}
 	pad="md"
 	linkAttrs={linkAttrs}
 	external={trail === 'external'}
-	class:list={['ui-link-card', `ui-link-card--${layout}`, className]}
+	class:list={[
+		'ui-link-card',
+		`ui-link-card--${layout}`,
+		trailAt === 'title' && 'ui-link-card--trail-title',
+		className,
+	]}
 	attrs={attrs}
 >
 	{icon && <Mark slot="mark" size={48} icon={icon} fill={markFill} class="ui-link-card__mark" />}
 	{line && <p class="ui-link-card__line">{line}</p>}
-	<Icon
-		name={trail === 'external' ? 'tabler:arrow-up-right' : 'tabler:chevron-right'}
-		class="ui-link-card__trail"
-		aria-hidden="true"
-	/>
+	{trailAt === 'title' ? (
+		<span slot="title" class="ui-link-card__tail">
+			{lastWord}
+			<Icon
+				name={trail === 'external' ? 'tabler:arrow-up-right' : 'tabler:chevron-right'}
+				class="ui-link-card__trail ui-link-card__trail--title"
+				aria-hidden="true"
+			/>
+		</span>
+	) : (
+		<Icon
+			name={trail === 'external' ? 'tabler:arrow-up-right' : 'tabler:chevron-right'}
+			class="ui-link-card__trail"
+			aria-hidden="true"
+		/>
+	)}
 </Card>
 
 <style is:global lang="scss">
@@ -113,6 +140,30 @@ const {
 		> .ui-link-card__trail {
 			grid-row: 2;
 			grid-column: 2;
+		}
+	}
+
+	// The trail after the title: no column of its own; it rides the title's last line at its size.
+	.ui-card.ui-link-card--trail-title {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.ui-link-card__tail {
+		white-space: nowrap;
+	}
+
+	// In the title's colour, and heavier than the icon set's 2, so it reads as part of the bold title.
+	.ui-link-card__trail.ui-link-card__trail--title {
+		display: inline-block;
+		width: 1.2em;
+		height: 1.2em;
+		margin-left: 0.05em;
+		vertical-align: -0.25em;
+		color: inherit;
+		stroke-width: 3;
+
+		@include on-dark {
+			color: inherit;
 		}
 	}
 
