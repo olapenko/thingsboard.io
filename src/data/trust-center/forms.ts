@@ -1,60 +1,121 @@
 /**
- * The two forms' options, as the draft's `CF_*` and `VF_*` datasets have them.
+ * The Trust Center's two forms: the contact form's security topics, and the vulnerability report's
+ * options.
  *
- * INTEGRATION NOTE: neither form is connected, as in the draft, whose thank-you states say so. The
- * site's Contact us form posts to Formspree (`@data/formspree`); wiring these the same way means an
- * endpoint per form here and the submit handlers in `TrustCenter/ContactForm.astro` and
- * `TrustCenter/VulnerabilityForm.astro` posting to it instead of showing the thank-you state.
+ * The contact form exists twice, as two prototypes of one decision (`TrustCenter/ContactFormProto`):
+ * - SEPARATE, `/trust-center/contact/`: a page of its own with only these topics;
+ * - MERGED, `/trust-center/contact/merged/`: the site's Contact us page with these topics added as one
+ *   group, the way they would land in `/contact-us/` once ported.
+ * Both read this file, so the topics, the documents and the words cannot drift apart between them.
+ *
+ * INTEGRATION NOTE: neither form is connected; a valid submit shows the thank-you state and says
+ * nothing was sent. Before either goes live:
+ * - the contact form's security topics must reach the security team, not the sales pipeline the
+ *   site's Contact us form feeds (it tags every message `product`): a tag per topic that the CRM
+ *   routes, or an endpoint of their own to security@;
+ * - the vulnerability report needs its own endpoint to security@ (or a ticket queue), and no
+ *   tracking: no UTM fields, no analytics client id, no GTM form hook.
  */
 
-export interface ContactSubject {
+export type SecurityTopicKey = 'documents' | 'questionnaire' | 'question' | 'dsr';
+
+export interface SecurityTopic {
+	/**
+	 * What the form submits and what `?subject=` matches: a readable name, as the site's Contact us
+	 * topics have (`Private Cloud`, `Training`), so the team routes by it.
+	 */
 	value: string;
 	label: string;
-	/** The message box's placeholder once this subject is picked. */
+	/** The message box's placeholder once the topic is picked. */
 	prompt: string;
+	/** The message may be left empty. */
+	messageOptional?: boolean;
+	/** Shows the documents checklist, and asks for at least one. */
+	documents?: boolean;
+	/** The reader may be a private person: "Email" rather than "Work email", and Company optional. */
+	personal?: boolean;
 }
 
-export const CONTACT_SUBJECTS: ContactSubject[] = [
-	{
-		value: 'nda',
-		label: 'Request documents under NDA',
+/**
+ * Four topics where the draft had eight. Compliance, privacy, Cloud security and "Other" were one
+ * kind of message, so they are one topic; "Request documents" takes every requestable document, NDA
+ * or planned, so a Request link always lands on the same topic. Sub-processor change notifications
+ * left the form: they are a subscription, offered on the Sub-processors page.
+ */
+export const SECURITY_TOPICS: Record<SecurityTopicKey, SecurityTopic> = {
+	documents: {
+		value: 'Security Documents',
+		label: 'Request documents',
 		prompt: 'Optional: the project or vendor assessment you need them for.',
+		messageOptional: true,
+		documents: true,
 	},
-	{
-		value: 'questionnaire',
+	questionnaire: {
+		value: 'Security Questionnaire',
 		label: 'Security questionnaire or vendor assessment',
-		prompt: 'Which questionnaire or framework (for example CAIQ, SIG or your own) and your deadline.',
+		prompt: 'Which questionnaire or framework you use, and your deadline.',
 	},
-	{
-		value: 'compliance',
-		label: 'Compliance and certifications',
-		prompt: 'Your question about our ISO certificates, their scope or using them as supplier evidence.',
+	question: {
+		value: 'Security Question',
+		label: 'Security, compliance or privacy question',
+		prompt: 'Your question: our certificates, personal data and the DPA, hosting and backups, or anything else.',
 	},
-	{
-		value: 'privacy',
-		label: 'Privacy and data protection (GDPR, CCPA, DPA)',
-		prompt: 'Your question about personal data, the DPA, GDPR or CCPA.',
-	},
-	{
-		value: 'dsr',
+	dsr: {
+		value: 'Data Subject Request',
 		label: 'Data subject request (access, correction, deletion)',
 		prompt: 'Which account or data the request is about, and what you want us to do.',
+		personal: true,
 	},
-	{
-		value: 'subprocessors',
-		label: 'Sub-processor change notifications',
-		prompt: 'Optional: anything else we should know.',
-	},
-	{
-		value: 'cloud',
-		label: 'ThingsBoard Cloud and Private Cloud security',
-		prompt: 'Your question about hosting, data residency, backups, the SLA or network setup.',
-	},
-	{ value: 'other', label: 'Other security question', prompt: 'How can we help?' },
+};
+
+export const SECURITY_TOPIC_LIST: SecurityTopic[] = Object.values(SECURITY_TOPICS);
+
+/** The topics' group in the site's Contact us select (the merged prototype). */
+export const SECURITY_TOPIC_GROUP = 'Security and compliance';
+
+/** Shown once an NDA document is ticked: the draft's own line. */
+export const NDA_NOTE =
+	"We send you our mutual NDA first. Once it's signed, you get the documents within two business days.";
+
+/**
+ * Shown once a planned document is ticked (CAIQ Lite, SIG Lite).
+ *
+ * CLARIFY: "and can answer your questionnaire meanwhile" promises the team will fill in a
+ * questionnaire while the planned self-assessments are not published. Confirm the team offers that,
+ * or cut the clause.
+ */
+export const PLANNED_NOTE =
+	"Not published yet. We'll let you know when it's ready, and can answer your questionnaire meanwhile.";
+
+// ── What a form hands its thank-you page ────────────────────────────────────
+
+/**
+ * A sent form keeps what was sent in this tab's sessionStorage, never in the URL, so its thank-you
+ * page can greet the reader by name, say where the reply goes and what happens next, and "Edit and
+ * send again" can bring it all back (`?resend`). Contact us's own hand-off (`tb-contact-sent`), with
+ * a key per Trust Center form. Older than an hour, it belongs to an earlier visit: the page stays
+ * generic and the form starts empty.
+ */
+export const CONTACT_SENT_KEY = 'tc-contact-sent';
+export const REPORT_SENT_KEY = 'tc-report-sent';
+export const SENT_MAX_AGE_MS = 60 * 60 * 1000;
+
+/**
+ * The "What happens next" of a document request with an NDA document in it: the draft's line ("We
+ * send you our mutual NDA first. Once it's signed, you get the documents within two business days"),
+ * as steps.
+ *
+ * CLARIFY: how the NDA is signed and how the documents arrive (a signed PDF by reply or an
+ * e-signature; attachments or an expiring link) is the team's process. The steps say no more than
+ * the draft does until it is confirmed.
+ */
+export const NDA_STEPS: { title: string; line?: string }[] = [
+	{ title: 'We email you our mutual NDA' },
+	{ title: 'You sign it' },
+	{ title: 'You get the documents', line: 'Within two business days of signing.' },
 ];
 
-/** Subjects where the message is optional. */
-export const MESSAGE_OPTIONAL_FOR = ['nda', 'subprocessors'];
+// ── The vulnerability report ────────────────────────────────────────────────
 
 export const VF_PRODUCTS = [
 	'ThingsBoard (self-hosted)',
@@ -65,7 +126,7 @@ export const VF_PRODUCTS = [
 	'TBMQ',
 	'Trendz Analytics',
 	'ThingsBoard mobile apps',
-	'Website or another ThingsBoard service (for example thingsboard.io or the license server)',
+	'A website or another service (thingsboard.io, the license server)',
 	'Not sure',
 ];
 
@@ -87,7 +148,22 @@ export const VF_TYPES = [
 
 export const VF_SEVERITIES = ['Not sure', 'Critical', 'High', 'Medium', 'Low'];
 
+/** Two choices, so radios; the report picks "by name" once a name is typed, unless the reader chose. */
 export const VF_CREDIT = [
-	{ value: 'name', label: 'Credit me by the name above' },
 	{ value: 'anon', label: 'Keep me anonymous' },
+	{ value: 'name', label: 'Credit me by my name or handle' },
+];
+
+/** The draft's two cards, as one short guide beside the form. */
+export const VF_NEXT = [
+	'We reply within three business days with a plan to investigate.',
+	'We keep you updated until the fix is released.',
+	'Fixed CVE IDs are listed in the release notes.',
+];
+
+export const VF_RULES = [
+	'Use your own installation or your own Cloud account.',
+	"Don't access, change or delete other people's data.",
+	"Don't run denial-of-service or load tests against ThingsBoard Cloud.",
+	'Keep the details private until the fix is out.',
 ];

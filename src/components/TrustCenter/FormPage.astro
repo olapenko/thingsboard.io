@@ -1,0 +1,251 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import PageIntro from '@components/Landing/PageIntro.astro';
+import PricingBackground from '@components/Pricing/PricingBackground.astro';
+import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
+import Breadcrumb from '@components/TrustCenter/Breadcrumb.astro';
+import type { Crumb } from '@data/trust-center/nav';
+import './trust-center.scss';
+
+/**
+ * The Trust Center's form pages (the contact form, both prototypes, and the vulnerability report), on
+ * the site's Contact us page: the intro and "Looking for something else?" in a 344 column, the form
+ * card beside it in 656, over the pricing page's wave field. The grid, the measure and the aside are
+ * that page's (`pages/contact-us.astro`), so the three read as one family with it. No Trust Center
+ * footer line: an owner and a review date say nothing about a form.
+ *
+ * `intents` swaps the intro for a link that names one (`?security`), before first paint, the way
+ * Contact us swaps it for `?pcorder`: the merged prototype's way in from the Trust Center.
+ */
+
+export interface ElsewhereItem {
+	icon: string;
+	lead: string;
+	label: string;
+	href: string;
+	external?: boolean;
+	/** A `data-accent` for this item: `alert` (the Trust Center's red) on the vulnerability report. */
+	accent?: string;
+}
+
+interface IntroWords {
+	eyebrow: string;
+	title: string;
+	lede: string;
+}
+
+interface Props {
+	title: string;
+	lede: string;
+	eyebrow?: string;
+	description: string;
+	/** The browser title, where it should differ from the h1. */
+	metaTitle?: string;
+	/** The Trust Center's breadcrumb over the intro; none on the merged prototype, which is Contact us. */
+	crumbs?: Crumb[];
+	elsewhereTitle?: string;
+	elsewhere?: ElsewhereItem[];
+	/** Intro words by query key, for `?<key>` links. */
+	intents?: Record<string, IntroWords>;
+	/**
+	 * The page's hue: `alert`, the Trust Center's red, on the vulnerability report. It reaches the
+	 * eyebrow, links, the submit, the checks and the wave field behind the page.
+	 */
+	accent?: 'alert';
+}
+
+const {
+	title,
+	lede,
+	eyebrow,
+	description,
+	metaTitle,
+	crumbs,
+	elsewhereTitle = 'Looking for something else?',
+	elsewhere = [],
+	intents,
+	accent,
+} = Astro.props;
+---
+
+<BaseLayout forceLightTheme noIndex title={metaTitle ?? title} description={description}>
+	<PricingBackground hue={accent ? 'var(--color-accent-red)' : undefined} />
+	<div class="tc-fp" data-accent={accent}>
+		<slot name="top" />
+		<header class="tc-fp__intro">
+			{crumbs && <Breadcrumb items={crumbs} />}
+			<PageIntro
+				eyebrow={eyebrow}
+				title={title}
+				lede={lede}
+				ledeMeasure="narrow"
+				partAttrs={{
+					eyebrow: { 'data-intro': 'eyebrow' },
+					title: { 'data-intro': 'title' },
+					subtitle: { 'data-intro': 'lede' },
+				}}
+			/>
+			{/* What has to be read before the form, on a phone too, where the aside falls under it. */}
+			<slot name="intro" />
+		</header>
+		{intents && <script is:inline define:vars={{ intents }}>
+			(() => {
+				const params = new URLSearchParams(window.location.search);
+				const key = Object.keys(intents).find((k) => params.has(k));
+				if (!key) return;
+				document.documentElement.dataset.contactIntent = key;
+				const root = document.currentScript.previousElementSibling;
+				['eyebrow', 'title', 'lede'].forEach((part) => {
+					const el = root.querySelector(`[data-intro="${part}"]`);
+					if (el) el.textContent = intents[key][part];
+				});
+			})();
+		</script>}
+		<div class="tc-fp__form">
+			<slot />
+		</div>
+		<aside class="tc-fp__aside" aria-labelledby={elsewhere.length > 0 ? 'tc-fp-aside-title' : undefined}>
+			<slot name="aside" />
+			{elsewhere.length > 0 && (
+				<>
+					<h2 class="tc-fp__aside-title" id="tc-fp-aside-title">
+						{elsewhereTitle}
+					</h2>
+					<ul class="tc-fp__list">
+						{elsewhere.map((item) => (
+							<li class="tc-fp__item" data-accent={item.accent}>
+								<Mark size={48} icon={item.icon} fill="white" accent={item.accent ? undefined : 'neutral'} lift />
+								<span class="tc-fp__text">
+									<span class="tc-fp__lead">{item.lead}</span>
+									<Link
+										class="tc-fp__link"
+										href={item.href}
+										tone="ink"
+										external={item.external}
+										dir={item.external ? undefined : 'none'}
+									>
+										{item.label}
+									</Link>
+								</span>
+							</li>
+						))}
+					</ul>
+				</>
+			)}
+		</aside>
+	</div>
+</BaseLayout>
+
+<style lang="scss" is:global>
+	// The pricing page's ground, as Contact us has it: the wave field is fixed behind the page, so the
+	// body lets it through in light mode.
+	:root:not([data-theme='dark']) body:has(.tc-fp) {
+		background-color: transparent;
+	}
+</style>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Contact us's grid, rule for rule: 344 for the intro, 656 for the form, in the footer's measure.
+	.tc-fp {
+		display: grid;
+		grid-template-columns: minmax(0, 344px) minmax(0, 1fr);
+		grid-template-rows: auto auto 1fr;
+		grid-template-areas:
+			'top top'
+			'intro form'
+			'aside form';
+		gap: 0 $spacing-10;
+		max-width: $page-measure-box;
+		margin: 0 auto;
+		padding: calc(var(--home-header-h, #{$header-height}) + #{$spacing-12}) $spacing-5 $spacing-24;
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+			grid-template-rows: none;
+			grid-template-areas: 'top' 'intro' 'form' 'aside';
+			padding-top: calc(var(--home-header-h, #{$header-height}) + #{$spacing-8});
+			padding-bottom: $spacing-16;
+		}
+
+		:where(p, h2, ul) {
+			margin: 0;
+		}
+	}
+
+	.tc-fp__intro {
+		grid-area: intro;
+		padding-top: $spacing-6;
+
+		@include media-down(lg) {
+			padding-top: 0;
+			margin-bottom: $spacing-8;
+		}
+
+		:global(.tc-crumbs) {
+			margin-bottom: $spacing-5;
+		}
+
+		:global(.section-header .section-header__title) {
+			@include media-up(lg) {
+				font-size: 34px;
+			}
+
+			text-wrap: balance;
+		}
+	}
+
+	.tc-fp__form {
+		grid-area: form;
+		min-width: 0;
+	}
+
+	.tc-fp__aside {
+		display: grid;
+		grid-area: aside;
+		align-self: start;
+		gap: $spacing-5;
+		margin-top: $spacing-12;
+
+		@include media-down(lg) {
+			margin-top: $spacing-10;
+		}
+	}
+
+	.tc-fp__aside-title {
+		@include type-tile;
+		color: var(--color-text);
+	}
+
+	.tc-fp__list {
+		display: grid;
+		gap: $spacing-5;
+		padding: 0;
+		list-style: none;
+	}
+
+	.tc-fp__item {
+		display: flex;
+		align-items: flex-start;
+		gap: 14px;
+	}
+
+	.tc-fp__text {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.tc-fp__lead {
+		@include type-small;
+		color: var(--color-text-secondary);
+	}
+
+	.tc-fp__item :global(.tc-fp__link) {
+		width: fit-content;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+</style>

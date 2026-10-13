@@ -1,0 +1,151 @@
+---
+import { Icon } from 'astro-icon/components';
+import ThanksPage, { type NextLink } from '@components/TrustCenter/ThanksPage.astro';
+import { CONTACT_SENT_KEY, NDA_STEPS, SECURITY_TOPICS, SENT_MAX_AGE_MS } from '@data/trust-center/forms';
+import { tc } from '@data/trust-center/nav';
+
+/**
+ * The contact form's thank-you (both prototypes land here), on Contact us's. What it says follows
+ * the topic:
+ * - Request documents: "Request sent", what was asked for, and, with an NDA document in it, the NDA's
+ *   three steps; a planned document adds that we'll write when it's ready.
+ * - A questionnaire, a question: where the reply goes.
+ * - A data subject request: where the reply goes, and that we may confirm who is asking.
+ * - Any other topic (the merged prototype's Contact us topics): Contact us's own words. Ported, those
+ *   would stay on `/contact-us-thanks/`, and the security topics would bring this page's parts there.
+ *
+ * Without what the form kept (another tab, storage off, an hour later), the generic words stay.
+ */
+
+const NEXT: NextLink[] = [
+	{
+		icon: 'tabler:file-text',
+		title: 'Browse the documents',
+		line: 'Certificates, the DPA and the sub-processors, ready now.',
+		href: tc('documents'),
+		accent: true,
+	},
+	{
+		icon: 'tabler:help-circle',
+		title: 'Trust Center FAQ',
+		line: 'Answers to the questions reviewers ask most.',
+		href: `${tc()}#faq`,
+	},
+];
+
+const TOPIC = {
+	documents: SECURITY_TOPICS.documents.value,
+	questionnaire: SECURITY_TOPICS.questionnaire.value,
+	question: SECURITY_TOPICS.question.value,
+	dsr: SECURITY_TOPICS.dsr.value,
+};
+---
+
+<ThanksPage
+	metaTitle="Message sent · Trust Center"
+	description="Thank you for getting in touch with ThingsBoard's security team."
+	eyebrow="Message sent"
+	title="Thanks, your message is on its way"
+	lede="Our security team will read it and reply by email."
+	next={NEXT}
+	back={{ href: tc(), label: 'Back to the Trust Center' }}
+>
+	<div class="tc-thanks-more" data-thanks="docs" hidden>
+		<p class="tc-thanks-more__label">What you asked for</p>
+		<ul class="tc-thanks-more__docs" data-thanks="doclist"></ul>
+	</div>
+	<div class="tc-thanks-more" data-thanks="nda" hidden>
+		<p class="tc-thanks-more__label">What happens next</p>
+		<ol class="tc-steps">
+			{NDA_STEPS.map((step, i) => (
+				<li class="tc-steps__item">
+					<span class="tc-steps__n" aria-hidden="true">
+						{i + 1}
+					</span>
+					<span class="tc-steps__text">
+						<span class="tc-steps__title">{step.title}</span>
+						{step.line && <span class="tc-steps__line">{step.line}</span>}
+					</span>
+				</li>
+			))}
+		</ol>
+	</div>
+	<p class="tc-thanks-note" data-thanks="planned" hidden>
+		<Icon name="tabler:clock" class="tc-thanks-note__icon" aria-hidden="true" />
+		<span>We’ll write to you when the planned documents are ready.</span>
+	</p>
+	{/* CLARIFY: the data subject request's process (how identity is confirmed, by whom, how fast) is the
+	    privacy team's; this line says no more than that a check may come. */}
+	<p class="tc-thanks-note" data-thanks="dsr" hidden>
+		<Icon name="tabler:id-badge-2" class="tc-thanks-note__icon" aria-hidden="true" />
+		<span>We may ask you to confirm your identity before we act on the request.</span>
+	</p>
+
+	<script slot="script" is:inline define:vars={{ KEY: CONTACT_SENT_KEY, MAX_AGE: SENT_MAX_AGE_MS, TOPIC }}>
+		(() => {
+			let sent = null;
+			try {
+				sent = JSON.parse(sessionStorage.getItem(KEY) || 'null');
+			} catch {
+				// Storage blocked or the entry unreadable: the page stays generic.
+			}
+			if (!sent || typeof sent.at !== 'number' || Date.now() - sent.at > MAX_AGE) return;
+
+			const part = (name) => document.querySelector(`[data-thanks="${name}"]`);
+			// Built as nodes, not markup: the name and the address are the reader's own input.
+			const strong = (text) => {
+				const el = document.createElement('strong');
+				el.textContent = text;
+				return el;
+			};
+			const name = typeof sent.firstName === 'string' ? sent.firstName : '';
+			const email = typeof sent.email === 'string' ? sent.email : '';
+			const docs = Array.isArray(sent.docs) ? sent.docs : [];
+			const nda = docs.some((d) => d.access === 'nda');
+			const planned = docs.some((d) => d.access === 'pending');
+
+			let title = name ? `Thanks, ${name}. Your message is on its way.` : '';
+			let lede;
+			if (sent.subject === TOPIC.documents) {
+				part('eyebrow').textContent = 'Request sent';
+				title = name ? `Thanks, ${name}. Your request is on its way.` : 'Thanks, your request is on its way';
+				lede = nda
+					? ['We’ll email our mutual NDA to ', strong(email), '.']
+					: ['We’ll write to ', strong(email), ' when the planned documents are ready.'];
+				const list = part('doclist');
+				docs.forEach((d) => {
+					const li = document.createElement('li');
+					li.textContent = d.label;
+					if (d.access === 'pending') {
+						const tag = document.createElement('span');
+						tag.className = 'tc-reqdocs__tag';
+						tag.textContent = 'Planned';
+						li.append(' ', tag);
+					}
+					list.append(li);
+				});
+				part('docs').hidden = docs.length === 0;
+				part('nda').hidden = !nda;
+				part('planned').hidden = !(nda && planned);
+			} else if (sent.subject === TOPIC.questionnaire) {
+				lede = ['Our security team will read it and reply to ', strong(email), ' about your questionnaire.'];
+			} else if (sent.subject === TOPIC.question) {
+				lede = ['Our security team will read it and reply to ', strong(email), '.'];
+			} else if (sent.subject === TOPIC.dsr) {
+				lede = ['We’ll reply to ', strong(email), ' about your request.'];
+				part('dsr').hidden = false;
+			} else {
+				lede = ['Someone from our team will read it and reply to ', strong(email), ' as soon as we can.'];
+			}
+
+			if (title) part('title').textContent = title;
+			if (email && lede) part('lede').replaceChildren(...lede);
+			if (typeof sent.from === 'string' && sent.from.startsWith('/')) {
+				const url = new URL(sent.from, window.location.origin);
+				url.searchParams.set('resend', '');
+				part('fix-link').href = `${url.pathname}${url.search.replace('resend=', 'resend')}`;
+				part('fix').hidden = false;
+			}
+		})();
+	</script>
+</ThanksPage>

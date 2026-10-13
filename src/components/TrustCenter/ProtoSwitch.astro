@@ -1,0 +1,40 @@
+---
+import { tc } from '@data/trust-center/nav';
+
+/**
+ * PROTOTYPE: the switch between the contact form's two versions, over both pages. It keeps the link's
+ * query (`?subject=…&doc=…`) across, and adds `security` on the way to the merged one, the flag a
+ * Trust Center link into `/contact-us/` would carry. Goes when one version is chosen.
+ */
+
+interface Props {
+	current: 'separate' | 'merged';
+}
+
+const { current } = Astro.props;
+const VERSIONS = [
+	{ id: 'separate', label: 'Separate page', href: tc('contact') },
+	{ id: 'merged', label: 'Merged into Contact us', href: tc('contact/merged') },
+] as const;
+---
+
+<nav class="tc-proto" aria-label="Prototype versions" data-proto-switch>
+	<span class="tc-proto__label">Prototype</span>
+	{VERSIONS.map((v) => (
+		<a class="tc-proto__link" href={v.href} aria-current={v.id === current ? 'page' : undefined} data-version={v.id}>
+			{v.label}
+		</a>
+	))}
+</nav>
+
+<script>
+	document.querySelectorAll<HTMLElement>('[data-proto-switch]').forEach((nav) => {
+		nav.querySelectorAll<HTMLAnchorElement>('a[data-version]').forEach((a) => {
+			const params = new URLSearchParams(window.location.search);
+			if (a.dataset.version === 'merged' && !params.has('security')) params.set('security', '');
+			if (a.dataset.version === 'separate') params.delete('security');
+			const query = params.toString().replace(/security=(&|$)/, 'security$1');
+			a.href = `${a.pathname}${query ? `?${query}` : ''}`;
+		});
+	});
+</script>

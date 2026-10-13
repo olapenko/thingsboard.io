@@ -1,0 +1,809 @@
+---
+import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
+import Card from '@components/ui/Card.astro';
+import Field from '@components/ui/Field.astro';
+import RequestDocuments from '@components/TrustCenter/RequestDocuments.astro';
+import { SECURITY_TOPICS, SECURITY_TOPIC_GROUP, SECURITY_TOPIC_LIST } from '@data/trust-center/forms';
+
+/**
+ * PROTOTYPE: the Trust Center's contact form, as a copy of the site's Contact us form
+ * (`components/ContactForm.astro`): its card, fields, topic select, slider, words and validation
+ * (`@util/form-validate`, with the inline errors). Two variants of one decision:
+ *
+ * - `separate`: the security topics only (a plain select, "Security, compliance or privacy question"
+ *   picked until a link or the reader picks another), no device slider.
+ * - `merged`: everything Contact us asks, with the security topics as one more group at the end of
+ *   its select, the way they would land in `/contact-us/`. A link with `?security` (the Trust
+ *   Center's) keeps only that group, and the page swaps its intro (`FormPage`'s `intents`).
+ *
+ * What the security topics add, in both: the documents checklist and its notes
+ * (`RequestDocuments`) for "Request documents", the message optional there, and "Email" for "Work
+ * email" with Company optional for a data subject request. Every addition is marked SECURITY, so
+ * porting it into `ContactForm.astro` (when asked) is those blocks and nothing else.
+ *
+ * Left out of the copy, which posts nowhere: Formspree, the UTM and analytics fields, the GTM hooks,
+ * and the bot check. A valid message goes to `/trust-center/contact/thanks/`, Contact us's hand-off
+ * with a key of its own (`CONTACT_SENT_KEY`), and "Edit and send again" comes back with `?resend`
+ * (see the INTEGRATION NOTE in `@data/trust-center/forms`).
+ */
+
+interface Props {
+	variant: 'separate' | 'merged';
+}
+
+const { variant } = Astro.props;
+const merged = variant === 'merged';
+
+// ── Contact us's own, copied as they are ────────────────────────────────────
+
+const SUPPORT_PORTAL_URL = 'https://thingsboard-portal.atlassian.net/servicedesk/customer/portal/1';
+const GITHUB_ISSUES_URL = 'https://github.com/thingsboard/thingsboard/issues';
+const DEFAULT_PROMPT = 'What you’re working on, where you’d like it to run, and any timeline you have in mind.';
+const DEVICE_STEPS = [
+	'',
+	'Under 100',
+	'100–1,000',
+	'1,000–5,000',
+	'5,000–25,000',
+	'25,000–100,000',
+	'100,000–1M',
+	'Over 1M',
+];
+const DEVICES_SHOWN_FOR = [
+	'',
+	'ThingsBoard Products',
+	'Private Cloud',
+	'Deployment Options',
+	'TBMQ',
+	'Community Grant',
+	'Professional Services',
+	'Custom Development Service',
+];
+const TOPICS: { group: string; options: { value: string; label: string; prompt: string }[] }[] = [
+	{
+		group: 'Products and plans',
+		options: [
+			{
+				value: 'ThingsBoard Products',
+				label: 'ThingsBoard products and plans',
+				prompt: 'What you’re building, and whether you’d like us to host it or run it yourself.',
+			},
+			{
+				value: 'Private Cloud',
+				label: 'Private Cloud',
+				prompt: 'Your message volume, your preferred region, and when you’d like to go live.',
+			},
+			{
+				value: 'Deployment Options',
+				label: 'Deployment options',
+				prompt: 'Where you’d like to run ThingsBoard — our cloud, your servers or at the edge.',
+			},
+			{
+				value: 'TBMQ',
+				label: 'TBMQ MQTT broker',
+				prompt: 'Your message throughput, and whether you’d host the broker yourself.',
+			},
+			{
+				value: 'Community Grant',
+				label: 'Community Grant Program',
+				prompt: 'Your deployment — its version and production servers — and your question about the grant.',
+			},
+		],
+	},
+	{
+		group: 'Services',
+		options: [
+			{
+				value: 'Professional Services',
+				label: 'Professional services',
+				prompt: 'What you’d like a hand with — architecture, a review, a migration or a rollout.',
+			},
+			{
+				value: 'Custom Development Service',
+				label: 'Custom development',
+				prompt: 'What you’d like built — a widget, an integration, a white-label app — and your timeline.',
+			},
+			{
+				value: 'Training',
+				label: 'Training',
+				prompt: 'Who’s taking part, how many people, and the topics you want to cover.',
+			},
+		],
+	},
+	{
+		group: 'Support',
+		options: [
+			{
+				value: 'Technical Support',
+				label: 'Technical support',
+				prompt: 'Your edition and version, what you expected, and what happened instead. Error messages help.',
+			},
+		],
+	},
+	{
+		group: 'Everything else',
+		options: [
+			{
+				value: 'IoT Hub',
+				label: 'IoT Hub',
+				prompt: 'What you’d like to list or ask about — a device, a widget, a solution — with a link if you have one.',
+			},
+			{
+				value: 'Partnership',
+				label: 'Partnership',
+				prompt: 'Your company, who you serve, and the kind of partnership you have in mind.',
+			},
+			{
+				value: 'Press or Analyst Inquiry',
+				label: 'Press or analyst inquiry',
+				prompt: 'Your publication or firm, the story or report, and your deadline.',
+			},
+			{
+				value: 'General Feedback',
+				label: 'General feedback',
+				prompt: 'What’s working for you, what isn’t, and what you’d change.',
+			},
+			{ value: 'Other', label: 'Something else', prompt: DEFAULT_PROMPT },
+		],
+	},
+];
+
+// SECURITY: what each security option carries for the script.
+const securityAttrs = (t: (typeof SECURITY_TOPIC_LIST)[number]) => ({
+	value: t.value,
+	'data-prompt': t.prompt,
+	'data-security': '',
+	'data-documents': t.documents ? '' : undefined,
+	'data-message-optional': t.messageOptional ? '' : undefined,
+	'data-personal': t.personal ? '' : undefined,
+});
+// SECURITY: the separate page starts on the general question; a link or the reader picks another.
+const separateDefault = SECURITY_TOPICS.question.value;
+---
+
+<div class="cf" data-tc-contact data-variant={variant}>
+	<Card as="form" role="panel" class="cf-card" attrs={{ id: 'tc-contact', method: 'post', novalidate: 'novalidate' }}>
+		<div class="cf-head">
+			<h2 class="cf-title">Send us a message</h2>
+		</div>
+		<fieldset class="cf-fields">
+			<legend class="ui-sr">Your details and message</legend>
+			<Field
+				name="firstName"
+				id="cf-first"
+				label="First name"
+				maxLength={50}
+				autocomplete="given-name"
+				attrs={{ autocapitalize: 'words' }}
+			/>
+			<Field
+				name="lastName"
+				id="cf-last"
+				label="Last name"
+				maxLength={50}
+				autocomplete="family-name"
+				attrs={{ autocapitalize: 'words' }}
+			/>
+			<Field
+				name="email"
+				id="cf-email"
+				label="Work email"
+				type="email"
+				maxLength={80}
+				autocomplete="email"
+				inputmode="email"
+				attrs={{ autocapitalize: 'off', spellcheck: 'false' }}
+			/>
+			<Field name="company" id="cf-company" label="Company" maxLength={80} autocomplete="organization" />
+
+			<div class:list={['ui-field cf-field--topic', !merged && 'cf-field--full']}>
+				<label class="ui-field__label" for="cf-subject">
+					What’s it about?{merged && <span class="ui-field__optional">(optional)</span>}
+				</label>
+				<div class="ui-field__row cf-select">
+					<select
+						class:list={['ui-field__control cf-select__control', merged && 'input--empty']}
+						name="subject"
+						id="cf-subject"
+					>
+						{merged ? (
+							<>
+								<option value="" selected>
+									Choose a topic
+								</option>
+								{TOPICS.map((t) => (
+									<optgroup label={t.group}>
+										{t.options.map((o) => (
+											<option value={o.value} data-prompt={o.prompt}>
+												{o.label}
+											</option>
+										))}
+									</optgroup>
+								))}
+								{/* SECURITY: the Trust Center's topics, one more group. */}
+								<optgroup label={SECURITY_TOPIC_GROUP} data-security-group>
+									{SECURITY_TOPIC_LIST.map((t) => (
+										<option {...securityAttrs(t)}>{t.label}</option>
+									))}
+								</optgroup>
+							</>
+						) : (
+							SECURITY_TOPIC_LIST.map((t) => (
+								<option {...securityAttrs(t)} selected={t.value === separateDefault}>
+									{t.label}
+								</option>
+							))
+						)}
+					</select>
+					<Icon name="tabler:chevron-down" class="cf-select__chevron" aria-hidden="true" />
+				</div>
+				{merged && (
+					<p class="cf-note" id="topic-note" hidden>
+						<Icon name="tabler:info-circle" class="cf-note__icon" aria-hidden="true" />
+						<span>
+							On a paid plan? The{' '}
+							<a href={SUPPORT_PORTAL_URL} target="_blank" rel="noopener noreferrer">
+								Support portal
+							</a>{' '}
+							is the fastest way to reach our support engineers. Running ThingsBoard on your own servers? You can also
+							ask on{' '}
+							<a href={GITHUB_ISSUES_URL} target="_blank" rel="noopener noreferrer">
+								GitHub issues
+							</a>
+							.
+						</span>
+					</p>
+				)}
+			</div>
+
+			{merged && (
+				<div
+					class="ui-field cf-field--devices"
+					id="devices-field"
+					data-steps={JSON.stringify(DEVICE_STEPS)}
+					data-shown-for={JSON.stringify(DEVICES_SHOWN_FOR)}
+				>
+					<div class="cf-range-head">
+						<label class="ui-field__label" for="devices-range">
+							<span id="devices-label">How many devices?</span>
+							<span class="ui-field__optional">(optional)</span>
+						</label>
+						<output class="cf-range-value is-empty" id="devices-value" for="devices-range">
+							Not sure yet
+						</output>
+					</div>
+					<input
+						class="cf-range"
+						type="range"
+						id="devices-range"
+						min="0"
+						max={DEVICE_STEPS.length - 1}
+						step="1"
+						value="0"
+						aria-valuetext="Not sure yet"
+					/>
+					<div class="cf-range-ticks" aria-hidden="true">
+						{DEVICE_STEPS.map(() => (
+							<span />
+						))}
+					</div>
+					<div class="cf-range-ends" aria-hidden="true">
+						<span>Not sure</span>
+						<span>1M+</span>
+					</div>
+					<input type="hidden" name="devices" id="devices" value="" />
+				</div>
+			)}
+
+			{/* SECURITY: the documents, for "Request documents". */}
+			<div class="cf-field--full">
+				<RequestDocuments idPrefix="cf-docs" />
+			</div>
+
+			<Field
+				name="message"
+				id="cf-message"
+				label="How can we help?"
+				type="textarea"
+				placeholder={merged ? DEFAULT_PROMPT : SECURITY_TOPICS.question.prompt}
+				rows={4}
+				maxLength={3000}
+				counter
+				class="cf-field--full"
+				attrs={{ 'data-default-prompt': DEFAULT_PROMPT }}
+			/>
+		</fieldset>
+
+		<div class="cf-actions">
+			<Button type="submit" size="lg" id="tc-contact-submit" attrs={{ style: '--btn-min-w: 200px' }}>
+				Send message
+			</Button>
+			<p class="cf-reassure">We’ll reply by email.</p>
+		</div>
+	</Card>
+</div>
+
+<script>
+	import { validateAll, wireCounter, wireValidation, type FieldControl, type Problem } from '@util/form-validate';
+	import {
+		CONTACT_SENT_KEY,
+		SECURITY_TOPICS as SECURITY_TOPICS_BY_KEY,
+		SENT_MAX_AGE_MS,
+	} from '@data/trust-center/forms';
+	import { tc } from '@data/trust-center/nav';
+
+	const isValidEmail = (email: string) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/.test(email);
+	const XSS_PATTERN =
+		/<\s*\/?\s*(?:script|iframe|object|embed)\b|javascript\s*:|on(?:click|error|load|focus|blur|mouseover|mouseout|change|submit|input|toggle|animationend)\s*=/i;
+
+	// Contact us's words; the documents' and the data subject request's are the SECURITY additions.
+	const REQUIRED: Record<string, string> = {
+		firstName: 'Enter your first name.',
+		lastName: 'Enter your last name.',
+		email: 'Enter your email so we can reply.',
+		company: 'Enter your company. Working on your own? Your name is fine.',
+		message: 'Tell us a little about what you need.',
+	};
+
+	document.querySelectorAll<HTMLElement>('[data-tc-contact]').forEach((root) => {
+		const form = root.querySelector<HTMLFormElement>('#tc-contact')!;
+		const select = form.querySelector<HTMLSelectElement>('#cf-subject')!;
+		const message = form.querySelector<HTMLTextAreaElement>('#cf-message')!;
+		const docs = form.querySelector<HTMLFieldSetElement>('[data-request-docs]')!;
+		const docsError = docs.querySelector<HTMLElement>('.ui-field__error')!;
+		const boxes = [...docs.querySelectorAll<HTMLInputElement>('input[name="documents"]')];
+		const merged = root.dataset.variant === 'merged';
+
+		const option = () => select.selectedOptions[0] as HTMLOptionElement | undefined;
+		const has = (key: string) => option()?.dataset[key] !== undefined;
+
+		// A label's "(optional)", added and taken away with the topic.
+		const optionalMark = (id: string, on: boolean) => {
+			const label = form.querySelector<HTMLLabelElement>(`label[for="${id}"]`);
+			if (!label) return;
+			let mark = label.querySelector<HTMLElement>('[data-optional]');
+			if (on && !mark) {
+				mark = document.createElement('span');
+				mark.className = 'ui-field__optional';
+				mark.dataset.optional = '';
+				mark.textContent = '(optional)';
+				label.append(' ', mark);
+			}
+			if (!on && mark) {
+				mark.previousSibling?.remove();
+				mark.remove();
+			}
+		};
+
+		// ── `?security`: only the Trust Center's group, the separate page's way ──
+		// The topic is no longer optional, and it starts on the general question, as the separate page
+		// does; the link's `?subject=` below still picks another.
+		if (merged && document.documentElement.dataset.contactIntent === 'security') {
+			select.querySelectorAll('optgroup:not([data-security-group])').forEach((g) => g.remove());
+			select.querySelector('option[value=""]')?.remove();
+			select.closest('.ui-field')?.querySelector('label .ui-field__optional')?.remove();
+			select.value = SECURITY_TOPICS_BY_KEY.question.value;
+		}
+
+		// ── The devices (merged): Contact us's slider, as it is ────────────────
+		const devicesField = form.querySelector<HTMLElement>('#devices-field');
+		const syncDevices = () => {
+			if (!devicesField) return;
+			const range = form.querySelector<HTMLInputElement>('#devices-range')!;
+			const readout = form.querySelector<HTMLOutputElement>('#devices-value')!;
+			const submitted = form.querySelector<HTMLInputElement>('#devices')!;
+			const label = form.querySelector<HTMLElement>('#devices-label')!;
+			const steps: string[] = JSON.parse(devicesField.dataset.steps || '[]');
+			const shownFor: string[] = JSON.parse(devicesField.dataset.shownFor || '[]');
+			const hide = !shownFor.includes(select.value);
+			devicesField.hidden = hide;
+			submitted.disabled = hide;
+			const clients = select.value === 'TBMQ';
+			const i = Number(range.value);
+			const text = i === 0 ? 'Not sure yet' : `${steps[i]} ${clients ? 'clients' : 'devices'}`;
+			label.textContent = clients ? 'How many connected clients?' : 'How many devices?';
+			readout.textContent = text;
+			readout.classList.toggle('is-empty', i === 0);
+			range.setAttribute('aria-valuetext', text);
+			range.style.setProperty('--p', String(i / (steps.length - 1)));
+			submitted.value = i === 0 ? '' : text;
+		};
+		form.querySelector('#devices-range')?.addEventListener('input', syncDevices);
+
+		// ── The topic drives the rest ──────────────────────────────────────────
+		const applyTopic = () => {
+			select.classList.toggle('input--empty', select.value === '');
+			message.placeholder = option()?.dataset.prompt || message.dataset.defaultPrompt || '';
+			const note = form.querySelector<HTMLElement>('#topic-note');
+			if (note) note.hidden = select.value !== 'Technical Support';
+
+			// SECURITY
+			docs.hidden = !has('documents');
+			optionalMark('cf-message', has('messageOptional'));
+			optionalMark('cf-company', has('personal'));
+			const emailLabel = form.querySelector<HTMLLabelElement>('label[for="cf-email"]');
+			if (emailLabel?.firstChild) emailLabel.firstChild.textContent = has('personal') ? 'Email' : 'Work email';
+			syncDevices();
+		};
+
+		// ── From the address: `?subject=`, `?doc=`, `?message=` ────────────────
+		const params = new URLSearchParams(window.location.search);
+		const subject = params.get('subject')?.trim().toLowerCase();
+		if (subject) {
+			const match = [...select.options].find((o) => o.value && o.value.toLowerCase() === subject);
+			if (match) select.value = match.value;
+		}
+		const doc = params.get('doc');
+		if (doc) {
+			const box = boxes.find((b) => b.value === doc);
+			if (box) box.checked = true;
+		}
+		const prefilled = params.get('message');
+		if (prefilled) message.value = prefilled;
+
+		// ── `?resend`, from the thank-you page: the last message back, ready to correct ──
+		const SENT_FIELDS = ['firstName', 'lastName', 'email', 'company', 'message'];
+		const readSent = (): Record<string, unknown> | null => {
+			try {
+				const sent = JSON.parse(sessionStorage.getItem(CONTACT_SENT_KEY) || 'null');
+				return sent && typeof sent.at === 'number' && Date.now() - sent.at <= SENT_MAX_AGE_MS ? sent : null;
+			} catch {
+				return null;
+			}
+		};
+		const restored = params.has('resend') ? readSent() : null;
+		if (restored) {
+			SENT_FIELDS.forEach((name) => {
+				const el = form.elements.namedItem(name) as FieldControl | null;
+				if (el && typeof restored[name] === 'string') el.value = restored[name] as string;
+			});
+			const wanted = [...select.options].find((o) => o.value === restored.subject);
+			if (wanted) select.value = wanted.value;
+			const ticked = Array.isArray(restored.docs) ? restored.docs.map((d: { value: string }) => d.value) : [];
+			boxes.forEach((b) => (b.checked = ticked.includes(b.value)));
+			const range = form.querySelector<HTMLInputElement>('#devices-range');
+			if (range && typeof restored.devicesStep === 'string') range.value = restored.devicesStep;
+		}
+		applyTopic();
+		docs.dispatchEvent(new Event('docs:sync'));
+		select.addEventListener('change', applyTopic);
+		wireCounter(message);
+		// Back to correct something: most often the address the reply goes to.
+		if (restored) {
+			const email = form.querySelector<HTMLInputElement>('#cf-email');
+			email?.focus();
+			email?.select();
+		}
+
+		// ── Validation: Contact us's, plus the topic's own rules ───────────────
+		const fields = ['firstName', 'lastName', 'email', 'company', 'message']
+			.map((name) => form.elements.namedItem(name) as FieldControl | null)
+			.filter((el): el is FieldControl => !!el);
+
+		const check = (el: FieldControl): Problem => {
+			const val = el.value.trim();
+			if (val === '') {
+				if (el.name === 'message' && has('messageOptional')) return null;
+				if (el.name === 'company' && has('personal')) return null;
+				return { kind: 'required', message: REQUIRED[el.name] };
+			}
+			if (el.name === 'email' && !isValidEmail(val))
+				return { kind: 'format', message: 'Enter an email like name@company.com.' };
+			if (XSS_PATTERN.test(val)) return { kind: 'format', message: 'Remove any HTML or script tags.' };
+			return null;
+		};
+
+		const markAttempted = wireValidation(fields, check);
+
+		// SECURITY: at least one document for "Request documents".
+		const checkDocs = (): boolean => {
+			const ok = Boolean(docs.hidden) || boxes.some((b) => b.checked);
+			docsError.textContent = ok ? '' : 'Choose at least one document.';
+			docsError.hidden = ok;
+			if (ok) docs.removeAttribute('aria-invalid');
+			else docs.setAttribute('aria-invalid', 'true');
+			return ok;
+		};
+
+		form.addEventListener('submit', (event) => {
+			event.preventDefault();
+			markAttempted();
+			const fieldsOk = validateAll(fields, check);
+			const docsOk = checkDocs();
+			if (!fieldsOk) return;
+			if (!docsOk) {
+				boxes[0]?.focus();
+				return;
+			}
+
+			// What was sent, for the thank-you page and for "Edit and send again"; never in the URL.
+			const value = (name: string) => (form.elements.namedItem(name) as FieldControl | null)?.value.trim() ?? '';
+			const sent: Record<string, unknown> = { at: Date.now(), variant: root.dataset.variant };
+			SENT_FIELDS.forEach((name) => (sent[name] = value(name)));
+			sent.subject = select.value;
+			sent.topicLabel = select.value ? (option()?.textContent ?? '').trim() : '';
+			// SECURITY: the documents asked for, by name and access, while their topic is the one picked.
+			sent.docs = docs.hidden
+				? []
+				: boxes
+						.filter((b) => b.checked)
+						.map((b) => ({ value: b.value, label: b.dataset.label, access: b.dataset.access }));
+			sent.devicesStep = form.querySelector<HTMLInputElement>('#devices-range')?.value ?? '0';
+			// Where "Edit and send again" goes back to: this page and its link's query, less the resend.
+			const from = new URL(window.location.href);
+			from.searchParams.delete('resend');
+			sent.from = `${from.pathname}${from.search}`;
+			try {
+				sessionStorage.setItem(CONTACT_SENT_KEY, JSON.stringify(sent));
+			} catch {
+				// Private mode or storage off: the thank-you page falls back to its generic words.
+			}
+			// INTEGRATION NOTE: connected, the form posts and its endpoint's redirect (Formspree's `_next`)
+			// brings the reader here, as Contact us does; the prototype goes straight there.
+			window.location.assign(tc('contact/thanks'));
+		});
+	});
+</script>
+
+<style lang="scss">
+	@use '../../styles/variables' as *;
+
+	// Contact us's form, rule for rule (`components/ContactForm.astro`), less its popup mode.
+	.cf-card {
+		--cf-border: var(--color-border, #c3c8d1);
+		--cf-ring: color-mix(in srgb, var(--accent-fill, #{$color-brand}) 18%, transparent);
+
+		margin: 0;
+
+		:where(p, h2) {
+			margin: 0;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.cf-head {
+		margin-bottom: $spacing-5;
+	}
+
+	.cf-title {
+		@include type-card;
+		color: var(--color-text);
+	}
+
+	.cf-fields {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: $spacing-4;
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.cf-field--full {
+		grid-column: 1 / -1;
+	}
+
+	// The checklist's slot takes no row while it is hidden.
+	.cf-field--full:has(> :global([data-request-docs][hidden])) {
+		display: none;
+	}
+
+	.cf-field--topic:has(~ .cf-field--devices[hidden]) {
+		grid-column: 1 / -1;
+	}
+
+	// `?pcorder` arrives with the topic set, so the question is noise there; `?security` keeps it, with
+	// only the Trust Center's topics in it.
+	:global(html[data-contact-intent='pcorder']) .cf-field--topic {
+		display: none;
+	}
+
+	.cf-select {
+		position: relative;
+	}
+
+	.cf-select__control {
+		padding-right: 44px;
+		cursor: pointer;
+		appearance: none;
+
+		&.input--empty {
+			color: var(--color-text-muted);
+		}
+
+		option,
+		optgroup {
+			color: var(--color-text);
+			background: var(--color-bg-surface);
+		}
+	}
+
+	.cf-select :global(.cf-select__chevron) {
+		position: absolute;
+		top: 50%;
+		right: 14px;
+		width: 20px;
+		height: 20px;
+		transform: translateY(-50%);
+		color: var(--color-text-secondary);
+		pointer-events: none;
+	}
+
+	.cf-note {
+		@include type-small;
+		display: flex;
+		gap: $spacing-2;
+		margin-top: $spacing-2;
+		padding: 10px 12px;
+		color: var(--color-text);
+		background: color-mix(in srgb, var(--color-text) 5%, var(--color-bg-surface));
+		border-radius: $radius-lg;
+
+		&[hidden] {
+			display: none;
+		}
+
+		:global(.cf-note__icon) {
+			flex: none;
+			width: 18px;
+			height: 18px;
+			margin-top: 2px;
+			color: var(--color-text-secondary);
+		}
+
+		a {
+			color: var(--accent-ink, #{$color-brand});
+			font-weight: $font-weight-medium;
+			text-decoration: underline;
+			text-underline-offset: 2px;
+		}
+	}
+
+	.cf-field--devices[hidden] {
+		display: none;
+	}
+
+	.cf-field--devices {
+		position: relative;
+	}
+
+	.cf-range-head {
+		display: flex;
+		align-items: baseline;
+		gap: $spacing-4;
+	}
+
+	.cf-range-value {
+		position: absolute;
+		bottom: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		@include type-link;
+		color: var(--accent-ink, #{$color-brand});
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+
+		&.is-empty {
+			visibility: hidden;
+		}
+	}
+
+	.cf-range {
+		--thumb: 24px;
+		--track: 6px;
+		--p: 0;
+		--fill: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p));
+		--ink: var(--accent-fill, #{$color-brand});
+
+		width: 100%;
+		height: var(--thumb);
+		margin: 6px 0 0;
+		background: transparent;
+		cursor: pointer;
+		appearance: none;
+		-webkit-appearance: none;
+
+		&::-webkit-slider-runnable-track {
+			height: var(--track);
+			border-radius: 999px;
+			background: linear-gradient(to right, var(--ink) var(--fill), var(--cf-border) var(--fill));
+		}
+
+		&::-moz-range-track {
+			height: var(--track);
+			border-radius: 999px;
+			background: linear-gradient(to right, var(--ink) var(--fill), var(--cf-border) var(--fill));
+		}
+
+		&::-webkit-slider-thumb {
+			width: var(--thumb);
+			height: var(--thumb);
+			margin-top: calc((var(--track) - var(--thumb)) / 2);
+			background: var(--color-bg-surface);
+			border: 2px solid var(--ink);
+			border-radius: 50%;
+			box-shadow: 0 1px 3px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.2);
+			transition: box-shadow 0.15s ease;
+			-webkit-appearance: none;
+		}
+
+		&::-moz-range-thumb {
+			box-sizing: border-box;
+			width: var(--thumb);
+			height: var(--thumb);
+			background: var(--color-bg-surface);
+			border: 2px solid var(--ink);
+			border-radius: 50%;
+			box-shadow: 0 1px 3px rgba(var(--color-shadow-ui-rgb, 16, 24, 40), 0.2);
+		}
+
+		&:hover::-webkit-slider-thumb {
+			box-shadow: 0 0 0 6px var(--cf-ring);
+		}
+
+		&:focus {
+			outline: none;
+		}
+
+		&:focus-visible::-webkit-slider-thumb {
+			box-shadow: 0 0 0 6px var(--cf-ring);
+		}
+
+		&:focus-visible::-moz-range-thumb {
+			box-shadow: 0 0 0 6px var(--cf-ring);
+		}
+	}
+
+	.cf-range-ticks {
+		display: flex;
+		justify-content: space-between;
+		padding: 0 calc(12px - 1px);
+
+		span {
+			width: 2px;
+			height: 6px;
+			border-radius: 1px;
+			background: var(--cf-border);
+		}
+	}
+
+	.cf-field--devices:has(.cf-range-value:not(.is-empty)) .cf-range-ends {
+		visibility: hidden;
+	}
+
+	.cf-range-ends {
+		@include type-small;
+		display: flex;
+		justify-content: space-between;
+		margin-top: -2px;
+		color: var(--color-text-secondary);
+	}
+
+	.cf-actions {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: $spacing-3 $spacing-5;
+		margin-top: $spacing-8;
+
+		@include media-down(md) {
+			flex-direction: column;
+			align-items: stretch;
+			text-align: center;
+		}
+	}
+
+	.cf-reassure {
+		@include type-small;
+		color: var(--color-text-secondary);
+	}
+</style>

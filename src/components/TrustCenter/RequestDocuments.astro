@@ -1,0 +1,93 @@
+---
+import { Icon } from 'astro-icon/components';
+import { REQUEST_GROUPS } from '@data/trust-center/documents';
+import { NDA_NOTE, PLANNED_NOTE } from '@data/trust-center/forms';
+
+/**
+ * "Documents you need", for the contact form's "Request documents" topic (both prototypes): every
+ * document that has to be requested, in the hub's groups, the planned ones tagged. One note per kind
+ * of request shows once a box of that kind is ticked: "NDA required" for an NDA document, "not
+ * published yet" for a planned one, both when both are.
+ *
+ * The form shows and hides the fieldset with its topic, and asks for at least one box; this keeps the
+ * notes and clears its own error.
+ */
+
+interface Props {
+	/** Prefixes the ids, so the field can't collide with another on the page. */
+	idPrefix?: string;
+}
+
+const { idPrefix = 'docs' } = Astro.props;
+---
+
+<fieldset class="tc-reqdocs" id={`${idPrefix}-field`} hidden data-request-docs aria-describedby={`${idPrefix}-hint`}>
+	<legend class="ui-field__label tc-reqdocs__legend">Documents you need</legend>
+	<p class="tc-reqdocs__hint" id={`${idPrefix}-hint`}>
+		Tick everything you need; most are shared under a mutual NDA.
+	</p>
+	<div class="tc-reqdocs__groups">
+		{REQUEST_GROUPS.map((group, g) => (
+			<div class="tc-reqdocs__group" role="group" aria-labelledby={`${idPrefix}-g${g}`}>
+				<p class="tc-reqdocs__group-title" id={`${idPrefix}-g${g}`}>
+					{group.name}
+				</p>
+				<ul class="tc-checks tc-checks--stack">
+					{group.docs.map((d) => (
+						<li>
+							<label class="tc-check">
+								<input
+									class="tc-check__box"
+									type="checkbox"
+									name="documents"
+									value={d.value}
+									data-access={d.access}
+									data-label={d.label}
+								/>
+								<span>
+									{d.label}
+									{d.access === 'pending' && <span class="tc-reqdocs__tag">Planned</span>}
+								</span>
+							</label>
+						</li>
+					))}
+				</ul>
+			</div>
+		))}
+	</div>
+	<p class="ui-field__error" id={`${idPrefix}-error`} hidden></p>
+	<p class="tc-reqnote" data-note="nda" hidden>
+		<Icon name="tabler:lock" class="tc-reqnote__icon" aria-hidden="true" />
+		<span>
+			<strong>NDA required.</strong> {NDA_NOTE}
+		</span>
+	</p>
+	<p class="tc-reqnote" data-note="planned" hidden>
+		<Icon name="tabler:clock" class="tc-reqnote__icon" aria-hidden="true" />
+		<span>{PLANNED_NOTE}</span>
+	</p>
+</fieldset>
+
+<script>
+	// The notes follow what is ticked; a tick clears the "choose at least one" error.
+	document.querySelectorAll<HTMLFieldSetElement>('[data-request-docs]').forEach((field) => {
+		const boxes = [...field.querySelectorAll<HTMLInputElement>('input[name="documents"]')];
+		const note = (kind: string) => field.querySelector<HTMLElement>(`[data-note="${kind}"]`);
+		const error = field.querySelector<HTMLElement>('.ui-field__error');
+
+		const sync = () => {
+			const ticked = boxes.filter((b) => b.checked);
+			note('nda')!.hidden = !ticked.some((b) => b.dataset.access === 'nda');
+			note('planned')!.hidden = !ticked.some((b) => b.dataset.access === 'pending');
+			if (ticked.length && error) {
+				error.hidden = true;
+				field.removeAttribute('aria-invalid');
+			}
+		};
+
+		field.addEventListener('change', sync);
+		// The form ticks a box from the address (`?doc=`) and resets; both say so.
+		field.addEventListener('docs:sync', sync);
+		sync();
+	});
+</script>

@@ -1,13 +1,27 @@
 ---
+import { Icon } from 'astro-icon/components';
 import ProductMatrix from '@components/Landing/ProductMatrix.astro';
+import Button from '@components/ui/Button.astro';
+import Card from '@components/ui/Card.astro';
+import Field from '@components/ui/Field.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
-import { crumbs } from '@data/trust-center/nav';
+import { crumbs, tc } from '@data/trust-center/nav';
+import { TC_UPDATED, formatDate, pageAt } from '@data/trust-center/pages';
 import { SUBPROCESSORS, SUBPROCESSORS_NOTE } from '@data/trust-center/subprocessors';
 
 /**
  * Sub-processors, as drafted: the vendors with their purpose and location. On the product pages'
  * comparison table, the vendor the row's label, so it reflows on a phone instead of scrolling.
+ *
+ * Under it, "Get notified of changes": an email and a button. It was a topic of the contact form
+ * ("Sub-processor change notifications"), but it is a subscription, so it lives with the list. Not
+ * connected (see the INTEGRATION NOTE in `@data/trust-center/forms`): it needs a list the team
+ * mails when the table changes, with a confirmation email (double opt-in) before anyone is on it.
+ *
+ * Under the table, when the list last changed (the page list's `updated` for this page).
  */
+
+const listUpdated = pageAt(tc('subprocessors'))?.updated ?? TC_UPDATED;
 ---
 
 <TrustCenterLayout
@@ -23,6 +37,85 @@ import { SUBPROCESSORS, SUBPROCESSORS_NOTE } from '@data/trust-center/subprocess
 			columns={[{ name: 'Purpose' }, { name: 'Location' }]}
 			rows={SUBPROCESSORS.map((s) => ({ label: s.vendor, values: [s.purpose, s.location] }))}
 		/>
+		{/* When the list last changed: what a reader of the DPA's notice clause checks. */}
+		<p class="tc-dateline">
+			<Icon name="tabler:calendar" class="tc-dateline__icon" aria-hidden="true" />
+			<span>
+				List last updated <time datetime={listUpdated}>{formatDate(listUpdated)}</time>
+			</span>
+		</p>
 		<p class="tc-note" set:html={SUBPROCESSORS_NOTE} />
 	</section>
+
+	<section class="tc-section" aria-labelledby="notify-title">
+		<Card as="form" role="panel" class="tc-notify" attrs={{ id: 'tc-notify', novalidate: 'novalidate' }}>
+			<div class="tc-notify__text">
+				<h2 class="tc-h3" id="notify-title">
+					Get notified of changes
+				</h2>
+				<p class="tc-copy">We email you when this list changes, as the DPA sets out.</p>
+			</div>
+			<div class="tc-notify__row" data-notify-row>
+				<Field
+					name="email"
+					id="tc-notify-email"
+					label="Work email"
+					labelHidden
+					type="email"
+					size="md"
+					autocomplete="email"
+					inputmode="email"
+					placeholder="you@company.com"
+					attrs={{ autocapitalize: 'off', spellcheck: 'false' }}
+				/>
+				<Button type="submit" size="md">
+					Notify me
+				</Button>
+			</div>
+			{/* The thank-you pages' outcome, small: the success green's check and one line. It asks the reader
+			    to confirm, as a mailing list should (double opt-in): an address typed here is not consent
+			    until its owner clicks. */}
+			<div class="tc-notify__done" data-notify-done hidden tabindex="-1">
+				<span class="tc-notify__check" data-accent="onprem">
+					<Icon name="tabler:check" aria-hidden="true" />
+				</span>
+				<div>
+					<p class="tc-notify__done-title">Almost there: check your inbox</p>
+					<p class="tc-copy">
+						We've sent a link to <strong data-notify-email></strong>. Confirm it, and we'll email you when this list
+						changes.
+					</p>
+					<p class="tc-notify__proto">Prototype: this form isn’t connected yet, so nothing was sent.</p>
+				</div>
+			</div>
+		</Card>
+	</section>
 </TrustCenterLayout>
+
+<script>
+	import { validateAll, wireValidation, type FieldControl, type Problem } from '@util/form-validate';
+
+	const form = document.getElementById('tc-notify') as HTMLFormElement | null;
+	if (form) {
+		const email = form.querySelector<HTMLInputElement>('#tc-notify-email')!;
+		const check = (el: FieldControl): Problem => {
+			const val = el.value.trim();
+			if (val === '') return { kind: 'required', message: 'Enter your email.' };
+			if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/.test(val)) {
+				return { kind: 'format', message: 'Enter an email like name@company.com.' };
+			}
+			return null;
+		};
+		const markAttempted = wireValidation([email], check);
+		form.addEventListener('submit', (event) => {
+			event.preventDefault();
+			markAttempted();
+			if (!validateAll([email], check)) return;
+			const done = form.querySelector<HTMLElement>('[data-notify-done]')!;
+			done.querySelector('[data-notify-email]')!.textContent = email.value.trim();
+			form.querySelector<HTMLElement>('[data-notify-row]')!.hidden = true;
+			done.hidden = false;
+			done.focus();
+		});
+	}
+</script>
