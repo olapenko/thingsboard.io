@@ -64,11 +64,12 @@ export const DESIGN: DesignPage[] = [
 		id: 'foundations',
 		label: 'Foundations',
 		blurb:
-			'The values under every component: the accent schemes and the contrast they keep, the grounds a section sits on and the focus ring each picks, five elevations, the corners, the spacing scale, icon sizes and motion. Read from the rendered page, not copied from the source.',
+			'The values under every component: the accent schemes and the contrast they keep, the rest of the named palette in both themes, the grounds a section sits on and the focus ring each picks, five elevations, the corners, the spacing scale, icon sizes and motion. Read from the rendered page, not copied from the source.',
 		icon: 'tabler:color-swatch',
 		source: 'src/styles/_theme.scss · _variables.scss · _surface.scss',
 		sections: [
 			{ id: 'colour', label: 'Colour' },
+			{ id: 'palette', label: 'Palette' },
 			{ id: 'grounds', label: 'Grounds and focus' },
 			{ id: 'elevation', label: 'Elevation' },
 			{ id: 'radius', label: 'Radius' },

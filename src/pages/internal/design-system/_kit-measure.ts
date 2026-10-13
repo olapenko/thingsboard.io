@@ -7,6 +7,8 @@
  *   figure's first child or the element `data-m-el` names, written into its `.kit-m`.
  * - `data-var="--token"`: the token's computed value, as the element's text.
  * - `data-ratios`: the contrast the accent scheme around it keeps, for each text role on its ground.
+ * - `data-chip="text|ground|dark-ground"` on a palette swatch: its hex and contrast, into the element
+ *   after it.
  */
 
 const px = (v: string) => String(Math.round(parseFloat(v) * 10) / 10);
@@ -71,11 +73,9 @@ function measure() {
 	});
 
 	// The contrast each scheme's text roles keep, against the ground each is meant for.
-	const lum = (hex: string) => {
-		let h = hex.trim().replace(/^#/, '');
-		if (/^[0-9a-f]{3}$/i.test(h)) h = [...h].map((ch) => ch + ch).join('');
-		if (!/^[0-9a-f]{6}$/i.test(h)) return null;
-		const c = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+	const lum = (colour: string) => {
+		const c = channels(colour);
+		if (!c) return null;
 		const [r, g, b] = c.map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
 		return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 	};
@@ -91,6 +91,64 @@ function measure() {
 		const indigo = v('--band-indigo') || '#121425';
 		el.textContent = `on-fill on fill ${ratio(v('--accent-on-fill'), v('--accent-fill'))} · ink on white ${ratio(v('--accent-ink'), '#ffffff')} · light on indigo ${ratio(v('--accent-light'), indigo)}`;
 	});
+
+	// A palette chip: the colour it painted, as hex, and the contrast its `data-chip` names — the colour
+	// as text on the page ground, body text on it, or white on it. Read off the chip itself, so a chip
+	// inside `data-theme="dark"` measures against the dark ground and the dark text.
+	document.querySelectorAll<HTMLElement>('[data-chip]').forEach((chip) => {
+		const out = chip.nextElementSibling;
+		if (!out) return;
+		const cs = getComputedStyle(chip);
+		const paint = cs.backgroundColor;
+		const c = channels(paint);
+		if (!c) {
+			out.textContent = 'not set';
+			return;
+		}
+		const hex = `#${c
+			.map((v) =>
+				Math.round(v * 255)
+					.toString(16)
+					.padStart(2, '0')
+			)
+			.join('')}`;
+		const mode = chip.dataset.chip;
+		const against =
+			mode === 'ground'
+				? cs.getPropertyValue('--color-text').trim()
+				: mode === 'dark-ground'
+					? '#ffffff'
+					: cs.getPropertyValue('--color-bg').trim();
+		const r = ratio(hex, against);
+		const n = parseFloat(r);
+		const grade = n >= 4.5 ? 'text' : n >= 3 ? 'graphic' : 'low';
+		const label = mode === 'ground' ? 'text on it' : mode === 'dark-ground' ? 'white on it' : 'on ground';
+		out.innerHTML = '';
+		const value = document.createElement('code');
+		value.textContent = hex;
+		const meter = document.createElement('span');
+		meter.dataset.grade = grade;
+		meter.textContent = `${r} ${label}`;
+		out.append(value, meter);
+		chip.title = cs.getPropertyValue(chip.dataset.token ?? '').trim();
+	});
+}
+
+/** A computed colour — hex, `rgb()`/`rgba()` or `color(srgb …)` — as 0–1 sRGB channels, or null. */
+function channels(colour: string): number[] | null {
+	const s = colour.trim();
+	const hex = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+	if (hex) {
+		const h = hex[1].length === 3 ? [...hex[1]].map((ch) => ch + ch).join('') : hex[1];
+		return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+	}
+	const nums = (s.match(/-?[\d.]+/g) ?? []).map(Number);
+	if (s.startsWith('rgb') && nums.length >= 3) {
+		if (nums.length > 3 && nums[3] === 0) return null;
+		return nums.slice(0, 3).map((v) => v / 255);
+	}
+	if (s.startsWith('color(srgb') && nums.length >= 3) return nums.slice(0, 3);
+	return null;
 }
 
 measure();

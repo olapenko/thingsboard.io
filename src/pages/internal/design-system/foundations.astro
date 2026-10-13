@@ -1,4 +1,6 @@
 ---
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
 import Button from '@components/ui/Button.astro';
 import Link from '@components/ui/Link.astro';
@@ -66,6 +68,141 @@ const GROUNDS = [
 	{ ground: 'hue', note: '22% to 6% of the hue, 150°' },
 	{ ground: 'dark', note: '--band-indigo, sets data-surface="dark"' },
 ] as const;
+
+/**
+ * The palette: every other named colour in `_theme.scss`, by what it is for. `on` says what a
+ * swatch's ratio measures — `text`: the colour as text on the page ground · `ground`: body text
+ * (`--color-text`) on it · `dark-ground`: white on it. A group with `dark` is drawn a second time
+ * inside `data-theme="dark"`, which is where `_theme.scss` puts the dark values. `noDark` is for a
+ * token that takes its dark value from Starlight: Starlight sets that on the root, so a swatch on
+ * this light page cannot draw it.
+ */
+type Swatch = { v: string; use: string; on?: 'text' | 'ground' | 'dark-ground'; noDark?: string };
+/** `note` is trusted HTML, so a token in it can sit in `<code>`. */
+type PaletteGroup = { id: string; title: string; note: string; dark: boolean; tokens: Swatch[] };
+
+const PALETTE: PaletteGroup[] = [
+	{
+		id: 'neutrals',
+		title: 'Text, grounds and rules',
+		note: 'The neutrals every page sits on. Text is measured on the page ground, a ground by the body text on it.',
+		dark: true,
+		tokens: [
+			{ v: '--color-text', use: 'Body text, headings' },
+			{ v: '--color-text-secondary', use: 'Supporting text' },
+			{ v: '--color-text-muted', use: 'Captions, meta' },
+			{ v: '--color-text-light', use: 'Placeholders, faint labels' },
+			{ v: '--color-bg', use: 'The page', on: 'ground' },
+			{ v: '--color-bg-surface', use: 'A raised surface', on: 'ground' },
+			{ v: '--color-bg-light', use: 'A tinted block', on: 'ground' },
+			{ v: '--color-bg-muted', use: 'A quiet block', on: 'ground' },
+			{ v: '--color-bg-dark', use: 'A dark block', on: 'dark-ground' },
+			{ v: '--color-border', use: 'Rules, card edges' },
+			{ v: '--color-border-light', use: 'Field edges' },
+		],
+	},
+	{
+		id: 'status',
+		title: 'Status',
+		note: 'Messages and validation.',
+		dark: true,
+		tokens: [
+			{ v: '--color-success', use: 'Done, valid' },
+			{ v: '--color-danger', use: 'Errors' },
+			{ v: '--color-warning', use: 'Warnings' },
+			{ v: '--color-notice', use: 'Notice text and icon' },
+			{ v: '--color-notice-fill', use: 'Notice ground', on: 'ground' },
+		],
+	},
+	{
+		id: 'accents',
+		title: 'Accent palette',
+		note: 'The hues the redesigned key visuals share: connect routes, the twin’s series, the ecosystem cards. Light only: the pages that read them force the light theme.',
+		dark: false,
+		tokens: [
+			{ v: '--color-accent-cyan', use: 'Key visuals' },
+			{ v: '--color-accent-violet', use: 'Key visuals' },
+			{ v: '--color-accent-lime', use: 'Key visuals' },
+			{ v: '--color-accent-green', use: 'Key visuals, kickers' },
+			{ v: '--color-accent-amber', use: 'Key visuals, IoT Hub' },
+			{ v: '--color-accent-red', use: 'Key visuals' },
+		],
+	},
+	{
+		id: 'bands',
+		title: 'Bands and maps',
+		note: 'The grounds a Band paints, and the region pickers’ second hue. Light only.',
+		dark: false,
+		tokens: [
+			{ v: '--band-indigo', use: 'The dark bookend band', on: 'dark-ground' },
+			{ v: '--band-wave', use: 'Its wave line' },
+			{ v: '--band-tint', use: 'The tint band', on: 'ground' },
+			{ v: '--region-eu', use: 'Europe on the region pickers' },
+		],
+	},
+	{
+		id: 'legacy',
+		title: 'Older tokens',
+		note: 'From before the redesign and still defined. <code>--color-primary</code> reads Starlight’s accent, which is the brand indigo now, not the old #2a7dec blue it falls back to.',
+		dark: true,
+		tokens: [
+			{ v: '--color-brand', use: 'The brand indigo' },
+			{ v: '--color-primary', use: 'Old primary, docs links', noDark: 'Starlight’s dark accent' },
+			{ v: '--color-primary-hover', use: 'Its hover', noDark: 'Starlight’s dark accent' },
+			{ v: '--color-primary-dark', use: 'Old dark blue' },
+			{ v: '--color-primary-darker', use: 'Old navy', on: 'dark-ground' },
+			{ v: '--color-dark', use: 'Near-black', on: 'dark-ground' },
+			{ v: '--color-dark-alt', use: 'Near-black, warmer', on: 'dark-ground' },
+			{ v: '--tb-main-color', use: 'Docs main colour' },
+			{ v: '--menu-icon-color', use: 'Mega-menu icons', noDark: 'Starlight’s dark accent' },
+			{ v: '--color-light-blue-low', use: 'Badge ground', on: 'ground' },
+			{ v: '--color-light-blue', use: 'Badge' },
+			{ v: '--color-light-blue-high', use: 'Badge, strong' },
+			{ v: '--color-edge-low', use: 'Edge badge ground', on: 'ground' },
+			{ v: '--color-edge', use: 'Edge badge' },
+			{ v: '--color-edge-high', use: 'Edge badge, strong' },
+		],
+	},
+];
+
+/**
+ * The two product sets side by side, one row per product: `--color-product-*` and `--brand-*` came
+ * at different times and name the same products in different hues.
+ */
+const PRODUCT_SETS = ['--color-product-*', '--brand-*', '--brand-*-text'] as const;
+const PRODUCTS: { name: string; tokens: (string | null)[] }[] = [
+	{ name: 'Community', tokens: ['--color-product-ce', '--brand-ce', null] },
+	{ name: 'Professional', tokens: ['--color-product-pe', '--brand-pe', null] },
+	{ name: 'Cloud', tokens: ['--color-product-cloud', '--brand-cloud', null] },
+	{ name: 'Trendz', tokens: ['--color-product-trendz', '--brand-trendz', '--brand-trendz-text'] },
+	{ name: 'IoT Gateway', tokens: ['--color-product-gw', '--brand-gateway', null] },
+	{ name: 'Edge', tokens: [null, '--brand-edge', '--brand-edge-text'] },
+	{ name: 'Mobile', tokens: [null, '--brand-mobile', null] },
+	{ name: 'IoT Hub', tokens: ['--color-product-iot-hub', null, null] },
+];
+
+/**
+ * Who reads each token: the files under `src/` that write `var(--token`, read as the page renders.
+ * `_theme.scss` defines them and the internal pages draw them, so neither counts.
+ */
+const SRC = join(process.cwd(), 'src');
+const SKIP = new Set([join(SRC, 'pages', 'internal'), join(SRC, 'styles', '_theme.scss')]);
+const srcFiles: string[] = [];
+const walk = (dir: string) => {
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const path = join(dir, entry.name);
+		if (SKIP.has(path)) continue;
+		if (entry.isDirectory()) walk(path);
+		else if (/\.(astro|scss|css|ts|tsx|mdx)$/.test(entry.name)) srcFiles.push(path);
+	}
+};
+walk(SRC);
+const sources = srcFiles.map((path) => ({ path: relative(process.cwd(), path), text: readFileSync(path, 'utf8') }));
+const readers = (token: string) => {
+	const call = new RegExp(`var\\(\\s*${token}(?![\\w-])`);
+	return sources.filter((f) => call.test(f.text)).map((f) => f.path);
+};
+const filesWord = (n: number) => (n === 0 ? 'in no file' : n === 1 ? 'in 1 file' : `in ${n} files`);
 ---
 
 <PlaygroundLayout title={PAGE.label} description={PAGE.blurb}>
@@ -143,6 +280,135 @@ const GROUNDS = [
 						))}
 					</tbody>
 				</table>
+			</section>
+
+			<!-- ── Palette ── -->
+			<section class="kit-sec" id="palette">
+				<header class="kit-sec__head">
+					<h2>Palette</h2>
+					<p>
+						Every other named colour, by what it is for. A group with dark values is drawn twice, the second time inside{' '}
+						<code>data-theme="dark"</code>. The hex and the ratio are measured from the swatch; the file count is how
+						many files outside <code>internal/</code> read the token with <code>var()</code>.
+					</p>
+					<p class="kit-sec__src">src/styles/_theme.scss</p>
+				</header>
+				{PALETTE.map((g) => (
+					<div class="pal-group" id={`palette-${g.id}`}>
+						<div class="pal-group__head">
+							<h3>{g.title}</h3>
+							<p set:html={g.note} />
+						</div>
+						<div class="pal-rows" role="table" aria-label={g.title}>
+							<div class="pal-row pal-row--head" role="row">
+								<span role="columnheader">Token</span>
+								<span role="columnheader">Light</span>
+								<span role="columnheader">Dark</span>
+							</div>
+							{g.tokens.map((t) => {
+								const users = readers(t.v);
+								return (
+									<div class="pal-row" role="row">
+										<div class="pal-name" role="cell">
+											<code>{t.v}</code>
+											<span>
+												{t.use} ·{' '}
+												<span
+													class:list={['pal-files', users.length === 0 && 'pal-files--none']}
+													title={users.join('\n') || undefined}
+												>
+													{filesWord(users.length)}
+												</span>
+											</span>
+										</div>
+										<div class="pal-cell" role="cell">
+											<span
+												class="pal-chip"
+												data-chip={t.on ?? 'text'}
+												data-token={t.v}
+												style={`background: var(${t.v})`}
+											/>
+											<span class="pal-read" />
+										</div>
+										<div class="pal-cell" role="cell">
+											{g.dark && t.noDark ? (
+												<span class="pal-none">{t.noDark}</span>
+											) : g.dark ? (
+												<>
+													<span
+														class="pal-chip"
+														data-theme="dark"
+														data-chip={t.on ?? 'text'}
+														data-token={t.v}
+														style={`background: var(${t.v})`}
+													/>
+													<span class="pal-read" />
+												</>
+											) : (
+												<span class="pal-none">light only</span>
+											)}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					</div>
+				))}
+
+				<div class="pal-group" id="palette-products">
+					<div class="pal-group__head">
+						<h3>Product colours</h3>
+						<p>
+							Two sets name the products, and they disagree: <code>--color-product-*</code> colours product cards and
+							the chat’s keys; <code>--brand-*</code> was made for the old mega-menu. Each cell is light, then dark.
+						</p>
+					</div>
+					<div class="pal-scroll">
+						<table class="kit-table pal-products">
+							<thead>
+								<tr>
+									<th scope="col">Product</th>
+									{PRODUCT_SETS.map((s) => (
+										<th scope="col">
+											<code>{s}</code>
+										</th>
+									))}
+								</tr>
+							</thead>
+							<tbody>
+								{PRODUCTS.map((p) => (
+									<tr>
+										<th scope="row">{p.name}</th>
+										{p.tokens.map((token) =>
+											token ? (
+												<td>
+													<code class="pal-products__token">{token}</code>
+													<span class="pal-files">{filesWord(readers(token).length)}</span>
+													<div class="pal-products__pair">
+														{['light', 'dark'].map((theme) => (
+															<div class="pal-cell">
+																<span
+																	class="pal-chip"
+																	data-theme={theme === 'dark' ? 'dark' : undefined}
+																	data-chip="text"
+																	data-token={token}
+																	style={`background: var(${token})`}
+																/>
+																<span class="pal-read" />
+															</div>
+														))}
+													</div>
+												</td>
+											) : (
+												<td class="pal-none">none</td>
+											)
+										)}
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</div>
 			</section>
 
 			<!-- ── Grounds and focus ── -->
@@ -486,6 +752,169 @@ const GROUNDS = [
 
 		margin: 0;
 		color: var(--color-text-secondary);
+	}
+
+	// ── Palette ──
+	.pal-group {
+		display: grid;
+		gap: 12px;
+		margin-top: 16px;
+		scroll-margin-top: 96px;
+	}
+
+	.pal-group__head {
+		display: grid;
+		gap: 4px;
+
+		h3 {
+			@include type-body;
+
+			margin: 0;
+			font-weight: $font-weight-medium;
+		}
+
+		p {
+			@include type-small;
+
+			max-width: 72ch;
+			margin: 0;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	.pal-rows {
+		display: grid;
+	}
+
+	.pal-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+		align-items: center;
+		gap: 16px;
+		padding: 10px 0;
+		border-bottom: 1px solid rgba(23, 24, 28, 0.08);
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+			.pal-name {
+				grid-column: 1 / -1;
+			}
+		}
+	}
+
+	.pal-row--head {
+		@include type-small;
+
+		padding-top: 0;
+		font-weight: $font-weight-medium;
+		color: var(--color-text-secondary);
+
+		@include media-down(md) {
+			> :first-child {
+				display: none;
+			}
+		}
+	}
+
+	.pal-name {
+		display: grid;
+		gap: 2px;
+
+		code {
+			@include type-small-strong;
+
+			font-family: $font-family-mono;
+			word-break: break-word;
+		}
+
+		> span {
+			@include type-small;
+
+			color: var(--color-text-secondary);
+		}
+	}
+
+	.pal-files {
+		@include type-small;
+
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text-secondary);
+	}
+
+	.pal-files--none {
+		color: #a04503;
+	}
+
+	.pal-cell {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-width: 0;
+	}
+
+	.pal-chip {
+		flex: none;
+		width: 44px;
+		height: 32px;
+		border-radius: 6px;
+		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.1);
+	}
+
+	.pal-read {
+		display: grid;
+		min-width: 0;
+
+		:global(code) {
+			@include type-small;
+
+			font-family: $font-family-mono;
+			color: var(--color-text);
+		}
+
+		:global(span) {
+			@include type-small;
+
+			font-variant-numeric: tabular-nums;
+			color: var(--color-text-secondary);
+		}
+
+		:global([data-grade='low']) {
+			color: #a04503;
+		}
+	}
+
+	.pal-none {
+		@include type-small;
+
+		color: var(--color-text-secondary);
+	}
+
+	.pal-scroll {
+		overflow-x: auto;
+	}
+
+	.pal-products {
+		min-width: 720px;
+
+		th[scope='row'] {
+			@include type-small-strong;
+
+			color: var(--color-text);
+		}
+	}
+
+	.pal-products__token {
+		@include type-small-strong;
+
+		display: block;
+		font-family: $font-family-mono;
+	}
+
+	.pal-products__pair {
+		display: grid;
+		gap: 8px;
+		margin-top: 8px;
 	}
 
 	// ── Grounds ──
