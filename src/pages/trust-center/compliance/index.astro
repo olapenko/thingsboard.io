@@ -3,22 +3,23 @@ import { Icon } from 'astro-icon/components';
 import Button from '@components/ui/Button.astro';
 import Card from '@components/ui/Card.astro';
 import Link from '@components/ui/Link.astro';
+import Mark from '@components/ui/Mark.astro';
 import CertSeal from '@components/TrustCenter/CertSeal.astro';
-import DeclaredMark from '@components/TrustCenter/DeclaredMark.astro';
-import FactTable from '@components/TrustCenter/FactTable.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
-import { ASSURANCE_FACTS, AUDIT, CERT_FACTS, COMPLIANCE_LEDE, ISO_CARDS, PRIVACY } from '@data/trust-center/compliance';
+import { ASSURANCE, AUDIT, CERTS, COMPLIANCE_LEDE, ISO_CARDS, PRIVACY } from '@data/trust-center/compliance';
 import { crumbs } from '@data/trust-center/nav';
+import { TILE_MARK } from '@data/trust-center/overview';
 
 /**
- * Compliance, in five parts (the structure of 13 Oct 2026; see `COMPLIANCE_LEDE` in
- * `@data/trust-center/compliance` for what it replaced and how to go back):
+ * Compliance, alternating grey bands and white (the structure of 13 Oct 2026; see
+ * `COMPLIANCE_LEDE` in `@data/trust-center/compliance` for what it replaced):
  * 1. The lede: our position in one sentence.
- * 2. Certifications: the two ISO cards (the seal large beside the words) and their details.
- * 3. Independent assurance: the yearly pentest and the data centers' attestations.
- * 4. Privacy and data protection: GDPR's five proven points and CCPA's line, each under a flat
- *    "Declared" mark, never a seal; the note on why there is no certificate.
- * 5. Using our compliance in your audit: the guidance, the controls linked to their pages, and the
+ * 2. Certifications, on a grey band: the two ISO cards in white, then who issued them and the
+ *    scope as two lines.
+ * 3. Independent assurance: the pentest and the data centers as two items, the hub tiles' marks.
+ * 4. Privacy and data protection: the commitments both laws share, then GDPR and CCPA side by side
+ *    at the same size, and why there is no certificate.
+ * 5. Using our compliance in your audit, on a grey band: the guidance beside the controls and the
  *    Statement of Applicability to request.
  */
 ---
@@ -29,33 +30,50 @@ import { crumbs } from '@data/trust-center/nav';
 	crumbs={crumbs('compliance')}
 	description="ThingsBoard's ISO/IEC 27001:2022 and ISO 9001:2015 certification, its scope, penetration testing, data centers, GDPR and CCPA, and using our compliance in your own audit."
 >
-	<section class="tc-section" aria-labelledby="certs-title">
-		<h2 class="tc-h2" id="certs-title">
-			Certifications
-		</h2>
-		<div class="tc-certs">
-			{ISO_CARDS.map((cert) => (
-				<Card role="tile" href={cert.href} title={cert.title} class="tc-cert tc-cert--row">
-					<CertSeal slot="mark" number={cert.number ?? cert.mark} size={96} class="tc-cert__seal" />
-					<p class="tc-cert__line">{cert.line}</p>
-					<span class="tc-seals__badge tc-cert__status">
-						<Icon name="tabler:circle-check-filled" aria-hidden="true" />
-						{cert.status}
-					</span>
-					<Link slot="footer" href={cert.href} size="sm">
-						Learn more
-					</Link>
-				</Card>
-			))}
+	<section class="tc-section tc-band tc-band--muted" aria-labelledby="certs-title">
+		<div class="tc-band__inner">
+			<h2 class="tc-h2" id="certs-title">
+				Certifications
+			</h2>
+			<div class="tc-certs">
+				{ISO_CARDS.map((cert) => (
+					<Card role="tile" href={cert.href} title={cert.title} class="tc-cert tc-cert--row">
+						<CertSeal slot="mark" number={cert.number ?? cert.mark} size={96} class="tc-cert__seal" />
+						<p class="tc-cert__line">{cert.line}</p>
+						<span class="tc-seals__badge tc-cert__status">
+							<Icon name="tabler:circle-check-filled" aria-hidden="true" />
+							{cert.status}
+						</span>
+						<Link slot="footer" href={cert.href} size="sm">
+							Learn more
+						</Link>
+					</Card>
+				))}
+			</div>
+			<div class="tc-certs__about">
+				<p set:html={CERTS.issued} />
+				<p>
+					<strong>Certified scope:</strong> <Fragment set:html={CERTS.scope} />
+				</p>
+			</div>
 		</div>
-		<FactTable caption="Certification details" rows={CERT_FACTS} class="tc-compliance__facts" />
 	</section>
 
 	<section class="tc-section tc-section--h2" aria-labelledby="assurance-title">
 		<h2 class="tc-h2" id="assurance-title">
 			Independent assurance
 		</h2>
-		<FactTable caption="Independent assurance" rows={ASSURANCE_FACTS} />
+		<ul class="tc-assurance">
+			{ASSURANCE.map((item) => (
+				<li class="tc-assurance__item">
+					<Mark size={40} icon={item.icon} accent={TILE_MARK} />
+					<div>
+						<h3 class="tc-assurance__title">{item.title}</h3>
+						<p class="tc-assurance__text">{item.text}</p>
+					</div>
+				</li>
+			))}
+		</ul>
 	</section>
 
 	<section class="tc-section tc-section--h2" aria-labelledby="privacy-title">
@@ -63,56 +81,59 @@ import { crumbs } from '@data/trust-center/nav';
 			{PRIVACY.title}
 		</h2>
 		<p class="tc-lead">{PRIVACY.lead}</p>
-		<div class="tc-privacy">
-			<Card role="tile" title={PRIVACY.gdpr.title} titleSize="card" class="tc-privacy__card">
-				<DeclaredMark slot="mark" kind="gdpr" class="tc-privacy__mark" />
-				<span class="tc-declared-chip">{PRIVACY.gdpr.status}</span>
-				<ul class="tc-tile__list tc-privacy__list">
-					{PRIVACY.gdpr.points.map((point) => (
-						<li>
-							<Icon name="tabler:check" aria-hidden="true" />
-							<span>
-								{point.text}{' '}
-								<Link variant="inline" href={point.link.href}>
-									{point.link.label}
-								</Link>
-							</span>
-						</li>
-					))}
-				</ul>
-			</Card>
-			<Card role="tile" title={PRIVACY.ccpa.title} titleSize="card" class="tc-privacy__card">
-				<DeclaredMark slot="mark" kind="ccpa" class="tc-privacy__mark" />
-				<span class="tc-declared-chip">{PRIVACY.ccpa.status}</span>
-				<p class="tc-privacy__text">{PRIVACY.ccpa.text}</p>
-				<Link slot="footer" href={PRIVACY.ccpa.link.href} size="sm">
-					{PRIVACY.ccpa.link.label}
-				</Link>
-			</Card>
+		<ul class="tc-tile__list tc-privacy__list">
+			{PRIVACY.commitments.map((point) => (
+				<li>
+					<Icon name="tabler:check" aria-hidden="true" />
+					<span>
+						{point.text}{' '}
+						<Link variant="inline" href={point.link.href}>
+							{point.link.label}
+						</Link>
+					</span>
+				</li>
+			))}
+		</ul>
+		<div class="tc-laws">
+			{PRIVACY.laws.map((law) => (
+				<div class="tc-laws__item">
+					<h3 class="tc-laws__title">{law.title}</h3>
+					<p class="tc-laws__text">{law.text}</p>
+					<Link href={law.link.href} size="sm">
+						{law.link.label}
+					</Link>
+				</div>
+			))}
 		</div>
 		<p class="tc-note">{PRIVACY.note}</p>
 	</section>
 
-	<section class="tc-section tc-section--h2" aria-labelledby="audit-title">
-		<h2 class="tc-h2" id="audit-title">
-			{AUDIT.title}
-		</h2>
-		<p class="tc-lead">{AUDIT.text}</p>
-		<p class="tc-copy tc-audit__lead">{AUDIT.controlsLead}</p>
-		<ul class="tc-tile__list tc-audit__list">
-			{AUDIT.controls.map((control) => (
-				<li>
-					<Icon name="tabler:check" aria-hidden="true" />
-					<Link variant="inline" href={control.href}>
-						{control.label}
-					</Link>
-				</li>
-			))}
-		</ul>
-		<div class="tc-audit__cta">
-			<Button href={AUDIT.cta.href} size="md" variant="secondary" icon="tabler:lock">
-				{AUDIT.cta.label}
-			</Button>
+	<section class="tc-section tc-section--h2 tc-band tc-band--muted" aria-labelledby="audit-title">
+		<div class="tc-band__inner tc-audit">
+			<div>
+				<h2 class="tc-h2" id="audit-title">
+					{AUDIT.title}
+				</h2>
+				<p class="tc-lead">{AUDIT.text}</p>
+			</div>
+			<div>
+				<p class="tc-copy">{AUDIT.controlsLead}</p>
+				<ul class="tc-tile__list tc-audit__list">
+					{AUDIT.controls.map((control) => (
+						<li>
+							<Icon name="tabler:check" aria-hidden="true" />
+							<Link variant="inline" href={control.href}>
+								{control.label}
+							</Link>
+						</li>
+					))}
+				</ul>
+				<div class="tc-audit__cta">
+					<Button href={AUDIT.cta.href} size="md" variant="secondary" icon="tabler:lock">
+						{AUDIT.cta.label}
+					</Button>
+				</div>
+			</div>
 		</div>
 	</section>
 </TrustCenterLayout>

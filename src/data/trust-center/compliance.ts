@@ -60,23 +60,40 @@ export const COMPLIANCE_FACTS: Fact[] = [
 ];
 
 /**
- * THE PAGE'S STRUCTURE (13 Oct 2026), in place of the draft's: a lede that states our position
- * (`COMPLIANCE_LEDE`, not the draft's "for example" paragraph), Certifications (the ISO cards with
- * `CERT_FACTS` under them), Independent assurance (`ASSURANCE_FACTS`), Privacy and data protection
- * (`PRIVACY`), and Using our compliance in your audit (`AUDIT`, the draft's "Building a compliant
- * solution" paragraph rewritten as guidance). It came in as one commit, so reverting that commit
- * brings the draft's page back.
+ * THE PAGE'S STRUCTURE (13 Oct 2026), in place of the draft's, alternating bands and white:
+ * - the lede states our position (`COMPLIANCE_LEDE`), not the draft's "for example" paragraph;
+ * - Certifications, on a grey band: the ISO cards, then who issued them and the scope as two lines
+ *   (`CERTS`), not a two-row table;
+ * - Independent assurance: the pentest and the data centers as two items (`ASSURANCE`), not a table;
+ * - Privacy and data protection: the commitments both laws share, then GDPR and CCPA side by side
+ *   at the same size (`PRIVACY`), no marks;
+ * - Using our compliance in your audit, on a grey band (`AUDIT`).
+ * Each step came in as its own commit, so reverting the latest brings the one before back.
  */
 export const COMPLIANCE_LEDE =
 	'ThingsBoard is certified to ISO/IEC 27001 and ISO 9001, independently tested every year, and meets the GDPR and the CCPA through its own data protection program.';
 
-/** The facts about the two certificates, under their cards. */
-export const CERT_FACTS = COMPLIANCE_FACTS.filter((f) => ['Certification body', 'Certified scope'].includes(f.label));
+const SCOPE = COMPLIANCE_FACTS.find((f) => f.label === 'Certified scope')!.html;
 
-/** The assurance beyond the certificates: the yearly pentest and the data centers' attestations. */
-export const ASSURANCE_FACTS = COMPLIANCE_FACTS.filter((f) =>
-	['Penetration testing', 'Data centers'].includes(f.label)
-);
+/** Under the two certificate cards: the "Certification body" fact as one line, and the scope as written. */
+export const CERTS = {
+	issued: `Issued by Swiss Approval North America (IAS-accredited, IAF MLA) on 9 September 2026 and valid until 8 September 2027, within a three-year cycle to 8 September 2029, with a surveillance audit every year. <a href="${VALIDATOR}" target="_blank" rel="noopener noreferrer">Verify a certificate</a>.`,
+	scope: SCOPE,
+};
+
+/** The assurance beyond the certificates, from the draft's "Penetration testing" and "Data centers". */
+export const ASSURANCE = [
+	{
+		icon: 'tabler:shield-search',
+		title: 'Annual penetration test',
+		text: 'An independent penetration test every year. The latest, by DataArt, took place in February 2026, with a retest in March 2026.',
+	},
+	{
+		icon: 'tabler:server-2',
+		title: 'Certified data centers',
+		text: 'ISO 27001, PCI DSS and SOC 2 attestations: AWS for ThingsBoard Cloud; AWS, Azure or GCP for Private Cloud.',
+	},
+];
 
 /** The draft's "Building a compliant solution" paragraph, as guidance with the controls linked. */
 export const AUDIT = {
@@ -124,42 +141,43 @@ export interface Proof {
 export const PRIVACY = {
 	title: 'Privacy and data protection',
 	lead: 'We protect personal data under the GDPR and the CCPA through our own data protection program, backed by the same ISO 27001 controls.',
-	gdpr: {
-		title: 'GDPR',
-		/** No ribbon and no "Certified": a flat mark and "Declared", against the ISO cards' seals. */
-		status: 'Declared',
-		href: tc('compliance/gdpr'),
-		points: [
-			{
-				text: 'Data stays in the EU on ThingsBoard Cloud’s EU region, and never moves between regions.',
-				link: { label: 'Cloud and Private Cloud', href: tc('cloud') },
-			},
-			{
-				text: 'A Data Processing Agreement, with standard contractual clauses for transfers outside the EU.',
-				link: { label: 'Read the DPA', href: DPA },
-			},
-			{
-				text: 'Published sub-processors, with notice of material changes.',
-				link: { label: 'Sub-processors', href: tc('subprocessors') },
-			},
-			{
-				text: 'Security of processing under our certified ISO/IEC 27001 controls.',
-				link: { label: 'ISO 27001', href: tc('compliance/iso-27001') },
-			},
-			{
-				text: 'Data subject requests and breach notification under documented procedures.',
-				link: { label: 'GDPR details', href: tc('compliance/gdpr') },
-			},
-		] satisfies Proof[],
-	},
-	ccpa: {
-		title: 'CCPA',
-		status: 'Declared',
-		href: tc('compliance/ccpa'),
-		text: "We don't sell personal information, and requests to know, delete or correct it follow the same procedure as GDPR requests.",
-		link: { label: 'CCPA details', href: tc('compliance/ccpa') },
-	},
-	/** Why there is no certificate here, said once instead of a "Self-declared" chip per row. */
+	/** What we commit to under both laws, each with the page that proves it. */
+	commitments: [
+		{
+			text: 'Data stays in the EU on ThingsBoard Cloud’s EU region, and never moves between regions.',
+			link: { label: 'Cloud and Private Cloud', href: tc('cloud') },
+		},
+		{
+			text: 'A Data Processing Agreement, with standard contractual clauses for transfers outside the EU.',
+			link: { label: 'Read the DPA', href: DPA },
+		},
+		{
+			text: 'Published sub-processors, with notice of material changes.',
+			link: { label: 'Sub-processors', href: tc('subprocessors') },
+		},
+		{
+			text: 'Security of processing under our certified ISO/IEC 27001 controls.',
+			link: { label: 'ISO 27001', href: tc('compliance/iso-27001') },
+		},
+		{
+			text: 'Data subject requests and breach notification under documented procedures.',
+			link: { label: 'Make a request', href: contactHref(SECURITY_TOPICS.dsr.value) },
+		},
+	] satisfies Proof[],
+	/** What each law adds, at the same size: one line each, the rest on its own page. */
+	laws: [
+		{
+			title: 'GDPR',
+			text: 'For personal data of people in the EU. Transfers outside the EU are covered by standard contractual clauses.',
+			link: { label: 'GDPR details', href: tc('compliance/gdpr') },
+		},
+		{
+			title: 'CCPA',
+			text: "For personal information of California residents. We don't sell personal information.",
+			link: { label: 'CCPA details', href: tc('compliance/ccpa') },
+		},
+	],
+	/** Why there is no certificate here, said once. */
 	note: 'Like most companies, we declare our GDPR and CCPA compliance ourselves, and commit to it contractually in our DPA.',
 };
 
