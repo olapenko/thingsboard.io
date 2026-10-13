@@ -1,4 +1,5 @@
-import { tc } from '@data/trust-center/nav';
+import { SECURITY_TOPICS } from '@data/trust-center/forms';
+import { contactHref, tc } from '@data/trust-center/nav';
 
 /** The Compliance page and its four certificate pages, as drafted. */
 
@@ -58,6 +59,42 @@ export const COMPLIANCE_FACTS: Fact[] = [
 	},
 ];
 
+/**
+ * THE PAGE'S STRUCTURE (13 Oct 2026), in place of the draft's: a lede that states our position
+ * (`COMPLIANCE_LEDE`, not the draft's "for example" paragraph), Certifications (the ISO cards with
+ * `CERT_FACTS` under them), Independent assurance (`ASSURANCE_FACTS`), Privacy and data protection
+ * (`PRIVACY`), and Using our compliance in your audit (`AUDIT`, the draft's "Building a compliant
+ * solution" paragraph rewritten as guidance). It came in as one commit, so reverting that commit
+ * brings the draft's page back.
+ */
+export const COMPLIANCE_LEDE =
+	'ThingsBoard is certified to ISO/IEC 27001 and ISO 9001, independently tested every year, and meets the GDPR and the CCPA through its own data protection program.';
+
+/** The facts about the two certificates, under their cards. */
+export const CERT_FACTS = COMPLIANCE_FACTS.filter((f) => ['Certification body', 'Certified scope'].includes(f.label));
+
+/** The assurance beyond the certificates: the yearly pentest and the data centers' attestations. */
+export const ASSURANCE_FACTS = COMPLIANCE_FACTS.filter((f) =>
+	['Penetration testing', 'Data centers'].includes(f.label)
+);
+
+/** The draft's "Building a compliant solution" paragraph, as guidance with the controls linked. */
+export const AUDIT = {
+	title: 'Using our compliance in your audit',
+	text: 'You can certify the solution you build on ThingsBoard to ISO/IEC 27001 or another standard. Our certificates count as supplier evidence in your audit, and under NDA we share the Statement of Applicability and audit reports.',
+	controlsLead: "The platform gives you the controls auditors look for, so you don't need to build them from scratch:",
+	controls: [
+		{ label: 'Access control', href: tc('access') },
+		{ label: 'An audit log', href: tc('access') },
+		{ label: 'Encryption in transit', href: tc('data') },
+		{ label: 'A choice of data region', href: tc('cloud') },
+	],
+	cta: {
+		label: 'Request the Statement of Applicability',
+		href: contactHref(SECURITY_TOPICS.documents.value, 'statement-of-applicability'),
+	},
+};
+
 export const BUILDING_COMPLIANT = {
 	title: 'Building a compliant solution on ThingsBoard',
 	paragraphs: [
@@ -89,6 +126,8 @@ export const PRIVACY = {
 	lead: 'We protect personal data under the GDPR and the CCPA through our own data protection program, backed by the same ISO 27001 controls.',
 	gdpr: {
 		title: 'GDPR',
+		/** No ribbon and no "Certified": a flat mark and "Declared", against the ISO cards' seals. */
+		status: 'Declared',
 		href: tc('compliance/gdpr'),
 		points: [
 			{
@@ -115,6 +154,7 @@ export const PRIVACY = {
 	},
 	ccpa: {
 		title: 'CCPA',
+		status: 'Declared',
 		href: tc('compliance/ccpa'),
 		text: "We don't sell personal information, and requests to know, delete or correct it follow the same procedure as GDPR requests.",
 		link: { label: 'CCPA details', href: tc('compliance/ccpa') },
