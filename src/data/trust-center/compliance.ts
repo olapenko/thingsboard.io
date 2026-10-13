@@ -86,7 +86,9 @@ const SCOPE = COMPLIANCE_FACTS.find((f) => f.label === 'Certified scope')!.html;
  */
 export const CERTS = {
 	issuedLabel: 'Certification body',
-	issued: `Swiss Approval North America (IAS-accredited, IAF MLA) issued both certificates on 9 September 2026. They are valid until 8 September 2027, within a three-year cycle to 8 September 2029, with a surveillance audit every year. <a href="${VALIDATOR}" target="_blank" rel="noopener noreferrer">Verify a certificate</a>.`,
+	issued: `Swiss Approval North America (IAS-accredited, IAF MLA) issued both certificates on 9 September 2026. They are valid until 8 September 2027, within a three-year cycle to 8 September 2029, with a surveillance audit every year.`,
+	/** Under the cards, beside the registration numbers the validator asks for. */
+	verify: { label: 'Verify a certificate on swissapproval.ch', href: VALIDATOR },
 	scopeLabel: 'Certified scope',
 	scope: SCOPE,
 };
