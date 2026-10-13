@@ -64,34 +64,37 @@ export const COMPLIANCE_FACTS: Fact[] = [
 ];
 
 /**
- * THE PAGE'S STRUCTURE (13 Oct 2026), in place of the draft's, alternating bands and white:
+ * THE PAGE'S STRUCTURE (13 Oct 2026), in place of the draft's:
  * - the lede states our position (`COMPLIANCE_LEDE`), not the draft's "for example" paragraph;
- * - Certifications, on a grey band: the ISO cards, then who issued them and the scope as two lines
- *   (`CERTS`), not a two-row table;
- * - Independent assurance: the pentest and the data centers as two items (`ASSURANCE`), not a table;
+ * - Certifications and assurance: the ISO cards, the validator link (`CERTS`), then the draft's
+ *   fact table (`CERT_DETAILS`);
+ * - Using our compliance in your audit, on the page's one grey band (`AUDIT`);
  * - Privacy and data protection: the commitments both laws share, then GDPR and CCPA side by side
- *   at the same size (`PRIVACY`), no marks;
- * - Using our compliance in your audit, on a grey band (`AUDIT`).
+ *   at the same size (`PRIVACY`).
  * Each step came in as its own commit, so reverting the latest brings the one before back.
  */
 export const COMPLIANCE_LEDE =
 	'ThingsBoard is certified to ISO/IEC 27001 and ISO 9001, independently tested every year, and meets the GDPR and the CCPA through its own data protection program.';
 
-const SCOPE = COMPLIANCE_FACTS.find((f) => f.label === 'Certified scope')!.html;
-
-/**
- * Under the two certificate cards, two labelled paragraphs side by side: the "Certification body"
- * fact (rewritten as a sentence about the two cards) and the certified scope as the certificate
- * words it.
- */
+/** Under the two certificate cards, the link to the validator. */
 export const CERTS = {
-	issuedLabel: 'Certification body',
-	issued: `Swiss Approval North America (IAS-accredited, IAF MLA) issued both certificates on 9 September 2026. They are valid until 8 September 2027, within a three-year cycle to 8 September 2029, with a surveillance audit every year.`,
 	/** Under the cards, beside the registration numbers the validator asks for. */
 	verify: { label: 'Verify a certificate on swissapproval.ch', href: VALIDATOR },
-	scopeLabel: 'Certified scope',
-	scope: SCOPE,
 };
+
+/**
+ * The table under the certificate cards, as the draft had it, with its four rows: the certification
+ * body (its sentence without "Verify them at…", which is the link under the cards), the scope, the
+ * pentest and the data centers.
+ */
+export const CERT_DETAILS: Fact[] = COMPLIANCE_FACTS.map((fact) =>
+	fact.label === 'Certification body'
+		? {
+				...fact,
+				html: 'Swiss Approval North America (IAS-accredited, IAF MLA). Both certificates were issued on 9 September 2026 and are valid until 8 September 2027, within a three-year cycle that runs to 8 September 2029, with a surveillance audit every year.',
+			}
+		: fact
+);
 
 /**
  * A registration number with a button that copies it, for the certificate validator, which asks for
@@ -102,21 +105,6 @@ const COPY_ICON =
 	'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></svg>';
 const regNo = (number: string, rest = '') =>
 	`<span class="tc-regno">${number}</span>${rest} <button type="button" class="tc-copy-btn" data-copy="${number}" aria-label="Copy the registration number ${number}">${COPY_ICON}<span data-copy-label>Copy</span></button>`;
-
-/**
- * The assurance beyond the certificates, from the draft's "Penetration testing" and "Data centers":
- * two more labelled paragraphs under the certificate cards.
- */
-export const ASSURANCE = [
-	{
-		title: 'Annual penetration test',
-		text: 'An independent penetration test every year. The latest, by DataArt, took place in February 2026, with a retest in March 2026.',
-	},
-	{
-		title: 'Certified data centers',
-		text: 'ISO 27001, PCI DSS and SOC 2 attestations: AWS for ThingsBoard Cloud; AWS, Azure or GCP for Private Cloud.',
-	},
-];
 
 /** The draft's "Building a compliant solution" paragraph, as guidance with the controls linked. */
 export const AUDIT = {
