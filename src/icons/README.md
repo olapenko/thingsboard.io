@@ -13,3 +13,7 @@ of mark.
 
 The directory must exist even when empty — astro-icon aborts its whole setup step without it,
 including the icon type definitions it generates, and warns on every dev server start.
+
+`eu-stars` is the ring of twelve stars from the European flag, for GDPR (Trust Center
+Compliance): Tabler has no EU mark. It is drawn from geometry, upright stars on a circle, in
+`currentColor`.

@@ -68,7 +68,7 @@ export const COMPLIANCE_FACTS: Fact[] = [
  * - the lede states our position (`COMPLIANCE_LEDE`), not the draft's "for example" paragraph;
  * - Certifications and assurance: the ISO cards, the validator link (`CERTS`), then the draft's
  *   fact table (`CERT_DETAILS`);
- * - Using our compliance in your audit, on the page's one grey band (`AUDIT`);
+ * - Using our compliance in your audit, on the page's one band, the site's blue tint (`AUDIT`);
  * - Privacy and data protection: the commitments both laws share, then GDPR and CCPA side by side
  *   at the same size (`PRIVACY`).
  * Each step came in as its own commit, so reverting the latest brings the one before back.
@@ -76,10 +76,14 @@ export const COMPLIANCE_FACTS: Fact[] = [
 export const COMPLIANCE_LEDE =
 	'ThingsBoard is certified to ISO/IEC 27001 and ISO 9001, independently tested every year, and meets the GDPR and the CCPA through its own data protection program.';
 
-/** Under the two certificate cards, the link to the validator. */
+/** Under the two certificate cards, the validator: a question, then its address as the link. */
 export const CERTS = {
 	/** Under the cards, beside the registration numbers the validator asks for. */
-	verify: { label: 'Verify a certificate on swissapproval.ch', href: VALIDATOR },
+	verify: {
+		lead: 'Want to verify a certificate?',
+		label: 'swissapproval.ch/certificate-validator',
+		href: VALIDATOR,
+	},
 };
 
 /**
@@ -163,7 +167,7 @@ export const PRIVACY = {
 	laws: [
 		{
 			title: 'GDPR',
-			icon: 'tabler:shield-lock',
+			icon: 'eu-stars',
 			text: 'For personal data of people in the EU. Transfers outside the EU are covered by standard contractual clauses.',
 			href: tc('compliance/gdpr'),
 		},
