@@ -144,10 +144,8 @@ export const BUILDING_COMPLIANT = {
 const DPA = '/products/paas/dpa/';
 
 /** A point with the page that proves it. */
-export interface Proof {
-	text: string;
-	link: { label: string; href: string };
-}
+/** A sentence with its proof inside it, as markup: the linked words are the link. */
+export type Proof = string;
 
 /**
  * Compliance's privacy section, drafted here (13 Oct 2026) in place of the draft's two thin rows
@@ -164,36 +162,26 @@ export const PRIVACY = {
 	lead: 'We protect personal data under the GDPR and the CCPA through our own data protection program, backed by the same ISO 27001 controls.',
 	/** What we commit to under both laws, each with the page that proves it. */
 	commitments: [
-		{
-			text: 'Data stays in the EU on ThingsBoard Cloud’s EU region, and never moves between regions.',
-			link: { label: 'Cloud and Private Cloud', href: tc('cloud') },
-		},
-		{
-			text: 'A Data Processing Agreement, with standard contractual clauses for transfers outside the EU.',
-			link: { label: 'Read the DPA', href: DPA },
-		},
-		{
-			text: 'Published sub-processors, with notice of material changes.',
-			link: { label: 'Sub-processors', href: tc('subprocessors') },
-		},
+		`Data stays in the EU on ThingsBoard Cloud’s <a href="${tc('cloud')}">EU region</a>, and never moves between regions.`,
+		`A <a href="${DPA}">Data Processing Agreement</a>, with standard contractual clauses for transfers outside the EU.`,
+		`Published <a href="${tc('subprocessors')}">sub-processors</a>, with notice of material changes.`,
 		// "Security of processing under our certified ISO/IEC 27001 controls" left: the lead says it
 		// ("backed by the same ISO 27001 controls"), and the certificates are the section above.
-		{
-			text: 'Data subject requests and breach notification under documented procedures.',
-			link: { label: 'Make a request', href: contactHref(SECURITY_TOPICS.dsr.value) },
-		},
+		`<a href="${contactHref(SECURITY_TOPICS.dsr.value)}">Data subject requests</a> and breach notification under documented procedures.`,
 	] satisfies Proof[],
 	/** What each law adds, at the same size: one line each, the rest on its own page. */
 	laws: [
 		{
 			title: 'GDPR',
+			icon: 'tabler:shield-lock',
 			text: 'For personal data of people in the EU. Transfers outside the EU are covered by standard contractual clauses.',
-			link: { label: 'GDPR details', href: tc('compliance/gdpr') },
+			href: tc('compliance/gdpr'),
 		},
 		{
 			title: 'CCPA',
+			icon: 'tabler:user-shield',
 			text: "For personal information of California residents. We don't sell personal information.",
-			link: { label: 'CCPA details', href: tc('compliance/ccpa') },
+			href: tc('compliance/ccpa'),
 		},
 	],
 	/** Why there is no certificate here, said once. */
