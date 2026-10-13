@@ -27,12 +27,13 @@ export interface TcDoc {
 
 /**
  * The hub's four groups, in order (a document's `group` is the index), each with its heading's icon:
- * a seal (the "Certified" check), a shield with code brackets (security and development, and no
- * keyhole, which the rows' NDA lock already is), the scales of law, a report with a chart.
+ * a seal (the "Certified" check), a shield with a check (the rules; no keyhole, which the rows' NDA
+ * lock already is), the scales of law, a report with a chart. The second was the draft's "Security &
+ * development": its five are policies and procedures, so it is named for them.
  */
 export const DOC_GROUPS = [
 	{ name: 'Governance & compliance', icon: 'tabler:rosette-discount-check' },
-	{ name: 'Security & development', icon: 'tabler:shield-code' },
+	{ name: 'Security policies', icon: 'tabler:shield-check' },
 	{ name: 'Legal & privacy', icon: 'tabler:scale' },
 	{ name: 'Reports & resilience', icon: 'tabler:report-analytics' },
 ] as const;
