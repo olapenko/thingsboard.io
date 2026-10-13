@@ -10,7 +10,7 @@ import { tc } from '@data/trust-center/nav';
  * The documents search. On the hub, the query and Search: a form that opens the Documents page with
  * `?q=`. On that page (`live`) it adds a category and the two access toggles (the rows' own icons:
  * Public, On request; one or none, none means both), fills itself from the address, and
- * `DocLibrary` filters the list in place.
+ * `DocLibrary` filters the list in place as you type, so it has no Search and Enter does nothing.
  * The × in the field clears the query; a `docsearch:reset` event on the form clears everything.
  */
 
@@ -47,6 +47,7 @@ const ACCESS = [
 		class="tc-docsearch__q"
 		attrs={{ autocomplete: 'off', 'data-doc-query': '' }}
 	>
+		<Icon slot="start" name="tabler:search" class="tc-docsearch__icon" aria-hidden="true" />
 		<button slot="end" type="button" class="tc-docsearch__clear" aria-label="Clear search" hidden data-doc-clear>
 			<Icon name="tabler:x" aria-hidden="true" />
 		</button>
@@ -85,9 +86,11 @@ const ACCESS = [
 			<input type="hidden" name="access" value="" disabled data-access-input />
 		</div>
 	)}
-	<Button type="submit" size="md" icon="tabler:search" class="tc-docsearch__submit">
-		Search
-	</Button>
+	{!live && (
+		<Button type="submit" size="md" class="tc-docsearch__submit">
+			Search
+		</Button>
+	)}
 </form>
 
 <script>
@@ -146,9 +149,13 @@ const ACCESS = [
 		category?.addEventListener('change', announce);
 		query?.addEventListener('input', announce);
 
-		// Off the Documents page the form goes there; empty fields stay out of the address.
-		form.addEventListener('submit', () => {
-			if ('live' in form.dataset) return;
+		// On the Documents page the list already follows every change, so Enter stays put. Off it the
+		// form goes there; empty fields stay out of the address.
+		form.addEventListener('submit', (event) => {
+			if ('live' in form.dataset) {
+				event.preventDefault();
+				return;
+			}
 			if (query && !query.value.trim()) query.disabled = true;
 			if (category && !category.value) category.disabled = true;
 		});

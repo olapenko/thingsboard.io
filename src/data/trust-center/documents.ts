@@ -1,8 +1,10 @@
+import { SECURITY_TOPICS } from '@data/trust-center/forms';
 import { contactHref, tc } from '@data/trust-center/nav';
 
 /**
- * The draft's 20 documents, as its `DOCS` dataset has them: the hub lists the 18 with a group, the
- * Documents page lists all 20, and each document without a page of its own gets a detail page.
+ * The draft's 20 documents, as its `DOCS` dataset has them, plus three the Cloud page lists (Terms of
+ * Use, DPA for Private Cloud, Private Cloud cluster architecture): the hub lists the draft's 18 with a
+ * group, the Documents page lists all 23, and each document without a page of its own gets a detail page.
  */
 
 export type Access = 'public' | 'nda' | 'pending';
@@ -23,11 +25,15 @@ export interface TcDoc {
 	url?: string;
 }
 
+/**
+ * The hub's four groups, in order (a document's `group` is the index), each with its heading's icon:
+ * a seal, a shield (not a lock, which the rows use for NDA), a gavel, a report.
+ */
 export const DOC_GROUPS = [
-	'Governance & compliance',
-	'Security & development',
-	'Legal & privacy',
-	'Reports & resilience',
+	{ name: 'Governance & compliance', icon: 'tabler:rosette-discount-check' },
+	{ name: 'Security & development', icon: 'tabler:shield-lock' },
+	{ name: 'Legal & privacy', icon: 'tabler:gavel' },
+	{ name: 'Reports & resilience', icon: 'tabler:file-analytics' },
 ] as const;
 
 export const ACCESS_LABEL: Record<Access, string> = { public: 'Public', nda: 'NDA', pending: 'Planned' };
@@ -149,6 +155,26 @@ export const DOCS: TcDoc[] = [
 			'Which data may reach AI services and how we control it, aligned with GDPR, the EU AI Act and the NIST AI RMF.',
 	},
 	{
+		slug: 'private-cloud-architecture',
+		name: 'Private Cloud cluster architecture and read-only metrics',
+		category: 'Security',
+		access: 'nda',
+		version: '—',
+		owner: 'CTO',
+		description:
+			"Your Private Cloud cluster's architecture, with read-only access to its metrics and Kubernetes dashboards.",
+	},
+	{
+		slug: 'terms-of-use',
+		url: '/products/paas/terms-of-use/',
+		name: 'Terms of Use (ThingsBoard Cloud)',
+		category: 'Legal',
+		access: 'public',
+		version: 'current',
+		owner: 'Legal Counsel',
+		description: 'The terms under which you use ThingsBoard Cloud in North America and the EU.',
+	},
+	{
 		slug: 'privacy-policy',
 		url: '/products/paas/privacy-policy/',
 		name: 'Privacy Policy (ThingsBoard Cloud)',
@@ -171,6 +197,15 @@ export const DOCS: TcDoc[] = [
 		group: 2,
 		description:
 			'Contractual data protection terms: processor obligations, sub-processor rules, transfer mechanisms and breach notification.',
+	},
+	{
+		slug: 'dpa-private-cloud',
+		name: 'DPA for Private Cloud',
+		category: 'Legal',
+		access: 'nda',
+		version: '—',
+		owner: 'Legal Counsel',
+		description: 'The Data Processing Addendum for Private Cloud, which has its own privacy terms.',
 	},
 	{
 		slug: 'sub-processor-list',
@@ -271,22 +306,45 @@ export const DOCS_WITH_PAGE = DOCS.filter((d) => !d.url);
 export const HUB_DOCS = DOCS.filter((d) => d.group !== undefined);
 
 /**
- * Where a document's action goes: a public file opens, an NDA document is requested on the contact
- * form under "Request documents under NDA" with that document ticked, and a planned one asks about
- * it under the questionnaire subject (or "Other security question").
+ * Where a document's action goes: a public file opens; any other, NDA or planned, is requested on the
+ * contact form under "Request documents" with that document ticked.
  */
 export const docActionHref = (d: TcDoc): string => {
 	if (d.access === 'public') return d.file ?? '#';
-	if (d.access === 'nda') return contactHref('nda', d.slug);
-	return contactHref(d.category === 'Questionnaires' ? 'questionnaire' : 'other', d.slug);
+	return contactHref(SECURITY_TOPICS.documents.value, d.slug);
 };
 
-/** The contact form's "Documents you need": every NDA document, plus the two Private Cloud ones. */
-export const NDA_DOC_OPTIONS: { value: string; label: string }[] = [
-	...DOCS.filter((d) => d.access === 'nda').map((d) => ({ value: d.slug, label: d.name })),
-	{ value: 'dpa-private-cloud', label: 'DPA for Private Cloud' },
-	{ value: 'private-cloud-architecture', label: 'Private Cloud cluster architecture and read-only metrics' },
-];
+/** The hub's group each category falls in; the questionnaires, which the hub does not list, come last. */
+const REQUEST_GROUP_OF: Record<string, number> = {
+	Governance: 0,
+	Compliance: 0,
+	Security: 1,
+	Legal: 2,
+	Reports: 3,
+	Resilience: 3,
+	Questionnaires: 4,
+};
+
+export interface RequestGroup {
+	name: string;
+	docs: { value: string; label: string; access: Exclude<Access, 'public'> }[];
+}
+
+/**
+ * The contact form's "Documents you need": every document that has to be requested (NDA or planned),
+ * in the hub's four groups by category, then the questionnaires. A document with a category the
+ * groups don't know fails the build rather than landing in the wrong group.
+ */
+export const REQUEST_GROUPS: RequestGroup[] = [...DOC_GROUPS.map((g) => g.name), 'Questionnaires']
+	.map((name, i) => ({
+		name,
+		docs: DOCS.filter((d) => d.access !== 'public').flatMap((d) => {
+			const group = REQUEST_GROUP_OF[d.category];
+			if (group === undefined) throw new Error(`[trust-center] no request group for the category "${d.category}"`);
+			return group === i ? [{ value: d.slug, label: d.name, access: d.access as Exclude<Access, 'public'> }] : [];
+		}),
+	}))
+	.filter((g) => g.docs.length > 0);
 
 /** A document's action in a list: a public one is viewed, the rest are requested on the contact form. */
 export const docAction = (d: TcDoc): { label: string; href: string; dead?: boolean } => {

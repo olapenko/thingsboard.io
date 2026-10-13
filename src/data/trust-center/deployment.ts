@@ -1,4 +1,5 @@
 import type { CompareGroup, CompareRow } from '@data/product-blocks';
+import { SECURITY_TOPICS } from '@data/trust-center/forms';
 import { contactHref, tc } from '@data/trust-center/nav';
 
 /**
@@ -137,12 +138,12 @@ export const CLOUD_DOCS: DocRow[] = [
 	{
 		name: 'Business Continuity Plan',
 		access: 'nda',
-		actions: [{ label: 'Request', href: contactHref('nda', 'bcp-drp') }],
+		actions: [{ label: 'Request', href: contactHref(SECURITY_TOPICS.documents.value, 'bcp-drp') }],
 	},
 	{
 		name: 'Backup policy (frequency, retention)',
 		access: 'nda',
-		actions: [{ label: 'Request', href: contactHref('nda', 'backup-policy') }],
+		actions: [{ label: 'Request', href: contactHref(SECURITY_TOPICS.documents.value, 'backup-policy') }],
 	},
 ];
 
@@ -158,12 +159,12 @@ export const PRIVATE_CLOUD_DOCS: DocRow[] = [
 	{
 		name: 'DPA for Private Cloud',
 		access: 'nda',
-		actions: [{ label: 'Request', href: contactHref('nda', 'dpa-private-cloud') }],
+		actions: [{ label: 'Request', href: contactHref(SECURITY_TOPICS.documents.value, 'dpa-private-cloud') }],
 	},
 	{
 		name: 'Cluster architecture and read-only metrics',
 		access: 'nda',
-		actions: [{ label: 'Request', href: contactHref('nda', 'private-cloud-architecture') }],
+		actions: [{ label: 'Request', href: contactHref(SECURITY_TOPICS.documents.value, 'private-cloud-architecture') }],
 	},
 	{
 		name: 'Data center certifications (ISO 27001, PCI DSS)',
