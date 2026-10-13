@@ -76,16 +76,15 @@ export const COMPLIANCE_LEDE =
 const SCOPE = COMPLIANCE_FACTS.find((f) => f.label === 'Certified scope')!.html;
 
 /**
- * Under the two certificate cards: the "Certification body" fact as the text, and the certified
- * scope as a list beside it: the certificate's own wording split at its commas and semicolons,
- * the words unchanged, each item capitalised.
+ * Under the two certificate cards, two labelled paragraphs side by side: the "Certification body"
+ * fact (rewritten as a sentence about the two cards) and the certified scope as the certificate
+ * words it.
  */
 export const CERTS = {
-	issued: `Issued by Swiss Approval North America (IAS-accredited, IAF MLA) on 9 September 2026 and valid until 8 September 2027, within a three-year cycle to 8 September 2029, with a surveillance audit every year. <a href="${VALIDATOR}" target="_blank" rel="noopener noreferrer">Verify a certificate</a>.`,
-	scopeTitle: 'Certified scope',
-	scope: SCOPE.replace(/\.$/, '')
-		.split(/\s*[;,]\s*/)
-		.map((item) => item.charAt(0).toUpperCase() + item.slice(1)),
+	issuedLabel: 'Certification body',
+	issued: `Swiss Approval North America (IAS-accredited, IAF MLA) issued both certificates on 9 September 2026. They are valid until 8 September 2027, within a three-year cycle to 8 September 2029, with a surveillance audit every year. <a href="${VALIDATOR}" target="_blank" rel="noopener noreferrer">Verify a certificate</a>.`,
+	scopeLabel: 'Certified scope',
+	scope: SCOPE,
 };
 
 /**
