@@ -1,4 +1,5 @@
 import type { CompareGroup, CompareRow } from '@data/product-blocks';
+import type { CatalogRow } from '@data/trust-center/catalogs';
 import { SECURITY_TOPICS } from '@data/trust-center/forms';
 import { DEPLOYMENT_ICON, deploymentList } from '@data/trust-center/deployment-marks';
 import { contactHref, tc } from '@data/trust-center/nav';
@@ -342,6 +343,17 @@ export const COMMITMENTS = [
 		html: 'A full encrypted export of your data. You have <b>60 days</b> to download it; then we permanently delete all backups and cluster data.',
 	},
 ];
+
+/**
+ * The commitments as the topic pages' rows (`Catalog`) rather than a fact table: Support splits by
+ * deployment, as Data security's rows do, and each row gets the main measure whole instead of what a
+ * label column leaves. No links beside them: the bookend under the page offers the contact form and
+ * the documents.
+ */
+export const COMMITMENT_ROWS: CatalogRow[] = COMMITMENTS.map((c) => ({
+	title: c.label,
+	html: c.html,
+}));
 
 export const RESPONSIBILITY_COLUMNS = [
 	{ name: 'ThingsBoard Cloud', icon: DEPLOYMENT_ICON.cloud },
