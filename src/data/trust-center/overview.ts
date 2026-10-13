@@ -47,7 +47,7 @@ export const TILES: Tile[] = [
 		points: [
 			'ISO/IEC 27001:2022 — certified',
 			'ISO 9001:2015 — certified',
-			'Annual surveillance audits',
+			// Trimmed from the draft (13 Oct 2026), three points a tile: 'Annual surveillance audits'. Implied by "certified" (ISO certificates require them); the Compliance page says it.
 			'GDPR and CCPA, self-declared',
 		],
 		href: tc('compliance'),
@@ -58,8 +58,9 @@ export const TILES: Tile[] = [
 		icon: 'tabler:database',
 		points: [
 			'Tenant isolation by architecture',
-			'Encrypted in transit with TLS',
-			'Region of your choice: North America, EU or APAC',
+			// Trimmed from the draft (13 Oct 2026), three points a tile: 'Encrypted in transit with TLS'. Repeats Product security's "Encrypted transport for every device protocol".
+			// The draft's "Region of your choice: North America, EU or APAC", the regions alone so it fits a line.
+			'North America, EU or APAC',
 			'Export anytime via API, no lock-in',
 		],
 		href: tc('data'),
@@ -69,10 +70,11 @@ export const TILES: Tile[] = [
 		subtitle: 'Security built into the product',
 		icon: 'tabler:cpu',
 		points: [
-			'Encrypted transport for every device protocol',
+			// The draft's "Encrypted transport for every device protocol", shortened to fit a line.
+			'Encrypted device connections',
 			'X.509 device credentials and mutual TLS',
 			'AES-256 encrypted secrets storage',
-			'Custom domains with automatic SSL',
+			// Trimmed from the draft (13 Oct 2026), three points a tile: 'Custom domains with automatic SSL'. A convenience feature, the tile's weakest security claim.
 		],
 		href: tc('product'),
 	},
@@ -84,7 +86,7 @@ export const TILES: Tile[] = [
 			'2FA enforceable for all users',
 			'SSO with OAuth 2.0 and OpenID Connect',
 			'Role-based access with entity groups',
-			'Password, lockout and session policies',
+			// Trimmed from the draft (13 Oct 2026), three points a tile: 'Password, lockout and session policies'. Expected of any platform; 2FA, SSO and roles are the differentiators.
 		],
 		href: tc('access'),
 	},
@@ -96,19 +98,20 @@ export const TILES: Tile[] = [
 			'Mandatory code review before merge',
 			'Weekly code and dependency scanning',
 			'Annual external penetration test',
-			'Fixed CVEs listed in release notes',
+			// Trimmed from the draft (13 Oct 2026), three points a tile: 'Fixed CVEs listed in release notes'. About reporting, not how we build; the report page and its thank-you say it.
 		],
 		href: tc('appsec'),
 	},
 	{
-		title: 'Commitment and responsibility',
+		// Short on the tile; the page keeps the draft's full name.
+		title: 'Our commitments',
 		subtitle: 'What we promise and what we handle',
 		icon: 'tabler:clipboard-check',
 		points: [
 			'NDA documents within two business days',
 			'Support response times for every plan',
 			'Private Cloud uptime SLA up to 99.95%',
-			'What ThingsBoard handles in each deployment model',
+			// Trimmed from the draft (13 Oct 2026), three points a tile: 'What ThingsBoard handles in each deployment model'. Not a commitment: it describes the page; also the longest line, and it wrapped.
 		],
 		href: tc('commitments'),
 	},
@@ -175,10 +178,3 @@ export const DEPLOYMENT_CARDS: DeploymentCard[] = [
 ];
 
 export const HUB_DOCUMENTS_INTRO = `Public documents are open to everyone. Documents that describe our weak spots, such as the Statement of Applicability and the pentest summary, are shared under a mutual NDA.`;
-
-export const VULNERABILITY_BANNER = {
-	title: 'Found a vulnerability?',
-	text: 'Report it to us privately instead of opening a public issue, so we can fix it before anyone can exploit it. We reply within three business days with an investigation plan and keep you updated until the fix is out.',
-	button: 'Report a vulnerability',
-	href: tc('report-vulnerability'),
-};

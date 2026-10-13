@@ -1,8 +1,9 @@
 import { tc } from '@data/trust-center/nav';
 
 /**
- * The hub's FAQ, as drafted: five categories, 23 questions. Ten show at first; "Load more FAQ"
- * reveals the other 13 (`more`) and the last two category headings (`moreHeading`).
+ * The hub's FAQ, as drafted: five categories, 23 questions, the draft's words. It renders in the
+ * product pages' `ProductFaq` (a topic per category, the first answers of each, "More questions"
+ * for the rest), so the shape is the one that component reads: Pricing's `FaqCategory`.
  */
 
 export interface FaqEntry {
@@ -10,22 +11,19 @@ export interface FaqEntry {
 	question: string;
 	/** The answer's markup, the draft's own. */
 	answer: string;
-	/** Hidden until "Load more FAQ". */
-	more?: boolean;
 }
 
 export interface FaqCategory {
 	id: string;
-	title: string;
-	/** The heading too is hidden until "Load more FAQ". */
-	moreHeading?: boolean;
+	/** The topic's name in the FAQ's column. */
+	label: string;
 	items: FaqEntry[];
 }
 
 export const TC_FAQ: FaqCategory[] = [
 	{
 		id: 'general',
-		title: 'General',
+		label: 'General',
 		items: [
 			{
 				id: 'contact',
@@ -48,7 +46,7 @@ export const TC_FAQ: FaqCategory[] = [
 	},
 	{
 		id: 'compliance',
-		title: 'Compliance',
+		label: 'Compliance',
 		items: [
 			{
 				id: 'certifications',
@@ -84,7 +82,7 @@ export const TC_FAQ: FaqCategory[] = [
 	},
 	{
 		id: 'cloud',
-		title: 'ThingsBoard Cloud and Private Cloud',
+		label: 'ThingsBoard Cloud and Private Cloud',
 		items: [
 			{
 				id: 'hosting',
@@ -103,104 +101,89 @@ export const TC_FAQ: FaqCategory[] = [
 				question: 'How are backups handled?',
 				answer:
 					'<p>ThingsBoard Cloud is backed up daily, with point-in-time recovery. Private Cloud takes nightly snapshots and stores them in a separate cloud region for 7 days by default (longer on Enterprise).</p>',
-				more: true,
 			},
 			{
 				id: 'uptime',
 				question: 'What uptime do you commit to?',
 				answer:
 					'<p>Private Cloud has a contractual SLA: 99.9% on Launch and Growth, 99.95% on Scale, and a custom SLA on Enterprise. ThingsBoard Cloud status is live at status.thingsboard.cloud and status.eu.thingsboard.cloud.</p>',
-				more: true,
 			},
 			{
 				id: 'staff',
 				question: 'Can ThingsBoard staff see my data?',
 				answer:
 					"<p>Only authorized ThingsBoard engineers can access the infrastructure, with regular audits and monitoring. They work with your tenant's data only to handle a request you raised, and that access is role-based and logged.</p>",
-				more: true,
 			},
 			{
 				id: 'vpn',
 				question: 'Can Private Cloud connect to our network?',
 				answer:
 					'<p>Yes. Depending on your plan, we set up a dedicated VPN tunnel to your systems. On request, we also provide read-only access to metrics and Kubernetes dashboards under an NDA.</p>',
-				more: true,
 			},
 			{
 				id: 'leaving',
 				question: 'What happens to my data when I leave?',
 				answer:
 					'<p>In ThingsBoard Cloud, you export your data through the REST API, and we delete your tenant after cancellation. In Private Cloud, we prepare a full encrypted PostgreSQL/Cassandra dump; you have 60 days to download it, and then we permanently delete all backups and cluster data.</p>',
-				more: true,
 			},
 		],
 	},
 	{
 		id: 'onprem',
-		title: 'On-premises',
-		moreHeading: true,
+		label: 'On-premises',
 		items: [
 			{
 				id: 'onprem-responsibility',
 				question: 'Who is responsible for security in an on-premises deployment?',
 				answer:
 					'<p>You run the infrastructure, network, patching, backups and recovery, and you keep full control over them. We are responsible for the product code, security fixes and the guides that help you configure the platform securely.</p>',
-				more: true,
 			},
 			{
 				id: 'fixes',
 				question: 'How do I get security fixes?',
 				answer:
 					'<p>Security fixes ship in patch releases that need no environment or database changes, so you can upgrade within the same maintenance line without downtime. Fixed CVE IDs are listed in the release notes. For production, use the latest LTS line and a three-part tag such as 4.2.1-latest to receive hotfixes automatically.</p>',
-				more: true,
 			},
 			{
 				id: 'internet',
 				question: 'Does an on-premises installation need internet access?',
 				answer:
 					'<p>Only for licensing: the platform checks its license every hour over an outbound connection to license.thingsboard.io. Perpetual licenses can use the offline licensing add-on instead.</p>',
-				more: true,
 			},
 			{
 				id: 'guides',
 				question: 'Where do I find security configuration guides?',
 				answer:
 					'<p>In the <a href="/docs/pe/user-guide/security/overview/">Security section</a> of the documentation: password and lockout policies, 2FA, OAuth 2.0, API keys, TLS for every protocol, the audit log and secrets storage.</p>',
-				more: true,
 			},
 		],
 	},
 	{
 		id: 'data',
-		title: 'Data security',
-		moreHeading: true,
+		label: 'Data security',
 		items: [
 			{
 				id: 'encrypted',
 				question: 'Is my data encrypted?',
 				answer:
 					'<p>Users and devices connect over TLS (HTTPS on 443, MQTTS on 8883, DTLS for CoAP and LwM2M). The platform encrypts stored secrets with AES-256 and stores user passwords as BCrypt hashes.</p>',
-				more: true,
 			},
 			{
 				id: 'sso',
 				question: 'Can we enforce 2FA and single sign-on?',
 				answer:
 					'<p>Yes. 2FA supports authenticator apps (TOTP), email, SMS and backup codes, and from version 4.3 you can require it for all users, for system administrators or for tenant administrators. Single sign-on works over OAuth 2.0 and OpenID Connect with Google, Azure AD, Okta, Keycloak, Auth0 and others. SAML and LDAP are not supported.</p>',
-				more: true,
 			},
 			{
 				id: 'ai',
 				question: 'Is my data used to train AI models?',
 				answer:
 					'<p>No. We never use customer data to train models, and customer data never goes into public AI services. Our use of AI follows a dedicated policy aligned with GDPR, the EU AI Act and the NIST AI RMF.</p>',
-				more: true,
 			},
 			{
 				id: 'subprocessors',
 				question: 'Who are your sub-processors?',
 				answer: `<p>The full list, with purpose and location for each vendor, is on the <a href="${tc('subprocessors')}">sub-processors page</a>.</p>`,
-				more: true,
 			},
 		],
 	},

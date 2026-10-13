@@ -3,14 +3,15 @@ import { Icon } from 'astro-icon/components';
 import Button from '@components/ui/Button.astro';
 import Card from '@components/ui/Card.astro';
 import CardGrid from '@components/ui/CardGrid.astro';
-import Field from '@components/ui/Field.astro';
 import Link from '@components/ui/Link.astro';
 import Mark from '@components/ui/Mark.astro';
 import CertSeal from '@components/TrustCenter/CertSeal.astro';
-import FaqList from '@components/TrustCenter/FaqList.astro';
+import ProductFaq from '@components/Landing/ProductFaq.astro';
 import HubDocuments from '@components/TrustCenter/HubDocuments.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
+import { TC_FAQ } from '@data/trust-center/faq';
 import { tc } from '@data/trust-center/nav';
+import { TC_UPDATED, formatDate } from '@data/trust-center/pages';
 import {
 	DEPLOYMENT_CARDS,
 	HUB_CERTIFICATIONS,
@@ -19,19 +20,25 @@ import {
 	TILE_MARK,
 	DEPLOYMENTS_LEAD,
 	TILES,
-	VULNERABILITY_BANNER,
 } from '@data/trust-center/overview';
 
 /**
  * The Trust Center's hub, in the draft's order: the hero (the Overview's first paragraph as its lede, the two
  * actions, and the draft's Certifications panel as its visual, a seal per certificate with its
- * line), then the six topic tiles, Deployments (Cloud and on-premises, led by the Overview's second paragraph), Documents, the small Contact us form (it
- * opens the reader's mail app, as drafted), Found a vulnerability?, and the FAQ.
+ * line), then the six topic tiles, Deployments (Cloud and on-premises, led by the Overview's second
+ * paragraph), Documents, and the FAQ (the product pages' `ProductFaq`: the draft's five categories as
+ * topics, five answers each before "More questions"). It closes on the Trust Center's bookend, as
+ * every page does (`TrustCenterLayout`): the contact form, the library and the vulnerability report as
+ * three cards. The bookend replaces the draft's small mailto form and its "Found a vulnerability?"
+ * banner.
  *
  * Not carried over from the draft, which was one page standing in for the site: the mock header and
  * promo strip, and the page's own search box (the site's search covers the pages, and its shortcut
  * is the site search's).
  */
+
+/** Answers per FAQ topic before "More questions": the largest topic (Cloud, seven) holds two back. */
+const FAQ_VISIBLE = 5;
 ---
 
 <TrustCenterLayout
@@ -45,9 +52,21 @@ import {
 		<Button href={tc('contact')} size="md">
 			Contact us
 		</Button>
-		<Button href={tc('report-vulnerability')} size="md" variant="secondary" icon="tabler:bug">
-			Report a vulnerability
+		{/* Two weights: Contact us the primary, the documents (what most visitors come for) the secondary,
+		    and the report a quiet line under both, in ink, for the few who need it. The bookend offers all
+		    three again. */}
+		<Button href={tc('documents')} size="md" variant="secondary" icon="tabler:file-text">
+			Browse documents
 		</Button>
+		<p class="tc-hero__note">
+			<Icon name="tabler:bug" aria-hidden="true" />
+			<span>
+				Found a vulnerability?{' '}
+				<Link variant="inline" tone="ink" href={tc('report-vulnerability')}>
+					Report it privately
+				</Link>
+			</span>
+		</p>
 	</Fragment>
 	{/* The draft's Certifications panel, as the hero's visual: a seal per certificate with its line. */}
 	<ul slot="visual" class="tc-seals" id="compliance" aria-label="Certifications">
@@ -65,6 +84,17 @@ import {
 			</li>
 		))}
 	</ul>
+
+	{/* The draft's footer line, said once for the whole Trust Center, as the first line of its content:
+	    how often it is reviewed, and when it last was. Its "Owner: IMS Manager" is left out. CLARIFY: whether the owner should be named
+	    here, and how. */}
+	<p class="tc-dateline tc-dateline--lead">
+		<Icon name="tabler:calendar-check" class="tc-dateline__icon" aria-hidden="true" />
+		<span>
+			We review this Trust Center at least every six months. Last reviewed{' '}
+			<time datetime={TC_UPDATED}>{formatDate(TC_UPDATED)}</time>.
+		</span>
+	</p>
 
 	<section class="tc-section tc-section--h2" id="highlights" aria-label="Security highlights">
 		<CardGrid cols={3}>
@@ -123,79 +153,17 @@ import {
 	</section>
 
 	<section class="tc-section tc-section--h2" id="documents" aria-labelledby="documents-title">
-		<div class="tc-section__head">
-			<h2 class="tc-h2" id="documents-title">
-				Documents
-			</h2>
-			<Link href={tc('documents')} class="tc-section__link">
-				Browse all documents
-			</Link>
-		</div>
+		<h2 class="tc-h2" id="documents-title">
+			Documents
+		</h2>
 		<p class="tc-lead" set:html={HUB_DOCUMENTS_INTRO} />
 		<HubDocuments />
-	</section>
-
-	<section class="tc-section" id="request" aria-labelledby="request-title">
-		{/* The draft's small form: the button opens a mail to security@thingsboard.io with the three fields. */}
-		<Card as="form" role="panel" class="tc-quickform" attrs={{ id: 'tc-quick', novalidate: 'novalidate' }}>
-			<h2 class="tc-h3" id="request-title">
-				Contact us
-			</h2>
-			<div class="tc-quickform__row">
-				<Field name="name" id="rq-name" label="Name" placeholder="Jane Reviewer" autocomplete="name" size="md" />
-				<Field
-					name="email"
-					id="rq-email"
-					label="Work email"
-					type="email"
-					placeholder="jane@company.com"
-					autocomplete="email"
-					inputmode="email"
-					size="md"
-				/>
-				<Field
-					name="question"
-					id="rq-what"
-					label="Your question"
-					placeholder="e.g. SoA and the pen-test report for a vendor assessment"
-					size="md"
-				/>
-				<Button type="button" size="md" attrs={{ id: 'rq-send' }}>
-					Contact us
-				</Button>
-			</div>
-		</Card>
-	</section>
-
-	<section class="tc-section" id="report" aria-labelledby="report-title">
-		<Card role="panel" class="tc-banner">
-			<div class="tc-banner__body">
-				<h2 class="tc-h3" id="report-title">
-					{VULNERABILITY_BANNER.title}
-				</h2>
-				<p class="tc-copy">{VULNERABILITY_BANNER.text}</p>
-			</div>
-			<Button href={VULNERABILITY_BANNER.href} size="md">
-				{VULNERABILITY_BANNER.button}
-			</Button>
-		</Card>
 	</section>
 
 	<section class="tc-section tc-section--h2" id="faq" aria-labelledby="faq-title">
 		<h2 class="tc-h2" id="faq-title">
 			Trust Center FAQs
 		</h2>
-		<FaqList />
+		<ProductFaq categories={TC_FAQ} visibleCount={FAQ_VISIBLE} idPrefix="tc-faq" />
 	</section>
 </TrustCenterLayout>
-
-<script>
-	const send = document.getElementById('rq-send');
-	send?.addEventListener('click', () => {
-		const value = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value.trim() ?? '';
-		const body = encodeURIComponent(
-			`Name: ${value('rq-name')}\nWork email: ${value('rq-email')}\n\nQuestion:\n${value('rq-what')}\n`
-		);
-		window.location.href = `mailto:security@thingsboard.io?subject=${encodeURIComponent('Trust Center inquiry')}&body=${body}`;
-	});
-</script>
