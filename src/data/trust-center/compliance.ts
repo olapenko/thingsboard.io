@@ -101,15 +101,16 @@ const COPY_ICON =
 const regNo = (number: string, rest = '') =>
 	`<span class="tc-regno">${number}</span>${rest} <button type="button" class="tc-copy-btn" data-copy="${number}" aria-label="Copy the registration number ${number}">${COPY_ICON}<span data-copy-label>Copy</span></button>`;
 
-/** The assurance beyond the certificates, from the draft's "Penetration testing" and "Data centers". */
+/**
+ * The assurance beyond the certificates, from the draft's "Penetration testing" and "Data centers":
+ * two more labelled paragraphs under the certificate cards.
+ */
 export const ASSURANCE = [
 	{
-		icon: 'tabler:shield-search',
 		title: 'Annual penetration test',
 		text: 'An independent penetration test every year. The latest, by DataArt, took place in February 2026, with a retest in March 2026.',
 	},
 	{
-		icon: 'tabler:server-2',
 		title: 'Certified data centers',
 		text: 'ISO 27001, PCI DSS and SOC 2 attestations: AWS for ThingsBoard Cloud; AWS, Azure or GCP for Private Cloud.',
 	},
