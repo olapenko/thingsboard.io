@@ -136,7 +136,8 @@ export const DEPLOYMENT_CARDS: DeploymentCard[] = [
 		text: 'We host and run the platform, so you can focus on your solution.',
 		rows: [
 			{
-				label: 'Hosting',
+				// Mirrors On-premises' "You run": the difference between the models reads across the cards.
+				label: 'We run',
 				html: 'We host and operate everything: infrastructure, patching, upgrades, monitoring and backups.',
 			},
 			{
@@ -170,7 +171,7 @@ export const DEPLOYMENT_CARDS: DeploymentCard[] = [
 				label: 'Security fixes',
 				html: 'Patch releases with no environment or database changes; fixed CVEs listed in release notes.',
 			},
-			{ label: 'Release support', html: 'LTS releases: 18 months. Standard releases: 6 months.' },
+			{ label: 'Support period', html: 'LTS releases: 18 months. Standard releases: 6 months.' },
 		],
 		link: 'Learn more',
 		href: tc('onprem'),
