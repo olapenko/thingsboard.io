@@ -129,7 +129,7 @@ export const REPORT_VERSIONS = [
  * then what helps if known; the summary is the subject's, the confidentiality one of the page's rules,
  * and the sender's address says who is writing, so none of them is asked again.
  */
-export const REPORT_SUBJECT = 'Vulnerability report: <one sentence on the issue>';
+export const REPORT_SUBJECT = 'Vulnerability report: <short summary>';
 export const REPORT_TEMPLATE = [
 	'Product and version: <for example ThingsBoard Cloud, or ThingsBoard 4.2.1 self-hosted>',
 	'Vulnerability type: <for example access control, injection, XSS, or other>',
