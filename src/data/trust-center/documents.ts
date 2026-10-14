@@ -272,7 +272,7 @@ export const DOCS: TcDoc[] = [
 		owner: 'IMS Manager',
 		group: 3,
 		description:
-			'Full-scope audit of both standards by an independent contractor (30 June – 1 July 2026): no major and 3 minor nonconformities, with corrective actions and deadlines.',
+			'Full-scope audit of both standards by an independent contractor (30 June – 1 July 2026): no major and 3 minor nonconformities, with the deadline for corrective actions.',
 	},
 	{
 		slug: 'bcp-drp',
