@@ -221,6 +221,8 @@ export const DOCS: TcDoc[] = [
 		description:
 			'Contractual data protection terms: processor obligations, sub-processor rules, transfer mechanisms and breach notification.',
 	},
+	// CLARIFY: whether Private Cloud has a DPA of its own; its FAQ says ThingsBoard is processor "under a
+	// standard DPA". If not, this entry, its row on the Cloud page and "which has its own privacy terms" go.
 	{
 		slug: 'dpa-private-cloud',
 		name: 'DPA for Private Cloud',
