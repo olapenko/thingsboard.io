@@ -204,10 +204,7 @@ export const PRIVATE_CLOUD_DOCS_INTRO = 'Same set as ThingsBoard Cloud; only the
 
 export const PRIVATE_CLOUD_DOCS: DocRow[] = [
 	// The library's document (`docRow`): "Link needed" until it has an address, then View.
-	docRow(
-		'private-cloud-sla',
-		'Private Cloud SLA and service description (uptime formula, service credits, exclusions)'
-	),
+	docRow('private-cloud-sla', 'Private Cloud SLA and service description (uptime formula, exclusions)'),
 	{
 		name: 'DPA for Private Cloud',
 		access: 'nda',
