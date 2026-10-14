@@ -3,16 +3,17 @@ import { contactHref, tc } from '@data/trust-center/nav';
 
 /**
  * The draft's 20 documents, as its `DOCS` dataset has them, plus three the Cloud page lists (Terms of
- * Use, DPA for Private Cloud, Private Cloud cluster architecture): the hub lists the draft's 18 with a
- * group, the Documents page lists all 23, and each document without a page of its own gets a detail page.
+ * Use, DPA for Private Cloud, Private Cloud cluster architecture) and four pages the Cloud and
+ * On-premises pages list: the hub lists the draft's 18 with a group, the Documents page lists all 27,
+ * and each document without a page of its own gets a detail page.
  *
  * Three states, one meaning and one action each:
  * - `public`: available now; View.
  * - `nda`: exists, sent after a mutual NDA; Request (Add in the library), on the contact form.
  * - `pending`: planned, not written yet; no action, since there is nothing to send.
  *
- * Four more, which the Cloud and On-premises pages list, wait for their address (`linkMissing`): the
- * draft listed them as public with links to nowhere. They stay out of the library until one is given.
+ * A public document without an address (`linkMissing`) is listed where a page lists it, marked "Link
+ * needed", and stays out of the library until it has one. None waits today.
  */
 
 export type Access = 'public' | 'nda' | 'pending';
@@ -317,9 +318,8 @@ export const DOCS: TcDoc[] = [
 		owner: 'IMS Manager',
 		description: 'Our answers to the Standardized Information Gathering (Lite) questionnaire.',
 	},
-	// CLARIFY: the four below are public in the draft, with links to nowhere. Give each its address
-	// (`url` for a page, `file` for a download) and it joins the library. The descriptions say no more
-	// than the draft's names and lines do.
+	// The four below were public in the draft with links to nowhere; each now opens the page the IMS team
+	// named for it (14 Oct 2026).
 	{
 		slug: 'private-cloud-sla',
 		url: '/pricing/?product=thingsboard-private-cloud',
@@ -332,30 +332,34 @@ export const DOCS: TcDoc[] = [
 	},
 	{
 		slug: 'license-server-network-requirements',
-		name: 'License server network requirements',
+		url: '/docs/license-server/what-is-license-server/',
+		name: 'License server and client information',
 		category: 'Operations',
 		access: 'public',
-		version: '—',
+		version: 'current',
 		owner: '—',
-		description: 'The outbound connection to license.thingsboard.io that the hourly license check needs.',
+		description:
+			'How licensing works: the license server, the client in your instance, and the connection to license.thingsboard.io that license checks need.',
 	},
 	{
 		slug: 'eula',
-		name: 'EULA and license terms',
+		url: '/legal/license-agreement/',
+		name: 'ThingsBoard License Agreement (for on-premises deployed software)',
 		category: 'Legal',
 		access: 'public',
-		version: '—',
+		version: 'current',
 		owner: '—',
-		description: 'The license terms for ThingsBoard installed on-premises.',
+		description: 'The agreement governing paid commercial licenses to the ThingsBoard Software.',
 	},
 	{
 		slug: 'support-policy',
-		name: 'Support policy',
-		category: 'Legal',
+		url: '/services/',
+		name: 'Support services information',
+		category: 'Operations',
 		access: 'public',
-		version: '—',
+		version: 'current',
 		owner: '—',
-		description: 'How we support ThingsBoard.',
+		description: 'Our support plans and response targets, managed platform operations and on-demand experts.',
 	},
 ];
 
