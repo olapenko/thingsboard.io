@@ -49,7 +49,7 @@ export const ISO_CARDS: BadgeCard[] = [
 export const COMPLIANCE_FACTS: Fact[] = [
 	{
 		label: 'Certification body',
-		html: `Swiss Approval North America (IAS-accredited, IAF MLA). Both certificates were issued on 9 September 2026 and are valid until 8 September 2027, within a three-year cycle that runs to 8 September 2029, with a surveillance audit every year. Verify them at <a href="${VALIDATOR}" target="_blank" rel="noopener noreferrer">swissapproval.ch/certificate-validator</a>.`,
+		html: `Swiss Approval North America (IAS-accredited). Both certificates were issued on 9 September 2026 and are valid until 8 September 2027, within a three-year cycle that runs to 8 September 2029, with a surveillance audit every year. Verify them at <a href="${VALIDATOR}" target="_blank" rel="noopener noreferrer">swissapproval.ch/certificate-validator</a>.`,
 	},
 	{
 		label: 'Certified scope',
@@ -100,7 +100,7 @@ export const CERT_DETAILS: Fact[] = COMPLIANCE_FACTS.map((fact) =>
 	fact.label === 'Certification body'
 		? {
 				...fact,
-				html: 'Swiss Approval North America (IAS-accredited, IAF MLA). Both certificates were issued on 9 September 2026 and are valid until 8 September 2027, within a three-year cycle that runs to 8 September 2029, with a surveillance audit every year.',
+				html: 'Swiss Approval North America (IAS-accredited). Both certificates were issued on 9 September 2026 and are valid until 8 September 2027, within a three-year cycle that runs to 8 September 2029, with a surveillance audit every year.',
 			}
 		: fact
 );
