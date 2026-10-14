@@ -42,7 +42,7 @@ export const CAT_PRODUCT: CatalogRow[] = [
 	{
 		title: 'Custom domains with automatic SSL',
 		status: 'in',
-		html: 'Bind your own domain name; the platform provisions the SSL certificate automatically.',
+		html: 'Bind your own domain name. On ThingsBoard Cloud, the platform provisions the SSL certificate for the web UI automatically.',
 		docs: '/docs/pe/user-guide/security/domains/',
 	},
 ];
