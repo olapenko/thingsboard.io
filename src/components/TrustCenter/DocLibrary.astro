@@ -145,11 +145,16 @@ const REQUEST = contactHref(SECURITY_TOPICS.documents.value);
 		const status = root.querySelector<HTMLElement>('[data-doc-picked-status]');
 		const base = request?.getAttribute('href') ?? '';
 		const documents = (n: number) => `${n} document${n === 1 ? '' : 's'}`;
+		// The bar's height, for the site's chat button to clear it (`trust-center.scss`).
+		const measureBar = () => {
+			if (bar?.offsetHeight) document.documentElement.style.setProperty('--tc-picked-h', `${bar.offsetHeight}px`);
+		};
 
 		const syncPicked = (announce = false) => {
 			const ticked = picks.filter((box) => box.checked);
 			const n = ticked.length;
 			if (bar) bar.hidden = n === 0;
+			measureBar();
 			if (barCount) barCount.textContent = `${documents(n)} selected`;
 			if (status && announce) status.textContent = n ? `${documents(n)} selected` : 'Selection cleared';
 			if (request) {
@@ -168,5 +173,8 @@ const REQUEST = contactHref(SECURITY_TOPICS.documents.value);
 		// Back from the form, the browser may have kept the ticks.
 		window.addEventListener('pageshow', () => syncPicked());
 		syncPicked();
+
+		// And again as the bar wraps on a narrow screen or its text grows.
+		if (bar && 'ResizeObserver' in window) new ResizeObserver(measureBar).observe(bar);
 	});
 </script>
