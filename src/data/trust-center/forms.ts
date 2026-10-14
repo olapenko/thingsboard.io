@@ -1,3 +1,5 @@
+import { tc } from '@data/trust-center/nav';
+
 /**
  * The Trust Center's two forms: the contact form's security topics, and the vulnerability report's
  * options.
@@ -113,6 +115,51 @@ export function reportDrafts(to: string, subject: string, body: string) {
 	);
 	return { app: app.href, gmail: gmail.href, outlook: outlook.href, cut: app.cut };
 }
+
+/** PROTOTYPE: the report page's versions, for `ProtoSwitch` on each. */
+export const REPORT_VERSIONS = [
+	{ id: 'email', label: 'Email composer', href: tc('report-vulnerability') },
+	{ id: 'template', label: 'Template to copy', href: tc('report-vulnerability/template') },
+	{ id: 'form', label: 'Form that posts', href: tc('report-vulnerability/form') },
+];
+
+/**
+ * PROTOTYPE, version A (`report-vulnerability/template`): the report as a template the reader copies
+ * into their own email. The form's fields in its order, each with its hint as the placeholder, so
+ * the two versions ask for the same things.
+ */
+export const REPORT_SUBJECT = 'Vulnerability report: <one sentence on the issue>';
+export const REPORT_TEMPLATE = [
+	'Summary: <one sentence: what an attacker can do, and where>',
+	'',
+	'Affected product: <for example ThingsBoard Cloud, ThingsBoard (self-hosted), Edge, TBMQ, or not sure>',
+	'Version: <for example 4.2.1, if you know it>',
+	'URL: <for ThingsBoard Cloud or one of our websites: the page or API endpoint>',
+	'Vulnerability type: <for example access control, injection, XSS, remote code execution, or other>',
+	'Severity, in my view: <critical, high, medium, low, or not sure>',
+	'CVSS vector: <if you have one>',
+	'',
+	'Steps to reproduce',
+	'1.',
+	'2.',
+	'3.',
+	'(Include requests, payloads, error messages and screenshots.)',
+	'',
+	'Impact',
+	'<What an attacker can do, and what access they need first: none, a customer user, a tenant administrator or device credentials.>',
+	'',
+	'Disclosure',
+	'Already public: <no, or yes and where>',
+	'Seen exploited in the wild: <no or yes>',
+	'Planned publication date: <only if you plan to publish your findings>',
+	'Credit: <keep me anonymous, or credit me by my name or handle>',
+	'',
+	'About me',
+	'Name or handle: <optional>',
+	'Company or affiliation: <optional>',
+	'',
+	"I'll keep this report confidential until the fix is released or we agree on a publication date.",
+].join('\n');
 
 // ── What a form hands its thank-you page ────────────────────────────────────
 
