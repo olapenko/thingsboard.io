@@ -11,8 +11,13 @@
 
 export const NORMALIZE_COPY = {
 	title: 'Turn IoT data into action',
-	body: 'Normalize data from any device or protocol. Spot anomalies before they hit production. Filter signals from noise before alerts reach your team. Push data and notifications into your CRM, ERP, or other external app — your data, your workflows.',
-	link: { text: 'Data processing concepts', href: '/docs/pe/concepts/data-processing/' },
+	// Main's words since #752 (2026-10-13): the paragraph walks the switch's three stages, and the row
+	// links both halves of it.
+	body: 'Normalize data from any device or protocol. Calculate the metrics that matter with real-time calculated fields. Raise alarms only on real anomalies, not noise. Then deliver data and events to your team, CRM, ERP, or any external app — your data, your workflows.',
+	links: [
+		{ text: 'Data processing', href: '/docs/pe/concepts/data-processing/' },
+		{ text: 'Alarms & notifications', href: '/docs/pe/concepts/alarms-and-notifications/' },
+	],
 	// #b44100, not #c2703a. The biggest move in the set — dE 10.6, and visibly deeper. The old one was
 	// invented and was the outlier that made the row of badges look unsystematic: L* 62.6 against the
 	// others' 52-56, and 3.70:1 with a white glyph, the only one under the text threshold. This is the

@@ -444,21 +444,11 @@ export const AI_ASSISTANT_LABEL_DEW_POINT =
 	'The ThingsBoard AI Assistant: asked to add a dew point calculated field to the thermostat profile, then asked in a follow-up to warn above 18 °C, creating an alarm rule from the field it just made.';
 
 /**
- * The shipping conversation as MAIN plays it, for the `live` order: the same two exchanges, and the
- * door alarm holds for 5 minutes where this branch's holds for 3.
+ * The shipping conversation for the `live` order. Main's reply says the door alarm holds for 5
+ * minutes; this one keeps 3, the limit the Automate switch's chart draws under it (`FREEZER_ALARM`),
+ * so the page states one rule. Kept as its own name so a future difference from main has a place.
  */
-export const AI_ASSISTANT_DEMO_LIVE: AiAssistantDemo = {
-	...AI_ASSISTANT_DEMO,
-	exchanges: AI_ASSISTANT_DEMO.exchanges.map((exchange, i) =>
-		i === 0
-			? {
-					...exchange,
-					reply:
-						'Done. A <code data-severity="critical">CRITICAL</code> alarm fires when a door stays open over 5 min and clears when it closes. The store manager gets an email right away.',
-				}
-			: exchange
-	),
-};
+export const AI_ASSISTANT_DEMO_LIVE: AiAssistantDemo = AI_ASSISTANT_DEMO;
 
 /**
  * The chat window's title, for a treatment that shows its bar as a plain label — `AiWide` — instead of

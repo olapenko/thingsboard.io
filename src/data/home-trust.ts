@@ -20,7 +20,9 @@
  *   that pass says "5+ million" where this repo benchmarks one million — so the card promises the
  *   move from one server to a cluster, which the drawing shows, and no number.
  * - Openness is the "Source-available & customization" tile's, with the device protocols and APIs
- *   the docs reference names (`reference/http-api`, `mqtt-api`, `coap-api`, `rest-api`).
+ *   the docs reference names (`reference/http-api`, `mqtt-api`, `coap-api`, `rest-api`). Since main's
+ *   #752 (2026-10-13) the card says it in the tile's own word, "Source-available", and links APIs & SDKs.
+ * - Security's last clause and the scale ranges are main's too (#752, #756).
  *
  * `Why choose` still runs further down with its own security, scalability and source tiles. The
  * cards here say what you can count on; the tiles say what is in the box, in more detail and with
@@ -54,7 +56,7 @@ export const TRUST_POINTS: TrustPoint[] = [
 	{
 		kind: 'security',
 		title: 'Secure and certified',
-		body: 'ISO 27001 and ISO 9001 certified, independently penetration-tested, and patched on every LTS release. SSO, two-factor sign-in, and permissions down to a single device.',
+		body: 'ISO 27001 and ISO 9001 certified, independently penetration-tested, and patched on every LTS release. SSO, two-factor sign-in, and RBAC.',
 		link: { text: 'Security overview', href: '/docs/pe/user-guide/security/' },
 	},
 	{
@@ -65,9 +67,9 @@ export const TRUST_POINTS: TrustPoint[] = [
 	},
 	{
 		kind: 'open',
-		title: 'Open at the core',
-		body: 'Source code on GitHub, open protocols for your devices, and REST and WebSocket APIs for everything else. Extend any part of the platform, or connect it to any system.',
-		link: { text: 'REST API reference', href: '/docs/pe/reference/rest-api/' },
+		title: 'Source-available',
+		body: 'Read the source on GitHub. Connect devices over open protocols. Use REST and WebSocket APIs and SDKs for everything else. Extend any part of the platform, or integrate it with any system.',
+		link: { text: 'APIs & SDKs', href: '/docs/pe/apis-and-sdks/' },
 	},
 ];
 
@@ -108,13 +110,11 @@ export const TRUST_VISUAL_LABELS: Record<Exclude<TrustKind, 'open'>, string> = {
 
 /**
  * Scale as ONE TOPOLOGY AT A TIME, growing: the monolith, then hybrid storage, then the cluster, each
- * with the devices it is for and the stores it lights. The ranges are the user's brief, and only one
- * of them is backed here:
- * - 10K–1M for hybrid matches benchmark E, 1M devices on one instance with Cassandra (see
- *   `@data/scale-visual`, which calls the mode "Hybrid storage").
- * - 1–10K for the monolith on PostgreSQL alone has no source in the docs' recommendations yet.
- * - "Up to 5M" for the cluster is thingsboard.one's "5+ million", which this repo does not benchmark;
- *   the Scale row says "Any size". STILL UNCONFIRMED: this direction shipped (2026-09-27) with both.
+ * with the devices it is for and the stores it lights. The ranges are main's (#756, 2026-10-13):
+ * 1–100K, 100K–1M and 1M+, which replaced the brief's unsourced 1–10K and "Up to 5M". The hybrid's
+ * top end matches benchmark E, 1M devices on one instance with Cassandra (see `@data/scale-visual`,
+ * which calls the mode "Hybrid storage"). The cluster lights every store, PostgreSQL and Cassandra
+ * included: it runs on them too.
  */
 export interface TrustScaleStage {
 	mode: string;
@@ -136,7 +136,7 @@ export interface TrustScaleStage {
 export const TRUST_SCALE_STAGES: TrustScaleStage[] = [
 	{
 		mode: 'Monolith',
-		devices: '1–10K devices',
+		devices: '1–100K devices',
 		span: 25,
 		hue: 'var(--color-primary, #3d50f5)',
 		cells: 1,
@@ -144,7 +144,7 @@ export const TRUST_SCALE_STAGES: TrustScaleStage[] = [
 	},
 	{
 		mode: 'Hybrid',
-		devices: '10K–1M devices',
+		devices: '100K–1M devices',
 		span: 25,
 		hue: '#007c7b',
 		cells: 1,
@@ -152,16 +152,22 @@ export const TRUST_SCALE_STAGES: TrustScaleStage[] = [
 	},
 	{
 		mode: 'Cluster',
-		devices: 'Up to 5M devices',
+		devices: '1M+ devices',
 		span: 50,
 		hue: 'var(--color-product-gw, #6d28d9)',
 		cells: 5,
-		stores: ['Citus', 'Kafka', 'Valkey'],
+		stores: ['PostgreSQL', 'Cassandra', 'Citus', 'Kafka', 'Valkey'],
 	},
 ];
+
+/**
+ * The stages drawing's row of store marks, in main's order (#756): the two databases a deployment
+ * starts on, then what the cluster adds. `@data/scale-visual` keeps its own order for `ScaleDuo`.
+ */
+export const TRUST_STORES = ['PostgreSQL', 'Cassandra', 'Citus', 'Kafka', 'Valkey'];
 
 export const TRUST_STAGES_LABELS = {
 	security: 'Certified to ISO 27001 and ISO 9001.',
 	scale:
-		'As it grows: a monolith on PostgreSQL for 1 to 10 thousand devices, hybrid storage adding Cassandra beside PostgreSQL up to a million, and a cluster with Citus, Kafka and Valkey up to 5 million.',
+		'As it grows: a monolith on PostgreSQL for up to 100 thousand devices, hybrid storage adding Cassandra beside PostgreSQL up to a million, and a cluster adding Citus, Kafka and Valkey beyond a million.',
 };
