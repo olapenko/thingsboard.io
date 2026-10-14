@@ -161,6 +161,15 @@ export const REPORT_TEMPLATE = [
 	"I'll keep this report confidential until the fix is released or we agree on a publication date.",
 ].join('\n');
 
+/**
+ * The template as the page shows it: escaped, with each part to replace (`<…>`) in a span the page
+ * tints, so what is the reader's to fill shows at a glance. Its text is `REPORT_TEMPLATE`'s own.
+ */
+export const REPORT_TEMPLATE_HTML = REPORT_TEMPLATE.replace(/&/g, '&amp;')
+	.replace(/</g, '&lt;')
+	.replace(/>/g, '&gt;')
+	.replace(/&lt;[^&]*?&gt;/g, (part) => `<span class="tc-tpl__part">${part}</span>`);
+
 // ── What a form hands its thank-you page ────────────────────────────────────
 
 /**
