@@ -173,7 +173,7 @@ export const PRIVACY = {
 			icon: 'eu-stars',
 			/** The site's primary blue: the EU's own colour, near enough, from the palette. */
 			accent: 'brand' as const,
-			text: 'For personal data of people in the EU. Our DPA includes standard-contractual-clause terms for transfers outside the EU (DPA §11).',
+			text: 'For personal data of people in the EU; we apply the same privacy-by-design rules to all personal data we process.',
 			href: tc('compliance/gdpr'),
 		},
 		{
