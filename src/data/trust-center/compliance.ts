@@ -161,7 +161,7 @@ export const PRIVACY = {
 		`Published <a href="${tc('subprocessors')}">sub-processors</a>, with notice of material changes.`,
 		// "Security of processing under our certified ISO/IEC 27001 controls" left: the lead says it
 		// ("backed by the same ISO 27001 controls"), and the certificates are the section above.
-		`<a href="${contactHref(SECURITY_TOPICS.dsr.value)}">Data subject requests</a> and breach notification under documented procedures.`,
+		`<a href="${contactHref(SECURITY_TOPICS.dsr.value)}">Data subject requests</a> and breach notification as set out in our DPA.`,
 	] satisfies Proof[],
 	/** What each law adds, at the same size: one line each, the rest on its own page. */
 	laws: [
