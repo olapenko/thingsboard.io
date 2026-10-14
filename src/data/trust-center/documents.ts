@@ -320,12 +320,13 @@ export const DOCS: TcDoc[] = [
 	// than the draft's names and lines do.
 	{
 		slug: 'private-cloud-sla',
+		url: '/pricing/?product=thingsboard-private-cloud',
 		name: 'Private Cloud SLA and service description',
 		category: 'Legal',
 		access: 'public',
-		version: '—',
+		version: 'current',
 		owner: '—',
-		description: 'The uptime formula, service credits and exclusions for Private Cloud.',
+		description: 'The uptime formula and exclusions for Private Cloud, in the Private Cloud pricing FAQ.',
 	},
 	{
 		slug: 'license-server-network-requirements',
