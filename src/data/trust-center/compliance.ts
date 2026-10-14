@@ -264,7 +264,7 @@ export const CERT_PAGES: CertPage[] = [
 			},
 			{
 				label: 'Security of processing',
-				html: `Our information security controls are certified to <a href="${tc('compliance/iso-27001')}">ISO/IEC 27001:2022</a>.`,
+				html: `Our information security management system is certified to <a href="${tc('compliance/iso-27001')}">ISO/IEC 27001:2022</a>.`,
 			},
 			{
 				label: 'Data subject requests',
