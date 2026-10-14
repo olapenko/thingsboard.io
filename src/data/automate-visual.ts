@@ -6,7 +6,10 @@
  * protocol, one model" and "then act on it" — and that the second needed a picture of its own. These
  * are that picture, split in the order data actually moves: NORMALIZE (the shipped `NormalizeSeries`,
  * untouched), FILTER (a day of door openings, and the one that becomes an alarm) and NOTIFY (that one
- * alarm, and everyone it reaches). The row's paragraph already names all three, so it stays as it is.
+ * alarm, and everyone it reaches). The row's paragraph walks the same three steps.
+ *
+ * THE TABS SAY WHAT THE READER GETS, as main has since #752: Normalize, Alert, Deliver. The ids stay
+ * `filter` and `notify`, the drawings' own names.
  *
  * ONE FREEZER, ALL THE WAY DOWN. The AI demo above asks to "email the manager if a freezer stays
  * open" and creates a CRITICAL alarm rule called ‘Freezer Door Open’ that fires past three minutes.
@@ -32,13 +35,13 @@ export const AUTOMATE_STAGES: AutomateStage[] = [
 	},
 	{
 		id: 'filter',
-		label: 'Filter',
-		icon: 'tabler:filter',
+		label: 'Alert',
+		icon: 'tabler:alert-triangle',
 	},
 	{
 		id: 'notify',
-		label: 'Notify',
-		icon: 'tabler:bell-ringing',
+		label: 'Deliver',
+		icon: 'tabler:send',
 	},
 ];
 

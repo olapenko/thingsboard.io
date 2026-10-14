@@ -44,16 +44,16 @@ export const homeCarouselItems: CarouselItem[] = [
 		height: 866,
 	},
 	{
-		src: '/src/assets/images/landings/ce/usecases/ft3.webp',
-		alt: 'Fleet tracking dashboard example',
+		src: '/src/assets/images/landings/ce/usecases/ft4.webp',
+		alt: 'Mine site fleet tracking dashboard example',
 		title: 'Fleet tracking',
 		icon: 'tabler:truck',
 		description:
-			'ThingsBoard platform allows to track vehicles state and alerts via various sensors, plot vehicle routes in real-time and browse their sensors reading history at the same time using customizable high quality widgets and dashboards.',
+			'Track excavators and haul trucks across a mine site in real time. Geofenced loading, unloading and restricted zones, fuel levels and machine states come from calculated fields, and alarm rules flag speeding, overloads and low fuel.',
 		linkLabel: 'See live routes and alerts',
 		href: '/use-cases/site-fleet-tracking/',
-		width: 1920,
-		height: 866,
+		width: 2320,
+		height: 1046,
 	},
 	{
 		src: '/src/assets/images/landings/ce/usecases/sm1.webp',
@@ -80,7 +80,7 @@ export const homeCarouselItems: CarouselItem[] = [
 		height: 866,
 	},
 	{
-		src: '/src/assets/images/landings/ce/usecases/so1.webp',
+		src: '/src/assets/images/landings/ce/usecases/so2.webp',
 		alt: 'Smart office dashboard example',
 		title: 'Smart office',
 		icon: 'tabler:building',
@@ -88,8 +88,8 @@ export const homeCarouselItems: CarouselItem[] = [
 			'Ensure employee health and safety to boost organization productivity. Optimize resource consumption by monitoring and control of the office indoor climate. ThingsBoard provides rich data visualization, powerful processing engine, remote control and OTA updates capabilities.',
 		linkLabel: 'See climate and safety control',
 		href: '/use-cases/smart-office/',
-		width: 1920,
-		height: 866,
+		width: 2320,
+		height: 1046,
 	},
 	{
 		src: '/src/assets/images/landings/ce/usecases/wm4.webp',

@@ -37,9 +37,10 @@ export const DASHBOARDS_BADGE_HANDOFF = { icon: 'tabler:layout-dashboard', color
  *
  * `page` — the homepage's own badge colours, the nearest to each board: nothing new enters the
  * palette, and the section still looks like the page. `shot` — each board's own accent, picked off the
- * screenshot: the chart blue on the energy board's navy, the crop-level green, the route blue, the
- * HVAC switch's orange, the retail floor plan's alarm orange, the pool's water. SCADA energy is a grey
- * canvas with almost no colour in it, so it takes the amber of the energy it tracks.
+ * screenshot: the chart blue on the energy board's navy, the crop-level green, the retail floor plan's
+ * alarm orange, the pool's water. Fleet tracking and Smart office take main's teals from their new
+ * screenshots (#756: the mine site, the office). SCADA energy is a grey canvas with almost no colour in
+ * it, so it takes the amber of the energy it tracks.
  */
 export type DashboardTones = 'page' | 'shot';
 
@@ -59,10 +60,10 @@ export const DASHBOARD_TONES: Record<DashboardTones, Record<string, string>> = {
 	shot: {
 		'/use-cases/smart-energy/': '#2f80ed',
 		'/use-cases/smart-farming/': '#43a047',
-		'/use-cases/site-fleet-tracking/': '#3b6fe0',
+		'/use-cases/site-fleet-tracking/': '#00695c',
 		'/use-cases/smart-metering/': '#29a3d9',
 		'/use-cases/environment-monitoring/': '#2aa198',
-		'/use-cases/smart-office/': '#f26b38',
+		'/use-cases/smart-office/': '#00695a',
 		'/use-cases/water-metering/': '#4caf50',
 		'/use-cases/smart-retail/': '#f07a2e',
 		'/use-cases/scada/': '#2f9fca',
