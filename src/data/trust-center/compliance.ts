@@ -147,9 +147,12 @@ export type Proof = string;
  * privacy rights · Self-declared") and their lead ("We meet privacy regulations through our own data
  * protection program and declare our compliance, for example:"). Every point is a fact one of our
  * own pages already states: the EU region and that data never moves between regions (the FAQ), the
- * DPA's standard contractual clauses and its breach notification "without undue delay" (the DPA's
+ * DPA's transfer terms (§11) and its breach notification "without undue delay" (the DPA's
  * text), the notice of sub-processor changes (Sub-processors), the documented procedure for data
  * subject requests (the GDPR page). The DPA's Data Protection Officer is left out on purpose.
+ *
+ * CLARIFY: Legal to confirm how the DPA's transfer terms (§11) may be described: they are an abridged
+ * SCC-style text, not the Commission's modules, with no UK addendum.
  */
 export const PRIVACY = {
 	title: 'Privacy and data protection',
@@ -157,7 +160,7 @@ export const PRIVACY = {
 	/** What we commit to under both laws, each with the page that proves it. */
 	commitments: [
 		`Data stays in the EU on ThingsBoard Cloud’s <a href="${tc('cloud')}">EU region</a>, and never moves between regions.`,
-		`A <a href="${DPA}">Data Processing Agreement</a>, with standard contractual clauses for transfers outside the EU.`,
+		`Our <a href="${DPA}">DPA</a> includes standard-contractual-clause terms for transfers outside the EU (DPA §11).`,
 		`Published <a href="${tc('subprocessors')}">sub-processors</a>, with notice of material changes.`,
 		// "Security of processing under our certified ISO/IEC 27001 controls" left: the lead says it
 		// ("backed by the same ISO 27001 controls"), and the certificates are the section above.
@@ -170,7 +173,7 @@ export const PRIVACY = {
 			icon: 'eu-stars',
 			/** The site's primary blue: the EU's own colour, near enough, from the palette. */
 			accent: 'brand' as const,
-			text: 'For personal data of people in the EU. Transfers outside the EU are covered by standard contractual clauses.',
+			text: 'For personal data of people in the EU. Our DPA includes standard-contractual-clause terms for transfers outside the EU (DPA §11).',
 			href: tc('compliance/gdpr'),
 		},
 		{
@@ -256,7 +259,7 @@ export const CERT_PAGES: CertPage[] = [
 			},
 			{
 				label: 'International transfers',
-				html: `Our <a href="${DPA}">DPA</a> provides for standard contractual clauses for transfers of personal data outside the EU.`,
+				html: `Our <a href="${DPA}">DPA</a> includes standard-contractual-clause terms for transfers outside the EU (DPA §11).`,
 			},
 			{
 				label: 'Sub-processors',
