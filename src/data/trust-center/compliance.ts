@@ -121,7 +121,7 @@ const regNo = (number: string, rest = '') =>
 /** The draft's "Building a compliant solution" paragraph, as guidance with the controls linked. */
 export const AUDIT = {
 	title: 'Using our compliance in your audit',
-	text: 'You can certify the solution you build on ThingsBoard to ISO/IEC 27001 or another standard. Our certificates count as supplier evidence in your audit, and under NDA we share the Statement of Applicability and audit reports.',
+	text: 'You can certify the solution you build on ThingsBoard, for example to ISO/IEC 27001. Our ISO certificates count as supplier evidence in your audit, and under NDA we share the Statement of Applicability and audit reports.',
 	controlsLead: "The platform gives you the controls auditors look for, so you don't need to build them from scratch:",
 	controls: [
 		{ label: 'Access control', href: tc('access') },
