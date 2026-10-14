@@ -17,6 +17,13 @@ import { tc } from '@data/trust-center/nav';
 /** When the Trust Center as a whole was last updated: the draft's "Last updated 1 Oct 2026". */
 export const TC_UPDATED = '2026-10-01';
 
+/** Who owns the Trust Center: the IMS Manager, by name and title, the name linked to their profile. */
+export const TC_OWNER = {
+	name: 'Oleh Reutskyi',
+	role: 'IMS Manager',
+	href: 'https://www.linkedin.com/in/oleg-reutskyi-67a39a1b3/',
+};
+
 export type TcSection = 'compliance' | 'security' | 'deployments';
 
 export const SECTION_LABEL: Record<TcSection, string> = {
