@@ -19,7 +19,7 @@ export const TC_UPDATED = '2026-10-01';
 
 /** Who owns the Trust Center: the IMS Manager, by name and title, the name linked to their profile. */
 export const TC_OWNER = {
-	name: 'Oleh Reutskyi',
+	name: 'Oleg Reutskyi',
 	role: 'IMS Manager',
 	href: 'https://www.linkedin.com/in/oleg-reutskyi-67a39a1b3/',
 };
