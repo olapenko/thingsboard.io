@@ -38,7 +38,8 @@ export interface SecurityTopic {
  * Four topics where the draft had eight. Compliance, privacy, Cloud security and "Other" were one
  * kind of message, so they are one topic; "Request documents" takes every requestable document (the
  * NDA ones), so a Request link always lands on the same topic. Sub-processor change notifications
- * left the form: they are a subscription, offered on the Sub-processors page.
+ * left the form: they are a subscription, whose sign-up waits on the Sub-processors page, hidden
+ * until it is connected (`NOTIFY` there).
  */
 export const SECURITY_TOPICS: Record<SecurityTopicKey, SecurityTopic> = {
 	documents: {
