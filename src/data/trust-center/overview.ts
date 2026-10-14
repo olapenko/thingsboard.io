@@ -58,9 +58,10 @@ export const TILES: Tile[] = [
 		icon: 'tabler:database',
 		points: [
 			'Tenant isolation by architecture',
-			// Trimmed from the draft (13 Oct 2026), three points a tile: 'Encrypted in transit with TLS'. Repeats Product security's "Encrypted transport for every device protocol".
-			// The draft's "Region of your choice: North America, EU or APAC", the regions alone so it fits a line.
-			'North America, EU or APAC',
+			// Back from the three-a-tile trim (IMS review, 14 Oct 2026): this tile alone has four points.
+			'Encrypted in transit with TLS',
+			// The draft's "Region of your choice", by deployment: ThingsBoard Cloud runs in North America and the EU only.
+			'Region of your choice: North America or EU (Cloud), plus APAC (Private Cloud)',
 			'Export anytime via API, no lock-in',
 		],
 		href: tc('data'),
