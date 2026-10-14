@@ -61,7 +61,7 @@ export const CAT_DATA: CatalogRow[] = [
 	{
 		title: 'Encryption in transit',
 		status: 'cfg',
-		html: 'Users and devices connect over TLS: HTTPS on 443, MQTTS on 8883, DTLS for CoAP and LwM2M. Unencrypted device connection is available by default for testing or PoC purposes and can be disabled.',
+		html: 'Users and devices connect over TLS: HTTPS on 443, MQTTS on 8883, DTLS for CoAP and LwM2M.',
 	},
 	{
 		title: 'Secrets and passwords',
