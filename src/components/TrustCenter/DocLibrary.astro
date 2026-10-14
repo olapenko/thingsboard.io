@@ -3,13 +3,22 @@ import Button from '@components/ui/Button.astro';
 import DocItem from '@components/TrustCenter/DocItem.astro';
 import DocSearch from '@components/TrustCenter/DocSearch.astro';
 import { DOCS, docAction, docHref } from '@data/trust-center/documents';
+import { SECURITY_TOPICS } from '@data/trust-center/forms';
+import { contactHref } from '@data/trust-center/nav';
 
 /**
  * The Documents page's library: the documents search (`DocSearch`, live here) and one flat list of
  * all 23 documents, each row the shared `DocItem` with the category under the name. The query, the
  * category and the access toggle narrow the list together; the line above the list counts what is
  * shown and clears the filters.
+ *
+ * Documents that have to be requested can be ticked, to request several at once: a bar then holds at
+ * the foot of the screen with the count, Clear, and "Request N documents", the contact form with the
+ * documents topic and every ticked one (`?doc=` once each). A filter hides rows but keeps their
+ * ticks; the count is of everything ticked.
  */
+
+const REQUEST = contactHref(SECURITY_TOPICS.documents.value);
 ---
 
 <div class="tc-library" data-doc-filter>
@@ -28,6 +37,7 @@ import { DOCS, docAction, docHref } from '@data/trust-center/documents';
 		>
 			Clear filters
 		</Button>
+		<p class="tc-results__hint">Tick documents to request several at once.</p>
 	</div>
 	<ul class="tc-doclist" data-doc-list>
 		{DOCS.map((d) => (
@@ -37,6 +47,7 @@ import { DOCS, docAction, docHref } from '@data/trust-center/documents';
 				meta={d.category}
 				access={d.access}
 				actions={[docAction(d)]}
+				pick={d.slug}
 				attrs={{
 					'data-access': d.access,
 					'data-category': d.category,
@@ -48,6 +59,16 @@ import { DOCS, docAction, docHref } from '@data/trust-center/documents';
 	<p class="tc-empty" data-doc-empty hidden>
 		Nothing matches that filter.
 	</p>
+	<div class="tc-picked" data-doc-picked hidden>
+		<p class="tc-picked__count" data-doc-picked-count></p>
+		<Button variant="tertiary" size="sm" weight="regular" attrs={{ 'data-doc-picked-clear': '' }}>
+			Clear
+		</Button>
+		<Button href={REQUEST} size="md" class="tc-picked__request" attrs={{ 'data-doc-picked-request': '' }}>
+			Request documents
+		</Button>
+	</div>
+	<p class="ui-sr" aria-live="polite" data-doc-picked-status></p>
 </div>
 
 <script>
@@ -107,5 +128,37 @@ import { DOCS, docAction, docHref } from '@data/trust-center/documents';
 			remember();
 		});
 		render();
+
+		// The selection: the bar shows while anything is ticked, its link carries every ticked document.
+		const picks = [...root.querySelectorAll<HTMLInputElement>('[data-doc-pick]')];
+		const bar = root.querySelector<HTMLElement>('[data-doc-picked]');
+		const barCount = root.querySelector<HTMLElement>('[data-doc-picked-count]');
+		const request = root.querySelector<HTMLAnchorElement>('[data-doc-picked-request]');
+		const status = root.querySelector<HTMLElement>('[data-doc-picked-status]');
+		const base = request?.getAttribute('href') ?? '';
+		const documents = (n: number) => `${n} document${n === 1 ? '' : 's'}`;
+
+		const syncPicked = (announce = false) => {
+			const ticked = picks.filter((box) => box.checked);
+			const n = ticked.length;
+			if (bar) bar.hidden = n === 0;
+			if (barCount) barCount.textContent = `${documents(n)} selected`;
+			if (status && announce) status.textContent = n ? `${documents(n)} selected` : 'Selection cleared';
+			if (request) {
+				const url = new URL(base, window.location.href);
+				ticked.forEach((box) => url.searchParams.append('doc', box.value));
+				request.href = `${url.pathname}${url.search}`;
+				request.textContent = `Request ${documents(n)}`;
+			}
+		};
+		picks.forEach((box) => box.addEventListener('change', () => syncPicked(true)));
+		root.querySelector('[data-doc-picked-clear]')?.addEventListener('click', () => {
+			picks.forEach((box) => (box.checked = false));
+			syncPicked(true);
+			picks.find((box) => !box.closest<HTMLElement>('.tc-doc')?.hidden)?.focus();
+		});
+		// Back from the form, the browser may have kept the ticks.
+		window.addEventListener('pageshow', () => syncPicked());
+		syncPicked();
 	});
 </script>

@@ -11,6 +11,10 @@ import { newTabAttrs } from '@util/external-links';
  * required, Planned), and its actions at the end
  * of the row. A public document is "View"; the others
  * are "Request", straight to the contact form with the document ticked.
+ *
+ * In the library (`pick`), a document that has to be requested also leads with a checkbox, for
+ * requesting several at once (`DocLibrary`'s selection bar); a public one keeps the column empty, so
+ * the names line up.
  */
 
 export interface DocItemAction {
@@ -28,10 +32,13 @@ interface Props {
 	meta?: string;
 	access: Access;
 	actions: DocItemAction[];
+	/** The library's selection: the document's slug, the box's value. */
+	pick?: string;
 	attrs?: Record<string, string | undefined>;
 }
 
-const { name, href, meta, access, actions, attrs = {} } = Astro.props;
+const { name, href, meta, access, actions, pick, attrs = {} } = Astro.props;
+const pickable = pick !== undefined && access !== 'public';
 
 const ACCESS_NOTE: Record<Access, { icon: string; note: string }> = {
 	public: { icon: 'tabler:world', note: 'Public' },
@@ -41,8 +48,15 @@ const ACCESS_NOTE: Record<Access, { icon: string; note: string }> = {
 const badge = ACCESS_NOTE[access];
 ---
 
-<li class:list={['tc-doc', meta && 'tc-doc--meta']} {...attrs}>
+<li class:list={['tc-doc', meta && 'tc-doc--meta', pick !== undefined && 'tc-doc--pick']} {...attrs}>
 	<div class="tc-doc__text">
+		{pick !== undefined && (
+			<span class="tc-doc__pick">
+				{pickable && (
+					<input class="tc-check__box" type="checkbox" value={pick} aria-label={`Select ${name}`} data-doc-pick />
+				)}
+			</span>
+		)}
 		<span class:list={['tc-access', `tc-access--${access}`]}>
 			<Icon name={badge.icon} aria-hidden="true" />
 			<span class="tc-access__tip">{badge.note}</span>
