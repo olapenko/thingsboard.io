@@ -17,7 +17,7 @@ import { tc } from '@data/trust-center/nav';
  *   tracking: no UTM fields, no analytics client id, no GTM form hook.
  */
 
-export type SecurityTopicKey = 'documents' | 'questionnaire' | 'question' | 'dsr';
+export type SecurityTopicKey = 'documents' | 'questionnaire' | 'question' | 'dsr' | 'subprocessors';
 
 export interface SecurityTopic {
 	/**
@@ -37,11 +37,11 @@ export interface SecurityTopic {
 }
 
 /**
- * Four topics where the draft had eight. Compliance, privacy, Cloud security and "Other" were one
+ * Five topics where the draft had eight. Compliance, privacy, Cloud security and "Other" were one
  * kind of message, so they are one topic; "Request documents" takes every requestable document (the
  * NDA ones), so a Request link always lands on the same topic. Sub-processor change notifications
- * left the form: they are a subscription, whose sign-up waits on the Sub-processors page, hidden
- * until it is connected (`NOTIFY` there).
+ * stay, as the draft had them (the IMS review, 14 Oct 2026): the Sub-processors page promises notice
+ * of changes, and its own sign-up is hidden until it is connected (`NOTIFY` there).
  */
 export const SECURITY_TOPICS: Record<SecurityTopicKey, SecurityTopic> = {
 	documents: {
@@ -66,6 +66,12 @@ export const SECURITY_TOPICS: Record<SecurityTopicKey, SecurityTopic> = {
 		label: 'Data subject request (access, correction, deletion)',
 		prompt: 'Which account or data the request is about, and what you want us to do.',
 		personal: true,
+	},
+	subprocessors: {
+		value: 'Sub-processor Notifications',
+		label: 'Sub-processor change notifications',
+		prompt: 'Optional: anything else we should know.',
+		messageOptional: true,
 	},
 };
 
