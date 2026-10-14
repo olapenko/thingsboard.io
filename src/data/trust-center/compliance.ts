@@ -76,7 +76,7 @@ export const COMPLIANCE_FACTS: Fact[] = [
  * Each step came in as its own commit, so reverting the latest brings the one before back.
  */
 export const COMPLIANCE_LEDE =
-	'ThingsBoard is certified to ISO/IEC 27001 and ISO 9001, independently tested every year, and meets the GDPR and the CCPA through its own data protection program.';
+	'ThingsBoard is certified to ISO/IEC 27001 and ISO 9001, independently tested every year, and declares its GDPR and CCPA compliance through its own data protection program.';
 
 /** The certificate validator: Compliance's button beside the fact table, the ISO pages' link. */
 export const CERTS = {
