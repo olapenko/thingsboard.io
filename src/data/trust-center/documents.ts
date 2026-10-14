@@ -142,7 +142,8 @@ export const DOCS: TcDoc[] = [
 		version: 'v1.0',
 		owner: 'IMS Manager',
 		group: 1,
-		description: 'How a change reaches production: request, impact assessment, approval and tracking in Jira.',
+		description:
+			'How changes to our systems and processes are requested, assessed, approved, implemented and reviewed, tracked in Jira.',
 	},
 	{
 		slug: 'incident-management-procedure',

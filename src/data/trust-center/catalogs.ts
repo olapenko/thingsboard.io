@@ -180,7 +180,7 @@ export const CAT_APPSEC: CatalogRow[] = [
 	{
 		title: 'Change management',
 		status: 'in',
-		html: 'Every change goes through a request, an impact assessment and an approval, tracked in Jira.',
+		html: 'Changes are requested, assessed and approved and tracked in Jira; minor changes follow a shortened path.',
 	},
 	{
 		title: 'Independent penetration testing',
