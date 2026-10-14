@@ -93,7 +93,7 @@ export const CLOUD_COMPARE: CompareRow[] = [
 	{
 		label: 'Network protection',
 		values: [
-			'Cloudflare DDoS protection, with rate limits set by plan.',
+			'DNS by Cloudflare; rate limits set by plan.',
 			'Rate limits of 50 requests per second and 500 per minute per source IP. A dedicated VPN tunnel to your systems, depending on plan.',
 		],
 	},
