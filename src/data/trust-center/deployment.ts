@@ -94,7 +94,7 @@ export const CLOUD_COMPARE: CompareRow[] = [
 		label: 'Network protection',
 		values: [
 			'DNS by Cloudflare; rate limits set by plan.',
-			'Rate limits of 50 requests per second and 500 per minute per source IP. A dedicated VPN tunnel to your systems, depending on plan.',
+			'Rate limits on HTTP traffic: 50 requests per second and 500 per minute per source IP. A dedicated VPN tunnel to your systems, depending on plan.',
 		],
 	},
 	{
@@ -108,7 +108,7 @@ export const CLOUD_COMPARE: CompareRow[] = [
 		label: 'High availability',
 		values: [
 			'Deployed across several availability zones: PostgreSQL in a multi-zone setup, Cassandra and Kafka with replication factor 3.',
-			'On Scale and Enterprise plans. Launch and Growth run as a single-node deployment.',
+			'On Scale and Enterprise plans. Launch and Growth run as a single-node deployment; databases are replicated across availability zones on every plan.',
 		],
 	},
 	{
