@@ -73,6 +73,47 @@ export const SECURITY_TOPIC_LIST: SecurityTopic[] = Object.values(SECURITY_TOPIC
 export const NDA_NOTE =
 	"We send you our mutual NDA first. Once it's signed, you get the documents within two business days.";
 
+// ── The report as an email (`VulnerabilityForm compose`) ─────────────────────
+
+/** In place of the report when it is too long for a draft's address: the reader pastes it. */
+export const REPORT_PASTE = '[Paste the report you copied here.]';
+
+/**
+ * How long a draft's address may get. Some email apps cut a `mailto:` past about 2,000 characters;
+ * Gmail's and Outlook's compose pages take far more, but a server refuses an address past about 8,000.
+ */
+const DRAFT_MAX = { app: 1800, web: 6000 };
+
+/**
+ * The report as a draft three ways: the reader's email app (`mailto:`), Gmail and Outlook on the web
+ * (their compose pages, for a reader with no email app set up). A body too long for one becomes
+ * `REPORT_PASTE`, and `cut` says so, for the page to ask for a paste.
+ *
+ * CLARIFY: Outlook's link is the Microsoft 365 one (`outlook.office.com`); check it with a personal
+ * Outlook.com account too, which may want `outlook.live.com/mail/0/deeplink/compose`.
+ */
+export function reportDrafts(to: string, subject: string, body: string) {
+	const enc = encodeURIComponent;
+	const fit = (make: (text: string) => string, max: number) => {
+		const full = make(body);
+		return full.length <= max ? { href: full, cut: false } : { href: make(REPORT_PASTE), cut: true };
+	};
+	const app = fit(
+		(text) => `mailto:${to}?subject=${enc(subject)}&body=${enc(text.replace(/\n/g, '\r\n'))}`,
+		DRAFT_MAX.app
+	);
+	const gmail = fit(
+		(text) => `https://mail.google.com/mail/?view=cm&fs=1&to=${enc(to)}&su=${enc(subject)}&body=${enc(text)}`,
+		DRAFT_MAX.web
+	);
+	const outlook = fit(
+		(text) =>
+			`https://outlook.office.com/mail/deeplink/compose?to=${enc(to)}&subject=${enc(subject)}&body=${enc(text)}`,
+		DRAFT_MAX.web
+	);
+	return { app: app.href, gmail: gmail.href, outlook: outlook.href, cut: app.cut };
+}
+
 // ── What a form hands its thank-you page ────────────────────────────────────
 
 /**
