@@ -138,7 +138,7 @@ export const CAT_ACCESS: CatalogRow[] = [
 	{
 		title: 'Audit log',
 		status: 'in',
-		html: 'The platform records user actions, and you can send the log to an external system such as your SIEM.',
+		html: 'The platform records user actions in an audit log. On-premises you can forward it to Elasticsearch; in every deployment you can read it through the REST API.',
 		docs: '/docs/pe/user-guide/security/audit-log/',
 	},
 	{
