@@ -106,7 +106,7 @@ export const TC_FAQ: FaqCategory[] = [
 				id: 'uptime',
 				question: 'What uptime do you commit to?',
 				answer:
-					'<p>Private Cloud has a contractual SLA: 99.9% on Launch and Growth, 99.95% on Scale and Enterprise, and a custom SLA on Enterprise on request. ThingsBoard Cloud status is live at status.thingsboard.cloud and status.eu.thingsboard.cloud.</p>',
+					'<p>Private Cloud has a contractual SLA: 99.9% on Launch and Growth, 99.95% on Scale and Enterprise, and a custom SLA on Enterprise on request.</p>',
 			},
 			{
 				id: 'staff',

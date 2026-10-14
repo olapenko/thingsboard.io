@@ -114,7 +114,8 @@ export const CLOUD_COMPARE: CompareRow[] = [
 	{
 		label: 'Uptime',
 		values: [
-			'Live status at status.thingsboard.cloud and status.eu.thingsboard.cloud, also shown to tenant administrators in the UI.',
+			// CLARIFY: the status pages, once status.thingsboard.cloud and status.eu.thingsboard.cloud are live.
+			'—',
 			'Contractual SLA: 99.9% on Launch and Growth, 99.95% on Scale and Enterprise, and a custom SLA on Enterprise on request. Monitored 24×7.',
 		],
 	},
