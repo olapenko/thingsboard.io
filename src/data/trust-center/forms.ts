@@ -147,13 +147,19 @@ export const REPORT_TEMPLATE = [
 ].join('\n');
 
 /**
- * The template as the page shows it: escaped, with each part to replace (`<…>`) in a span the page
- * tints, so what is the reader's to fill shows at a glance. Its text is `REPORT_TEMPLATE`'s own.
+ * The subject and the template as the page shows them: escaped, with each part to replace (`<…>`)
+ * in a span the page tints, so what is the reader's to fill shows at a glance, in both alike. The
+ * text is their own.
  */
-export const REPORT_TEMPLATE_HTML = REPORT_TEMPLATE.replace(/&/g, '&amp;')
-	.replace(/</g, '&lt;')
-	.replace(/>/g, '&gt;')
-	.replace(/&lt;[^&]*?&gt;/g, (part) => `<span class="tc-tpl__part">${part}</span>`);
+const tintParts = (text: string): string =>
+	text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/&lt;[^&]*?&gt;/g, (part) => `<span class="tc-tpl__part">${part}</span>`);
+
+export const REPORT_TEMPLATE_HTML = tintParts(REPORT_TEMPLATE);
+export const REPORT_SUBJECT_HTML = tintParts(REPORT_SUBJECT);
 
 // ── What a form hands its thank-you page ────────────────────────────────────
 
