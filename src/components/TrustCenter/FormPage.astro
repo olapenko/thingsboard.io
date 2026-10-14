@@ -1,4 +1,5 @@
 ---
+import { Icon } from 'astro-icon/components';
 import BaseLayout from '@layouts/BaseLayout.astro';
 import PageIntro from '@components/Landing/PageIntro.astro';
 import PricingBackground from '@components/Pricing/PricingBackground.astro';
@@ -85,14 +86,28 @@ const {
 								<Mark size={48} icon={item.icon} fill="white" accent={item.accent ? undefined : 'neutral'} lift />
 								<span class="tc-fp__text">
 									<span class="tc-fp__lead">{item.lead}</span>
+									{/* An external link's arrow is drawn here, held to the last word, so a label that wraps
+									    keeps it at its end; the Link's own sits apart from the words. The new tab and its
+									    screen-reader note still come from the Link (`target`). */}
 									<Link
 										class="tc-fp__link"
 										href={item.href}
 										tone="ink"
-										external={item.external}
-										dir={item.external ? undefined : 'none'}
+										dir="none"
+										attrs={item.external ? { target: '_blank', rel: 'noopener noreferrer' } : undefined}
 									>
-										{item.label}
+										{item.external
+											? [
+													item.label.split(' ').slice(0, -1).join(' '),
+													' ',
+													<span class="tc-fp__last">
+														{[
+															item.label.split(' ').at(-1),
+															<Icon name="tabler:arrow-up-right" class="tc-fp__out" aria-hidden="true" />,
+														]}
+													</span>,
+												]
+											: item.label}
 									</Link>
 								</span>
 							</li>
@@ -229,9 +244,26 @@ const {
 		color: var(--color-text-secondary);
 	}
 
+	// A block of text, not the Link's flex row, so the words wrap as text and the arrow rides at their
+	// end; as wide as the words, so the link is no wider than what it says.
 	.tc-fp__item :global(.tc-fp__link) {
+		display: block;
 		width: fit-content;
+		max-width: 100%;
 		white-space: normal;
 		overflow-wrap: anywhere;
+	}
+
+	.tc-fp__last {
+		white-space: nowrap;
+	}
+
+	// The Link's own new-tab arrow, at its size and gap.
+	.tc-fp__item :global(.tc-fp__out) {
+		display: inline-block;
+		width: 1em;
+		height: 1em;
+		margin-inline-start: 4px;
+		vertical-align: -0.125em;
 	}
 </style>
