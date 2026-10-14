@@ -243,7 +243,7 @@ export const CERT_PAGES: CertPage[] = [
 		facts: [
 			{
 				label: 'Scope of application',
-				html: 'We apply data minimization and storage limitation to all personal data we process, wherever the person lives.',
+				html: 'We apply data minimization to all personal data we process, wherever the person lives.',
 			},
 			{
 				label: 'Legal basis',
