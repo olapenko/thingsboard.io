@@ -30,5 +30,5 @@ export const SUBPROCESSORS: Subprocessor[] = [
 ];
 
 export const SUBPROCESSORS_NOTE =
-	// The draft's "Related: DPA" link moves onto "the DPA" in the sentence it belongs to: ours, not a vendor's.
-	'Location means the hosting region for infrastructure providers and the country of the contracting entity for other vendors; exact data regions are set out in each vendor\'s DPA. We notify customers of material changes to this list, as set out in <a href="/products/paas/dpa/">the DPA</a>.';
+	// CLARIFY: whether the DPA gets a clause on notifying customers of sub-processor changes (Legal).
+	"Location means the hosting region for infrastructure providers and the country of the contracting entity for other vendors; exact data regions are set out in each vendor's DPA. We notify customers of material changes to this list.";

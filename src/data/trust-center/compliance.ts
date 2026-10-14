@@ -260,7 +260,7 @@ export const CERT_PAGES: CertPage[] = [
 			},
 			{
 				label: 'Sub-processors',
-				html: `Every vendor that may access personal data is listed on our <a href="${tc('subprocessors')}">Sub-processors</a> page; we notify customers of material changes, as the DPA sets out.`,
+				html: `Every vendor that may access personal data is listed on our <a href="${tc('subprocessors')}">Sub-processors</a> page; we notify customers of material changes.`,
 			},
 			{
 				label: 'Security of processing',

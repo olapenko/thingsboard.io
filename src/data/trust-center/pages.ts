@@ -163,7 +163,7 @@ export const TC_PAGES: TcPage[] = [
 		line: 'The vendors that may access customer or personal data.',
 		icon: 'tabler:building',
 		related: [tc('compliance/gdpr'), tc('compliance/ccpa'), PRIVACY_POLICY],
-		// Shown with the list: when it last changed is what a reader of the DPA's notice clause checks.
+		// Shown with the list: when it last changed is what a reader waiting on a notice of changes checks.
 		updated: '2026-10-01',
 	},
 	{
