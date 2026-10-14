@@ -190,11 +190,6 @@ export const CLOUD_DOCS: DocRow[] = [
 		actions: [{ label: 'View', href: 'https://aws.amazon.com/artifact/' }],
 	},
 	{
-		name: 'Business Continuity Plan',
-		access: 'nda',
-		actions: [{ label: 'Request', href: contactHref(SECURITY_TOPICS.documents.value, 'bcp-drp') }],
-	},
-	{
 		name: 'Backup policy (frequency, retention)',
 		access: 'nda',
 		actions: [{ label: 'Request', href: contactHref(SECURITY_TOPICS.documents.value, 'backup-policy') }],
