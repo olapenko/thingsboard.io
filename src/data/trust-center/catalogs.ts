@@ -51,7 +51,7 @@ export const CAT_DATA: CatalogRow[] = [
 	{
 		title: 'Data ownership',
 		status: 'in',
-		html: 'Customer data belongs to the customer. We process it on your behalf under the DPA and never use it to train AI models.',
+		html: "Customer data belongs to the customer. We process it on your behalf under the DPA and don't use it to train or improve ThingsBoard's own AI models.",
 	},
 	{
 		title: 'Tenant isolation',

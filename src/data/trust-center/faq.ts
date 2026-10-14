@@ -177,8 +177,7 @@ export const TC_FAQ: FaqCategory[] = [
 			{
 				id: 'ai',
 				question: 'Is my data used to train AI models?',
-				answer:
-					'<p>No. We never use customer data to train models, and customer data never goes into public AI services. Our use of AI follows a dedicated policy aligned with GDPR, the EU AI Act and the NIST AI RMF.</p>',
+				answer: `<p>We don't use customer data to train or improve ThingsBoard's own AI models. ThingsBoard Cloud can use third-party AI services, for example for development automation and automated support. Data shared with them is used to provide the functionality you request, and the providers are bound by obligations no less strict than our <a href="/products/paas/dpa/">DPA</a> (<a href="/products/paas/terms-of-use/">Terms of Use</a>, 3.13). Our own use of AI follows a dedicated policy aligned with GDPR, the EU AI Act and the NIST AI RMF.</p>`,
 			},
 			{
 				id: 'subprocessors',
