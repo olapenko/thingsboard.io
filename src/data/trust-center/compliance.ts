@@ -183,7 +183,7 @@ export const PRIVACY = {
 		},
 	],
 	/** Why there is no certificate here, said once. */
-	note: 'We declare our GDPR and CCPA compliance ourselves, and commit to it contractually in our DPA.',
+	note: 'We declare our GDPR and CCPA compliance ourselves, and commit to GDPR contractually in our DPA.',
 };
 
 export interface CertPage {
