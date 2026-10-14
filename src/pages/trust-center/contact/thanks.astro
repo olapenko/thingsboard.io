@@ -7,8 +7,8 @@ import { tc } from '@data/trust-center/nav';
 /**
  * The contact form's thank-you, on Contact us's. What it says follows
  * the topic:
- * - Request documents: "Request sent", what was asked for, and, with an NDA document in it, the NDA's
- *   three steps; a planned document adds that we'll write when it's ready.
+ * - Request documents: "Request sent", what was asked for, and the NDA's three steps (every
+ *   document on the form is shared under one).
  * - A questionnaire, a question: where the reply goes.
  * - A data subject request: where the reply goes, and that we may confirm who is asking.
  * - Any other topic (none today; the merged prototype's Contact us topics had them): Contact us's own
@@ -54,10 +54,6 @@ const TOPIC = {
 			))}
 		</ol>
 	</div>
-	<p class="tc-thanks-note" data-thanks="planned" hidden>
-		<Icon name="tabler:clock" class="tc-thanks-note__icon" aria-hidden="true" />
-		<span>We’ll write to you when the planned documents are ready.</span>
-	</p>
 	{/* CLARIFY: the data subject request's process (how identity is confirmed, by whom, how fast) is the
 	    privacy team's; this line says no more than that a check may come. */}
 	<p class="tc-thanks-note" data-thanks="dsr" hidden>
@@ -85,32 +81,21 @@ const TOPIC = {
 			const name = typeof sent.firstName === 'string' ? sent.firstName : '';
 			const email = typeof sent.email === 'string' ? sent.email : '';
 			const docs = Array.isArray(sent.docs) ? sent.docs : [];
-			const nda = docs.some((d) => d.access === 'nda');
-			const planned = docs.some((d) => d.access === 'pending');
 
 			let title = name ? `Thanks, ${name}. Your message is on its way.` : '';
 			let lede;
 			if (sent.subject === TOPIC.documents) {
 				part('eyebrow').textContent = 'Request sent';
 				title = name ? `Thanks, ${name}. Your request is on its way.` : 'Thanks, your request is on its way';
-				lede = nda
-					? ['We’ll email our mutual NDA to ', strong(email), '.']
-					: ['We’ll write to ', strong(email), ' when the planned documents are ready.'];
+				lede = ['We’ll email our mutual NDA to ', strong(email), '.'];
 				const list = part('doclist');
 				docs.forEach((d) => {
 					const li = document.createElement('li');
 					li.textContent = d.label;
-					if (d.access === 'pending') {
-						const tag = document.createElement('span');
-						tag.className = 'tc-reqdocs__tag';
-						tag.textContent = 'Planned';
-						li.append(' ', tag);
-					}
 					list.append(li);
 				});
 				part('docs').hidden = docs.length === 0;
-				part('nda').hidden = !nda;
-				part('planned').hidden = !(nda && planned);
+				part('nda').hidden = docs.length === 0;
 			} else if (sent.subject === TOPIC.questionnaire) {
 				lede = ['Our security team will read it and reply to ', strong(email), ' about your questionnaire.'];
 			} else if (sent.subject === TOPIC.question) {

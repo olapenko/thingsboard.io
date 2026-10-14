@@ -5,6 +5,14 @@ import { contactHref, tc } from '@data/trust-center/nav';
  * The draft's 20 documents, as its `DOCS` dataset has them, plus three the Cloud page lists (Terms of
  * Use, DPA for Private Cloud, Private Cloud cluster architecture): the hub lists the draft's 18 with a
  * group, the Documents page lists all 23, and each document without a page of its own gets a detail page.
+ *
+ * Three states, one meaning and one action each:
+ * - `public`: available now; View.
+ * - `nda`: exists, sent after a mutual NDA; Request (Add in the library), on the contact form.
+ * - `pending`: planned, not written yet; no action, since there is nothing to send.
+ *
+ * Four more, which the Cloud and On-premises pages list, wait for their address (`linkMissing`): the
+ * draft listed them as public with links to nowhere. They stay out of the library until one is given.
  */
 
 export type Access = 'public' | 'nda' | 'pending';
@@ -26,6 +34,13 @@ export interface TcDoc {
 }
 
 /**
+ * A public document with neither a file nor a page: its address is missing. It is listed where the
+ * draft listed it, marked "Link needed", and joins the library, the hub's count and the detail pages
+ * once it has a `file` or a `url`.
+ */
+export const linkMissing = (d: TcDoc): boolean => d.access === 'public' && !d.file && !d.url;
+
+/**
  * The hub's four groups, in order (a document's `group` is the index), each with its heading's icon:
  * a seal (the "Certified" check), a shield with a check (the rules; no keyhole, which the rows' NDA
  * lock already is), the scales of law, a report with a chart. The second was the draft's "Security &
@@ -39,10 +54,11 @@ export const DOC_GROUPS = [
 ] as const;
 
 export const ACCESS_LABEL: Record<Access, string> = { public: 'Public', nda: 'NDA', pending: 'Planned' };
-export const ACCESS_ACTION: Record<Access, string> = {
+/** The one action a state takes; a planned document has none. */
+export const ACCESS_ACTION: Record<Access, string | undefined> = {
 	public: 'View',
 	nda: 'Request via NDA',
-	pending: 'Request',
+	pending: undefined,
 };
 
 export const DOCS: TcDoc[] = [
@@ -298,29 +314,72 @@ export const DOCS: TcDoc[] = [
 		owner: 'IMS Manager',
 		description: 'Our answers to the Standardized Information Gathering (Lite) questionnaire.',
 	},
+	// CLARIFY: the four below are public in the draft, with links to nowhere. Give each its address
+	// (`url` for a page, `file` for a download) and it joins the library. The descriptions say no more
+	// than the draft's names and lines do.
+	{
+		slug: 'private-cloud-sla',
+		name: 'Private Cloud SLA and service description',
+		category: 'Legal',
+		access: 'public',
+		version: '—',
+		owner: '—',
+		description: 'The uptime formula, service credits and exclusions for Private Cloud.',
+	},
+	{
+		slug: 'license-server-network-requirements',
+		name: 'License server network requirements',
+		category: 'Operations',
+		access: 'public',
+		version: '—',
+		owner: '—',
+		description: 'The outbound connection to license.thingsboard.io that the hourly license check needs.',
+	},
+	{
+		slug: 'eula',
+		name: 'EULA and license terms',
+		category: 'Legal',
+		access: 'public',
+		version: '—',
+		owner: '—',
+		description: 'The license terms for ThingsBoard installed on-premises.',
+	},
+	{
+		slug: 'support-policy',
+		name: 'Support policy',
+		category: 'Legal',
+		access: 'public',
+		version: '—',
+		owner: '—',
+		description: 'How we support ThingsBoard.',
+	},
 ];
+
+/** The library: every document that can be opened, requested or is planned; not the ones awaiting an address. */
+export const LIBRARY_DOCS = DOCS.filter((d) => !linkMissing(d));
 
 /** A document that is a page opens that page; the rest open their detail page. */
 export const docHref = (d: TcDoc): string => d.url ?? tc(`documents/${d.slug}`);
 
 export const isOffSite = (href: string | undefined): boolean => !!href && /^https?:/.test(href);
 
-/** The documents with a detail page: the ones that are not a page already. */
-export const DOCS_WITH_PAGE = DOCS.filter((d) => !d.url);
+/** The documents with a detail page: the library's, less the ones that are a page already. */
+export const DOCS_WITH_PAGE = LIBRARY_DOCS.filter((d) => !d.url);
 
 /** The hub's 18, the ones in a group. */
-export const HUB_DOCS = DOCS.filter((d) => d.group !== undefined);
+export const HUB_DOCS = LIBRARY_DOCS.filter((d) => d.group !== undefined);
 
 /**
- * Where a document's action goes: a public file opens; any other, NDA or planned, is requested on the
- * contact form under "Request documents" with that document ticked.
+ * Where a document's action goes: a public file opens; an NDA one is requested on the contact form
+ * under "Request documents" with that document ticked. A planned one has nowhere to go.
  */
-export const docActionHref = (d: TcDoc): string => {
-	if (d.access === 'public') return d.file ?? '#';
-	return contactHref(SECURITY_TOPICS.documents.value, d.slug);
+export const docActionHref = (d: TcDoc): string | undefined => {
+	if (d.access === 'public') return d.file ?? d.url;
+	if (d.access === 'nda') return contactHref(SECURITY_TOPICS.documents.value, d.slug);
+	return undefined;
 };
 
-/** The hub's group each category falls in; the questionnaires, which the hub does not list, come last. */
+/** The hub's group each category of NDA document falls in. */
 const REQUEST_GROUP_OF: Record<string, number> = {
 	Governance: 0,
 	Compliance: 0,
@@ -328,34 +387,57 @@ const REQUEST_GROUP_OF: Record<string, number> = {
 	Legal: 2,
 	Reports: 3,
 	Resilience: 3,
-	Questionnaires: 4,
 };
 
 export interface RequestGroup {
 	name: string;
-	docs: { value: string; label: string; access: Exclude<Access, 'public'> }[];
+	docs: { value: string; label: string }[];
 }
 
 /**
- * The contact form's "Documents you need": every document that has to be requested (NDA or planned),
- * in the hub's four groups by category, then the questionnaires. A document with a category the
- * groups don't know fails the build rather than landing in the wrong group.
+ * The contact form's "Documents you need": the documents that can be requested, the NDA ones, in the
+ * hub's four groups by category. A planned one is not there: there is nothing to send yet. An NDA
+ * document with a category the groups don't know fails the build rather than landing in the wrong
+ * group.
  */
-export const REQUEST_GROUPS: RequestGroup[] = [...DOC_GROUPS.map((g) => g.name), 'Questionnaires']
-	.map((name, i) => ({
-		name,
-		docs: DOCS.filter((d) => d.access !== 'public').flatMap((d) => {
-			const group = REQUEST_GROUP_OF[d.category];
-			if (group === undefined) throw new Error(`[trust-center] no request group for the category "${d.category}"`);
-			return group === i ? [{ value: d.slug, label: d.name, access: d.access as Exclude<Access, 'public'> }] : [];
-		}),
-	}))
-	.filter((g) => g.docs.length > 0);
+export const REQUEST_GROUPS: RequestGroup[] = DOC_GROUPS.map((g, i) => ({
+	name: g.name,
+	docs: LIBRARY_DOCS.filter((d) => d.access === 'nda').flatMap((d) => {
+		const group = REQUEST_GROUP_OF[d.category];
+		if (group === undefined) throw new Error(`[trust-center] no request group for the category "${d.category}"`);
+		return group === i ? [{ value: d.slug, label: d.name }] : [];
+	}),
+})).filter((g) => g.docs.length > 0);
 
-/** A document's action in a list: a public one is viewed, the rest are requested on the contact form. */
-export const docAction = (d: TcDoc): { label: string; href: string; dead?: boolean } => {
-	if (d.access !== 'public') return { label: 'Request', href: docActionHref(d) };
+/** A list row's action: what the document's state allows. */
+export interface DocAction {
+	label: string;
+	href: string;
+	/** The document's address is missing (`linkMissing`): "Link needed" in the action's place. */
+	missing?: boolean;
+}
+
+/**
+ * A document's action in a list: a public one is viewed, an NDA one requested on the contact form, a
+ * planned one has none (`undefined`).
+ */
+export const docAction = (d: TcDoc): DocAction | undefined => {
+	if (d.access === 'pending') return undefined;
+	if (d.access === 'nda') return { label: 'Request', href: docActionHref(d)! };
 	// The file first: a certificate's `url` is its Compliance page, and "View" opens the certificate.
 	const href = d.file ?? d.url;
-	return href ? { label: 'View', href } : { label: 'View', href: '#', dead: true };
+	return href ? { label: 'View', href } : { label: 'View', href: '#', missing: true };
+};
+
+/** The row's actions, for a list: the one its state takes, or none. */
+export const docActions = (d: TcDoc): DocAction[] => {
+	const action = docAction(d);
+	return action ? [action] : [];
+};
+
+/** A document's row where a deployment page lists it, under the draft's name for it there. */
+export const docRow = (slug: string, name?: string) => {
+	const d = DOCS.find((doc) => doc.slug === slug);
+	if (!d) throw new Error(`[trust-center] no document "${slug}"`);
+	return { name: name ?? d.name, access: d.access, actions: docActions(d) };
 };

@@ -2,7 +2,7 @@
 import Button from '@components/ui/Button.astro';
 import DocItem from '@components/TrustCenter/DocItem.astro';
 import DocSearch from '@components/TrustCenter/DocSearch.astro';
-import { DOCS, docAction, docHref } from '@data/trust-center/documents';
+import { LIBRARY_DOCS, docActions, docHref } from '@data/trust-center/documents';
 import { SECURITY_TOPICS } from '@data/trust-center/forms';
 import { contactHref } from '@data/trust-center/nav';
 
@@ -12,7 +12,10 @@ import { contactHref } from '@data/trust-center/nav';
  * category and the access toggle narrow the list together; the line above the list counts what is
  * shown and clears the filters.
  *
- * A document that has to be requested has "Add" in Request's place (`DocItem`'s `pick`), to request
+ * The access toggle is Public or Under NDA, the two kinds you can get; a planned document shows with
+ * neither, as it can't be had yet.
+ *
+ * An NDA document has "Add" in Request's place (`DocItem`'s `pick`), to request
  * several at once: a bar then holds at the foot of the screen with the count, Clear, and "Request N
  * documents", the contact form with the documents topic and every added one (`?doc=` once each). A
  * filter hides rows but keeps what was added; the count is of everything added. No "select all":
@@ -26,7 +29,7 @@ const REQUEST = contactHref(SECURITY_TOPICS.documents.value);
 	<DocSearch live />
 	<div class="tc-results">
 		<p class="tc-results__count" aria-live="polite" data-doc-count>
-			{DOCS.length} documents
+			{LIBRARY_DOCS.length} documents
 		</p>
 		<Button
 			variant="tertiary"
@@ -41,13 +44,13 @@ const REQUEST = contactHref(SECURITY_TOPICS.documents.value);
 		<p class="tc-results__hint">Add the documents you need, then request them together.</p>
 	</div>
 	<ul class="tc-doclist" data-doc-list>
-		{DOCS.map((d) => (
+		{LIBRARY_DOCS.map((d) => (
 			<DocItem
 				name={d.name}
 				href={docHref(d)}
 				meta={d.category}
 				access={d.access}
-				actions={[docAction(d)]}
+				actions={docActions(d)}
 				pick={d.slug}
 				attrs={{
 					'data-access': d.access,
@@ -97,7 +100,7 @@ const REQUEST = contactHref(SECURITY_TOPICS.documents.value);
 			let shown = 0;
 			rows.forEach((row) => {
 				const show =
-					(acc === '' || (acc === 'public' ? row.dataset.access === 'public' : row.dataset.access !== 'public')) &&
+					(acc === '' || row.dataset.access === acc) &&
 					(cat === '' || row.dataset.category === cat) &&
 					(needle === '' || (row.dataset.text ?? '').includes(needle));
 				row.hidden = !show;

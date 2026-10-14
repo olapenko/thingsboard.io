@@ -36,8 +36,8 @@ export interface SecurityTopic {
 
 /**
  * Four topics where the draft had eight. Compliance, privacy, Cloud security and "Other" were one
- * kind of message, so they are one topic; "Request documents" takes every requestable document, NDA
- * or planned, so a Request link always lands on the same topic. Sub-processor change notifications
+ * kind of message, so they are one topic; "Request documents" takes every requestable document (the
+ * NDA ones), so a Request link always lands on the same topic. Sub-processor change notifications
  * left the form: they are a subscription, offered on the Sub-processors page.
  */
 export const SECURITY_TOPICS: Record<SecurityTopicKey, SecurityTopic> = {
@@ -68,19 +68,9 @@ export const SECURITY_TOPICS: Record<SecurityTopicKey, SecurityTopic> = {
 
 export const SECURITY_TOPIC_LIST: SecurityTopic[] = Object.values(SECURITY_TOPICS);
 
-/** Shown once an NDA document is ticked: the draft's own line. */
+/** "Documents you need"'s hint, always there: the draft's own line under the field. */
 export const NDA_NOTE =
 	"We send you our mutual NDA first. Once it's signed, you get the documents within two business days.";
-
-/**
- * Shown once a planned document is ticked (CAIQ Lite, SIG Lite).
- *
- * CLARIFY: "and can answer your questionnaire meanwhile" promises the team will fill in a
- * questionnaire while the planned self-assessments are not published. Confirm the team offers that,
- * or cut the clause.
- */
-export const PLANNED_NOTE =
-	"Not published yet. We'll let you know when it's ready, and can answer your questionnaire meanwhile.";
 
 // ── What a form hands its thank-you page ────────────────────────────────────
 

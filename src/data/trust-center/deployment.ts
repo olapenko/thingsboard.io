@@ -2,6 +2,7 @@ import type { CompareGroup, CompareRow } from '@data/product-blocks';
 import type { CatalogRow } from '@data/trust-center/catalogs';
 import { SECURITY_TOPICS } from '@data/trust-center/forms';
 import { DEPLOYMENT_ICON, deploymentList } from '@data/trust-center/deployment-marks';
+import { docRow, type Access, type DocAction } from '@data/trust-center/documents';
 import { contactHref, tc } from '@data/trust-center/nav';
 
 /**
@@ -12,17 +13,9 @@ import { contactHref, tc } from '@data/trust-center/nav';
 
 export interface DocRow {
 	name: string;
-	/** `pending`: not published yet, so "Request" (the contact form) rather than a dead "View". */
-	access: 'public' | 'nda' | 'pending';
-	/** One action, or several (the data center certifications). */
+	access: Access;
+	/** One action, or several (the data center certifications), or none (a planned document). */
 	actions: DocAction[];
-}
-
-export interface DocAction {
-	label: string;
-	href: string;
-	/** A link the draft left dead (`href="#"`): drawn, goes nowhere. */
-	dead?: boolean;
 }
 
 /**
@@ -53,13 +46,6 @@ function groupRows(rows: CompareRow[], groups: (Omit<CompareGroup, 'rows'> & { l
 	}
 	return groups.map(({ labels, ...g }) => ({ ...g, rows: labels.map((l) => rows.find((r) => r.label === l)!) }));
 }
-
-/**
- * The draft's four documents with no address yet (its `href="#"`): not published, so they read as
- * planned, and "Request" opens the contact form on "Request documents", as an NDA document's does.
- * They are not in the library, so there is no document to tick there.
- */
-const ASK = contactHref(SECURITY_TOPICS.documents.value);
 
 // ── ThingsBoard Cloud and Private Cloud ────────────────────────────────────────
 
@@ -222,11 +208,11 @@ export const CLOUD_DOCS: DocRow[] = [
 export const PRIVATE_CLOUD_DOCS_INTRO = 'Same set as ThingsBoard Cloud; only the differences are listed.';
 
 export const PRIVATE_CLOUD_DOCS: DocRow[] = [
-	{
-		name: 'Private Cloud SLA and service description (uptime formula, service credits, exclusions)',
-		access: 'pending',
-		actions: [{ label: 'Request', href: ASK }],
-	},
+	// The library's document (`docRow`): "Link needed" until it has an address, then View.
+	docRow(
+		'private-cloud-sla',
+		'Private Cloud SLA and service description (uptime formula, service credits, exclusions)'
+	),
 	{
 		name: 'DPA for Private Cloud',
 		access: 'nda',
@@ -301,13 +287,10 @@ export const ONPREM_DOCS: DocRow[] = [
 	},
 	{ name: 'Release policy', access: 'public', actions: [{ label: 'View', href: '/docs/pe/releases/release-policy/' }] },
 	{ name: 'Release notes', access: 'public', actions: [{ label: 'View', href: '/docs/pe/releases/releases-table/' }] },
-	{
-		name: 'License server network requirements',
-		access: 'pending',
-		actions: [{ label: 'Request', href: ASK }],
-	},
-	{ name: 'EULA and license terms', access: 'pending', actions: [{ label: 'Request', href: ASK }] },
-	{ name: 'Support policy', access: 'pending', actions: [{ label: 'Request', href: ASK }] },
+	// The library's documents (`docRow`): "Link needed" until each has an address, then View.
+	docRow('license-server-network-requirements'),
+	docRow('eula'),
+	docRow('support-policy'),
 ];
 
 /**

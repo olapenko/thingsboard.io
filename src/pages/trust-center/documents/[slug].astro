@@ -2,6 +2,7 @@
 import { Icon } from 'astro-icon/components';
 import DataTable from '@components/DataTable.astro';
 import Button from '@components/ui/Button.astro';
+import Link from '@components/ui/Link.astro';
 import TrustCenterLayout from '@components/TrustCenter/TrustCenterLayout.astro';
 import {
 	ACCESS_ACTION,
@@ -12,11 +13,13 @@ import {
 	type Access,
 	type TcDoc,
 } from '@data/trust-center/documents';
-import { crumbs } from '@data/trust-center/nav';
+import { SECURITY_TOPICS } from '@data/trust-center/forms';
+import { contactHref, crumbs } from '@data/trust-center/nav';
 
 /**
  * A document's page, as drafted, for every document that is not a page already: its description,
- * access, category, version and owner, and one action (View, Request via NDA, Request). A link to
+ * access, category, version and owner, and its state's action (View, Request via NDA; a planned
+ * document has none, and a planned questionnaire points to the questionnaire topic instead). A link to
  * share: it ends there, with no "Read next" (`next={[]}`) and no list of neighbours, which were the
  * next in the category rather than related; the breadcrumb and the bookend's "Get documents" lead
  * back to the library.
@@ -45,7 +48,9 @@ const ACCESS_NOTE: Record<Access, string> = {
 };
 const badge = ACCESS_BADGE[doc.access];
 const action = docActionHref(doc);
-const dead = doc.access === 'public' && !doc.file;
+const label = ACCESS_ACTION[doc.access];
+/** A planned questionnaire: until it is published, the team helps with the reader's own (the FAQ's words). */
+const questionnaire = doc.access === 'pending' && doc.category === 'Questionnaires';
 ---
 
 <TrustCenterLayout
@@ -87,16 +92,22 @@ const dead = doc.access === 'public' && !doc.file;
 				<td>{doc.owner}</td>
 			</tr>
 		</DataTable>
-		<div class="tc-aside">
-			{dead ? (
-				<Button href="#" size="md" attrs={{ 'data-dead': '', 'aria-disabled': 'true' }}>
-					{ACCESS_ACTION[doc.access]}
-				</Button>
-			) : (
-				<Button href={action} size="md" external={isOffSite(action)}>
-					{ACCESS_ACTION[doc.access]}
-				</Button>
-			)}
-		</div>
+		{(action && label) || questionnaire ? (
+			<div class="tc-aside">
+				{action && label && (
+					<Button href={action} size="md" external={isOffSite(action)}>
+						{label}
+					</Button>
+				)}
+				{questionnaire && (
+					<p class="tc-note">
+						Until it is published, we can give you the information you need to complete your own security questionnaire.{' '}
+						<Link variant="inline" href={contactHref(SECURITY_TOPICS.questionnaire.value)}>
+							Send us your questionnaire
+						</Link>
+					</p>
+				)}
+			</div>
+		) : null}
 	</section>
 </TrustCenterLayout>

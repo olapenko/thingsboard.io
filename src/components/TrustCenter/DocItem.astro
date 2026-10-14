@@ -1,28 +1,21 @@
 ---
 import { Icon } from 'astro-icon/components';
 import Link from '@components/ui/Link.astro';
-import { isOffSite, type Access } from '@data/trust-center/documents';
+import { isOffSite, type Access, type DocAction } from '@data/trust-center/documents';
 import { newTabAttrs } from '@util/external-links';
 
 /**
  * One document, the same everywhere it is listed (the hub, the Documents page, Cloud and
  * On-premises): an access icon before its name (a globe for public, a lock for what needs an NDA, a
  * clock for what is planned, as the document pages have it; the hover names it: Public, NDA
- * required, Planned), and its actions at the end
- * of the row. A public document is "View"; the others
- * are "Request", straight to the contact form with the document ticked.
+ * required, Planned), and its action at the end of the row: "View" for a public document, "Request"
+ * for an NDA one (straight to the contact form with the document ticked), none for a planned one. A
+ * public document whose address is missing shows "Link needed" in View's place.
  *
- * In the library (`pick`), a document that has to be requested has "Add" in Request's place: a
- * checkbox in a pill's clothes that reads "Added" with a check once ticked, for requesting several at
- * once (`DocLibrary`'s bar). One action per row either way: View, or Add.
+ * In the library (`pick`), an NDA document has "Add" in Request's place: a checkbox in a pill's
+ * clothes that reads "Added" with a check once ticked, for requesting several at once (`DocLibrary`'s
+ * bar).
  */
-
-export interface DocItemAction {
-	label: string;
-	href: string;
-	/** A link the draft left dead (`href="#"`): drawn, goes nowhere. */
-	dead?: boolean;
-}
 
 interface Props {
 	name: string;
@@ -31,14 +24,14 @@ interface Props {
 	/** A column of its own between the name and the actions (the category); under the name on phones. */
 	meta?: string;
 	access: Access;
-	actions: DocItemAction[];
+	actions: DocAction[];
 	/** The library's selection: the document's slug, the box's value. */
 	pick?: string;
 	attrs?: Record<string, string | undefined>;
 }
 
 const { name, href, meta, access, actions, pick, attrs = {} } = Astro.props;
-const adds = pick !== undefined && access !== 'public';
+const adds = pick !== undefined && access === 'nda';
 
 const ACCESS_NOTE: Record<Access, { icon: string; note: string }> = {
 	public: { icon: 'tabler:world', note: 'Public' },
@@ -78,10 +71,10 @@ const badge = ACCESS_NOTE[access];
 		)}
 		{!adds &&
 			actions.map((action) =>
-				action.dead ? (
-					<a class="tc-dead" href="#" data-dead aria-disabled="true">
-						{action.label}
-					</a>
+				action.missing ? (
+					<span class="tc-missing" title="The document's address is still to be added">
+						Link needed
+					</span>
 				) : (
 					<Link href={action.href} size="sm" external={isOffSite(action.href)} srSuffix={name}>
 						{action.label}
