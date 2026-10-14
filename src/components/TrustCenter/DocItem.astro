@@ -12,9 +12,9 @@ import { newTabAttrs } from '@util/external-links';
  * of the row. A public document is "View"; the others
  * are "Request", straight to the contact form with the document ticked.
  *
- * In the library (`pick`), a document that has to be requested also leads with a checkbox, for
- * requesting several at once (`DocLibrary`'s selection bar); a public one keeps the column empty, so
- * the names line up.
+ * In the library (`pick`), a document that has to be requested has "Add" in Request's place: a
+ * checkbox in a pill's clothes that reads "Added" with a check once ticked, for requesting several at
+ * once (`DocLibrary`'s bar). One action per row either way: View, or Add.
  */
 
 export interface DocItemAction {
@@ -38,7 +38,7 @@ interface Props {
 }
 
 const { name, href, meta, access, actions, pick, attrs = {} } = Astro.props;
-const pickable = pick !== undefined && access !== 'public';
+const adds = pick !== undefined && access !== 'public';
 
 const ACCESS_NOTE: Record<Access, { icon: string; note: string }> = {
 	public: { icon: 'tabler:world', note: 'Public' },
@@ -50,13 +50,6 @@ const badge = ACCESS_NOTE[access];
 
 <li class:list={['tc-doc', meta && 'tc-doc--meta', pick !== undefined && 'tc-doc--pick']} {...attrs}>
 	<div class="tc-doc__text">
-		{pick !== undefined && (
-			<span class="tc-doc__pick">
-				{pickable && (
-					<input class="tc-check__box" type="checkbox" value={pick} aria-label={`Select ${name}`} data-doc-pick />
-				)}
-			</span>
-		)}
 		<span class:list={['tc-access', `tc-access--${access}`]}>
 			<Icon name={badge.icon} aria-hidden="true" />
 			<span class="tc-access__tip">{badge.note}</span>
@@ -73,16 +66,27 @@ const badge = ACCESS_NOTE[access];
 	</div>
 	{meta && <span class="tc-doc__meta">{meta}</span>}
 	<div class="tc-doc__actions">
-		{actions.map((action) =>
-			action.dead ? (
-				<a class="tc-dead" href="#" data-dead aria-disabled="true">
-					{action.label}
-				</a>
-			) : (
-				<Link href={action.href} size="sm" external={isOffSite(action.href)} srSuffix={name}>
-					{action.label}
-				</Link>
-			)
+		{adds && (
+			<label class="tc-doc__add">
+				<input class="tc-doc__add-box" type="checkbox" value={pick} data-doc-pick />
+				<Icon name="tabler:plus" class="tc-doc__add-icon tc-doc__add-off" aria-hidden="true" />
+				<Icon name="tabler:check" class="tc-doc__add-icon tc-doc__add-on" aria-hidden="true" />
+				<span class="tc-doc__add-off">Add</span>
+				<span class="tc-doc__add-on">Added</span>
+				<span class="ui-sr">{name}</span>
+			</label>
 		)}
+		{!adds &&
+			actions.map((action) =>
+				action.dead ? (
+					<a class="tc-dead" href="#" data-dead aria-disabled="true">
+						{action.label}
+					</a>
+				) : (
+					<Link href={action.href} size="sm" external={isOffSite(action.href)} srSuffix={name}>
+						{action.label}
+					</Link>
+				)
+			)}
 	</div>
 </li>
