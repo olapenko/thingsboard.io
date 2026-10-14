@@ -310,7 +310,7 @@ export const COMMITMENTS = [
 		html: deploymentList([
 			'<b>ThingsBoard Cloud:</b> community support on GitHub for Free and Prototype; help desk on Pilot; priority help desk on Startup and Business. Replies within 24 hours, 8:00–20:00 EET, Monday to Friday.',
 			'<b>Private Cloud:</b> Support Portal on every plan; priority channel on Growth, Scale and Enterprise; engineering support and a dedicated customer success engineer on Enterprise.',
-			'<b>On-premises:</b> community support on Maker and Prototype; help desk on Pilot; priority help desk on Startup (replies within 36 hours) and Business (within 12 hours). Perpetual licenses include the first year of support.',
+			'<b>On-premises:</b> community support on Free; help desk on Pilot (replies within 36 hours); priority help desk on Startup (replies within 36 hours) and Business (within 12 hours). Perpetual licenses include the first year of support.',
 		]),
 	},
 	{
