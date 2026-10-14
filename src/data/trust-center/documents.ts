@@ -282,7 +282,7 @@ export const DOCS: TcDoc[] = [
 		owner: 'IMS Manager',
 		group: 3,
 		description:
-			'Continuity scenarios for ThingsBoard Cloud, the crisis team, recovery procedures and the measured results of the last exercise.',
+			'Continuity of company operations: crisis team, emergency response, alternate sites and the exercise program.',
 	},
 	{
 		slug: 'backup-policy',
