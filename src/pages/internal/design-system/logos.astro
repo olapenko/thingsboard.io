@@ -1,0 +1,1504 @@
+---
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { Icon } from 'astro-icon/components';
+import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
+import Mark from '@components/ui/Mark.astro';
+import NavIcon from '@components/Landing/NavIcon.astro';
+import DocsIcon from '@components/starlight/Icon.astro';
+import { designPage, navGroups } from '@root/pages/internal/_design';
+import {
+	FEATURE_SOURCES,
+	OG_PRODUCT,
+	PRODUCTS,
+	sweepLogos,
+	type LogoFile,
+	type ProductId,
+} from '@root/pages/internal/design-system/_logos';
+import { MARKS, markBySrc, type MarkName } from '@data/marks';
+import { productsSubmenu } from '@data/navigation';
+import { FOOTER_ECOSYSTEM, FOOTER_PLATFORMS } from '@data/footer-map';
+import { glyphOf, menuBadgeOf } from '@data/product-badges';
+import { homeProducts } from '@data/homeProducts';
+import { homeEcosystem, type EcosystemItem } from '@data/homeEcosystem';
+import { installProducts } from '@data/installationsHub';
+import { CONSERVATIVE_ADDON_MARKS } from '@data/pricing-page';
+import { DOCS_HUB_ECOSYSTEM, DOCS_HUB_PLATFORMS } from '@data/docs-hub';
+import { FAMILIES } from '@components/version-switcher.data';
+import { ICONS } from '@root/pages/open-graph/_assets/icons';
+import { getDocsProductMeta } from '@root/pages/open-graph/_shared/product-meta';
+import { slabBackground } from '@root/pages/open-graph/_shared/colors';
+import { CONNECT_COPY } from '@data/connect-visual';
+import { NORMALIZE_COPY } from '@data/normalize-visual';
+import { DIGITAL_TWIN_COPY } from '@data/digital-twin-visual';
+import { PLATFORM_COPY } from '@data/platform-visual';
+import { SCALE_COPY } from '@data/scale-visual';
+import { DEPLOY_COPY } from '@data/deploy-visual';
+import { WHITELABEL_COPY } from '@data/whitelabel-visual';
+import { SOLUTION_COPY } from '@data/solution-flow';
+import { DASHBOARDS_BADGE, DASHBOARDS_BADGE_HANDOFF } from '@data/home-dashboards';
+import { homeFeatures } from '@data/homeFeatures';
+import { paasBenefits } from '@data/paasPage';
+import { onPremBenefits } from '@data/onPremPage';
+import {
+	AI_AGENT_SESSION,
+	AI_AGENT_WORDMARK,
+	AI_BADGE_CYCLE_BY_SECTION,
+	AI_COLUMNS,
+	AI_COLUMNS_LIVE,
+	AI_COLUMNS_VALUE,
+	AI_COPY,
+} from '@data/ai-visual';
+
+/**
+ * Design system › Logos: every mark that names ThingsBoard, a product, a feature or the AI, for a
+ * review of what exists before anything is redrawn.
+ *
+ *   FILES      — every logo file in the folders that hold them (`_logos.ts`), by product: the box, the
+ *                colours, byte-identical twins, the sprite, the Mark it is, and the files naming it.
+ *   ON A TILE  — the seven artworks `ui/Mark` knows (`data/marks.ts`), in each fill and the ladder.
+ *   ECOSYSTEM  — one row per product, one column per surface that lists the products, each cell drawn
+ *                from that surface's own data with the props that surface passes. Rebuilt from the
+ *                data, not screenshotted, so it says what ships on this branch now.
+ *   FEATURES   — the sections' badges, the "Why choose" glyphs, the product pages' benefits, the IoT
+ *                Hub tiles, then the older drawn feature icons and whether anything still uses them.
+ *   CLI AND AI — the AI section's badge and its colour cycle, the two routes' marks, the CLI's marks
+ *                in type, and the Build with AI cards in the docs (read from the MDX).
+ *
+ * What is measured: everything on a file card, every cell's hue and glyph (read from the data). What is
+ * written by hand: the folder `via` lines in `_logos.ts`, the surface notes below, and the mapping of
+ * names to rows — a name no row matches shows up in the matrix's own "Unmatched" line.
+ */
+const PAGE = designPage('logos');
+
+// ── Files ──
+const files = sweepLogos();
+const byProduct = PRODUCTS.map((p) => ({ ...p, files: files.filter((f) => f.product === p.id) })).filter(
+	(p) => p.files.length
+);
+const twinsCount = files.filter((f) => f.sameAs.length).length;
+const unusedCount = files.filter((f) => f.users && f.users.length === 0 && !f.sprite && !f.mark).length;
+
+const kb = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`);
+const usersWord = (f: LogoFile) =>
+	f.users === undefined
+		? null
+		: f.users.length === 0
+			? 'named by no file'
+			: f.users.length === 1
+				? 'named by 1 file'
+				: `named by ${f.users.length} files`;
+
+// ── On a tile ──
+type MarkSize = 36 | 40 | 48 | 64 | 72 | 80 | 88;
+type Fill = 'solid' | 'white' | 'wash' | 'neutral';
+const LADDER: MarkSize[] = [36, 40, 48, 64, 72, 80, 88];
+const FILLS: Fill[] = ['solid', 'wash', 'white', 'neutral'];
+/**
+ * Each artwork's hue on a tile: the homepage ecosystem card's accent, the one the reader meets first.
+ * The CE app is on no card, so it takes its brand token.
+ */
+const accentOf = (name: string) =>
+	homeEcosystem.find((e) => markBySrc(e.icon) === name)?.accent ??
+	(name === 'mobile-ce' ? 'var(--brand-mobile)' : 'var(--color-brand)');
+const TILE_ARTS = (Object.keys(MARKS) as MarkName[]).map((name) => ({
+	name,
+	src: MARKS[name].src.replace(/^\/src\/assets\/images\//, ''),
+	accent: name === 'thingsboard' ? 'var(--color-brand)' : accentOf(name),
+	glyph:
+		name === 'thingsboard' ? { logo: 'thingsboard' as const } : { product: name as Exclude<MarkName, 'thingsboard'> },
+}));
+
+// ── Ecosystem ──
+type Row = Exclude<ProductId, 'thingsboard' | 'agent' | 'other'> | 'offline';
+const ROWS: { id: Row; label: string }[] = [
+	...PRODUCTS.filter((p) => !['thingsboard', 'agent', 'other'].includes(p.id)).map((p) => ({
+		id: p.id as Row,
+		label: p.label,
+	})),
+	{ id: 'offline', label: 'Offline Mode (add-on)' },
+];
+const ROW_BY_NAME: [RegExp, Row][] = [
+	[/cloud/i, 'cloud'],
+	[/edge/i, 'edge'],
+	[/gateway/i, 'gateway'],
+	[/tbmq|mqtt/i, 'tbmq'],
+	[/trendz/i, 'trendz'],
+	[/mobile/i, 'mobile'],
+	[/iot hub/i, 'iot-hub'],
+	[/license/i, 'license'],
+	[/offline/i, 'offline'],
+	[/thingsboard|on-premises|community|professional/i, 'platform'],
+];
+const rowOf = (name: string) => ROW_BY_NAME.find(([re]) => re.test(name))?.[1];
+
+interface MarkSpec {
+	size: MarkSize;
+	fill?: Fill;
+	accent?: string;
+	logo?: 'thingsboard';
+	product?: Exclude<MarkName, 'thingsboard'>;
+	icon?: string;
+	tone?: 'knockout' | 'original';
+	lift?: boolean;
+}
+type Cell = { name: string; caption: string } & (
+	| { kind: 'mark'; mark: MarkSpec; ink?: string }
+	| { kind: 'menu'; fill: 'solid' | 'wash'; hue: string; glyph: string; size: number }
+	| { kind: 'nav'; src: string }
+	| { kind: 'img'; src: string; px: number; ground?: string }
+	| { kind: 'none'; why: string }
+);
+interface Surface {
+	id: string;
+	label: string;
+	source: string;
+	dark?: boolean;
+	note: string;
+	cells: Cell[];
+}
+
+const glyphWord = (m: Pick<MarkSpec, 'logo' | 'product' | 'icon'>) =>
+	m.logo ? 'logo' : m.product ? m.product : (m.icon ?? '').replace('tabler:', '');
+const markGlyph = (src: string): Pick<MarkSpec, 'logo' | 'product' | 'icon'> => {
+	if (src.startsWith('tabler:')) return { icon: src };
+	const name = markBySrc(src);
+	if (name === 'thingsboard') return { logo: 'thingsboard' };
+	if (name) return { product: name };
+	return {};
+};
+const fileUri = (path: string) => files.find((f) => f.path === path)?.light;
+
+/** `EcosystemCard`'s tile, worked out as that component does it (its frontmatter, 2026-10-23). */
+function ecosystemCell(
+	item: Pick<EcosystemItem, 'name' | 'icon' | 'accent' | 'filled'> & { badgeFill?: string }
+): Cell {
+	const trial = item.filled === true ? {} : item.filled || null;
+	const markSrc = trial?.icon ?? item.icon;
+	const glyph = markGlyph(markSrc);
+	const fill: Fill = item.badgeFill || (trial && (trial.bg ?? item.accent) !== '#ffffff') ? 'solid' : 'white';
+	const accent = item.badgeFill ?? trial?.bg ?? item.accent;
+	const inked = !!trial && fill === 'white';
+	const ink = inked ? (trial?.ink ?? '#ffffff') : undefined;
+	return {
+		kind: 'mark',
+		name: item.name,
+		mark: { size: 72, fill, accent, lift: true, tone: inked ? 'knockout' : undefined, ...glyph },
+		ink,
+		caption: `${fill} · ${glyphWord(glyph)} · ${ink ?? accent}`,
+	};
+}
+
+const OG_SLUGS = [
+	'',
+	'pe/',
+	'paas/',
+	'paas/eu/',
+	'edge/',
+	'edge/pe/',
+	'mqtt-broker/',
+	'trendz/',
+	'mobile/',
+	'mobile/pe/',
+	'iot-gateway/',
+	'license-server/',
+	'iot-hub/',
+];
+const ogCells: Cell[] = [];
+for (const prefix of OG_SLUGS) {
+	const meta = getDocsProductMeta(`docs/${prefix}getting-started`);
+	const name = [meta.primaryLabel, meta.secondaryLabel].filter(Boolean).join(' ');
+	if (ogCells.some((c) => c.name === name)) continue;
+	const svg = ICONS[meta.iconKey];
+	ogCells.push({
+		kind: 'img',
+		// Named for its row: the label alone ("Professional") would not find one.
+		name: `${OG_PRODUCT[meta.iconKey]}|${name}`,
+		src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+		px: 40,
+		ground: slabBackground(meta.slabClass),
+		caption: `${meta.iconKey} on ${meta.slabClass}`,
+	});
+}
+
+const SURFACES: Surface[] = [
+	{
+		id: 'menu',
+		label: 'Menu',
+		source: 'data/navigation.ts · product-badges.ts menuBadgeOf · SiteMenu.astro .sm__badge',
+		note: 'Products and Docs: the badge in CSS (32px) with its glyph from the sprite, not a Mark. Light theme.',
+		cells: productsSubmenu.groups
+			.flatMap((g) => g.items)
+			.map((item): Cell => {
+				const b = menuBadgeOf(item.heading);
+				return b
+					? {
+							kind: 'menu',
+							name: item.heading,
+							fill: b.fill,
+							hue: b.hue,
+							glyph: b.glyph,
+							size: b.size,
+							caption: `${b.fill} · ${b.glyph.split('/').pop()?.replace('.svg', '')} · ${b.hue}`,
+						}
+					: { kind: 'nav', name: item.heading, src: item.icon ?? '', caption: 'nav icon' };
+			}),
+	},
+	{
+		id: 'footer',
+		label: 'Footer map',
+		source: 'data/footer-map.ts · FooterMap.astro',
+		dark: true,
+		note: 'Mark 40: the platforms solid in their hue, the ecosystem a wash of the dark menu’s lighter hues.',
+		cells: [
+			...FOOTER_PLATFORMS.map((p): Cell => ({
+				kind: 'mark',
+				name: p.name,
+				mark: { size: 40, logo: 'thingsboard', accent: p.hue },
+				caption: `solid · logo · ${p.hue}`,
+			})),
+			...FOOTER_ECOSYSTEM.map((p): Cell => {
+				const g = glyphOf(p);
+				return {
+					kind: 'mark',
+					name: p.name,
+					mark: { size: 40, fill: 'wash', accent: p.hue, ...g },
+					caption: `wash · ${glyphWord(g)} · ${p.hue}`,
+				};
+			}),
+		],
+	},
+	{
+		id: 'docs-hub',
+		label: 'Docs hub',
+		source: 'data/docs-hub.ts · DocsHubProducts.astro',
+		note: 'The footer’s badges at the docs’ sizes: the platforms 40, the ecosystem 36. Parked (not shipping).',
+		cells: [
+			...DOCS_HUB_PLATFORMS.map((p): Cell => ({
+				kind: 'mark',
+				name: p.heading,
+				mark: { size: 40, logo: 'thingsboard', accent: p.mark.hue },
+				caption: `solid · logo · ${p.mark.hue}`,
+			})),
+			...DOCS_HUB_ECOSYSTEM.map((p): Cell => {
+				const g = glyphOf(p.mark);
+				return {
+					kind: 'mark',
+					name: p.heading,
+					mark: { size: 36, fill: 'wash', accent: p.mark.hue, ...g },
+					caption: `wash · ${glyphWord(g)} · ${p.mark.hue}`,
+				};
+			}),
+		],
+	},
+	{
+		id: 'home',
+		label: 'Homepage cards',
+		source: 'data/homeProducts.ts · homeEcosystem.ts · EcosystemCard.astro',
+		note: 'Mark 72, lifted. The two products solid in their badge fill; the ecosystem its artwork on white, or a glyph.',
+		cells: [...homeProducts.map((p) => ecosystemCell(p)), ...homeEcosystem.map((e) => ecosystemCell(e))],
+	},
+	{
+		id: 'install',
+		label: 'Installations',
+		source: 'data/installationsHub.ts · pages/installations',
+		note: 'Mark 72 (64 in one column): a platform solid in its fill, the rest their artwork on white.',
+		cells: installProducts.map((p): Cell => {
+			const g = markGlyph(p.icon);
+			const fill: Fill = p.badgeFill ? 'solid' : 'white';
+			const accent = p.badgeFill ?? p.accent;
+			return {
+				kind: 'mark',
+				name: p.name,
+				mark: { size: 72, fill, accent, lift: true, ...g },
+				caption: `${fill} · ${glyphWord(g)} · ${accent}`,
+			};
+		}),
+	},
+	{
+		id: 'pricing',
+		label: 'Pricing add-ons',
+		source: 'data/pricing-page.ts CONSERVATIVE_ADDON_MARKS · pricing/_AddOnCards',
+		note: 'Mark 48, solid in the add-on’s accent. The Mobile App is a phone here, the ThingsBoard mark everywhere else.',
+		cells: Object.entries(CONSERVATIVE_ADDON_MARKS).map(([name, m]): Cell => {
+			const g = m.src ? markGlyph(m.src) : { icon: m.icon };
+			return {
+				kind: 'mark',
+				name,
+				mark: { size: 48, accent: m.accent, ...g },
+				caption: `solid · ${glyphWord(g)} · ${m.accent}`,
+			};
+		}),
+	},
+	{
+		id: 'selector',
+		label: 'Docs product selector',
+		source: 'version-switcher.data.ts FAMILIES · docs/product-selector/',
+		note: 'Files of their own, in their own colours, not Marks.',
+		cells: FAMILIES.map((f): Cell => {
+			const src = fileUri(`src/assets/images/docs/product-selector/${f.iconId}.svg`);
+			return src
+				? { kind: 'img', name: f.name, src, px: 28, caption: f.iconId }
+				: { kind: 'none', name: f.name, why: `no file ${f.iconId}.svg`, caption: f.iconId };
+		}),
+	},
+	{
+		id: 'og',
+		label: 'OG cards',
+		source: 'open-graph/_assets/icons.ts · product-meta.ts · colors.ts',
+		note: 'White artwork on the product’s slab, one per docs product.',
+		cells: ogCells,
+	},
+];
+
+/** Each surface's cells by row, and the names no row claimed — said aloud rather than dropped. */
+const matrix = SURFACES.map((s) => {
+	const rows = new Map<Row, Cell[]>();
+	const unmatched: string[] = [];
+	for (const c of s.cells) {
+		const key = c.name.includes('|') ? (c.name.split('|')[0] as Row) : rowOf(c.name);
+		if (!key || !ROWS.some((r) => r.id === key)) {
+			unmatched.push(c.name);
+			continue;
+		}
+		rows.set(key, [...(rows.get(key) ?? []), c]);
+	}
+	return { ...s, rows, unmatched };
+});
+const cellName = (c: Cell) => (c.name.includes('|') ? c.name.split('|')[1] : c.name);
+
+// ── Features ──
+const SECTION_BADGES = [
+	{ label: 'Platform loop', badge: PLATFORM_COPY.badge, src: 'platform-visual.ts' },
+	{ label: 'AI', badge: AI_COPY.badge, src: 'ai-visual.ts' },
+	{ label: 'Connect', badge: CONNECT_COPY.badge, src: 'connect-visual.ts' },
+	{ label: 'Model (digital twin)', badge: DIGITAL_TWIN_COPY.badge, src: 'digital-twin-visual.ts' },
+	{ label: 'Turn data into action', badge: NORMALIZE_COPY.badge, src: 'normalize-visual.ts' },
+	{ label: 'Device to end-user', badge: SOLUTION_COPY.badge, src: 'solution-flow.ts' },
+	{ label: 'Scale', badge: SCALE_COPY.badge, src: 'scale-visual.ts' },
+	{ label: 'Use cases', badge: DASHBOARDS_BADGE, src: 'home-dashboards.ts' },
+	{ label: 'Use cases · handoff', badge: DASHBOARDS_BADGE_HANDOFF, src: 'home-dashboards.ts' },
+	{ label: 'Deploy', badge: DEPLOY_COPY.badge, src: 'deploy-visual.ts' },
+	{ label: 'White-label', badge: WHITELABEL_COPY.badge, src: 'whitelabel-visual.ts' },
+];
+const BENEFITS = [
+	{ label: 'Cloud', items: paasBenefits, src: 'paasPage.ts' },
+	{ label: 'On-premises', items: onPremBenefits, src: 'onPremPage.ts' },
+];
+const hubTiles = homeEcosystem.find((e) => e.tiles)?.tiles ?? [];
+const featureFiles = sweepLogos(FEATURE_SOURCES, { og: false });
+const featureGroups = FEATURE_SOURCES.map((s) => ({ ...s, files: featureFiles.filter((f) => f.source.id === s.id) }));
+const featureUnused = featureFiles.filter((f) => f.users?.length === 0).length;
+
+// ── CLI and AI ──
+const ROUTE_SETS = [
+	{ label: 'Shipping (toggle)', cols: AI_COLUMNS },
+	{ label: 'Value copy', cols: AI_COLUMNS_VALUE },
+	{ label: 'Live (main’s)', cols: AI_COLUMNS_LIVE },
+].filter(
+	(set, i, all) =>
+		all.findIndex(
+			(o) => o.cols.assistant.accent === set.cols.assistant.accent && o.cols.cli.accent === set.cols.cli.accent
+		) === i
+);
+const banner = AI_AGENT_SESSION.find((s) => s.role === 'banner');
+const smallArt = banner && 'art' in banner ? banner.art : [];
+
+/** The Build with AI cards, read from the docs page itself: a card renamed or re-iconed changes here. */
+const AI_DOC = 'src/content/_includes/docs/iot-solutions-with-ai.mdx';
+const aiDocCards = [
+	...readFileSync(join(process.cwd(), AI_DOC), 'utf8').matchAll(/<Card\s+title="([^"]+)"\s+icon="([^"]+)"/g),
+].map((m) => ({ title: m[1], icon: m[2] }));
+const builtInAi = homeFeatures.find((f) => /\bAI\b/.test(f.title));
+---
+
+<PlaygroundLayout title={PAGE.label} description={PAGE.blurb}>
+	<div class="kit lr">
+		<nav class="kit__nav" aria-label={PAGE.label}>
+			{navGroups(PAGE).map((g) => (
+				<div class="kit__nav-group">
+					<p class="kit__nav-title">{g.title}</p>
+					<ul>
+						{g.items.map((s) => (
+							<li>
+								<a href={`#${s.id}`}>{s.label}</a>
+							</li>
+						))}
+					</ul>
+				</div>
+			))}
+		</nav>
+
+		<main class="kit__main">
+			<!-- ── Files ── -->
+			<section class="kit-sec" id="files">
+				<header class="kit-sec__head">
+					<h2>Files by product</h2>
+					<p>
+						{files.length} logo files and OG icons in {new Set(files.map((f) => f.source.id)).size} places, each on a
+						light and a dark ground as the file draws it. {twinsCount} are byte-for-byte twins of another; {unusedCount}{' '}
+						are named by no file, carried by no sprite and no Mark. A file’s users are the files outside{' '}
+						<code>internal/</code> that name it.
+					</p>
+					<p class="kit-sec__src">pages/internal/design-system/_logos.ts</p>
+				</header>
+				<p class="lr-jump">
+					{byProduct.map((p) => (
+						<a href={`#files-${p.id}`}>
+							{p.label} <span>{p.files.length}</span>
+						</a>
+					))}
+				</p>
+				{byProduct.map((p) => (
+					<div class="lr-product" id={`files-${p.id}`}>
+						<div class="lr-product__head">
+							<h3>{p.label}</h3>
+							{p.note && <p>{p.note}</p>}
+						</div>
+						<ul class="lr-files">
+							{p.files.map((f) => (
+								<li class:list={['lr-file', f.users?.length === 0 && !f.sprite && !f.mark && 'lr-file--unused']}>
+									<div class="lr-file__art">
+										{!f.source.white && (
+											<span class="lr-file__ground">
+												<img src={f.light} alt="" loading="lazy" />
+											</span>
+										)}
+										<span class="lr-file__ground lr-file__ground--dark">
+											<img src={f.dark} alt="" loading="lazy" />
+										</span>
+									</div>
+									<div class="lr-file__meta">
+										<p class="lr-file__name" title={f.path}>
+											<span>{f.source.label}</span>
+											{f.name}
+										</p>
+										<p class="lr-file__facts">
+											{[f.viewBox && `viewBox ${f.viewBox}`, f.size, kb(f.bytes)].filter(Boolean).join(' · ')}
+										</p>
+										<p class="lr-file__chips">
+											{f.colours.map((c) => (
+												<span class="lr-chip" title={c}>
+													<i style={`background:${c}`} />
+													{c}
+												</span>
+											))}
+											{f.currentColor && <span class="lr-chip lr-chip--flag">currentColor</span>}
+											{f.gradient && <span class="lr-chip lr-chip--flag">gradient</span>}
+										</p>
+										<ul class="lr-file__tags">
+											{f.mark && (
+												<li class="lr-tag lr-tag--mark">
+													{f.mark.legacy ? `markBySrc → ${f.mark.name}` : `ui/Mark: ${f.mark.name}`}
+												</li>
+											)}
+											{f.sprite && <li class="lr-tag">sprite #{f.sprite}</li>}
+											{f.sameAs.length > 0 && (
+												<li class="lr-tag lr-tag--twin" title={f.sameAs.join('\n')}>
+													same as{' '}
+													{f.sameAs.length === 1
+														? f.sameAs[0].split('/').slice(-2).join('/')
+														: `${f.sameAs.length} files`}
+												</li>
+											)}
+										</ul>
+										{usersWord(f) && (
+											<details class="lr-users">
+												<summary class:list={[f.users?.length === 0 && 'lr-users--none']}>{usersWord(f)}</summary>
+												{f.users && f.users.length > 0 && (
+													<ul>
+														{f.users.map((u) => (
+															<li>
+																<code>{u}</code>
+															</li>
+														))}
+													</ul>
+												)}
+											</details>
+										)}
+										<p class="lr-file__via">{f.source.via}</p>
+									</div>
+								</li>
+							))}
+						</ul>
+					</div>
+				))}
+			</section>
+
+			<!-- ── On a tile ── -->
+			<section class="kit-sec" id="tiles">
+				<header class="kit-sec__head">
+					<h2>On a tile</h2>
+					<p>
+						The {TILE_ARTS.length} artworks <code>ui/Mark</code> knows, each in every fill at 64 in its homepage card’s
+						accent, then up the ladder solid. A product on <code>solid</code> is knocked out in two whites; on{' '}
+						<code>white</code> it keeps its own colours.
+					</p>
+					<p class="kit-sec__src">src/data/marks.ts · src/components/ui/Mark.astro</p>
+				</header>
+				<div class="kit-stage">
+					<div class="lr-tiles" role="table" aria-label="Marks by fill">
+						<div class="lr-tiles__row lr-tiles__row--head" role="row">
+							<span role="columnheader">Artwork</span>
+							{FILLS.map((f) => (
+								<span role="columnheader">{f}</span>
+							))}
+							<span role="columnheader">On dark · wash</span>
+						</div>
+						{TILE_ARTS.map((a) => (
+							<div class="lr-tiles__row" role="row">
+								<span class="lr-tiles__name" role="cell">
+									<b>{a.name}</b>
+									<code>{a.src}</code>
+									<code>{a.accent}</code>
+								</span>
+								{FILLS.map((fill) => (
+									<span role="cell">
+										<Mark size={64} fill={fill} accent={a.accent} {...a.glyph} />
+									</span>
+								))}
+								<span role="cell" class="lr-tiles__dark" data-surface="dark">
+									<Mark size={64} fill="wash" accent={a.accent} {...a.glyph} />
+								</span>
+							</div>
+						))}
+					</div>
+				</div>
+				<div class="kit-stage">
+					<p class="kit-label">The ladder, solid</p>
+					{TILE_ARTS.map((a) => (
+						<div class="kit-row kit-row--end lr-ladder">
+							{LADDER.map((s) => (
+								<figure class="lr-ladder__step">
+									<Mark size={s} accent={a.accent} {...a.glyph} />
+									<figcaption class="kit-m">{s}</figcaption>
+								</figure>
+							))}
+							<span class="kit-m">{a.name}</span>
+						</div>
+					))}
+				</div>
+			</section>
+
+			<!-- ── Ecosystem ── -->
+			<section class="kit-sec" id="ecosystem">
+				<header class="kit-sec__head">
+					<h2>Surface by surface</h2>
+					<p>
+						One row per product, one column per surface that lists the products. Every cell is drawn from that surface’s
+						own data with the props the surface passes, so a hue or a glyph that differs between two columns differs on
+						the site. The caption is fill · glyph · hue.
+					</p>
+					<p class="kit-sec__src">Each column names its data and component</p>
+				</header>
+				<div class="lr-matrix-wrap" role="region" aria-label="The ecosystem by surface" tabindex="0">
+					<table class="lr-matrix">
+						<thead>
+							<tr>
+								<th scope="col">Product</th>
+								{matrix.map((s) => (
+									<th scope="col" class:list={[s.dark && 'lr-matrix__dark-head']}>
+										<b>{s.label}</b>
+										<span>{s.note}</span>
+										<code>{s.source}</code>
+									</th>
+								))}
+							</tr>
+						</thead>
+						<tbody>
+							{ROWS.map((r) => (
+								<tr>
+									<th scope="row">{r.label}</th>
+									{matrix.map((s) => {
+										const cells = s.rows.get(r.id) ?? [];
+										return (
+											<td class:list={[s.dark && 'lr-matrix__dark']} data-surface={s.dark ? 'dark' : undefined}>
+												{cells.length === 0 ? (
+													<span class="lr-absent">—</span>
+												) : (
+													cells.map((c) => (
+														<figure class="lr-cell">
+															{c.kind === 'mark' && (
+																<span
+																	class:list={[c.ink && 'lr-inked']}
+																	style={c.ink ? `--lr-ink: ${c.ink}` : undefined}
+																>
+																	<Mark {...c.mark} />
+																</span>
+															)}
+															{c.kind === 'menu' && (
+																<span
+																	class:list={['lr-mb', `lr-mb--${c.fill}`]}
+																	style={`--badge-hue: ${c.hue}; --badge-glyph: ${c.size}px`}
+																>
+																	<NavIcon src={c.glyph} size={c.size} />
+																</span>
+															)}
+															{c.kind === 'nav' && <NavIcon src={c.src} size={32} />}
+															{c.kind === 'img' && (
+																<span class="lr-img" style={c.ground ? `background: ${c.ground}` : undefined}>
+																	<img src={c.src} alt="" width={c.px} height={c.px} />
+																</span>
+															)}
+															{c.kind === 'none' && <span class="lr-absent">{c.why}</span>}
+															<figcaption>
+																<b>{cellName(c)}</b>
+																<span>{c.caption}</span>
+															</figcaption>
+														</figure>
+													))
+												)}
+											</td>
+										);
+									})}
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+				{matrix.some((s) => s.unmatched.length) && (
+					<p class="lr-unmatched">
+						<b>Unmatched:</b>{' '}
+						{matrix
+							.filter((s) => s.unmatched.length)
+							.map((s) => `${s.label}: ${s.unmatched.join(', ')}`)
+							.join(' · ')}
+					</p>
+				)}
+			</section>
+
+			<!-- ── Features ── -->
+			<section class="kit-sec" id="features">
+				<header class="kit-sec__head">
+					<h2>Feature marks</h2>
+					<p>
+						A feature is a tabler glyph, not a drawn file: in a Mark where it heads a section or a benefit, bare where
+						it is one of many tiles. The sections’ badges are the homepage’s palette — the AI badge cycles through them.
+					</p>
+					<p class="kit-sec__src">
+						src/data/*-visual.ts · homeFeatures.ts · paasPage.ts · onPremPage.ts · homeEcosystem.ts
+					</p>
+				</header>
+				<div class="kit-stage">
+					<p class="kit-label">Section badges · SectionHeader, 40 at the start and 64 centred</p>
+					<div class="kit-specs lr-specs" style="--spec-w: 150px">
+						{SECTION_BADGES.map((s) => (
+							<figure class="kit-spec">
+								<span class="lr-pair">
+									<Mark size={40} icon={s.badge.icon} accent={s.badge.color} />
+									<Mark size={64} icon={s.badge.icon} accent={s.badge.color} />
+								</span>
+								<figcaption>
+									<b>{s.label}</b>
+									<span class="kit-m">{s.badge.icon.replace('tabler:', '')}</span>
+									<span class="kit-m">
+										{s.badge.color} · {s.src}
+									</span>
+								</figcaption>
+							</figure>
+						))}
+					</div>
+				</div>
+				<div class="kit-stage">
+					<p class="kit-label">Why choose ThingsBoard · FeatureTile, a bare glyph</p>
+					<div class="kit-specs lr-specs" style="--spec-w: 150px">
+						{homeFeatures.map((f) => (
+							<figure class="kit-spec">
+								<Icon name={f.icon} class="lr-bare" aria-hidden="true" />
+								<figcaption>
+									<b>{f.title}</b>
+									<span class="kit-m">{f.icon.replace('tabler:', '')}</span>
+								</figcaption>
+							</figure>
+						))}
+					</div>
+				</div>
+				{BENEFITS.map((b) => (
+					<div class="kit-stage kit-stage--tint">
+						<p class="kit-label">
+							{b.label} benefits · BenefitGrid, Mark 48 white, lifted · {b.src}
+						</p>
+						<div class="kit-specs lr-specs" style="--spec-w: 150px">
+							{b.items.map((i) => (
+								<figure class="kit-spec">
+									<Mark size={48} fill="white" icon={i.icon} accent={i.color} lift />
+									<figcaption>
+										<b>{i.title}</b>
+										<span class="kit-m">
+											{i.icon.replace('tabler:', '')} · {i.color}
+										</span>
+									</figcaption>
+								</figure>
+							))}
+						</div>
+					</div>
+				))}
+				<div class="kit-stage">
+					<p class="kit-label">
+						IoT Hub categories · the homepage card’s tiles, in the hover state (tint and strong ink)
+					</p>
+					<div class="kit-specs lr-specs" style="--spec-w: 150px">
+						{hubTiles.map((t) => (
+							<figure class="kit-spec">
+								<span class="lr-hub" style={`background:${t.color}; color:${t.colorDark}`}>
+									<Icon name={t.icon} aria-hidden="true" />
+								</span>
+								<figcaption>
+									<b>{t.label}</b>
+									<span class="kit-m">
+										{t.icon.replace('tabler:', '')} · {t.colorDark}
+									</span>
+								</figcaption>
+							</figure>
+						))}
+					</div>
+				</div>
+			</section>
+
+			<section class="kit-sec" id="feature-files">
+				<header class="kit-sec__head">
+					<h2>Older feature icons</h2>
+					<p>
+						The drawn feature icons from the landing pages before the redesign: {featureFiles.length} files,{' '}
+						{featureUnused} named by no file outside <code>internal/</code>.
+					</p>
+					<p class="kit-sec__src">src/assets/images/landings/ce · edge · trendz</p>
+				</header>
+				{featureGroups.map((g) => (
+					<div class="kit-stage">
+						<p class="kit-label">
+							{g.label} · {g.via}
+						</p>
+						<ul class="lr-mini">
+							{g.files.map((f) => (
+								<li class:list={['lr-mini__item', f.users?.length === 0 && 'lr-file--unused']}>
+									<span class="lr-mini__art">
+										<img src={f.light} alt="" loading="lazy" />
+									</span>
+									<b title={f.path}>{f.name.replace(/\.svg$/, '')}</b>
+									<span class="kit-m" title={f.users?.join('\n') || undefined}>
+										{usersWord(f)}
+										{f.sameAs.length > 0 &&
+											` · twin of ${f.sameAs.map((s) => s.split('/').slice(-2).join('/')).join(', ')}`}
+									</span>
+								</li>
+							))}
+						</ul>
+					</div>
+				))}
+			</section>
+
+			<!-- ── CLI and AI ── -->
+			<section class="kit-sec" id="ai">
+				<header class="kit-sec__head">
+					<h2>CLI and AI</h2>
+					<p>
+						The AI has no logo of its own: a sparkles badge for the section, a glyph per route (the Assistant, the CLI),
+						the CLI’s name printed in type, and Starlight’s icons on the docs’ cards.
+					</p>
+					<p class="kit-sec__src">src/data/ai-visual.ts · AiWide.astro · AiSection.astro · AgentTerminal.astro</p>
+				</header>
+				<div class="kit-stage">
+					<p class="kit-label">The section’s badge, and the colours it cycles through (AI_BADGE_CYCLE_BY_SECTION)</p>
+					<div class="kit-row kit-row--end">
+						<figure class="lr-ladder__step">
+							<Mark size={64} icon={AI_COPY.badge.icon} accent={AI_COPY.badge.color} />
+							<figcaption class="kit-m">at rest</figcaption>
+						</figure>
+						{AI_BADGE_CYCLE_BY_SECTION.map((stop) => (
+							<figure class="lr-ladder__step">
+								<Mark size={40} icon={AI_COPY.badge.icon} accent={stop.color} />
+								<figcaption class="kit-m">
+									{stop.section}
+									{stop.hues ? ` (${stop.hues})` : ''}
+								</figcaption>
+							</figure>
+						))}
+					</div>
+				</div>
+				<div class="kit-stage kit-stage--tint">
+					<p class="kit-label">The two routes · Mark 72 on the windows, the switch’s glyph in the kicker’s ink</p>
+					<div class="kit-specs lr-specs" style="--spec-w: 220px">
+						{ROUTE_SETS.flatMap((set) => [
+							<figure class="kit-spec">
+								<span class="lr-pair">
+									<Mark size={72} fill="white" icon="tabler:message-chatbot" accent={set.cols.assistant.accent} lift />
+									<Icon
+										name="tabler:message-chatbot"
+										class="lr-switch"
+										style={`color:${set.cols.assistant.accentText}`}
+										aria-hidden="true"
+									/>
+								</span>
+								<figcaption>
+									<b>{set.cols.assistant.switchLabel ?? set.cols.assistant.eyebrow}</b>
+									<span class="kit-m">
+										{set.label} · white · {set.cols.assistant.accent} / {set.cols.assistant.accentText}
+									</span>
+								</figcaption>
+							</figure>,
+							<figure class="kit-spec">
+								<span class="lr-pair">
+									<Mark size={72} icon="tabler:terminal-2" accent={set.cols.cli.accent} lift />
+									<Icon
+										name="tabler:terminal-2"
+										class="lr-switch"
+										style={`color:${set.cols.cli.accentText}`}
+										aria-hidden="true"
+									/>
+								</span>
+								<figcaption>
+									<b>{set.cols.cli.switchLabel ?? set.cols.cli.eyebrow}</b>
+									<span class="kit-m">
+										{set.label} · solid · {set.cols.cli.accent} / {set.cols.cli.accentText}
+									</span>
+								</figcaption>
+							</figure>,
+						])}
+					</div>
+				</div>
+				<div class="kit-stage">
+					<p class="kit-label">
+						The CLI’s marks in type · AgentTerminal’s banner, in the route’s hue on the terminal’s ground
+					</p>
+					<div class="lr-terms" style={`--lr-art: ${AI_COLUMNS.cli.accent}`}>
+						<figure>
+							<pre class="lr-term">{smallArt.join('\n')}</pre>
+							<figcaption class="kit-m">
+								The banner’s mark: TB in figlet’s small cut, 4 rows × 11 columns (AI_AGENT_SESSION)
+							</figcaption>
+						</figure>
+						<figure>
+							<pre class="lr-term">{AI_AGENT_WORDMARK.join('\n')}</pre>
+							<figcaption class="kit-m">
+								The wordmark: figlet’s standard cut, 6 × 59, wide windows only (AI_AGENT_WORDMARK)
+							</figcaption>
+						</figure>
+					</div>
+				</div>
+				<div class="kit-stage">
+					<p class="kit-label">
+						Build with AI · the docs’ cards ({AI_DOC.replace('src/content/', '')}), Starlight icons
+					</p>
+					<div class="kit-specs lr-specs" style="--spec-w: 170px">
+						{aiDocCards.map((c) => (
+							<figure class="kit-spec">
+								<span class="lr-docicon">
+									<DocsIcon name={c.icon} size="1.75rem" />
+								</span>
+								<figcaption>
+									<b>{c.title}</b>
+									<span class="kit-m">{c.icon}</span>
+								</figcaption>
+							</figure>
+						))}
+					</div>
+				</div>
+				{builtInAi && (
+					<p class="kit-small">
+						Elsewhere: “{builtInAi.title}” in Why choose ThingsBoard is <code>{builtInAi.icon}</code> (outline, where
+						the section badge is the filled cut); Trendz’s own AI icon is <code>landings/trendz/icon-ai.svg</code> under
+						Older feature icons.
+					</p>
+				)}
+			</section>
+		</main>
+	</div>
+</PlaygroundLayout>
+
+<style lang="scss">
+	@use '../../../styles/variables' as *;
+	@use 'kit';
+
+	$line: rgba(23, 24, 28, 0.08);
+
+	// ── Files ──
+	.lr-jump {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: 0;
+
+		a {
+			@include type-small;
+
+			padding: 4px 10px;
+			border-radius: 100px;
+			background: rgba(23, 24, 28, 0.05);
+			color: var(--color-text);
+			text-decoration: none;
+
+			&:hover {
+				background: rgba(23, 24, 28, 0.1);
+			}
+		}
+
+		span {
+			color: var(--color-text-secondary);
+		}
+	}
+
+	.lr-product {
+		display: grid;
+		gap: 12px;
+		scroll-margin-top: 72px;
+	}
+
+	.lr-product__head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 4px 12px;
+		padding-top: 16px;
+		border-top: 1px solid $line;
+
+		h3 {
+			@include type-card;
+
+			margin: 0;
+		}
+
+		p {
+			@include type-small;
+
+			margin: 0;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	.lr-files {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+		gap: 16px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.lr-file {
+		display: grid;
+		grid-template-rows: auto 1fr;
+		overflow: hidden;
+		border: 1px solid $line;
+		border-radius: 12px;
+		background: #fff;
+	}
+
+	.lr-file--unused {
+		border-style: dashed;
+		border-color: rgba(180, 65, 0, 0.45);
+	}
+
+	.lr-file__art {
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: 1fr;
+		border-bottom: 1px solid $line;
+	}
+
+	.lr-file__ground {
+		display: grid;
+		place-items: center;
+		height: 112px;
+		padding: 16px;
+		// A checkerboard under the light ground, so a file's own white or transparent areas show.
+		background-color: #fff;
+		background-image:
+			linear-gradient(45deg, #f3f4f6 25%, transparent 25%), linear-gradient(-45deg, #f3f4f6 25%, transparent 25%),
+			linear-gradient(45deg, transparent 75%, #f3f4f6 75%), linear-gradient(-45deg, transparent 75%, #f3f4f6 75%);
+		background-position:
+			0 0,
+			0 6px,
+			6px -6px,
+			-6px 0;
+		background-size: 12px 12px;
+
+		img {
+			max-width: 100%;
+			max-height: 72px;
+			width: auto;
+			height: 72px;
+			object-fit: contain;
+		}
+	}
+
+	.lr-file__ground--dark {
+		background: #17181c;
+	}
+
+	.lr-file__meta {
+		display: grid;
+		align-content: start;
+		gap: 8px;
+		padding: 12px 14px 14px;
+
+		p {
+			margin: 0;
+		}
+	}
+
+	.lr-file__name {
+		@include type-small-strong;
+
+		overflow-wrap: anywhere;
+
+		span {
+			display: block;
+			font-weight: $font-weight-normal;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	.lr-file__facts,
+	.lr-file__via {
+		@include type-small;
+
+		color: var(--color-text-secondary);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.lr-file__via {
+		font-size: 12px;
+		line-height: 16px;
+	}
+
+	.lr-file__chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+
+	.lr-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 1px 6px 1px 3px;
+		border-radius: 100px;
+		background: rgba(23, 24, 28, 0.05);
+		font-family: $font-family-mono;
+		font-size: 12px;
+		line-height: 18px;
+
+		i {
+			width: 12px;
+			height: 12px;
+			border-radius: 50%;
+			box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+		}
+	}
+
+	.lr-chip--flag {
+		padding-left: 6px;
+		background: rgba(61, 80, 245, 0.1);
+		color: #2c3bc4;
+	}
+
+	.lr-file__tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		&:empty {
+			display: none;
+		}
+	}
+
+	.lr-tag {
+		padding: 1px 8px;
+		border-radius: 4px;
+		background: rgba(23, 24, 28, 0.06);
+		font-size: 12px;
+		line-height: 18px;
+	}
+
+	.lr-tag--mark {
+		background: rgba(0, 124, 123, 0.12);
+		color: #005a59;
+	}
+
+	.lr-tag--twin {
+		background: rgba(180, 65, 0, 0.1);
+		color: #8a3200;
+	}
+
+	.lr-users {
+		@include type-small;
+
+		summary {
+			cursor: pointer;
+			color: var(--color-text);
+		}
+
+		.lr-users--none {
+			color: #8a3200;
+		}
+
+		ul {
+			display: grid;
+			gap: 2px;
+			margin: 6px 0 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		code {
+			font-size: 12px;
+			overflow-wrap: anywhere;
+		}
+	}
+
+	// ── On a tile ──
+	.lr-tiles {
+		display: grid;
+		gap: 0;
+		overflow-x: auto;
+	}
+
+	.lr-tiles__row {
+		display: grid;
+		grid-template-columns: minmax(180px, 1.4fr) repeat(5, minmax(88px, 1fr));
+		align-items: center;
+		gap: 16px;
+		padding: 12px 0;
+		border-bottom: 1px solid $line;
+
+		> span {
+			display: grid;
+			justify-items: center;
+		}
+	}
+
+	.lr-tiles__row--head {
+		padding-top: 0;
+
+		span {
+			@include type-eyebrow;
+
+			color: var(--color-text-secondary);
+		}
+
+		span:first-child {
+			justify-items: start;
+		}
+	}
+
+	.lr-tiles__name {
+		display: grid;
+		gap: 2px;
+		justify-items: start !important;
+
+		code {
+			font-size: 12px;
+			color: var(--color-text-secondary);
+			overflow-wrap: anywhere;
+		}
+	}
+
+	.lr-tiles__dark {
+		padding: 12px 0;
+		border-radius: 8px;
+		background: var(--band-indigo);
+	}
+
+	.lr-ladder {
+		gap: 16px 20px;
+	}
+
+	.lr-ladder__step {
+		display: grid;
+		justify-items: center;
+		gap: 6px;
+		margin: 0;
+	}
+
+	// ── Ecosystem ──
+	.lr-matrix-wrap {
+		overflow-x: auto;
+		border: 1px solid $line;
+		border-radius: 12px;
+		background: #fff;
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+	}
+
+	// Fixed, so every surface gets the same column whatever its note's length.
+	.lr-matrix {
+		width: 100%;
+		min-width: 1240px;
+		table-layout: fixed;
+		border-collapse: collapse;
+
+		th,
+		td {
+			padding: 12px;
+			border-bottom: 1px solid $line;
+			text-align: left;
+			vertical-align: top;
+		}
+
+		thead th {
+			background: #fff;
+			vertical-align: bottom;
+
+			b,
+			span,
+			code {
+				display: block;
+			}
+
+			b {
+				@include type-small-strong;
+			}
+
+			span {
+				margin-top: 4px;
+				font-size: 12px;
+				line-height: 16px;
+				font-weight: $font-weight-normal;
+				color: var(--color-text-secondary);
+			}
+
+			code {
+				margin-top: 6px;
+				font-size: 11px;
+				line-height: 14px;
+				color: var(--color-text-secondary);
+				overflow-wrap: anywhere;
+			}
+		}
+
+		thead th:first-child {
+			width: 140px;
+		}
+
+		tbody th {
+			@include type-small-strong;
+
+			position: sticky;
+			left: 0;
+			z-index: 1;
+			background: #fff;
+		}
+	}
+
+	.lr-matrix__dark,
+	.lr-matrix thead .lr-matrix__dark-head {
+		background: #08091a;
+		color: #fff;
+		border-bottom-color: rgba(255, 255, 255, 0.1);
+
+		span,
+		code {
+			color: rgba(255, 255, 255, 0.64) !important;
+		}
+	}
+
+	.lr-cell {
+		display: grid;
+		justify-items: start;
+		gap: 6px;
+		margin: 0 0 12px;
+
+		&:last-child {
+			margin-bottom: 0;
+		}
+
+		figcaption {
+			display: grid;
+			gap: 1px;
+			font-size: 12px;
+			line-height: 16px;
+		}
+
+		figcaption span {
+			font-family: $font-family-mono;
+			font-size: 11px;
+			color: var(--color-text-secondary);
+			overflow-wrap: anywhere;
+
+			.lr-matrix__dark & {
+				color: rgba(255, 255, 255, 0.64);
+			}
+		}
+	}
+
+	.lr-absent {
+		color: var(--color-text-light);
+		font-size: 12px;
+	}
+
+	// The menu's badge, as SiteMenu.astro's `.sm__badge` draws it on the light menu (copied, since that
+	// sheet only loads with the menu): 32 square, 32% corners; solid the hue with the sheen; wash the hue
+	// at 12% with the glyph taken toward black.
+	.lr-mb {
+		display: inline-grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 32%;
+
+		:global(svg.nav-icon) {
+			width: var(--badge-glyph);
+			height: var(--badge-glyph);
+			color: inherit;
+		}
+	}
+
+	.lr-mb--solid {
+		background-color: var(--badge-hue);
+		background-image: linear-gradient(
+			155deg,
+			rgba(255, 255, 255, 0.22) 0%,
+			rgba(255, 255, 255, 0) 55%,
+			rgba(0, 0, 0, 0.06) 100%
+		);
+		color: #fff;
+	}
+
+	.lr-mb--wash {
+		background-color: color-mix(in srgb, var(--badge-hue) 12%, #fff);
+		color: color-mix(in srgb, var(--badge-hue) 55%, #0b1410);
+	}
+
+	// The homepage's mobile card: the logo inked in the app's green on the white tile.
+	.lr .lr-inked :global(.ui-mark) {
+		color: var(--lr-ink);
+	}
+
+	.lr-img {
+		display: inline-grid;
+		place-items: center;
+		min-width: 40px;
+		min-height: 40px;
+		padding: 8px;
+		border-radius: 8px;
+	}
+
+	.lr-unmatched {
+		@include type-small;
+
+		margin: 0;
+		color: #8a3200;
+	}
+
+	// ── Features ──
+	.lr-specs figcaption .kit-m {
+		font-size: 12px;
+		line-height: 16px;
+		overflow-wrap: anywhere;
+	}
+
+	.lr-pair {
+		display: inline-flex;
+		align-items: flex-end;
+		gap: 12px;
+	}
+
+	.lr-bare {
+		width: 32px;
+		height: 32px;
+		color: var(--color-text);
+	}
+
+	.lr-hub {
+		display: inline-grid;
+		place-items: center;
+		width: 48px;
+		height: 48px;
+		border-radius: 10px;
+
+		:global(svg) {
+			width: 24px;
+			height: 24px;
+		}
+	}
+
+	.lr-mini {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+		gap: 12px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.lr-mini__item {
+		display: grid;
+		justify-items: start;
+		gap: 4px;
+		padding: 10px;
+		border: 1px solid $line;
+		border-radius: 8px;
+
+		b {
+			@include type-small-strong;
+
+			overflow-wrap: anywhere;
+		}
+
+		.kit-m {
+			font-size: 12px;
+			line-height: 16px;
+		}
+	}
+
+	.lr-mini__art {
+		display: grid;
+		place-items: center;
+		width: 48px;
+		height: 48px;
+
+		img {
+			max-width: 48px;
+			max-height: 48px;
+		}
+	}
+
+	// ── CLI and AI ──
+	.lr-switch {
+		width: 20px;
+		height: 20px;
+	}
+
+	.lr-terms {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 20px;
+
+		figure {
+			display: grid;
+			gap: 8px;
+			margin: 0;
+			max-width: 100%;
+		}
+	}
+
+	.lr-term {
+		overflow-x: auto;
+		margin: 0;
+		padding: 16px 20px;
+		border-radius: 10px;
+		background: #14161d;
+		// AgentTerminal's stack, not the site's mono: the figlet rows hold together in these faces.
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+		font-size: 14px;
+		line-height: 1.25;
+		color: var(--lr-art);
+	}
+
+	.lr-docicon {
+		display: inline-grid;
+		place-items: center;
+		width: 48px;
+		height: 48px;
+		border-radius: 10px;
+		background: rgba(61, 80, 245, 0.08);
+		color: var(--color-brand);
+	}
+</style>

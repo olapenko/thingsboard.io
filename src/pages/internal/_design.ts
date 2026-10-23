@@ -13,6 +13,9 @@ import { HOME_COMPOSITIONS, compositionHref, isShipping } from '@data/home-compo
  * type roles beyond a ladder, or about the pages — whether what ships is the kit or markup a page
  * wrote for itself. Type and the inventory answer those two, by measuring the real pages rather than
  * listing what they should contain, so they cannot go stale.
+ *
+ * Logos (exp/logo-review) is a fifth, beside Components: the marks the products and features wear,
+ * swept from their folders and their surfaces' data, for a review before they are redrawn.
  */
 export interface DesignSection {
 	id: string;
@@ -22,7 +25,7 @@ export interface DesignSection {
 }
 
 export interface DesignPage {
-	id: 'foundations' | 'type' | 'components' | 'inventory';
+	id: 'foundations' | 'type' | 'components' | 'logos' | 'inventory';
 	label: string;
 	/** One honest line for the tile and the page's lede: what is on it and where its numbers come from. */
 	blurb: string;
@@ -108,6 +111,22 @@ export const DESIGN: DesignPage[] = [
 			{ id: 'dialog', label: 'Dialog', group: 'The kit' },
 			{ id: 'header', label: 'Section header', group: 'Built on the kit' },
 			{ id: 'regions', label: 'Region choice', group: 'Built on the kit' },
+		],
+	},
+	{
+		id: 'logos',
+		label: 'Logos',
+		blurb:
+			'Every logo file for ThingsBoard and its products, swept from the folders that hold them, with its box, colours, twins and the files that name it; the marks on a tile; the ecosystem as each surface draws it; the feature marks; and the CLI’s and the AI’s.',
+		icon: 'tabler:badges',
+		source: 'src/assets/images/landings/{ce,nav,draft} · docs/product-selector · public/images · data/marks.ts',
+		sections: [
+			{ id: 'files', label: 'Files by product', group: 'Products' },
+			{ id: 'tiles', label: 'On a tile', group: 'Products' },
+			{ id: 'ecosystem', label: 'Surface by surface', group: 'Ecosystem' },
+			{ id: 'features', label: 'Feature marks', group: 'Features' },
+			{ id: 'feature-files', label: 'Older feature icons', group: 'Features' },
+			{ id: 'ai', label: 'CLI and AI', group: 'CLI and AI' },
 		],
 	},
 	{
