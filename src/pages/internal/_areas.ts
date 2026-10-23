@@ -37,8 +37,11 @@ export interface AreaPage {
 	group?: string;
 }
 
-/** An area shows its pages as tabs up to this many; past it, as a grouped picker. */
-export const TABS_UP_TO = 5;
+/**
+ * An area shows its pages as tabs up to this many; past it, as a grouped picker. Six since the Design
+ * system took Logos and Logo files (exp/logo-review): six short labels still fit the bar at 1280.
+ */
+export const TABS_UP_TO = 6;
 
 /** Every area opens on its overview, drawn as a grid icon. */
 const overview = (href: string): AreaPage => ({ href, label: 'Overview', icon: 'tabler:layout-grid' });

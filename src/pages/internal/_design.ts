@@ -14,8 +14,10 @@ import { HOME_COMPOSITIONS, compositionHref, isShipping } from '@data/home-compo
  * wrote for itself. Type and the inventory answer those two, by measuring the real pages rather than
  * listing what they should contain, so they cannot go stale.
  *
- * Logos (exp/logo-review) is a fifth, beside Components: the marks the products and features wear,
- * swept from their folders and their surfaces' data, for a review before they are redrawn.
+ * Logos and Logo files (exp/logo-review) are a fifth and sixth, beside Components: the marks the
+ * products and features wear. Logos is the system they make and where the pages do not follow it yet
+ * (the public design space, one day); Logo files is the inventory under it, swept from the folders and
+ * the surfaces' data.
  */
 export interface DesignSection {
 	id: string;
@@ -25,7 +27,7 @@ export interface DesignSection {
 }
 
 export interface DesignPage {
-	id: 'foundations' | 'type' | 'components' | 'logos' | 'inventory';
+	id: 'foundations' | 'type' | 'components' | 'logos' | 'logo-files' | 'inventory';
 	label: string;
 	/** One honest line for the tile and the page's lede: what is on it and where its numbers come from. */
 	blurb: string;
@@ -117,7 +119,28 @@ export const DESIGN: DesignPage[] = [
 		id: 'logos',
 		label: 'Logos',
 		blurb:
-			'Every logo file for ThingsBoard and its products, swept from the folders that hold them, with its box, colours, twins and the files that name it; the marks on a tile; the ecosystem as each surface draws it; the feature marks; and the CLI’s and the AI’s.',
+			'The product marks as a landing page: the set, current or to be, on its grounds; what is designed next; shots of it in use; a workbench where each mark opens as a sheet; the map of every version with its status and red marks; the colours; how fills, lifts and lights are built and checked; what is being explored; the legacy files; an action per product; and the vocabulary.',
+		icon: 'tabler:apps',
+		source: 'ui/Mark · data/marks.ts · homeProducts / homeEcosystem · ai-visual.ts · _theme.scss',
+		sections: [
+			{ id: 'next', label: 'Next' },
+			{ id: 'shots', label: 'In use' },
+			{ id: 'brand', label: 'Logotype' },
+			{ id: 'workbench', label: 'Workbench' },
+			{ id: 'map', label: 'Map' },
+			{ id: 'colour', label: 'Colour' },
+			{ id: 'fills', label: 'Fills' },
+			{ id: 'experiments', label: 'Exploring' },
+			{ id: 'legacy', label: 'Legacy' },
+			{ id: 'actions', label: 'Actions' },
+			{ id: 'vocabulary', label: 'Vocabulary' },
+		],
+	},
+	{
+		id: 'logo-files',
+		label: 'Logo files',
+		blurb:
+			'The inventory under Logos: every logo file with its box, colours, twins and the files that name it; the marks on a tile; the ecosystem as each surface draws it, legacy columns included; the feature marks; the CLI’s and the AI’s.',
 		icon: 'tabler:badges',
 		source: 'src/assets/images/landings/{ce,nav,draft} · docs/product-selector · public/images · data/marks.ts',
 		sections: [

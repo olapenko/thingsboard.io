@@ -1,0 +1,282 @@
+---
+import { Icon } from 'astro-icon/components';
+import Mark from '@components/ui/Mark.astro';
+import NavIcon from '@components/Landing/NavIcon.astro';
+import type { Cell } from '@root/pages/internal/design-system/_logos';
+
+/**
+ * One product's tile as one surface draws it (`Cell` in `_logos.ts`), for the Logos page: the surface
+ * matrix and the product row draw it from here. Only the drawing; the caption is the caller's.
+ */
+interface Props {
+	cell: Cell;
+}
+
+const { cell: c } = Astro.props;
+
+/** A cycle as declarations: its hues, the keyframes for that many, the length of a lap. */
+const cycle = c.kind === 'mark' || c.kind === 'disc' ? c.cycle : undefined;
+if (cycle && (cycle.hues.length < 2 || cycle.hues.length > 8)) {
+	throw new Error(`_LogoCell: a cycle takes 2 to 8 hues, not ${cycle.hues.length}`);
+}
+const cycleStyle = cycle
+	? [
+			...cycle.hues.map((h, i) => `--lc-hue-${i}: ${h}`),
+			`--lc-anim: lc-${cycle.on}-hues-${cycle.hues.length}`,
+			`--lc-lap: ${cycle.leg * cycle.hues.length}s`,
+		].join('; ')
+	: undefined;
+const cycleClass = cycle && ['lc--cycle', `lc--cycle-${cycle.on}`];
+
+/**
+ * A draft's artwork at Mark's step for its size (Mark's `$mark-ladder`: `product`, `wide` for art wider
+ * than 3:2, `icon` for a glyph), cropped to `art`.
+ */
+const PRODUCT_PX: Record<number, number> = { 36: 26, 40: 28, 48: 34, 64: 44, 72: 50, 80: 56, 88: 62 };
+const WIDE_PX: Record<number, number> = { 36: 29, 40: 32, 48: 38, 64: 51, 72: 58, 80: 64, 88: 70 };
+const ICON_PX: Record<number, number> = { 36: 24, 40: 24, 48: 28, 64: 40, 72: 44, 80: 48, 88: 52 };
+const STEP_PX = { product: PRODUCT_PX, wide: WIDE_PX, icon: ICON_PX };
+const artPx = c.kind === 'draft' ? STEP_PX[c.step ?? 'product'][c.size] : 0;
+const draftSvg =
+	c.kind === 'draft'
+		? c.svg.replace(/<svg\b([^>]*)>/, (_m, attrs: string) => {
+				const kept = attrs.replace(/\s*\b(width|height|viewBox|class)="[^"]*"/g, '');
+				return `<svg${kept} viewBox="${c.art.join(' ')}" class="lc-draft__glyph" aria-hidden="true" focusable="false">`;
+			})
+		: '';
+---
+
+{c.kind === 'mark' && (
+	<span
+		class:list={['lc', c.ink && 'lc--inked', cycleClass]}
+		style={[c.ink && `--lc-ink: ${c.ink}`, cycleStyle].filter(Boolean).join('; ') || undefined}
+	>
+		<Mark {...c.mark} />
+	</span>
+)}
+{c.kind === 'disc' && (
+	<span
+		class:list={['lc-disc', cycleClass]}
+		style={`--lc-disc: ${c.size}px; --lc-glyph: ${c.glyph}px; ${cycleStyle ?? ''}`}
+	>
+		<Icon name={c.icon} class="lc-disc__glyph" aria-hidden="true" />
+	</span>
+)}
+{c.kind === 'menu' && (
+	<span class:list={['lc-mb', `lc-mb--${c.fill}`]} style={`--badge-hue: ${c.hue}; --badge-glyph: ${c.size}px`}>
+		<NavIcon src={c.glyph} size={c.size} />
+	</span>
+)}
+{c.kind === 'nav' && <NavIcon src={c.src} size={32} />}
+{c.kind === 'img' && (
+	<span class="lc-img" style={c.ground ? `background: ${c.ground}` : undefined}>
+		<img src={c.src} alt="" width={c.px} height={c.px} />
+	</span>
+)}
+{c.kind === 'none' && <span class="lc-none">{c.why}</span>}
+{c.kind === 'draft' && (
+	<span
+		class:list={['lc-draft', `lc-draft--${c.fill}`, c.lift && 'lc-draft--lift']}
+		style={`--lc-size: ${c.size}px; --lc-art: ${artPx}px; --lc-accent: ${c.accent}`}
+	>
+		<Fragment set:html={draftSvg} />
+	</span>
+)}
+{c.kind === 'glyph' &&
+	(c.mask ? (
+		<span class="lc-glyph" style={`--lc-g: ${c.size}px; --lc-mask: url("${c.mask}")`} aria-hidden="true" />
+	) : (
+		c.icon && <Icon name={c.icon} class="lc-glyph-icon" style={`--lc-g: ${c.size}px`} aria-hidden="true" />
+	))}
+
+<style lang="scss">
+	@use 'sass:math';
+
+	.lc {
+		display: inline-flex;
+	}
+
+	// THE AI MARK'S CYCLE, as AiWide and ChatLauncher run theirs: linear, one even leg per hue, back to
+	// the resting colour at 100%. The fill under the Mark's sheen (its `background-image` stays), or the
+	// glyph's colour. Always running here, where AiWide runs it only while the badge is half on screen.
+	.lc--cycle-fill :global(.ui-mark),
+	.lc--cycle-glyph :global(.ui-mark__glyph--icon),
+	.lc-disc.lc--cycle-glyph .lc-disc__glyph {
+		animation: var(--lc-anim) var(--lc-lap) linear infinite;
+	}
+
+	@for $n from 2 through 8 {
+		@keyframes lc-fill-hues-#{$n} {
+			0%,
+			100% {
+				background-color: var(--lc-hue-0);
+			}
+			@for $i from 1 through $n - 1 {
+				#{math.div($i * 100%, $n)} {
+					background-color: var(--lc-hue-#{$i});
+				}
+			}
+		}
+
+		@keyframes lc-glyph-hues-#{$n} {
+			0%,
+			100% {
+				color: var(--lc-hue-0);
+			}
+			@for $i from 1 through $n - 1 {
+				#{math.div($i * 100%, $n)} {
+					color: var(--lc-hue-#{$i});
+				}
+			}
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.lc--cycle-fill :global(.ui-mark),
+		.lc--cycle-glyph :global(.ui-mark__glyph--icon),
+		.lc-disc.lc--cycle-glyph .lc-disc__glyph {
+			animation: none;
+		}
+	}
+
+	// The chat launcher (ChatLauncher, tone white): a white disc, its glyph in the hue, a soft shadow.
+	.lc-disc {
+		display: inline-grid;
+		place-items: center;
+		width: var(--lc-disc);
+		height: var(--lc-disc);
+		border-radius: 50%;
+		background: #fff;
+		box-shadow:
+			0 1px 2px rgba(23, 24, 28, 0.08),
+			0 8px 20px -8px rgba(23, 24, 28, 0.28);
+		color: var(--lc-hue-0, #3d50f5);
+	}
+
+	.lc-disc__glyph {
+		width: var(--lc-glyph);
+		height: var(--lc-glyph);
+	}
+
+	// The homepage's mobile card: the logo inked in the app's green on the white tile.
+	.lc--inked :global(.ui-mark) {
+		color: var(--lc-ink);
+	}
+
+	// The menu's badge, as SiteMenu.astro's `.sm__badge` draws it on the light menu (copied, since that
+	// sheet only loads with the menu): 32 square, 32% corners; solid the hue with the sheen; wash the hue
+	// at 12% with the glyph taken toward black.
+	.lc-mb {
+		display: inline-grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 32%;
+
+		:global(svg.nav-icon) {
+			width: var(--badge-glyph);
+			height: var(--badge-glyph);
+			color: inherit;
+		}
+	}
+
+	.lc-mb--solid {
+		background-color: var(--badge-hue);
+		background-image: linear-gradient(
+			155deg,
+			rgba(255, 255, 255, 0.22) 0%,
+			rgba(255, 255, 255, 0) 55%,
+			rgba(0, 0, 0, 0.06) 100%
+		);
+		color: #fff;
+	}
+
+	.lc-mb--wash {
+		background-color: color-mix(in srgb, var(--badge-hue) 12%, #fff);
+		color: color-mix(in srgb, var(--badge-hue) 55%, #0b1410);
+	}
+
+	.lc-img {
+		display: inline-grid;
+		place-items: center;
+		min-width: 40px;
+		min-height: 40px;
+		padding: 8px;
+		border-radius: 8px;
+	}
+
+	// A draft tile: Mark's squircle and sheen (ui/Mark.astro's solid and white fills), for artwork
+	// Mark does not know yet. Solid knocks the artwork out white; white draws it in the accent.
+	.lc-draft {
+		display: inline-grid;
+		flex: none;
+		place-items: center;
+		width: var(--lc-size);
+		height: var(--lc-size);
+		border-radius: 32%;
+
+		// The width is the step; the height follows the cropped box, as Mark's product glyphs do.
+		:global(.lc-draft__glyph) {
+			display: block;
+			width: var(--lc-art);
+			height: auto;
+			max-height: var(--lc-art);
+		}
+	}
+
+	.lc-draft--solid {
+		background-color: var(--lc-accent);
+		background-image: linear-gradient(
+			155deg,
+			rgba(255, 255, 255, 0.22) 0%,
+			rgba(255, 255, 255, 0) 55%,
+			rgba(0, 0, 0, 0.06) 100%
+		);
+		color: #fff;
+	}
+
+	.lc-draft--white {
+		background-color: #fff;
+		background-image: linear-gradient(155deg, #fff 35%, color-mix(in srgb, var(--lc-accent) 5%, #fff) 100%);
+		color: var(--lc-accent);
+	}
+
+	// Black: the artwork in the accent on near-black, the solid fill's sheen.
+	.lc-draft--dark {
+		background-color: #17181c;
+		background-image: linear-gradient(
+			155deg,
+			rgba(255, 255, 255, 0.14) 0%,
+			rgba(255, 255, 255, 0) 55%,
+			rgba(0, 0, 0, 0.2) 100%
+		);
+		color: var(--lc-accent);
+	}
+
+	.lc-draft--lift {
+		box-shadow: var(--elev-mark);
+	}
+
+	// The glyph: the artwork as a mask over currentColor, so it takes the ground's ink — the white
+	// knockout's two tones (full and half) become the ink at full and half strength.
+	.lc-glyph {
+		display: inline-block;
+		flex: none;
+		width: var(--lc-g);
+		height: var(--lc-g);
+		background-color: currentColor;
+		-webkit-mask: var(--lc-mask) center / contain no-repeat;
+		mask: var(--lc-mask) center / contain no-repeat;
+	}
+
+	.lc-glyph-icon {
+		flex: none;
+		width: var(--lc-g);
+		height: var(--lc-g);
+	}
+
+	.lc-none {
+		color: var(--color-text-light);
+		font-size: 12px;
+	}
+</style>

@@ -3,7 +3,64 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 import spriteManifest from '@root/assets/images/landings/nav-sprite.manifest.json';
 import { ICONS } from '@root/pages/open-graph/_assets/icons';
-import { MARKS, markBySrc } from '@data/marks';
+import { MARKS, markBySrc, type MarkName } from '@data/marks';
+
+/** A `ui/Mark` call, as a surface makes it: the props, so a page can redraw that surface's tile. */
+export type MarkSize = 36 | 40 | 48 | 64 | 72 | 80 | 88;
+export type Fill = 'solid' | 'white' | 'wash' | 'neutral';
+export interface MarkSpec {
+	size: MarkSize;
+	fill?: Fill;
+	accent?: string;
+	logo?: 'thingsboard';
+	product?: Exclude<MarkName, 'thingsboard'>;
+	icon?: string;
+	tone?: 'knockout' | 'original';
+	lift?: boolean;
+}
+
+/**
+ * A colour cycle, as the AI mark runs one: `hues[0]` is where it rests and where each lap ends, one
+ * leg of `leg` seconds per hue. `on` is what changes colour: the tile's fill (the section's badge) or
+ * the glyph on a white ground (the chat launcher). `_LogoCell` has keyframes for 2 to 8 hues.
+ */
+export interface HueCycle {
+	hues: string[];
+	leg: number;
+	on: 'fill' | 'glyph';
+}
+
+/**
+ * One product as one surface draws it (`_LogoCell` draws it again): a Mark; the menu's badge, which
+ * is CSS and a sprite glyph rather than a Mark; a nav icon; a file as an image; or nothing, and why.
+ * `ink` is the homepage mobile card's: the logo inked in a colour of its own on the white tile.
+ * `disc` is the chat launcher: a white circle with a glyph, which is not a Mark. `draft` is a tile for
+ * artwork that is not in `marks.ts` yet (the CE placeholder): Mark's squircle, drawn here, so a draft
+ * never needs a registry entry to be reviewed.
+ */
+export type Cell = { name: string; caption: string } & (
+	| { kind: 'mark'; mark: MarkSpec; ink?: string; cycle?: HueCycle }
+	| { kind: 'disc'; size: number; icon: string; glyph: number; cycle?: HueCycle }
+	/** The mark alone in one colour (currentColor): artwork as a mask, or a tabler glyph. */
+	| { kind: 'glyph'; size: number; mask?: string; icon?: string }
+	| {
+			kind: 'draft';
+			size: MarkSize;
+			/** Artwork Mark does not know yet, drawn in currentColor; `art` is its box, as in `marks.ts`. */
+			svg: string;
+			art: readonly [number, number, number, number];
+			/** Which of Mark's steps sizes it: a product's (70%), a wide product's (80%), or an icon's (60%). */
+			step?: 'product' | 'wide' | 'icon';
+			/** solid: knocked out of the accent · white: the accent on white · dark: the accent on black. */
+			fill: 'solid' | 'white' | 'dark';
+			accent: string;
+			lift?: boolean;
+	  }
+	| { kind: 'menu'; fill: 'solid' | 'wash'; hue: string; glyph: string; size: number }
+	| { kind: 'nav'; src: string }
+	| { kind: 'img'; src: string; px: number; ground?: string }
+	| { kind: 'none'; why: string }
+);
 
 /**
  * THE LOGO FILES, swept from the folders that hold the ThingsBoard logo and the products' logos, for
