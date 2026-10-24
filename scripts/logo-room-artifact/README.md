@@ -4,26 +4,26 @@ The Logo Room (`/internal/design-system/logos/` on the lab) published on its own
 claude.ai artifact: https://claude.ai/artifact/LSxxpGErXUNFPoVC5noQTG. Share it from the page's Share menu;
 until then only its owner can open it.
 
-Version 2 is `exp/logo-review` at f4e041835 plus the uncommitted Round 4 and Bench work (24 Oct 2026), from
-before the pages were renamed (Bench is now the Studio, Spec is Guidelines): the next capture takes the new names. The
-tag in the bottom-left corner of every page names the branch, the commit and the capture date.
+Version 3 is `exp/logo-review` as pushed on 25 Oct 2026: the renamed pages (Guidelines, Studio, About), the
+groups guide, the palette with its colour editor and secondaries, briefs by topic, sets of your own and the Files
+side menu. The tag in the bottom-left corner of every page names the branch, the commit and the capture date.
 
 ## What is in it
 
 | File | From | What it is |
 | --- | --- | --- |
 | `index.html` | `/internal/design-system/logos/` | Overview: the set, the showcase, the open rounds |
-| `guidelines.html` | `/internal/design-system/logos/guidelines/` | Assets, Map, Colour, Materials, Vocabulary |
-| `studio.html` | `/internal/design-system/logos/studio/` | Workbench, Rounds, Ideas, Actions |
+| `guidelines.html` | `/internal/design-system/logos/guidelines/` | Assets, Map, Colour, Materials |
+| `studio.html` | `/internal/design-system/logos/studio/` | Canvas (with the palette), Rounds, Ideas, Actions |
 | `files.html` | `/internal/design-system/logo-files/` | Every logo file, with the legacy sets |
-| `about.html` | `/internal/design-system/logos/about/` | The room, how to take part, the agent prompt, branches and debt |
-| `room.js` | `bundle.mjs` | The room's scripts (`_LogoRoom.astro`, `_RoomTabs.astro`, `_PageHero.astro`, About), bundled |
+| `about.html` | `/internal/design-system/logos/about/` | The room, how to take part, the agent prompt, groups, maintainers, vocabulary |
+| `room.js` | `bundle.mjs` | The room's scripts (`_LogoRoom.astro`, `_RoomTabs.astro`, `_RoomToc.astro`, `_PageHero.astro`, About, Files), bundled |
 | `tabler-icons.json` | the dev server | Every Tabler icon, for the new mark's picker |
 | `shell.js`, `shell.css` | this folder | The artifact's own glue (below) |
 | `css/`, `assets/` | the dev server | The pages' styles, and the nav sprite |
 
 Everything the lab page does works, except Save to repo: the set picker, grounds, sizes, sheets,
-proposed statuses, colour tries, notes, the new mark (Tabler, the set's forms, an uploaded SVG), the
+proposed statuses, colour tries, notes, added colours and secondaries, sets of your own, the new mark (Tabler, the set's forms, an uploaded SVG), the
 rounds, and Copy as patch.
 
 ## How it differs from the lab
@@ -37,7 +37,7 @@ rounds, and Copy as patch.
   Studio on that round.
 - **No Save to repo.** It writes through the dev server; the capture removes the button. Copy as patch
   still produces a diff of the records that `git apply` takes.
-- **Each viewer keeps their own Studio.** Notes, proposed statuses and colour tries live in the viewer's
+- **Each viewer keeps their own Studio.** Notes, proposed statuses, colour tries, added colours and saved sets live in the viewer's
   browser for this artifact (`localStorage`), apart from the lab's and from everyone else's. To hand
   them over, a viewer uses Copy as patch (or Export JSON) and sends the result.
 - **Copy link copies the page's frame address**, which only works on the machine that copied it. To

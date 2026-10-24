@@ -1,6 +1,6 @@
 /**
  * The Logo Room's client scripts as one file for the artifact: the `<script>` blocks of the room's
- * components and of the About page (SCRIPTS below), bundled with esbuild (the copy Vite ships) and the repo's
+ * components and of the About and Files pages (SCRIPTS below), bundled with esbuild (the copy Vite ships) and the repo's
  * path aliases, as `site/room.js`. The icon picker's fetch is pointed at the snapshot's own copy.
  *
  * Usage: node scripts/logo-room-artifact/bundle.mjs <out-dir>
@@ -33,6 +33,7 @@ const SCRIPTS = {
 	hero: '_PageHero.astro',
 	room: '_LogoRoom.astro',
 	about: 'logos/about.astro',
+	files: 'logo-files.astro',
 };
 Object.entries(SCRIPTS).forEach(([name, file]) =>
 	writeFileSync(join(TMP, `${name}.ts`), scriptOf(`src/pages/internal/design-system/${file}`))
