@@ -4,7 +4,7 @@ The Logo Room (`/internal/design-system/logos/` on the lab) published on its own
 claude.ai artifact: https://claude.ai/artifact/LSxxpGErXUNFPoVC5noQTG. Share it from the page's Share menu;
 until then only its owner can open it.
 
-Version 4 is `exp/logo-review` at 1e07447a6 (25 Oct 2026): the renamed pages (Guidelines, Studio, About), the
+It shows `exp/logo-review` as last captured (25 Oct 2026, 0e6977a42): the renamed pages (Guidelines, Studio, About), the
 groups guide, the palette with its colour editor and secondaries, briefs by topic, sets of your own and the Files
 side menu. The tag in the bottom-left corner of every page names the branch, the commit and the capture date.
 
