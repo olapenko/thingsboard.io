@@ -101,6 +101,8 @@ export type LogoMark = z.infer<typeof logoMarkSchema>;
 
 export const logoRoundSchema = z.object({
 	label: z.string(),
+	/** Its name in a list of sets: a word or two, never its number again. */
+	name: z.string().max(20),
 	state: z.enum(['open', 'decided']),
 	opened: z.coerce.date(),
 	decided: z.coerce.date().optional(),

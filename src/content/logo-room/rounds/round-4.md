@@ -1,5 +1,6 @@
 ---
 label: Round 4
+name: Plan shades
 state: open
 opened: 2026-10-24
 title: 'The License Portal: plans in shades'

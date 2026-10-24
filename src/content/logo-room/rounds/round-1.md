@@ -1,5 +1,6 @@
 ---
 label: Round 1
+name: App and hub
 state: open
 opened: 2026-10-24
 title: The Mobile app on Dark, IoT Hub on its hub

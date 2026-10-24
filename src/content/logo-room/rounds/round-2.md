@@ -1,5 +1,6 @@
 ---
 label: Round 2
+name: Set update
 state: open
 opened: 2026-10-24
 title: 'The set update: TBMQ, Trendz and Community Edition'

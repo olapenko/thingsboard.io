@@ -4,7 +4,7 @@
  *
  *   - marks: a unique `order`; candidate ids unique, `current` first; a proposal that only repeats a
  *     decided status; notes in order
- *   - rounds: the marks they pick, review and set exist; a pick names a drawn candidate of its mark;
+ *   - rounds: names unique; the marks they pick, review and set exist; a pick names a drawn candidate of its mark;
  *     no mark both picked and reviewed; no mark in two open rounds; an open round has no `decided`
  *     date and a decided one has one, not before it opened
  *
@@ -79,7 +79,12 @@ for (const [id, { file, data }] of marks) {
 
 // ── Rounds ──
 const openRound = new Map<string, string>();
+const roundNames = new Map<string, string>();
 for (const [id, { file, data }] of rounds) {
+	const sameName = roundNames.get(data.name.toLowerCase());
+	if (sameName) report(file, `name “${data.name}” is ${sameName}’s too`);
+	roundNames.set(data.name.toLowerCase(), id);
+
 	const named = [...data.picks.map((p) => p.mark), ...data.reviews, ...Object.keys(data.set)];
 	named.filter((m) => !marks.has(m)).forEach((m) => report(file, `no mark “${m}” in marks/`));
 

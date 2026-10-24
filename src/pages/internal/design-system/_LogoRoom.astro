@@ -581,9 +581,7 @@ const faceTile = (id: string, size: MarkSize) => {
 	return c ? [atSize(c, size)] : [];
 };
 /** The stack: four distinct marks, bottom first — the platform under what runs on it. */
-const STACKS = [
-	{ id: 'platform', label: 'Platform · Cloud · AI · CLI', tiles: ['platform', 'cloud', 'ai-core', 'cli'] },
-].map((s) => ({
+const STACKS = [{ id: 'platform', tiles: ['platform', 'cloud', 'ai-core', 'cli'] }].map((s) => ({
 	...s,
 	cells: s.tiles.flatMap((id) =>
 		id === 'ai-core' ? [aiCore(88, false)] : faceTile(id, 88).map((c) => atSize(c, 88, false))
@@ -591,6 +589,27 @@ const STACKS = [
 }));
 /** The overlap experiment: every product's face, the first seven. */
 const FAN = ROWS.flatMap((r) => faceTile(r.id, 48)).slice(0, 7);
+/**
+ * The chain, for the scheme: one platform, the two ways it runs, and the add-ons either takes (as
+ * Pricing lists them: Edge, Trendz, the white-labelled Mobile app). Marks as they ship.
+ */
+const chainTile = (id: string, size: MarkSize) => {
+	const r = ROWS.find((x) => x.id === id);
+	const c = r && (r[r.face]?.cell ?? r.white?.cell);
+	// The lift from 64 up, as on any light ground: a White tile is an object on the grey, not a patch.
+	return c ? atSize(c, size) : undefined;
+};
+const CHAIN = {
+	platform: chainTile('platform', 72),
+	runs: [
+		{ label: 'Cloud', cell: chainTile('cloud', 72) },
+		{ label: 'On-premises', cell: chainTile('onprem', 72) },
+	],
+	addons: ['edge', 'trendz', 'mobile'].map((id) => ({
+		label: ROWS.find((x) => x.id === id)?.label ?? id,
+		cell: chainTile(id, 48),
+	})),
+};
 /** The footer's two groups, as FooterMap lays them out: the platforms, then the ecosystem in two columns. */
 const FOOTER_GROUPS = [
 	{ name: 'IoT platforms', items: FOOTER_LIST.filter((f) => FOOTER_PLATFORMS.some((p) => p.name === f.name)) },
@@ -664,6 +683,13 @@ interface Experiment {
 	href?: string;
 }
 const EXPERIMENTS: Experiment[] = [
+	{
+		id: 'chain',
+		title: 'Platform, deployment, add-ons',
+		action: 'Try for the Pricing page’s header',
+		href: '/pricing/',
+		comment: 'One platform, run in the cloud or on your own servers, extended by the same add-ons either way.',
+	},
 	{
 		id: 'stack',
 		title: 'The set, stacked',
@@ -936,6 +962,8 @@ interface RoundPick {
 interface Round {
 	id: string;
 	label: string;
+	/** Its name in the Sets list. */
+	name: string;
 	state: 'open' | 'decided';
 	title: string;
 	/** The bench's line for it. */
@@ -957,6 +985,7 @@ const ROUNDS: Round[] = ROUND_RECORDS.map(({ id, data }) => {
 	return {
 		id,
 		label: data.label,
+		name: data.name,
 		state: data.state,
 		title: data.title,
 		note: data.summary,
@@ -1050,7 +1079,8 @@ const PRESETS: {
 		note: 'The set as the live pages draw it today. IoT Hub already shows its hub: approved, and waiting to be built.',
 		m: START,
 	},
-	...ROUNDS.map((r) => ({ id: r.id, label: r.label, kind: 'round' as const, line: r.title, note: r.note, m: r.m })),
+	// A round goes by its name in the list; its number is the group's word again.
+	...ROUNDS.map((r) => ({ id: r.id, label: r.name, kind: 'round' as const, line: r.title, note: r.note, m: r.m })),
 	{
 		id: 'platform-both',
 		label: 'Platform both',
@@ -1094,19 +1124,35 @@ const PRESETS: {
 ];
 const PRESET_KIND: Record<PresetKind, string> = { shipped: '', round: 'Rounds', exploration: 'Explore' };
 /**
- * The Set picker's menu: the starting points in their groups, each with its line under its name.
+ * A set's dot, in the statuses' own colours: what its marks would be if it landed. Shipped is the
+ * live set; an open round is Exploring, under review; a decided round is Designed, approved and
+ * waiting to be built; an exploration is a hollow ring, never a candidate.
+ */
+const setDotOf = (s: (typeof PRESETS)[number]): Status | 'none' =>
+	s.kind === 'shipped'
+		? 'shipped'
+		: s.kind === 'round'
+			? ROUNDS.find((r) => r.id === s.id)?.state === 'decided'
+				? 'designed'
+				: 'exploring'
+			: 'none';
+/**
+ * The Sets list in the Bench's sidebar: the starting points in their groups, each with its dot, its
+ * name and its line.
  */
 const SET_MENU = (['shipped', 'round', 'exploration'] as const).map((k) => ({
 	kind: k,
 	label: PRESET_KIND[k],
-	items: PRESETS.filter((s) => s.kind === k),
+	items: PRESETS.filter((s) => s.kind === k).map((s) => ({ ...s, dot: setDotOf(s) })),
 }));
 /**
  * The view's controls, by where they sit: the ground on the canvas it changes, the rest in the bar.
- * Layout and Size need no label (icons, and the sizes in px); Names is a switch with its label.
+ * Layout and Size need no label (icons, and the sizes in px); Names and Shaded white are switches.
  */
 const ON_CANVAS = new Set(['ground']);
 const VIEW_ICONS: Record<string, string> = { groups: 'tabler:layout-grid', row: 'tabler:list' };
+/** The view's switches: on and off, the value each side writes. Shaded white off is pure white. */
+const VIEW_SWITCHES: Record<string, [string, string]> = { names: ['on', 'off'], light: ['shaded', 'pure'] };
 const PLAY_GLOBALS = [
 	{
 		key: 'ground',
@@ -1150,7 +1196,7 @@ const PLAY_GLOBALS = [
 	},
 	{
 		key: 'light',
-		label: 'White on light',
+		label: 'Shaded white',
 		default: 'shaded',
 		options: [
 			['shaded', 'Shaded'],
@@ -1859,6 +1905,8 @@ const SHEETS = ROWS.map((r) => {
 		actions: actionsOf(r),
 	};
 });
+/** The new mark's four placeholders, named as the treatments are. */
+const NEW_FILL_NAMES = { white: 'White', colour: 'Colour', tint: 'Tint', black: 'Dark' } as const;
 /** The grounds a sheet's stage can take: the registry's. */
 const SHEET_GROUNDS = GROUNDS;
 /**
@@ -2188,11 +2236,18 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						<LogoCell cell={atSize(ROWS[0].white?.cell as Cell, 88)} />
 						<LogoCell cell={atSize(onprem.cell, 72, false)} />
 					</div>
-					<figcaption>Platform · the bookend's trio</figcaption>
+					<figcaption>Bookend</figcaption>
 				</figure>
-				<figure class="pr-shot pr-shot--spot" style={`--n: ${SPOT.length}; --pr-spot: pr-spot-${SPOT.length}`}>
+				<figure class="pr-shot pr-shot--spot" data-slider aria-roledescription="carousel" aria-label="Homepage cards">
 					{SPOT.map((s, i) => (
-						<div class="pr-spot" style={`--i: ${i}; --accent: ${s.accent}`}>
+						<div
+							class="pr-spot"
+							style={`--accent: ${s.accent}`}
+							data-active={i === 0 ? '' : undefined}
+							aria-hidden={i === 0 ? 'false' : 'true'}
+							aria-roledescription="slide"
+							aria-label={`${i + 1} of ${SPOT.length}: ${s.name}`}
+						>
 							<span class="pr-spot__mark">
 								<LogoCell cell={s.cell} />
 							</span>
@@ -2200,12 +2255,20 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							<span class="pr-spot__label">{s.label}</span>
 						</div>
 					))}
-					<span class="pr-spot__dots" aria-hidden="true">
-						{SPOT.map((_s, i) => (
-							<i style={`--i: ${i}`} />
-						))}
-					</span>
-					<figcaption>Ecosystem · the homepage’s cards, in turn</figcaption>
+					<div class="pr-spot__nav">
+						<button type="button" class="pr-spot__arrow" data-step="-1" aria-label="Previous card">
+							<Icon name="tabler:chevron-left" aria-hidden="true" />
+						</button>
+						<span class="pr-spot__dots">
+							{SPOT.map((s, i) => (
+								<button type="button" data-go={i} aria-label={s.name} aria-current={i === 0 ? 'true' : 'false'} />
+							))}
+						</span>
+						<button type="button" class="pr-spot__arrow" data-step="1" aria-label="Next card">
+							<Icon name="tabler:chevron-right" aria-hidden="true" />
+						</button>
+					</div>
+					<figcaption>Homepage</figcaption>
 				</figure>
 				<figure class="pr-shot pr-shot--stack">
 					<div class="pr-stacks">
@@ -2222,7 +2285,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						))}
 					</div>
 					<figcaption>
-						{STACKS[0].label} <span class="pr-status pr-status--exploring">Exploring</span>
+						Stacked <span class="pr-status pr-status--exploring">Exploring</span>
 					</figcaption>
 				</figure>
 				<figure class="pr-shot pr-shot--ai" data-surface="dark" style={GLOW_VARS}>
@@ -2231,7 +2294,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						<LogoCell cell={aiCore(80)} />
 						<LogoCell cell={atSize(ROWS.find((r) => r.id === 'cli')?.filled?.cell as Cell, 64)} />
 					</div>
-					<figcaption>AI · assistant, core, CLI</figcaption>
+					<figcaption>AI section</figcaption>
 				</figure>
 				<figure class="pr-shot pr-shot--footer" data-surface="dark">
 					<div class="pr-foot">
@@ -2252,7 +2315,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							</div>
 						))}
 					</div>
-					<figcaption>In a list · the footer</figcaption>
+					<figcaption>Footer</figcaption>
 				</figure>
 				<figure class="pr-shot pr-shot--tabs">
 					<div class="pr-tabs-pair">
@@ -2281,7 +2344,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							</div>
 						))}
 					</div>
-					<figcaption>The favbar · a tab per product, each with its own mark</figcaption>
+					<figcaption>Browser tabs</figcaption>
 				</figure>
 			</div>
 		</section>
@@ -2391,13 +2454,16 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				</h2>
 				<p>The set as a canvas, to try a direction and see it hold on every ground.</p>
 			</div>
-			<div class="pg-layout">
-				<aside class="pg__guide" aria-label="How to use the workbench">
-					<p class="pg__guide-title">How it works</p>
+			<div class="pg-layout" data-sets="on" data-guide="on">
+				<aside class="pg__guide" id="pg-guide" aria-label="How to use the workbench">
+					<p class="pg__side-label">How it works</p>
+					<button type="button" class="pg__guide-close" aria-label="Hide how it works">
+						<Icon name="tabler:x" aria-hidden="true" />
+					</button>
 					<ol class="pg__how">
 						<li>
 							<b>Pick a set</b>
-							<span>as it ships, a round under review, or an exploration of the whole set.</span>
+							<span>from the list: as it ships, a round under review, or an exploration.</span>
 						</li>
 						<li>
 							<b>Pick a ground</b>
@@ -2411,70 +2477,88 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						</li>
 						<li>
 							<b>Share it</b>
-							<span>
-								The address keeps the set: Copy link sends it. Copy as patch turns your statuses, colours and notes into
-								a change to the marks’ records, for a pull request; on the dev server, Save to repo writes it.
-							</span>
+							<span>with the set’s actions under the canvas: a link to the set, or your proposals as a patch.</span>
 						</li>
 					</ol>
 				</aside>
+				<div class="pg__sidecol">
+					<aside class="pg__side" id="pg-sets" aria-label="The workbench's sets">
+						<section class="pg__side-part">
+							<p class="pg__side-label">Sets</p>
+							<div class="pg__sets" role="group" aria-label="The set to start from">
+								<button type="button" class="pg__preset pg__preset--own" data-value="custom" aria-pressed="true" hidden>
+									<i class="pr-dot pr-dot--changed" aria-hidden="true" />
+									Your own set
+								</button>
+								{SET_MENU.map((g) => (
+									<div class="pg__sets-group" role="group" aria-label={g.label || 'Shipped'}>
+										{g.label && <p class="pg__sets-name">{g.label}</p>}
+										{g.items.map((it) => (
+											<button
+												type="button"
+												class="pg__preset"
+												data-value={it.id}
+												aria-pressed={it.id === 'shipped' ? 'true' : 'false'}
+												title={it.note}
+											>
+												<i class:list={['pr-dot', `pr-dot--${it.dot}`]} aria-hidden="true" />
+												{it.label}
+											</button>
+										))}
+									</div>
+								))}
+							</div>
+						</section>
+					</aside>
+				</div>
 				<div class="pg" data-ground="split" data-size="m" data-layout="groups" data-names="on" data-glyph="chip-navy">
 					<div class="pg__bar">
-						<div class="pg__start">
-							<span class="pg__ctl-label">Set</span>
-							<div class="pg__setpick">
-								<button
-									type="button"
-									class="pg__setbtn"
-									aria-haspopup="listbox"
-									aria-expanded="false"
-									aria-controls="pg-setmenu"
-								>
-									<b data-set-label>Shipped</b>
-									<span data-set-sub />
-									<Icon name="tabler:chevron-down" aria-hidden="true" />
-								</button>
-								<div class="pg__setmenu" id="pg-setmenu" role="listbox" aria-label="The set to start from" hidden>
-									{SET_MENU.map((g) => (
-										<div role="group" aria-label={g.label || 'Shipped'}>
-											{g.label && <p class="pg__setmenu-group">{g.label}</p>}
-											{g.items.map((it) => (
-												<button
-													type="button"
-													role="option"
-													aria-selected="false"
-													data-value={it.id}
-													data-kind={g.label}
-												>
-													<b>{it.label}</b>
-													<span>{it.line}</span>
-												</button>
-											))}
-										</div>
-									))}
-								</div>
-								{/* The state the bench reads and writes; the picker above draws it. */}
-								<select data-presets class="pg__hidden" tabindex="-1" aria-hidden="true">
-									{PRESETS.map((s) => (
-										<option value={s.id} data-m={JSON.stringify(s.m)} title={s.note}>
-											{s.label}
-										</option>
-									))}
-									<option value="custom" data-custom disabled>
-										Your own set
-									</option>
-								</select>
-							</div>
-						</div>
+						{/* The set in force: the sidebar's list draws it. */}
+						<select data-presets class="pg__hidden" tabindex="-1" aria-hidden="true">
+							{PRESETS.map((s) => (
+								<option value={s.id} data-m={JSON.stringify(s.m)} title={s.note}>
+									{s.label}
+								</option>
+							))}
+							<option value="custom" data-custom disabled>
+								Your own set
+							</option>
+						</select>
+						<span class="pg__panels">
+							<button
+								type="button"
+								class="pg__panel-toggle"
+								data-panel="sets"
+								aria-controls="pg-sets"
+								aria-expanded="true"
+								title="Show or hide the sets"
+							>
+								<Icon name="tabler:list-details" aria-hidden="true" />
+								Sets
+							</button>
+							<button
+								type="button"
+								class="pg__panel-toggle"
+								data-panel="guide"
+								aria-controls="pg-guide"
+								aria-expanded="true"
+								title="Show or hide how the workbench works"
+							>
+								<Icon name="tabler:help-circle" aria-hidden="true" />
+								How it works
+							</button>
+						</span>
 						<div class="pg__view">
 							{PLAY_GLOBALS.filter((c) => !ON_CANVAS.has(c.key)).map((c) =>
-								c.key === 'names' ? (
+								VIEW_SWITCHES[c.key] ? (
 									<div class="pg__row" data-global={c.key}>
 										<button
 											type="button"
 											class="pg__toggle"
 											role="switch"
-											aria-checked={c.default === 'on' ? 'true' : 'false'}
+											data-on={VIEW_SWITCHES[c.key][0]}
+											data-off={VIEW_SWITCHES[c.key][1]}
+											aria-checked={c.default === VIEW_SWITCHES[c.key][0] ? 'true' : 'false'}
 										>
 											{c.label}
 											<i aria-hidden="true" />
@@ -2506,8 +2590,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					<div class="pg__body">
 						<div class="pg__canvas">
 							<div class="pg__canvas-head">
-								<p class="pg__setnote" data-set-note aria-live="polite">
-									{PRESETS[0].note}
+								<p class="pg__setnote" aria-live="polite">
+									<b data-set-name>{PRESETS[0].label}</b>
+									<span data-set-note>{PRESETS[0].note}</span>
 								</p>
 								<div class="pg__float">
 									{PLAY_GLOBALS.filter((c) => ON_CANVAS.has(c.key)).map((c) => (
@@ -2657,26 +2742,52 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					</div>
 					<div class="pg__out">
 						<p class="pg__summary" hidden />
-						<button type="button" class="pg__copy">
-							Copy link
-						</button>
-						<button type="button" class="pg__export" data-patch>
-							Copy as patch
-						</button>
-						{import.meta.env.DEV && (
-							<button type="button" class="pg__export" data-save>
-								Save to repo
+						<div class="pg__legend" aria-label="Legend">
+							<span title="Live on the pages; a shipped tile has no dot">
+								<i class="pr-dot pr-dot--shipped" aria-hidden="true" />
+								<b>Shipped</b>
+							</span>
+							<span title="Approved, to build; a decided round">
+								<i class="pr-dot pr-dot--designed" aria-hidden="true" />
+								<b>Designed</b>
+							</span>
+							<span title="An idea or a draft; an open round">
+								<i class="pr-dot pr-dot--exploring" aria-hidden="true" />
+								<b>Exploring</b>
+							</span>
+							<span title="A stress test, never a candidate">
+								<i class="pr-dot pr-dot--none" aria-hidden="true" />
+								<b>Exploration</b>
+							</span>
+							<span title="Not in the records yet">
+								<i class="pr-dot pr-dot--changed" aria-hidden="true" />
+								<b>Proposed here</b>
+							</span>
+						</div>
+						<div class="pg__acts">
+							<button type="button" class="pg__act pg__copy">
+								<Icon name="tabler:link" aria-hidden="true" />
+								<b>Copy link</b>
+								<span>The set and the view, as an address to send.</span>
 							</button>
-						)}
-						<button type="button" class="pg__export pg__json">
-							Export JSON
-						</button>
-						<span class="pg__pending" data-pending hidden />
-						<span class="pg__note">
-							<i class="pg__dot pg__dot--inline" data-status="designed" /> designed
-							<i class="pg__dot pg__dot--inline" data-status="exploring" /> exploring · bookmarks follow the set: a
-							Colour or Tint mark keeps its colour, White and Dark take the ground’s ink
-						</span>
+							<button type="button" class="pg__act" data-patch>
+								<Icon name="tabler:file-diff" aria-hidden="true" />
+								<b>Copy as patch</b>
+								<span>Your statuses, colours and notes as a change to the marks’ records.</span>
+							</button>
+							{import.meta.env.DEV && (
+								<button type="button" class="pg__act" data-save>
+									<Icon name="tabler:device-floppy" aria-hidden="true" />
+									<b>Save to repo</b>
+									<span>Writes that change into the records, on the dev server.</span>
+								</button>
+							)}
+							<button type="button" class="pg__act pg__json">
+								<Icon name="tabler:braces" aria-hidden="true" />
+								<b>Export JSON</b>
+								<span>Everything this browser holds, the new mark included.</span>
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -3431,6 +3542,32 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 									))}
 								</div>
 							)}
+							{e.id === 'chain' && (
+								<div class="pr-chain" aria-hidden="true">
+									<svg class="pr-chain__lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+										<path d="M 20 50 C 30 50 30 24 38 24" />
+										<path d="M 20 50 C 30 50 30 76 38 76" />
+										<path d="M 54 24 C 64 24 64 50 74 50" />
+										<path d="M 54 76 C 64 76 64 50 74 50" />
+									</svg>
+									<span class="pr-chain__node" style="--x: 13%; --y: 50%">
+										{CHAIN.platform && <LogoCell cell={CHAIN.platform} />}
+										<small>Platform</small>
+									</span>
+									{CHAIN.runs.map((r, i) => (
+										<span class="pr-chain__node" style={`--x: 46%; --y: ${i === 0 ? 24 : 76}%`}>
+											{r.cell && <LogoCell cell={r.cell} />}
+											<small>{r.label}</small>
+										</span>
+									))}
+									<span class="pr-chain__node pr-chain__node--group" style="--x: 82%; --y: 50%">
+										<span class="pr-chain__addons">
+											{CHAIN.addons.map((a) => a.cell && <LogoCell cell={a.cell} />)}
+										</span>
+										<small>Add-ons</small>
+									</span>
+								</div>
+							)}
 							{e.id === 'fan' && (
 								<div class="pr-fan">
 									{FAN.map((c) => (
@@ -3710,20 +3847,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					</header>
 					<div class="pgs__stage" data-ground="dark" data-surface="dark">
 						<div class="pgs__preview">
-							<span class="pgs__actions">
-								<button type="button" data-download="tile" title="The tile as shown, as SVG">
-									<Icon name="tabler:download" aria-hidden="true" />
-									Tile
-								</button>
-								<button type="button" data-download="mark" title="The mark alone, as SVG">
-									<Icon name="tabler:download" aria-hidden="true" />
-									Mark
-								</button>
-								<button type="button" disabled title="Every treatment and size, in one archive: later">
-									<Icon name="tabler:package" aria-hidden="true" />
-									Pack
-								</button>
-							</span>
 							{s.variants.map((v) => (
 								<span class="pgs__v" data-m={v.m}>
 									{v.cells.length > 0 ? (
@@ -3770,6 +3893,20 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 										</div>
 									))}
 							</div>
+							<span class="pgs__actions">
+								<button type="button" data-download="tile" title="The tile as shown, as SVG">
+									<Icon name="tabler:download" aria-hidden="true" />
+									Tile
+								</button>
+								<button type="button" data-download="mark" title="The mark alone, as SVG">
+									<Icon name="tabler:download" aria-hidden="true" />
+									Mark
+								</button>
+								<button type="button" disabled title="Every treatment and size, in one archive: later">
+									<Icon name="tabler:package" aria-hidden="true" />
+									Pack
+								</button>
+							</span>
 						</div>
 						<div class="pgs__strip" role="group" aria-label={`${s.r.label}: every treatment`}>
 							{s.configs
@@ -4156,6 +4293,18 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					</p>
 				</header>
 				<div class="pgs__stage" data-ground="dark" data-surface="dark">
+					<span class="pgs__v pgs__v--new">
+						{(['white', 'colour', 'tint', 'black'] as const).map((f) => (
+							<figure class="pgs__new-item">
+								<span class="pgs__cell pgs__cell--big">
+									<span class="pgs__new-tile" data-new-fill={f}>
+										<Icon name="tabler:shape" aria-hidden="true" />
+									</span>
+								</span>
+								<figcaption>{NEW_FILL_NAMES[f]}</figcaption>
+							</figure>
+						))}
+					</span>
 					<span class="pgs__actions">
 						<button type="button" data-download="tile" title="The tile as shown, as SVG">
 							<Icon name="tabler:download" aria-hidden="true" />
@@ -4169,15 +4318,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							<Icon name="tabler:package" aria-hidden="true" />
 							Pack
 						</button>
-					</span>
-					<span class="pgs__v pgs__v--new">
-						{(['white', 'colour', 'tint', 'black'] as const).map((f) => (
-							<span class="pgs__cell pgs__cell--big">
-								<span class="pgs__new-tile" data-new-fill={f}>
-									<Icon name="tabler:shape" aria-hidden="true" />
-								</span>
-							</span>
-						))}
 					</span>
 					<span class="pgs__grounds" role="group" aria-label="Ground">
 						{SHEET_GROUNDS.map((g) => (
@@ -4419,15 +4559,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			}
 		};
 		const bench = load();
-		/** Told when the bench changes: what counts the proposals not in the records yet. */
-		const watchers: (() => void)[] = [];
 		const save = () => {
 			try {
 				localStorage.setItem(KEY, JSON.stringify(bench));
 			} catch {
 				// Storage refused (a private window): the bench still works for this visit.
 			}
-			watchers.forEach((w) => w());
 		};
 
 		// The records: what each already proposes joins the bench, once per version of the record, so a
@@ -4486,20 +4623,23 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		const toggleOf = (row: HTMLElement) => row.querySelector<HTMLButtonElement>('.pg__toggle');
 		const valueOf = (row: HTMLElement) => {
 			const toggle = toggleOf(row);
-			return toggle ? (toggle.getAttribute('aria-checked') === 'true' ? 'on' : 'off') : (pressed(row)?.value ?? '');
+			if (!toggle) return pressed(row)?.value ?? '';
+			return (toggle.getAttribute('aria-checked') === 'true' ? toggle.dataset.on : toggle.dataset.off) ?? '';
 		};
 		/** How the copied summary says it: the segment's words (or its icon's name), or on and off. */
 		const shownOf = (row: HTMLElement) => {
-			const b = toggleOf(row) ? undefined : pressed(row);
-			return b ? b.textContent?.trim() || b.getAttribute('aria-label') || '' : valueOf(row);
+			const toggle = toggleOf(row);
+			if (toggle) return toggle.getAttribute('aria-checked') === 'true' ? 'on' : 'off';
+			const b = pressed(row);
+			return b?.textContent?.trim() || b?.getAttribute('aria-label') || '';
 		};
 		const setGlobal = (key: string, value: string) => {
 			const row = globals.find((r) => r.dataset.global === key);
 			if (!row) return;
 			const toggle = toggleOf(row);
 			if (toggle) {
-				if (value !== 'on' && value !== 'off') return;
-				toggle.setAttribute('aria-checked', String(value === 'on'));
+				if (value !== toggle.dataset.on && value !== toggle.dataset.off) return;
+				toggle.setAttribute('aria-checked', String(value === toggle.dataset.on));
 			} else if (row.querySelector(`button[value="${value}"]`)) press(row, (b) => b.value === value);
 			else return;
 			root.dataset[key] = value;
@@ -4536,7 +4676,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const toggle = toggleOf(row);
 			row.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
 				b.addEventListener('click', () => {
-					setGlobal(row.dataset.global ?? '', toggle ? (valueOf(row) === 'on' ? 'off' : 'on') : b.value);
+					setGlobal(
+						row.dataset.global ?? '',
+						toggle
+							? ((toggle.getAttribute('aria-checked') === 'true' ? toggle.dataset.off : toggle.dataset.on) ?? '')
+							: b.value
+					);
 					sync();
 				})
 			);
@@ -4569,65 +4714,38 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			sync();
 		};
 		presetSelect?.addEventListener('change', () => applyPreset(presetSelect.value));
-		// The picker: a button that says the set in force, a menu of the starting points. Arrow keys move
-		// in the menu, Escape and a click outside close it.
-		const setBtn = root.querySelector<HTMLButtonElement>('.pg__setbtn');
-		const setMenu = root.querySelector<HTMLElement>('.pg__setmenu');
-		const setItems = setMenu ? [...setMenu.querySelectorAll<HTMLButtonElement>('[role="option"]')] : [];
+		// The Sets list: one set pressed, or "Your own set" once a mark is changed by hand, which says what it
+		// started from. The canvas's caption names the set and says what it is.
+		const setList = document.querySelector<HTMLElement>('.pg__sets');
+		const setItems = setList ? [...setList.querySelectorAll<HTMLButtonElement>('[data-value]')] : [];
 		const syncSetButton = () => {
-			if (!presetSelect || !setBtn) return;
+			if (!presetSelect) return;
 			const v = presetSelect.value;
-			const item = setItems.find((x) => x.dataset.value === v);
-			const label = setBtn.querySelector<HTMLElement>('[data-set-label]');
-			const sub = setBtn.querySelector<HTMLElement>('[data-set-sub]');
-			if (label) label.textContent = v === 'custom' ? 'Your own set' : (item?.querySelector('b')?.textContent ?? v);
-			if (sub)
-				sub.textContent =
-					v === 'custom'
-						? (customOption?.textContent?.replace('Your own set, ', '') ?? '')
-						: (item?.dataset.kind ?? '');
+			const from = customOption?.textContent?.replace('Your own set, ', '') ?? 'from a set';
+			setItems.forEach((x) => {
+				x.setAttribute('aria-pressed', String(x.dataset.value === v));
+				if (x.dataset.value === 'custom') x.hidden = v !== 'custom';
+			});
+			const own = setList?.querySelector<HTMLElement>('[data-value="custom"]');
+			if (own) own.title = `Changed by hand, ${from}`;
+			const name = root.querySelector<HTMLElement>('[data-set-name]');
+			if (name)
+				name.textContent =
+					v === 'custom' ? 'Your own set' : (presetSelect.selectedOptions[0]?.textContent?.trim() ?? '');
 			const note = root.querySelector<HTMLElement>('[data-set-note]');
 			if (note)
 				note.textContent =
 					v === 'custom'
-						? `Changed by hand, ${customOption?.textContent?.replace('Your own set, ', '') ?? 'from a set'}. Copy link keeps it as it is.`
+						? `Changed by hand, ${from}. Copy link keeps it as it is.`
 						: (presetSelect.selectedOptions[0]?.title ?? '');
-			setItems.forEach((x) => x.setAttribute('aria-selected', String(x.dataset.value === v)));
 		};
-		const openSetMenu = (open: boolean) => {
-			if (!setMenu || !setBtn) return;
-			setMenu.hidden = !open;
-			setBtn.setAttribute('aria-expanded', String(open));
-			if (open) (setItems.find((x) => x.getAttribute('aria-selected') === 'true') ?? setItems[0])?.focus();
-		};
-		setBtn?.addEventListener('click', () => openSetMenu(setMenu?.hidden === true));
-		setBtn?.addEventListener('keydown', (e) => {
-			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-				e.preventDefault();
-				openSetMenu(true);
-			}
-		});
-		setItems.forEach((item, i) => {
+		setItems.forEach((item) =>
 			item.addEventListener('click', () => {
-				if (presetSelect) presetSelect.value = item.dataset.value ?? '';
-				presetSelect?.dispatchEvent(new Event('change'));
-				openSetMenu(false);
-				setBtn?.focus();
-			});
-			item.addEventListener('keydown', (e) => {
-				const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
-				if (step) {
-					e.preventDefault();
-					setItems[(i + step + setItems.length) % setItems.length]?.focus();
-				} else if (e.key === 'Escape') {
-					openSetMenu(false);
-					setBtn?.focus();
-				} else if (e.key === 'Tab') openSetMenu(false);
-			});
-		});
-		document.addEventListener('click', (e) => {
-			if (setMenu && !setMenu.hidden && !(e.target as Element).closest('.pg__setpick')) openSetMenu(false);
-		});
+				if (!presetSelect || item.dataset.value === 'custom') return;
+				presetSelect.value = item.dataset.value ?? '';
+				presetSelect.dispatchEvent(new Event('change'));
+			})
+		);
 
 		// The sheet: one open at a time, over the page; Escape or the close button puts focus back. The
 		// mark open is in the address (?mark=edge), so a link can open the room on one mark's page.
@@ -5179,12 +5297,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			})
 		);
 
+		/** A button's word, briefly: what it just did. On a set action, its name, not its description. */
 		const flash = (b: HTMLButtonElement, text: string) => {
-			const was = b.textContent;
-			b.textContent = text;
-			setTimeout(() => (b.textContent = was), 1600);
+			const el = b.querySelector('b') ?? b;
+			const was = el.textContent;
+			el.textContent = text;
+			setTimeout(() => (el.textContent = was), 1600);
 		};
-		root.querySelector<HTMLButtonElement>('.pg__copy')?.addEventListener('click', async (e) => {
+		document.querySelector<HTMLButtonElement>('.pg__copy')?.addEventListener('click', async (e) => {
 			const b = e.currentTarget as HTMLButtonElement;
 			try {
 				await navigator.clipboard.writeText(`${summary?.textContent ?? ''}\n${location.href}`);
@@ -5194,16 +5314,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			}
 		});
 		// To the records: as a patch to apply (git apply, or an agent), or written by the dev server.
-		const pending = root.querySelector<HTMLElement>('[data-pending]');
-		const countPending = () => {
-			if (!pending) return;
-			const ids = unsaved();
-			pending.hidden = ids.length === 0;
-			pending.textContent = `Not in the records yet: ${ids.map(nameOf).join(', ')}`;
-		};
-		watchers.push(countPending);
-		countPending();
-		root.querySelector<HTMLButtonElement>('[data-patch]')?.addEventListener('click', async (e) => {
+		document.querySelector<HTMLButtonElement>('[data-patch]')?.addEventListener('click', async (e) => {
 			const b = e.currentTarget as HTMLButtonElement;
 			const ids = unsaved();
 			if (ids.length === 0) return flash(b, 'Nothing to propose');
@@ -5217,7 +5328,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				flash(b, 'Copy failed');
 			}
 		});
-		root.querySelector<HTMLButtonElement>('[data-save]')?.addEventListener('click', async (e) => {
+		document.querySelector<HTMLButtonElement>('[data-save]')?.addEventListener('click', async (e) => {
 			const b = e.currentTarget as HTMLButtonElement;
 			const ids = unsaved();
 			if (ids.length === 0) return flash(b, 'Nothing to save');
@@ -5240,7 +5351,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			b.disabled = false;
 			if (failed.length > 0) {
 				flash(b, 'Not saved');
-				if (pending) pending.textContent = `Not saved · ${failed.join(' · ')}`;
+				// Why, on the button: which records and what the dev server said.
+				b.title = failed.join(' · ');
 				return;
 			}
 			// The records changed on disk: once the dev server serves them, the page reads them again.
@@ -5256,7 +5368,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			}
 			location.reload();
 		});
-		root.querySelector<HTMLButtonElement>('.pg__json')?.addEventListener('click', async (e) => {
+		document.querySelector<HTMLButtonElement>('.pg__json')?.addEventListener('click', async (e) => {
 			const b = e.currentTarget as HTMLButtonElement;
 			try {
 				await navigator.clipboard.writeText(JSON.stringify({ set: location.search, ...bench }, null, 2));
@@ -5316,6 +5428,86 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		} else showPreset('shipped');
 		sync(false);
 	}
+
+	// ── The side column's panels: the sets and how it works, each shown or hidden from the bench's bar, as
+	// this browser last left them ──
+	const panelLayout = document.querySelector<HTMLElement>('.pg-layout');
+	document
+		.querySelector<HTMLButtonElement>('.pg__guide-close')
+		?.addEventListener('click', () =>
+			document.querySelector<HTMLButtonElement>('.pg__panel-toggle[data-panel="guide"]')?.click()
+		);
+	document.querySelectorAll<HTMLButtonElement>('.pg__panel-toggle').forEach((b) => {
+		const panel = b.dataset.panel ?? '';
+		const key = `logo-room:panel:${panel}`;
+		const show = (on: boolean) => {
+			if (panelLayout) panelLayout.dataset[panel] = on ? 'on' : 'off';
+			b.setAttribute('aria-expanded', String(on));
+		};
+		try {
+			if (localStorage.getItem(key) === 'off') show(false);
+		} catch {
+			// No storage: the panel shows.
+		}
+		b.addEventListener('click', () => {
+			const on = panelLayout?.dataset[panel] === 'off';
+			show(on);
+			if (!on && panel === 'guide') b.focus();
+			try {
+				localStorage.setItem(key, on ? 'on' : 'off');
+			} catch {
+				// No storage: the choice holds for this visit.
+			}
+		});
+	});
+
+	// ── The homepage card's slider ──
+	// One card at a time: the arrows, a dot per card, the keyboard's arrows and a swipe move it; it
+	// turns by itself every few seconds, and holds while the pointer or the focus is on it, or when
+	// motion is reduced.
+	document.querySelectorAll<HTMLElement>('[data-slider]').forEach((box) => {
+		const slides = [...box.querySelectorAll<HTMLElement>('.pr-spot')];
+		const dots = [...box.querySelectorAll<HTMLButtonElement>('[data-go]')];
+		const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		let at = 0;
+		let timer: number | undefined;
+		const show = (i: number) => {
+			at = (i + slides.length) % slides.length;
+			slides.forEach((s, k) => {
+				s.toggleAttribute('data-active', k === at);
+				s.setAttribute('aria-hidden', String(k !== at));
+			});
+			dots.forEach((d, k) => d.setAttribute('aria-current', String(k === at)));
+		};
+		const stop = () => window.clearInterval(timer);
+		const play = () => {
+			stop();
+			if (!still) timer = window.setInterval(() => show(at + 1), 3600);
+		};
+		box
+			.querySelectorAll<HTMLButtonElement>('[data-step]')
+			.forEach((b) => b.addEventListener('click', () => show(at + Number(b.dataset.step))));
+		dots.forEach((d) => d.addEventListener('click', () => show(Number(d.dataset.go))));
+		box.addEventListener('keydown', (e) => {
+			if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+				e.preventDefault();
+				show(at + (e.key === 'ArrowRight' ? 1 : -1));
+			}
+		});
+		let from: number | undefined;
+		box.addEventListener('pointerdown', (e) => (from = e.clientX));
+		box.addEventListener('pointerup', (e) => {
+			if (from !== undefined && Math.abs(e.clientX - from) > 40) show(at + (e.clientX < from ? 1 : -1));
+			from = undefined;
+		});
+		box.addEventListener('pointerenter', stop);
+		box.addEventListener('pointerleave', play);
+		box.addEventListener('focusin', stop);
+		box.addEventListener('focusout', (e) => {
+			if (!box.contains(e.relatedTarget as Node | null)) play();
+		});
+		play();
+	});
 </script>
 
 <style lang="scss">
@@ -6100,8 +6292,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		zoom: 1.15;
 	}
 
-	// A slide per product, all in the card, one shown a leg at a time. EcosystemCard's glow under the
-	// mark: the accent at 17%, 7% by 42%, gone by 84%; the name, and the line in the accent.
+	// A slide per product, all in the card, one shown at a time. EcosystemCard's glow under the mark:
+	// the accent at 17%, 7% by 42%, gone by 84%; the name, and the line in the accent. Arriving, the
+	// mark steps up a little as a light crosses it, and a field of dots in the accent breathes out
+	// behind it and settles.
 	.pr-spot {
 		position: absolute;
 		z-index: 0;
@@ -6110,7 +6304,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		place-content: center;
 		justify-items: center;
 		gap: 4px;
-		padding-bottom: 48px;
+		padding-bottom: 56px;
 		background: radial-gradient(
 			85% 65% at 50% 34%,
 			color-mix(in srgb, var(--accent) 17%, transparent),
@@ -6119,8 +6313,27 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		);
 		text-align: center;
 		opacity: 0;
-		animation: var(--pr-spot) calc(var(--n) * var(--leg)) ease-in-out infinite;
-		animation-delay: calc((var(--i) - var(--n)) * var(--leg));
+		transition: opacity 0.5s ease;
+
+		&[data-active] {
+			opacity: 1;
+		}
+
+		// The dots: the accent in a fine grid, faded to the glow's shape.
+		&::before {
+			content: '';
+			position: absolute;
+			z-index: -1;
+			inset: 0;
+			background: radial-gradient(circle, color-mix(in srgb, var(--accent) 38%, transparent) 1px, transparent 1.6px) 0
+				0 / 14px 14px;
+			mask-image: radial-gradient(52% 44% at 50% 36%, #000, transparent 100%);
+			opacity: 0;
+		}
+
+		&[data-active]::before {
+			animation: pr-spot-dots 1.6s ease-out forwards;
+		}
 
 		b {
 			@include type-small-strong;
@@ -6130,8 +6343,60 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	.pr-spot__mark {
+		position: relative;
 		margin-bottom: 16px;
 		zoom: 1.25;
+		transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+
+		.pr-spot[data-active] & {
+			transform: scale(1.06);
+		}
+
+		// The light: a soft band across the tile, once, as the card arrives.
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: 32%;
+			background: linear-gradient(
+				115deg,
+				transparent 30%,
+				rgba(255, 255, 255, 0.7) 48%,
+				rgba(255, 255, 255, 0.2) 54%,
+				transparent 68%
+			);
+			background-size: 260% 100%;
+			background-position: 130% 0;
+			mix-blend-mode: soft-light;
+			pointer-events: none;
+		}
+
+		.pr-spot[data-active] &::after {
+			animation: pr-spot-shimmer 1.1s 0.15s ease-out both;
+		}
+	}
+
+	@keyframes pr-spot-shimmer {
+		from {
+			background-position: 130% 0;
+		}
+		to {
+			background-position: -30% 0;
+		}
+	}
+
+	@keyframes pr-spot-dots {
+		0% {
+			opacity: 0;
+			transform: scale(0.96);
+		}
+		40% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0.55;
+			transform: none;
+		}
 	}
 
 	.pr-spot__label {
@@ -6140,72 +6405,103 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		color: var(--accent);
 	}
 
-	// Where the cycle is: a dot per product, the current one inked, on the slides' clock.
-	.pr-spot__dots {
+	// The slider's controls, at the card's foot: back, a dot per card, forward.
+	.pr-spot__nav {
 		position: relative;
 		z-index: 1;
 		display: flex;
 		align-self: end;
+		align-items: center;
 		justify-content: center;
-		gap: 6px;
+		gap: 10px;
+	}
 
-		i {
-			position: relative;
-			width: 6px;
-			height: 6px;
-			border-radius: 50%;
-			background: rgba(23, 24, 28, 0.14);
+	.pr-spot__arrow {
+		display: grid;
+		place-items: center;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: rgba(23, 24, 28, 0.05);
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		transition:
+			background-color 0.15s,
+			color 0.15s;
 
-			&::after {
-				content: '';
-				position: absolute;
-				inset: 0;
-				border-radius: inherit;
-				background: var(--color-text);
-				opacity: 0;
-				animation: var(--pr-spot) calc(var(--n) * var(--leg)) ease-in-out infinite;
-				animation-delay: calc((var(--i) - var(--n)) * var(--leg));
-			}
+		:global(svg) {
+			width: 16px;
+			height: 16px;
+		}
+
+		&:hover {
+			background: rgba(23, 24, 28, 0.1);
+			color: var(--color-text);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
 		}
 	}
 
-	.pr-shot--spot:hover :is(.pr-spot, .pr-spot__dots i::after) {
-		animation-play-state: paused;
-	}
+	.pr-spot__dots {
+		display: flex;
+		gap: 2px;
 
-	// A slide's lap, for two to eight (the card names its own, `--pr-spot`): shown for its leg, out over the leg's last tenth, in over the
-	// lap's last tenth of a leg — the next slide's, so one leaves before the other arrives.
-	@for $n from 2 through 8 {
-		$w: math.div(100%, $n);
-		$f: $w * 0.1;
+		button {
+			display: grid;
+			place-items: center;
+			width: 14px;
+			height: 14px;
+			padding: 0;
+			border: 0;
+			background: none;
+			cursor: pointer;
 
-		@keyframes pr-spot-#{$n} {
-			0%,
-			#{$w - $f} {
-				opacity: 1;
-				transform: none;
+			&::after {
+				content: '';
+				width: 6px;
+				height: 6px;
+				border-radius: 100px;
+				background: rgba(23, 24, 28, 0.16);
+				transition:
+					width 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+					background-color 0.3s;
 			}
-			#{$w - math.div($f, 2)},
-			#{100% - math.div($f, 2)} {
-				opacity: 0;
-				transform: translateY(6px);
+
+			&:hover::after {
+				background: rgba(23, 24, 28, 0.32);
 			}
-			100% {
-				opacity: 1;
-				transform: none;
+
+			&[aria-current='true']::after {
+				width: 16px;
+				background: var(--color-text);
+			}
+
+			&:focus-visible {
+				border-radius: 4px;
+				outline: 2px solid var(--focus-ring);
 			}
 		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
 		.pr-spot,
-		.pr-spot__dots i::after {
+		.pr-spot__mark,
+		.pr-spot__dots button::after {
+			transition: none;
+		}
+
+		.pr-spot[data-active]::before,
+		.pr-spot[data-active] .pr-spot__mark::after {
 			animation: none;
 		}
 
-		.pr-spot:first-child,
-		.pr-spot__dots i:first-child::after {
-			opacity: 1;
+		.pr-spot[data-active]::before {
+			opacity: 0.55;
 		}
 	}
 
@@ -6410,10 +6706,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 		display: grid;
 		gap: 16px;
-		padding: 20px;
-		border-radius: 24px;
-		background: #fff;
-		box-shadow: $card-shadow;
 	}
 
 	.pg[data-size='s'] {
@@ -6427,76 +6719,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	// The Set on the left, the view on the right, and the set's annotation across under both. The
 	// ground is on the canvas.
 	.pg__bar {
-		display: grid;
-		grid-template-areas: 'start view';
-		grid-template-columns: auto minmax(0, 1fr);
+		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 8px 24px;
-
-		@include media-down(md) {
-			grid-template-areas:
-				'start'
-				'view';
-			grid-template-columns: minmax(0, 1fr);
-		}
-	}
-
-	.pg__start {
-		display: inline-flex;
-		grid-area: start;
-		align-items: center;
-		gap: 8px;
-	}
-
-	// The Set picker: a pill naming the set, its group beside it in grey; the menu drops under it.
-	.pg__setpick {
-		position: relative;
-	}
-
-	.pg__setbtn {
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		min-width: 180px;
-		padding: 6px 12px 6px 14px;
-		border: 0;
-		border-radius: 100px;
-		background: rgba(23, 24, 28, 0.06);
-		color: var(--color-text);
-		font: inherit;
-		font-size: 13px;
-		line-height: 20px;
-		cursor: pointer;
-
-		b {
-			font-weight: $font-weight-medium;
-		}
-
-		span {
-			color: var(--color-text-secondary);
-			font-size: 12px;
-		}
-
-		:global(svg) {
-			width: 16px;
-			height: 16px;
-			margin-left: auto;
-			color: var(--color-text-secondary);
-			transition: transform 0.15s;
-		}
-
-		&:hover {
-			background: rgba(23, 24, 28, 0.09);
-		}
-
-		&[aria-expanded='true'] :global(svg) {
-			transform: rotate(180deg);
-		}
-
-		&:focus-visible {
-			outline: 2px solid var(--focus-ring);
-			outline-offset: 2px;
-		}
+		gap: 8px 16px;
 	}
 
 	// The canvas's head: the set's annotation on the left, as a caption on the ground it describes, and
@@ -6520,93 +6746,28 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	.pg__setnote {
+		display: grid;
+		gap: 2px;
 		max-width: 560px;
-		margin: 4px 0 0;
-		color: color-mix(in srgb, currentColor 64%, transparent);
+		margin: 0;
 		font-size: 12px;
 		line-height: 17px;
+
+		b {
+			font-size: 14px;
+			font-weight: $font-weight-medium;
+			line-height: 20px;
+		}
+
+		span {
+			color: color-mix(in srgb, currentColor 64%, transparent);
+		}
 	}
 
 	// The first stage on show makes room for the head.
 	.pg:not([data-ground='dark']) .pg__stage--light,
 	.pg[data-ground='dark'] .pg__stage--dark {
-		padding-top: 60px;
-	}
-
-	.pg__setmenu {
-		position: absolute;
-		z-index: 20;
-		top: calc(100% + 6px);
-		left: 0;
-		display: grid;
-		gap: 4px;
-		width: 340px;
-		max-height: min(70vh, 520px);
-		padding: 6px;
-		overflow: auto;
-		border-radius: 16px;
-		background: #fff;
-		box-shadow:
-			0 16px 40px rgba(23, 24, 28, 0.16),
-			0 0 0 1px rgba(23, 24, 28, 0.06);
-
-		&[hidden] {
-			display: none;
-		}
-
-		[role='group'] + [role='group'] {
-			padding-top: 4px;
-			border-top: 1px solid $line;
-		}
-
-		[role='option'] {
-			display: grid;
-			gap: 1px;
-			width: 100%;
-			padding: 8px 12px;
-			border: 0;
-			border-radius: 10px;
-			background: none;
-			color: var(--color-text);
-			font: inherit;
-			text-align: left;
-			cursor: pointer;
-
-			b {
-				font-size: 13px;
-				font-weight: $font-weight-medium;
-				line-height: 20px;
-			}
-
-			span {
-				color: var(--color-text-secondary);
-				font-size: 12px;
-				line-height: 17px;
-			}
-
-			&:hover,
-			&:focus-visible {
-				outline: none;
-				background: #f4f5f8;
-			}
-
-			&[aria-selected='true'] {
-				background: rgba(61, 80, 245, 0.08);
-
-				b {
-					color: #3346d6;
-				}
-			}
-		}
-	}
-
-	.pg__setmenu-group {
-		margin: 6px 12px 2px;
-		color: var(--color-text-secondary);
-		font-size: 11px;
-		font-weight: $font-weight-medium;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
+		padding-top: 92px;
 	}
 
 	.pg__hidden {
@@ -6707,57 +6868,360 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	// The bench and its guide: on wide screens a column beside the bench that stays in view; above it
 	// on narrower ones.
+	// The bench, the sets' column beside it, and how it works as a banner across both, each shown or
+	// hidden from the bar: the Sets toggle collapses the column, the banner closes itself too. Beside the
+	// bench on wide screens; above it on narrower ones.
 	.pg-layout {
 		display: grid;
 		gap: 16px;
 
 		@include media-up(lg) {
-			grid-template-columns: 260px minmax(0, 1fr);
+			grid-template-columns: 200px minmax(0, 1fr);
 			align-items: start;
-			gap: 24px;
+			gap: 16px 24px;
+		}
+
+		&[data-sets='off'] {
+			grid-template-columns: minmax(0, 1fr);
+
+			.pg__sidecol {
+				display: none;
+			}
+		}
+
+		&[data-guide='off'] .pg__guide {
+			display: none;
 		}
 	}
 
-	.pg__guide {
+	// The sets' column, split from the bench by a hairline.
+	.pg__sidecol {
 		display: grid;
-		gap: 16px;
-		padding: 24px 22px;
-		border-radius: 24px;
-		background: #f6f7fb;
+		align-content: start;
 
 		@include media-up(lg) {
 			position: sticky;
 			top: 132px;
+			max-height: calc(100vh - 148px);
+			padding-right: 16px;
+			border-right: 1px solid $line;
+			overflow-y: auto;
+			scrollbar-width: thin;
 		}
 	}
 
-	.pg__guide-title {
-		@include type-small-strong;
+	// How it works: a banner over the bench, its four steps in a row.
+	.pg__guide {
+		position: relative;
+		display: grid;
+		grid-column: 1 / -1;
+		gap: 10px;
+		padding: 16px 48px 18px 18px;
+		border-radius: 20px;
+		background: color-mix(in srgb, #3d50f5 7%, #fff);
 
-		margin: 0;
-		font-size: 16px;
+		.pg__side-label {
+			color: #3346d6;
+		}
+
+		.pg__how li::before {
+			background: #3d50f5;
+		}
+
+		.pg__how {
+			@include media-up(md) {
+				grid-template-columns: repeat(4, minmax(0, 1fr));
+				gap: 20px;
+			}
+		}
 	}
 
-	// The steps: numbered, each its verb in bold over a line at a readable size.
+	.pg__guide-close {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		display: grid;
+		place-items: center;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: none;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		transition: background-color 0.15s;
+
+		:global(svg) {
+			width: 16px;
+			height: 16px;
+		}
+
+		&:hover {
+			background: rgba(23, 24, 28, 0.06);
+			color: var(--color-text);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+		}
+	}
+
+	// A panel shown again eases in.
+	.pg__side,
+	.pg__guide {
+		animation: pg-panel-in 0.25s ease-out;
+
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
+		}
+	}
+
+	@keyframes pg-panel-in {
+		from {
+			opacity: 0;
+			transform: translateY(-4px);
+		}
+	}
+
+	.pg__panels {
+		display: inline-flex;
+		gap: 2px;
+		padding-right: 12px;
+		border-right: 1px solid $line;
+	}
+
+	.pg__panel-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 4px 10px;
+		border: 0;
+		border-radius: 100px;
+		background: none;
+		color: var(--color-text-secondary);
+		font: inherit;
+		font-size: 12px;
+		cursor: pointer;
+		transition:
+			background-color 0.15s,
+			color 0.15s;
+
+		:global(svg) {
+			width: 15px;
+			height: 15px;
+		}
+
+		&:hover,
+		&[aria-expanded='true'] {
+			background: rgba(23, 24, 28, 0.06);
+			color: var(--color-text);
+		}
+
+		&[data-panel='guide'][aria-expanded='true'] {
+			background: color-mix(in srgb, #3d50f5 10%, #fff);
+			color: #3346d6;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+	}
+
+	// The sets: a list, the first panel in the side column.
+	.pg__side {
+		display: grid;
+		align-content: start;
+		gap: 4px;
+	}
+
+	.pg__side-part {
+		display: grid;
+		gap: 6px;
+		padding: 12px 10px 14px;
+
+		& + & {
+			border-top: 1px solid $line;
+		}
+	}
+
+	.pg__side-label {
+		margin: 0 4px 2px;
+		color: var(--color-text-secondary);
+		font-size: 11px;
+		font-weight: $font-weight-medium;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+
+	// The sets: a list, one pressed; each its dot, its name, its line.
+	.pg__sets {
+		display: grid;
+		gap: 6px;
+	}
+
+	.pg__sets-group {
+		display: grid;
+	}
+
+	.pg__sets-name {
+		margin: 4px 8px 2px;
+		color: var(--color-text-light);
+		font-size: 11px;
+	}
+
+	.pg__preset {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		width: 100%;
+		padding: 5px 8px;
+		border: 0;
+		border-radius: 8px;
+		background: none;
+		color: var(--color-text-secondary);
+		font: inherit;
+		font-size: 13px;
+		line-height: 18px;
+		text-align: left;
+		cursor: pointer;
+		transition:
+			background-color 0.15s,
+			color 0.15s;
+
+		&:hover {
+			color: var(--color-text);
+		}
+
+		&[aria-pressed='true'] {
+			background: rgba(23, 24, 28, 0.06);
+			color: var(--color-text);
+			font-weight: $font-weight-medium;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 1px;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	.pg__preset--own {
+		cursor: default;
+	}
+
+	// Under the canvas: the legend in a line, then the set's actions, each with what it does.
+	.pg__out {
+		display: grid;
+		gap: 14px;
+		padding: 4px 4px 0;
+	}
+
+	// The legend: each dot and its name; what it means on hover.
+	.pg__legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px 18px;
+
+		> span[title] {
+			cursor: help;
+		}
+		color: var(--color-text-secondary);
+		font-size: 12px;
+		line-height: 17px;
+
+		> span {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+		}
+
+		b {
+			color: var(--color-text);
+			font-weight: $font-weight-medium;
+		}
+	}
+
+	.pg__acts {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: 8px;
+	}
+
+	// Each action: its icon beside its name, what it does under both.
+	.pg__act {
+		display: grid;
+		grid-template-columns: 18px minmax(0, 1fr);
+		align-content: start;
+		gap: 2px 8px;
+
+		:global(svg) {
+			width: 18px;
+			height: 18px;
+			color: var(--color-text-secondary);
+		}
+
+		span {
+			grid-column: 2;
+		}
+		width: 100%;
+		padding: 10px 12px;
+		border: 0;
+		border-radius: 12px;
+		background: #f6f7fb;
+		color: var(--color-text);
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+		transition: background-color 0.15s;
+
+		b {
+			font-size: 13px;
+			font-weight: $font-weight-medium;
+			line-height: 18px;
+		}
+
+		span {
+			color: var(--color-text-secondary);
+			font-size: 12px;
+			line-height: 16px;
+		}
+
+		&:hover:not(:disabled) {
+			background: #eceef4;
+		}
+
+		&:disabled {
+			cursor: progress;
+			opacity: 0.6;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 1px;
+		}
+	}
+
+	// The steps: numbered, each its verb in bold running into its line, so a step reads as one short
+	// paragraph across the sidebar's width.
 	.pg__how {
 		display: grid;
-		gap: 18px;
-		margin: 0;
+		gap: 10px;
+		margin: 0 4px;
 		padding: 0;
 		list-style: none;
 		counter-reset: how;
 
-		@include media-up(md) {
-			@include media-down(lg) {
-				grid-template-columns: repeat(2, minmax(0, 1fr));
-			}
-		}
-
 		li {
 			position: relative;
-			display: grid;
-			gap: 2px;
-			padding-left: 36px;
+			padding-left: 24px;
+			color: var(--color-text-secondary);
+			font-size: 12px;
+			line-height: 17px;
 			counter-increment: how;
 
 			&::before {
@@ -6767,41 +7231,29 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				left: 0;
 				display: grid;
 				place-items: center;
-				width: 24px;
-				height: 24px;
+				width: 16px;
+				height: 16px;
 				border-radius: 50%;
 				background: var(--color-text);
 				color: #fff;
-				font-size: 12px;
+				font-size: 10px;
 				font-weight: $font-weight-medium;
+				line-height: 1;
 			}
 		}
 
 		b {
+			margin-right: 4px;
 			color: var(--color-text);
-			font-size: 15px;
 			font-weight: $font-weight-medium;
-			line-height: 24px;
-		}
-
-		span {
-			color: var(--color-text-secondary);
-			font-size: 14px;
-			line-height: 21px;
 		}
 	}
 
 	.pg__view {
 		display: flex;
 		flex-wrap: wrap;
-		grid-area: view;
 		align-items: center;
-		justify-content: flex-end;
 		gap: 6px 18px;
-
-		@include media-down(md) {
-			justify-content: flex-start;
-		}
 	}
 
 	.pg__row {
@@ -7436,17 +7888,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	// The downloads, on the preview's top right: the tile as shown, the mark alone, and the pack (every
 	// treatment and size in one archive), a placeholder for now.
+	// The downloads: at the preview's foot, under the tile they save.
 	.pgs__actions {
-		position: absolute;
-		z-index: 1;
-		top: 12px;
-		right: 232px;
 		display: flex;
 		gap: 4px;
-
-		@media (max-width: 560px) {
-			right: 12px;
-		}
 
 		button {
 			display: inline-flex;
@@ -7554,6 +7999,19 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		display: none;
 		align-items: center;
 		gap: 16px;
+		animation: pgs-v-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
+		}
+	}
+
+	// A treatment picked: the tile settles in rather than snapping.
+	@keyframes pgs-v-in {
+		from {
+			opacity: 0;
+			transform: scale(0.97);
+		}
 	}
 
 	@each $m in white, colour, tint, black, darktint, both, off {
@@ -7562,9 +8020,31 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
+	// The new mark's stage: its four treatments in a row, each named, the downloads under them.
+	.pgs--new .pgs__stage {
+		grid-template-columns: minmax(0, 1fr);
+		justify-items: center;
+		gap: 22px;
+		padding: 64px 20px 24px;
+	}
+
 	.pgs__v--new {
 		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 20px 28px;
+	}
+
+	.pgs__new-item {
+		display: grid;
+		justify-items: center;
 		gap: 10px;
+		margin: 0;
+
+		figcaption {
+			font-size: 12px;
+			opacity: 0.72;
+		}
 	}
 
 	// The strip: every treatment at 88 side by side on the stage's ground, the one the set uses ringed;
@@ -7728,7 +8208,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 
 		.pgs__v--new & {
-			zoom: 1.1;
+			zoom: 1.45;
 		}
 	}
 
@@ -7743,31 +8223,42 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
 	}
 
+	// The ground: the swatches alone on the stage's corner, the chosen one ringed in the stage's ink, as
+	// the canvas does it.
 	.pgs__grounds {
 		position: absolute;
-		top: 12px;
-		left: 12px;
+		top: 14px;
+		left: 14px;
 		display: flex;
 		gap: 2px;
-		padding: 3px;
-		border-radius: 100px;
-		background: color-mix(in srgb, #fff 82%, transparent);
-		box-shadow: 0 1px 2px rgba(23, 24, 28, 0.12);
-		backdrop-filter: blur(6px);
+		color: var(--color-text);
+
+		.pgs__stage[data-ground='dark'] & {
+			color: #fff;
+
+			.pg__swatch {
+				box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36);
+			}
+		}
 
 		button {
 			display: grid;
 			place-items: center;
-			width: 26px;
-			height: 26px;
+			width: 24px;
+			height: 24px;
 			padding: 0;
 			border: 0;
 			border-radius: 50%;
 			background: none;
 			cursor: pointer;
+			transition: box-shadow 0.15s;
+
+			&:hover {
+				box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 36%, transparent);
+			}
 
 			&[aria-pressed='true'] {
-				box-shadow: inset 0 0 0 1.5px #17181c;
+				box-shadow: inset 0 0 0 1.5px currentColor;
 			}
 
 			&:focus-visible {
@@ -7776,8 +8267,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 
 		.pg__swatch {
-			width: 16px;
-			height: 16px;
+			width: 14px;
+			height: 14px;
 			margin: 0;
 			border-radius: 50%;
 		}
@@ -8060,17 +8551,28 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	// The treatment in use, under the large preview: its name, where it stands, its status to propose.
-	// Pinned to the preview's foot.
+	// The treatment in use, in the stage's top corner: its name, then its status to propose.
 	.pgs__now {
-		align-self: end;
+		position: absolute;
+		z-index: 1;
+		top: 14px;
+		right: 236px;
+
+		@media (max-width: 560px) {
+			top: 50px;
+			right: 16px;
+		}
 	}
 
 	.pgs__now-item {
 		display: none;
 		align-items: center;
-		gap: 10px;
+		gap: 8px;
 		font-size: 13px;
+
+		b {
+			font-weight: $font-weight-medium;
+		}
 	}
 
 	@each $m in white, colour, tint, black, darktint {
@@ -8086,6 +8588,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	.pr-dot--none {
 		background: none;
 		box-shadow: inset 0 0 0 1.5px rgba(23, 24, 28, 0.3);
+	}
+
+	// Proposed here, not in the records yet: the amber ring a changed tile's dot wears.
+	.pr-dot--changed {
+		background: none;
+		box-shadow: inset 0 0 0 2px #f79009;
 	}
 
 	// Compound, so it wins over `.pr-blank` wherever the two sit in the sheet.
@@ -8376,6 +8884,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	.pgs__st {
+		field-sizing: content;
 		padding: 1px 22px 1px 9px;
 		border: 0;
 		border-radius: 100px;
@@ -8389,6 +8898,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		line-height: 20px;
 		appearance: none;
 		cursor: pointer;
+		transition:
+			background-color 0.2s,
+			color 0.2s,
+			box-shadow 0.2s;
 
 		&:focus-visible {
 			outline: 2px solid var(--focus-ring);
@@ -8676,6 +9189,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 		&[data-new-fill='black'] {
 			background: #17181c;
+		}
+
+		// On a dark ground the dark placeholders take the hairline every dark tile takes there.
+		.pgs__stage[data-surface='dark'] &:is([data-new-fill='tint'], [data-new-fill='black']) {
+			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 		}
 	}
 
@@ -9136,45 +9654,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		color: var(--color-text-light);
 	}
 
-	.pg__out {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 8px 10px;
-		padding: 4px 4px 0;
-	}
-
 	.pg__summary {
 		flex: 1 1 320px;
 		margin: 0;
 		font-size: 13px;
 		color: var(--color-text-secondary);
-	}
-
-	.pg__copy,
-	.pg__export {
-		padding: 5px 14px;
-		border: 0;
-		border-radius: 100px;
-		background: var(--color-text);
-		color: #fff;
-		font: inherit;
-		font-size: 13px;
-		cursor: pointer;
-
-		&:focus-visible {
-			outline: 2px solid var(--focus-ring);
-			outline-offset: 2px;
-		}
-	}
-
-	.pg__export {
-		background: #f1f2f6;
-		color: var(--color-text);
-
-		&:hover {
-			background: #e7e9f2;
-		}
 	}
 
 	// ── A round's plans, in shades ──
@@ -9282,17 +9766,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	.pr-plans__key {
 		margin: 0;
-		font-size: 12px;
-		color: var(--color-text-secondary);
-	}
-
-	.pg__pending {
-		font-size: 12px;
-		color: #a34a07;
-	}
-
-	.pg__note {
-		flex-basis: 100%;
 		font-size: 12px;
 		color: var(--color-text-secondary);
 	}
@@ -10527,6 +11000,82 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	// The overlap: each tile over the one before it, split by the shade it casts leftward rather than a
 	// ring cut in the ground's colour, so every tile keeps its full size.
+	// The chain: nodes placed on a 100 × 100 field, the lines drawn on the same field and kept a hairline
+	// whatever its shape. Each node's name under it, out of the flow, so the tile sits on its point.
+	.pr-chain {
+		position: relative;
+		width: min(100%, 560px);
+		height: 300px;
+	}
+
+	// On grey, so the White tile and the add-ons' card stand out as objects.
+	.pr-exp__art--chain {
+		background: #f1f3f8;
+	}
+
+	// The scheme reads left to right: its card takes two columns where there are three.
+	.pr-exp:has(.pr-chain) {
+		@include media-up(lg) {
+			grid-column: span 2;
+		}
+	}
+
+	.pr-chain__lines {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+
+		path {
+			fill: none;
+			stroke: rgba(23, 24, 28, 0.22);
+			stroke-width: 1.5;
+			stroke-linecap: round;
+			stroke-dasharray: 4 5;
+			vector-effect: non-scaling-stroke;
+			animation: pr-chain-flow 1.6s linear infinite;
+
+			@media (prefers-reduced-motion: reduce) {
+				animation: none;
+			}
+		}
+	}
+
+	// The dashes run from the platform outwards, slowly: the chain reads left to right.
+	@keyframes pr-chain-flow {
+		to {
+			stroke-dashoffset: -9;
+		}
+	}
+
+	.pr-chain__node {
+		position: absolute;
+		top: var(--y);
+		left: var(--x);
+		display: grid;
+		transform: translate(-50%, -50%);
+
+		small {
+			position: absolute;
+			top: calc(100% + 6px);
+			left: 50%;
+			color: var(--color-text-secondary);
+			font-size: 12px;
+			white-space: nowrap;
+			transform: translateX(-50%);
+		}
+	}
+
+	.pr-chain__addons {
+		display: grid;
+		gap: 10px;
+		padding: 12px;
+		border-radius: 16px;
+		background: #fff;
+		box-shadow: $card-shadow;
+	}
+
 	.pr-fan {
 		display: flex;
 
