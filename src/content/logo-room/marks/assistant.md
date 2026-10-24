@@ -17,4 +17,7 @@ guideline:
   small: The glyph, in teal
   dont:
     - 'Put it on a colour tile: the AI core is the AI’s colour mark'
+actions:
+  - kind: build
+    what: 'the AI section’s teal from --color-product-assistant, in place of the literal in ai-visual.ts, once Round 1 is decided'
 ---

@@ -16,7 +16,6 @@ guideline:
   small: The glyph, in indigo; white on dark
   dont:
     - 'Put it on a White tile: it would read as the platform'
-    - 'Change the indigo: the colour is the name'
 actions:
   - kind: build
     what: the region dialog’s tile with ui/Mark, in place of its own CSS

@@ -4,7 +4,8 @@ The Logo Room (`/internal/design-system/logos/` on the lab) published on its own
 claude.ai artifact: https://claude.ai/artifact/LSxxpGErXUNFPoVC5noQTG. Share it from the page's Share menu;
 until then only its owner can open it.
 
-Version 2 is `exp/logo-review` at f4e041835 plus the uncommitted Round 4 and Bench work (24 Oct 2026). The
+Version 2 is `exp/logo-review` at f4e041835 plus the uncommitted Round 4 and Bench work (24 Oct 2026), from
+before the pages were renamed (Bench is now the Studio, Spec is Guidelines): the next capture takes the new names. The
 tag in the bottom-left corner of every page names the branch, the commit and the capture date.
 
 ## What is in it
@@ -12,10 +13,11 @@ tag in the bottom-left corner of every page names the branch, the commit and the
 | File | From | What it is |
 | --- | --- | --- |
 | `index.html` | `/internal/design-system/logos/` | Overview: the set, the showcase, the open rounds |
-| `bench.html` | `/internal/design-system/logos/bench/` | Workbench, Rounds, Exploring, Actions |
-| `spec.html` | `/internal/design-system/logos/spec/` | Logotype, Map, Colour, Materials, Vocabulary |
+| `guidelines.html` | `/internal/design-system/logos/guidelines/` | Assets, Map, Colour, Materials, Vocabulary |
+| `studio.html` | `/internal/design-system/logos/studio/` | Workbench, Rounds, Ideas, Actions |
 | `files.html` | `/internal/design-system/logo-files/` | Every logo file, with the legacy sets |
-| `room.js` | `bundle.mjs` | The room's scripts (`_LogoRoom.astro`, `_RoomTabs.astro`), bundled |
+| `about.html` | `/internal/design-system/logos/about/` | The room, how to take part, the agent prompt, branches and debt |
+| `room.js` | `bundle.mjs` | The room's scripts (`_LogoRoom.astro`, `_RoomTabs.astro`, `_PageHero.astro`, About), bundled |
 | `tabler-icons.json` | the dev server | Every Tabler icon, for the new mark's picker |
 | `shell.js`, `shell.css` | this folder | The artifact's own glue (below) |
 | `css/`, `assets/` | the dev server | The pages' styles, and the nav sprite |
@@ -32,14 +34,14 @@ rounds, and Copy as patch.
   query, and the room keeps its set in the query (`?m=…`, `?mark=…`, `?start=…`). `shell.js` takes the
   query off a link to another page of the room, keeps it in `sessionStorage`, and the next page puts
   it back before the room reads it. So the room's tabs carry the set, and an Overview round opens the
-  Bench on that round.
+  Studio on that round.
 - **No Save to repo.** It writes through the dev server; the capture removes the button. Copy as patch
   still produces a diff of the records that `git apply` takes.
-- **Each viewer keeps their own bench.** Notes, proposed statuses and colour tries live in the viewer's
+- **Each viewer keeps their own Studio.** Notes, proposed statuses and colour tries live in the viewer's
   browser for this artifact (`localStorage`), apart from the lab's and from everyone else's. To hand
   them over, a viewer uses Copy as patch (or Export JSON) and sends the result.
 - **Copy link copies the page's frame address**, which only works on the machine that copied it. To
-  share a set, send the artifact's link and the set's name in the picker, or a patch.
+  share a set, send the artifact's link and the set's name in the Studio, or a patch.
 - **Desktop first.** The room is laid out for review on a desktop, as in the lab; at phone width it
   fits without sideways scrolling but is cramped.
 
@@ -50,10 +52,10 @@ With the room's dev server (`tb-site-logos`, port 4355) running on the worktree 
 1. Decide what the snapshot should show: the dev server serves the working tree, uncommitted work
    included. The corner tag says `-dirty` when it is not a clean commit.
 2. `python3 -I scripts/logo-room-artifact/capture.py` writes `site/` (git-ignored). It runs
-   `bundle.mjs`, fetches the four pages and the icon set, and versions `room.js`, `shell.js` and
+   `bundle.mjs`, fetches the five pages and the icon set, and versions `room.js`, `shell.js` and
    `shell.css` by their content so viewers never keep an old copy.
 3. Check it: `logo-room-artifact` in the main folder's `.claude/launch.json` serves `site/` on 4362.
-   Open `index.html`, follow a round to the Bench, open a sheet, try a colour, open the new mark's Tabler
+   Open `index.html`, follow a round to the Studio, open a sheet, try a colour, open the new mark's Tabler
    tab, and Copy as patch.
 4. Publish `site/index.html` to the artifact's URL with every other file in `site/` as `files` (root
    `site/`). The Artifact tool reads files only under the session's folder or its scratchpad, so copy

@@ -1,12 +1,15 @@
 ---
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { getCollection } from 'astro:content';
 import { Icon } from 'astro-icon/components';
+import Button from '@components/ui/Button.astro';
 import RoomTabs from '@root/pages/internal/design-system/_RoomTabs.astro';
+import RoomToc from '@root/pages/internal/design-system/_RoomToc.astro';
 import PageHero from '@root/pages/internal/design-system/_PageHero.astro';
 import { roomPage, type RoomPageId } from '@root/pages/internal/design-system/_room';
 import LogoCell from '@root/pages/internal/design-system/_LogoCell.astro';
+import Mascot, { type MascotMood } from '@root/pages/internal/design-system/_Mascot.astro';
 import {
 	sweepLogos,
 	type Cell,
@@ -32,8 +35,8 @@ import { AI_COLUMNS, AI_COPY, aiBadgeCycleFor } from '@data/ai-visual';
 import { shippingComposition } from '@data/home-compositions';
 import { CHAT_HUES, CHAT_HUE_LEG_S, CHAT_LAUNCHER, LAUNCHER_BOX } from '@data/chat-widget';
 import { parse as parseYaml } from 'yaml';
-import { logoMarkSchema, type LogoMark, type LogoMaterial, type LogoRound } from '@models/logo-room';
-import { markPath } from '@util/logo-room-records';
+import { logoMarkSchema, logoPaletteSchema, type LogoMark, type LogoMaterial, type LogoRound } from '@models/logo-room';
+import { markPath, PALETTE_PATH } from '@util/logo-room-records';
 
 /**
  * Design system › Logos: the brand system for the product marks, as a landing page (the public design
@@ -41,7 +44,7 @@ import { markPath } from '@util/logo-room-records';
  * current or to be, on a ground; a showcase of it in use; the logotype; the workbench,
  * where the set is a canvas and each mark opens as a sheet; the map of every mark in every treatment
  * with its status and red marks; the colours; how fills, lifts and lights are built and checked; what is
- * being explored; the legacy files; the actions and next steps; and, last, the vocabulary as a spec.
+ * being explored; the legacy files; the actions and next steps. The vocabulary is the About page's.
  *
  * Read from the data the new pages render; drafts and directions are drawn here only, and no shipping
  * page changes until the team agrees. The terms are the Vocabulary section's.
@@ -50,16 +53,17 @@ import { markPath } from '@util/logo-room-records';
  * records in `src/content/logo-room/`. This file draws them.
  */
 /**
- * Which of the room's pages to draw: Overview, the Bench or the Spec; or `legacy`, the Legacy section
+ * Which of the room's pages to draw: Overview, the Studio (`bench`) or Guidelines (`spec`); or `legacy`, the Legacy section
  * alone, which the Files page shows under its inventory.
  */
 interface Props {
-	page: Exclude<RoomPageId, 'files'> | 'legacy';
+	page: Exclude<RoomPageId, 'files' | 'about'> | 'legacy';
 }
 const { page } = Astro.props;
 const HERE = page === 'legacy' ? undefined : roomPage(page);
 const SPEC_HREF = roomPage('spec').href;
 const BENCH_HREF = roomPage('bench').href;
+const STUDIO_HREF = `${BENCH_HREF}#workbench`;
 const ROOT = process.cwd();
 const read = (path: string) => readFileSync(join(ROOT, path.replace(/^\//, '')), 'utf8');
 
@@ -353,9 +357,11 @@ const DRAWINGS: Record<string, Drawing> = {
 			{ surface: 'Bookend', size: '80', as: 'filled' },
 		],
 	},
+	// Community wears the platform's logomark in CE navy, as Cloud does in its indigo; the old CE icon is
+	// its candidate A only.
 	community: {
-		filled: draft(CE_SVG, CE_ART, 'solid', CE_HUE, 'wide'),
-		glyph: glyphCell(maskOf(CE_SVG, CE_ART)),
+		filled: draft(read(MARKS.thingsboard.src), MARKS.thingsboard.art, 'solid', CE_HUE, 'icon'),
+		glyph: logoGlyph,
 		hue: CE_HUE,
 	},
 	mobile: {
@@ -414,7 +420,7 @@ const DRAWINGS: Record<string, Drawing> = {
 	cli: {
 		filled: tile('CLI', { size: 88, icon: 'tabler:terminal-2', accent: AI_COLUMNS.cli.accent, lift: true }),
 		glyph: glyphCell(undefined, 'tabler:terminal-2'),
-		hue: AI_COLUMNS.cli.accent,
+		hue: 'var(--color-product-cli)',
 		uses: [
 			{ surface: 'AI window', size: '72', as: 'filled' },
 			{ surface: 'AI switch', size: '20', as: 'glyph' },
@@ -429,7 +435,7 @@ const DRAWINGS: Record<string, Drawing> = {
 			lift: true,
 		}),
 		glyph: glyphCell(undefined, 'tabler:message-chatbot'),
-		hue: AI_COLUMNS.assistant.accent,
+		hue: 'var(--color-product-assistant)',
 		uses: [
 			{ surface: 'AI window', size: '72', as: 'white' },
 			{ surface: 'AI switch', size: '20', as: 'glyph' },
@@ -744,11 +750,11 @@ const EXPERIMENTS: Experiment[] = [
 	},
 ];
 /** The mascot's three moods in the chat, each its own drawing of the eyes. */
-const MASCOT_MOODS = [
+const MASCOT_MOODS: { id: MascotMood; label: string }[] = [
 	{ id: 'idle', label: 'Waiting' },
 	{ id: 'think', label: 'Thinking' },
 	{ id: 'done', label: 'Answered' },
-] as const;
+];
 /** The texture vector's tries, each drawn on white (a White tile) and on night (a Dark tile). */
 const MATERIAL_TRIES = [
 	{ id: 'shipped', label: 'Shipped', note: 'The 5% shade and the lift; on dark, the sheen and the hairline' },
@@ -851,7 +857,7 @@ const legacy = LEGACY.map((s) => {
 	return { ...s, files: own, unused: own.filter((f) => f.users?.length === 0).length };
 });
 
-// ── Logotype and logomark ──
+// ── Assets: the logotype and the logomark ──
 const wordmark = read('src/assets/images/landings/thingsboard-logo.svg');
 const uri = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 const wordmarkUri = (ink: string) => uri(wordmark.replace(/fill="#212529"/g, `fill="${ink}"`));
@@ -900,10 +906,9 @@ function playOf(r: (typeof ROWS)[number]): PlayVariant[] {
 	const icon = ICON[r.id];
 	// White
 	if (r.white) add('white', [r.white.cell], r.white);
-	// On-premises on White is Round 3's A: the platform's own neutral tile, as its sets and notes say. B,
+	// On-premises on White is Round 2's A: the platform's own neutral tile, as its sets and notes say. B,
 	// the logomark in green, stays a candidate on its sheet.
 	else if (r.id === 'onprem') add('white', [ROWS.find((x) => x.id === 'platform')?.white?.cell]);
-	else if (r.id === 'community') add('white', [draft(CE_SVG, CE_ART, 'white', CE_HUE, 'wide')]);
 	else if (icon) add('white', [iconTile(icon, 'white', hue)]);
 	else add('white', [logoOn('white', hue)]);
 	// Colour
@@ -924,13 +929,11 @@ function playOf(r: (typeof ROWS)[number]): PlayVariant[] {
 				'#ffffff',
 				'wide' in MARKS[art] && MARKS[art].wide ? 'wide' : 'product'
 			)
-		: r.id === 'community'
-			? draft(CE_SVG, CE_ART, 'dark', darkOf(CE_HUE), 'wide')
-			: r.id === 'iot-hub'
-				? draft(HUB_SVG, HUB_ART, 'dark', darkOf(hub.accent), 'icon')
-				: icon
-					? iconTile(icon, 'solid', '#17181c')
-					: logoOn('dark', r.id === 'platform' || r.id === 'mobile' ? '#ffffff' : darkOf(hue));
+		: r.id === 'iot-hub'
+			? draft(HUB_SVG, HUB_ART, 'dark', darkOf(hub.accent), 'icon')
+			: icon
+				? iconTile(icon, 'solid', '#17181c')
+				: logoOn('dark', r.id === 'platform' || r.id === 'mobile' ? '#ffffff' : darkOf(hue));
 	add('black', [black]);
 	// Dark tint: the art on near-black taken toward its colour, an ink mark in its dark-theme value. Not
 	// for the icon marks (the AI's), which Mark draws, and has no such fill.
@@ -944,13 +947,11 @@ function playOf(r: (typeof ROWS)[number]): PlayVariant[] {
 				'wide' in MARKS[art] && MARKS[art].wide ? 'wide' : 'product',
 				r.hue
 			)
-		: r.id === 'community'
-			? draft(CE_SVG, CE_ART, 'darktint', darkOf(CE_HUE), 'wide', CE_HUE)
-			: r.id === 'iot-hub'
-				? draft(HUB_SVG, HUB_ART, 'darktint', darkOf(hub.accent), 'icon', hub.accent)
-				: icon
-					? undefined
-					: logoOn('darktint', r.id === 'platform' ? '#ffffff' : tintInk, r.hue ?? '#17181c');
+		: r.id === 'iot-hub'
+			? draft(HUB_SVG, HUB_ART, 'darktint', darkOf(hub.accent), 'icon', hub.accent)
+			: icon
+				? undefined
+				: logoOn('darktint', r.id === 'platform' ? '#ffffff' : tintInk, r.hue ?? '#17181c');
 	add('darktint', [darkTint]);
 	if (r.id === 'platform') add('both', [r.white?.cell, black], r.white);
 	add('off', []);
@@ -986,8 +987,12 @@ interface Round {
 	picks: RoundPick[];
 	/** Marks under review with no pick yet: their candidates are still to be drawn or chosen. */
 	reviews?: string[];
-	/** What a new drawing in this round has to meet. */
-	brief?: string[];
+	/** What the round decides and what a new drawing in it has to meet: topics with points, or plain lines. */
+	brief?: LogoRound['brief'];
+	/** The directions it weighs side by side, before any pick. */
+	routes?: LogoRound['routes'];
+	/** The colours it proposes for the set: mark → its new colour on light. */
+	palette?: LogoRound['palette'];
 	/** What it covers that is not a mark yet: plans, each with a shade. */
 	scope?: LogoRound['scope'];
 	m: Record<string, Material>;
@@ -995,7 +1000,13 @@ interface Round {
 /** The rounds, from their records: each a set, as departures from the shipped one. */
 const ROUNDS: Round[] = ROUND_RECORDS.map(({ id, data }) => {
 	const at = `rounds/${id}.md`;
-	for (const mk of [...data.picks.map((pk) => pk.mark), ...data.reviews, ...Object.keys(data.set)])
+	for (const mk of [
+		...data.picks.map((pk) => pk.mark),
+		...data.reviews,
+		...Object.keys(data.set),
+		...data.routes.flatMap((ro) => ro.marks),
+		...Object.keys(data.palette),
+	])
 		if (!PRODUCTS.some((p) => p.id === mk)) disagree(at, `no mark “${mk}”`);
 	return {
 		id,
@@ -1007,6 +1018,8 @@ const ROUNDS: Round[] = ROUND_RECORDS.map(({ id, data }) => {
 		picks: data.picks,
 		reviews: data.reviews.length > 0 ? data.reviews : undefined,
 		brief: data.brief.length > 0 ? data.brief : undefined,
+		routes: data.routes.length > 0 ? data.routes : undefined,
+		palette: Object.keys(data.palette).length > 0 ? data.palette : undefined,
 		scope: data.scope.length > 0 ? data.scope : undefined,
 		m: { ...START, ...Object.fromEntries(Object.entries(data.set).map(([k, v]) => [k, materialOf(v)])) },
 	};
@@ -1152,7 +1165,7 @@ const setDotOf = (s: (typeof PRESETS)[number]): Status | 'none' =>
 				: 'exploring'
 			: 'none';
 /**
- * The Sets list in the Bench's sidebar: the starting points in their groups, each with its dot, its
+ * The Sets list in the Studio's sidebar: the starting points in their groups, each with its dot, its
  * name and its line.
  */
 const SET_MENU = (['shipped', 'round', 'exploration'] as const).map((k) => ({
@@ -1312,6 +1325,8 @@ interface FillRecipe {
 	dark: string;
 	/** When this fill takes which form, where it has two. */
 	rule?: string;
+	/** A tile made for dark pages: its result is shown on night, where it lives. */
+	home?: 'dark';
 }
 const SHEEN_SOLID =
 	'linear-gradient(155deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.06) 100%)';
@@ -1370,7 +1385,7 @@ const FILLS: FillRecipe[] = [
 	{
 		label: 'Dark tile',
 		status: 'exploring',
-		where: 'Round 1’s pick for the Mobile app: an app on a dark tile',
+		where: 'The rare dark case: IoT Hub’s B, the Mobile app’s A and B',
 		layers: [
 			{ label: 'Base', note: 'near-black #17181c', bg: '#17181c' },
 			{ label: 'Light', note: '155° · white 14% → 0 by 55% → black 20%', bg: SHEEN_BLACK, clear: true },
@@ -1383,6 +1398,7 @@ const FILLS: FillRecipe[] = [
 		],
 		result: atSize(draft(EDGE_SVG, EDGE_ART, 'dark', '#ffffff', 'product'), 72),
 		dark: 'Its home: on a dark page it needs no lift.',
+		home: 'dark',
 	},
 	{
 		label: 'Dark tint tile',
@@ -1401,6 +1417,7 @@ const FILLS: FillRecipe[] = [
 		result: atSize(draft(EDGE_SVG, EDGE_ART, 'darktint', '#ffffff', 'product', FILL_HUE), 72),
 		dark: 'Its home: it carries the product’s colour where the Dark tile carries none.',
 		rule: 'Where a dark page lists the set (a dark menu, a dark footer) and each mark should still read as its product. On light, use the Tint.',
+		home: 'dark',
 	},
 ];
 /**
@@ -1695,23 +1712,6 @@ const COMBOS = COMBO_FILLS.map((f) => ({
 }));
 const VERDICT_LABEL: Record<ComboVerdict, string> = { do: 'Do', avoid: 'Avoid', dont: 'Don’t' };
 
-// ── The hero ──
-/** The two sets the hero switches between: as it ships, and with the designed marks in. */
-const HERO = GROUPS.map((g) => ({
-	name: g.name,
-	items: g.rows.flatMap((r) => {
-		const current = faceOf(r, 'shipped');
-		const next = faceOf(r, 'designed');
-		if (!current && !next) return [];
-		const status = r[r.face]?.status ?? 'exploring';
-		return [{ r, current, next, changed: !!next && next !== current, status }];
-	}),
-}));
-const heroCount = (set: 'current' | 'next', s: Status) =>
-	HERO.flatMap((g) => g.items).filter((x) =>
-		set === 'current' ? x.current && s === 'shipped' : x.next && (x.changed ? 'designed' : 'shipped') === s
-	).length;
-
 // ── The workbench's sheets ──
 /**
  * One sheet per mark, opened from its tile: the treatments with their statuses (and the bench's drafts
@@ -1742,7 +1742,7 @@ const mobileGreen = resolveHue(rowById('mobile')?.list) ?? '#4ade80';
  * shipped version and needs none; a candidate the record marks `toDraw` has none yet.
  */
 const CANDIDATE_ART: Record<string, Record<string, Cell | undefined>> = {
-	mobile: { a: logoOn('dark', '#ffffff'), b: logoOn('dark', mobileGreen) },
+	mobile: { a: logoOn('dark', '#ffffff'), b: logoOn('dark', mobileGreen), c: rowById('platform')?.white?.cell },
 	'iot-hub': {
 		a: rowById('iot-hub')?.white?.cell,
 		// The rare dark case: the hub in the warmer amber Round 1 sets for dark grounds.
@@ -1757,6 +1757,32 @@ const CANDIDATE_ART: Record<string, Record<string, Cell | undefined>> = {
 		a: rowById('platform')?.white?.cell,
 		b: logoOn('white', resolveHue(onprem.fill) ?? '#2e7d32'),
 	},
+};
+/**
+ * A candidate's drawing from the folder beside the records, `marks/<mark>/<candidate>.svg`: a pull
+ * request adds the file and the room draws it, no code. Its viewBox is its art box; the record's
+ * `material` is the tile it is drawn on (White by default), in the mark's colour. A file wins over a
+ * drawing still kept in code.
+ */
+const ART_DIR = 'src/content/logo-room/marks';
+const fileArtOf = (r: (typeof ROWS)[number], id: string, material?: LogoMaterial): Cell | undefined => {
+	const path = `${ART_DIR}/${r.id}/${id}.svg`;
+	if (!existsSync(join(ROOT, path))) return undefined;
+	const svg = read(path);
+	const box = svg
+		.match(/viewBox="([^"]+)"/)?.[1]
+		?.trim()
+		.split(/[\s,]+/)
+		.map(Number);
+	if (!box || box.length !== 4 || box.some((n) => Number.isNaN(n)))
+		disagree(`marks/${r.id}/${id}.svg`, 'needs a viewBox');
+	const fills: Partial<Record<LogoMaterial, 'solid' | 'dark' | 'darktint'>> = {
+		colour: 'solid',
+		dark: 'dark',
+		darktint: 'darktint',
+	};
+	const fill = (material && fills[material]) ?? 'white';
+	return draft(svg, box as number[], fill, resolveHue(r.hue) ?? '#17181c', 'product');
 };
 const candidatesOf = (r: (typeof ROWS)[number]): Candidate[] => {
 	const record = MARK_RECORDS.find((x) => x.id === r.id)?.data.candidates ?? [];
@@ -1773,7 +1799,9 @@ const candidatesOf = (r: (typeof ROWS)[number]): Candidate[] => {
 		];
 	return record.map((c) => {
 		const cell =
-			c.id === 'current' ? (signature?.replaces ?? signature?.cell) : (CANDIDATE_ART[r.id]?.[c.id] ?? undefined);
+			c.id === 'current'
+				? (signature?.replaces ?? signature?.cell)
+				: (fileArtOf(r, c.id, c.material) ?? CANDIDATE_ART[r.id]?.[c.id] ?? undefined);
 		if (!cell && !c.toDraw) disagree(`marks/${r.id}.md`, `candidate ${c.id} has no drawing; mark it toDraw`);
 		return {
 			id: c.id,
@@ -1785,6 +1813,39 @@ const candidatesOf = (r: (typeof ROWS)[number]): Candidate[] => {
 		};
 	});
 };
+
+// ── The hero ──
+/**
+ * The two sets the hero switches between. Current: the marks as they ship. To be: Round 1 over them,
+ * each mark it picks drawn as its pick, each mark it sends to be redrawn flagged as under review (still
+ * drawn as it ships until its drawing is in), and any change already decided; the rest as they ship.
+ */
+type HeroChange = 'pick' | 'review' | 'designed';
+const ROUND_ONE = ROUNDS[0];
+const HERO = GROUPS.map((g) => ({
+	name: g.name,
+	items: g.rows.flatMap((r) => {
+		const current = faceOf(r, 'shipped');
+		const designed = faceOf(r, 'designed');
+		const pick = ROUND_ONE?.picks.find((p) => p.mark === r.id);
+		const picked = pick ? candidatesOf(r).find((c) => c.id === pick.candidate)?.cell : undefined;
+		const reviewed = !!ROUND_ONE?.reviews?.includes(r.id);
+		const decided = !!designed && designed !== current;
+		const change: HeroChange | undefined = picked ? 'pick' : reviewed ? 'review' : decided ? 'designed' : undefined;
+		// A mark under review with nothing shipped yet (Community) shows its first drawn version, in To be only.
+		const drawn = reviewed ? candidatesOf(r).find((c) => c.cell)?.cell : undefined;
+		const next = picked ?? (decided ? designed : (current ?? drawn));
+		if (!current && !next) return [];
+		return [{ r, current, next, changed: !!change, change }];
+	}),
+}));
+const HERO_CHANGE: Record<HeroChange, { dot: Status; title: string }> = {
+	pick: { dot: 'exploring', title: `${ROUND_ONE?.label ?? 'Round 1'}: its pick` },
+	review: { dot: 'exploring', title: `${ROUND_ONE?.label ?? 'Round 1'}: to be redrawn` },
+	designed: { dot: 'designed', title: 'Designed: approved, to build' },
+};
+const heroShipped = HERO.flatMap((g) => g.items).filter((x) => x.current).length;
+const heroChanges = HERO.flatMap((g) => g.items).filter((x) => x.changed).length;
 const roundOf = (id: string) => ROUNDS.find((rd) => rd.picks.some((p) => p.mark === id) || rd.reviews?.includes(id));
 const pickOf = (id: string) =>
 	ROUNDS.flatMap((rd) => rd.picks.map((p) => ({ ...p, round: rd }))).find((p) => p.mark === id);
@@ -1985,128 +2046,108 @@ const ICON_START = [
 	'shield-check',
 	'world',
 ];
-/** The colours already in the set, for a new colour to be measured against. */
-const SET_COLOURS = PRODUCT_COLOURS.filter((c) => c.light).map((c) => ({ label: c.label, hex: c.light as string }));
-/** The ink the logomark ships in on light grounds. */
-const MARK_INK = '#17181c';
 /**
- * The room's palette: the ink, then every colour in the set once, so a colour picked anywhere is one the
- * set already has. Built from the set, so a product's new colour joins it on its own.
+ * The set's colours, one list: each colour once, named for the marks that wear it, with its token and
+ * its light and dark values as the theme paints them; then the colours `palette.md` proposes. The
+ * Studio's palette, every mark's colour sheet and the new mark's nearest colour all read it.
  */
-const PALETTE = [{ label: 'Ink', hex: MARK_INK }, ...SET_COLOURS].filter(
-	(c, i, all) => all.findIndex((x) => x.hex.toLowerCase() === c.hex.toLowerCase()) === i
+interface SetColour {
+	name: string;
+	light: string;
+	dark: string;
+	token?: string;
+	marks: string[];
+	proposed?: boolean;
+	/** A proposed secondary: the mark whose colour it seconds. */
+	of?: string;
+}
+const PALETTE_RAW = read(PALETTE_PATH);
+const PALETTE_DATA = logoPaletteSchema.parse(parseYaml(PALETTE_RAW.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '') ?? {});
+const byLight = new Map<string, SetColour>();
+for (const r of ROWS) {
+	const light = resolveHue(r.hue);
+	if (!light?.startsWith('#')) continue;
+	const entry = byLight.get(light) ?? {
+		name: '',
+		light,
+		dark: resolveHue(r.hue, 'dark') ?? light,
+		token: r.hue?.startsWith('var(') ? r.hue.slice(4, -1) : undefined,
+		marks: [],
+	};
+	entry.marks.push(r.id);
+	entry.name = entry.name ? `${entry.name} · ${r.label}` : r.label;
+	byLight.set(light, entry);
+}
+const SET_PALETTE: SetColour[] = [
+	...byLight.values(),
+	...PALETTE_DATA.proposed.map((c) => ({ ...c, marks: [], proposed: true })),
+];
+/** Each mark's proposed secondary, by mark: the second tone of two-tone artwork, drawn on its colour's chip. */
+const SECONDS = new Map(PALETTE_DATA.proposed.flatMap((c) => (c.of ? [[c.of, c.light] as const] : [])));
+/** The token a colour's secondary would take: its own token's, or its first mark's. */
+const secondTokenOf = (c: SetColour) => `${c.token ?? `--color-product-${c.marks[0]}`}-secondary`;
+/** The same list as the sheets' dots and the new mark's nearest colour take it: a name and a hex. */
+const SET_COLOURS = SET_PALETTE.map((c) => ({ label: c.name, hex: c.light }));
+/** `palette.md` as the browser needs it, for Copy as patch to add the colours proposed here. */
+const PALETTE_JSON = JSON.stringify({ path: PALETTE_PATH, raw: PALETTE_RAW, proposed: PALETTE_DATA.proposed }).replace(
+	/</g,
+	'\\u003c'
 );
-
-// ── Vocabulary ──
+/** The ink the logomark ships in on light grounds; the logotype's is #212529. */
+const MARK_INK = '#17181c';
+const TYPE_INK = '#212529';
 /**
- * The spec: the system's terms, each with the key the data and the page use for it, so a note, a
- * direction or a rule says one thing and the code says the same.
+ * How to use the assets: the few rules that matter most, drawn under Assets and written into the pack's
+ * README, so the page and the download say the same. The full rules are the map's and each mark's.
  */
-const VOCABULARY: { group: string; terms: { term: string; means: string; key?: string }[] }[] = [
+type RuleKind = 'do' | 'caution';
+const ASSET_RULES: { kind: RuleKind; title: string; body: string }[] = [
 	{
-		group: 'What we name',
-		terms: [
-			{ term: 'Logo', means: 'The logotype and the mark together' },
-			{ term: 'Logotype', means: 'The name set in type', key: 'thingsboard-logo.svg' },
-			{ term: 'Mark', means: 'The drawing that identifies a product', key: 'MARKS · MarkName' },
-			{
-				term: 'Set',
-				means: 'All the marks, in Platform, Ecosystem and AI. On the Bench, one way of showing them all',
-				key: 'group · PRESETS',
-			},
-			{ term: 'App icon', means: 'A mark on a tile', key: 'ui/Mark' },
-		],
+		kind: 'do',
+		title: 'Ink on light, white on dark',
+		body: `The logotype in ${TYPE_INK}, the logomark in ${MARK_INK}; on any dark ground, white. The default everywhere.`,
 	},
 	{
-		group: 'How a mark is shown',
-		terms: [
-			{
-				term: 'Treatment',
-				means: 'The tile a mark is drawn on: White (pure or shaded), Colour, Tint or Dark. Or the Glyph, with no tile',
-				key: 'treatments: white · colour · tint · dark · glyph',
-			},
-			{
-				term: 'Material',
-				means: 'What a set or a candidate puts a mark on: a treatment’s tile, Dark tint, White + Dark, or Off',
-				key: 'LOGO_MATERIALS · material',
-			},
-			{ term: 'Mode', means: 'A light or a dark ground, not the site’s theme', key: 'data-surface="dark"' },
-			{
-				term: 'Ground',
-				means: 'The surface behind the tile: White, Grey, Tint or Dark',
-				key: 'GROUNDS',
-			},
-			{ term: 'Size', means: 'One scale: 88 · 72 · 48 · 40 · 32 · 24 · 16', key: 'MarkSize · SCALE' },
-			{
-				term: 'Light',
-				means: 'The 155° gradient that lights a fill, never a fill of its own',
-				key: 'background-image',
-			},
-			{
-				term: 'Shade',
-				means: 'The White tile’s light: the mark’s colour toward the far corner. Pure white has none',
-				key: 'data-light',
-			},
-			{ term: 'Lift', means: 'The shadow that seats a tile on a light ground', key: '--elev-mark' },
-			{ term: 'Hairline', means: 'The 1px edge that seats a tile on a dark ground', key: '.pg__tile on dark' },
-			{ term: 'Shape', means: 'The tile’s outline: the 32% squircle, or a circle', key: "shape: 'circle'" },
-			{ term: 'Colour', means: 'Each product’s colour, with a dark and a list value', key: 'hue · list' },
-		],
+		kind: 'caution',
+		title: 'Don’t recolour',
+		body: 'Keep the logotype and the logomark in ink or in white. Another colour is not recommended.',
 	},
 	{
-		group: 'What gets decided',
-		terms: [
-			{ term: 'Baseline', means: 'What every mark has: a treatment for each mode, and a Glyph' },
-			{ term: 'Pairing', means: 'A mark’s chosen treatment for each mode' },
-			{ term: 'Signature', means: 'The one way a mark is shown when it stands for itself', key: 'signature' },
-			{
-				term: 'Round',
-				means: 'A named proposal: one candidate picked per mark it touches, with the reason. Open, then decided',
-				key: 'rounds/*.md · state',
-			},
-			{ term: 'Candidate', means: 'A version of a mark under review: Current, A, B…', key: 'candidates' },
-			{
-				term: 'Exploration',
-				means: 'A whole-set stress test on the Bench, never a candidate',
-				key: "PRESETS · kind: 'exploration'",
-			},
-			{
-				term: 'Guideline',
-				means: 'A mark’s symbol, its use on light and on dark, at small sizes, and its don’ts',
-				key: 'guideline',
-			},
-			{
-				term: 'Action',
-				means: 'What a mark waits for: decide, draw or build. Ticked off with its date when done',
-				key: 'actions · kind · done',
-			},
-			{
-				term: 'Record',
-				means: 'A mark’s or a round’s file in the repo: what is decided, and what is proposed',
-				key: 'src/content/logo-room/',
-			},
-			{ term: 'Exception', means: 'A declared departure from the baseline, kept on its mark', key: 'exception.what' },
-			{ term: 'Fallback', means: 'The still version an exception must provide', key: 'exception.fallback' },
-			{ term: 'Rule', means: 'A do or a don’t, with the example it is about', key: 'ComboVerdict' },
-			{ term: 'Check', means: 'A contrast measured at build: 3:1 for an edge or a mark', key: 'CHECKS · MIN' },
-		],
+		kind: 'do',
+		title: 'Clear space: half the mark',
+		body: 'Keep at least half the logomark’s height clear on every side of the logotype; nothing in that space, not even a border.',
 	},
 	{
-		group: 'Where something stands',
-		terms: [
-			{ term: 'Exploring', means: 'An idea or a draft', key: "'exploring'" },
-			{ term: 'Designed', means: 'Approved, waiting to be built', key: "'designed'" },
-			{ term: 'Shipped', means: 'Live on the new pages', key: "'shipped'" },
-			{ term: 'Legacy', means: 'Old files, to retire', key: "'legacy'" },
-			{
-				term: 'Proposed',
-				means: 'A status or a colour suggested on the Bench, until the team decides',
-				key: 'proposed',
-			},
-			{ term: 'Not defined', means: 'A baseline slot nobody has drawn', key: 'no version' },
-		],
+		kind: 'do',
+		title: 'The logotype at 152px wide or more',
+		body: 'The smallest the site sets it; the bar takes 215, the footer 168.',
 	},
 ];
+/** Each kind's icon: a do in green, a caution in amber. */
+const RULE_ICON: Record<RuleKind, string> = { do: 'tabler:circle-check-filled', caution: 'tabler:alert-circle-filled' };
+/** The pack: the logotype and the logomark, in ink and in white, and the rules above as a README. */
+const PACK_NAME = 'thingsboard-logo-pack.zip';
+const PACK_JSON = JSON.stringify({
+	name: PACK_NAME,
+	files: {
+		'logotype/thingsboard-logotype.svg': wordmark.replace(/fill="#212529"/g, `fill="${TYPE_INK}"`),
+		'logotype/thingsboard-logotype-white.svg': wordmark.replace(/fill="#212529"/g, 'fill="#ffffff"'),
+		'logomark/thingsboard-logomark.svg': markSvg.replace(/currentColor/gi, MARK_INK),
+		'logomark/thingsboard-logomark-white.svg': markSvg.replace(/currentColor/gi, '#ffffff'),
+		'README.txt': [
+			'ThingsBoard logo pack',
+			'',
+			'logotype/  the name set in type, in ink and in white',
+			'logomark/  the mark alone, in ink and in white',
+			'',
+			...ASSET_RULES.map((r) => `${r.kind === 'caution' ? '! ' : '- '}${r.title}. ${r.body}`),
+			'',
+			'The full guidelines: the Logo Room, Guidelines.',
+			'',
+		].join('\n'),
+	},
+}).replace(/</g, '\\u003c');
+
 /**
  * Each mark's record as the browser needs it, for proposals to travel to the repo: the file as it is
  * (for Copy as patch), what it already proposes (seeded into the bench once per version) and its
@@ -2153,22 +2194,17 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 <div class:list={['pr', `pr--${page}`]}>
 	<script type="application/json" id="pr-records" set:html={RECORDS_JSON}></script>
+	<script type="application/json" id="pr-palette" set:html={PALETTE_JSON}></script>
 	{HERE && (
-		<nav class="pr-toc" aria-label="On this page">
+		<div class="pr-toc">
 			<RoomTabs current={HERE.id} />
-			{HERE.sections.length > 0 && (
-				<span class="pr-toc__local">
-					{HERE.sections.map((s) => (
-						<a href={`#${s.id}`}>{s.label}</a>
-					))}
-				</span>
-			)}
-		</nav>
+		</div>
 	)}
+	{HERE && <RoomToc sections={HERE.sections} />}
 
 	{/* ── Hero: a band at the start, the set on it, current or to be, on the ground picked ── */}
 	{page === 'overview' && (
-		<header class="pr-hero" data-set="next" data-ground="dark" data-surface="dark">
+		<header class="pr-hero" data-set="current" data-ground="dark" data-surface="dark">
 			<div class="pr-hero__inner">
 				<div class="pr-hero__text">
 					<div class="pr-hero__kicker">
@@ -2187,30 +2223,32 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					</div>
 					<h1>Logo Room</h1>
 					<p class="pr-lede">
-						Every ThingsBoard product, drawn as one family of app icons: the platform, its ecosystem and the AI. See the
-						set as it ships today or where it’s heading, shape a direction on the workbench, and check each mark on
-						every ground before it goes live.
+						Every ThingsBoard product wears an app icon from one family, and this is where the team keeps that family
+						together. See the set as it ships today, follow what is changing, and take the files you need.
 					</p>
+					<div class="pr-hero__go">
+						<Button href={STUDIO_HREF} variant="primary" size="md" icon="tabler:tools">
+							Design
+						</Button>
+						<Button href={`${SPEC_HREF}#brand`} variant="secondary" size="md" icon="tabler:download">
+							Get the assets
+						</Button>
+					</div>
 				</div>
 				<div class="pr-hero__tools">
 					<span class="pg__seg" role="group" aria-label="Set">
-						<button type="button" data-hero-set="current" aria-pressed="false">
+						<button type="button" data-hero-set="current" aria-pressed="true">
 							Current
 						</button>
-						<button type="button" data-hero-set="next" aria-pressed="true">
+						<button type="button" data-hero-set="next" aria-pressed="false">
 							To be
 						</button>
 					</span>
 					<span class="pr-hero__legend">
-						<span data-for-set="current">
-							<i class="pr-dot pr-dot--shipped" />
-							{heroCount('current', 'shipped')} shipped
-						</span>
+						<span data-for-set="current">{heroShipped} marks, as they ship</span>
 						<span data-for-set="next">
-							<i class="pr-dot pr-dot--shipped" />
-							{heroCount('next', 'shipped')} shipped
-							<i class="pr-dot pr-dot--designed" />
-							{heroCount('next', 'designed')} designed
+							<i class="pr-dot pr-dot--exploring" />
+							{heroChanges} changes in {ROUND_ONE?.label ?? 'Round 1'}, the rest as they ship
 						</span>
 					</span>
 				</div>
@@ -2235,11 +2273,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 												)}
 											</span>
 											<span class="pr-hero__name">
-												<i
-													class="pr-dot"
-													data-next={x.changed ? 'designed' : 'shipped'}
-													title={x.changed ? 'Designed' : 'Shipped'}
-												/>
+												{x.change && (
+													<i class="pr-dot" data-next={HERO_CHANGE[x.change].dot} title={HERO_CHANGE[x.change].title} />
+												)}
 												{x.r.label}
 											</span>
 										</a>
@@ -2403,26 +2439,33 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		</section>
 	)}
 
-	{/* ── Spec's hero: the page opened as an article, its subject and what it holds ── */}
+	{/* ── Guidelines' hero: the page opened as an article, its subject and what it holds ── */}
 	{page === 'spec' && (
 		<PageHero
-			title="Specification"
-			lede="What is agreed about the marks: the logotype and the logomark, every product in every treatment with its status, the colours, how a tile is built and lit, and the words for all of it. What is still being decided lives on the Bench."
+			title="Guidelines"
+			lede="The rules the set has settled on, and the files that follow them. Start with the assets, then see how each product is drawn on every ground, which colour belongs to whom, and how a tile is built. Anything still open lives in the Studio."
 			toc={HERE?.sections}
 		/>
 	)}
 
-	{/* ── Logotype and logomark ── */}
+	{/* ── Assets: the logotype, the logomark and the favicon, with their files ── */}
 	{page === 'spec' && (
 		<section class="pr-sec" id="brand">
 			<div class="pr-sec__head">
 				<h2>
-					Logotype and logomark
-					<a class="pr-anchor" href="#brand" aria-label="Link to Logotype and logomark">
+					Assets
+					<a class="pr-anchor" href="#brand" aria-label="Link to Assets">
 						#
 					</a>
 				</h2>
-				<p>The wordmark, the mark every platform tile carries, and the favicon.</p>
+				<p>The logotype, the logomark and the favicon, in ink and in white.</p>
+			</div>
+			<div class="pr-getpack">
+				<script type="application/json" id="pr-pack" set:html={PACK_JSON}></script>
+				<Button variant="primary" size="sm" icon="tabler:file-zip" attrs={{ 'data-pack': '' }}>
+					Download the pack
+				</Button>
+				<span>Logotype and logomark, SVG, ink and white · .zip</span>
 			</div>
 			<div class="pr-brand">
 				<figure class="pr-brand__wide">
@@ -2444,48 +2487,23 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						</a>
 					</figcaption>
 				</figure>
-				<figure class="pr-markc" data-markc data-svg={markSvg} data-ink={MARK_INK} data-night="#0b0d1f" data-min={MIN}>
+				<figure>
 					<span class="pr-ground">
-						<img src={markUri(MARK_INK)} width="88" alt="" data-markc-light />
+						<img src={markUri(MARK_INK)} width="88" alt="" />
 					</span>
 					<span class="pr-ground pr-ground--dark">
-						<img src={markUri('#ffffff')} width="88" alt="" data-markc-dark />
+						<img src={markUri('#ffffff')} width="88" alt="" />
 					</span>
-					<figcaption class="pr-markc__cap">
-						<span class="pr-getfiles">
-							<b>Logomark</b>
-							<a href={markUri(MARK_INK)} download="thingsboard-mark.svg">
-								<Icon name="tabler:download" aria-hidden="true" />
-								Ink
-							</a>
-							<a href={markUri('#ffffff')} download="thingsboard-mark-white.svg">
-								<Icon name="tabler:download" aria-hidden="true" />
-								White
-							</a>
-							<a href={markUri(MARK_INK)} download="thingsboard-mark-colour.svg" hidden data-markc-file>
-								<Icon name="tabler:download" aria-hidden="true" />
-								<span data-markc-name>Colour</span>
-							</a>
-						</span>
-						<span class="pr-markc__pick" role="group" aria-label="Logomark colour">
-							{PALETTE.map((c) => (
-								<button
-									type="button"
-									class="pr-markc__dot"
-									style={`--c: ${c.hex}`}
-									aria-pressed={c.hex === MARK_INK ? 'true' : 'false'}
-									aria-label={`${c.label}, ${c.hex}`}
-									title={`${c.label} · ${c.hex}`}
-									data-markc-hex={c.hex}
-								/>
-							))}
-							<label class="pr-markc__dot pr-markc__dot--any" title="Any colour">
-								<input type="color" value="#3d50f5" aria-label="Any colour" data-markc-custom />
-							</label>
-						</span>
-						<span class="pr-markc__ratio" aria-live="polite" data-markc-ratio>
-							As it ships: ink on light, white on dark
-						</span>
+					<figcaption class="pr-getfiles">
+						<b>Logomark</b>
+						<a href={markUri(MARK_INK)} download="thingsboard-logomark.svg">
+							<Icon name="tabler:download" aria-hidden="true" />
+							Ink
+						</a>
+						<a href={markUri('#ffffff')} download="thingsboard-logomark-white.svg">
+							<Icon name="tabler:download" aria-hidden="true" />
+							White
+						</a>
 					</figcaption>
 				</figure>
 				<figure>
@@ -2506,22 +2524,22 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					</figcaption>
 				</figure>
 			</div>
-			<ul class="pr-points">
-				<li>
-					<b>Logotype</b> #212529, white on dark. The bar 215 (160 from 1200 to 1599, 152 the smallest), the footer 168.
-				</li>
-				<li>
-					<b>Logomark</b> on a tile or in the logotype, never bare.
-				</li>
-				<li>
-					<b>Favicon</b> another drawing: the chip without the orbit, in {faviconHue}
-					<span class="pr-red">CE navy, not {brandHex}</span>
-				</li>
+			<ul class="pr-rules" aria-label="Using the assets">
+				{ASSET_RULES.map((r) => (
+					<li class:list={['pr-rule', `pr-rule--${r.kind}`]}>
+						<Icon name={RULE_ICON[r.kind]} aria-hidden="true" />
+						<b>{r.title}</b>
+						<span>{r.body}</span>
+					</li>
+				))}
 			</ul>
+			<p class="pr-rules__note">
+				The favicon is in {faviconHue} today, CE navy, not the brand indigo {brandHex}: a known gap.
+			</p>
 		</section>
 	)}
 
-	{/* ── Open rounds: the Overview's summary of what is being decided, each a way onto the Bench ── */}
+	{/* ── Open rounds: the Overview's summary of what is being decided, each a way into the Studio ── */}
 	{page === 'overview' && (
 		<section class="pr-sec" id="open-rounds">
 			<div class="pr-sec__head">
@@ -2531,7 +2549,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						#
 					</a>
 				</h2>
-				<p>What is being decided now. Each opens on the Bench with its set loaded.</p>
+				<p>What is being decided now. Each opens in the Studio with its proposal loaded.</p>
 			</div>
 			<div class="pr-open-rounds">
 				{ROUNDS.filter((rd) => rd.state === 'open').map((rd) => {
@@ -2539,18 +2557,21 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					return (
 						<a class="pr-open-round" href={`${BENCH_HREF}?start=${rd.id}#workbench`}>
 							<span class="pr-open-round__head">
-								<b>{rd.label}</b>
+								<b>{rd.name}</b>
+								<span class="pr-open-round__n">{rd.label}</span>
 								<span class="pr-status pr-status--exploring">Open</span>
 							</span>
 							<span class="pr-open-round__title">{rd.title}</span>
 							<span class="pr-open-round__marks">
 								{marks.map((id) => {
 									const r = rowById(id);
-									const cell = r && (faceOf(r, 'designed') ?? r[r.face]?.cell);
+									const pick = rd.picks.find((pk) => pk.mark === id);
+									const picked = r && pick ? candidatesOf(r).find((c) => c.id === pick.candidate)?.cell : undefined;
+									const cell = picked ?? (r && (faceOf(r, 'designed') ?? r[r.face]?.cell));
 									return cell ? <LogoCell cell={atSize(cell, 48, false)} /> : null;
 								})}
 							</span>
-							<span class="pr-open-round__go">On the Bench →</span>
+							<span class="pr-open-round__go">In the Studio →</span>
 						</a>
 					);
 				})}
@@ -2558,12 +2579,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		</section>
 	)}
 
-	{/* ── Workbench ── */}
+	{/* ── The canvas (#workbench, kept for the links already shared) ── */}
 	{page === 'bench' && (
 		<section class="pr-sec" id="workbench">
 			<PageHero
-				title="Workbench"
-				lede="The set as a canvas: start from a set, try a direction, and see it hold on every ground before it is proposed."
+				title="Studio"
+				lede="This is where the set changes. Start from a set, try a mark in a new colour or a new drawing on every ground at once, and when it holds up, propose it to the team as a round."
+				toc={HERE?.sections}
 				pull={68}
 			>
 				<div class="pg__legend" aria-label="Legend">
@@ -2590,7 +2612,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				</div>
 			</PageHero>
 			<div class="pg-layout" data-sets="on" data-guide="on">
-				<aside class="pg__guide" id="pg-guide" aria-label="How to use the workbench">
+				<aside class="pg__guide" id="pg-guide" aria-label="How to use the canvas">
 					<p class="pg__side-label">How it works</p>
 					<button type="button" class="pg__guide-close" aria-label="Hide how it works">
 						<Icon name="tabler:x" aria-hidden="true" />
@@ -2598,7 +2620,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					<ol class="pg__how">
 						<li>
 							<b>Pick a set</b>
-							<span>from the list: as it ships, a round under review, or an exploration.</span>
+							<span>
+								from the list: as it ships, a round under review, an exploration, or one of yours. Add a set keeps the
+								canvas as it is.
+							</span>
 						</li>
 						<li>
 							<b>Pick a ground</b>
@@ -2611,13 +2636,17 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							</span>
 						</li>
 						<li>
+							<b>Add a colour</b>
+							<span>under the canvas: type a hex or pick one from the page. A product’s + adds its second tone.</span>
+						</li>
+						<li>
 							<b>Share it</b>
 							<span>from the bar: Share sends a link to the set; Propose turns your changes into a patch.</span>
 						</li>
 					</ol>
 				</aside>
 				<div class="pg__sidecol">
-					<aside class="pg__side" id="pg-sets" aria-label="The workbench's sets">
+					<aside class="pg__side" id="pg-sets" aria-label="The Studio's sets">
 						<section class="pg__side-part">
 							<p class="pg__side-label">Sets</p>
 							<div class="pg__sets" role="group" aria-label="The set to start from">
@@ -2642,6 +2671,40 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 										))}
 									</div>
 								))}
+								<div class="pg__sets-group" role="group" aria-label="Your sets" data-own-sets hidden>
+									<p class="pg__sets-name">Yours</p>
+								</div>
+								<template data-own-set-template>
+									<span class="pg__ownset">
+										<button type="button" class="pg__preset" aria-pressed="false">
+											<i class="pr-dot pr-dot--changed" aria-hidden="true" />
+											<span data-own-name />
+										</button>
+										<button type="button" class="pg__ownset-x" data-own-delete>
+											<Icon name="tabler:x" aria-hidden="true" />
+										</button>
+									</span>
+								</template>
+								<form class="pg__saveset" data-save-set hidden>
+									<input
+										type="text"
+										maxlength="32"
+										spellcheck="false"
+										placeholder="Name it"
+										aria-label="The new set's name"
+										data-save-name
+									/>
+									<button type="submit">Save</button>
+								</form>
+								<button
+									type="button"
+									class="pg__addset"
+									data-add-set
+									title="Keep the canvas as it is now as a set of your own, in this browser"
+								>
+									<Icon name="tabler:plus" aria-hidden="true" />
+									Add a set
+								</button>
 							</div>
 						</section>
 					</aside>
@@ -2677,7 +2740,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 								data-panel="guide"
 								aria-controls="pg-guide"
 								aria-expanded="true"
-								title="Show or hide how the workbench works"
+								title="Show or hide how the canvas works"
 							>
 								<Icon name="tabler:help-circle" aria-hidden="true" />
 								How it works
@@ -2928,6 +2991,149 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							))}
 						</div>
 					</div>
+					<div class="pg__palette" role="group" aria-label="The set’s colours">
+						{SET_PALETTE.map((c) => {
+							const second = c.marks.map((m) => SECONDS.get(m)).find(Boolean);
+							return c.marks.length > 0 ? (
+								<div class="pg__palcell" data-pal-cell={c.marks[0]}>
+									<button
+										type="button"
+										class="pg__pal"
+										style={`--c: ${c.light}; --c-dark: ${c.dark}${second ? `; --c2: ${second}` : ''}`}
+										data-pick={c.marks[0]}
+										data-second={second ? '' : undefined}
+										aria-controls="pg-sheet"
+										aria-expanded="false"
+										title={`${c.name}${c.token ? ` · ${c.token}` : ''}: light ${c.light}, dark ${c.dark}`}
+									>
+										<i aria-hidden="true" />
+										<span>
+											<b>{c.name}</b>
+											<code>
+												{c.light} · {c.dark}
+											</code>
+										</span>
+									</button>
+									<button
+										type="button"
+										class="pg__pal-2nd"
+										data-pal-second={c.marks[0]}
+										data-label={rowById(c.marks[0])?.label ?? c.name}
+										data-token={secondTokenOf(c)}
+										data-hex={c.light}
+										hidden={!!second}
+										aria-label={`Add a secondary colour to ${c.name}`}
+										title="Add a secondary colour: the second tone of two-tone artwork"
+									>
+										<Icon name="tabler:plus" aria-hidden="true" />
+									</button>
+								</div>
+							) : (
+								<span
+									class="pg__pal pg__pal--proposed"
+									style={`--c: ${c.light}; --c-dark: ${c.dark}`}
+									title={`${c.name}, proposed as ${c.token}: light ${c.light}, dark ${c.dark}`}
+								>
+									<i aria-hidden="true" />
+									<span>
+										<b>{c.name}</b>
+										<code>
+											{c.light} · {c.dark}
+										</code>
+									</span>
+								</span>
+							);
+						})}
+						<template data-pal-template>
+							<div class="pg__palcell pg__palcell--added">
+								<button type="button" class="pg__pal pg__pal--added" data-pal-edit>
+									<i aria-hidden="true" />
+									<span>
+										<b data-pal-name />
+										<code data-pal-hex />
+									</span>
+								</button>
+								<button type="button" class="pg__pal-x" data-pal-remove aria-label="Remove this colour">
+									<Icon name="tabler:x" aria-hidden="true" />
+								</button>
+							</div>
+						</template>
+						<div class="pg__paled" data-pal-editor data-mode="add">
+							<label class="pg__paled-swatch" title="Open the picker">
+								<i aria-hidden="true">
+									<Icon name="tabler:plus" />
+								</i>
+								<input type="color" value="#3d50f5" aria-label="Open the colour picker" data-ed-picker />
+							</label>
+							<div class="pg__paled-body">
+								<p class="pg__paled-head">
+									<b data-ed-title>Add a colour</b>
+									<span data-ed-hint>Type a hex, open the picker or pick one from the page.</span>
+								</p>
+								<div class="pg__paled-fields">
+									<input
+										type="text"
+										class="pg__paled-in pg__paled-in--name"
+										maxlength="24"
+										placeholder="Name"
+										spellcheck="false"
+										aria-label="Its name"
+										data-ed-name
+									/>
+									<span class="pg__paled-hex">
+										<input
+											type="text"
+											class="pg__paled-in"
+											maxlength="7"
+											placeholder="#3d50f5"
+											spellcheck="false"
+											autocomplete="off"
+											aria-label="Its light value, a hex"
+											data-ed-hex
+										/>
+										<button
+											type="button"
+											class="pg__paled-drop"
+											aria-label="Pick a colour from the page"
+											title="Pick a colour from the page"
+											data-ed-drop
+											hidden
+										>
+											<Icon name="tabler:color-picker" aria-hidden="true" />
+										</button>
+									</span>
+									<span class="pg__paled-hex pg__paled-hex--dark">
+										<label class="pg__paled-dot" title="Its dark value">
+											<i aria-hidden="true" />
+											<input type="color" aria-label="Pick its dark value" data-ed-dark-picker />
+										</label>
+										<input
+											type="text"
+											class="pg__paled-in"
+											maxlength="7"
+											placeholder="Dark"
+											spellcheck="false"
+											autocomplete="off"
+											aria-label="Its dark value, a hex"
+											data-ed-dark
+										/>
+									</span>
+								</div>
+								<p class="pg__paled-checks" aria-live="polite">
+									<span data-ed-check="light" />
+									<span data-ed-check="dark" />
+								</p>
+							</div>
+							<div class="pg__paled-actions">
+								<button type="button" class="pg__paled-cancel" data-ed-cancel hidden>
+									Cancel
+								</button>
+								<button type="button" class="pg__paled-go" data-ed-commit disabled>
+									Add
+								</button>
+							</div>
+						</div>
+					</div>
 					<p class="pg__summary" hidden />
 				</div>
 			</div>
@@ -2945,8 +3151,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					</a>
 				</h2>
 				<p>
-					Numbered proposals, each picking one candidate per mark with the reason: open while reviewed, decided once
-					signed off. A settled mark is in none.
+					Proposals, each picking one candidate per mark with the reason: open while reviewed, decided once signed off.
+					Some weigh routes first. A settled mark is in none.
 				</p>
 			</div>
 			<div class="pr-rounds">
@@ -2959,9 +3165,58 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							</span>
 							<span class="pr-round__title">{rd.title}</span>
 							<a class="pr-round__try" href="#workbench" data-round={rd.id}>
-								Try on the bench
+								Try in the Studio
 							</a>
 						</header>
+						{rd.routes && (
+							<div class="pr-routes">
+								<p class="pgs__label">The routes</p>
+								<div class="pr-routes__grid">
+									{rd.routes.map((ro, i) => (
+										<article class="pr-route">
+											<div class="pr-route__art" aria-hidden="true">
+												{ro.art === 'mascot'
+													? MASCOT_MOODS.map((m) => <Mascot mood={m.id} size={48} />)
+													: ro.marks.map((id) => {
+															const r = rowById(id);
+															const cell = r ? candidatesOf(r).find((c) => c.id === 'current')?.cell : undefined;
+															return cell && <LogoCell cell={atSize(cell, 48, false)} />;
+														})}
+											</div>
+											<p class="pr-route__name">
+												<span>Route {String.fromCharCode(65 + i)}</span>
+												<b>{ro.name}</b>
+											</p>
+											<p class="pr-route__what">{ro.what}</p>
+										</article>
+									))}
+								</div>
+							</div>
+						)}
+						{rd.palette && (
+							<div class="pr-palette">
+								<p class="pgs__label">The palette</p>
+								<ul>
+									{Object.entries(rd.palette).map(([id, hex]) => {
+										const r = rowById(id);
+										const was = resolveHue(r?.hue);
+										return (
+											<li>
+												<span class="pr-palette__pair" aria-hidden="true">
+													{was && <i style={`background: ${was}`} />}
+													<i style={`background: ${hex}`} />
+												</span>
+												<b>{r?.label ?? id}</b>
+												<code>{was ? `${was} → ${hex}` : hex}</code>
+											</li>
+										);
+									})}
+								</ul>
+								<a class="pr-round__try" href="#workbench" data-try-palette={JSON.stringify(rd.palette)}>
+									Try the palette
+								</a>
+							</div>
+						)}
 						{rd.picks.length > 0 && (
 							<ul class="pr-round__picks">
 								{rd.picks.map((pk) => {
@@ -3083,11 +3338,27 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						{rd.brief && (
 							<div class="pr-round__brief">
 								<p class="pgs__label">The brief</p>
-								<ol>
-									{rd.brief.map((b) => (
-										<li>{b}</li>
+								{rd.brief
+									.filter((b) => typeof b === 'string')
+									.map((b) => (
+										<p class="pr-round__lead">{b}</p>
 									))}
-								</ol>
+								{rd.brief.some((b) => typeof b !== 'string') && (
+									<div class="pr-round__topics">
+										{rd.brief
+											.filter((b) => typeof b !== 'string')
+											.map((b) => (
+												<section class="pr-topic">
+													<h4>{b.topic}</h4>
+													<ul>
+														{b.points.map((pt) => (
+															<li>{pt}</li>
+														))}
+													</ul>
+												</section>
+											))}
+									</div>
+								)}
 							</div>
 						)}
 					</article>
@@ -3173,8 +3444,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 																	data-surface={m === 'dark' ? 'dark' : undefined}
 																	style={`color: ${glyphInk(r.hue)[m]}`}
 																>
-																	<LogoCell cell={atSize(v.cell, 40 as MarkSize)} />
-																	<LogoCell cell={atSize(v.cell, 16 as MarkSize)} />
+																	<LogoCell cell={atSize(v.cell, 72 as MarkSize)} />
+																	<span class="pr-glyphs__fav" title="16 · a favicon, a bookmark">
+																		<LogoCell cell={atSize(v.cell, 16 as MarkSize)} />
+																	</span>
 																</span>
 															))}
 														</span>
@@ -3382,7 +3655,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							<span class="pr-fill__op" aria-hidden="true">
 								=
 							</span>
-							<span class="pr-fill__result">
+							<span
+								class:list={['pr-fill__result', f.home === 'dark' && 'pr-fill__result--dark']}
+								data-surface={f.home === 'dark' ? 'dark' : undefined}
+							>
 								<LogoCell cell={f.result} />
 							</span>
 						</div>
@@ -3441,8 +3717,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 			<h3 class="pr-h3">Grounds</h3>
 			<p class="pr-sub">
-				The four surfaces every check and preview on this page uses. Each will take a Tint and a backdrop of its own;
-				until then one Dark stands for every dark surface.
+				The four surfaces every check and preview on this page uses. One Dark stands for every dark surface.
 			</p>
 			<div class="pr-table-wrap" role="region" aria-label="Grounds" tabindex="0">
 				<table class="pr-table pr-grounds">
@@ -3657,8 +3932,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		<section class="pr-sec" id="experiments">
 			<div class="pr-sec__head">
 				<h2>
-					Exploring
-					<a class="pr-anchor" href="#experiments" aria-label="Link to Exploring">
+					Ideas
+					<a class="pr-anchor" href="#experiments" aria-label="Link to Ideas">
 						#
 					</a>
 				</h2>
@@ -3744,25 +4019,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							{e.id === 'mascot' && (
 								<div class="pr-exp__pair pr-mascot" aria-hidden="true">
 									{MASCOT_MOODS.map((m) => (
-										<figure class={`pr-mascot--${m.id}`}>
-											<svg viewBox="0 0 64 76">
-												<path
-													class="pr-mascot__spark"
-													d="M32 1C33 6 34 7 39 8C34 9 33 10 32 15C31 10 30 9 25 8C30 7 31 6 32 1Z"
-												/>
-												<rect class="pr-mascot__head" x="4" y="18" width="56" height="56" rx="18" />
-												{m.id === 'done' ? (
-													<g class="pr-mascot__smile">
-														<path d="M19 46q5-7 10 0" />
-														<path d="M35 46q5-7 10 0" />
-													</g>
-												) : (
-													<g class="pr-mascot__eyes">
-														<rect x="20" y="38" width="7" height="13" rx="3.5" />
-														<rect x="37" y="38" width="7" height="13" rx="3.5" />
-													</g>
-												)}
-											</svg>
+										<figure>
+											<Mascot mood={m.id} />
 											<figcaption>{m.label}</figcaption>
 										</figure>
 									))}
@@ -3927,46 +4185,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					))}
 				</ol>
 			</div>
-		</section>
-	)}
-
-	{/* ── Vocabulary: the spec, last ── */}
-	{page === 'spec' && (
-		<section class="pr-sec pr-sec--spec" id="vocabulary">
-			<div class="pr-sec__head">
-				<h2>
-					Vocabulary
-					<a class="pr-anchor" href="#vocabulary" aria-label="Link to Vocabulary">
-						#
-					</a>
-				</h2>
-				<p>Each term, and the key it goes by in the data and the code.</p>
-			</div>
-			<table class="pr-spec">
-				<thead>
-					<tr>
-						<th scope="col">Term</th>
-						<th scope="col">Means</th>
-						<th scope="col">Key</th>
-					</tr>
-				</thead>
-				{VOCABULARY.map((g) => (
-					<tbody>
-						<tr class="pr-spec__group">
-							<th scope="rowgroup" colspan="3">
-								{g.group}
-							</th>
-						</tr>
-						{g.terms.map((x) => (
-							<tr>
-								<th scope="row">{x.term}</th>
-								<td>{x.means}</td>
-								<td>{x.key && <code>{x.key}</code>}</td>
-							</tr>
-						))}
-					</tbody>
-				))}
-			</table>
 		</section>
 	)}
 
@@ -4587,15 +4805,22 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 </div>
 
 <script>
+	import { trackScrollbar } from '@root/pages/internal/design-system/_bleed';
 	import {
 		mergeNotes,
 		recordKey,
 		roomKey,
+		tokenOf,
 		unifiedDiff,
+		writePalette,
 		writeProposal,
+		type PaletteColour,
 		type RecordNote,
 		type RecordProposal,
 	} from '@util/logo-room-records';
+
+	// Bands that span the window take its scrollbar off (_bleed.ts).
+	trackScrollbar();
 
 	// ── Colour maths: WCAG 2 contrast, and CIE76 ΔE for "how close is this to a colour in the set" ──
 	const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -4637,64 +4862,345 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			press(b.parentElement as Element, (x) => x === b);
 		})
 	);
-	// ── The logomark's colour: as it ships (ink, white on dark), or one colour on both grounds ──
-	// Each ground reports the colour's contrast against the room's minimum; the download follows the pick.
-	document.querySelectorAll<HTMLElement>('[data-markc]').forEach((fig) => {
-		const svg = fig.dataset.svg ?? '';
-		const ink = fig.dataset.ink ?? '#17181c';
-		const min = Number(fig.dataset.min ?? 3);
-		const grounds = [
-			['white', '#ffffff'],
-			['dark', fig.dataset.night ?? '#0b0d1f'],
-		] as const;
-		const file = (hex: string) =>
-			`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.replace(/currentColor/gi, hex))}`;
-		const light = fig.querySelector<HTMLImageElement>('[data-markc-light]');
-		const dark = fig.querySelector<HTMLImageElement>('[data-markc-dark]');
-		const link = fig.querySelector<HTMLAnchorElement>('[data-markc-file]');
-		const name = fig.querySelector<HTMLElement>('[data-markc-name]');
-		const out = fig.querySelector<HTMLElement>('[data-markc-ratio]');
-		const custom = fig.querySelector<HTMLInputElement>('[data-markc-custom]');
-		const shippedText = out?.textContent?.trim() ?? '';
-		const set = (hex: string) => {
-			const shipped = hex.toLowerCase() === ink;
-			if (light) light.src = file(hex);
-			if (dark) dark.src = file(shipped ? '#ffffff' : hex);
-			fig
-				.querySelectorAll<HTMLButtonElement>('[data-markc-hex]')
-				.forEach((b) =>
-					b.setAttribute('aria-pressed', String(b.dataset.markcHex?.toLowerCase() === hex.toLowerCase()))
-				);
-			const any = custom?.parentElement;
-			const picked = !!custom && custom.value.toLowerCase() === hex.toLowerCase();
-			any?.classList.toggle('is-on', picked);
-			if (picked) any?.style.setProperty('--c', hex);
-			if (link) {
-				link.hidden = shipped;
-				link.href = file(hex);
-				link.download = `thingsboard-mark-${hex.slice(1).toLowerCase()}.svg`;
-			}
-			if (name) name.textContent = hex.toLowerCase();
-			if (!out) return;
-			if (shipped) {
-				out.textContent = shippedText;
-				return;
-			}
-			out.replaceChildren(
-				...grounds.map(([where, bg]) => {
-					const r = ratio(hex, bg);
-					const s = document.createElement('span');
-					s.textContent = `${r.toFixed(1)}:1 on ${where}`;
-					if (r < min) s.className = 'is-low';
-					return s;
-				})
-			);
-		};
-		fig
-			.querySelectorAll<HTMLButtonElement>('[data-markc-hex]')
-			.forEach((b) => b.addEventListener('click', () => set(b.dataset.markcHex ?? ink)));
-		custom?.addEventListener('input', () => set(custom.value));
+	// ── The pack: the assets as one .zip, made here (stored, not compressed: SVGs are small) ──
+	const crcTable = Array.from({ length: 256 }, (_, n) => {
+		let c = n;
+		for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+		return c >>> 0;
 	});
+	const crc32 = (bytes: Uint8Array) => {
+		let c = 0xffffffff;
+		for (const b of bytes) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8);
+		return (c ^ 0xffffffff) >>> 0;
+	};
+	/** A zip of the given files, stored: a local header and the bytes for each, then the directory. */
+	const zip = (files: Record<string, string>) => {
+		const enc = new TextEncoder();
+		const now = new Date();
+		const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+		const day = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+		const parts: Uint8Array<ArrayBuffer>[] = [];
+		const dir: Uint8Array<ArrayBuffer>[] = [];
+		let offset = 0;
+		for (const [path, text] of Object.entries(files)) {
+			const name = enc.encode(path);
+			const data = enc.encode(text);
+			const crc = crc32(data);
+			const head = (sig: number, extra: number) => {
+				const h = new DataView(new ArrayBuffer(extra));
+				h.setUint32(0, sig, true);
+				return h;
+			};
+			const local = head(0x04034b50, 30);
+			[20, 0x0800, 0, time, day].forEach((v, i) => local.setUint16(4 + i * 2, v, true));
+			local.setUint32(14, crc, true);
+			local.setUint32(18, data.length, true);
+			local.setUint32(22, data.length, true);
+			local.setUint16(26, name.length, true);
+			const central = head(0x02014b50, 46);
+			[20, 20, 0x0800, 0, time, day].forEach((v, i) => central.setUint16(4 + i * 2, v, true));
+			central.setUint32(16, crc, true);
+			central.setUint32(20, data.length, true);
+			central.setUint32(24, data.length, true);
+			central.setUint16(28, name.length, true);
+			central.setUint32(42, offset, true);
+			parts.push(new Uint8Array(local.buffer), name, data);
+			dir.push(new Uint8Array(central.buffer), name);
+			offset += 30 + name.length + data.length;
+		}
+		const size = dir.reduce((n, b) => n + b.length, 0);
+		const end = new DataView(new ArrayBuffer(22));
+		end.setUint32(0, 0x06054b50, true);
+		end.setUint16(8, Object.keys(files).length, true);
+		end.setUint16(10, Object.keys(files).length, true);
+		end.setUint32(12, size, true);
+		end.setUint32(16, offset, true);
+		return new Blob([...parts, ...dir, new Uint8Array(end.buffer)], { type: 'application/zip' });
+	};
+	document.querySelectorAll<HTMLElement>('[data-pack]').forEach((b) =>
+		b.addEventListener('click', () => {
+			const pack = JSON.parse(document.getElementById('pr-pack')?.textContent ?? '{}') as {
+				name: string;
+				files: Record<string, string>;
+			};
+			const url = URL.createObjectURL(zip(pack.files));
+			const a = Object.assign(document.createElement('a'), { href: url, download: pack.name });
+			a.click();
+			setTimeout(() => URL.revokeObjectURL(url), 1000);
+		})
+	);
+
+	// ── Colours added in the Studio, kept in this browser: the palette shows them, every mark's sheet
+	// offers them to try, and Copy as patch proposes them in palette.md ──
+	/**
+	 * An added colour: its name, its light value and its dark one. A secondary also names the mark it
+	 * seconds and the token it would take. Older entries were the hex alone.
+	 */
+	interface AddedColour {
+		name: string;
+		hex: string;
+		dark: string;
+		of?: string;
+		token?: string;
+	}
+	const NIGHT = '#0b0d1f';
+	/** A colour's dark value to start from: the light one, lifted toward white until it holds 4.5:1 on night. */
+	const darkOf = (hex: string) => {
+		const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+		for (let k = 0; k <= 1; k += 0.05) {
+			const mix = `#${[r, g, b]
+				.map((c) =>
+					Math.round(c + (255 - c) * k)
+						.toString(16)
+						.padStart(2, '0')
+				)
+				.join('')}`;
+			if (ratio(mix, NIGHT) >= 4.5) return mix;
+		}
+		return '#ffffff';
+	};
+	const COLOURS_KEY = 'logo-room:colours';
+	const colourListeners: (() => void)[] = [];
+	const colourStore = {
+		read(): AddedColour[] {
+			try {
+				const raw = JSON.parse(localStorage.getItem(COLOURS_KEY) ?? '[]') as (string | Partial<AddedColour>)[];
+				return raw.map((x) => {
+					const c = typeof x === 'string' ? { hex: x } : x;
+					const hex = c.hex ?? '#000000';
+					return { ...c, name: c.name ?? 'New colour', hex, dark: c.dark ?? darkOf(hex) };
+				});
+			} catch {
+				return [];
+			}
+		},
+		write(list: AddedColour[]) {
+			try {
+				localStorage.setItem(COLOURS_KEY, JSON.stringify(list));
+			} catch {
+				// No storage: the colours hold for this visit.
+			}
+			colourListeners.forEach((f) => f());
+		},
+		/** Told when the colours change: the sheets redraw their added dots. */
+		subscribe(f: () => void) {
+			colourListeners.push(f);
+		},
+	};
+
+	// The palette: the added colours as chips before the editor. A chip opens its colour in the editor; a
+	// set colour's + opens the editor for its secondary, and its chip shows the secondary as a dot.
+	const palette = document.querySelector<HTMLElement>('.pg__palette');
+	const palTemplate = palette?.querySelector<HTMLTemplateElement>('[data-pal-template]');
+	const editor = palette?.querySelector<HTMLElement>('[data-pal-editor]');
+	const HEX = /^#[0-9a-f]{6}$/;
+	/** A typed hex as the store keeps it: lowercase, with its #, three digits doubled; or nothing. */
+	const hexIn = (v: string) => {
+		const s = v.trim().toLowerCase().replace(/^#?/, '#');
+		const full = /^#[0-9a-f]{3}$/.test(s) ? `#${[...s.slice(1)].map((d) => d + d).join('')}` : s;
+		return HEX.test(full) ? full : undefined;
+	};
+	let added = colourStore.read();
+	const keep = () => colourStore.write(added);
+	/** What the editor is doing: adding a colour, a mark's secondary, or changing an added colour. */
+	type EditMode =
+		{ kind: 'add' } | { kind: 'second'; of: string; label: string; token: string } | { kind: 'edit'; i: number };
+	let mode: EditMode = { kind: 'add' };
+	const palDraw = () => {
+		if (!palette || !palTemplate) return;
+		palette.querySelectorAll('.pg__palcell--added').forEach((el) => el.remove());
+		added.forEach((c, i) => {
+			const cell = palTemplate.content.firstElementChild?.cloneNode(true) as HTMLElement | undefined;
+			const chip = cell?.querySelector<HTMLButtonElement>('[data-pal-edit]');
+			if (!cell || !chip) return;
+			chip.style.setProperty('--c', c.hex);
+			chip.style.setProperty('--c-dark', c.dark);
+			chip.title = `${c.hex}: ${ratio(c.hex, '#ffffff').toFixed(1)}:1 on white · ${c.dark}: ${ratio(c.dark, NIGHT).toFixed(1)}:1 on night${c.token ? ` · ${c.token}` : ''}`;
+			chip.setAttribute('aria-label', `Change ${c.name}`);
+			chip.setAttribute('aria-pressed', String(mode.kind === 'edit' && mode.i === i));
+			const name = chip.querySelector('[data-pal-name]');
+			const hex = chip.querySelector('[data-pal-hex]');
+			if (name) name.textContent = c.name;
+			if (hex) hex.textContent = `${c.hex} · ${c.dark}`;
+			chip.addEventListener('click', () =>
+				mode.kind === 'edit' && mode.i === i ? edReset() : edOpen({ kind: 'edit', i })
+			);
+			cell.querySelector('[data-pal-remove]')?.addEventListener('click', () => {
+				added = added.filter((_, k) => k !== i);
+				keep();
+				if (mode.kind === 'edit') edReset();
+				else palDraw();
+			});
+			palette.insertBefore(cell, editor ?? null);
+		});
+		// A set colour with an added secondary: its dot on the chip, its + gone (two tones at most).
+		palette.querySelectorAll<HTMLElement>('[data-pal-cell]').forEach((cell) => {
+			const id = cell.dataset.palCell ?? '';
+			const chip = cell.querySelector<HTMLElement>('[data-pick]');
+			const plus = cell.querySelector<HTMLButtonElement>('[data-pal-second]');
+			const own = added.find((c) => c.of === id);
+			if (!chip || !plus) return;
+			plus.dataset.proposed ??= String(chip.hasAttribute('data-second'));
+			const has = !!own || plus.dataset.proposed === 'true';
+			if (own) chip.style.setProperty('--c2', own.hex);
+			else if (plus.dataset.proposed !== 'true') chip.style.removeProperty('--c2');
+			chip.toggleAttribute('data-second', has);
+			plus.hidden = has;
+			plus.setAttribute('aria-expanded', String(mode.kind === 'second' && mode.of === id));
+		});
+	};
+
+	// The editor: a swatch that opens the picker, a name, the light value as a hex (typed, picked, or
+	// taken from the page), its dark value (lifted to hold on night until it is set by hand), and both
+	// contrasts as they change.
+	const ed = editor && {
+		title: editor.querySelector<HTMLElement>('[data-ed-title]'),
+		hint: editor.querySelector<HTMLElement>('[data-ed-hint]'),
+		picker: editor.querySelector<HTMLInputElement>('[data-ed-picker]'),
+		name: editor.querySelector<HTMLInputElement>('[data-ed-name]'),
+		hex: editor.querySelector<HTMLInputElement>('[data-ed-hex]'),
+		drop: editor.querySelector<HTMLButtonElement>('[data-ed-drop]'),
+		darkPicker: editor.querySelector<HTMLInputElement>('[data-ed-dark-picker]'),
+		dark: editor.querySelector<HTMLInputElement>('[data-ed-dark]'),
+		light: editor.querySelector<HTMLElement>('[data-ed-check="light"]'),
+		night: editor.querySelector<HTMLElement>('[data-ed-check="dark"]'),
+		cancel: editor.querySelector<HTMLButtonElement>('[data-ed-cancel]'),
+		commit: editor.querySelector<HTMLButtonElement>('[data-ed-commit]'),
+	};
+	const hintAdd = ed?.hint?.textContent ?? '';
+	/** The dark value follows the light one until it is set by hand. */
+	let darkSet = false;
+	const edValues = () => {
+		const hex = hexIn(ed?.hex?.value ?? '');
+		const typed = ed?.dark?.value.trim() ?? '';
+		const dark = typed ? hexIn(typed) : hex ? darkOf(hex) : undefined;
+		return { hex, dark };
+	};
+	const check = (el: HTMLElement | null | undefined, hex: string | undefined, on: string, ground: string) => {
+		if (!el) return;
+		if (!hex) {
+			el.textContent = '';
+			delete el.dataset.ok;
+			return;
+		}
+		const r = ratio(hex, on);
+		el.textContent = `${r.toFixed(1)}:1 on ${ground}${r < 3 ? ', under 3:1' : ''}`;
+		el.dataset.ok = String(r >= 3);
+	};
+	/** Paints the editor from its fields: the swatch, the pickers, the checks and whether it can commit. */
+	const edShow = () => {
+		if (!editor || !ed) return;
+		const { hex, dark } = edValues();
+		editor.classList.toggle('is-picked', !!hex);
+		if (hex) editor.style.setProperty('--pick', hex);
+		if (dark) editor.style.setProperty('--pick-dark', dark);
+		if (hex && ed.picker) ed.picker.value = hex;
+		if (dark && ed.darkPicker) ed.darkPicker.value = dark;
+		if (ed.dark && !darkSet && document.activeElement !== ed.dark) ed.dark.value = dark ?? '';
+		check(ed.light, hex, '#ffffff', 'white');
+		check(ed.night, dark, NIGHT, 'night');
+		const editing = mode.kind === 'edit' ? mode.i : -1;
+		const known = !!hex && added.some((c, k) => k !== editing && c.hex === hex);
+		const darkBad = !!ed.dark?.value.trim() && !hexIn(ed.dark.value);
+		if (ed.hint && mode.kind !== 'second')
+			ed.hint.textContent = known
+				? `${hex} is in the palette already.`
+				: mode.kind === 'add'
+					? hintAdd
+					: 'Changes apply as you save.';
+		if (ed.commit) ed.commit.disabled = !hex || known || darkBad;
+	};
+	/** Opens the editor for a mode, its fields filled from what it changes. */
+	const edOpen = (next: EditMode) => {
+		if (!editor || !ed) return;
+		mode = next;
+		editor.dataset.mode = next.kind;
+		const c = next.kind === 'edit' ? added[next.i] : undefined;
+		darkSet = !!c;
+		if (ed.name) ed.name.value = c?.name ?? (next.kind === 'second' ? `${next.label} secondary` : '');
+		if (ed.hex) ed.hex.value = c?.hex ?? '';
+		if (ed.dark) ed.dark.value = c?.dark ?? '';
+		if (ed.title)
+			ed.title.textContent =
+				next.kind === 'second' ? `A secondary for ${next.label}` : c ? `Change ${c.name}` : 'Add a colour';
+		if (ed.hint && next.kind === 'second') ed.hint.textContent = `The second tone of its artwork, as ${next.token}.`;
+		if (ed.commit) ed.commit.textContent = next.kind === 'edit' ? 'Save' : 'Add';
+		if (ed.cancel) ed.cancel.hidden = next.kind === 'add';
+		editor.style.removeProperty('--pick');
+		editor.style.removeProperty('--pick-dark');
+		edShow();
+		palDraw();
+		if (next.kind !== 'add') {
+			editor.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+			(next.kind === 'edit' ? ed.name : ed.hex)?.focus({ preventScroll: true });
+		}
+	};
+	const edReset = () => edOpen({ kind: 'add' });
+	if (ed) {
+		ed.hex?.addEventListener('input', edShow);
+		ed.dark?.addEventListener('input', () => {
+			darkSet = !!ed.dark?.value.trim();
+			edShow();
+		});
+		ed.picker?.addEventListener('input', () => {
+			if (ed.hex && ed.picker) ed.hex.value = ed.picker.value.toLowerCase();
+			edShow();
+		});
+		ed.darkPicker?.addEventListener('input', () => {
+			if (ed.dark && ed.darkPicker) ed.dark.value = ed.darkPicker.value.toLowerCase();
+			darkSet = true;
+			edShow();
+		});
+		// The page's own colours, from the marks on the canvas, where the browser has an eyedropper.
+		const Dropper = (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } })
+			.EyeDropper;
+		if (Dropper && ed.drop) {
+			ed.drop.hidden = false;
+			ed.drop.addEventListener('click', async () => {
+				try {
+					const { sRGBHex } = await new Dropper().open();
+					const hex = hexIn(sRGBHex);
+					if (hex && ed.hex) ed.hex.value = hex;
+					edShow();
+				} catch {
+					// Dismissed: nothing picked.
+				}
+			});
+		}
+		editor?.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' && e.target instanceof HTMLInputElement && e.target.type === 'text') ed.commit?.click();
+			if (e.key === 'Escape' && mode.kind !== 'add') edReset();
+		});
+		ed.cancel?.addEventListener('click', edReset);
+		ed.commit?.addEventListener('click', () => {
+			const { hex, dark } = edValues();
+			if (!hex || !dark || ed.commit?.disabled) return;
+			const name = ed.name?.value.trim() || 'New colour';
+			if (mode.kind === 'edit') {
+				const i = mode.i;
+				added = added.map((c, k) => (k === i ? { ...c, name, hex, dark } : c));
+			} else if (mode.kind === 'second') {
+				added = [...added, { name, hex, dark, of: mode.of, token: mode.token }];
+			} else {
+				added = [...added, { name, hex, dark }];
+			}
+			keep();
+			edReset();
+		});
+	}
+	palette?.querySelectorAll<HTMLButtonElement>('[data-pal-second]').forEach((b) =>
+		b.addEventListener('click', () =>
+			mode.kind === 'second' && mode.of === b.dataset.palSecond
+				? edReset()
+				: edOpen({
+						kind: 'second',
+						of: b.dataset.palSecond ?? '',
+						label: b.dataset.label ?? '',
+						token: b.dataset.token ?? '',
+					})
+		)
+	);
+	palDraw();
 
 	// The browser tabs: one browser at a time, the card taking its ground.
 	document.querySelectorAll<HTMLButtonElement>('[data-browser-light]').forEach((b) =>
@@ -4719,34 +5225,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		else hero.dataset.surface = 'dark';
 	});
 
-	// ── The contents: the section in view is the current link ──
-	const toc = [...document.querySelectorAll<HTMLAnchorElement>('.pr-toc a[href^="#"]')];
-	const spy = new IntersectionObserver(
-		(entries) => {
-			const seen = entries
-				.filter((e) => e.isIntersecting)
-				.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-			if (!seen) return;
-			toc.forEach((a) => {
-				const on = a.hash === `#${seen.target.id}`;
-				if (on) a.setAttribute('aria-current', 'true');
-				else a.removeAttribute('aria-current');
-				const bar = a.closest<HTMLElement>('.pr-toc');
-				if (
-					on &&
-					bar &&
-					(a.offsetLeft < bar.scrollLeft || a.offsetLeft + a.offsetWidth > bar.scrollLeft + bar.clientWidth)
-				)
-					bar.scrollTo({ left: a.offsetLeft - 16 });
-			});
-		},
-		{ rootMargin: '-120px 0px -60% 0px' }
-	);
-	toc.forEach((a) => {
-		const target = document.getElementById(a.hash.slice(1));
-		if (target) spy.observe(target);
-	});
-
 	// ── The workbench and the sheet ──
 	// The set is data attributes the CSS reads: each mark's material on its canvas tiles, its bookmark and
 	// its sheet; the view on the workbench's root. The set and the view live in the address
@@ -4754,7 +5232,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	// the map all open it. What is said about a mark (a status proposed, a comment, a colour tried) stays
 	// in this browser (`pr-bench-v1`) until it is saved to the marks' records: Copy as patch, or Save to repo
 	// on the dev server. What a record already proposes is seeded in once per version of it.
-	// The workbench is on the Bench only; elsewhere its queries find nothing, and the sheet still works.
+	// The workbench is in the Studio only; elsewhere its queries find nothing, and the sheet still works.
 	const root = document.querySelector<HTMLElement>('.pg') ?? document.createElement('div');
 	const sheetBox = document.querySelector<HTMLElement>('.pr-sheet');
 	if (sheetBox) {
@@ -4914,14 +5392,15 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				})
 			);
 		});
-		// The Set: one dropdown of starting points. Changing a mark by hand turns it to "Your own set",
+		// The set: one dropdown of starting points. Changing a mark by hand turns it to "Your own set",
 		// which says what it started from; each option's note is its tooltip.
 		const presetSelect = root.querySelector<HTMLSelectElement>('[data-presets]');
-		const presetOptions = presetSelect ? [...presetSelect.options].filter((o) => !o.dataset.custom) : [];
+		/** The sets to start from, the saved ones included: read live, as saving adds to them. */
+		const presetOptionsOf = () => (presetSelect ? [...presetSelect.options].filter((o) => !o.dataset.custom) : []);
 		const customOption = presetSelect?.querySelector<HTMLOptionElement>('[data-custom]');
 		const showPreset = (id?: string) => {
 			if (!presetSelect) return;
-			const from = presetOptions.find((o) => o.value === (id ?? presetSelect.value));
+			const from = presetOptionsOf().find((o) => o.value === (id ?? presetSelect.value));
 			if (id && from) {
 				presetSelect.value = id;
 				presetSelect.title = from.title;
@@ -4933,7 +5412,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			syncSetButton();
 		};
 		const applyPreset = (id: string) => {
-			const o = presetOptions.find((x) => x.value === id);
+			const o = presetOptionsOf().find((x) => x.value === id);
 			if (!o) return;
 			Object.entries(JSON.parse(o.dataset.m ?? '{}') as Record<string, string>).forEach(([mark, v]) =>
 				setMaterial(mark, v)
@@ -4945,12 +5424,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		// The Sets list: one set pressed, or "Your own set" once a mark is changed by hand, which says what it
 		// started from. The canvas's caption names the set and says what it is.
 		const setList = document.querySelector<HTMLElement>('.pg__sets');
-		const setItems = setList ? [...setList.querySelectorAll<HTMLButtonElement>('[data-value]')] : [];
+		const setItemsOf = () => (setList ? [...setList.querySelectorAll<HTMLButtonElement>('[data-value]')] : []);
 		const syncSetButton = () => {
 			if (!presetSelect) return;
 			const v = presetSelect.value;
 			const from = customOption?.textContent?.replace('Your own set, ', '') ?? 'from a set';
-			setItems.forEach((x) => {
+			setItemsOf().forEach((x) => {
 				x.setAttribute('aria-pressed', String(x.dataset.value === v));
 				if (x.dataset.value === 'custom') x.hidden = v !== 'custom';
 			});
@@ -4967,13 +5446,120 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						? `Changed by hand, ${from}. Copy link keeps it as it is.`
 						: (presetSelect.selectedOptions[0]?.title ?? '');
 		};
-		setItems.forEach((item) =>
-			item.addEventListener('click', () => {
-				if (!presetSelect || item.dataset.value === 'custom') return;
-				presetSelect.value = item.dataset.value ?? '';
-				presetSelect.dispatchEvent(new Event('change'));
-			})
-		);
+		// A set in the list, pressed: the canvas takes it. Delegated, so a saved set's button works too.
+		setList?.addEventListener('click', (e) => {
+			const item = (e.target as HTMLElement).closest<HTMLButtonElement>('.pg__preset[data-value]');
+			if (!presetSelect || !item || item.dataset.value === 'custom') return;
+			presetSelect.value = item.dataset.value ?? '';
+			presetSelect.dispatchEvent(new Event('change'));
+		});
+
+		// Sets of your own: the canvas as it is, named and kept in this browser, listed under Yours. Each
+		// joins the starting points (an option in the set picker, a button in the list) and can be deleted.
+		// Copy link shares one; a round in the records is how one goes to the team.
+		interface OwnSet {
+			id: string;
+			name: string;
+			m: Record<string, string>;
+		}
+		const SETS_KEY = 'logo-room:sets';
+		const readSets = (): OwnSet[] => {
+			try {
+				const list = JSON.parse(localStorage.getItem(SETS_KEY) ?? '[]') as OwnSet[];
+				return Array.isArray(list) ? list.filter((s) => s.id && s.name && s.m) : [];
+			} catch {
+				return [];
+			}
+		};
+		let ownSets = readSets();
+		const keepSets = () => {
+			try {
+				localStorage.setItem(SETS_KEY, JSON.stringify(ownSets));
+			} catch {
+				// No storage: the sets hold for this visit.
+			}
+		};
+		const ownGroup = setList?.querySelector<HTMLElement>('[data-own-sets]');
+		const ownTemplate = setList?.querySelector<HTMLTemplateElement>('[data-own-set-template]');
+		const drawOwnSets = () => {
+			if (!ownGroup || !ownTemplate || !presetSelect) return;
+			ownGroup.querySelectorAll('.pg__ownset').forEach((el) => el.remove());
+			presetSelect.querySelectorAll('[data-own]').forEach((o) => o.remove());
+			ownSets.forEach((s) => {
+				const note = `Your set, saved in this browser. Copy link shares it.`;
+				const option = new Option(s.name, s.id);
+				option.dataset.m = JSON.stringify(s.m);
+				option.dataset.own = '';
+				option.title = note;
+				presetSelect.insertBefore(option, customOption ?? null);
+				const row = ownTemplate.content.firstElementChild?.cloneNode(true) as HTMLElement | undefined;
+				const item = row?.querySelector<HTMLButtonElement>('.pg__preset');
+				if (!row || !item) return;
+				item.dataset.value = s.id;
+				item.title = note;
+				const name = item.querySelector('[data-own-name]');
+				if (name) name.textContent = s.name;
+				const del = row.querySelector<HTMLButtonElement>('[data-own-delete]');
+				del?.setAttribute('aria-label', `Delete ${s.name}`);
+				del?.addEventListener('click', () => {
+					const wasOn = presetSelect.value === s.id;
+					ownSets = ownSets.filter((x) => x.id !== s.id);
+					keepSets();
+					drawOwnSets();
+					// The canvas keeps its marks; with its set gone, it is your own set again, from that one.
+					if (wasOn && customOption) {
+						customOption.textContent = `Your own set, from ${s.name}`;
+						presetSelect.value = 'custom';
+					}
+					syncSetButton();
+				});
+				ownGroup.append(row);
+			});
+			ownGroup.hidden = ownSets.length === 0;
+		};
+		const saveForm = setList?.querySelector<HTMLFormElement>('[data-save-set]');
+		const saveName = saveForm?.querySelector<HTMLInputElement>('[data-save-name]');
+		const addSet = setList?.querySelector<HTMLButtonElement>('[data-add-set]');
+		const closeSave = () => {
+			if (saveForm) saveForm.hidden = true;
+			if (addSet) addSet.hidden = false;
+		};
+		addSet?.addEventListener('click', () => {
+			if (!saveForm || !saveName) return;
+			saveForm.hidden = false;
+			addSet.hidden = true;
+			const from = presetSelect?.value === 'custom' ? 'My set' : presetSelect?.selectedOptions[0]?.textContent?.trim();
+			saveName.value = '';
+			saveName.placeholder = from && presetSelect?.value !== 'custom' ? `${from}, mine` : 'Name it';
+			saveName.focus();
+		});
+		saveName?.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape') {
+				closeSave();
+				addSet?.focus();
+			}
+		});
+		saveName?.addEventListener('blur', () => {
+			// Leaving the field empty puts the button back; a name typed waits for Save.
+			setTimeout(() => {
+				if (saveForm && !saveForm.contains(document.activeElement) && !saveName.value.trim()) closeSave();
+			}, 0);
+		});
+		saveForm?.addEventListener('submit', (e) => {
+			e.preventDefault();
+			const name = saveName?.value.trim() || saveName?.placeholder || 'My set';
+			const m = Object.fromEntries(
+				materials.map((s) => [s.dataset.materialFor ?? '', pressed(s)?.value ?? 'off'])
+			) as Record<string, string>;
+			const id = `own-${Date.now().toString(36)}`;
+			ownSets = [...ownSets, { id, name, m }];
+			keepSets();
+			drawOwnSets();
+			closeSave();
+			showPreset(id);
+			sync();
+		});
+		drawOwnSets();
 
 		// The sheet: one open at a time, over the page; Escape or the close button puts focus back. The
 		// mark open is in the address (?mark=edge), so a link can open the room on one mark's page.
@@ -5172,7 +5758,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		const tryColour = (id: string, hex?: string) => {
 			const sheet = sheetOf(id);
 			const shown = hex ?? baseOf(id);
-			// On the Bench a try paints every tile of the mark on the page, and the bar's Trying menu lists it;
+			// In the Studio a try paints every tile of the mark on the page, and the bar's Trying menu lists it;
 			// elsewhere only the mark's sheet, so a page never changes without a way to see why.
 			const onBench = !!document.querySelector('[data-tries]');
 			const targets: HTMLElement[] =
@@ -5258,6 +5844,42 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			save();
 			tryColour(id, hex);
 		};
+		// Colours added in the palette join every sheet's dots, to try on a mark like the set's own. Each
+		// dot is a copy of the sheet's first, so it looks and behaves as they do.
+		const drawAddedDots = () => {
+			const list = colourStore.read();
+			sheetBox.querySelectorAll<HTMLElement>('.pgs__palette').forEach((group) => {
+				group.querySelectorAll('.pgs__dotc--added').forEach((d) => d.remove());
+				const model = group.querySelector<HTMLButtonElement>('.pgs__dotc');
+				if (!model) return;
+				const id = model.dataset.tryPick ?? '';
+				list.forEach((c) => {
+					const dot = model.cloneNode(false) as HTMLButtonElement;
+					dot.classList.remove('pgs__dotc--own');
+					dot.classList.add('pgs__dotc--added');
+					dot.removeAttribute('data-on');
+					dot.dataset.hex = c.hex;
+					dot.style.setProperty('--c', c.hex);
+					dot.title = `${c.name} · ${c.hex}, added in the palette`;
+					dot.setAttribute('aria-label', `Try ${c.name}, ${c.hex}`);
+					dot.addEventListener('click', () => remember(id, c.hex));
+					group.append(dot);
+				});
+			});
+		};
+		drawAddedDots();
+		colourStore.subscribe(drawAddedDots);
+
+		// A round's palette, tried all at once: each colour joins the Trying menu, which takes them back.
+		document
+			.querySelectorAll<HTMLElement>('[data-try-palette]')
+			.forEach((b) =>
+				b.addEventListener('click', () =>
+					Object.entries(JSON.parse(b.dataset.tryPalette ?? '{}') as Record<string, string>).forEach(([id, hex]) =>
+						remember(id, hex)
+					)
+				)
+			);
 		/** #abc or #aabbcc, with or without the hash, as #aabbcc; anything else is not a colour yet. */
 		const hexOf = (v: string) => {
 			const m = v.trim().replace(/^#/, '').toLowerCase();
@@ -5557,16 +6179,43 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			}
 		});
 		// To the records: as a patch to apply (git apply, or an agent), or written by the dev server.
+		// palette.md: the colours added here that it does not hold yet join its proposed ones, each with the
+		// token its name makes (numbered where two names make the same one).
+		const PALETTE = JSON.parse(document.getElementById('pr-palette')?.textContent ?? '{}') as {
+			path?: string;
+			raw?: string;
+			proposed?: PaletteColour[];
+		};
+		const paletteAfter = () => {
+			if (!PALETTE.path || !PALETTE.raw) return undefined;
+			const proposed = PALETTE.proposed ?? [];
+			const taken = new Set(proposed.map((c) => c.token));
+			const held = new Set(proposed.map((c) => c.light));
+			const fresh = colourStore
+				.read()
+				.filter((c) => !held.has(c.hex))
+				.map((c) => {
+					const base = c.token ?? tokenOf(c.name);
+					let token = base;
+					for (let n = 2; taken.has(token); n++) token = `${base}-${n}`;
+					taken.add(token);
+					return { name: c.name, token, light: c.hex, dark: c.dark, ...(c.of ? { of: c.of } : {}) };
+				});
+			const after = writePalette(PALETTE.raw, [...proposed, ...fresh]);
+			return after === PALETTE.raw ? undefined : after;
+		};
 		document.querySelector<HTMLButtonElement>('[data-patch]')?.addEventListener('click', async (e) => {
 			const b = e.currentTarget as HTMLButtonElement;
 			const ids = unsaved();
-			if (ids.length === 0) return flash(b, 'Nothing to propose');
+			const palette = paletteAfter();
+			if (ids.length === 0 && !palette) return flash(b, 'Nothing to propose');
 			const patch = ids.map((id) =>
 				unifiedDiff(REPO[id].path, REPO[id].raw, writeProposal(REPO[id].raw, proposalOf(id)))
 			);
+			if (palette && PALETTE.path && PALETTE.raw) patch.push(unifiedDiff(PALETTE.path, PALETTE.raw, palette));
 			try {
 				await navigator.clipboard.writeText(patch.join(''));
-				flash(b, `Copied ${ids.length} ${ids.length > 1 ? 'files' : 'file'}`);
+				flash(b, `Copied ${patch.length} ${patch.length > 1 ? 'files' : 'file'}`);
 			} catch {
 				flash(b, 'Copy failed');
 			}
@@ -5621,7 +6270,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			}
 		});
 
-		// A round's "Try on the bench": its preset, pressed; the link scrolls to the bench.
+		// A round's "Try in the Studio": its preset, pressed; the link scrolls to the workbench.
 		document
 			.querySelectorAll<HTMLAnchorElement>('[data-round]')
 			.forEach((a) => a.addEventListener('click', () => applyPreset(a.dataset.round ?? '')));
@@ -5662,7 +6311,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		if (start) applyPreset(start);
 		else if (params.get('m')) {
 			const now = materials.map((s) => `${s.dataset.materialFor}:${pressed(s)?.value}`).join(',');
-			const same = presetOptions.find((o) =>
+			const same = presetOptionsOf().find((o) =>
 				Object.entries(JSON.parse(o.dataset.m ?? '{}') as Record<string, string>).every(([id, v]) =>
 					now.includes(`${id}:${v}`)
 				)
@@ -5686,26 +6335,33 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	menus.forEach((m) => {
 		const btn = m.querySelector<HTMLButtonElement>('.pg__menu-btn');
 		btn?.addEventListener('click', () => openMenu(btn.getAttribute('aria-expanded') === 'true' ? undefined : m));
-		const items = [...m.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
-		items.forEach((item, i) => {
-			item.addEventListener('click', () => window.setTimeout(() => openMenu(), 900));
-			item.addEventListener('keydown', (e) => {
-				const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
-				if (step) {
-					e.preventDefault();
-					items[(i + step + items.length) % items.length]?.focus();
-				} else if (e.key === 'Escape') {
-					openMenu();
-					btn?.focus();
-				}
-			});
+		// Items are read when used, not once: the Trying menu rebuilds its own as colours are tried.
+		const list = m.querySelector<HTMLElement>('.pg__menu-list');
+		list?.addEventListener('click', (e) => {
+			if (!(e.target as Element).closest('[role="menuitem"]')) return;
+			// Close this menu only if it is still the open one: another opened meanwhile stays open.
+			window.setTimeout(() => {
+				if (btn?.getAttribute('aria-expanded') === 'true') openMenu();
+			}, 900);
+		});
+		list?.addEventListener('keydown', (e) => {
+			const items = [...list.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+			const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+			if (step) {
+				e.preventDefault();
+				const i = items.indexOf(document.activeElement as HTMLButtonElement);
+				items[(i + step + items.length) % items.length]?.focus();
+			} else if (e.key === 'Escape') {
+				openMenu();
+				btn?.focus();
+			}
 		});
 	});
 	document.addEventListener('click', (e) => {
 		if (!(e.target as Element).closest('.pg__menu')) openMenu();
 	});
 
-	// ── The side column's panels: the sets and how it works, each shown or hidden from the bench's bar, as
+	// ── The side column's panels: the sets and how it works, each shown or hidden from the Studio's bar, as
 	// this browser last left them ──
 	const panelLayout = document.querySelector<HTMLElement>('.pg-layout');
 	document
@@ -6097,7 +6753,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		position: relative;
 		isolation: isolate;
 		// The width of the window, straight under the section bar (see `.pr-toc`).
-		margin: -108px calc(50% - 50vw) 0;
+		margin: -108px calc(50% - 50vw + var(--sbw, 0px) / 2) 0;
 		// Room inside the band at every width: the sides grow with the window, up to 80px.
 		padding: 96px clamp(32px, 6vw, 80px) 88px;
 		overflow: hidden;
@@ -6175,7 +6831,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 		.pr-hero__groups {
 			grid-area: groups;
-			gap: 28px 40px;
+			gap: 20px 32px;
 		}
 	}
 
@@ -6198,6 +6854,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				margin-block: 8px 20px;
 			}
 		}
+	}
+
+	// The two ways in, under the lede: the Studio to work on the set, the assets to take it away.
+	.pr-hero__go {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+		margin-top: 10px;
 	}
 
 	.pr-hero__logotype--white,
@@ -6287,18 +6951,18 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	.pr-hero__groups {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 32px 56px;
+		gap: 20px 36px;
 	}
 
 	.pr-hero__group {
 		display: grid;
 		align-content: start;
-		gap: 12px;
+		gap: 8px;
 
 		ul {
 			display: flex;
 			flex-wrap: wrap;
-			gap: 8px;
+			gap: 2px;
 			margin: 0;
 			padding: 0;
 			list-style: none;
@@ -6361,20 +7025,43 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		gap: 6px;
 	}
 
+	// Current, the default: the set as it ships, no dots, nothing marked.
 	.pr-hero[data-set='current'] {
 		[data-v='next'],
-		li[data-in-current='false'] {
+		li[data-in-current='false'],
+		.pr-hero__name .pr-dot {
 			display: none;
 		}
 	}
 
+	// To be shows only the delta: each change at full strength with its dot, the marks that stay as
+	// they ship stepped back.
 	.pr-hero[data-set='next'] {
 		li[data-changed='true'] [data-v='current'] {
 			display: none;
 		}
 
+		li[data-changed='false'] {
+			opacity: 0.32;
+			filter: saturate(0.4);
+		}
+
 		.pr-dot[data-next='designed'] {
 			--dot: #{map.get($dot, designed)};
+		}
+
+		.pr-dot[data-next='exploring'] {
+			--dot: #{map.get($dot, exploring)};
+		}
+	}
+
+	.pr-hero__groups li {
+		transition:
+			opacity 0.25s,
+			filter 0.25s;
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
 		}
 	}
 
@@ -6398,61 +7085,16 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		align-items: center;
 		gap: 4px;
 		height: 60px;
-		margin: -72px calc(50% - 50vw) -12px;
-		padding: 0 calc(50vw - 50%);
+		margin: -72px calc(50% - 50vw + var(--sbw, 0px) / 2) -12px;
+		padding: 0 calc(50vw - 50% - var(--sbw, 0px) / 2);
 		border-bottom: 1px solid $line;
 		overflow-x: auto;
 		background: color-mix(in srgb, #fff 92%, transparent);
 		backdrop-filter: blur(6px);
 		scrollbar-width: none;
-
-		// One line, scrolling sideways where the links outgrow it, so the sticky bar keeps its height.
-		// Hover is a soft plate; the section in view is the ink pill, as the area bar marks its page.
-		a {
-			flex: none;
-			padding: 4px 12px;
-			white-space: nowrap;
-			border-radius: 100px;
-			color: var(--color-text-secondary);
-			font-size: 14px;
-			text-decoration: none;
-			transition:
-				background-color 0.15s,
-				color 0.15s;
-
-			&:hover {
-				background: rgba(23, 24, 28, 0.06);
-				color: var(--color-text);
-			}
-
-			&[aria-current='true'] {
-				background: var(--color-text);
-				color: #fff;
-			}
-
-			&:focus-visible {
-				outline: 2px solid var(--focus-ring);
-				outline-offset: -2px;
-			}
-		}
 	}
 
-	// The bar split: the room's tabs on the left, this page's sections on the right.
-	.pr-toc__local {
-		display: flex;
-		flex: none;
-		align-items: center;
-		gap: 4px;
-		margin-left: auto;
-		padding-left: 24px;
-
-		// A phone keeps the room's tabs; the page's sections are a scroll away.
-		@include media-down(md) {
-			display: none;
-		}
-	}
-
-	// The Bench and the Spec open on their first section, not under the hero's gap.
+	// The Studio and Guidelines open on their first section, not under the hero's gap.
 	.pr:is(.pr--bench, .pr--spec) > .pr-sec:first-of-type {
 		margin-top: -40px;
 	}
@@ -6975,7 +7617,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		height: calc(120px + (var(--n) - 1) * var(--gap));
 	}
 
-	// ── Logotype and logomark ──
+	// ── Assets: the logotype, the logomark and the favicon ──
 	.pr-brand {
 		display: grid;
 		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
@@ -6985,8 +7627,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			grid-template-columns: minmax(0, 1fr);
 		}
 
-		// Rows from the top, so a figure with more under it (the logomark's colour) leaves its
-		// neighbours' grounds and captions where they are.
+		// Rows from the top, so a figure with more under it leaves its neighbours' grounds and captions
+		// where they are.
 		figure {
 			display: grid;
 			align-content: start;
@@ -6995,85 +7637,68 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	// The logomark's caption: its downloads, then its colour under them.
-	.pr-markc__cap {
+	// The pack: one button for the logotype and the logomark together, and what it holds.
+	.pr-getpack {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 14px;
+		margin-top: 8px;
+
+		span {
+			@include type-small;
+
+			color: var(--color-text-secondary);
+		}
+	}
+
+	// Using the assets: the few rules that matter, a do (green) or a caution (amber) each, in a row of four.
+	.pr-rules {
 		display: grid;
-		gap: 8px;
-	}
-
-	// The logomark's colour: the palette as dots, the pressed one ringed in its own colour, then any colour
-	// from the system picker. Under it, the colour's contrast on each ground, the low one in red.
-	.pr-markc__pick {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-		padding: 6px 4px 0;
-	}
-
-	.pr-markc__dot {
-		position: relative;
-		width: 20px;
-		height: 20px;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: 12px;
+		margin: 8px 0 0;
 		padding: 0;
-		border: 0;
-		border-radius: 50%;
-		background: var(--c);
-		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.12);
-		cursor: pointer;
-		transition: box-shadow 0.15s;
+		list-style: none;
+	}
 
-		&:hover {
-			box-shadow:
-				inset 0 0 0 1px rgba(23, 24, 28, 0.12),
-				0 0 0 2px #fff,
-				0 0 0 3px rgba(23, 24, 28, 0.2);
+	.pr-rule {
+		display: grid;
+		grid-template-columns: 20px minmax(0, 1fr);
+		align-content: start;
+		gap: 4px 10px;
+		padding: 16px 18px;
+		border-radius: 16px;
+		background: #f6f7fb;
+
+		:global(svg) {
+			grid-row: span 2;
+			width: 20px;
+			height: 20px;
+			color: #178649;
 		}
 
-		&[aria-pressed='true'],
-		&.is-on {
-			box-shadow:
-				inset 0 0 0 1px rgba(23, 24, 28, 0.12),
-				0 0 0 2px #fff,
-				0 0 0 3.5px var(--c, #17181c);
+		b {
+			font-size: 15px;
+			font-weight: $font-weight-medium;
 		}
 
-		&:focus-visible,
-		&:has(:focus-visible) {
-			outline: 2px solid var(--focus-ring);
-			outline-offset: 3px;
+		span {
+			@include type-small;
+
+			color: var(--color-text-secondary);
 		}
 	}
 
-	// Any colour: a colour wheel, the native picker laid over it unseen.
-	.pr-markc__dot--any {
-		--c: #17181c;
-
-		background: conic-gradient(#f43f5e, #f59e0b, #22c55e, #06b6d4, #3d50f5, #a855f7, #f43f5e);
-
-		input {
-			position: absolute;
-			inset: 0;
-			width: 100%;
-			height: 100%;
-			opacity: 0;
-			cursor: pointer;
-		}
+	.pr-rule--caution :global(svg) {
+		color: #b45309;
 	}
 
-	.pr-markc__ratio {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 2px 12px;
-		min-height: 18px;
+	.pr-rules__note {
+		@include type-small;
+
 		margin: 0;
-		padding: 0 4px;
 		color: var(--color-text-secondary);
-		font-size: 12px;
-		font-variant-numeric: tabular-nums;
-
-		:global(.is-low) {
-			color: #b42318;
-		}
 	}
 
 	// Under each figure: its name and its files, as small download links.
@@ -7197,6 +7822,466 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
+	// The set's colours, a grid of equal chips under the canvas: a swatch per mark, its name and hex
+	// beside it. A swatch opens its mark's colour; a colour being tried fills it and rings it. Colours
+	// added here (the last card) sit before it, kept in this browser.
+	.pg__palette {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+		gap: 8px;
+	}
+
+	.pg__pal {
+		display: inline-flex;
+		align-items: center;
+		width: 100%;
+		gap: 10px;
+		padding: 6px 12px 6px 6px;
+		border: 0;
+		border-radius: 12px;
+		background: #fff;
+		box-shadow: inset 0 0 0 1px $line;
+		color: var(--color-text);
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+		transition: box-shadow 0.15s;
+
+		// The swatch split on the diagonal: the light value, then the dark one; a colour tried fills the
+		// light half.
+		i {
+			flex: none;
+			width: 32px;
+			height: 32px;
+			border-radius: 32%;
+			background: linear-gradient(135deg, var(--try, var(--c)) 50%, var(--c-dark, var(--c)) 50%);
+			box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.1);
+		}
+
+		span {
+			display: grid;
+			line-height: 1.25;
+		}
+
+		b {
+			font-size: 13px;
+			font-weight: $font-weight-medium;
+		}
+
+		code {
+			color: var(--color-text-secondary);
+			font-size: 11px;
+		}
+
+		&:hover {
+			box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.2);
+		}
+
+		&[data-try] {
+			box-shadow: inset 0 0 0 2px var(--try);
+		}
+
+		&:focus-visible,
+		&:has(:focus-visible) {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+	}
+
+	// A set colour's cell: its chip, and a + on hover for a secondary. A secondary shows as a dot on the
+	// chip's swatch.
+	.pg__palcell {
+		position: relative;
+		display: grid;
+
+		&:has(.pg__pal-2nd:not([hidden])) > .pg__pal,
+		&--added > .pg__pal {
+			padding-right: 40px;
+		}
+
+		&:hover,
+		&:focus-within {
+			.pg__pal-2nd,
+			.pg__pal-x {
+				opacity: 1;
+			}
+		}
+	}
+
+	.pg__pal[data-second] i {
+		position: relative;
+
+		&::after {
+			content: '';
+			position: absolute;
+			right: -4px;
+			bottom: -4px;
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			background: var(--c2);
+			box-shadow:
+				0 0 0 2px #fff,
+				0 0 0 3px rgba(23, 24, 28, 0.14);
+		}
+	}
+
+	.pg__pal-2nd,
+	.pg__pal-x {
+		position: absolute;
+		top: 50%;
+		right: 8px;
+		display: grid;
+		place-items: center;
+		width: 26px;
+		height: 26px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: rgba(23, 24, 28, 0.05);
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		opacity: 0;
+		transform: translateY(-50%);
+		transition:
+			opacity 0.15s,
+			background-color 0.15s;
+
+		@media (hover: none) {
+			opacity: 1;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+
+		&:hover,
+		&[aria-expanded='true'] {
+			background: var(--color-text);
+			color: #fff;
+			opacity: 1;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+
+		:global(svg) {
+			width: 14px;
+			height: 14px;
+		}
+	}
+
+	// A colour added here: a chip that opens it in the editor, ringed while it is open there.
+	.pg__pal--added {
+		&[aria-pressed='true'] {
+			box-shadow: inset 0 0 0 2px var(--color-text);
+		}
+	}
+
+	// A colour palette.md proposes: not a mark's yet, so it opens no sheet; a dashed edge says proposed.
+	.pg__pal--proposed {
+		box-shadow: none;
+		border: 1px dashed rgba(23, 24, 28, 0.24);
+		cursor: default;
+	}
+
+	// The editor, the palette's last row: a large swatch (the picker laid over it unseen), the name and
+	// both values as fields, their contrasts as they change, then Add. Solid while it changes a colour.
+	.pg__paled {
+		display: grid;
+		grid-column: 1 / -1;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 12px 18px;
+		margin-top: 4px;
+		padding: 14px 16px 14px 14px;
+		border: 1px dashed rgba(23, 24, 28, 0.2);
+		border-radius: 16px;
+
+		&:not([data-mode='add']) {
+			border-style: solid;
+			border-color: rgba(23, 24, 28, 0.14);
+			background: rgba(23, 24, 28, 0.025);
+		}
+
+		@media (max-width: 720px) {
+			grid-template-columns: auto minmax(0, 1fr);
+
+			.pg__paled-actions {
+				grid-column: 1 / -1;
+				justify-content: flex-end;
+			}
+		}
+	}
+
+	.pg__paled-swatch {
+		position: relative;
+		display: grid;
+		cursor: pointer;
+
+		i {
+			display: grid;
+			place-items: center;
+			width: 72px;
+			height: 72px;
+			border-radius: 32%;
+			background: rgba(23, 24, 28, 0.05);
+			color: var(--color-text-secondary);
+			transition: transform 0.15s;
+
+			:global(svg) {
+				width: 22px;
+				height: 22px;
+			}
+		}
+
+		&:hover i {
+			transform: scale(1.03);
+		}
+
+		input {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			opacity: 0;
+			cursor: pointer;
+		}
+
+		&:has(:focus-visible) {
+			border-radius: 24px;
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+	}
+
+	.pg__paled.is-picked .pg__paled-swatch i {
+		background: linear-gradient(135deg, var(--pick) 50%, var(--pick-dark, var(--pick)) 50%);
+		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.1);
+
+		:global(svg) {
+			display: none;
+		}
+	}
+
+	.pg__paled-body {
+		display: grid;
+		gap: 8px;
+		min-width: 0;
+	}
+
+	.pg__paled-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 4px 10px;
+		margin: 0;
+
+		b {
+			font-size: 14px;
+			font-weight: $font-weight-medium;
+		}
+
+		span {
+			color: var(--color-text-secondary);
+			font-size: 12px;
+		}
+	}
+
+	.pg__paled-fields {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	.pg__paled-in {
+		width: 100%;
+		min-width: 0;
+		height: 34px;
+		padding: 0 10px;
+		border: 0;
+		border-radius: 10px;
+		background: #fff;
+		box-shadow: inset 0 0 0 1px $line;
+		color: var(--color-text);
+		font-family: $font-family-mono;
+		font-size: 13px;
+
+		&::placeholder {
+			color: var(--color-text-light);
+		}
+
+		&:hover {
+			box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.24);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 1px;
+		}
+
+		&--name {
+			flex: 2 1 160px;
+			width: auto;
+			max-width: 260px;
+			font-family: inherit;
+			font-weight: $font-weight-medium;
+		}
+	}
+
+	// A value field with a control inside it: the eyedropper after the light hex, the dark value's dot
+	// picker before its hex.
+	.pg__paled-hex {
+		position: relative;
+		display: grid;
+		flex: 1 1 112px;
+		max-width: 140px;
+
+		.pg__paled-in {
+			padding-right: 36px;
+		}
+
+		&--dark .pg__paled-in {
+			padding-right: 10px;
+			padding-left: 36px;
+		}
+	}
+
+	.pg__paled-drop {
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		display: grid;
+		place-items: center;
+		width: 26px;
+		height: 26px;
+		padding: 0;
+		border: 0;
+		border-radius: 8px;
+		background: none;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+
+		&:hover {
+			background: rgba(23, 24, 28, 0.06);
+			color: var(--color-text);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+		}
+
+		&[hidden] {
+			display: none;
+		}
+
+		:global(svg) {
+			width: 16px;
+			height: 16px;
+		}
+	}
+
+	.pg__paled-dot {
+		position: absolute;
+		top: 8px;
+		left: 9px;
+		display: grid;
+		cursor: pointer;
+
+		i {
+			width: 18px;
+			height: 18px;
+			border-radius: 50%;
+			background: var(--pick-dark, rgba(23, 24, 28, 0.08));
+			box-shadow:
+				0 0 0 2px #fff,
+				0 0 0 3px rgba(23, 24, 28, 0.14);
+		}
+
+		input {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			opacity: 0;
+			cursor: pointer;
+		}
+
+		&:has(:focus-visible) {
+			border-radius: 50%;
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+	}
+
+	// Each value's contrast on its ground: a check where it holds 3:1, red where it does not.
+	.pg__paled-checks {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 14px;
+		min-height: 16px;
+		margin: 0;
+		font-size: 12px;
+
+		span {
+			color: var(--color-text-secondary);
+
+			&[data-ok='true']::before {
+				content: '✓ ';
+				color: #178649;
+			}
+
+			&[data-ok='false'] {
+				color: #b42318;
+			}
+		}
+	}
+
+	.pg__paled-actions {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.pg__paled-cancel,
+	.pg__paled-go {
+		padding: 8px 16px;
+		border: 0;
+		border-radius: 100px;
+		font: inherit;
+		font-size: 13px;
+		font-weight: $font-weight-medium;
+		cursor: pointer;
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+	}
+
+	.pg__paled-cancel {
+		background: none;
+		color: var(--color-text-secondary);
+
+		&:hover {
+			background: rgba(23, 24, 28, 0.06);
+			color: var(--color-text);
+		}
+	}
+
+	.pg__paled-go {
+		background: var(--color-text);
+		color: #fff;
+
+		&:disabled {
+			background: rgba(23, 24, 28, 0.08);
+			color: var(--color-text-light);
+			cursor: default;
+		}
+	}
+
 	.pg__setnote {
 		display: grid;
 		gap: 2px;
@@ -7211,15 +8296,67 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			line-height: 20px;
 		}
 
+		// Two lines at most, so the note never reaches the canvas under it.
 		span {
+			display: -webkit-box;
+			overflow: hidden;
 			color: color-mix(in srgb, currentColor 64%, transparent);
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 2;
+			line-clamp: 2;
 		}
 	}
 
-	// The first stage on show makes room for the head.
+	// The first stage on show makes room for the head: the set's name and its note.
 	.pg:not([data-ground='dark']) .pg__stage--light,
 	.pg[data-ground='dark'] .pg__stage--dark {
 		padding-top: 92px;
+	}
+
+	// A round's palette: each mark's colour today beside the one proposed, then the way to try them.
+	.pr-palette {
+		display: grid;
+		gap: 10px;
+
+		ul {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px 20px;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		li {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 13px;
+		}
+
+		code {
+			color: var(--color-text-secondary);
+			font-size: 12px;
+		}
+
+		.pr-round__try {
+			justify-self: start;
+		}
+	}
+
+	.pr-palette__pair {
+		display: flex;
+
+		i {
+			width: 18px;
+			height: 18px;
+			border-radius: 50%;
+			box-shadow: 0 0 0 2px #fff;
+		}
+
+		i + i {
+			margin-left: -5px;
+		}
 	}
 
 	.pg__hidden {
@@ -7493,6 +8630,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	.pg__sets-group {
 		display: grid;
+
+		&[hidden] {
+			display: none;
+		}
 	}
 
 	.pg__sets-name {
@@ -7537,6 +8678,143 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 		&[hidden] {
 			display: none;
+		}
+	}
+
+	// A set of your own: its button, and a × to delete it on hover.
+	.pg__ownset {
+		position: relative;
+		display: grid;
+
+		.pg__preset {
+			padding-right: 30px;
+		}
+
+		span {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		&:hover .pg__ownset-x,
+		&:focus-within .pg__ownset-x {
+			opacity: 1;
+		}
+	}
+
+	.pg__ownset-x {
+		position: absolute;
+		top: 50%;
+		right: 4px;
+		display: grid;
+		place-items: center;
+		width: 22px;
+		height: 22px;
+		padding: 0;
+		border: 0;
+		border-radius: 6px;
+		background: none;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		opacity: 0;
+		transform: translateY(-50%);
+
+		@media (hover: none) {
+			opacity: 1;
+		}
+
+		&:hover {
+			background: rgba(23, 24, 28, 0.08);
+			color: var(--color-text);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+		}
+
+		:global(svg) {
+			width: 14px;
+			height: 14px;
+		}
+	}
+
+	// Add a set: a quiet row at the list's end; pressed, a name field and Save in its place.
+	.pg__addset {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-top: 2px;
+		padding: 6px 8px;
+		border: 1px dashed rgba(23, 24, 28, 0.2);
+		border-radius: 8px;
+		background: none;
+		color: var(--color-text-secondary);
+		font: inherit;
+		font-size: 13px;
+		cursor: pointer;
+
+		&:hover {
+			border-color: rgba(23, 24, 28, 0.36);
+			color: var(--color-text);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 1px;
+		}
+
+		&[hidden] {
+			display: none;
+		}
+
+		:global(svg) {
+			width: 14px;
+			height: 14px;
+		}
+	}
+
+	.pg__saveset {
+		display: flex;
+		gap: 4px;
+		margin-top: 2px;
+		padding: 3px;
+		border-radius: 10px;
+		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.2);
+
+		&[hidden] {
+			display: none;
+		}
+
+		input {
+			flex: 1;
+			min-width: 0;
+			padding: 4px 6px;
+			border: 0;
+			background: none;
+			color: var(--color-text);
+			font: inherit;
+			font-size: 13px;
+
+			&:focus-visible {
+				outline: none;
+			}
+		}
+
+		&:focus-within {
+			box-shadow: inset 0 0 0 2px var(--focus-ring);
+		}
+
+		button {
+			flex: none;
+			padding: 4px 10px;
+			border: 0;
+			border-radius: 7px;
+			background: var(--color-text);
+			color: #fff;
+			font: inherit;
+			font-size: 12px;
+			font-weight: $font-weight-medium;
+			cursor: pointer;
 		}
 	}
 
@@ -10015,6 +11293,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
+	// The round's name first, its number after it in the secondary ink, then its state.
+	.pr-open-round__n {
+		color: var(--color-text-secondary);
+		font-size: 13px;
+	}
+
 	.pr-open-round__head {
 		display: flex;
 		align-items: center;
@@ -10144,17 +11428,51 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
+	// The brief: a plain line leads, then a grid of topics, each a heading and a few terse points.
 	.pr-round__brief {
 		display: grid;
-		gap: 8px;
+		gap: 10px;
+	}
 
-		ol {
-			display: grid;
-			gap: 4px;
+	.pr-round__lead {
+		margin: 0;
+		font-size: 14px;
+		color: var(--color-text);
+	}
+
+	.pr-round__topics {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		gap: 8px;
+	}
+
+	.pr-topic {
+		display: grid;
+		align-content: start;
+		gap: 6px;
+		padding: 12px 14px;
+		border-radius: 12px;
+		background: rgba(23, 24, 28, 0.035);
+
+		h4 {
 			margin: 0;
-			padding-left: 18px;
 			font-size: 13px;
+			font-weight: $font-weight-medium;
+			color: var(--color-text);
+		}
+
+		ul {
+			display: grid;
+			gap: 3px;
+			margin: 0;
+			padding-left: 14px;
+			font-size: 13px;
+			line-height: 1.45;
 			color: var(--color-text-secondary);
+		}
+
+		li::marker {
+			color: var(--color-text-light);
 		}
 	}
 
@@ -10185,8 +11503,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	// ── Tints ──
 	.pr-tints {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-		gap: 12px;
+		grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+		gap: 16px;
 	}
 
 	.pr-tint {
@@ -10232,14 +11550,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	.pr-tint__tile {
 		display: grid;
 		place-items: center;
-		width: 48px;
-		height: 48px;
+		width: 64px;
+		height: 64px;
 		border-radius: 32%;
 		color: var(--ink);
 
 		.pr-layer__mask {
-			width: 32px;
-			height: 32px;
+			width: 42px;
+			height: 42px;
 		}
 	}
 
@@ -10272,8 +11590,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	.pr-tint__icon {
-		width: 26px;
-		height: 26px;
+		width: 34px;
+		height: 34px;
 	}
 
 	.pr-tint__recipe {
@@ -10525,9 +11843,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	.pr-fill__build {
 		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr) auto) 96px;
+		grid-template-columns: repeat(4, minmax(0, 1fr) auto) 136px;
 		align-items: start;
-		gap: 12px;
+		gap: 16px;
 
 		@include media-down(md) {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -10539,15 +11857,23 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	.pr-fill__op {
-		padding-top: 18px;
+		padding-top: 30px;
 		font-size: 18px;
 		color: var(--color-text-light);
 	}
 
+	// The result larger than its layers: the tile they make, at 1.5 × its 72.
 	.pr-fill__result {
 		display: grid;
 		place-items: center;
-		height: 80px;
+		height: 120px;
+		zoom: 1.5;
+	}
+
+	// A tile made for dark pages, shown where it lives: on night, not on the card's white.
+	.pr-fill__result--dark {
+		border-radius: 14px;
+		background: $night;
 	}
 
 	.pr-layer {
@@ -10570,18 +11896,18 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	// A layer at 56, Mark's 32% corner; the hairline only shows where the layer is white on white.
+	// A layer at 80, Mark's 32% corner; the hairline only shows where the layer is white on white.
 	.pr-layer__tile {
 		display: grid;
 		place-items: center;
-		width: 56px;
-		height: 56px;
+		width: 80px;
+		height: 80px;
 		border-radius: 32%;
 		background: var(--layer, transparent);
 		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.08);
 
 		img {
-			width: 40px;
+			width: 58px;
 			height: auto;
 		}
 	}
@@ -10607,8 +11933,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	.pr-layer__mask {
-		width: 40px;
-		height: 40px;
+		width: 58px;
+		height: 58px;
 		background-color: currentColor;
 		-webkit-mask: var(--mask) center / contain no-repeat;
 		mask: var(--mask) center / contain no-repeat;
@@ -10839,58 +12165,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	// ── Vocabulary: the spec ──
-	// Last on the page and set small: a reference, not a read.
-	.pr-spec {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 13px;
-
-		th,
-		td {
-			padding: 7px 12px 7px 0;
-			border-bottom: 1px solid $line;
-			text-align: left;
-			vertical-align: baseline;
-		}
-
-		thead th {
-			@include type-eyebrow;
-
-			color: var(--color-text-secondary);
-		}
-
-		tbody th {
-			width: 140px;
-			font-weight: $font-weight-medium;
-		}
-
-		td {
-			color: var(--color-text-secondary);
-		}
-
-		td:last-child {
-			width: 34%;
-		}
-
-		code {
-			color: var(--color-text);
-			font-size: 12px;
-		}
-
-		@include media-down(md) {
-			td:last-child {
-				display: none;
-			}
-		}
-	}
-
-	.pr-spec__group th {
-		padding-top: 18px;
-		color: var(--color-text);
-		font-size: 13px;
-	}
-
 	// ── Next steps ──
 	.pr-steps {
 		padding: 18px 22px;
@@ -10949,7 +12223,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	.pr-map__head,
 	.pr-map__row {
 		display: grid;
-		grid-template-columns: minmax(150px, 1fr) repeat(5, minmax(0, 1fr));
+		// The Glyph column wider than the tiles': it shows the glyph large and at 16, on light and on night.
+		grid-template-columns: minmax(150px, 1fr) repeat(4, minmax(0, 1fr)) minmax(0, 1.6fr);
 	}
 
 	.pr-map__head span {
@@ -11108,20 +12383,29 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	// The glyph in its colour on a light and on a night ground: the dark half takes the dark value,
-	// lifted to hold its contrast (glyphInk).
+	// lifted to hold its contrast (glyphInk). Each half shows it large, then at 16 at its foot, as a
+	// favicon or a bookmark draws it.
 	.pr-glyphs {
 		display: flex;
+		width: 100%;
 		overflow: hidden;
 		border-radius: 14px;
 		box-shadow: inset 0 0 0 1px $line;
 	}
 
 	.pr-glyphs__half {
-		display: grid;
-		justify-items: center;
-		gap: 10px;
-		padding: 12px;
+		display: flex;
+		flex: 1;
+		align-items: flex-end;
+		justify-content: center;
+		gap: 14px;
+		padding: 16px 12px;
 		background: #fff;
+	}
+
+	.pr-glyphs__fav {
+		display: grid;
+		padding-bottom: 4px;
 	}
 
 	.pr-glyphs__half--dark {
@@ -11739,82 +13023,65 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	// The mascot: the AI core's tile in the brand indigo, flat, with white eyes and the sparkle above it.
-	// Waiting it blinks; thinking its eyes glance up and the sparkle turns; answered the eyes close in a smile.
+	// The mascot's moods side by side; the drawing is _Mascot's.
 	.pr-mascot {
 		gap: 32px;
+	}
 
-		svg {
-			width: 72px;
-			height: 86px;
-			overflow: visible;
+	// A round's routes: the directions it weighs before any pick, side by side, each with its art (the
+	// marks it works on, or the mascot), its letter and name, and what it means.
+	.pr-routes {
+		display: grid;
+		gap: 10px;
+	}
+
+	.pr-routes__grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		gap: 12px;
+	}
+
+	.pr-route {
+		display: grid;
+		align-content: start;
+		gap: 8px;
+		padding: 18px 20px 20px;
+		border-radius: 16px;
+		background: #f6f7fb;
+	}
+
+	.pr-route__art {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 12px;
+		min-height: 58px;
+		margin-bottom: 6px;
+	}
+
+	.pr-route__name {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		margin: 0;
+
+		span {
+			color: var(--color-text-secondary);
+			font-size: 12px;
+		}
+
+		b {
+			font-size: 15px;
+			font-weight: $font-weight-bold;
 		}
 	}
 
-	.pr-mascot__head,
-	.pr-mascot__spark {
-		fill: var(--color-brand);
-	}
-
-	.pr-mascot__eyes rect {
-		fill: #fff;
-		transform-box: fill-box;
-		transform-origin: center;
-	}
-
-	.pr-mascot__smile path {
-		fill: none;
-		stroke: #fff;
-		stroke-width: 3.5;
-		stroke-linecap: round;
-	}
-
-	.pr-mascot__spark {
-		transform-box: fill-box;
-		transform-origin: center;
-	}
-
-	.pr-mascot--idle .pr-mascot__eyes rect {
-		animation: pr-mascot-blink 4s infinite;
-	}
-
-	.pr-mascot--think {
-		.pr-mascot__eyes {
-			transform: translate(3px, -4px);
-		}
-
-		.pr-mascot__eyes rect {
-			height: 10px;
-		}
-
-		.pr-mascot__spark {
-			animation: pr-mascot-turn 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.pr-mascot--idle .pr-mascot__eyes rect,
-		.pr-mascot--think .pr-mascot__spark {
-			animation: none;
-		}
-	}
-
-	@keyframes pr-mascot-blink {
-		0%,
-		92%,
-		100% {
-			transform: scaleY(1);
-		}
-
-		96% {
-			transform: scaleY(0.1);
-		}
-	}
-
-	@keyframes pr-mascot-turn {
-		to {
-			transform: rotate(180deg);
-		}
+	.pr-route__what {
+		margin: 0;
+		color: var(--color-text-secondary);
+		font-size: 14px;
+		line-height: 1.5;
+		text-wrap: pretty;
 	}
 
 	.pr-ladder {

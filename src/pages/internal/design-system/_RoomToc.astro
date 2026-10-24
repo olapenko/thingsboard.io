@@ -1,0 +1,100 @@
+---
+/**
+ * A room page's contents as floating chips: a column at the window's right edge, like a sidebar, the
+ * section in view as the ink chip. From 1280 up, where the page has room beside its column; narrower,
+ * the hero's own row of chips stands in (PageHero's `toc`), so a page never shows both.
+ */
+interface Props {
+	sections: { id: string; label: string }[];
+}
+
+const { sections } = Astro.props;
+---
+
+{sections.length > 0 && (
+	<nav class="rtoc" aria-label="On this page" data-room-toc>
+		{sections.map((s) => (
+			<a href={`#${s.id}`}>{s.label}</a>
+		))}
+	</nav>
+)}
+
+<script>
+	// The section in view is the current chip: the topmost one crossing a band near the window's top.
+	document.querySelectorAll<HTMLElement>('[data-room-toc]').forEach((nav) => {
+		const links = [...nav.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')];
+		const spy = new IntersectionObserver(
+			(entries) => {
+				const seen = entries
+					.filter((e) => e.isIntersecting)
+					.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+				if (!seen) return;
+				links.forEach((a) => {
+					if (a.hash === `#${seen.target.id}`) a.setAttribute('aria-current', 'true');
+					else a.removeAttribute('aria-current');
+				});
+			},
+			{ rootMargin: '-120px 0px -60% 0px' }
+		);
+		links.forEach((a) => {
+			const target = document.getElementById(a.hash.slice(1));
+			if (target) spy.observe(target);
+		});
+	});
+</script>
+
+<style lang="scss">
+	@use '../../../styles/variables' as *;
+
+	// A column of chips at the right edge, near the top: under the area bar, the room's bar and the
+	// Studio's sticky toolbar (48 + 60 + 48, and a breath), so it never sits on any of them. Frosted white,
+	// each section a chip, the current one in ink. Hidden below 1280, where the hero's row does the job.
+	.rtoc {
+		position: fixed;
+		z-index: 20;
+		top: 172px;
+		right: 16px;
+		display: none;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 4px;
+		padding: 6px;
+		border-radius: 18px;
+		background: color-mix(in srgb, #fff 82%, transparent);
+		box-shadow:
+			0 0 0 1px rgba(23, 24, 28, 0.06),
+			0 8px 24px rgba(23, 24, 28, 0.08);
+		backdrop-filter: blur(8px);
+
+		@include media-up(xl) {
+			display: flex;
+		}
+
+		a {
+			padding: 5px 12px;
+			border-radius: 100px;
+			color: var(--color-text-secondary);
+			font-size: 13px;
+			white-space: nowrap;
+			text-decoration: none;
+			transition:
+				background-color 0.15s,
+				color 0.15s;
+
+			&:hover {
+				background: rgba(23, 24, 28, 0.06);
+				color: var(--color-text);
+			}
+
+			&[aria-current='true'] {
+				background: var(--color-text);
+				color: #fff;
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--focus-ring);
+				outline-offset: 2px;
+			}
+		}
+	}
+</style>

@@ -1,0 +1,1193 @@
+---
+import { Icon } from 'astro-icon/components';
+import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
+import RoomBar from '@root/pages/internal/design-system/_RoomBar.astro';
+import RoomToc from '@root/pages/internal/design-system/_RoomToc.astro';
+import PageHero from '@root/pages/internal/design-system/_PageHero.astro';
+import { designPage } from '@root/pages/internal/_design';
+import { ROOM, roomPage } from '@root/pages/internal/design-system/_room';
+import { VOCABULARY } from '@root/pages/internal/design-system/_vocabulary';
+import { compiledContent as guideHtml } from '@root/content/logo-room/GUIDE.md';
+
+/**
+ * The Logo Room's About: what the room is, how to take part (four scenarios, from getting the logo to
+ * a pull request), a prompt that hands the repo work to an agent, the branches and the debt for
+ * whoever keeps the room, and the vocabulary as a footnote. Plain HTML: it explains the room, so it
+ * draws nothing of it.
+ */
+const PAGE = designPage('logos');
+const HERE = roomPage('about');
+
+/** The fork the room lives on, and its branch: every link and command below is read from these. */
+const REPO_SLUG = 'olapenko/thingsboard.io';
+const REPO = `https://github.com/${REPO_SLUG}`;
+const UPSTREAM = 'https://github.com/thingsboard/thingsboard.io';
+const BRANCH = 'exp/logo-review';
+const tree = (path = '') => `${REPO}/tree/${BRANCH}${path && `/${path}`}`;
+const blob = (path: string) => `${REPO}/blob/${BRANCH}/${path}`;
+const ARTIFACT = 'https://claude.ai/artifact/LSxxpGErXUNFPoVC5noQTG';
+const ASSETS_HREF = `${roomPage('spec').href}#brand`;
+const STUDIO_HREF = `${roomPage('bench').href}#workbench`;
+
+/** The room's pages, each with what it is for: the tabs, read from `_room.ts`, with their purpose. */
+const PURPOSE: Record<string, { icon: string; does: string }> = {
+	overview: { icon: 'tabler:layout-dashboard', does: 'The set at a glance, today or as proposed.' },
+	spec: { icon: 'tabler:file-description', does: 'What is agreed, and the files to download.' },
+	bench: { icon: 'tabler:tools', does: 'Where changes are tried and proposed.' },
+	files: { icon: 'tabler:folders', does: 'Every logo file in the repo, and who uses it.' },
+};
+const PAGES = ROOM.filter((p) => PURPOSE[p.id]).map((p) => ({ ...p, ...PURPOSE[p.id] }));
+
+/** How to take part: one card per thing people come to do, the lightest first. */
+const SCENARIOS: {
+	icon: string;
+	/** Its icon's colour, from the set: the icon sits on a Dark tint tile of it, in its light tone. */
+	tint: string;
+	want: string;
+	who: string;
+	steps: string[];
+	go?: { label: string; href: string };
+}[] = [
+	{
+		icon: 'tabler:download',
+		tint: '#178649',
+		want: 'I need the logo',
+		who: 'Anyone',
+		steps: ['Open Guidelines › Assets.', 'Download the pack: the logotype and the logomark, ink and white, as SVG.'],
+		go: { label: 'Get the assets', href: ASSETS_HREF },
+	},
+	{
+		icon: 'tabler:message-2',
+		tint: '#b45309',
+		want: 'I want to suggest a change',
+		who: 'Anyone, no repo needed',
+		steps: [
+			'Open the Studio, pick a set and click a mark.',
+			'Propose a status or a colour, and leave a note saying why.',
+			'Propose › Copy as patch, then send it to the room’s owner.',
+		],
+		go: { label: 'Open the Studio', href: STUDIO_HREF },
+	},
+	{
+		icon: 'tabler:sparkles',
+		tint: '#3d50f5',
+		want: 'I want my agent to open the pull request',
+		who: 'Anyone with a coding agent',
+		steps: [
+			'Make your change in the Studio and Copy as patch, or just describe it.',
+			'Copy the prompt below and add your request or patch at its end.',
+			'Your agent forks, branches, edits the records, checks them and opens the pull request.',
+		],
+		go: { label: 'The prompt', href: '#agent' },
+	},
+	{
+		icon: 'tabler:git-pull-request',
+		tint: '#7b3fe4',
+		want: 'I’ll open the pull request myself',
+		who: 'Designers and developers with git',
+		steps: [
+			`Branch from ${BRANCH} as logo/<topic>.`,
+			'Save to repo from the Studio on your dev server, or git apply a patch. New artwork is a file: marks/<mark>/<candidate>.svg.',
+			`Run pnpm lint:logoroom, push, and open a PR into ${BRANCH}.`,
+		],
+		go: { label: 'The commands', href: '#by-hand' },
+	},
+];
+
+/** The same, by hand: from a fork to a pull request on the room's branch. */
+const COMMANDS = `gh repo fork ${REPO_SLUG} --clone
+cd thingsboard.io
+git switch ${BRANCH}
+git switch -c logo/my-change
+pnpm install && pnpm dev
+# the room: localhost/internal/design-system/logos/
+pnpm lint:logoroom
+git commit -am "Logo Room: my change"
+git push -u origin HEAD
+gh pr create -R ${REPO_SLUG} --base ${BRANCH}`;
+
+/**
+ * The prompt for someone's own agent: everything it needs to turn a request or a patch into a pull
+ * request on the room's branch, and the limits it keeps to. The person adds their request at the end.
+ */
+const AGENT_PROMPT = `You are helping me propose a change to ThingsBoard's product logos, kept in the Logo Room.
+
+Repository: ${REPO}
+Branch: ${BRANCH}
+
+1. If I can push to ${REPO_SLUG}, clone it; otherwise fork it first (gh repo fork ${REPO_SLUG} --clone). Switch to ${BRANCH}.
+2. Create a branch named logo/<a short topic>. Before you design anything new, read src/content/logo-room/GUIDE.md and follow its groups, components and patterns.
+3. The decisions are Markdown records in src/content/logo-room/: marks/<mark>.md (a status per treatment, candidates, guideline, actions, proposed, notes) and rounds/round-<n>.md (picks, reviews, routes, set, and a brief: topics of a few short points, or a plain line). The schema is src/models/logo-room.ts.
+4. If I give you a patch, apply it with git apply. Otherwise make the change I describe, editing only those records. New artwork is an SVG with a viewBox at src/content/logo-room/marks/<mark>/<candidate>.svg, beside its candidate in the mark's record without toDraw: the room draws it, with no code. A colour new to the set goes into src/content/logo-room/palette.md: a name, its token (--color-product-<name>), a light and a dark value. A product's second tone, for two-tone artwork, is a secondary: its token is the product's plus -secondary, and of names the mark.
+5. Run pnpm install, then pnpm lint:logoroom, and fix what it reports.
+6. Commit with a message starting "Logo Room:", push the branch, and open a pull request into ${BRANCH} on ${REPO_SLUG}. Say in it what changes, why, and which round it belongs to.
+
+Do not change anything outside src/content/logo-room/ unless I ask. Show me the diff before you push.
+
+My request:
+`;
+
+/**
+ * The guide (`GUIDE.md`) in its parts, cut at its headings: the system, a card per group with its icon
+ * and colour, and the steps for something new. The Markdown stays one file for agents to read.
+ */
+const GROUP_LOOK: Record<string, { icon: string; tint: string }> = {
+	Platform: { icon: 'tabler:cpu', tint: '#3d50f5' },
+	Ecosystem: { icon: 'tabler:apps', tint: '#008478' },
+	AI: { icon: 'tabler:sparkles', tint: '#7c5cf0' },
+};
+const guideParts = (await guideHtml())
+	.split(/(?=<h3)/)
+	.slice(1)
+	.map((part) => ({
+		title: part.match(/<h3[^>]*>([\s\S]*?)<\/h3>/)?.[1] ?? '',
+		body: part.replace(/<h3[^>]*>[\s\S]*?<\/h3>/, ''),
+	}));
+const GUIDE = {
+	system: guideParts.find((p) => p.title === 'One system'),
+	groups: guideParts.filter((p) => GROUP_LOOK[p.title]).map((p) => ({ ...p, ...GROUP_LOOK[p.title] })),
+	steps: guideParts.find((p) => p.title === 'Designing something new'),
+};
+
+/** The branches, from the live site down to a proposal: its role, what it is, and where its work goes. */
+type Role = 'live' | 'ship' | 'sandbox' | 'room' | 'proposal';
+const ROLE: Record<Role, { label: string; tint: string }> = {
+	live: { label: 'Live', tint: '#178649' },
+	ship: { label: 'Ships', tint: '#3d50f5' },
+	sandbox: { label: 'Sandbox', tint: '#7b3fe4' },
+	room: { label: 'The room', tint: '#b45309' },
+	proposal: { label: 'Proposal', tint: '#008478' },
+};
+const BRANCHES: { name: string; role: Role; at?: string; is: string; goes: string; here?: boolean }[] = [
+	{ name: 'main', role: 'live', at: UPSTREAM, is: 'The live site, mirrored from upstream', goes: 'Read only' },
+	{
+		name: 'handoff',
+		role: 'ship',
+		at: `${REPO}/tree/handoff`,
+		is: 'The redesign, no internal pages',
+		goes: 'PRs upstream, a layer each',
+	},
+	{ name: 'lab', role: 'sandbox', at: `${REPO}/tree/lab`, is: 'handoff plus the sandbox', goes: 'Never merged back' },
+	{
+		name: BRANCH,
+		role: 'room',
+		at: tree(),
+		is: 'The room’s trunk, cut from lab',
+		goes: 'Into lab once agreed',
+		here: true,
+	},
+	{ name: 'logo/<topic>', role: 'proposal', is: 'One proposal', goes: `PR into ${BRANCH}` },
+	{
+		name: 'feat/<topic>',
+		role: 'ship',
+		at: `${REPO}/tree/handoff`,
+		is: 'A decision that changes a live page',
+		goes: 'PR into handoff',
+	},
+];
+
+/** The repo's pieces a proposal touches, each linked on the branch; `shown` where the link is its folder. */
+const PLACES: { label: string; path: string; shown?: string; file?: boolean }[] = [
+	{ label: 'Groups guide', path: 'src/content/logo-room/GUIDE.md', file: true },
+	{ label: 'Mark records', path: 'src/content/logo-room/marks' },
+	{
+		label: 'Candidate artwork',
+		path: 'src/content/logo-room/marks',
+		shown: 'src/content/logo-room/marks/<mark>/<candidate>.svg',
+	},
+	{ label: 'Round records', path: 'src/content/logo-room/rounds' },
+	{ label: 'Proposed colours', path: 'src/content/logo-room/palette.md', file: true },
+	{ label: 'Schema', path: 'src/models/logo-room.ts', file: true },
+	{ label: 'Records check', path: 'scripts/lint-logo-room.ts', file: true },
+	{ label: 'The room', path: 'src/pages/internal/design-system/_LogoRoom.astro', file: true },
+	{ label: 'Branch model', path: 'LAB.md', file: true },
+];
+
+/** The technical debt the room carries, worst first: what it is, and what it gets in the way of. */
+type Weight = 'high' | 'medium' | 'low';
+const DEBT: { weight: Weight; what: string; blocks: string }[] = [
+	{
+		weight: 'high',
+		what: '`_LogoRoom.astro` draws three pages in about 12,000 lines.',
+		blocks: 'Review and reuse; split it by section first.',
+	},
+	{
+		weight: 'medium',
+		what: 'The shipped drawings still live in code (`DRAWINGS`, `CANDIDATE_ART`); new candidates come from `marks/<mark>/<candidate>.svg`.',
+		blocks: 'Moving a shipped drawing to its file is a code change, one mark at a time.',
+	},
+	{
+		weight: 'medium',
+		what: 'The room depends on the lab’s layout, pages and `/internal` routes.',
+		blocks: 'Moving it to handoff or upstream.',
+	},
+	{
+		weight: 'medium',
+		what: 'Save to repo runs only on a dev server; elsewhere proposals stay in the browser.',
+		blocks: 'Proposals without the repo travel as a patch.',
+	},
+	{
+		weight: 'medium',
+		what: 'The pack is zipped in the browser; the full pack of every tile is a mock.',
+		blocks: 'A brand kit at a stable address.',
+	},
+	{
+		weight: 'medium',
+		what: 'The shared artifact is captured by hand (`scripts/logo-room-artifact/`).',
+		blocks: 'It drifts from the branch until recaptured.',
+	},
+	{
+		weight: 'low',
+		what: 'A schema change needs `.astro/data-store.json` deleted and a dev restart.',
+		blocks: 'Costs an hour the first time.',
+	},
+	{ weight: 'low', what: 'Some colours are literals beside the theme’s tokens.', blocks: 'Retheming the room.' },
+];
+const WEIGHTS: Weight[] = ['high', 'medium', 'low'];
+const debtSummary = WEIGHTS.map((w) => `${DEBT.filter((d) => d.weight === w).length} ${w}`).join(' · ');
+/** Text written here, escaped, with its `names` set as code: a path like `<mark>` stays text, not a tag. */
+const code = (s: string) =>
+	s
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replace(/`([^`]+)`/g, '<code>$1</code>');
+---
+
+<PlaygroundLayout title="About · Logo Room" description={PAGE.blurb} head={false}>
+	<RoomBar slot="below" current="about" />
+	<RoomToc sections={HERE.sections} />
+	<PageHero
+		title="About"
+		lede="The Logo Room keeps ThingsBoard’s product marks in one place and every decision about them in the repo. Here is how it works and how to take part, whether you need a file, want to suggest a change, or would rather hand the pull request to your agent."
+		toc={HERE.sections}
+		colours={['#3d50f5', '#178649']}
+		pull={40}
+		kit
+	/>
+
+	<div class="ab">
+		{/* ── The room ── */}
+		<section class="ab-sec" id="room">
+			<h2>The room</h2>
+			<p class="ab-lede">
+				Every ThingsBoard product mark in one place: the set as it ships, what the team is deciding, the rules once
+				agreed, and the files. Decisions are records in the repo, so a change is a reviewed pull request, not a
+				screenshot in a thread.
+			</p>
+			<div class="ab-pages">
+				{PAGES.map((p) => (
+					<a class="ab-page" href={p.href}>
+						<Icon name={p.icon} aria-hidden="true" />
+						<b>{p.label}</b>
+						<span>{p.does}</span>
+					</a>
+				))}
+			</div>
+		</section>
+
+		{/* ── How to ── */}
+		<section class="ab-sec" id="how-to">
+			<h2>How to</h2>
+			<p class="ab-lede">Pick what you came to do: take the files, or propose a change for the team to review.</p>
+			<div class="ab-ways">
+				{SCENARIOS.map((sc) => (
+					<article class="ab-way">
+						<p class="ab-way__head">
+							<span class="ab-way__icon" style={`--tint: ${sc.tint}`}>
+								<Icon name={sc.icon} aria-hidden="true" />
+							</span>
+							<span>
+								<b>{sc.want}</b>
+								<small>{sc.who}</small>
+							</span>
+						</p>
+						<ol>
+							{sc.steps.map((st) => (
+								<li>{st}</li>
+							))}
+						</ol>
+						{sc.go && (
+							<a class="ab-way__go" href={sc.go.href}>
+								{sc.go.label}
+								<Icon name="tabler:arrow-right" aria-hidden="true" />
+							</a>
+						)}
+					</article>
+				))}
+			</div>
+		</section>
+
+		{/* ── With an agent ── */}
+		<section class="ab-sec" id="agent">
+			<h2>With an agent</h2>
+			<p class="ab-lede">
+				Paste this into Claude Code or any agent that can run git and the GitHub CLI, then add your request or your
+				patch at the end. It forks if you can’t push, keeps to the records, runs the check, and shows you the diff
+				before it opens the pull request.
+			</p>
+			<div class="ab-prompt">
+				<div class="ab-prompt__bar">
+					<span>Prompt</span>
+					<button type="button" class="ab-copy" data-copy="ab-prompt">
+						<Icon name="tabler:copy" aria-hidden="true" />
+						<b>Copy</b>
+					</button>
+				</div>
+				<pre id="ab-prompt"><code>{AGENT_PROMPT}<i>[your request, or the patch from Copy as patch]</i></code></pre>
+			</div>
+			<h3 id="by-hand">Or by hand</h3>
+			<p class="ab-small">
+				For designers and developers with git: fork, branch, propose in the Studio on your dev server, check, and open
+				the pull request.
+			</p>
+			<div class="ab-prompt">
+				<div class="ab-prompt__bar">
+					<span>Commands</span>
+					<button type="button" class="ab-copy" data-copy="ab-commands">
+						<Icon name="tabler:copy" aria-hidden="true" />
+						<b>Copy</b>
+					</button>
+				</div>
+				<pre id="ab-commands" class="ab-prompt__cmds"><code>{COMMANDS}</code></pre>
+			</div>
+			<p class="ab-small">
+				Without the repo, there is the shared copy of the room at{' '}
+				<a href={ARTIFACT} target="_blank" rel="noopener">
+					claude.ai
+				</a>
+				; what you propose there stays in your browser until you copy it as a patch.
+			</p>
+		</section>
+
+		{/* ── Groups: how marks are built, from the guide in the repo that agents read too ── */}
+		<section class="ab-sec" id="groups">
+			<h2>Groups</h2>
+			<p class="ab-lede">
+				How the Platform, Ecosystem and AI marks are built, and how to design a new one. It is the repo’s
+				<a href={blob('src/content/logo-room/GUIDE.md')} target="_blank" rel="noopener">
+					<code>GUIDE.md</code>
+				</a>
+				, which agents read too.
+			</p>
+			{GUIDE.system && (
+				<article class="ab-part ab-part--system">
+					<h3>
+						<span class="ab-way__icon" style="--tint: #17181c">
+							<Icon name="tabler:layout-grid" aria-hidden="true" />
+						</span>
+						{GUIDE.system.title}
+					</h3>
+					<div class="ab-part__body" set:html={GUIDE.system.body} />
+				</article>
+			)}
+			<div class="ab-groups">
+				{GUIDE.groups.map((f) => (
+					<article class="ab-part">
+						<h3>
+							<span class="ab-way__icon" style={`--tint: ${f.tint}`}>
+								<Icon name={f.icon} aria-hidden="true" />
+							</span>
+							{f.title}
+						</h3>
+						<div class="ab-part__body" set:html={f.body} />
+					</article>
+				))}
+			</div>
+			{GUIDE.steps && (
+				<article class="ab-part ab-part--steps">
+					<h3>{GUIDE.steps.title}</h3>
+					<div class="ab-part__body" set:html={GUIDE.steps.body} />
+				</article>
+			)}
+		</section>
+
+		{/* ── For maintainers ── */}
+		<section class="ab-sec" id="maintainers">
+			<h2>For maintainers</h2>
+			<p class="ab-lede">
+				The room is a sandbox tool on the fork. Until it moves into the site’s repo, <code>{BRANCH}</code> is its trunk:
+				proposals branch from it, it takes <code>lab</code> in by merging, and a decision that changes a live page is
+				rebuilt off <code>handoff</code>. Every pull request runs the records check in CI, the patch writer’s tests
+				included.
+			</p>
+			<h3>Branches</h3>
+			<div class="ab-tablewrap">
+				<table class="ab-table">
+					<thead>
+						<tr>
+							<th scope="col">Branch</th>
+							<th scope="col">Role</th>
+							<th scope="col">What it is</th>
+							<th scope="col">Its work goes</th>
+						</tr>
+					</thead>
+					<tbody>
+						{BRANCHES.map((b) => (
+							<tr class:list={[b.here && 'is-here']}>
+								<th scope="row">
+									{b.at ? (
+										<a class="ab-branch" href={b.at} target="_blank" rel="noopener">
+											{b.name}
+										</a>
+									) : (
+										<span class="ab-branch">{b.name}</span>
+									)}
+								</th>
+								<td>
+									<span class="ab-role" style={`--tint: ${ROLE[b.role].tint}`}>
+										{ROLE[b.role].label}
+									</span>
+								</td>
+								<td>{b.is}</td>
+								<td>{b.goes}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+			<h3>Where things are</h3>
+			<div class="ab-tablewrap">
+				<table class="ab-table ab-table--places">
+					<thead>
+						<tr>
+							<th scope="col">What</th>
+							<th scope="col">In the repo</th>
+							<th scope="col">
+								<span class="ab-sr">Open</span>
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						{PLACES.map((pl) => (
+							<tr>
+								<th scope="row">{pl.label}</th>
+								<td>
+									<code>{pl.shown ?? pl.path}</code>
+								</td>
+								<td>
+									<a
+										class="ab-open"
+										href={pl.file ? blob(pl.path) : tree(pl.path)}
+										target="_blank"
+										rel="noopener"
+										aria-label={`Open ${pl.label} on GitHub`}
+									>
+										GitHub
+										<Icon name="tabler:arrow-up-right" aria-hidden="true" />
+									</a>
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+			<details class="ab-debt">
+				<summary>
+					<b>Technical debt</b>
+					<span>{debtSummary}</span>
+				</summary>
+				<ul>
+					{DEBT.map((d) => (
+						<li>
+							<span class:list={['ab-weight', `ab-weight--${d.weight}`]}>{d.weight}</span>
+							<span set:html={code(d.what)} />
+							<span class="ab-debt__blocks">{d.blocks}</span>
+						</li>
+					))}
+				</ul>
+			</details>
+		</section>
+
+		{/* ── Vocabulary: a footnote, the terms and the keys they go by in the code ── */}
+		<footer class="ab-sec ab-vocab" id="vocabulary">
+			<h2>Vocabulary</h2>
+			<p class="ab-small">Each term, and the key it goes by in the data and the code.</p>
+			{VOCABULARY.map((g) => (
+				<div class="ab-vocab__set">
+					<p class="ab-vocab__group">{g.group}</p>
+					<dl>
+						{g.terms.map((x) => (
+							<div>
+								<dt>{x.term}</dt>
+								<dd>
+									{x.means}
+									{x.key && <code>{x.key}</code>}
+								</dd>
+							</div>
+						))}
+					</dl>
+				</div>
+			))}
+		</footer>
+	</div>
+</PlaygroundLayout>
+
+<script>
+	// Each block copied as text, by the id its button names; the prompt keeps its placeholder line, for the
+	// person to replace.
+	document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((b) =>
+		b.addEventListener('click', async () => {
+			const label = b.querySelector('b');
+			try {
+				await navigator.clipboard.writeText(document.getElementById(b.dataset.copy ?? '')?.textContent ?? '');
+				if (label) label.textContent = 'Copied';
+			} catch {
+				if (label) label.textContent = 'Copy failed';
+			}
+			setTimeout(() => {
+				if (label) label.textContent = 'Copy';
+			}, 1600);
+		})
+	);
+</script>
+
+<style lang="scss">
+	@use '../../../../styles/variables' as *;
+
+	$line: rgba(23, 24, 28, 0.08);
+
+	// A reading column in the kit's box (1280px, 24px in, inside the body's 24px), so the text starts
+	// where the hero's does.
+	.ab {
+		display: grid;
+		gap: 72px;
+		max-width: 1328px;
+		margin: 0 auto;
+		padding: 40px 48px 120px;
+
+		@include media-down(md) {
+			gap: 56px;
+			padding-inline: 16px;
+		}
+
+		code {
+			padding: 1px 5px;
+			border-radius: 5px;
+			background: rgba(23, 24, 28, 0.05);
+			font-size: 0.88em;
+		}
+
+		a {
+			color: var(--color-link, #3d50f5);
+		}
+	}
+
+	.ab-sec {
+		display: grid;
+		gap: 20px;
+		max-width: 1040px;
+		scroll-margin-top: 132px;
+
+		h2 {
+			@include type-section;
+
+			margin: 0;
+		}
+
+		// A section's subheadings (Branches, Where things are): a step under the section's own.
+		h3 {
+			margin: 8px 0 0;
+			font-size: 18px;
+			font-weight: $font-weight-bold;
+			letter-spacing: -0.01em;
+			line-height: 1.3;
+		}
+	}
+
+	.ab-lede {
+		@include type-lede;
+
+		max-width: 720px;
+		margin: 0;
+		color: var(--color-text-secondary);
+		text-wrap: pretty;
+	}
+
+	.ab-small {
+		@include type-small;
+
+		margin: 0;
+		color: var(--color-text-secondary);
+	}
+
+	// The room's pages: four quiet cards.
+	.ab-pages {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 12px;
+	}
+
+	.ab-page {
+		display: grid;
+		align-content: start;
+		gap: 4px;
+		padding: 16px 18px;
+		border-radius: 16px;
+		background: #f6f7fb;
+		color: var(--color-text) !important;
+		text-decoration: none;
+		transition: background-color 0.15s;
+
+		&:hover {
+			background: #eef0f6;
+		}
+
+		:global(svg) {
+			width: 20px;
+			height: 20px;
+			margin-bottom: 6px;
+			color: var(--color-text-secondary);
+		}
+
+		span {
+			@include type-small;
+
+			color: var(--color-text-secondary);
+		}
+	}
+
+	// How to: a card per scenario, its steps numbered, its way in at the foot.
+	.ab-ways {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+		gap: 12px;
+		align-items: stretch;
+	}
+
+	.ab-way {
+		display: grid;
+		grid-template-rows: auto 1fr auto;
+		gap: 12px;
+		min-width: 0;
+		padding: 20px;
+		border-radius: 18px;
+		box-shadow: inset 0 0 0 1px $line;
+
+		ol {
+			display: grid;
+			align-content: start;
+			gap: 6px;
+			margin: 0;
+			padding-left: 18px;
+			color: var(--color-text-secondary);
+			font-size: 14px;
+			line-height: 1.5;
+		}
+	}
+
+	// The icon on its own row, then the scenario and who it is for.
+	.ab-way__head {
+		display: grid;
+		justify-items: start;
+		gap: 14px;
+		margin: 0;
+
+		span {
+			display: grid;
+			gap: 2px;
+		}
+
+		b {
+			font-size: 16px;
+			font-weight: $font-weight-bold;
+			line-height: 1.3;
+		}
+
+		small {
+			color: var(--color-text-secondary);
+			font-size: 12px;
+		}
+	}
+
+	// An icon on a Colour tile, as the set draws one: the colour lit by its 155° light (lighter at the near
+	// corner, deeper at the far), Mark's 32% corner, the icon in white, a soft lift in the colour under it.
+	.ab-way__icon {
+		display: grid;
+		flex: none;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 32%;
+		background: linear-gradient(
+			155deg,
+			color-mix(in srgb, var(--tint) 78%, #fff) 0%,
+			var(--tint) 55%,
+			color-mix(in srgb, var(--tint) 86%, #000) 100%
+		);
+		box-shadow: 0 4px 12px color-mix(in srgb, var(--tint) 28%, transparent);
+		color: #fff;
+
+		:global(svg) {
+			width: 24px;
+			height: 24px;
+		}
+	}
+
+	.ab-way__go {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		justify-self: start;
+		font-size: 14px;
+		font-weight: $font-weight-medium;
+		text-decoration: none;
+
+		:global(svg) {
+			width: 16px;
+			height: 16px;
+		}
+	}
+
+	// Commands and the prompt, on the ink; inside a grid they scroll rather than widen their card.
+	.ab pre {
+		margin: 8px 0 0;
+		padding: 12px 14px;
+		overflow-x: auto;
+		border-radius: 10px;
+		background: #17181c;
+		color: #e8eaed;
+		font-size: 12.5px;
+		line-height: 1.6;
+
+		code {
+			padding: 0;
+			background: none;
+			font-size: inherit;
+		}
+
+		i {
+			color: #9aa0ff;
+			font-style: normal;
+		}
+	}
+
+	// The guide in parts, set as type rather than boxes: a hairline over each part, the system across,
+	// the groups three abreast, the steps last. A part opens with its heading and icon, then its lead
+	// line in the ink, then its points in the secondary ink; lines break evenly (pretty), at a reading
+	// measure.
+	.ab-groups {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 40px;
+
+		@include media-down(lg) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 28px;
+		}
+	}
+
+	.ab-part {
+		display: grid;
+		align-content: start;
+		gap: 14px;
+		padding-top: 20px;
+		border-top: 1px solid $line;
+		font-size: 15px;
+		line-height: 1.6;
+
+		h3 {
+			display: flex;
+			gap: 12px;
+			align-items: center;
+			margin: 0;
+			font-size: 18px;
+			font-weight: $font-weight-bold;
+			letter-spacing: -0.01em;
+			line-height: 1.3;
+		}
+
+		.ab-way__icon {
+			width: 36px;
+			height: 36px;
+
+			:global(svg) {
+				width: 20px;
+				height: 20px;
+			}
+		}
+	}
+
+	.ab-part__body {
+		display: grid;
+		gap: 12px;
+		max-width: 68ch;
+		color: var(--color-text-secondary);
+		text-wrap: pretty;
+
+		> :global(*) {
+			margin: 0;
+		}
+
+		// The lead: the part's first line, what it is, in the ink.
+		> :global(p:first-child) {
+			color: var(--color-text);
+		}
+
+		:global(ul),
+		:global(ol) {
+			display: grid;
+			gap: 10px;
+			padding-left: 18px;
+		}
+
+		:global(li::marker) {
+			color: rgba(23, 24, 28, 0.32);
+		}
+
+		:global(strong) {
+			color: var(--color-text);
+			font-weight: $font-weight-medium;
+		}
+
+		:global(code) {
+			font-size: 0.86em;
+			overflow-wrap: anywhere;
+		}
+	}
+
+	// The system's points side by side where there is room, the lead across both.
+	.ab-part--system .ab-part__body {
+		max-width: none;
+
+		:global(ul) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px 48px;
+
+			@include media-down(md) {
+				grid-template-columns: minmax(0, 1fr);
+			}
+		}
+	}
+
+	// The steps: numbered in ink circles, the number on the first line's baseline.
+	.ab-part--steps .ab-part__body {
+		:global(ol) {
+			gap: 14px;
+			padding-left: 0;
+			list-style: none;
+			counter-reset: step;
+		}
+
+		:global(li) {
+			position: relative;
+			padding-left: 40px;
+			counter-increment: step;
+		}
+
+		:global(li)::before {
+			content: counter(step);
+			position: absolute;
+			top: 1px;
+			left: 0;
+			display: grid;
+			place-items: center;
+			width: 24px;
+			height: 24px;
+			border-radius: 50%;
+			background: #17181c;
+			color: #fff;
+			font-size: 12px;
+			font-weight: $font-weight-medium;
+		}
+	}
+
+	// The prompt: a bar with its name and Copy over the text, which wraps so it reads as written.
+	.ab-prompt {
+		max-width: 760px;
+		overflow: hidden;
+		border-radius: 14px;
+		background: #17181c;
+
+		pre {
+			margin: 0;
+			padding: 4px 18px 18px;
+			border-radius: 0;
+			white-space: pre-wrap;
+		}
+	}
+
+	// Commands keep their lines: they scroll sideways rather than wrap mid-command.
+	.ab-prompt .ab-prompt__cmds {
+		white-space: pre;
+	}
+
+	// A subheading a link lands on (Or by hand), clear of the bars.
+	.ab-sec h3[id] {
+		scroll-margin-top: 132px;
+	}
+
+	.ab-prompt__bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 10px 12px 6px 18px;
+		color: rgba(255, 255, 255, 0.56);
+		font-size: 12px;
+	}
+
+	.ab-copy {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 6px 12px;
+		border: 0;
+		border-radius: 100px;
+		background: rgba(255, 255, 255, 0.1);
+		color: #fff;
+		font: inherit;
+		font-size: 13px;
+		cursor: pointer;
+
+		&:hover {
+			background: rgba(255, 255, 255, 0.18);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+
+		:global(svg) {
+			width: 15px;
+			height: 15px;
+		}
+
+		b {
+			font-weight: $font-weight-medium;
+		}
+	}
+
+	// For maintainers: two tables in a rounded frame, a quiet header row, rows that light on hover; the
+	// branch names as monospace chips, each branch's role as a coloured dot and word.
+	.ab-tablewrap {
+		overflow-x: auto;
+		border-radius: 14px;
+		box-shadow: inset 0 0 0 1px $line;
+	}
+
+	.ab-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 14px;
+
+		th,
+		td {
+			padding: 11px 16px;
+			text-align: left;
+			vertical-align: middle;
+		}
+
+		thead th {
+			background: #f6f7fb;
+			color: var(--color-text-secondary);
+			font-size: 11px;
+			font-weight: $font-weight-medium;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+		}
+
+		tbody tr {
+			border-top: 1px solid $line;
+			transition: background-color 0.15s;
+
+			&:hover {
+				background: #fafbfd;
+			}
+		}
+
+		tbody th {
+			font-weight: $font-weight-medium;
+			white-space: nowrap;
+		}
+
+		td {
+			color: var(--color-text-secondary);
+		}
+
+		// The room's own branch, marked by a bar at its edge.
+		.is-here {
+			background: #fffaf3;
+			box-shadow: inset 3px 0 0 #b45309;
+		}
+	}
+
+	.ab-branch {
+		display: inline-block;
+		padding: 3px 9px;
+		border-radius: 7px;
+		background: rgba(23, 24, 28, 0.06);
+		color: var(--color-text) !important;
+		font-family: var(--font-family-mono, ui-monospace, monospace);
+		font-size: 12.5px;
+		text-decoration: none;
+	}
+
+	a.ab-branch:hover {
+		background: rgba(23, 24, 28, 0.1);
+	}
+
+	.ab-role {
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		color: var(--color-text);
+		font-size: 13px;
+		white-space: nowrap;
+
+		&::before {
+			content: '';
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--tint);
+		}
+	}
+
+	.ab-table--places code {
+		color: var(--color-text-secondary);
+		overflow-wrap: anywhere;
+	}
+
+	.ab-open {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 13px;
+		font-weight: $font-weight-medium;
+		text-decoration: none;
+		white-space: nowrap;
+
+		:global(svg) {
+			width: 14px;
+			height: 14px;
+		}
+	}
+
+	.ab-sr {
+		@include visually-hidden;
+	}
+
+	.ab-debt {
+		padding-top: 12px;
+		border-top: 1px solid $line;
+
+		summary {
+			display: flex;
+			gap: 12px;
+			align-items: baseline;
+			cursor: pointer;
+
+			b {
+				font-size: 15px;
+				font-weight: $font-weight-medium;
+			}
+
+			span {
+				color: var(--color-text-secondary);
+				font-size: 13px;
+			}
+		}
+
+		ul {
+			display: grid;
+			margin: 12px 0 0;
+			padding: 0;
+			list-style: none;
+			font-size: 13px;
+		}
+
+		li {
+			display: grid;
+			grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+			gap: 12px;
+			padding: 8px 0;
+			border-top: 1px solid $line;
+
+			@include media-down(md) {
+				grid-template-columns: 64px minmax(0, 1fr);
+			}
+		}
+	}
+
+	.ab-debt__blocks {
+		color: var(--color-text-secondary);
+
+		@include media-down(md) {
+			grid-column: 2;
+		}
+	}
+
+	.ab-weight {
+		align-self: start;
+		justify-self: start;
+		padding: 1px 8px;
+		border-radius: 100px;
+		background: rgba(23, 24, 28, 0.06);
+		color: var(--color-text-secondary);
+		font-size: 11px;
+		font-weight: $font-weight-medium;
+		text-transform: capitalize;
+	}
+
+	.ab-weight--high {
+		background: rgba(200, 50, 20, 0.1);
+		color: #b42318;
+	}
+
+	.ab-weight--medium {
+		background: rgba(245, 158, 11, 0.14);
+		color: #92400e;
+	}
+
+	// The vocabulary as a footnote: under a rule, small, two columns of terms, keys in code.
+	.ab-vocab {
+		gap: 12px;
+		max-width: none;
+		padding-top: 28px;
+		border-top: 1px solid rgba(23, 24, 28, 0.14);
+		font-size: 12px;
+		line-height: 1.5;
+
+		h2 {
+			@include type-card;
+		}
+
+		dl {
+			margin: 8px 0 0;
+			column-gap: 40px;
+			columns: 2 360px;
+		}
+
+		div {
+			display: grid;
+			grid-template-columns: 112px minmax(0, 1fr);
+			gap: 12px;
+			padding: 4px 0;
+			break-inside: avoid;
+		}
+
+		dt {
+			font-weight: $font-weight-medium;
+		}
+
+		dd {
+			margin: 0;
+			color: var(--color-text-secondary);
+
+			code {
+				margin-left: 6px;
+				font-size: 11px;
+			}
+		}
+	}
+
+	.ab-vocab__group {
+		margin: 8px 0 0;
+		color: var(--color-text-secondary);
+		font-size: 11px;
+		font-weight: $font-weight-medium;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+</style>

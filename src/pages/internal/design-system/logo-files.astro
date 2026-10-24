@@ -5,10 +5,10 @@ import { Icon } from 'astro-icon/components';
 import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
 import Mark from '@components/ui/Mark.astro';
 import DocsIcon from '@components/starlight/Icon.astro';
-import { designPage, navGroups } from '@root/pages/internal/_design';
+import { designPage } from '@root/pages/internal/_design';
 import LogoCell from '@root/pages/internal/design-system/_LogoCell.astro';
 import LogoRoom from '@root/pages/internal/design-system/_LogoRoom.astro';
-import RoomTabs from '@root/pages/internal/design-system/_RoomTabs.astro';
+import RoomBar from '@root/pages/internal/design-system/_RoomBar.astro';
 import PageHero from '@root/pages/internal/design-system/_PageHero.astro';
 import {
 	FEATURE_SOURCES,
@@ -78,6 +78,26 @@ const byProduct = PRODUCTS.map((p) => ({ ...p, files: files.filter((f) => f.prod
 );
 const twinsCount = files.filter((f) => f.sameAs.length).length;
 const unusedCount = files.filter((f) => f.users && f.users.length === 0 && !f.sprite && !f.mark).length;
+
+/**
+ * The side menu: each section with its icon, Files by product opening into its products (a thumbnail
+ * of each one's first file, and its count) while that section is in view.
+ */
+const NAV_ICONS: Record<string, string> = {
+	files: 'tabler:files',
+	tiles: 'tabler:square-rounded',
+	ecosystem: 'tabler:layout-grid',
+	features: 'tabler:puzzle',
+	'feature-files': 'tabler:history',
+	ai: 'tabler:terminal-2',
+	legacy: 'tabler:archive',
+};
+const NAV = PAGE.sections.map((s) => ({
+	...s,
+	icon: NAV_ICONS[s.id] ?? 'tabler:point',
+	count: s.id === 'files' ? files.length : undefined,
+	products: s.id === 'files' ? byProduct : [],
+}));
 
 const kb = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`);
 const usersWord = (f: LogoFile) =>
@@ -212,32 +232,41 @@ const aiDocCards = [
 const builtInAi = homeFeatures.find((f) => /\bAI\b/.test(f.title));
 ---
 
-<PlaygroundLayout title={PAGE.label} head={false}>
-	<div class="lr-roombar" slot="below">
-		<div class="lr-roombar__in">
-			<RoomTabs current="files" />
-		</div>
-	</div>
+<PlaygroundLayout title="Files · Logo Room" description={PAGE.blurb} head={false}>
+	<RoomBar slot="below" current="files" />
 	<PageHero
 		title="Logo files"
-		lede="Every logo file in the repo, product by product: where it lives, how it draws, its twins and who uses it. Then the marks on a tile, each surface’s ecosystem, the feature marks, the CLI and AI, and the legacy sets still on disk."
+		lede="An inventory of every logo file in the repo, sorted by product, with where each one lives, how it draws on light and dark, and which pages use it. Further down are the marks on their tiles, the product lists on each surface, the feature marks, and the older sets still on disk."
 		pull={40}
 		kit
+		ribbon
 	/>
 	<div class="kit lr">
-		<nav class="kit__nav" aria-label={PAGE.label}>
-			{navGroups(PAGE).map((g) => (
-				<div class="kit__nav-group">
-					<p class="kit__nav-title">{g.title}</p>
-					<ul>
-						{g.items.map((s) => (
-							<li>
-								<a href={`#${s.id}`}>{s.label}</a>
-							</li>
-						))}
-					</ul>
-				</div>
-			))}
+		<nav class="kit__nav lr-nav" aria-label={PAGE.label} data-lr-nav>
+			<ul>
+				{NAV.map((s) => (
+					<li class:list={['lr-nav__item', s.products.length > 0 && 'lr-nav__item--parent']}>
+						<a href={`#${s.id}`} data-lr-for={s.id}>
+							<Icon name={s.icon} aria-hidden="true" />
+							<span>{s.label}</span>
+							{s.count !== undefined && <small>{s.count}</small>}
+						</a>
+						{s.products.length > 0 && (
+							<ul class="lr-nav__sub">
+								{s.products.map((pr) => (
+									<li>
+										<a href={`#files-${pr.id}`} data-lr-for={`files-${pr.id}`}>
+											<img src={pr.files[0].light} alt="" loading="lazy" />
+											<span>{pr.label}</span>
+											<small>{pr.files.length}</small>
+										</a>
+									</li>
+								))}
+							</ul>
+						)}
+					</li>
+				))}
+			</ul>
 		</nav>
 
 		<main class="kit__main">
@@ -698,32 +727,161 @@ const builtInAi = homeFeatures.find((f) => /\bAI\b/.test(f.title));
 	</div>
 </PlaygroundLayout>
 
+<script>
+	// The side menu follows the page: the section in view is current, and so is the product within Files
+	// by product, whose list stays open while that section is in view.
+	document.querySelectorAll<HTMLElement>('[data-lr-nav]').forEach((nav) => {
+		const links = [...nav.querySelectorAll<HTMLAnchorElement>('[data-lr-for]')];
+		const targets = links.flatMap((a) => document.getElementById(a.dataset.lrFor ?? '') ?? []);
+		const mark = () => {
+			// The last target whose top has passed a line a third of the way down: the one being read.
+			const line = innerHeight / 3;
+			const at = (ids: string[]) =>
+				targets.filter((el) => ids.includes(el.id)).findLast((el) => el.getBoundingClientRect().top <= line);
+			const sections = links.filter((a) => !a.dataset.lrFor?.startsWith('files-')).map((a) => a.dataset.lrFor ?? '');
+			const section = at(sections) ?? targets[0];
+			const product =
+				section?.id === 'files'
+					? at(links.filter((a) => a.dataset.lrFor?.startsWith('files-')).map((a) => a.dataset.lrFor ?? ''))
+					: undefined;
+			links.forEach((a) => {
+				const on = a.dataset.lrFor === section?.id || a.dataset.lrFor === product?.id;
+				if (on) a.setAttribute('aria-current', 'true');
+				else a.removeAttribute('aria-current');
+			});
+			nav.dataset.open = String(section?.id === 'files');
+		};
+		let queued = false;
+		addEventListener(
+			'scroll',
+			() => {
+				if (queued) return;
+				queued = true;
+				requestAnimationFrame(() => {
+					queued = false;
+					mark();
+				});
+			},
+			{ passive: true }
+		);
+		mark();
+	});
+</script>
+
 <style lang="scss">
 	@use '../../../styles/variables' as *;
 	@use 'kit';
 
 	$line: rgba(23, 24, 28, 0.08);
 
-	// The room's bar, in the area bar's lower row: the same height and edge as on the room's other pages.
-	.lr-roombar {
-		height: 60px;
-		padding-inline: 24px;
-		border-top: 1px solid var(--color-border, #ebebeb);
-	}
-
-	// The kit's box, so the room's mark starts where the page's content does.
-	.lr-roombar__in {
-		display: flex;
-		height: 100%;
-		max-width: 1280px;
-		margin-inline: auto;
-		padding-inline: 24px;
-	}
-
 	// Under the area bar and the room's bar (108px together), not behind them: the side navigation sticks
 	// below both, and a section an anchor jumps to starts clear of them.
 	.kit__nav {
 		top: 132px;
+	}
+
+	// The side menu: a section per row with its icon, the current one in ink; Files by product opens into
+	// its products while it is in view, each a thumbnail, a name and a count. Taller than the window, it
+	// scrolls on its own. Narrow, the kit's row of links stands in, the products as the chips above them.
+	.lr-nav {
+		max-height: calc(100vh - 156px);
+		overflow: hidden auto;
+		overscroll-behavior: contain;
+		scrollbar-width: thin;
+
+		ul {
+			gap: 2px;
+		}
+
+		a {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 6px 10px;
+			border-radius: 10px;
+			transition:
+				background-color 0.15s,
+				color 0.15s;
+
+			> :global(svg) {
+				flex: none;
+				width: 18px;
+				height: 18px;
+				color: var(--color-text-light);
+			}
+
+			span {
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			small {
+				margin-left: auto;
+				padding-left: 8px;
+				color: var(--color-text-light);
+				font-size: 12px;
+				font-variant-numeric: tabular-nums;
+			}
+
+			&[aria-current='true'] {
+				background: var(--color-text);
+				color: #fff;
+
+				> :global(svg),
+				small {
+					color: rgba(255, 255, 255, 0.7);
+				}
+			}
+		}
+
+		@include media-down(lg) {
+			max-height: none;
+			overflow: visible;
+
+			a small,
+			.lr-nav__sub {
+				display: none;
+			}
+		}
+	}
+
+	// Two classes, to outweigh the kit's own list reset.
+	.lr-nav .lr-nav__sub {
+		display: none;
+		margin: 4px 0 8px 19px;
+		padding-left: 10px;
+		border-left: 1px solid $line;
+
+		a {
+			gap: 8px;
+			padding: 4px 8px;
+			font-size: 13px;
+
+			&[aria-current='true'] {
+				background: rgba(23, 24, 28, 0.06);
+				color: var(--color-text);
+
+				small {
+					color: var(--color-text-secondary);
+				}
+			}
+		}
+
+		img {
+			flex: none;
+			width: 18px;
+			height: 18px;
+			object-fit: contain;
+		}
+	}
+
+	// Open only where the menu is a column; narrow, the products are the chips above the files.
+	.lr-nav[data-open='true'] .lr-nav__sub {
+		@include media-up(lg) {
+			display: grid;
+		}
 	}
 
 	.kit-sec,
@@ -741,7 +899,12 @@ const builtInAi = homeFeatures.find((f) => /\bAI\b/.test(f.title));
 
 	// ── Files ──
 	.lr-jump {
-		display: flex;
+		display: none;
+
+		@include media-down(lg) {
+			display: flex;
+		}
+
 		flex-wrap: wrap;
 		gap: 6px;
 		margin: 0;

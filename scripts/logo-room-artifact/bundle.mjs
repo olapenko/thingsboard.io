@@ -1,6 +1,6 @@
 /**
- * The Logo Room's client scripts as one file for the artifact: the `<script>` blocks of
- * `_LogoRoom.astro` and `_RoomTabs.astro`, bundled with esbuild (the copy Vite ships) and the repo's
+ * The Logo Room's client scripts as one file for the artifact: the `<script>` blocks of the room's
+ * components and of the About page (SCRIPTS below), bundled with esbuild (the copy Vite ships) and the repo's
  * path aliases, as `site/room.js`. The icon picker's fetch is pointed at the snapshot's own copy.
  *
  * Usage: node scripts/logo-room-artifact/bundle.mjs <out-dir>
@@ -26,9 +26,23 @@ const scriptOf = (file) => {
 
 const TMP = join(ROOT, 'scripts/logo-room-artifact/.entry');
 mkdirSync(TMP, { recursive: true });
-writeFileSync(join(TMP, 'tabs.ts'), scriptOf('src/pages/internal/design-system/_RoomTabs.astro'));
-writeFileSync(join(TMP, 'room.ts'), scriptOf('src/pages/internal/design-system/_LogoRoom.astro'));
-writeFileSync(join(TMP, 'entry.ts'), "import './tabs';\nimport './room';\n");
+/** Every file whose `<script>` the snapshot runs; each guards itself, so all of them load on every page. */
+const SCRIPTS = {
+	tabs: '_RoomTabs.astro',
+	toc: '_RoomToc.astro',
+	hero: '_PageHero.astro',
+	room: '_LogoRoom.astro',
+	about: 'logos/about.astro',
+};
+Object.entries(SCRIPTS).forEach(([name, file]) =>
+	writeFileSync(join(TMP, `${name}.ts`), scriptOf(`src/pages/internal/design-system/${file}`))
+);
+writeFileSync(
+	join(TMP, 'entry.ts'),
+	Object.keys(SCRIPTS)
+		.map((n) => `import './${n}';\n`)
+		.join('')
+);
 
 const result = await build({
 	entryPoints: [join(TMP, 'entry.ts')],

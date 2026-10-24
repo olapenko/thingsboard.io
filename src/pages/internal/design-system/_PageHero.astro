@@ -1,39 +1,45 @@
 ---
 /**
  * A Logo Room page's hero, under the room's bar: a light band the width of the window, a dot grid
- * fading out from its left, then the page's kicker, its title, its lede and any facts. The Overview's
- * dark hero, made quiet. Bench, Spec and Files open with it; what a page adds under it goes in the slot.
+ * fading out from its left, then the page's title, its lede and its contents. The Overview's
+ * dark hero, made quiet. Guidelines, the Studio, Files and About open with it; what a page adds under it goes in the slot.
  *
  * `pull` lifts the band by that many pixels, so it starts flush under the bar wherever the page puts it.
  * `kit` lines the text up with the lab's kit layout (the Files page): a 1280px box, centred, 24px in.
- * `toc` lists the page's sections as a row of chips under the lede: the room's bar names them too,
- * but only on a desktop and only once you scroll; this is where a reader starts.
+ * `colours` washes the band's right side in those colours, a soft glow each, fading before the text:
+ * the set's own colours, for a page about the set as a whole.
+ * `ribbon` lays a thin striped band along the band's top, flush under the bar: the back office's sign,
+ * for a page that is the room's workings rather than its guidance (Files).
+ * `toc` lists the page's sections as a row of chips under the lede, below 1280; from there up the room's
+ * floating chips (_RoomToc) take over, so a page never shows both.
  */
 interface Props {
-	kicker?: string;
 	title: string;
 	lede?: string;
-	meta?: string[];
 	pull?: number;
 	kit?: boolean;
 	toc?: { id: string; label: string }[];
+	colours?: string[];
+	ribbon?: boolean;
 }
 
-const { kicker, title, lede, meta = [], pull = 108, kit = false, toc = [] } = Astro.props;
+const { title, lede, pull = 108, kit = false, toc = [], colours = [], ribbon = false } = Astro.props;
+/** A glow per colour, spread over the band's right half, alternating high and low. */
+const wash = colours
+	.map((c, i) => {
+		const x = 52 + (i * 44) / Math.max(colours.length - 1, 1);
+		const y = i % 2 === 0 ? 28 : 78;
+		return `radial-gradient(34% 70% at ${x.toFixed(0)}% ${y}%, color-mix(in srgb, ${c} 26%, transparent), transparent 72%)`;
+	})
+	.join(', ');
 ---
 
 <header class:list={['ph', kit && 'ph--kit']} style={`--ph-pull: ${pull}px`}>
+	{wash && <span class="ph__wash" style={`background-image: ${wash}`} aria-hidden="true" />}
+	{ribbon && <span class="ph__ribbon" aria-hidden="true" />}
 	<div class="ph__in">
-		{kicker && <p class="ph__kicker">{kicker}</p>}
 		<h1>{title}</h1>
 		{lede && <p class="ph__lede">{lede}</p>}
-		{meta.length > 0 && (
-			<p class="ph__meta">
-				{meta.map((m) => (
-					<span>{m}</span>
-				))}
-			</p>
-		)}
 		{toc.length > 0 && (
 			<nav class="ph__toc" aria-label="On this page">
 				{toc.map((s) => (
@@ -45,14 +51,21 @@ const { kicker, title, lede, meta = [], pull = 108, kit = false, toc = [] } = As
 	</div>
 </header>
 
+<script>
+	import { trackScrollbar } from '@root/pages/internal/design-system/_bleed';
+
+	trackScrollbar();
+</script>
+
 <style lang="scss">
 	@use '../../../styles/variables' as *;
 
 	.ph {
 		position: relative;
 		isolation: isolate;
-		margin: calc(-1 * var(--ph-pull)) calc(50% - 50vw) 8px;
-		padding: 72px calc(50vw - 50%) 44px;
+		// The width of the window less its scrollbar (`--sbw`, _bleed.ts), so it never scrolls the page sideways.
+		margin: calc(-1 * var(--ph-pull)) calc(50% - 50vw + var(--sbw, 0px) / 2) 8px;
+		padding: 72px calc(50vw - 50% - var(--sbw, 0px) / 2) 44px;
 		background: linear-gradient(180deg, #f4f5f7 0%, #fff 100%);
 
 		@include media-down(md) {
@@ -76,6 +89,31 @@ const { kicker, title, lede, meta = [], pull = 108, kit = false, toc = [] } = As
 		}
 	}
 
+	// The colour wash: under the dot grid, faded out toward the text on the left.
+	.ph__wash {
+		position: absolute;
+		z-index: -2;
+		inset: 0;
+		-webkit-mask-image: linear-gradient(90deg, transparent 30%, #000 70%);
+		mask-image: linear-gradient(90deg, transparent 30%, #000 70%);
+	}
+
+	// The back office's ribbon: diagonal amber and ink, as on a works barrier, muted to sit in the band;
+	// the window's full width, and short.
+	.ph__ribbon {
+		position: absolute;
+		top: 0;
+		right: 0;
+		left: 0;
+		height: 8px;
+		background: repeating-linear-gradient(
+			-45deg,
+			color-mix(in srgb, #f5b800 42%, #fff) 0 10px,
+			color-mix(in srgb, #17181c 14%, #fff) 10px 20px
+		);
+		box-shadow: inset 0 -1px 0 rgba(23, 24, 28, 0.06);
+	}
+
 	.ph__in {
 		display: grid;
 		justify-items: start;
@@ -91,13 +129,6 @@ const { kicker, title, lede, meta = [], pull = 108, kit = false, toc = [] } = As
 			margin-inline: auto;
 			padding-inline: 24px;
 		}
-	}
-
-	.ph__kicker {
-		@include type-eyebrow;
-
-		margin: 0;
-		color: var(--color-text-secondary);
 	}
 
 	.ph__lede {
@@ -135,20 +166,9 @@ const { kicker, title, lede, meta = [], pull = 108, kit = false, toc = [] } = As
 				outline-offset: 2px;
 			}
 		}
-	}
 
-	.ph__meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-		margin: 6px 0 0;
-
-		span {
-			padding: 3px 10px;
-			border-radius: 100px;
-			background: rgba(23, 24, 28, 0.05);
-			color: var(--color-text-secondary);
-			font-size: 12px;
+		@include media-up(xl) {
+			display: none;
 		}
 	}
 </style>

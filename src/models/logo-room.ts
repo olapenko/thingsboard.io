@@ -107,14 +107,40 @@ export const logoRoundSchema = z.object({
 	opened: z.coerce.date(),
 	decided: z.coerce.date().optional(),
 	title: z.string(),
-	/** Its annotation on the bench, under the Set picker: what the set proposes and what it builds on. */
+	/** Its annotation in the Studio, under the set's name: what the set proposes and what it builds on. */
 	summary: z.string(),
 	/** One candidate per mark it settles, with the reason. */
 	picks: z.array(z.object({ mark: z.string(), candidate: z.string(), why: z.string() })).default([]),
 	/** Marks under review with no pick yet. */
 	reviews: z.array(z.string()).default([]),
-	/** What a new drawing in this round has to meet. */
-	brief: z.array(z.string()).default([]),
+	/**
+	 * What the round decides and what a new drawing in it has to meet: short topics, each a few terse
+	 * points (a mark, a colour, the redraws), or a plain line where a topic would be too much.
+	 */
+	brief: z
+		.array(z.union([z.string(), z.object({ topic: z.string().max(40), points: z.array(z.string()).min(1) })]))
+		.default([]),
+	/**
+	 * The directions it weighs side by side before any pick: each a short name, what it means, and the
+	 * marks it works on. `art: mascot` draws the AI mascot in place of marks, for a route that is a
+	 * character rather than a mark.
+	 */
+	routes: z
+		.array(
+			z.object({
+				name: z.string().max(24),
+				what: z.string(),
+				marks: z.array(z.string()).default([]),
+				art: z.enum(['mascot']).optional(),
+			})
+		)
+		.default([]),
+	/**
+	 * The colours it proposes for the set, as departures from today's: mark → its new colour on light.
+	 * The Studio tries them all at once from the round's card; deciding the round moves them into the
+	 * theme's `--color-product-*` tokens, with their dark values.
+	 */
+	palette: z.record(z.string(), z.string().regex(/^#[0-9a-f]{6}$/)).default({}),
 	/** The set it proposes, as departures from the shipped one: mark → material. */
 	set: z.record(z.string(), logoMaterialSchema).default({}),
 	/**
@@ -136,6 +162,33 @@ export const logoRoundSchema = z.object({
 		.default([]),
 });
 export type LogoRound = z.infer<typeof logoRoundSchema>;
+
+/** A colour as a token would hold it: a light value and a dark one, each a six-digit hex. */
+const hexSchema = z.string().regex(/^#[0-9a-f]{6}$/);
+
+/**
+ * `palette.md`: colours proposed for the set that no product wears yet, each with the token it would
+ * become and its light and dark values. The Studio writes it (Copy as patch); deciding one moves it
+ * into `src/styles/_theme.scss` and deletes it here.
+ */
+export const logoPaletteSchema = z.object({
+	proposed: z
+		.array(
+			z.object({
+				name: z.string().min(1).max(32),
+				token: z.string().regex(/^--color-product-[a-z0-9]+(-[a-z0-9]+)*$/),
+				light: hexSchema,
+				dark: hexSchema,
+				/** A secondary: the mark whose colour it seconds, as the second tone of two-tone artwork. */
+				of: z
+					.string()
+					.regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+					.optional(),
+			})
+		)
+		.default([]),
+});
+export type LogoPalette = z.infer<typeof logoPaletteSchema>;
 
 /** What the room sends to Save to repo: one mark's proposal and notes, whole, to replace the file's. */
 export const logoSaveSchema = z.object({

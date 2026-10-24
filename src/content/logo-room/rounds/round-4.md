@@ -1,70 +1,36 @@
 ---
 label: Round 4
-name: Plan shades
+name: AI visuals
 state: open
 opened: 2026-10-24
-title: 'The License Portal: plans in shades'
-summary: 'Builds on Round 3: each plan is told by a shade of its product’s tile, On-premises on White, Cloud on its Colour tile, Private Cloud on Dark tint.'
+title: 'The AI, reviewed: the CLI as a product, and a mascot'
+summary: 'The AI’s marks under review: the CLI as a product, or a mascot for the chat.'
+reviews:
+  - cli
+  - ai-core
+  - assistant
+routes:
+  - name: Marks
+    what: 'The AI stays a family of app icons. The CLI becomes a product: a mark of its own wherever it is offered, its docs, its package page, a terminal tab, not only in the AI section. The AI core and the Assistant are settled beside it.'
+    marks:
+      - cli
+      - ai-core
+      - assistant
+  - name: Mascot
+    what: 'A character for the chat: the AI core’s tile with a face, its sparkle worn on top. It speaks for the AI in the chat and on the launcher, in moods as it answers; the products keep their marks.'
+    art: mascot
 brief:
-  - 'The License Portal sells the self-hosted ThingsBoard by plan: subscription (Pilot, Startup, Business), perpetual (Commercial) and free (Free, Development, Non-commercial). Each plan card needs a mark.'
-  - 'On-premises: one mark for all its plans, the neutral platform mark on a White tile (Round 3’s A); the plan is told by its shade, a 155° gradient that deepens with the plan, pure white for the free ones.'
-  - 'On a dark page the same ladder runs on the Dark tile, from flat near-black to a lit graphite, as the portal’s Commercial card already does.'
-  - 'Colour coding is tried, not assumed: the ladder is drawn in graphite and in the brand indigo, side by side.'
-  - 'The shade has to read at 48 in a plan card; at 24, in a list, the plan’s name carries it.'
-  - 'Cloud and Private Cloud are one product in two versions, as the Cloud page says: shared infrastructure (Free to Business) or a dedicated, isolated cluster (Launch to Enterprise). They share Cloud’s mark, and never take the White tile, which would read as the platform.'
-  - 'Their messages differ as the versions do: Cloud is the quickest start, for prototypes, MVPs and production up to a few thousand devices; Private Cloud is for enterprises, regulated industries and mission-critical fleets, with its own SLA and region. The tile says shared or dedicated: Cloud on its indigo Colour tile, lighter on the lower plans; Private Cloud on the Dark tint tile, indigo in the dark, deeper at every step. The shade says the plan.'
-  - 'North America and Europe are the same plans in dollars and euros: a region is not a version and takes no mark.'
-set:
-  mobile: dark
-  onprem: white
-scope:
-  - group: On-premises · free
-    plans:
-      - name: Free
-        shade: 0
-      - name: Non-commercial
-        shade: 0
-      - name: Development
-        shade: 1
-  - group: On-premises · subscription
-    plans:
-      - name: Pilot
-        shade: 2
-      - name: Startup
-        shade: 3
-      - name: Business
-        shade: 4
-  - group: On-premises · perpetual
-    note: As deep as Business; the portal’s dark card tells it apart.
-    plans:
-      - name: Commercial
-        shade: 4
-  - group: Cloud · shared
-    note: Same plans in North America and Europe.
-    tile: colour
-    mark: cloud
-    plans:
-      - name: Free
-        shade: 0
-      - name: Prototype
-        shade: 1
-      - name: Pilot
-        shade: 2
-      - name: Startup
-        shade: 3
-      - name: Business
-        shade: 4
-  - group: Private Cloud · dedicated
-    note: Cloud’s mark on a dedicated cluster; Enterprise is custom.
-    tile: darktint
-    mark: cloud
-    plans:
-      - name: Launch
-        shade: 1
-      - name: Growth
-        shade: 2
-      - name: Scale
-        shade: 3
-      - name: Enterprise
-        shade: 4
+  - Both routes are drawn before either is picked; they can also be taken together.
+  - topic: CLI
+    points:
+      - 'Holds outside the AI section: White, Colour and Dark tiles, a 16px glyph.'
+      - Keeps its violet and prompt unless a drawing beats them; never the sparkle.
+  - topic: AI core
+    points:
+      - 'Settles the launcher: the AI core, or the help mark.'
+  - topic: Mascot
+    points:
+      - Never a product mark.
+      - 'Three moods at least, waiting, thinking, answered, and a still one.'
+      - 'Drawn from the AI core: the same indigo, the same sparkle.'
 ---

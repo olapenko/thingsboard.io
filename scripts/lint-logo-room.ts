@@ -4,9 +4,19 @@
  *
  *   - marks: a unique `order`; candidate ids unique, `current` first; a proposal that only repeats a
  *     decided status; notes in order
- *   - rounds: names unique; the marks they pick, review and set exist; a pick names a drawn candidate of its mark;
+ *   - rounds: names unique; the marks they pick, review, set, route through and recolour exist; a
+ *     palette colour holds 3:1 against white, as a Colour tile's white mark needs; a pick names a drawn candidate of its mark;
  *     no mark both picked and reviewed; no mark in two open rounds; an open round has no `decided`
  *     date and a decided one has one, not before it opened
+ *
+ *   - artwork: each file in `marks/<mark>/` is `<candidate>.svg` for a candidate of that mark (not
+ *     `current`), with a viewBox; a candidate with a file is no longer `toDraw`
+ *   - palette.md: each proposed colour's token unique and not in the theme yet; its light value 3:1 on
+ *     white, its dark value 3:1 on night; its writer, tried as the marks' is below
+ *   - the patch writer (what Copy as patch and Save to repo write), tried on every mark: a probe
+ *     proposal comes out as a record the schema takes, still carrying the probe, and as a diff that
+ *     `git apply --check` takes against the file on disk; a record's own proposal written twice is
+ *     written the same
  *
  * Whether a record and the room's drawings agree (a status needs a drawing) is checked by the room
  * itself, as it renders: `pnpm dev`, or a build.
@@ -15,11 +25,25 @@
  *   pnpm lint:logoroom
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
-import { logoMarkSchema, logoRoundSchema, type LogoMark, type LogoRound } from '../src/models/logo-room.ts';
+import {
+	logoMarkSchema,
+	logoPaletteSchema,
+	logoRoundSchema,
+	type LogoMark,
+	type LogoRound,
+} from '../src/models/logo-room.ts';
+import {
+	PALETTE_PATH,
+	unifiedDiff,
+	writePalette,
+	writeProposal,
+	type RecordProposal,
+} from '../src/util/logo-room-records.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = join(ROOT, 'src/content/logo-room');
@@ -77,6 +101,20 @@ for (const [id, { file, data }] of marks) {
 	if (times.some((t, i) => i > 0 && t < times[i - 1])) report(file, 'notes are not oldest first');
 }
 
+/** WCAG 2 contrast between two #rrggbb colours; against white by default. */
+const contrastOf = (hex: string, ground = '#ffffff') => {
+	const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+	const lum = (h: string) => {
+		const [r, g, b] = [1, 3, 5].map((i) => lin(parseInt(h.slice(i, i + 2), 16) / 255));
+		return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+	};
+	const [a, b] = [lum(hex), lum(ground)].sort((x, y) => y - x);
+	return (a + 0.05) / (b + 0.05);
+};
+const contrastOnWhite = (hex: string) => contrastOf(hex);
+/** The night the room's dark grounds stand for. */
+const NIGHT = '#0b0d1f';
+
 // ── Rounds ──
 const openRound = new Map<string, string>();
 const roundNames = new Map<string, string>();
@@ -85,8 +123,19 @@ for (const [id, { file, data }] of rounds) {
 	if (sameName) report(file, `name “${data.name}” is ${sameName}’s too`);
 	roundNames.set(data.name.toLowerCase(), id);
 
-	const named = [...data.picks.map((p) => p.mark), ...data.reviews, ...Object.keys(data.set)];
+	const named = [
+		...data.picks.map((p) => p.mark),
+		...data.reviews,
+		...Object.keys(data.set),
+		...data.routes.flatMap((r) => r.marks),
+		...Object.keys(data.palette),
+	];
 	named.filter((m) => !marks.has(m)).forEach((m) => report(file, `no mark “${m}” in marks/`));
+
+	for (const [mark, hex] of Object.entries(data.palette)) {
+		const ratio = contrastOnWhite(hex);
+		if (ratio < 3) report(file, `palette: ${mark}’s ${hex} is ${ratio.toFixed(1)}:1 on white, under 3:1`);
+	}
 
 	for (const pick of data.picks) {
 		const candidate = marks.get(pick.mark)?.data.candidates.find((c) => c.id === pick.candidate);
@@ -104,6 +153,121 @@ for (const [id, { file, data }] of rounds) {
 		}
 	} else if (!data.decided) report(file, 'a decided round needs its decided date');
 	else if (data.decided < data.opened) report(file, 'decided before it opened');
+}
+
+// ── Artwork: marks/<mark>/<candidate>.svg, drawn by the room as that candidate ──
+const marksDir = join(DIR, 'marks');
+for (const name of readdirSync(marksDir).sort()) {
+	const folder = join(marksDir, name);
+	if (!statSync(folder).isDirectory()) continue;
+	const mark = marks.get(name);
+	if (!mark) {
+		report(folder, 'a folder of artwork for no mark');
+		continue;
+	}
+	for (const file of readdirSync(folder).sort()) {
+		const at = join(folder, file);
+		const id = file.replace(/\.svg$/, '');
+		if (!file.endsWith('.svg')) report(at, 'artwork is an .svg named for its candidate');
+		else if (id === 'current') report(at, 'the current drawing is the shipped one, not a file here');
+		else if (!mark.data.candidates.some((c) => c.id === id)) report(at, `no candidate “${id}” in ${name}.md`);
+		else if (!/viewBox="[^"]+"/.test(readFileSync(at, 'utf8'))) report(at, 'needs a viewBox');
+	}
+}
+for (const [name, { file, data }] of marks) {
+	for (const c of data.candidates) {
+		if (c.toDraw && existsSync(join(marksDir, name, `${c.id}.svg`)))
+			report(file, `candidate ${c.id} has its drawing now: drop toDraw`);
+	}
+}
+
+// ── palette.md: colours proposed for the set ──
+const paletteFile = join(ROOT, PALETTE_PATH);
+const paletteRaw = existsSync(paletteFile) ? readFileSync(paletteFile, 'utf8') : '';
+if (!paletteRaw) report(paletteFile, 'missing: the Studio writes proposed colours here');
+else {
+	const front = paletteRaw.match(/^---\n([\s\S]*?)\n---(\n|$)/)?.[1];
+	const parsed = logoPaletteSchema.safeParse(parse(front ?? ''));
+	if (!parsed.success) report(paletteFile, 'does not match its schema (src/models/logo-room.ts)');
+	else {
+		const theme = readFileSync(join(ROOT, 'src/styles/_theme.scss'), 'utf8');
+		const seen = new Set<string>();
+		for (const c of parsed.data.proposed) {
+			if (seen.has(c.token)) report(paletteFile, `${c.token} is proposed twice`);
+			seen.add(c.token);
+			if (theme.includes(`${c.token}:`)) report(paletteFile, `${c.token} is a token already`);
+			const light = contrastOf(c.light);
+			const dark = contrastOf(c.dark, NIGHT);
+			if (light < 3) report(paletteFile, `${c.name}: ${c.light} is ${light.toFixed(1)}:1 on white, under 3:1`);
+			if (dark < 3) report(paletteFile, `${c.name}: ${c.dark} is ${dark.toFixed(1)}:1 on night, under 3:1`);
+			if (c.of && !marks.has(c.of)) report(paletteFile, `${c.name}: seconds ${c.of}, which is not a mark`);
+		}
+		const seconded = parsed.data.proposed.flatMap((c) => (c.of ? [c.of] : []));
+		for (const id of new Set(seconded.filter((id, i) => seconded.indexOf(id) !== i)))
+			report(paletteFile, `${id} has two secondaries: two tones at most`);
+		// Its writer: the file's own colours written back are the file; a probe comes through and applies.
+		if (writePalette(paletteRaw, parsed.data.proposed) !== paletteRaw)
+			report(paletteFile, 'palette writer: its own colours, written back, change the file');
+		const probe = {
+			name: `A probe's "colour"`,
+			token: '--color-product-probe',
+			light: '#3d50f5',
+			dark: '#b3c7ff',
+			of: 'platform',
+		};
+		const probed = writePalette(paletteRaw, [...parsed.data.proposed, probe]);
+		const back = logoPaletteSchema.safeParse(parse(probed.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? ''));
+		if (!back.success || !back.data.proposed.some((c) => c.name === probe.name && c.of === probe.of))
+			report(paletteFile, 'palette writer: the probe did not come through');
+		const check = spawnSync('git', ['apply', '--check', '-'], {
+			cwd: ROOT,
+			input: unifiedDiff(PALETTE_PATH, paletteRaw, probed),
+		});
+		if (check.status !== 0)
+			report(
+				paletteFile,
+				`palette writer: git apply refuses its diff (${check.stderr.toString().trim().split('\n')[0]})`
+			);
+	}
+}
+
+// ── The patch writer ──
+/** A proposal with a status, a colour and a note that quotes and colons can trip. */
+const PROBE = {
+	treatments: { white: 'exploring' },
+	colour: '#3d50f5',
+	note: { at: '2026-01-01T00:00:00.000Z', text: `A probe's note, "quoted": with a colon` },
+} as const;
+for (const { file, data } of marks.values()) {
+	const raw = readFileSync(file, 'utf8');
+	const own: RecordProposal = {
+		treatments: data.proposed?.treatments ?? {},
+		colour: data.proposed?.colour,
+		notes: data.notes.map((n) => ({ at: n.at.toISOString(), text: n.text })),
+	};
+	const once = writeProposal(raw, own);
+	if (writeProposal(once, own) !== once) report(file, 'patch writer: its own proposal, written twice, changes');
+
+	const probed = writeProposal(raw, {
+		treatments: { ...own.treatments, ...PROBE.treatments },
+		colour: PROBE.colour,
+		notes: [...own.notes, PROBE.note],
+	});
+	const parsed = logoMarkSchema.safeParse(parse(probed.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? ''));
+	if (!parsed.success) report(file, 'patch writer: the record it writes fails the schema');
+	else if (
+		parsed.data.proposed?.treatments.white !== PROBE.treatments.white ||
+		parsed.data.proposed?.colour !== PROBE.colour ||
+		!parsed.data.notes.some((n) => n.text === PROBE.note.text)
+	)
+		report(file, 'patch writer: the probe did not come through');
+
+	const check = spawnSync('git', ['apply', '--check', '-'], {
+		cwd: ROOT,
+		input: unifiedDiff(relative(ROOT, file), raw, probed),
+	});
+	if (check.status !== 0)
+		report(file, `patch writer: git apply refuses its diff (${check.stderr.toString().trim().split('\n')[0]})`);
 }
 
 if (problems.length > 0) {

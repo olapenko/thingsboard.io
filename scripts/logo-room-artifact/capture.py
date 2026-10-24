@@ -1,6 +1,7 @@
-"""The Logo Room as a claude.ai artifact: its four pages from the dev server, working.
+"""The Logo Room as a claude.ai artifact: its five pages from the dev server, working.
 
-Overview, Bench, Spec and Files become index.html, bench.html, spec.html and files.html in site/.
+Overview, Guidelines, Studio, Files and About become index.html, guidelines.html, studio.html, files.html and
+about.html in site/.
 Their dev styles move to shared css/<hash>.css files and Ubuntu comes from Google Fonts. The room's
 scripts come along, bundled as room.js (bundle.mjs), with the Tabler icons for the new-mark picker
 beside them; the lab's scripts and chrome stay behind. shell.js carries the room's address between
@@ -31,9 +32,10 @@ FONTS = (
 # The room's pages: where the dev server has them, the file each becomes, its tab title.
 PAGES = [
     ('/internal/design-system/logos/', 'index.html', 'Logo Room'),
-    ('/internal/design-system/logos/bench/', 'bench.html', 'Bench · Logo Room'),
-    ('/internal/design-system/logos/spec/', 'spec.html', 'Spec · Logo Room'),
+    ('/internal/design-system/logos/guidelines/', 'guidelines.html', 'Guidelines · Logo Room'),
+    ('/internal/design-system/logos/studio/', 'studio.html', 'Studio · Logo Room'),
     ('/internal/design-system/logo-files/', 'files.html', 'Files · Logo Room'),
+    ('/internal/design-system/logos/about/', 'about.html', 'About · Logo Room'),
 ]
 LOCAL = {path: file for path, file, _ in PAGES}
 EXT = {'image/svg+xml': 'svg', 'image/png': 'png', 'image/webp': 'webp', 'image/jpeg': 'jpg', 'font/woff2': 'woff2'}

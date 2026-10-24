@@ -68,6 +68,54 @@ export function writeProposal(raw: string, p: RecordProposal): string {
 	return `---\n${[...kept, ...(blocks ? [blocks] : [])].join('\n')}\n---${m[2] ?? '\n'}`;
 }
 
+/** A colour proposed for the set, as `palette.md` holds it. */
+export interface PaletteColour {
+	name: string;
+	token: string;
+	light: string;
+	dark: string;
+	/** A secondary: the mark whose colour it seconds. */
+	of?: string;
+}
+
+export const PALETTE_PATH = 'src/content/logo-room/palette.md';
+
+/** The token a named colour would become: `--color-product-` and its name in lowercase words. */
+export const tokenOf = (name: string) =>
+	`--color-product-${
+		name
+			.toLowerCase()
+			.normalize('NFKD')
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-+|-+$/g, '') || 'colour'
+	}`;
+
+/** `palette.md` with its `proposed` block replaced by these colours; the rest of the file as it was. */
+export function writePalette(raw: string, colours: PaletteColour[]): string {
+	const m = raw.match(/^---\n([\s\S]*?)\n---(\n[\s\S]*)?$/);
+	if (!m) throw new Error('Not a record: no frontmatter');
+	const kept: string[] = [];
+	let skipping = false;
+	for (const line of m[1].split('\n')) {
+		if (/^\S/.test(line)) skipping = /^proposed:/.test(line);
+		if (!skipping) kept.push(line);
+	}
+	const block =
+		colours.length === 0
+			? ['proposed: []']
+			: [
+					'proposed:',
+					...colours.flatMap((c) => [
+						`  - name: ${quote(c.name)}`,
+						`    token: ${c.token}`,
+						`    light: ${quote(c.light)}`,
+						`    dark: ${quote(c.dark)}`,
+						...(c.of ? [`    of: ${c.of}`] : []),
+					]),
+				];
+	return `---\n${[...kept, ...block].join('\n')}\n---${m[2] ?? '\n'}`;
+}
+
 /** Notes from the file and from this browser, once each, oldest first. */
 export const mergeNotes = (...lists: RecordNote[][]) =>
 	[...new Map(lists.flat().map((n) => [`${n.at}|${n.text}`, n])).values()].sort((a, b) => a.at.localeCompare(b.at));

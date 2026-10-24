@@ -1,22 +1,26 @@
 ---
 label: Round 2
-name: Set update
+name: Two products
 state: open
 opened: 2026-10-24
-title: 'The set update: TBMQ, Trendz and Community Edition'
-summary: 'Builds on Round 1 and puts TBMQ, Trendz and Community Edition under review: new drawings, made to one brief.'
+title: 'Two products: ThingsBoard and ThingsBoard Cloud, with Private Cloud'
+summary: 'Builds on Round 1: ThingsBoard self-hosted on White, Cloud on its indigo, Private Cloud on Dark tint.'
 reviews:
-  - tbmq
-  - trendz
-  - community
+  - onprem
 brief:
-  - 'One drawing grid: the art box Mark sizes, centred, no wider than 3:2.'
-  - Two tones at most, so the Glyph and the knockout keep the structure.
-  - 'Reads as a 16px glyph: no pale fill that vanishes on a light tab.'
-  - Holds on the White, Colour and Dark tiles, and passes the checks at 3:1 on every ground.
-  - 'Community Edition: its own drawing, or the logo on CE navy as Cloud does it, with a dark value that holds on Dark.'
-  - Edge and IoT Gateway are redrawn only if the new marks make them look off.
+  - Two products, ThingsBoard and ThingsBoard Cloud; the marks say self-hosted and hosted.
+  - topic: On-premises
+    points:
+      - The neutral platform mark on White (A), or the logomark in green on white (B).
+      - Gives up its green tile, and the green it shares with the Mobile app.
+  - topic: Cloud
+    points:
+      - Keeps its indigo Colour tile.
+  - topic: Private Cloud
+    points:
+      - 'Cloud on a dedicated cluster, with its own SLA and region: a version, not a product.'
+      - Cloud’s mark on the Dark tint tile; never White.
+      - The tile tells shared from dedicated; Round 3 shades each by plan.
 set:
-  mobile: dark
-  community: colour
+  onprem: white
 ---

@@ -124,7 +124,7 @@ export const DESIGN: DesignPage[] = [
 		id: 'logos',
 		label: 'Logos',
 		blurb:
-			'The Logo Room: the product marks as a system, over three pages and the files. Overview shows the set under the logotype, current or to be, in use, and the open rounds; the Bench is where marks are tried, decided and noted, each opening as a sheet; the Spec holds the logotype, the map, the colours, the materials and their checks, and the vocabulary.',
+			'The Logo Room: the product marks as a system. Overview shows the set, current or to be, in use, and the open rounds; Guidelines hold the assets to download, the map, the colours, and the materials and their checks; the Studio is where marks are tried, decided and noted, each opening as a sheet; Files is the inventory; About explains the room, how to take part, and its vocabulary.',
 		icon: 'tabler:apps',
 		source: 'ui/Mark · data/marks.ts · homeProducts / homeEcosystem · ai-visual.ts · _theme.scss',
 		sections: [

@@ -28,4 +28,12 @@ candidates:
   - id: b
     status: exploring
     note: Dark tile, the logo in its green
+  - id: c
+    status: exploring
+    note: 'The platform’s logo, as the platform wears it: White tile, the mark in ink'
+    material: white
+  - id: d
+    status: exploring
+    note: 'In a series, beside the other products: an alternative, smaller icon, so the platform’s logo does not appear twice'
+    toDraw: true
 ---

@@ -1,18 +1,23 @@
 /**
  * THE LOGO ROOM: Logos as a few pages instead of one, the shell of the standalone room that will be
- * shared on its own. Overview for anyone it is shared with; the Bench for deciding; the Spec for what
- * is settled and its rules; Files for the inventory and the legacy drawings. One component draws the
- * first three (`_LogoRoom.astro`, by `page`); Files is the Logo files page with the room's tabs on top.
+ * shared on its own. Overview for anyone it is shared with; Guidelines for what is settled, its rules
+ * and the assets; the Studio for deciding; Files for the inventory and the legacy drawings; About for
+ * proposing a change. In the order people need them, the most asked first. One component draws
+ * Overview, Guidelines and the Studio (`_LogoRoom.astro`, by `page`); Files is the Logo files page with
+ * the room's tabs on top. The ids are the code's (`spec` is Guidelines, `bench` the Studio); the labels
+ * and addresses are what people see.
  *
- * Each page's sections are its section bar; the tabs carry the address's query (the set on the bench)
+ * Each page's sections are its section bar; the tabs carry the address's query (the set in the Studio)
  * from page to page.
  */
-export type RoomPageId = 'overview' | 'bench' | 'spec' | 'files';
+export type RoomPageId = 'overview' | 'bench' | 'spec' | 'files' | 'about';
 
 export interface RoomPage {
 	id: RoomPageId;
 	label: string;
 	href: string;
+	/** Its icon beside its tab, a Tabler name; the Overview and About go without. */
+	icon?: string;
 	/** The page's sections, in order: its section bar. */
 	sections: { id: string; label: string }[];
 }
@@ -28,33 +33,48 @@ export const ROOM: RoomPage[] = [
 		sections: [],
 	},
 	{
-		id: 'bench',
-		label: 'Bench',
-		href: `${BASE}bench/`,
-		sections: [
-			{ id: 'workbench', label: 'Workbench' },
-			{ id: 'rounds', label: 'Rounds' },
-			{ id: 'experiments', label: 'Exploring' },
-			{ id: 'actions', label: 'Actions' },
-		],
-	},
-	{
 		id: 'spec',
-		label: 'Spec',
-		href: `${BASE}spec/`,
+		label: 'Guidelines',
+		href: `${BASE}guidelines/`,
+		icon: 'tabler:file-description',
 		sections: [
-			{ id: 'brand', label: 'Logotype' },
+			{ id: 'brand', label: 'Assets' },
 			{ id: 'map', label: 'Map' },
 			{ id: 'colour', label: 'Colour' },
 			{ id: 'fills', label: 'Materials' },
-			{ id: 'vocabulary', label: 'Vocabulary' },
+		],
+	},
+	{
+		id: 'bench',
+		label: 'Studio',
+		href: `${BASE}studio/`,
+		icon: 'tabler:tools',
+		sections: [
+			{ id: 'workbench', label: 'Canvas' },
+			{ id: 'rounds', label: 'Rounds' },
+			{ id: 'experiments', label: 'Ideas' },
+			{ id: 'actions', label: 'Actions' },
 		],
 	},
 	{
 		id: 'files',
 		label: 'Files',
 		href: '/internal/design-system/logo-files/',
+		icon: 'tabler:folders',
 		sections: [],
+	},
+	{
+		id: 'about',
+		label: 'About',
+		href: `${BASE}about/`,
+		sections: [
+			{ id: 'room', label: 'The room' },
+			{ id: 'how-to', label: 'How to' },
+			{ id: 'agent', label: 'With an agent' },
+			{ id: 'groups', label: 'Groups' },
+			{ id: 'maintainers', label: 'For maintainers' },
+			{ id: 'vocabulary', label: 'Vocabulary' },
+		],
 	},
 ];
 

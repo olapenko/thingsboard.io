@@ -13,6 +13,7 @@ and is never merged back. What a review decides is rebuilt as a `feat/` branch o
 | `lab` | `handoff` plus this sandbox. | Merges `handoff` after every layer (`git merge handoff` in the lab worktree), then its own commits |
 | `feat/<topic>` | One layer for `handoff`. Lowercase; deleted when merged. | PR into `handoff` |
 | `exp/<topic>` | An experiment for the sandbox. | PR into `lab`, or dropped |
+| `logo/<topic>` | One Logo Room proposal (a round, a mark, a fix), cut from `exp/logo-review` while the room lives there; the room's About page has the steps and a prompt for an agent. | PR into `exp/logo-review`, deleted when merged |
 
 `main` is in active development upstream while the redesign is built, so parts of `handoff`
 will be out of step with it at any time. That is expected: every sync's new commits
