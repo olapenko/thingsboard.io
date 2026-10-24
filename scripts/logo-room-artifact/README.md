@@ -4,9 +4,9 @@ The Logo Room (`/internal/design-system/logos/` on the lab) published on its own
 claude.ai artifact: https://claude.ai/artifact/LSxxpGErXUNFPoVC5noQTG. Share it from the page's Share menu;
 until then only its owner can open it.
 
-It shows `exp/logo-review` as last captured (25 Oct 2026, 0e6977a42): the renamed pages (Guidelines, Studio, About), the
-groups guide, the palette with its colour editor and secondaries, briefs by topic, sets of your own and the Files
-side menu. The tag in the bottom-left corner of every page names the branch, the commit and the capture date.
+It shows `exp/logo-review` as last captured (25 Oct 2026, 6b9186a19): the renamed pages (Guidelines, Studio, About), the
+groups guide, the palette with its colour editor and secondaries, briefs by topic, sets of your own, the Files
+side menu, and renaming, removing and adding marks as proposals. The tag in the bottom-left corner of every page names the branch, the commit and the capture date.
 
 ## What is in it
 
@@ -23,7 +23,7 @@ side menu. The tag in the bottom-left corner of every page names the branch, the
 | `css/`, `assets/` | the dev server | The pages' styles, and the nav sprite |
 
 Everything the lab page does works, except Save to repo: the set picker, grounds, sizes, sheets,
-proposed statuses, colour tries, notes, added colours and secondaries, sets of your own, the new mark (Tabler, the set's forms, an uploaded SVG), the
+proposed statuses, colour tries, notes, added colours and secondaries, sets of your own, renames and removals, draft marks, the new mark (Tabler, the set's forms, an uploaded SVG), the
 rounds, and Copy as patch.
 
 ## How it differs from the lab
