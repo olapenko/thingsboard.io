@@ -81,6 +81,8 @@ export const AREAS: Area[] = [
 			...DESIGN.filter((p) => !p.under).map((p) => ({
 				href: designHref(p),
 				label: p.label,
+				// Logos is the Logo Room: its Bench and Spec are pages under its address.
+				match: p.id === 'logos' ? designHref(p) : undefined,
 				also: DESIGN.filter((c) => c.under === p.id).map(designHref),
 			})),
 		],

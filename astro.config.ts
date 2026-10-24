@@ -6,6 +6,7 @@ import { redirects } from './astro.redirects';
 import { sidebar } from './astro.sidebar';
 import { devServerFileWatcher } from './config/integrations/dev-server-file-watcher';
 import { imageGalleryLightbox } from './config/integrations/image-gallery-lightbox';
+import { logoRoomSave } from './config/integrations/logo-room-save';
 import { sitemap } from './config/integrations/sitemap';
 import { satteriBlogImages } from './config/plugins/satteri-blog-images';
 import { satteriMdxIncludeHeadings } from './config/plugins/satteri-mdx-include-headings';
@@ -134,6 +135,7 @@ export default defineConfig({
 		assertIconOverrideApplied(),
 		icon(),
 		imageGalleryLightbox(),
+		logoRoomSave(),
 		devServerFileWatcher(['./config/**', './astro.sidebar.ts']),
 		starlight({
 			title: 'Docs',

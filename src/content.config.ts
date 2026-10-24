@@ -6,6 +6,7 @@ import { file, glob } from 'astro/loaders';
 import { logoKeys } from '@data/logos';
 import { Products } from '@models/site.models';
 import { announcementSchema } from '@models/announcement';
+import { logoMarkSchema, logoRoundSchema } from '@models/logo-room';
 import {
 	IOT_HUB_API_URL,
 	IOT_HUB_CATEGORIES,
@@ -238,6 +239,15 @@ export const collections = {
 				'recipesLink.plural': z.string().default('Related recipes:'),
 			}),
 		}),
+	}),
+	// The Logo Room's records (lab: /internal/design-system/logos/): a file per mark, a file per round.
+	logoMarks: defineCollection({
+		loader: glob({ pattern: '*.md', base: './src/content/logo-room/marks' }),
+		schema: logoMarkSchema,
+	}),
+	logoRounds: defineCollection({
+		loader: glob({ pattern: '*.md', base: './src/content/logo-room/rounds' }),
+		schema: logoRoundSchema,
 	}),
 	contributors: defineCollection({
 		loader: file('src/data/contributors.json'),

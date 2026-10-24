@@ -1,0 +1,207 @@
+---
+import { ROOM, type RoomPageId } from '@root/pages/internal/design-system/_room';
+
+/**
+ * The Logo Room's navigation: its name with a mark of its own — three tiles fanned, as a set is, the
+ * front one carrying a plus — then
+ * Overview, Bench, Spec and Files as tabs, the current one underlined at the bar's foot. Each link
+ * carries the address's query to the next page, so the set built on the bench travels with you.
+ */
+interface Props {
+	current: RoomPageId;
+}
+
+const { current } = Astro.props;
+---
+
+<div class="room" role="navigation" aria-label="Logo Room">
+	<a class="room__brand" href={ROOM[0].href} data-room-link>
+		<span class="room__mark" aria-hidden="true">
+			<i></i>
+			<i></i>
+			<i></i>
+		</span>
+		<span class="room__name">Logo Room</span>
+	</a>
+	<span class="room__tabs">
+		{ROOM.map((p) => (
+			<a href={p.href} data-room-link aria-current={p.id === current ? 'page' : undefined}>
+				{p.label}
+			</a>
+		))}
+	</span>
+</div>
+
+<script>
+	// The set and the view live in the query; a link takes them along — but not the mark open in the
+	// sheet, which belongs to the page it was opened on.
+	document.querySelectorAll<HTMLAnchorElement>('a[data-room-link]').forEach((a) =>
+		a.addEventListener('click', () => {
+			const q = new URLSearchParams(location.search);
+			q.delete('mark');
+			a.search = q.toString();
+		})
+	);
+</script>
+
+<style lang="scss">
+	@use '../../../styles/variables' as *;
+
+	.room {
+		display: flex;
+		flex: none;
+		align-self: stretch;
+		align-items: stretch;
+		gap: 28px;
+	}
+
+	.room__brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 12px;
+		color: var(--color-text);
+		text-decoration: none;
+
+		&:focus-visible {
+			border-radius: 8px;
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+	}
+
+	// The room's mark: three tiles fanned, as a set is — the dark at the back, the brand indigo, the
+	// white in front. Flat fills, a hairline where white meets the bar; on hover they open a little.
+	.room__mark {
+		position: relative;
+		width: 34px;
+		height: 24px;
+
+		i {
+			position: absolute;
+			top: 2px;
+			width: 20px;
+			height: 20px;
+			border-radius: 32%;
+			transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+		}
+
+		i:nth-child(1) {
+			left: 0;
+			z-index: 1;
+			background: #17181c;
+			transform: rotate(-8deg);
+		}
+
+		i:nth-child(2) {
+			left: 7px;
+			z-index: 2;
+			background: #3d50f5;
+		}
+
+		// The white tile in front carries a plus: the room is where a mark is added.
+		i:nth-child(3) {
+			left: 14px;
+			z-index: 3;
+			background: #fff;
+			box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.16);
+			transform: rotate(8deg);
+
+			&::before,
+			&::after {
+				content: '';
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				border-radius: 1px;
+				background: #17181c;
+				transform: translate(-50%, -50%);
+			}
+
+			&::before {
+				width: 8px;
+				height: 1.5px;
+			}
+
+			&::after {
+				width: 1.5px;
+				height: 8px;
+			}
+		}
+
+		.room__brand:hover & {
+			i:nth-child(1) {
+				transform: rotate(-12deg) translateX(-1.5px);
+			}
+
+			i:nth-child(3) {
+				transform: rotate(12deg) translateX(1.5px);
+			}
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			i {
+				transition: none;
+			}
+		}
+	}
+
+	.room__name {
+		font-size: 16px;
+		font-weight: $font-weight-bold;
+		letter-spacing: -0.01em;
+		white-space: nowrap;
+	}
+
+	// The tabs: text, the current one in the ink with a bar at the foot.
+	.room__tabs {
+		display: flex;
+		align-items: stretch;
+		gap: 20px;
+
+		a {
+			position: relative;
+			display: flex;
+			align-items: center;
+			color: var(--color-text-secondary);
+			font-size: 15px;
+			font-weight: $font-weight-medium;
+			text-decoration: none;
+			white-space: nowrap;
+			transition: color 0.15s;
+
+			&::after {
+				content: '';
+				position: absolute;
+				right: 0;
+				bottom: 0;
+				left: 0;
+				height: 2px;
+				border-radius: 2px 2px 0 0;
+				background: transparent;
+				transition: background-color 0.15s;
+			}
+
+			&:hover {
+				color: var(--color-text);
+
+				&::after {
+					background: rgba(23, 24, 28, 0.16);
+				}
+			}
+
+			&[aria-current='page'] {
+				color: var(--color-text);
+
+				&::after {
+					background: var(--color-text);
+				}
+			}
+
+			&:focus-visible {
+				border-radius: 6px;
+				outline: 2px solid var(--focus-ring);
+				outline-offset: 2px;
+			}
+		}
+	}
+</style>
