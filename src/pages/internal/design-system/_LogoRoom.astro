@@ -31,7 +31,7 @@ import { AI_COLUMNS, AI_COPY, aiBadgeCycleFor } from '@data/ai-visual';
 import { shippingComposition } from '@data/home-compositions';
 import { CHAT_HUES, CHAT_HUE_LEG_S, CHAT_LAUNCHER, LAUNCHER_BOX } from '@data/chat-widget';
 import { parse as parseYaml } from 'yaml';
-import { logoMarkSchema, type LogoMark, type LogoMaterial } from '@models/logo-room';
+import { logoMarkSchema, type LogoMark, type LogoMaterial, type LogoRound } from '@models/logo-room';
 import { markPath } from '@util/logo-room-records';
 
 /**
@@ -675,7 +675,8 @@ const EXPERIMENTS: Experiment[] = [
 		id: 'fan',
 		title: 'The set, overlapped',
 		action: 'Try for a compact “works with” row',
-		comment: 'Each tile ringed in the ground, the next one tucked under it.',
+		comment:
+			'Each tile overlaps the one before it and casts a shade on it; the white tiles keep their hairline on dark.',
 	},
 	{
 		id: 'lists',
@@ -858,6 +859,9 @@ function playOf(r: (typeof ROWS)[number]): PlayVariant[] {
 	const icon = ICON[r.id];
 	// White
 	if (r.white) add('white', [r.white.cell], r.white);
+	// On-premises on White is Round 3's A: the platform's own neutral tile, as its sets and notes say. B,
+	// the logomark in green, stays a candidate on its sheet.
+	else if (r.id === 'onprem') add('white', [ROWS.find((x) => x.id === 'platform')?.white?.cell]);
 	else if (r.id === 'community') add('white', [draft(CE_SVG, CE_ART, 'white', CE_HUE, 'wide')]);
 	else if (icon) add('white', [iconTile(icon, 'white', hue)]);
 	else add('white', [logoOn('white', hue)]);
@@ -941,6 +945,8 @@ interface Round {
 	reviews?: string[];
 	/** What a new drawing in this round has to meet. */
 	brief?: string[];
+	/** What it covers that is not a mark yet: plans, each with a shade. */
+	scope?: LogoRound['scope'];
 	m: Record<string, Material>;
 }
 /** The rounds, from their records: each a set, as departures from the shipped one. */
@@ -957,60 +963,150 @@ const ROUNDS: Round[] = ROUND_RECORDS.map(({ id, data }) => {
 		picks: data.picks,
 		reviews: data.reviews.length > 0 ? data.reviews : undefined,
 		brief: data.brief.length > 0 ? data.brief : undefined,
+		scope: data.scope.length > 0 ? data.scope : undefined,
 		m: { ...START, ...Object.fromEntries(Object.entries(data.set).map(([k, v]) => [k, materialOf(v)])) },
 	};
 });
+/**
+ * A plan's shade: one mark on one tile, the plan told by how deep its 155° light runs, 0 to 4.
+ *
+ * - White tile (On-premises): the far corner takes the ink, from none (pure white, the free plans) to
+ *   18%; drawn in graphite and in the brand indigo, to see whether colour helps. Its dark-page twin is
+ *   the Dark tile, the near corner lifting toward white as the License Portal's Commercial card does.
+ * - Colour tile (Cloud, shared): the product's colour, lit lighter at the near corner on the lower
+ *   plans and deepened toward black at the far one on the higher; the white mark holds 3:1 at the
+ *   lightest.
+ * - Dark tint tile (Private Cloud, dedicated): the colour in the dark, its glow fading as the plan
+ *   rises, so the dedicated set reads deeper than the shared one at every step.
+ *
+ * A Colour or Dark tint tile is the same on a light and a dark page; both are drawn.
+ */
+const SHADE_LIGHT = [0, 4, 8, 13, 18];
+const SHADE_DARK = [0, 4, 7, 10, 14];
+const PLAN_INKS = [
+	{ id: 'graphite', label: 'Graphite', ink: '#17181c' },
+	{ id: 'indigo', label: 'Indigo', ink: brandHex ?? '#3d50f5' },
+];
+const shadeOnLight = (ink: string, s: number) =>
+	s === 0 ? '#fff' : `linear-gradient(155deg, #fff 35%, color-mix(in srgb, ${ink} ${SHADE_LIGHT[s]}%, #fff) 100%)`;
+const shadeOnDark = (s: number) =>
+	`linear-gradient(155deg, color-mix(in srgb, #fff ${SHADE_DARK[s]}%, #17181c) 0%, #17181c 55%, #0d0e11 100%)`;
+const COLOUR_LIFT = [26, 20, 14, 8, 0];
+const COLOUR_DEPTH = [0, 6, 12, 18, 24];
+const shadeColour = (hue: string, s: number) =>
+	`linear-gradient(155deg, color-mix(in srgb, ${hue} ${100 - COLOUR_LIFT[s]}%, #fff) 0%, ${hue} 55%, color-mix(in srgb, ${hue} ${100 - COLOUR_DEPTH[s]}%, #000) 100%)`;
+const DARKTINT_GLOW = [40, 34, 28, 22, 16];
+const shadeDarkTint = (hue: string, s: number) =>
+	`linear-gradient(155deg, color-mix(in srgb, ${hue} ${DARKTINT_GLOW[s]}%, #15161b) 0%, color-mix(in srgb, ${hue} ${DARKTINT_GLOW[s] - 12}%, #15161b) 55%, #0d0e11 100%)`;
+interface LadderRow {
+	label: string;
+	dark: boolean;
+	bg: (s: number) => string;
+	ink: string;
+}
+/** A plan group's rows: each a tile drawn at every plan's shade, on a light ground or a dark band. */
+const ladderOf = (g: NonNullable<Round['scope']>[number]): LadderRow[] => {
+	const hue = resolveHue(PRODUCTS.find((x) => x.id === g.mark)?.hue) ?? brandHex ?? '#3d50f5';
+	if (g.tile === 'colour' || g.tile === 'darktint') {
+		const bg = (s: number) => (g.tile === 'colour' ? shadeColour(hue, s) : shadeDarkTint(hue, s));
+		const name = g.tile === 'colour' ? 'Colour tile' : 'Dark tint tile';
+		return [
+			{ label: `${name}, on light`, dark: false, bg, ink: '#ffffff' },
+			{ label: `${name}, on dark`, dark: true, bg, ink: '#ffffff' },
+		];
+	}
+	return [
+		...PLAN_INKS.map((k) => ({
+			label: `White tile, ${k.label.toLowerCase()}`,
+			dark: false,
+			bg: (s: number) => shadeOnLight(k.ink, s),
+			ink: k.ink,
+		})),
+		{ label: 'Dark tile', dark: true, bg: shadeOnDark, ink: '#ffffff' },
+	];
+};
 type PresetKind = 'shipped' | 'round' | 'exploration';
 /**
  * Where the bench starts from: the set as it ships, a round (a proposal under review), or an
  * exploration (a whole-set stress test, never a candidate).
  */
-const PRESETS: { id: string; label: string; kind: PresetKind; note: string; m: Record<string, Material> }[] = [
+/**
+ * Each starting point has a line for the picker's menu and a note, its annotation under the picker:
+ * what the set is, what it builds on, what it is for. A round's are its record's title and summary.
+ */
+const PRESETS: {
+	id: string;
+	label: string;
+	kind: PresetKind;
+	line: string;
+	note: string;
+	m: Record<string, Material>;
+}[] = [
 	{
 		id: 'shipped',
 		label: 'Shipped',
 		kind: 'shipped',
-		note: 'Shipped: the set as the pages draw it, with IoT Hub’s hub, approved and waiting to be built.',
+		line: 'The set as the live pages draw it',
+		note: 'The set as the live pages draw it today. IoT Hub already shows its hub: approved, and waiting to be built.',
 		m: START,
 	},
-	...ROUNDS.map((r) => ({ id: r.id, label: r.label, kind: 'round' as const, note: r.note, m: r.m })),
+	...ROUNDS.map((r) => ({ id: r.id, label: r.label, kind: 'round' as const, line: r.title, note: r.note, m: r.m })),
 	{
 		id: 'platform-both',
 		label: 'Platform both',
 		kind: 'exploration',
-		note: 'The platform on a White and a Dark tile side by side: one mark, both modes.',
+		line: 'One mark in both modes',
+		note: 'A stress test: the platform on a White and a Dark tile side by side, to judge one mark in both modes.',
 		m: { ...START, community: 'colour', platform: 'both' },
 	},
 	{
 		id: 'white',
 		label: 'All White',
 		kind: 'exploration',
-		note: 'Every mark on a White tile: the quietest set.',
+		line: 'The quietest the set can be',
+		note: 'A stress test: every mark on a White tile, the quietest the set can be.',
 		m: Object.fromEntries(ROWS.map((r) => [r.id, 'white'])),
 	},
 	{
 		id: 'colour',
 		label: 'All Colour',
 		kind: 'exploration',
-		note: 'Every mark on its Colour tile: the loudest set, and where colours clash.',
+		line: 'The loudest, and where colours clash',
+		note: 'A stress test: every mark on its Colour tile, the loudest the set can be, and where its colours clash.',
 		m: Object.fromEntries(ROWS.map((r) => [r.id, 'colour'])),
 	},
 	{
 		id: 'black',
 		label: 'All Dark',
 		kind: 'exploration',
-		note: 'Every mark on a Dark tile: the set for a dark page.',
+		line: 'As a dark page would list it',
+		note: 'A stress test: every mark on a Dark tile, as a dark page would list the set.',
 		m: Object.fromEntries(ROWS.map((r) => [r.id, 'black'])),
 	},
 	{
 		id: 'darktint',
 		label: 'All Dark tint',
 		kind: 'exploration',
-		note: 'Every mark on a Dark tint tile, its colour in the dark; the AI marks have none yet.',
+		line: 'Each colour carried into the dark',
+		note: 'A stress test: every mark on a Dark tint tile, its colour carried into the dark. The AI marks have none yet.',
 		m: Object.fromEntries(ROWS.map((r) => [r.id, 'darktint'])),
 	},
 ];
 const PRESET_KIND: Record<PresetKind, string> = { shipped: '', round: 'Rounds', exploration: 'Explore' };
+/**
+ * The Set picker's menu: the starting points in their groups, each with its line under its name.
+ */
+const SET_MENU = (['shipped', 'round', 'exploration'] as const).map((k) => ({
+	kind: k,
+	label: PRESET_KIND[k],
+	items: PRESETS.filter((s) => s.kind === k),
+}));
+/**
+ * The view's controls, by where they sit: the ground on the canvas it changes, the rest in the bar.
+ * Layout and Size need no label (icons, and the sizes in px); Names is a switch with its label.
+ */
+const ON_CANVAS = new Set(['ground']);
+const VIEW_ICONS: Record<string, string> = { groups: 'tabler:layout-grid', row: 'tabler:list' };
 const PLAY_GLOBALS = [
 	{
 		key: 'ground',
@@ -1039,8 +1135,8 @@ const PLAY_GLOBALS = [
 		label: 'Layout',
 		default: 'groups',
 		options: [
-			['groups', 'Groups'],
-			['row', 'One row'],
+			['groups', 'Grid'],
+			['row', 'List'],
 		],
 	},
 	{
@@ -2300,17 +2396,17 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					<p class="pg__guide-title">How it works</p>
 					<ol class="pg__how">
 						<li>
-							<b>Start from</b>
-							<span>the set as it ships, a round under review, or an exploration of the whole set.</span>
+							<b>Pick a set</b>
+							<span>as it ships, a round under review, or an exploration of the whole set.</span>
 						</li>
 						<li>
 							<b>Pick a ground</b>
-							<span>light, dark or both side by side, and see the set hold on each.</span>
+							<span>on the canvas’s corner: white, grey, tint, dark, or light and dark side by side.</span>
 						</li>
 						<li>
 							<b>Open a mark</b>
 							<span>
-								by clicking its tile. In its sheet, choose the treatment it takes, try a colour, leave a note.
+								by clicking its tile. In its sheet, choose its treatment, propose a status, try a colour, leave a note.
 							</span>
 						</li>
 						<li>
@@ -2324,57 +2420,120 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				</aside>
 				<div class="pg" data-ground="split" data-size="m" data-layout="groups" data-names="on" data-glyph="chip-navy">
 					<div class="pg__bar">
-						<div class="pg__presets">
-							{(['shipped', 'round', 'exploration'] as const).map((k) => (
-								<div class="pg__row">
-									<span class="pg__ctl-label">{k === 'shipped' ? 'Start from' : PRESET_KIND[k]}</span>
-									<span class="pg__seg" role="group" aria-label={k === 'shipped' ? 'Start from' : PRESET_KIND[k]}>
-										{PRESETS.filter((s) => s.kind === k).map((s) => (
-											<button
-												type="button"
-												data-preset={s.id}
-												data-m={JSON.stringify(s.m)}
-												data-note={s.note}
-												aria-pressed={s.id === 'shipped' ? 'true' : 'false'}
-												title={s.note}
-											>
-												{s.label}
-											</button>
-										))}
-									</span>
+						<div class="pg__start">
+							<span class="pg__ctl-label">Set</span>
+							<div class="pg__setpick">
+								<button
+									type="button"
+									class="pg__setbtn"
+									aria-haspopup="listbox"
+									aria-expanded="false"
+									aria-controls="pg-setmenu"
+								>
+									<b data-set-label>Shipped</b>
+									<span data-set-sub />
+									<Icon name="tabler:chevron-down" aria-hidden="true" />
+								</button>
+								<div class="pg__setmenu" id="pg-setmenu" role="listbox" aria-label="The set to start from" hidden>
+									{SET_MENU.map((g) => (
+										<div role="group" aria-label={g.label || 'Shipped'}>
+											{g.label && <p class="pg__setmenu-group">{g.label}</p>}
+											{g.items.map((it) => (
+												<button
+													type="button"
+													role="option"
+													aria-selected="false"
+													data-value={it.id}
+													data-kind={g.label}
+												>
+													<b>{it.label}</b>
+													<span>{it.line}</span>
+												</button>
+											))}
+										</div>
+									))}
 								</div>
-							))}
+								{/* The state the bench reads and writes; the picker above draws it. */}
+								<select data-presets class="pg__hidden" tabindex="-1" aria-hidden="true">
+									{PRESETS.map((s) => (
+										<option value={s.id} data-m={JSON.stringify(s.m)} title={s.note}>
+											{s.label}
+										</option>
+									))}
+									<option value="custom" data-custom disabled>
+										Your own set
+									</option>
+								</select>
+							</div>
 						</div>
-						<p class="pg__hint" aria-live="polite">
-							{PRESETS[0].note}
-						</p>
 						<div class="pg__view">
-							{PLAY_GLOBALS.map((c) => (
-								<div class="pg__row" data-global={c.key}>
-									<span class="pg__ctl-label">{c.label}</span>
-									<span
-										class:list={['pg__seg', c.key === 'ground' && 'pg__seg--swatches']}
-										role="group"
-										aria-label={c.label}
-									>
-										{c.options.map(([v, l]) => (
-											<button
-												type="button"
-												value={v}
-												aria-pressed={c.default === v ? 'true' : 'false'}
-												aria-label={c.key === 'ground' ? l : undefined}
-												title={c.key === 'ground' ? l : undefined}
-											>
-												{c.key === 'ground' ? <i class="pg__swatch" data-g={v} /> : l}
-											</button>
-										))}
-									</span>
-								</div>
-							))}
+							{PLAY_GLOBALS.filter((c) => !ON_CANVAS.has(c.key)).map((c) =>
+								c.key === 'names' ? (
+									<div class="pg__row" data-global={c.key}>
+										<button
+											type="button"
+											class="pg__toggle"
+											role="switch"
+											aria-checked={c.default === 'on' ? 'true' : 'false'}
+										>
+											{c.label}
+											<i aria-hidden="true" />
+										</button>
+									</div>
+								) : (
+									<div class="pg__row" data-global={c.key}>
+										<span class:list={['pg__ctl-label', (c.key === 'layout' || c.key === 'size') && 'pg__hidden']}>
+											{c.label}
+										</span>
+										<span class="pg__seg" role="group" aria-label={c.label}>
+											{c.options.map(([v, l]) => (
+												<button
+													type="button"
+													value={v}
+													aria-pressed={c.default === v ? 'true' : 'false'}
+													aria-label={VIEW_ICONS[v] ? l : c.key === 'size' ? `${l} px` : undefined}
+													title={VIEW_ICONS[v] ? l : c.key === 'size' ? `${l} px` : undefined}
+												>
+													{VIEW_ICONS[v] ? <Icon name={VIEW_ICONS[v]} aria-hidden="true" /> : l}
+												</button>
+											))}
+										</span>
+									</div>
+								)
+							)}
 						</div>
 					</div>
 					<div class="pg__body">
 						<div class="pg__canvas">
+							<div class="pg__canvas-head">
+								<p class="pg__setnote" data-set-note aria-live="polite">
+									{PRESETS[0].note}
+								</p>
+								<div class="pg__float">
+									{PLAY_GLOBALS.filter((c) => ON_CANVAS.has(c.key)).map((c) => (
+										<div class="pg__row" data-global={c.key}>
+											<span class="pg__ctl-label pg__hidden">{c.label}</span>
+											<span
+												class:list={['pg__seg', c.key === 'ground' && 'pg__seg--swatches']}
+												role="group"
+												aria-label={c.label}
+											>
+												{c.options.map(([v, l]) => (
+													<button
+														type="button"
+														value={v}
+														aria-pressed={c.default === v ? 'true' : 'false'}
+														aria-label={l}
+														title={l}
+													>
+														<i class="pg__swatch" data-g={v} />
+													</button>
+												))}
+											</span>
+										</div>
+									))}
+								</div>
+							</div>
 							{(['light', 'dark'] as const).map((g) => (
 								<div class:list={['pg__stage', `pg__stage--${g}`]} data-surface={g === 'dark' ? 'dark' : undefined}>
 									<div class="pg__set">
@@ -2619,6 +2778,56 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 									);
 								})}
 							</ul>
+						)}
+						{rd.scope && (
+							<div class="pr-plans">
+								<p class="pgs__label">The plans, in shades</p>
+								<div class="pr-plans__grid">
+									{rd.scope.map((g) => (
+										<div class:list={['pr-plans__group', g.plans.length === 0 && 'pr-plans__group--open']}>
+											<p class="pr-plans__name">
+												<b>{g.group}</b>
+												{g.note && <span>{g.note}</span>}
+												{g.plans.length > 0 && (
+													<small>
+														{ladderOf(g)
+															.map((row) => row.label)
+															.join(' · ')}
+													</small>
+												)}
+											</p>
+											{g.plans.length > 0 && (
+												<div class="pr-plans__ladder" style={`--n: ${g.plans.length}`}>
+													{ladderOf(g).map((row) => (
+														<div class:list={['pr-plans__row', row.dark && 'pr-plans__row--dark']}>
+															{g.plans.map((pl) => (
+																<span
+																	class:list={['pr-plan__tile', row.dark && 'pr-plan__tile--dark']}
+																	style={`background: ${row.bg(pl.shade)}`}
+																	title={`${pl.name} · ${row.label} · shade ${pl.shade}`}
+																>
+																	<img src={markUri(row.ink)} alt="" />
+																</span>
+															))}
+														</div>
+													))}
+													<div class="pr-plans__row">
+														{g.plans.map((pl) => (
+															<span class="pr-plan__name">
+																{pl.name}{' '}
+																<small>
+																	{pl.shade === 0 ? (g.tile === 'white' ? 'pure' : 'lightest') : `shade ${pl.shade}`}
+																</small>
+															</span>
+														))}
+													</div>
+												</div>
+											)}
+										</div>
+									))}
+								</div>
+								<p class="pr-plans__key">Each group names its rows; the shades are the round’s record.</p>
+							</div>
 						)}
 						{rd.brief && (
 							<div class="pr-round__brief">
@@ -3475,6 +3684,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			{SHEETS.map((s) => (
 				<article
 					class="pgs"
+					data-ground="dark"
 					data-sheet={s.r.id}
 					data-m={START[s.r.id]}
 					style={`--pgs-ink: ${s.ink.light}; --pgs-ink-dark: ${s.ink.dark}`}
@@ -4272,10 +4482,26 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const sheet = sheetOf(id);
 			if (sheet) sheet.dataset.m = m;
 		};
+		/** A view control's value: its pressed segment, or on and off for a toggle. */
+		const toggleOf = (row: HTMLElement) => row.querySelector<HTMLButtonElement>('.pg__toggle');
+		const valueOf = (row: HTMLElement) => {
+			const toggle = toggleOf(row);
+			return toggle ? (toggle.getAttribute('aria-checked') === 'true' ? 'on' : 'off') : (pressed(row)?.value ?? '');
+		};
+		/** How the copied summary says it: the segment's words (or its icon's name), or on and off. */
+		const shownOf = (row: HTMLElement) => {
+			const b = toggleOf(row) ? undefined : pressed(row);
+			return b ? b.textContent?.trim() || b.getAttribute('aria-label') || '' : valueOf(row);
+		};
 		const setGlobal = (key: string, value: string) => {
 			const row = globals.find((r) => r.dataset.global === key);
-			if (!row || !row.querySelector(`button[value="${value}"]`)) return;
-			press(row, (b) => b.value === value);
+			if (!row) return;
+			const toggle = toggleOf(row);
+			if (toggle) {
+				if (value !== 'on' && value !== 'off') return;
+				toggle.setAttribute('aria-checked', String(value === 'on'));
+			} else if (row.querySelector(`button[value="${value}"]`)) press(row, (b) => b.value === value);
+			else return;
 			root.dataset[key] = value;
 			if (key === 'light') sheetBox.dataset.light = value;
 		};
@@ -4284,16 +4510,16 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const params = new URLSearchParams(location.search);
 			params.set('m', materials.map((s) => `${s.dataset.materialFor}:${pressed(s)?.value}`).join(','));
 			params.delete('start');
-			globals.forEach((g) => params.set(g.dataset.global ?? '', pressed(g)?.value ?? ''));
+			globals.forEach((g) => params.set(g.dataset.global ?? '', valueOf(g)));
 			if (write) history.replaceState(null, '', `${location.pathname}?${params}${location.hash}`);
 			if (summary) {
 				const set = materials
 					.filter((s) => pressed(s)?.value !== 'off')
 					.map(
 						(s) =>
-							`${nameOf(s.dataset.materialFor ?? '')} ${pressed(s)?.querySelector('.pgs__conf-name b')?.textContent?.trim() ?? 'left out'}`
+							`${nameOf(s.dataset.materialFor ?? '')} ${pressed(s)?.closest('.pgs__conf')?.querySelector('.pgs__conf-name b')?.textContent?.trim() ?? 'left out'}`
 					);
-				const view = globals.map((g) => `${label(g)} ${pressed(g)?.textContent?.trim()}`);
+				const view = globals.map((g) => `${label(g) || toggleOf(g)?.textContent?.trim()} ${shownOf(g)}`);
 				summary.textContent = [...set, '|', ...view].join(' · ');
 			}
 		};
@@ -4301,39 +4527,107 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			seg.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
 				b.addEventListener('click', () => {
 					setMaterial(seg.dataset.materialFor ?? '', b.value);
-					if (presets.some((x) => x.getAttribute('aria-pressed') === 'true')) showPreset();
+					if (presetSelect && presetSelect.value !== 'custom') showPreset();
 					sync();
 				})
 			)
 		);
-		globals.forEach((row) =>
+		globals.forEach((row) => {
+			const toggle = toggleOf(row);
 			row.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
 				b.addEventListener('click', () => {
-					setGlobal(row.dataset.global ?? '', b.value);
+					setGlobal(row.dataset.global ?? '', toggle ? (valueOf(row) === 'on' ? 'off' : 'on') : b.value);
 					sync();
 				})
-			)
-		);
-		const presets = [...root.querySelectorAll<HTMLButtonElement>('[data-preset]')];
-		const hint = root.querySelector<HTMLElement>('.pg__hint');
-		/** The preset in force, or none once a mark is changed by hand (then the hint says from which). */
-		const showPreset = (b?: HTMLButtonElement) => {
-			const was = presets.find((x) => x.getAttribute('aria-pressed') === 'true');
-			presets.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-			if (hint)
-				hint.textContent = b
-					? (b.dataset.note ?? '')
-					: `Your own set${was ? `, from ${was.textContent?.trim()}` : ''}.`;
+			);
+		});
+		// The Set: one dropdown of starting points. Changing a mark by hand turns it to "Your own set",
+		// which says what it started from; each option's note is its tooltip.
+		const presetSelect = root.querySelector<HTMLSelectElement>('[data-presets]');
+		const presetOptions = presetSelect ? [...presetSelect.options].filter((o) => !o.dataset.custom) : [];
+		const customOption = presetSelect?.querySelector<HTMLOptionElement>('[data-custom]');
+		const showPreset = (id?: string) => {
+			if (!presetSelect) return;
+			const from = presetOptions.find((o) => o.value === (id ?? presetSelect.value));
+			if (id && from) {
+				presetSelect.value = id;
+				presetSelect.title = from.title;
+			} else {
+				if (customOption && from) customOption.textContent = `Your own set, from ${from.textContent?.trim()}`;
+				presetSelect.value = 'custom';
+				presetSelect.title = '';
+			}
+			syncSetButton();
 		};
-		presets.forEach((b) =>
-			b.addEventListener('click', () => {
-				Object.entries(JSON.parse(b.dataset.m ?? '{}') as Record<string, string>).forEach(([id, v]) =>
-					setMaterial(id, v)
-				);
-				showPreset(b);
-				sync();
-			})
-		);
+		const applyPreset = (id: string) => {
+			const o = presetOptions.find((x) => x.value === id);
+			if (!o) return;
+			Object.entries(JSON.parse(o.dataset.m ?? '{}') as Record<string, string>).forEach(([mark, v]) =>
+				setMaterial(mark, v)
+			);
+			showPreset(id);
+			sync();
+		};
+		presetSelect?.addEventListener('change', () => applyPreset(presetSelect.value));
+		// The picker: a button that says the set in force, a menu of the starting points. Arrow keys move
+		// in the menu, Escape and a click outside close it.
+		const setBtn = root.querySelector<HTMLButtonElement>('.pg__setbtn');
+		const setMenu = root.querySelector<HTMLElement>('.pg__setmenu');
+		const setItems = setMenu ? [...setMenu.querySelectorAll<HTMLButtonElement>('[role="option"]')] : [];
+		const syncSetButton = () => {
+			if (!presetSelect || !setBtn) return;
+			const v = presetSelect.value;
+			const item = setItems.find((x) => x.dataset.value === v);
+			const label = setBtn.querySelector<HTMLElement>('[data-set-label]');
+			const sub = setBtn.querySelector<HTMLElement>('[data-set-sub]');
+			if (label) label.textContent = v === 'custom' ? 'Your own set' : (item?.querySelector('b')?.textContent ?? v);
+			if (sub)
+				sub.textContent =
+					v === 'custom'
+						? (customOption?.textContent?.replace('Your own set, ', '') ?? '')
+						: (item?.dataset.kind ?? '');
+			const note = root.querySelector<HTMLElement>('[data-set-note]');
+			if (note)
+				note.textContent =
+					v === 'custom'
+						? `Changed by hand, ${customOption?.textContent?.replace('Your own set, ', '') ?? 'from a set'}. Copy link keeps it as it is.`
+						: (presetSelect.selectedOptions[0]?.title ?? '');
+			setItems.forEach((x) => x.setAttribute('aria-selected', String(x.dataset.value === v)));
+		};
+		const openSetMenu = (open: boolean) => {
+			if (!setMenu || !setBtn) return;
+			setMenu.hidden = !open;
+			setBtn.setAttribute('aria-expanded', String(open));
+			if (open) (setItems.find((x) => x.getAttribute('aria-selected') === 'true') ?? setItems[0])?.focus();
+		};
+		setBtn?.addEventListener('click', () => openSetMenu(setMenu?.hidden === true));
+		setBtn?.addEventListener('keydown', (e) => {
+			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+				e.preventDefault();
+				openSetMenu(true);
+			}
+		});
+		setItems.forEach((item, i) => {
+			item.addEventListener('click', () => {
+				if (presetSelect) presetSelect.value = item.dataset.value ?? '';
+				presetSelect?.dispatchEvent(new Event('change'));
+				openSetMenu(false);
+				setBtn?.focus();
+			});
+			item.addEventListener('keydown', (e) => {
+				const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+				if (step) {
+					e.preventDefault();
+					setItems[(i + step + setItems.length) % setItems.length]?.focus();
+				} else if (e.key === 'Escape') {
+					openSetMenu(false);
+					setBtn?.focus();
+				} else if (e.key === 'Tab') openSetMenu(false);
+			});
+		});
+		document.addEventListener('click', (e) => {
+			if (setMenu && !setMenu.hidden && !(e.target as Element).closest('.pg__setpick')) openSetMenu(false);
+		});
 
 		// The sheet: one open at a time, over the page; Escape or the close button puts focus back. The
 		// mark open is in the address (?mark=edge), so a link can open the room on one mark's page.
@@ -4403,6 +4697,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					const g = b.dataset.sheetGround ?? 'white';
 					const dark = g === 'dark';
 					const stage = s.querySelector<HTMLElement>('.pgs__stage');
+					s.dataset.ground = g;
 					if (stage) stage.dataset.ground = g;
 					[stage, ...s.querySelectorAll<HTMLElement>('.pgs__ladder .pgs__cell')].forEach((c) => {
 						if (!c) return;
@@ -4974,9 +5269,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		// A round's "Try on the bench": its preset, pressed; the link scrolls to the bench.
 		document
 			.querySelectorAll<HTMLAnchorElement>('[data-round]')
-			.forEach((a) =>
-				a.addEventListener('click', () => presets.find((b) => b.dataset.preset === a.dataset.round)?.click())
-			);
+			.forEach((a) => a.addEventListener('click', () => applyPreset(a.dataset.round ?? '')));
 
 		// The bookmarks: the tab clicked is the active one, the mark's address in the bar.
 		root.querySelectorAll<HTMLElement>('.pg__browser').forEach((b) =>
@@ -5011,16 +5304,16 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 		// A round linked from the Overview (?start=round-1) is loaded as the bench opens.
 		const start = params.get('start');
-		if (start) presets.find((b) => b.dataset.preset === start)?.click();
+		if (start) applyPreset(start);
 		else if (params.get('m')) {
 			const now = materials.map((s) => `${s.dataset.materialFor}:${pressed(s)?.value}`).join(',');
-			const same = presets.find((b) =>
-				Object.entries(JSON.parse(b.dataset.m ?? '{}') as Record<string, string>).every(([id, v]) =>
+			const same = presetOptions.find((o) =>
+				Object.entries(JSON.parse(o.dataset.m ?? '{}') as Record<string, string>).every(([id, v]) =>
 					now.includes(`${id}:${v}`)
 				)
 			);
-			showPreset(same);
-		}
+			showPreset(same?.value);
+		} else showPreset('shipped');
 		sync(false);
 	}
 </script>
@@ -6131,24 +6424,283 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		--pg-zoom: 1.2727;
 	}
 
-	// Two tight rows: where to start (with what the choice is), then the view.
+	// The Set on the left, the view on the right, and the set's annotation across under both. The
+	// ground is on the canvas.
 	.pg__bar {
 		display: grid;
-		gap: 10px;
-		padding-bottom: 14px;
-		border-bottom: 1px solid $line;
+		grid-template-areas: 'start view';
+		grid-template-columns: auto minmax(0, 1fr);
+		align-items: center;
+		gap: 8px 24px;
+
+		@include media-down(md) {
+			grid-template-areas:
+				'start'
+				'view';
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.pg__start {
+		display: inline-flex;
+		grid-area: start;
+		align-items: center;
+		gap: 8px;
+	}
+
+	// The Set picker: a pill naming the set, its group beside it in grey; the menu drops under it.
+	.pg__setpick {
+		position: relative;
+	}
+
+	.pg__setbtn {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 180px;
+		padding: 6px 12px 6px 14px;
+		border: 0;
+		border-radius: 100px;
+		background: rgba(23, 24, 28, 0.06);
+		color: var(--color-text);
+		font: inherit;
+		font-size: 13px;
+		line-height: 20px;
+		cursor: pointer;
+
+		b {
+			font-weight: $font-weight-medium;
+		}
+
+		span {
+			color: var(--color-text-secondary);
+			font-size: 12px;
+		}
+
+		:global(svg) {
+			width: 16px;
+			height: 16px;
+			margin-left: auto;
+			color: var(--color-text-secondary);
+			transition: transform 0.15s;
+		}
+
+		&:hover {
+			background: rgba(23, 24, 28, 0.09);
+		}
+
+		&[aria-expanded='true'] :global(svg) {
+			transform: rotate(180deg);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+	}
+
+	// The canvas's head: the set's annotation on the left, as a caption on the ground it describes, and
+	// the ground's swatches on the right. Both in the ground's ink.
+	.pg__canvas-head {
+		position: absolute;
+		z-index: 2;
+		top: 14px;
+		right: 14px;
+		left: 24px;
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 24px;
+		color: var(--color-text);
+		pointer-events: none;
+
+		> * {
+			pointer-events: auto;
+		}
+	}
+
+	.pg__setnote {
+		max-width: 560px;
+		margin: 4px 0 0;
+		color: color-mix(in srgb, currentColor 64%, transparent);
+		font-size: 12px;
+		line-height: 17px;
+	}
+
+	// The first stage on show makes room for the head.
+	.pg:not([data-ground='dark']) .pg__stage--light,
+	.pg[data-ground='dark'] .pg__stage--dark {
+		padding-top: 60px;
+	}
+
+	.pg__setmenu {
+		position: absolute;
+		z-index: 20;
+		top: calc(100% + 6px);
+		left: 0;
+		display: grid;
+		gap: 4px;
+		width: 340px;
+		max-height: min(70vh, 520px);
+		padding: 6px;
+		overflow: auto;
+		border-radius: 16px;
+		background: #fff;
+		box-shadow:
+			0 16px 40px rgba(23, 24, 28, 0.16),
+			0 0 0 1px rgba(23, 24, 28, 0.06);
+
+		&[hidden] {
+			display: none;
+		}
+
+		[role='group'] + [role='group'] {
+			padding-top: 4px;
+			border-top: 1px solid $line;
+		}
+
+		[role='option'] {
+			display: grid;
+			gap: 1px;
+			width: 100%;
+			padding: 8px 12px;
+			border: 0;
+			border-radius: 10px;
+			background: none;
+			color: var(--color-text);
+			font: inherit;
+			text-align: left;
+			cursor: pointer;
+
+			b {
+				font-size: 13px;
+				font-weight: $font-weight-medium;
+				line-height: 20px;
+			}
+
+			span {
+				color: var(--color-text-secondary);
+				font-size: 12px;
+				line-height: 17px;
+			}
+
+			&:hover,
+			&:focus-visible {
+				outline: none;
+				background: #f4f5f8;
+			}
+
+			&[aria-selected='true'] {
+				background: rgba(61, 80, 245, 0.08);
+
+				b {
+					color: #3346d6;
+				}
+			}
+		}
+	}
+
+	.pg__setmenu-group {
+		margin: 6px 12px 2px;
+		color: var(--color-text-secondary);
+		font-size: 11px;
+		font-weight: $font-weight-medium;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
+	.pg__hidden {
+		@include visually-hidden;
+	}
+
+	// Names: its label, then a switch, the track grey off and ink on.
+	.pg__toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--color-text-secondary);
+		font: inherit;
+		font-size: 12px;
+		cursor: pointer;
+
+		i {
+			position: relative;
+			width: 30px;
+			height: 18px;
+			border-radius: 100px;
+			background: rgba(23, 24, 28, 0.16);
+			transition: background-color 0.15s;
+
+			&::after {
+				content: '';
+				position: absolute;
+				top: 2px;
+				left: 2px;
+				width: 14px;
+				height: 14px;
+				border-radius: 50%;
+				background: #fff;
+				box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+				transition: transform 0.15s;
+			}
+		}
+
+		&[aria-checked='true'] i {
+			background: var(--color-text);
+
+			&::after {
+				transform: translateX(12px);
+			}
+		}
+
+		&:hover {
+			color: var(--color-text);
+		}
+
+		&:focus-visible {
+			border-radius: 6px;
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+	}
+
+	// The ground: the swatches alone, the one chosen ringed in the ground's own ink.
+	.pg__float {
+		flex: none;
+
+		.pg__seg {
+			gap: 4px;
+			padding: 0;
+			background: none;
+		}
+
+		.pg__seg button {
+			padding: 3px;
+			border-radius: 50%;
+			background: none;
+			box-shadow: none;
+
+			&[aria-pressed='true'] {
+				background: none;
+				box-shadow: inset 0 0 0 1.5px currentColor;
+			}
+		}
+	}
+
+	.pg[data-ground='dark'] .pg__canvas-head {
+		color: #fff;
+
+		.pg__swatch {
+			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36);
+		}
 	}
 
 	.pg__ctl-label {
 		flex: none;
 		margin-right: 2px;
-		color: var(--color-text-secondary);
-		font-size: 12px;
-	}
-
-	// What the start picked does, one line under the row.
-	.pg__hint {
-		margin: -2px 0 2px;
 		color: var(--color-text-secondary);
 		font-size: 12px;
 	}
@@ -6239,19 +6791,17 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	// Where to start: three groups in a row, each a segmented control like the view's, one label style.
-	.pg__presets {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 6px 18px;
-	}
-
 	.pg__view {
 		display: flex;
 		flex-wrap: wrap;
+		grid-area: view;
 		align-items: center;
+		justify-content: flex-end;
 		gap: 6px 18px;
+
+		@include media-down(md) {
+			justify-content: flex-start;
+		}
 	}
 
 	.pg__row {
@@ -6270,6 +6820,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			margin: 0;
 			border-radius: 50%;
 		}
+	}
+
+	.pg__seg button :global(svg) {
+		width: 16px;
+		height: 16px;
 	}
 
 	.pg__seg {
@@ -6320,6 +6875,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	.pg__canvas {
+		position: relative;
 		display: grid;
 		gap: 10px;
 	}
@@ -6759,9 +7315,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	// White on light: shaded as it ships (the accent at 5% in the far corner) or pure, to compare. On any
-	// dark ground a white tile is pure, as the rule says: a shade there reads as grey.
-	:is(.pg, .pr-sheet)[data-light='pure'] :is(:global(.ui-mark--white), :global(.lc-draft--white)),
-	[data-surface='dark'] :is(:global(.ui-mark--white), :global(.lc-draft--white)) {
+	// dark ground a white tile is pure, as the rule says: a shade there reads as grey. Each tile class is
+	// its own :global — wrapped in :is() the scope lands on the tile, which belongs to another component.
+	.pg[data-light='pure'] :global(.ui-mark--white),
+	.pg[data-light='pure'] :global(.lc-draft--white),
+	.pr-sheet[data-light='pure'] :global(.ui-mark--white),
+	.pr-sheet[data-light='pure'] :global(.lc-draft--white),
+	[data-surface='dark'] :global(.ui-mark--white),
+	[data-surface='dark'] :global(.lc-draft--white) {
 		background-image: none !important;
 	}
 
@@ -6799,10 +7360,23 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
+	// The sheet's ground, chosen on its stage: one variable the stage and the sizes both take.
 	.pgs {
-		--pgs-ground: #f6f7fb;
+		--pgs-ground: #fff;
 
 		display: grid;
+
+		&[data-ground='grey'] {
+			--pgs-ground: #f6f7fb;
+		}
+
+		&[data-ground='tint'] {
+			--pgs-ground: var(--band-tint);
+		}
+
+		&[data-ground='dark'] {
+			--pgs-ground: #{$night};
+		}
 
 		&[hidden] {
 			display: none;
@@ -7687,9 +8261,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			padding: 8px;
 			border-radius: 14px;
 			background: var(--pgs-ground);
+			box-shadow: inset 0 0 0 1px $line;
+			transition: background-color 0.2s;
 
 			&[data-surface='dark'] {
-				background: $night;
+				box-shadow: none;
 			}
 		}
 
@@ -8124,6 +8700,15 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		.pgs__list li {
 			font-size: 14px;
 			line-height: 20px;
+		}
+
+		// Symbol's parts start where every other line does: one to a line, no bullet.
+		.pgs__list:not(.pgs__list--not) li {
+			padding-left: 0;
+
+			&::before {
+				content: none;
+			}
 		}
 	}
 
@@ -8590,6 +9175,115 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		&:hover {
 			background: #e7e9f2;
 		}
+	}
+
+	// ── A round's plans, in shades ──
+	.pr-plans {
+		display: grid;
+		gap: 14px;
+	}
+
+	.pr-plans__grid {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 16px;
+	}
+
+	.pr-plans__group {
+		display: grid;
+		align-content: start;
+		gap: 12px;
+		padding: 16px 18px 14px;
+		border-radius: 16px;
+		background: #f6f7fb;
+	}
+
+	.pr-plans__group--open {
+		max-width: 220px;
+		background: none;
+		box-shadow: inset 0 0 0 1px $line;
+	}
+
+	.pr-plans__name {
+		display: grid;
+		gap: 2px;
+		max-width: 300px;
+		margin: 0;
+		font-size: 13px;
+
+		b {
+			font-weight: $font-weight-medium;
+		}
+
+		span {
+			color: var(--color-text-secondary);
+		}
+
+		small {
+			color: var(--color-text-secondary);
+			font-size: 11px;
+		}
+	}
+
+	// A plan per column; a row per treatment, the Dark tile's on a band of the dark ground.
+	.pr-plans__ladder {
+		display: grid;
+		justify-items: start;
+		gap: 10px;
+	}
+
+	.pr-plans__row {
+		display: grid;
+		grid-template-columns: repeat(var(--n), 96px);
+		justify-items: center;
+		align-items: start;
+	}
+
+	.pr-plans__row--dark {
+		padding: 12px 0;
+		border-radius: 14px;
+		background: #0b0d1f;
+	}
+
+	.pr-plan__name {
+		display: grid;
+		justify-items: center;
+		font-size: 13px;
+		line-height: 18px;
+		text-align: center;
+
+		small {
+			color: var(--color-text-secondary);
+			font-size: 11px;
+		}
+	}
+
+	// The tile, as ui/Mark draws a White one at 48: the lift seats it on light.
+	.pr-plan__tile {
+		display: grid;
+		place-items: center;
+		width: 48px;
+		height: 48px;
+		border-radius: 32%;
+		box-shadow:
+			0 6px 18px rgba(23, 24, 28, 0.08),
+			0 0 0 1px rgba(23, 24, 28, 0.04);
+
+		img {
+			width: 62%;
+			height: 62%;
+		}
+	}
+
+	// On dark, a hairline instead of the lift.
+	.pr-plan__tile--dark {
+		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+	}
+
+	.pr-plans__key {
+		margin: 0;
+		font-size: 12px;
+		color: var(--color-text-secondary);
 	}
 
 	.pg__pending {
@@ -9831,16 +10525,18 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		color: var(--color-text-secondary);
 	}
 
+	// The overlap: each tile over the one before it, split by the shade it casts leftward rather than a
+	// ring cut in the ground's colour, so every tile keeps its full size.
 	.pr-fan {
 		display: flex;
 
 		span {
 			display: inline-flex;
 			border-radius: 32%;
-			box-shadow: 0 0 0 4px $night;
 
 			& + span {
-				margin-left: -12px;
+				margin-left: -14px;
+				box-shadow: -8px 0 14px -4px rgba(0, 0, 0, 0.6);
 			}
 		}
 	}

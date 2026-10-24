@@ -3,7 +3,7 @@ label: Round 1
 state: open
 opened: 2026-10-24
 title: The Mobile app on Dark, IoT Hub on its hub
-summary: 'Round 1: the Mobile app moves to a Dark tile; IoT Hub ships its hub.'
+summary: 'Proposes the Mobile app on a Dark tile with its logo in white, and IoT Hub on the hub mark the product already uses.'
 picks:
   - mark: mobile
     candidate: a

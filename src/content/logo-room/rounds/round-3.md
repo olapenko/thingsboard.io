@@ -3,7 +3,7 @@ label: Round 3
 state: open
 opened: 2026-10-24
 title: 'Two products: ThingsBoard and ThingsBoard Cloud'
-summary: 'Round 3: On-premises goes neutral, the self-hosted ThingsBoard; Cloud stays in colour, its opposite.'
+summary: 'Builds on Round 1: On-premises moves to the neutral White tile as the self-hosted ThingsBoard, and Cloud keeps its indigo Colour tile as the hosted one.'
 reviews:
   - onprem
 brief:

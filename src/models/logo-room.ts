@@ -105,7 +105,7 @@ export const logoRoundSchema = z.object({
 	opened: z.coerce.date(),
 	decided: z.coerce.date().optional(),
 	title: z.string(),
-	/** The bench's line for it. */
+	/** Its annotation on the bench, under the Set picker: what the set proposes and what it builds on. */
 	summary: z.string(),
 	/** One candidate per mark it settles, with the reason. */
 	picks: z.array(z.object({ mark: z.string(), candidate: z.string(), why: z.string() })).default([]),
@@ -115,6 +115,23 @@ export const logoRoundSchema = z.object({
 	brief: z.array(z.string()).default([]),
 	/** The set it proposes, as departures from the shipped one: mark → material. */
 	set: z.record(z.string(), logoMaterialSchema).default({}),
+	/**
+	 * What it covers that is not a mark yet, in groups: the License Portal's plans, say. Each plan has a
+	 * shade, 0 (pure white) to 4 (the deepest), for a round that tells plans apart by shading one mark.
+	 */
+	scope: z
+		.array(
+			z.object({
+				group: z.string(),
+				note: z.string().optional(),
+				/** The tile its plans are shaded on: the White tile, the product's Colour tile, or its Dark tint tile. */
+				tile: z.enum(['white', 'colour', 'darktint']).default('white'),
+				/** The product whose colour a Colour or Dark tint tile takes, by its mark id. */
+				mark: z.string().optional(),
+				plans: z.array(z.object({ name: z.string(), shade: z.number().int().min(0).max(4) })).default([]),
+			})
+		)
+		.default([]),
 });
 export type LogoRound = z.infer<typeof logoRoundSchema>;
 

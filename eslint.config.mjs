@@ -7,7 +7,16 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig([
 	{
-		ignores: ['**/dist', '**/node_modules', '**/.astro', '**/.github', '**/.changeset', 'public/resources/**'],
+		ignores: [
+			'**/dist',
+			'**/node_modules',
+			'**/.astro',
+			'**/.github',
+			'**/.changeset',
+			'public/resources/**',
+			// The Logo Room artifact's capture output: generated, git-ignored.
+			'scripts/logo-room-artifact/site/**',
+		],
 	},
 
 	// Global config

@@ -3,7 +3,7 @@ label: Round 2
 state: open
 opened: 2026-10-24
 title: 'The set update: TBMQ, Trendz and Community Edition'
-summary: 'Round 2: on top of Round 1, TBMQ, Trendz and Community Edition under review.'
+summary: 'Builds on Round 1 and puts TBMQ, Trendz and Community Edition under review: new drawings, made to one brief.'
 reviews:
   - tbmq
   - trendz
