@@ -17,6 +17,10 @@ export interface RecordNote {
 export interface RecordProposal {
 	treatments: Partial<Record<LogoProposalKey, string>>;
 	colour?: string;
+	/** A new name for the mark. */
+	label?: string;
+	/** Take the mark out of the set. */
+	remove?: boolean;
 	notes: RecordNote[];
 }
 
@@ -39,13 +43,15 @@ const quote = (s: string) =>
 export function proposalYaml(p: RecordProposal): string {
 	const lines: string[] = [];
 	const treatments = Object.entries(p.treatments).filter(([, v]) => v);
-	if (treatments.length > 0 || p.colour) {
+	if (treatments.length > 0 || p.colour || p.label || p.remove) {
 		lines.push('proposed:');
 		if (treatments.length > 0) {
 			lines.push('  treatments:');
 			treatments.forEach(([k, v]) => lines.push(`    ${k}: ${v}`));
 		}
 		if (p.colour) lines.push(`  colour: ${quote(p.colour)}`);
+		if (p.label) lines.push(`  label: ${quote(p.label)}`);
+		if (p.remove) lines.push('  remove: true');
 	}
 	if (p.notes.length > 0) {
 		lines.push('notes:');
@@ -116,6 +122,54 @@ export function writePalette(raw: string, colours: PaletteColour[]): string {
 	return `---\n${[...kept, ...block].join('\n')}\n---${m[2] ?? '\n'}`;
 }
 
+/** A mark drafted in the Studio, as its record and its artwork would hold it. */
+export interface NewMark {
+	id: string;
+	label: string;
+	group: 'Platform' | 'Ecosystem' | 'AI';
+	about: string;
+	hue: string;
+	status: 'exploring' | 'designed';
+	order: number;
+}
+
+/** Where a mark's own artwork goes when the room draws it from a file. */
+export const markArtPath = (id: string) => `${MARKS_DIR}/${id}/mark.svg`;
+
+/**
+ * A new mark's record: its group's tile as its signature (White for the Ecosystem, Colour for the
+ * platform and the AI), that treatment and its glyph at the status proposed, its colour as `hue`, and
+ * the rest left for the team to write, each "To write" a question the review answers.
+ */
+export function newMarkRecord(m: NewMark): string {
+	const signature = m.group === 'Ecosystem' ? 'white' : 'colour';
+	return [
+		'---',
+		`order: ${m.order}`,
+		`label: ${quote(m.label)}`,
+		`group: ${m.group}`,
+		`about: ${quote(m.about || 'To write: what the product is, and what its mark carries.')}`,
+		`signature: ${signature}`,
+		`colourRole: ${signature === 'white' ? 'Accent beside the white tile' : 'Tile fill'}`,
+		`hue: ${quote(m.hue)}`,
+		'treatments:',
+		`  ${signature}: ${m.status}`,
+		`  glyph: ${m.status}`,
+		'guideline:',
+		'  symbol:',
+		"    - 'To write: the parts of the drawing'",
+		`  light: ${quote(signature === 'white' ? 'White tile, in its own colours' : 'Colour tile, its colour')}`,
+		"  dark: 'To write'",
+		"  small: 'The glyph, in its colour'",
+		'  dont: []',
+		'actions:',
+		'  - kind: decide',
+		"    what: 'whether it joins the set: added in the Studio'",
+		'---',
+		'',
+	].join('\n');
+}
+
 /** Notes from the file and from this browser, once each, oldest first. */
 export const mergeNotes = (...lists: RecordNote[][]) =>
 	[...new Map(lists.flat().map((n) => [`${n.at}|${n.text}`, n])).values()].sort((a, b) => a.at.localeCompare(b.at));
@@ -126,6 +180,20 @@ export const mergeNotes = (...lists: RecordNote[][]) =>
  */
 export function unifiedDiff(path: string, before: string, after: string): string {
 	if (before === after) return '';
+	// A file that is not there yet: a creation, which git apply takes from /dev/null.
+	if (before === '') {
+		const b = after.split('\n');
+		if (b.at(-1) === '') b.pop();
+		return [
+			`diff --git a/${path} b/${path}`,
+			'new file mode 100644',
+			'--- /dev/null',
+			`+++ b/${path}`,
+			`@@ -0,0 +1,${b.length} @@`,
+			...b.map((l) => `+${l}`),
+			'',
+		].join('\n');
+	}
 	const a = before.split('\n');
 	const b = after.split('\n');
 	// Both end in a newline, so both end in an empty string: drop it, as a diff counts lines.

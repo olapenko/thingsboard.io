@@ -64,6 +64,14 @@ export const logoMarkSchema = z.object({
 	signature: z.enum(['white', 'colour']),
 	/** What its colour does. */
 	colourRole: z.string(),
+	/**
+	 * Its colour, for a mark drawn from its file (`marks/<id>/mark.svg`) rather than from the site's data:
+	 * a new mark, until it has a theme token.
+	 */
+	hue: z
+		.string()
+		.regex(/^#[0-9a-f]{6}$/)
+		.optional(),
 	/** The status of each treatment it is drawn in; a treatment left out is not drawn. */
 	treatments: z.partialRecord(z.enum(LOGO_TREATMENTS), logoStatusSchema),
 	/** A declared departure from the baseline, with the still version it must provide. */
@@ -81,9 +89,10 @@ export const logoMarkSchema = z.object({
 		.array(z.object({ kind: z.enum(['decide', 'draw', 'build']), what: z.string(), done: z.coerce.date().optional() }))
 		.default([]),
 	/**
-	 * What someone proposes and the team has not decided: a status for a treatment, a colour. Written
-	 * by the room (Save to repo, Copy as patch) and reviewed as a pull request; deciding it means moving
-	 * it into `treatments` and the drawings, and deleting it here.
+	 * What someone proposes and the team has not decided: a status for a treatment, a colour, a new name,
+	 * or taking the mark out of the set. Written by the room (Save to repo, Copy as patch) and reviewed as
+	 * a pull request; deciding it means moving it into the record (`treatments`, `label`), or deleting the
+	 * record for a removal, and deleting it here.
 	 */
 	proposed: z
 		.object({
@@ -92,6 +101,8 @@ export const logoMarkSchema = z.object({
 				.string()
 				.regex(/^#[0-9a-f]{6}$/)
 				.optional(),
+			label: z.string().trim().min(1).max(40).optional(),
+			remove: z.boolean().optional(),
 		})
 		.optional(),
 	/** Comments on the mark, oldest first, as the sheet's Decision and notes lists them. */
@@ -198,5 +209,19 @@ export const logoSaveSchema = z.object({
 		.string()
 		.regex(/^#[0-9a-f]{6}$/)
 		.optional(),
+	label: z.string().trim().min(1).max(40).optional(),
+	remove: z.boolean().optional(),
 	notes: z.array(z.object({ at: z.iso.datetime(), text: z.string().trim().min(1).max(2000) })).max(200),
+});
+
+/** What the room sends to add a mark drafted in the Studio: its record's fields and its artwork. */
+export const logoCreateSchema = z.object({
+	mark: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+	label: z.string().trim().min(1).max(40),
+	group: z.enum(['Platform', 'Ecosystem', 'AI']),
+	about: z.string().trim().max(400).default(''),
+	hue: z.string().regex(/^#[0-9a-f]{6}$/),
+	status: z.enum(['exploring', 'designed']),
+	order: z.number().int(),
+	svg: z.string().min(1).max(200_000),
 });

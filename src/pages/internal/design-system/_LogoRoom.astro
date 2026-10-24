@@ -36,7 +36,7 @@ import { shippingComposition } from '@data/home-compositions';
 import { CHAT_HUES, CHAT_HUE_LEG_S, CHAT_LAUNCHER, LAUNCHER_BOX } from '@data/chat-widget';
 import { parse as parseYaml } from 'yaml';
 import { logoMarkSchema, logoPaletteSchema, type LogoMark, type LogoMaterial, type LogoRound } from '@models/logo-room';
-import { markPath, PALETTE_PATH } from '@util/logo-room-records';
+import { markArtPath, markPath, PALETTE_PATH } from '@util/logo-room-records';
 
 /**
  * Design system › Logos: the brand system for the product marks, as a landing page (the public design
@@ -443,9 +443,38 @@ const DRAWINGS: Record<string, Drawing> = {
 	},
 };
 
+/**
+ * A mark drawn from its file, `marks/<id>/mark.svg`, in the record's `hue`: how a mark added from the
+ * Studio is drawn before any code knows it. Each tile from the one artwork, as a candidate's file is.
+ */
+const fileDrawingOf = (id: string, data: LogoMark): Drawing | undefined => {
+	const hue = data.hue ?? '#17181c';
+	const has = data.treatments;
+	const path = markArtPath(id);
+	if (!existsSync(join(ROOT, path))) return undefined;
+	const svg = read(path);
+	const box = svg
+		.match(/viewBox="([^"]+)"/)?.[1]
+		?.trim()
+		.split(/[\s,]+/)
+		.map(Number);
+	if (!box || box.length !== 4 || box.some((n) => Number.isNaN(n)))
+		return disagree(`marks/${id}/mark.svg`, 'needs a viewBox');
+	return {
+		white: has.white ? draft(svg, box, 'white', hue, 'product') : undefined,
+		filled: has.colour ? draft(svg, box, 'solid', hue, 'product') : undefined,
+		black: has.dark ? draft(svg, box, 'dark', hue, 'product') : undefined,
+		glyph: glyphCell(maskOf(svg, box)),
+		hue,
+	};
+};
+
 /** A record and its drawing, as one product. */
 const PRODUCTS: Product[] = MARK_RECORDS.map(({ id, data, body }) => {
-	const d = DRAWINGS[id] ?? disagree(`marks/${id}.md`, 'no drawing has this id');
+	const d =
+		DRAWINGS[id] ??
+		fileDrawingOf(id, data) ??
+		disagree(`marks/${id}.md`, 'no drawing: add its artwork as marks/' + id + '/mark.svg');
 	const version = (key: keyof typeof COL_OF): Version | undefined => {
 		const col = COL_OF[key];
 		const cell = d[col];
@@ -2156,22 +2185,28 @@ const PACK_JSON = JSON.stringify({
  */
 const RECORDS_JSON = JSON.stringify(
 	Object.fromEntries(
-		MARK_RECORDS.map(({ id }) => {
+		MARK_RECORDS.map(({ id, data }) => {
 			const raw = read(markPath(id));
 			const front = parseYaml(raw.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '') as Record<string, unknown>;
 			const proposed = logoMarkSchema.shape.proposed.parse(front.proposed);
 			const notes = logoMarkSchema.shape.notes.parse(front.notes);
 			const treatments = proposed?.treatments ?? {};
 			const colour = proposed?.colour;
+			const label = proposed?.label;
+			const remove = proposed?.remove;
 			return [
 				id,
 				{
 					path: markPath(id),
 					raw,
+					label: data.label,
+					order: data.order,
 					treatments,
 					colour,
+					proposedLabel: label,
+					remove,
 					notes: notes.map((n) => ({ at: n.at.toISOString(), text: n.text })),
-					rev: JSON.stringify({ treatments, colour }),
+					rev: JSON.stringify({ treatments, colour, label, remove }),
 				},
 			];
 		})
@@ -2635,8 +2670,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						<li>
 							<b>Open a mark</b>
 							<span>
-								by clicking its tile. In its sheet, choose its treatment, propose a status, try a colour, leave a note.
+								by clicking its tile. In its sheet, choose its treatment, propose a status, try a colour, leave a note;
+								double-click its name to rename it, or propose removing it at the end.
 							</span>
+						</li>
+						<li>
+							<b>Add a mark</b>
+							<span>with a group’s +: name it, colour it, draw it, and it joins the canvas as a draft.</span>
 						</li>
 						<li>
 							<b>Add a colour</b>
@@ -2919,7 +2959,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 															</button>
 														</li>
 													))}
-													<li class="pg__item pg__item--add">
+													<li class="pg__item pg__item--add" data-add-group={grp.name}>
 														<button
 															type="button"
 															class="pg__pick pg__add"
@@ -2994,6 +3034,17 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							))}
 						</div>
 					</div>
+					<template data-draft-template>
+						<li class="pg__item pg__item--draft">
+							<button type="button" class="pg__pick" aria-controls="pg-sheet" aria-expanded="false">
+								<span class="pg__tile">
+									<span class="pg__draft-tile" />
+									<i class="pg__draft-dot" title="A draft, not in the records yet" />
+								</span>
+								<span class="pg__name" />
+							</button>
+						</li>
+					</template>
 					<div class="pg__palette" role="group" aria-label="The set’s colours">
 						{SET_PALETTE.map((c) => {
 							const second = c.marks.map((m) => SECONDS.get(m)).find(Boolean);
@@ -4213,7 +4264,41 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							{s.r.group}
 							{s.r.kind && ` · ${s.r.kind}`}
 						</p>
-						<h3 tabindex="-1">{s.r.label}</h3>
+						<h3
+							tabindex="-1"
+							class="pgs__title"
+							data-name-for={s.r.id}
+							data-label={s.r.label}
+							title="Double-click to propose a new name"
+						>
+							{s.r.label}
+						</h3>
+						<input
+							type="text"
+							class="pgs__rename"
+							maxlength="40"
+							spellcheck="false"
+							placeholder={s.r.label}
+							aria-label={`A new name for ${s.r.label}`}
+							data-rename-input={s.r.id}
+							hidden
+						/>
+						<p class="pgs__notice" data-renamed-for={s.r.id} hidden>
+							<Icon name="tabler:pencil" aria-hidden="true" />
+							<span>
+								Proposed name; now <b>{s.r.label}</b>.
+							</span>
+							<button type="button" data-undo-rename={s.r.id}>
+								Keep {s.r.label}
+							</button>
+						</p>
+						<p class="pgs__notice pgs__notice--remove" data-removed-for={s.r.id} hidden>
+							<Icon name="tabler:trash" aria-hidden="true" />
+							<span>Proposed for removal from the set.</span>
+							<button type="button" data-undo-remove={s.r.id}>
+								Keep it
+							</button>
+						</p>
 						{s.r.exception && (
 							<span class="pr-exception pgs__exception" title={`Fallback: ${s.r.exception.fallback}`}>
 								Exception · {s.r.exception.what.split(':')[0].toLowerCase()}
@@ -4649,6 +4734,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							</button>
 						</div>
 					</div>
+					<div class="pgs__part pgs__out">
+						<button type="button" class="pgs__outbtn" data-remove={s.r.id} aria-pressed="false">
+							<Icon name="tabler:trash" aria-hidden="true" />
+							<span data-remove-word>Propose removing {s.r.label}</span>
+						</button>
+						<p>It stays in the set until the team decides; Copy as patch proposes it.</p>
+					</div>
 				</article>
 			))}
 
@@ -4662,10 +4754,35 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					<p class="pgs__group" data-new-group>
 						Ecosystem
 					</p>
-					<h3 tabindex="-1">New mark</h3>
-					<span class="pr-status pr-status--blank pgs__exception">Not defined</span>
+					<h3 class="pgs__vh" tabindex="-1" data-new-title>
+						A new mark
+					</h3>
+					<div class="pgs__newform">
+						<input
+							type="text"
+							class="pgs__rename pgs__newname"
+							maxlength="40"
+							spellcheck="false"
+							placeholder="New mark"
+							aria-label="The new mark's name"
+							data-new-name
+						/>
+						<select class="pgs__st pgs__st--exploring" aria-label="Its status" data-new-status>
+							<option value="exploring">Exploring</option>
+							<option value="designed">Designed</option>
+						</select>
+						<input
+							type="text"
+							class="pgs__newabout"
+							maxlength="400"
+							placeholder="What it is, in a line"
+							aria-label="What the product is, in a line"
+							data-new-about
+						/>
+					</div>
 					<p class="pgs__about">
-						A mark not in the set yet: pick its colour and its artwork, and see it in every treatment.
+						Name it, pick its colour and its artwork, then add it to the set as a draft. Copy as patch writes its record
+						and its artwork for review.
 					</p>
 				</header>
 				<div class="pgs__stage" data-ground="dark" data-surface="dark">
@@ -4802,6 +4919,15 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						On the tiles: <code data-icon-picked>tabler:shape</code>
 					</p>
 				</div>
+				<div class="pgs__part pgs__newgo">
+					<p class="pgs__newmsg" data-new-msg aria-live="polite" />
+					<button type="button" class="pgs__newbtn pgs__newbtn--quiet" data-new-discard hidden>
+						Discard the draft
+					</button>
+					<button type="button" class="pgs__newbtn" data-new-commit>
+						Add to the set
+					</button>
+				</div>
 			</article>
 		</aside>
 	)}
@@ -4810,7 +4936,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 <script>
 	import { trackScrollbar } from '@root/pages/internal/design-system/_bleed';
 	import {
+		markArtPath,
+		markPath,
 		mergeNotes,
+		newMarkRecord,
 		recordKey,
 		roomKey,
 		tokenOf,
@@ -4824,6 +4953,18 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	// Bands that span the window take its scrollbar off (_bleed.ts).
 	trackScrollbar();
+
+	/**
+	 * An artwork as its file: the SVG with its viewBox and namespace, the page's own attributes (classes,
+	 * sizes, aria) taken off its root; nothing when it has no viewBox for the room to draw it in.
+	 */
+	const artFile = (svg: string) => {
+		const root = svg.trim().match(/^<svg\b([^>]*)>/);
+		if (!root || !/\bviewBox="[^"]+"/.test(root[1])) return undefined;
+		const attrs = root[1].replace(/\s+(class|style|width|height|aria-[\w-]+|data-[\w-]+|role|focusable)="[^"]*"/g, '');
+		const ns = /\bxmlns="/.test(attrs) ? '' : ' xmlns="http://www.w3.org/2000/svg"';
+		return `<svg${ns}${attrs}>${svg.trim().slice(root[0].length)}\n`;
+	};
 
 	// ── Colour maths: WCAG 2 contrast, and CIE76 ΔE for "how close is this to a colour in the set" ──
 	const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -5251,6 +5392,22 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			repo: Record<string, string>;
 			/** The artwork on the new mark's placeholders: where it came from, its name, the SVG itself. */
 			newMark?: { source: string; label: string; svg: string };
+			/** New names proposed, by mark. */
+			names: Record<string, string>;
+			/** Marks proposed for removal. */
+			removed: Record<string, boolean>;
+			/** Marks added here and not in the records yet. */
+			drafts: Draft[];
+		}
+		/** A mark added in the Studio: what its record and its artwork will say. */
+		interface Draft {
+			id: string;
+			name: string;
+			group: 'Platform' | 'Ecosystem' | 'AI';
+			about: string;
+			hex: string;
+			status: 'exploring' | 'designed';
+			art: { source: string; label: string; svg: string };
 		}
 		const KEY = 'pr-bench-v1';
 		const load = (): Bench => {
@@ -5262,9 +5419,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					tries: raw.tries ?? {},
 					repo: raw.repo ?? {},
 					newMark: raw.newMark,
+					names: raw.names ?? {},
+					removed: raw.removed ?? {},
+					drafts: Array.isArray(raw.drafts) ? raw.drafts : [],
 				};
 			} catch {
-				return { status: {}, notes: {}, tries: {}, repo: {} };
+				return { status: {}, notes: {}, tries: {}, repo: {}, names: {}, removed: {}, drafts: [] };
 			}
 		};
 		const bench = load();
@@ -5281,8 +5441,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		interface RepoRecord {
 			path: string;
 			raw: string;
+			label: string;
+			order: number;
 			treatments: Record<string, string>;
 			colour?: string;
+			proposedLabel?: string;
+			remove?: boolean;
 			notes: RecordNote[];
 			rev: string;
 		}
@@ -5291,6 +5455,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			if (bench.repo[id] === r.rev) return;
 			Object.entries(r.treatments).forEach(([k, v]) => (bench.status[`${id}:${roomKey(k)}`] = v));
 			if (r.colour) bench.tries[id] = r.colour;
+			if (r.proposedLabel) bench.names[id] = r.proposedLabel;
+			if (r.remove) bench.removed[id] = true;
 			bench.repo[id] = r.rev;
 		});
 		save();
@@ -5302,6 +5468,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					.map(([k, v]) => [recordKey(k.slice(id.length + 1)), v])
 			),
 			colour: bench.tries[id] || undefined,
+			label: bench.names[id] || undefined,
+			remove: bench.removed[id] || undefined,
 			notes: mergeNotes(REPO[id]?.notes ?? [], bench.notes[id] ?? []),
 		});
 		/** The marks whose record this browser would change. */
@@ -6048,6 +6216,220 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		});
 		if (bench.newMark) applyArt(bench.newMark.svg, bench.newMark.label, bench.newMark.source, false);
 
+		// ── Renaming and removing a mark: proposals, as a status is ──
+		// The sheet's bar proposes a new name or taking the mark out; the header says so with a way back,
+		// the canvas shows the new name (marked as proposed) or dims the mark, and Copy as patch writes
+		// `proposed.label` or `proposed.remove` into its record for the team to decide.
+		const markShow = (id: string) => {
+			const title = sheetBox.querySelector<HTMLElement>(`[data-name-for="${id}"]`);
+			const base = title?.dataset.label ?? id;
+			const name = bench.names[id];
+			if (title) title.textContent = name ?? base;
+			const renamed = sheetBox.querySelector<HTMLElement>(`[data-renamed-for="${id}"]`);
+			if (renamed) renamed.hidden = !name;
+			const removed = !!bench.removed[id];
+			const removing = sheetBox.querySelector<HTMLElement>(`[data-removed-for="${id}"]`);
+			if (removing) removing.hidden = !removed;
+			const out = sheetBox.querySelector<HTMLElement>(`[data-remove="${id}"]`);
+			out?.setAttribute('aria-pressed', String(removed));
+			const word = out?.querySelector('[data-remove-word]');
+			if (word) word.textContent = removed ? `Proposed for removal: keep ${base}` : `Propose removing ${base}`;
+			root.querySelectorAll<HTMLElement>(`.pg__item[data-id="${id}"]`).forEach((item) => {
+				item.toggleAttribute('data-removed', removed);
+				const label = item.querySelector<HTMLElement>('.pg__name');
+				if (!label) return;
+				label.textContent = name ?? base;
+				label.toggleAttribute('data-proposed', !!name);
+				label.title = name ? `Proposed name; now ${base}` : '';
+			});
+		};
+		Object.keys(REPO).forEach(markShow);
+		// The title, double-clicked (or F2 while it has focus), turns into its field: the name as it is
+		// now, selected, the record's name as the placeholder once cleared.
+		sheetBox.querySelectorAll<HTMLElement>('[data-name-for]').forEach((title) => {
+			const rename = () => {
+				const id = title.dataset.nameFor ?? '';
+				const field = sheetBox.querySelector<HTMLInputElement>(`[data-rename-input="${id}"]`);
+				if (!field) return;
+				field.value = bench.names[id] ?? title.dataset.label ?? '';
+				title.hidden = true;
+				field.hidden = false;
+				field.select();
+			};
+			title.addEventListener('dblclick', rename);
+			title.addEventListener('keydown', (e) => {
+				if (e.key === 'F2') rename();
+			});
+		});
+		sheetBox.querySelectorAll<HTMLInputElement>('[data-rename-input]').forEach((field) => {
+			const id = field.dataset.renameInput ?? '';
+			const done = (keep: boolean, refocus = true) => {
+				if (field.hidden) return;
+				const title = sheetBox.querySelector<HTMLElement>(`[data-name-for="${id}"]`);
+				if (keep) {
+					const value = field.value.trim();
+					if (!value || value === title?.dataset.label) delete bench.names[id];
+					else bench.names[id] = value;
+					save();
+				}
+				field.hidden = true;
+				if (title) {
+					title.hidden = false;
+					if (refocus) title.focus({ preventScroll: true });
+				}
+				markShow(id);
+			};
+			field.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter') done(true);
+				if (e.key === 'Escape') {
+					// Leaves the name as it was, and the sheet open.
+					e.stopPropagation();
+					done(false);
+				}
+			});
+			// Clicking away keeps the name, and leaves the focus where it went.
+			field.addEventListener('blur', () => done(true, false));
+		});
+		sheetBox.querySelectorAll<HTMLButtonElement>('[data-undo-rename]').forEach((b) =>
+			b.addEventListener('click', () => {
+				delete bench.names[b.dataset.undoRename ?? ''];
+				save();
+				markShow(b.dataset.undoRename ?? '');
+			})
+		);
+		sheetBox.querySelectorAll<HTMLButtonElement>('[data-remove], [data-undo-remove]').forEach((b) =>
+			b.addEventListener('click', () => {
+				const id = b.dataset.remove ?? b.dataset.undoRemove ?? '';
+				if (bench.removed[id] || b.dataset.undoRemove) delete bench.removed[id];
+				else bench.removed[id] = true;
+				save();
+				markShow(id);
+			})
+		);
+
+		// ── Adding a mark: a draft on the canvas, then a record ──
+		// The Add tile opens the new mark's sheet with its group. Named, coloured and drawn, Add to the set
+		// puts it on the canvas as a draft (in this browser), where it opens again to change or discard.
+		// Copy as patch (or Save to repo) writes its record, `marks/<id>.md`, and its artwork,
+		// `marks/<id>/mark.svg`, which the room draws with no code.
+		const draftTemplate = root.querySelector<HTMLTemplateElement>('[data-draft-template]');
+		const nf = newSheet && {
+			title: newSheet.querySelector<HTMLElement>('[data-new-title]'),
+			name: newSheet.querySelector<HTMLInputElement>('[data-new-name]'),
+			about: newSheet.querySelector<HTMLInputElement>('[data-new-about]'),
+			status: newSheet.querySelector<HTMLSelectElement>('[data-new-status]'),
+			msg: newSheet.querySelector<HTMLElement>('[data-new-msg]'),
+			commit: newSheet.querySelector<HTMLButtonElement>('[data-new-commit]'),
+			discard: newSheet.querySelector<HTMLButtonElement>('[data-new-discard]'),
+			group: newSheet.querySelector<HTMLElement>('[data-new-group]'),
+		};
+		/** The draft the sheet is changing; none while it adds a new one. */
+		let editing: string | undefined;
+		const newHex = () =>
+			sheetBox.querySelector<HTMLInputElement>('[data-try-for="new"]')?.value.toLowerCase() ?? '#3d50f5';
+		const statusShow = () => {
+			if (nf?.status)
+				nf.status.className = nf.status.className.replace(/\bpgs__st--\w+/, `pgs__st--${nf.status.value}`);
+		};
+		nf?.status?.addEventListener('change', statusShow);
+		/** A name as a record's file name: lowercase words, one apart from every record and other draft. */
+		const idFor = (name: string, self?: string) => {
+			const base =
+				name
+					.toLowerCase()
+					.normalize('NFKD')
+					.replace(/[^a-z0-9]+/g, '-')
+					.replace(/^-+|-+$/g, '') || 'mark';
+			let id = base;
+			for (let n = 2; REPO[id] || bench.drafts.some((d) => d.id === id && d.id !== self); n++) id = `${base}-${n}`;
+			return id;
+		};
+		/** A draft as its record would say it, after the set's last mark (and the drafts before it). */
+		const lastOrder = Math.max(0, ...Object.values(REPO).map((r) => r.order));
+		const newMarkOf = (d: Draft, i: number) => ({
+			id: d.id,
+			label: d.name,
+			group: d.group,
+			about: d.about,
+			hue: d.hex,
+			status: d.status,
+			order: lastOrder + 10 * (i + 1),
+		});
+		/** The sheet as it opens: empty for a new mark, or filled from the draft it changes. */
+		const draftForm = (d?: Draft) => {
+			if (!nf) return;
+			editing = d?.id;
+			if (nf.name) nf.name.value = d?.name ?? '';
+			if (nf.about) nf.about.value = d?.about ?? '';
+			if (nf.status) nf.status.value = d?.status ?? 'exploring';
+			statusShow();
+			if (nf.title) nf.title.textContent = d ? `Draft: ${d.name}` : 'A new mark';
+			if (nf.commit) nf.commit.textContent = d ? 'Save the draft' : 'Add to the set';
+			if (nf.discard) nf.discard.hidden = !d;
+			if (nf.msg) nf.msg.textContent = '';
+			if (d) {
+				applyArt(d.art.svg, d.art.label, d.art.source);
+				tryColour('new', d.hex);
+			}
+		};
+		const drawDrafts = () => {
+			root.querySelectorAll('.pg__item--draft').forEach((el) => el.remove());
+			bench.drafts.forEach((d) => {
+				root.querySelectorAll<HTMLElement>(`.pg__item--add[data-add-group="${d.group}"]`).forEach((add) => {
+					const item = draftTemplate?.content.firstElementChild?.cloneNode(true) as HTMLElement | undefined;
+					const b = item?.querySelector<HTMLButtonElement>('button');
+					const tile = item?.querySelector<HTMLElement>('.pg__draft-tile');
+					if (!item || !b || !tile) return;
+					b.dataset.group = d.group;
+					b.dataset.draft = d.id;
+					b.setAttribute('aria-label', `Open the draft ${d.name}`);
+					tile.innerHTML = d.art.svg;
+					tile.dataset.fill = d.group === 'Ecosystem' ? 'white' : 'colour';
+					tile.style.setProperty('--c', d.hex);
+					const name = item.querySelector('.pg__name');
+					if (name) name.textContent = d.name;
+					b.addEventListener('click', () => {
+						open('new', b);
+						draftForm(bench.drafts.find((x) => x.id === d.id));
+					});
+					add.before(item);
+				});
+			});
+		};
+		root.querySelectorAll<HTMLButtonElement>('.pg__add').forEach((b) => b.addEventListener('click', () => draftForm()));
+		nf?.commit?.addEventListener('click', () => {
+			if (!nf) return;
+			const name = nf.name?.value.trim() ?? '';
+			const say = (text: string, focus?: HTMLElement | null) => {
+				if (nf.msg) nf.msg.textContent = text;
+				focus?.focus();
+			};
+			if (!name) return say('Name it first.', nf.name);
+			const art = bench.newMark;
+			if (!art) return say('Pick its artwork first: from the set, from Tabler, or a file.');
+			if (!artFile(art.svg)) return say('That artwork has no viewBox for the room to draw it in; pick another.');
+			const d: Draft = {
+				id: idFor(name, editing),
+				name,
+				group: (nf.group?.textContent?.trim() || 'Ecosystem') as Draft['group'],
+				about: nf.about?.value.trim() ?? '',
+				hex: newHex(),
+				status: (nf.status?.value as Draft['status']) ?? 'exploring',
+				art,
+			};
+			bench.drafts = editing ? bench.drafts.map((x) => (x.id === editing ? d : x)) : [...bench.drafts, d];
+			save();
+			drawDrafts();
+			close();
+		});
+		nf?.discard?.addEventListener('click', () => {
+			bench.drafts = bench.drafts.filter((x) => x.id !== editing);
+			save();
+			drawDrafts();
+			close();
+		});
+		drawDrafts();
+
 		// ── Downloads: the tile as shown, or the mark alone, as SVG ──
 		// Drawn from the page itself: the tile's fill and the glyph's place and colour are read from what
 		// is on screen, so a colour tried is exported too. Icons drawn by reference (<use>) are inlined;
@@ -6211,10 +6593,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const b = e.currentTarget as HTMLButtonElement;
 			const ids = unsaved();
 			const palette = paletteAfter();
-			if (ids.length === 0 && !palette) return flash(b, 'Nothing to propose');
+			if (ids.length === 0 && !palette && bench.drafts.length === 0) return flash(b, 'Nothing to propose');
 			const patch = ids.map((id) =>
 				unifiedDiff(REPO[id].path, REPO[id].raw, writeProposal(REPO[id].raw, proposalOf(id)))
 			);
+			bench.drafts.forEach((d, i) => {
+				patch.push(unifiedDiff(markPath(d.id), '', newMarkRecord(newMarkOf(d, i))));
+				patch.push(unifiedDiff(markArtPath(d.id), '', artFile(d.art.svg) ?? ''));
+			});
 			if (palette && PALETTE.path && PALETTE.raw) patch.push(unifiedDiff(PALETTE.path, PALETTE.raw, palette));
 			try {
 				await navigator.clipboard.writeText(patch.join(''));
@@ -6226,9 +6612,23 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		document.querySelector<HTMLButtonElement>('[data-save]')?.addEventListener('click', async (e) => {
 			const b = e.currentTarget as HTMLButtonElement;
 			const ids = unsaved();
-			if (ids.length === 0) return flash(b, 'Nothing to save');
+			const drafts = [...bench.drafts];
+			if (ids.length === 0 && drafts.length === 0) return flash(b, 'Nothing to save');
 			b.disabled = true;
 			const failed: string[] = [];
+			// A draft first becomes its record and its artwork; the dev server refuses one whose id is taken.
+			for (const [i, d] of drafts.entries()) {
+				const res = await fetch('/__logo-room/create', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ ...newMarkOf(d, i), mark: d.id, svg: artFile(d.art.svg) }),
+				}).catch(() => undefined);
+				if (res?.ok) bench.drafts = bench.drafts.filter((x) => x.id !== d.id);
+				else
+					failed.push(
+						`${d.name}: ${((await res?.json().catch(() => ({}))) as { error?: string })?.error ?? 'no answer'}`
+					);
+			}
 			const expected = Object.fromEntries(ids.map((id) => [id, writeProposal(REPO[id].raw, proposalOf(id))]));
 			for (const id of ids) {
 				const res = await fetch('/__logo-room/save', {
@@ -6251,14 +6651,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				return;
 			}
 			// The records changed on disk: once the dev server serves them, the page reads them again.
-			flash(b, `Saved ${ids.length}`);
+			flash(b, `Saved ${ids.length + drafts.length}`);
 			for (let i = 0; i < 20; i++) {
 				const html = await fetch(location.href, { cache: 'no-store' })
 					.then((r) => r.text())
 					.catch(() => '');
 				const served = html.match(/id="pr-records"[^>]*>([\s\S]*?)<\/script>/)?.[1];
 				const records = served ? (JSON.parse(served) as Record<string, RepoRecord>) : {};
-				if (ids.every((id) => records[id]?.raw === expected[id])) break;
+				if (ids.every((id) => records[id]?.raw === expected[id]) && drafts.every((d) => records[d.id])) break;
 				await new Promise((r) => setTimeout(r, 500));
 			}
 			location.reload();
@@ -9528,6 +9928,58 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
+	// A draft: a mark added here, not in the records yet, on its group's tile (White for the Ecosystem,
+	// Colour for the platform and the AI) in its colour, with the amber dot of what is proposed here.
+	.pg__draft-tile {
+		display: grid;
+		place-items: center;
+		width: 72px;
+		height: 72px;
+		border-radius: 32%;
+		background: var(--c);
+		color: #fff;
+		box-shadow: 0 2px 8px rgba(23, 24, 28, 0.14);
+
+		&[data-fill='white'] {
+			background: #fff;
+			color: var(--c);
+		}
+
+		:global(svg) {
+			width: 58%;
+			height: 58%;
+		}
+	}
+
+	.pg__draft-dot {
+		position: absolute;
+		top: -3px;
+		right: -3px;
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: #f79009;
+		box-shadow: 0 0 0 2px var(--stage, #fff);
+	}
+
+	// A mark proposed for removal: faded, its name struck; a proposed name in italics, the amber of
+	// what is proposed here under it.
+	.pg__item[data-removed] {
+		.pg__tile {
+			opacity: 0.32;
+		}
+
+		.pg__name {
+			text-decoration: line-through;
+		}
+	}
+
+	.pg__name[data-proposed] {
+		font-style: italic;
+		text-decoration: underline dotted #f79009;
+		text-underline-offset: 3px;
+	}
+
 	// Status on the tile's corner; shipped carries none. A status proposed here gets an amber ring.
 	.pg__dot {
 		position: absolute;
@@ -9802,7 +10254,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		top: 0;
 		right: 0;
 		bottom: 0;
-		width: min(680px, 100vw);
+		// 100%, not 100vw: the window less its scrollbar, so a narrow window shows the sheet's left edge.
+		width: min(680px, 100%);
 		overflow: auto;
 		background: #fff;
 		// The page behind fades a notch while a sheet is open; a shadow, not a scrim, so the page stays
@@ -9856,12 +10309,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		z-index: 4;
 		top: 0;
 		display: flex;
-		justify-content: flex-end;
+		align-items: flex-start;
 		height: 0;
 		padding: 0 14px;
 
 		.pgs__close {
 			margin-top: 14px;
+			margin-left: auto;
 			background: color-mix(in srgb, #fff 90%, transparent);
 			box-shadow: 0 1px 3px rgba(23, 24, 28, 0.16);
 			backdrop-filter: blur(6px);
@@ -9880,6 +10334,239 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 			margin: 0;
 			outline: none;
+		}
+	}
+
+	// The title takes a double-click to rename; the field takes its place at the title's size, the
+	// record's name as its placeholder. The new mark's name is the same field, "New mark" until typed.
+	.pgs__title {
+		cursor: text;
+	}
+
+	.pgs__rename {
+		@include type-title;
+
+		width: 100%;
+		max-width: 18ch;
+		margin: 0 0 0 -8px;
+		padding: 0 8px;
+		border: 0;
+		border-radius: 10px;
+		background: rgba(23, 24, 28, 0.04);
+		color: var(--color-text);
+		font-family: inherit;
+
+		&::placeholder {
+			color: var(--color-text-light);
+		}
+
+		&:hover {
+			background: rgba(23, 24, 28, 0.06);
+		}
+
+		&:focus-visible {
+			outline: none;
+			background: #fff;
+			box-shadow: inset 0 0 0 2px var(--focus-ring);
+		}
+	}
+
+	// Kept for the sheet's focus and its name for assistive tech, not drawn.
+	.pgs__vh {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	// The sheet's end: taking the mark out of the set, a proposal like any other, quiet until pressed.
+	.pgs__out {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 14px;
+
+		p {
+			margin: 0;
+			color: var(--color-text-secondary);
+			font-size: 13px;
+		}
+	}
+
+	.pgs__outbtn {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 14px;
+		border: 0;
+		border-radius: 100px;
+		background: none;
+		box-shadow: inset 0 0 0 1px rgba(180, 35, 24, 0.3);
+		color: #b42318;
+		font: inherit;
+		font-size: 13px;
+		font-weight: $font-weight-medium;
+		cursor: pointer;
+
+		:global(svg) {
+			width: 15px;
+			height: 15px;
+		}
+
+		&:hover {
+			background: #fef3f2;
+		}
+
+		&[aria-pressed='true'] {
+			background: #b42318;
+			box-shadow: none;
+			color: #fff;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+	}
+
+	// What is proposed for the mark itself, under its name, with the way back.
+	.pgs__notice {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px 8px;
+		justify-self: start;
+		margin: 0;
+		padding: 6px 6px 6px 12px;
+		border-radius: 12px;
+		background: #fff4e5;
+		color: #93370d;
+		font-size: 13px;
+
+		:global(svg) {
+			flex: none;
+			width: 15px;
+			height: 15px;
+		}
+
+		button {
+			padding: 3px 10px;
+			border: 0;
+			border-radius: 100px;
+			background: rgba(147, 55, 13, 0.1);
+			color: inherit;
+			font: inherit;
+			font-weight: $font-weight-medium;
+			cursor: pointer;
+
+			&:hover {
+				background: rgba(147, 55, 13, 0.18);
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--focus-ring);
+			}
+		}
+
+		&--remove {
+			background: #fef3f2;
+			color: #b42318;
+
+			button {
+				background: rgba(180, 35, 24, 0.1);
+			}
+		}
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	// The new mark's own fields: its name at the title's weight, its status beside it, its line under.
+	.pgs__newform {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 10px;
+
+		input {
+			min-width: 0;
+			padding: 8px 12px;
+			border: 0;
+			border-radius: 10px;
+			background: #fff;
+			box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.14);
+			color: var(--color-text);
+			font: inherit;
+
+			&:focus-visible {
+				outline: 2px solid var(--focus-ring);
+				outline-offset: 1px;
+			}
+		}
+	}
+
+	.pgs__newform .pgs__newname {
+		@include type-title;
+
+		flex: 1 1 100%;
+		max-width: none;
+		padding: 0 8px;
+		background: rgba(23, 24, 28, 0.04);
+		box-shadow: none;
+		font-family: inherit;
+	}
+
+	.pgs__newform .pgs__newabout {
+		flex: 1 1 100%;
+		font-size: 14px;
+	}
+
+	// The end of the new mark's sheet: why it cannot be added yet, then Discard and Add.
+	.pgs__newgo {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 8px;
+	}
+
+	.pgs__newmsg {
+		flex: 1 1 200px;
+		margin: 0;
+		color: #b42318;
+		font-size: 13px;
+	}
+
+	.pgs__newbtn {
+		padding: 9px 18px;
+		border: 0;
+		border-radius: 100px;
+		background: var(--color-text);
+		color: #fff;
+		font: inherit;
+		font-size: 14px;
+		font-weight: $font-weight-medium;
+		cursor: pointer;
+
+		&--quiet {
+			background: none;
+			color: #b42318;
+
+			&:hover {
+				background: #fef3f2;
+			}
+		}
+
+		&[hidden] {
+			display: none;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
 		}
 	}
 

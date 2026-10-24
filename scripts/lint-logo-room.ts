@@ -2,15 +2,19 @@
  * Checks the Logo Room's records (`src/content/logo-room/`) without a build: each file against its
  * schema, then what the schemas cannot see — the records against each other.
  *
- *   - marks: a unique `order`; candidate ids unique, `current` first; a proposal that only repeats a
- *     decided status; notes in order
+ *   - marks: a unique `order`; candidate ids unique, `current` first, none named `mark`; a proposal
+ *     that only repeats a decided status or the mark's own name; notes in order; a `hue` only on a mark
+ *     drawn from its own file
  *   - rounds: names unique; the marks they pick, review, set, route through and recolour exist; a
  *     palette colour holds 3:1 against white, as a Colour tile's white mark needs; a pick names a drawn candidate of its mark;
  *     no mark both picked and reviewed; no mark in two open rounds; an open round has no `decided`
  *     date and a decided one has one, not before it opened
  *
  *   - artwork: each file in `marks/<mark>/` is `<candidate>.svg` for a candidate of that mark (not
- *     `current`), with a viewBox; a candidate with a file is no longer `toDraw`
+ *     `current`), or `mark.svg`, the mark's own artwork; each with a viewBox and nothing that runs; a
+ *     candidate with a file is no longer `toDraw`
+ *   - a new mark: the record the Studio writes for a mark added there is one the schema takes, and its
+ *     creation diff is one `git apply --check` takes
  *   - palette.md: each proposed colour's token unique and not in the theme yet; its light value 3:1 on
  *     white, its dark value 3:1 on night; its writer, tried as the marks' is below
  *   - the patch writer (what Copy as patch and Save to repo write), tried on every mark: a probe
@@ -38,6 +42,9 @@ import {
 	type LogoRound,
 } from '../src/models/logo-room.ts';
 import {
+	markArtPath,
+	markPath,
+	newMarkRecord,
 	PALETTE_PATH,
 	unifiedDiff,
 	writePalette,
@@ -168,17 +175,51 @@ for (const name of readdirSync(marksDir).sort()) {
 	for (const file of readdirSync(folder).sort()) {
 		const at = join(folder, file);
 		const id = file.replace(/\.svg$/, '');
-		if (!file.endsWith('.svg')) report(at, 'artwork is an .svg named for its candidate');
+		const svg = file.endsWith('.svg') ? readFileSync(at, 'utf8') : '';
+		if (!file.endsWith('.svg')) report(at, 'artwork is an .svg named for its candidate, or mark.svg');
 		else if (id === 'current') report(at, 'the current drawing is the shipped one, not a file here');
-		else if (!mark.data.candidates.some((c) => c.id === id)) report(at, `no candidate “${id}” in ${name}.md`);
-		else if (!/viewBox="[^"]+"/.test(readFileSync(at, 'utf8'))) report(at, 'needs a viewBox');
+		else if (id !== 'mark' && !mark.data.candidates.some((c) => c.id === id))
+			report(at, `no candidate “${id}” in ${name}.md`);
+		else if (!/viewBox="[^"]+"/.test(svg)) report(at, 'needs a viewBox');
+		else if (/<script\b|<foreignObject\b|\son\w+\s*=|javascript:/i.test(svg)) report(at, 'has something that runs');
 	}
 }
 for (const [name, { file, data }] of marks) {
+	if (data.candidates.some((c) => c.id === 'mark'))
+		report(file, 'no candidate is “mark”: mark.svg is the mark’s own artwork');
+	if (data.hue && !existsSync(join(marksDir, name, 'mark.svg')))
+		report(file, `hue is the colour of a mark drawn from marks/${name}/mark.svg, which is not there`);
+	if (data.proposed?.label === data.label) report(file, `proposed.label repeats its name, ${data.label}`);
 	for (const c of data.candidates) {
 		if (c.toDraw && existsSync(join(marksDir, name, `${c.id}.svg`)))
 			report(file, `candidate ${c.id} has its drawing now: drop toDraw`);
 	}
+}
+
+// ── A new mark, as the Studio writes it ──
+{
+	const probe = newMarkRecord({
+		id: 'probe-mark',
+		label: `A probe's "mark"`,
+		group: 'AI',
+		about: '',
+		hue: '#3d50f5',
+		status: 'exploring',
+		order: 9990,
+	});
+	const front = probe.match(/^---\n([\s\S]*?)\n---/)?.[1];
+	if (!logoMarkSchema.safeParse(parse(front ?? '')).success)
+		report(markPath('probe-mark'), 'new-mark writer: its record does not match the schema');
+	const diff = [
+		unifiedDiff(markPath('probe-mark'), '', probe),
+		unifiedDiff(markArtPath('probe-mark'), '', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"/>\n'),
+	].join('');
+	const check = spawnSync('git', ['apply', '--check', '-'], { cwd: ROOT, input: diff });
+	if (check.status !== 0)
+		report(
+			markPath('probe-mark'),
+			`new-mark writer: git apply refuses its diff (${check.stderr.toString().trim().split('\n')[0]})`
+		);
 }
 
 // ── palette.md: colours proposed for the set ──
@@ -243,6 +284,8 @@ for (const { file, data } of marks.values()) {
 	const own: RecordProposal = {
 		treatments: data.proposed?.treatments ?? {},
 		colour: data.proposed?.colour,
+		label: data.proposed?.label,
+		remove: data.proposed?.remove,
 		notes: data.notes.map((n) => ({ at: n.at.toISOString(), text: n.text })),
 	};
 	const once = writeProposal(raw, own);
@@ -251,6 +294,8 @@ for (const { file, data } of marks.values()) {
 	const probed = writeProposal(raw, {
 		treatments: { ...own.treatments, ...PROBE.treatments },
 		colour: PROBE.colour,
+		label: `${data.label}'s "probe"`,
+		remove: true,
 		notes: [...own.notes, PROBE.note],
 	});
 	const parsed = logoMarkSchema.safeParse(parse(probed.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? ''));
@@ -258,6 +303,8 @@ for (const { file, data } of marks.values()) {
 	else if (
 		parsed.data.proposed?.treatments.white !== PROBE.treatments.white ||
 		parsed.data.proposed?.colour !== PROBE.colour ||
+		parsed.data.proposed?.label !== `${data.label}'s "probe"` ||
+		parsed.data.proposed?.remove !== true ||
 		!parsed.data.notes.some((n) => n.text === PROBE.note.text)
 	)
 		report(file, 'patch writer: the probe did not come through');

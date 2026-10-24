@@ -96,6 +96,11 @@ export const VOCABULARY: { group: string; terms: { term: string; means: string; 
 				key: 'palette.md · of · --color-product-*-secondary',
 			},
 			{
+				term: 'Draft',
+				means: 'A mark added in the Studio and not in the records yet; Copy as patch writes its record and artwork',
+				key: 'bench.drafts · marks/<mark>/mark.svg · hue',
+			},
+			{
 				term: 'Candidate',
 				means: 'A version of a mark under review: Current, A, B…; its drawing a file beside the record',
 				key: 'candidates · marks/<mark>/<candidate>.svg',
@@ -140,8 +145,8 @@ export const VOCABULARY: { group: string; terms: { term: string; means: string; 
 			{ term: 'Legacy', means: 'Old files, to retire', key: "'legacy'" },
 			{
 				term: 'Proposed',
-				means: 'A status or a colour suggested in the Studio, until the team decides',
-				key: 'proposed',
+				means: 'A status, a colour, a new name or a removal suggested in the Studio, until the team decides',
+				key: 'proposed · treatments · colour · label · remove',
 			},
 			{ term: 'Not defined', means: 'A baseline slot nobody has drawn', key: 'no version' },
 		],

@@ -64,8 +64,10 @@ treatments and its colour.
    colour new to the set is proposed in `palette.md` with a name, a light and a dark value, and passes
    the checks; the Studio's palette adds one and Copy as patch writes it. Two-tone artwork takes a
    secondary, its product's token plus `-secondary`, with `of` naming the mark; never a third tone.
-4. **Record it.** A new mark is `marks/<id>.md`. Its drawing is an SVG with a viewBox at
-   `marks/<id>/<candidate>.svg`, which the room draws with no code; until the file is in, the candidate
-   is `toDraw`. A change to several marks is a round, `rounds/round-<n>.md`, with routes when it weighs
-   directions and a palette when it proposes colours.
+4. **Record it.** A new mark is `marks/<id>.md`, its artwork `marks/<id>/mark.svg` (with a viewBox)
+   and its colour `hue`; the Studio's Add drafts all three. A candidate's drawing is
+   `marks/<id>/<candidate>.svg`; until the file is in, the candidate is `toDraw`. The room draws either
+   with no code. A new name or taking a mark out is proposed in its record (`proposed.label`,
+   `proposed.remove`) and decided in review. A change to several marks is a round,
+   `rounds/round-<n>.md`, with routes when it weighs directions and a palette when it proposes colours.
 5. **Check it.** Run `pnpm lint:logoroom`, then see it on every ground in the Studio.
