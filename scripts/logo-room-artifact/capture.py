@@ -15,6 +15,7 @@ import hashlib
 import html
 import os
 import re
+import shutil
 import subprocess
 import sys
 import urllib.parse
@@ -44,6 +45,8 @@ git = lambda *args: subprocess.check_output(['git', *args], cwd=ROOT, text=True)
 REF = f"{git('rev-parse', '--abbrev-ref', 'HEAD')} · {git('describe', '--always', '--dirty')}"
 TODAY = date.today().strftime('%-d %b %Y')
 
+# A fresh folder each time: a page renamed or a stylesheet rehashed leaves nothing stale to publish.
+shutil.rmtree(OUT, ignore_errors=True)
 os.makedirs(os.path.join(OUT, 'css'), exist_ok=True)
 os.makedirs(os.path.join(OUT, 'assets'), exist_ok=True)
 assets: dict[str, str] = {}

@@ -4,7 +4,7 @@ The Logo Room (`/internal/design-system/logos/` on the lab) published on its own
 claude.ai artifact: https://claude.ai/artifact/LSxxpGErXUNFPoVC5noQTG. Share it from the page's Share menu;
 until then only its owner can open it.
 
-Version 3 is `exp/logo-review` as pushed on 25 Oct 2026: the renamed pages (Guidelines, Studio, About), the
+Version 4 is `exp/logo-review` at 1e07447a6 (25 Oct 2026): the renamed pages (Guidelines, Studio, About), the
 groups guide, the palette with its colour editor and secondaries, briefs by topic, sets of your own and the Files
 side menu. The tag in the bottom-left corner of every page names the branch, the commit and the capture date.
 
@@ -51,14 +51,15 @@ With the room's dev server (`tb-site-logos`, port 4355) running on the worktree 
 
 1. Decide what the snapshot should show: the dev server serves the working tree, uncommitted work
    included. The corner tag says `-dirty` when it is not a clean commit.
-2. `python3 -I scripts/logo-room-artifact/capture.py` writes `site/` (git-ignored). It runs
+2. `python3 -I scripts/logo-room-artifact/capture.py` writes `site/` (git-ignored), afresh each time. It runs
    `bundle.mjs`, fetches the five pages and the icon set, and versions `room.js`, `shell.js` and
    `shell.css` by their content so viewers never keep an old copy.
 3. Check it: `logo-room-artifact` in the main folder's `.claude/launch.json` serves `site/` on 4362.
    Open `index.html`, follow a round to the Studio, open a sheet, try a colour, open the new mark's Tabler
    tab, and Copy as patch.
 4. Publish `site/index.html` to the artifact's URL with every other file in `site/` as `files` (root
-   `site/`). The Artifact tool reads files only under the session's folder or its scratchpad, so copy
+   `site/`), and `null` for each published file `site/` no longer has (a stylesheet's name is its hash,
+   so a style change renames it). The Artifact tool reads files only under the session's folder or its scratchpad, so copy
    `site/` there first when the session runs from the main checkout.
 
 ## When the room changes
