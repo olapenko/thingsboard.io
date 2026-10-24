@@ -2,8 +2,8 @@
 import { ROOM, type RoomPageId } from '@root/pages/internal/design-system/_room';
 
 /**
- * The Logo Room's navigation: its name with a mark of its own — three tiles fanned, as a set is, the
- * front one carrying a plus — then
+ * The Logo Room's navigation: its name with a mark of its own — four cards fanned in the set's
+ * colours, the front one carrying a plus — then
  * Overview, Bench, Spec and Files as tabs, the current one underlined at the bar's foot. Each link
  * carries the address's query to the next page, so the set built on the bench travels with you.
  */
@@ -12,15 +12,31 @@ interface Props {
 }
 
 const { current } = Astro.props;
+
+/**
+ * The mark's cards, back to front, in the set's own colours: IoT Hub's amber, On-premises' green,
+ * Cloud's indigo, then the platform's White, shaded, with the plus.
+ */
+const ROOM_MARK = ['#b45309', '#178649', '#3d50f5', 'url(#room-mark-white)'];
 ---
 
 <div class="room" role="navigation" aria-label="Logo Room">
 	<a class="room__brand" href={ROOM[0].href} data-room-link>
-		<span class="room__mark" aria-hidden="true">
-			<i></i>
-			<i></i>
-			<i></i>
-		</span>
+		<svg class="room__mark" viewBox="-4 0 48 32" aria-hidden="true">
+			<defs>
+				<linearGradient id="room-mark-white" x1="0.29" y1="0.05" x2="0.71" y2="0.95">
+					<stop offset="0.35" stop-color="#fff" />
+					<stop offset="1" stop-color="#f0f1fe" />
+				</linearGradient>
+			</defs>
+			{ROOM_MARK.map((c, k) => (
+				<g style={`--turn: ${(ROOM_MARK.length - 1 - k) * -11}deg`}>
+					<rect x="18" y="4" width="24" height="24" rx="7.7" fill={c} />
+				</g>
+			))}
+			<rect class="room__plus" x="23.5" y="14.5" width="13" height="3" rx="1" />
+			<rect class="room__plus" x="28.5" y="9.5" width="3" height="13" rx="1" />
+		</svg>
 		<span class="room__name">Logo Room</span>
 	</a>
 	<span class="room__tabs">
@@ -69,82 +85,36 @@ const { current } = Astro.props;
 		}
 	}
 
-	// The room's mark: three tiles fanned, as a set is — the dark at the back, the brand indigo, the
-	// white in front. Flat fills, each split from the one behind by a white stroke and no other edge; on
-	// hover they open a little.
+	// The room's mark, drawn as one SVG: four cards fanned like a hand, each turned 11° from the next
+	// about one point just under the stack, so their tops run on one arc and each colour shows as a band.
+	// Flat fills, no edges. On hover the fan opens a little wider.
 	.room__mark {
-		position: relative;
-		width: 34px;
-		height: 24px;
+		flex: none;
+		width: 48px;
+		height: 32px;
+		overflow: visible;
 
-		i {
-			position: absolute;
-			top: 2px;
-			width: 20px;
-			height: 20px;
-			border-radius: 32%;
-			box-shadow: 0 0 0 1.5px #fff;
+		g {
+			transform: rotate(var(--turn));
+			transform-box: view-box;
+			transform-origin: 30px 44px;
 			transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 		}
 
-		i:nth-child(1) {
-			left: 0;
-			z-index: 1;
-			background: #17181c;
-			transform: rotate(-8deg);
-		}
-
-		i:nth-child(2) {
-			left: 7px;
-			z-index: 2;
-			background: #3d50f5;
-		}
-
-		// The white tile in front carries a plus: the room is where a mark is added.
-		i:nth-child(3) {
-			left: 14px;
-			z-index: 3;
-			// Shaded, as a White tile is on a light ground: the indigo at 8% toward the far corner.
-			background: linear-gradient(155deg, #fff 35%, color-mix(in srgb, #3d50f5 8%, #fff) 100%);
-			transform: rotate(8deg);
-
-			&::before,
-			&::after {
-				content: '';
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				border-radius: 1px;
-				background: #17181c;
-				transform: translate(-50%, -50%);
-			}
-
-			&::before {
-				width: 11px;
-				height: 2.5px;
-			}
-
-			&::after {
-				width: 2.5px;
-				height: 11px;
-			}
-		}
-
-		.room__brand:hover & {
-			i:nth-child(1) {
-				transform: rotate(-12deg) translateX(-1.5px);
-			}
-
-			i:nth-child(3) {
-				transform: rotate(12deg) translateX(1.5px);
-			}
+		.room__brand:hover & g:not(:last-of-type) {
+			transform: rotate(calc(var(--turn) * 1.3));
 		}
 
 		@media (prefers-reduced-motion: reduce) {
-			i {
+			g {
 				transition: none;
 			}
 		}
+	}
+
+	// The plus on the front card: the room is where a mark is added.
+	.room__plus {
+		fill: #17181c;
 	}
 
 	.room__name {

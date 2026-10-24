@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { getCollection } from 'astro:content';
 import { Icon } from 'astro-icon/components';
 import RoomTabs from '@root/pages/internal/design-system/_RoomTabs.astro';
+import PageHero from '@root/pages/internal/design-system/_PageHero.astro';
 import { roomPage, type RoomPageId } from '@root/pages/internal/design-system/_room';
 import LogoCell from '@root/pages/internal/design-system/_LogoCell.astro';
 import {
@@ -719,6 +720,14 @@ const EXPERIMENTS: Experiment[] = [
 		comment: 'ChatLauncher already draws the sparkle; one line in chat-widget.ts.',
 	},
 	{
+		id: 'mascot',
+		title: 'A face for the chat',
+		action: 'Sketch it in the chat panel’s header',
+		href: `${BENCH_HREF}?mark=ai-core`,
+		comment:
+			'A placeholder for a mascot: the AI core’s tile with eyes, its sparkle worn on top. It blinks while it waits, looks up while it thinks, smiles when it answers.',
+	},
+	{
 		id: 'scale',
 		title: 'One size scale',
 		action: 'Bookend 80 → 88, docs hub 36 → 40',
@@ -734,6 +743,12 @@ const EXPERIMENTS: Experiment[] = [
 			'The shipped shade is 5% and barely shows, and more colour is not the answer: these give the tile a surface instead — an edge, a bevel, a grain, a glow inside.',
 	},
 ];
+/** The mascot's three moods in the chat, each its own drawing of the eyes. */
+const MASCOT_MOODS = [
+	{ id: 'idle', label: 'Waiting' },
+	{ id: 'think', label: 'Thinking' },
+	{ id: 'done', label: 'Answered' },
+] as const;
 /** The texture vector's tries, each drawn on white (a White tile) and on night (a Dark tile). */
 const MATERIAL_TRIES = [
 	{ id: 'shipped', label: 'Shipped', note: 'The 5% shade and the lift; on dark, the sheen and the hairline' },
@@ -1728,7 +1743,11 @@ const mobileGreen = resolveHue(rowById('mobile')?.list) ?? '#4ade80';
  */
 const CANDIDATE_ART: Record<string, Record<string, Cell | undefined>> = {
 	mobile: { a: logoOn('dark', '#ffffff'), b: logoOn('dark', mobileGreen) },
-	'iot-hub': { a: rowById('iot-hub')?.white?.cell },
+	'iot-hub': {
+		a: rowById('iot-hub')?.white?.cell,
+		// The rare dark case: the hub in the warmer amber Round 1 sets for dark grounds.
+		b: draft(HUB_SVG, HUB_ART, 'dark', '#f59e0b', 'icon'),
+	},
 	community: {
 		a: draft(CE_SVG, CE_ART, 'solid', CE_HUE, 'wide'),
 		b: draft(markSvg, LOGO_ART, 'solid', CE_HUE, 'icon'),
@@ -1968,11 +1987,20 @@ const ICON_START = [
 ];
 /** The colours already in the set, for a new colour to be measured against. */
 const SET_COLOURS = PRODUCT_COLOURS.filter((c) => c.light).map((c) => ({ label: c.label, hex: c.light as string }));
+/** The ink the logomark ships in on light grounds. */
+const MARK_INK = '#17181c';
+/**
+ * The room's palette: the ink, then every colour in the set once, so a colour picked anywhere is one the
+ * set already has. Built from the set, so a product's new colour joins it on its own.
+ */
+const PALETTE = [{ label: 'Ink', hex: MARK_INK }, ...SET_COLOURS].filter(
+	(c, i, all) => all.findIndex((x) => x.hex.toLowerCase() === c.hex.toLowerCase()) === i
+);
 
 // ── Vocabulary ──
 /**
- * The spec: the system's terms as agreed on 2026-10-23, each with the key the data and the page use for
- * it, so a note, a direction or a rule says one thing and the code says the same.
+ * The spec: the system's terms, each with the key the data and the page use for it, so a note, a
+ * direction or a rule says one thing and the code says the same.
  */
 const VOCABULARY: { group: string; terms: { term: string; means: string; key?: string }[] }[] = [
 	{
@@ -1981,7 +2009,11 @@ const VOCABULARY: { group: string; terms: { term: string; means: string; key?: s
 			{ term: 'Logo', means: 'The logotype and the mark together' },
 			{ term: 'Logotype', means: 'The name set in type', key: 'thingsboard-logo.svg' },
 			{ term: 'Mark', means: 'The drawing that identifies a product', key: 'MARKS · MarkName' },
-			{ term: 'Set', means: 'All the marks, in three groups: Platform, Ecosystem, AI', key: 'group' },
+			{
+				term: 'Set',
+				means: 'All the marks, in Platform, Ecosystem and AI. On the Bench, one way of showing them all',
+				key: 'group · PRESETS',
+			},
 			{ term: 'App icon', means: 'A mark on a tile', key: 'ui/Mark' },
 		],
 	},
@@ -1990,20 +2022,29 @@ const VOCABULARY: { group: string; terms: { term: string; means: string; key?: s
 		terms: [
 			{
 				term: 'Treatment',
-				means: 'What the mark is drawn on: a White (pure or shaded), Colour, Tint or Dark tile, or the Glyph',
+				means: 'The tile a mark is drawn on: White (pure or shaded), Colour, Tint or Dark. Or the Glyph, with no tile',
 				key: 'treatments: white · colour · tint · dark · glyph',
 			},
-			{ term: 'Mode', means: 'Light or Dark: the ground it sits on, not the site’s theme', key: 'data-surface="dark"' },
+			{
+				term: 'Material',
+				means: 'What a set or a candidate puts a mark on: a treatment’s tile, Dark tint, White + Dark, or Off',
+				key: 'LOGO_MATERIALS · material',
+			},
+			{ term: 'Mode', means: 'A light or a dark ground, not the site’s theme', key: 'data-surface="dark"' },
 			{
 				term: 'Ground',
-				means: 'The surface itself: White, Grey, Tint, Dark. Each will take a Tint and a backdrop of its own',
+				means: 'The surface behind the tile: White, Grey, Tint or Dark',
 				key: 'GROUNDS',
 			},
 			{ term: 'Size', means: 'One scale: 88 · 72 · 48 · 40 · 32 · 24 · 16', key: 'MarkSize · SCALE' },
-			{ term: 'Light', means: 'The 155° gradient that lights a fill; not a fill of its own', key: 'background-image' },
+			{
+				term: 'Light',
+				means: 'The 155° gradient that lights a fill, never a fill of its own',
+				key: 'background-image',
+			},
 			{
 				term: 'Shade',
-				means: 'The White tile’s light: its accent toward the far corner. Pure white has none',
+				means: 'The White tile’s light: the mark’s colour toward the far corner. Pure white has none',
 				key: 'data-light',
 			},
 			{ term: 'Lift', means: 'The shadow that seats a tile on a light ground', key: '--elev-mark' },
@@ -2020,13 +2061,13 @@ const VOCABULARY: { group: string; terms: { term: string; means: string; key?: s
 			{ term: 'Signature', means: 'The one way a mark is shown when it stands for itself', key: 'signature' },
 			{
 				term: 'Round',
-				means: 'A numbered proposal: one candidate picked per mark it touches, with the reason; open, then decided',
-				key: 'rounds/*.md',
+				means: 'A named proposal: one candidate picked per mark it touches, with the reason. Open, then decided',
+				key: 'rounds/*.md · state',
 			},
 			{ term: 'Candidate', means: 'A version of a mark under review: Current, A, B…', key: 'candidates' },
 			{
 				term: 'Exploration',
-				means: 'A whole-set stress test on the bench, never a candidate',
+				means: 'A whole-set stress test on the Bench, never a candidate',
 				key: "PRESETS · kind: 'exploration'",
 			},
 			{
@@ -2036,12 +2077,12 @@ const VOCABULARY: { group: string; terms: { term: string; means: string; key?: s
 			},
 			{
 				term: 'Action',
-				means: 'What a mark waits for: decide, draw, build or review; keep once it is settled',
-				key: 'actions · kind',
+				means: 'What a mark waits for: decide, draw or build. Ticked off with its date when done',
+				key: 'actions · kind · done',
 			},
 			{
 				term: 'Record',
-				means: 'A mark’s or a round’s file: what has been decided, kept in the repo',
+				means: 'A mark’s or a round’s file in the repo: what is decided, and what is proposed',
 				key: 'src/content/logo-room/',
 			},
 			{ term: 'Exception', means: 'A declared departure from the baseline, kept on its mark', key: 'exception.what' },
@@ -2057,8 +2098,12 @@ const VOCABULARY: { group: string; terms: { term: string; means: string; key?: s
 			{ term: 'Designed', means: 'Approved, waiting to be built', key: "'designed'" },
 			{ term: 'Shipped', means: 'Live on the new pages', key: "'shipped'" },
 			{ term: 'Legacy', means: 'Old files, to retire', key: "'legacy'" },
+			{
+				term: 'Proposed',
+				means: 'A status or a colour suggested on the Bench, until the team decides',
+				key: 'proposed',
+			},
 			{ term: 'Not defined', means: 'A baseline slot nobody has drawn', key: 'no version' },
-			{ term: 'Not applicable', means: 'An exception’s agreed gap' },
 		],
 	},
 ];
@@ -2095,11 +2140,6 @@ const RECORDS_JSON = JSON.stringify(
 const NEXT_STEPS: (Action & { body: string })[] = [
 	{
 		kind: 'build',
-		what: 'save to the repo',
-		body: 'A sheet’s notes and proposed statuses written into its mark’s record from the dev server, for a pull request. Today they stay in this browser and export as JSON.',
-	},
-	{
-		kind: 'build',
 		what: 'the pack',
 		body: 'Every tile as SVG, built with the site, so Download pack has files to give.',
 	},
@@ -2131,15 +2171,25 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		<header class="pr-hero" data-set="next" data-ground="dark" data-surface="dark">
 			<div class="pr-hero__inner">
 				<div class="pr-hero__text">
-					<p class="pr-hero__logotype">
-						<img class="pr-hero__logotype--ink" src={wordmarkUri('#212529')} width="200" alt="ThingsBoard" />
-						<img class="pr-hero__logotype--white" src={wordmarkUri('#ffffff')} width="200" alt="" />
-					</p>
+					<div class="pr-hero__kicker">
+						<p class="pr-hero__logotype">
+							<img class="pr-hero__logotype--ink" src={wordmarkUri('#212529')} width="200" alt="ThingsBoard" />
+							<img class="pr-hero__logotype--white" src={wordmarkUri('#ffffff')} width="200" alt="" />
+						</p>
+						<button type="button" class="pr-light" role="switch" aria-checked="false" aria-label="Day" data-hero-light>
+							<span class="pr-light__track" aria-hidden="true">
+								<span class="pr-light__knob">
+									<Icon name="tabler:moon-filled" class="pr-light__off" />
+									<Icon name="tabler:sun-filled" class="pr-light__on" />
+								</span>
+							</span>
+						</button>
+					</div>
 					<h1>Logo Room</h1>
 					<p class="pr-lede">
-						How ThingsBoard draws its products: the platform, its ecosystem and the AI as one family of app icons. See
-						the set as it ships or as it will be, compose a direction on the workbench, and check a mark against every
-						ground before it lands.
+						Every ThingsBoard product, drawn as one family of app icons: the platform, its ecosystem and the AI. See the
+						set as it ships today or where it’s heading, shape a direction on the workbench, and check each mark on
+						every ground before it goes live.
 					</p>
 				</div>
 				<div class="pr-hero__tools">
@@ -2162,20 +2212,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							<i class="pr-dot pr-dot--designed" />
 							{heroCount('next', 'designed')} designed
 						</span>
-					</span>
-					<span class="pg__seg" role="group" aria-label="Ground">
-						{(
-							[
-								['white', 'Light'],
-								['tint', 'Tint'],
-								['dark', 'Dark'],
-							] as const
-						).map(([g, l]) => (
-							<button type="button" data-hero-ground={g} aria-pressed={g === 'dark' ? 'true' : 'false'}>
-								<i class="pg__swatch" data-g={g} />
-								{l}
-							</button>
-						))}
 					</span>
 				</div>
 				<div class="pr-hero__groups">
@@ -2317,7 +2353,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					</div>
 					<figcaption>Footer</figcaption>
 				</figure>
-				<figure class="pr-shot pr-shot--tabs">
+				<figure class="pr-shot pr-shot--tabs" data-browser="light">
 					<div class="pr-tabs-pair">
 						{(['light', 'dark'] as const).map((g) => (
 							<div class:list={['pr-browser', `pr-browser--${g}`]}>
@@ -2344,10 +2380,36 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							</div>
 						))}
 					</div>
-					<figcaption>Browser tabs</figcaption>
+					<figcaption>
+						Browser tabs
+						<button
+							type="button"
+							class="pr-light pr-light--sm"
+							role="switch"
+							aria-checked="true"
+							aria-label="Light browser"
+							data-browser-light
+						>
+							<span class="pr-light__track" aria-hidden="true">
+								<span class="pr-light__knob">
+									<Icon name="tabler:moon-filled" class="pr-light__off" />
+									<Icon name="tabler:sun-filled" class="pr-light__on" />
+								</span>
+							</span>
+						</button>
+					</figcaption>
 				</figure>
 			</div>
 		</section>
+	)}
+
+	{/* ── Spec's hero: the page opened as an article, its subject and what it holds ── */}
+	{page === 'spec' && (
+		<PageHero
+			title="Specification"
+			lede="What is agreed about the marks: the logotype and the logomark, every product in every treatment with its status, the colours, how a tile is built and lit, and the words for all of it. What is still being decided lives on the Bench."
+			toc={HERE?.sections}
+		/>
 	)}
 
 	{/* ── Logotype and logomark ── */}
@@ -2370,14 +2432,61 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					<span class="pr-ground pr-ground--dark">
 						<img src={wordmarkUri('#ffffff')} width="300" alt="" />
 					</span>
+					<figcaption class="pr-getfiles">
+						<b>Logotype</b>
+						<a href={wordmarkUri('#212529')} download="thingsboard-logotype.svg">
+							<Icon name="tabler:download" aria-hidden="true" />
+							SVG, ink
+						</a>
+						<a href={wordmarkUri('#ffffff')} download="thingsboard-logotype-white.svg">
+							<Icon name="tabler:download" aria-hidden="true" />
+							SVG, white
+						</a>
+					</figcaption>
 				</figure>
-				<figure>
+				<figure class="pr-markc" data-markc data-svg={markSvg} data-ink={MARK_INK} data-night="#0b0d1f" data-min={MIN}>
 					<span class="pr-ground">
-						<img src={markUri('#17181c')} width="88" alt="" />
+						<img src={markUri(MARK_INK)} width="88" alt="" data-markc-light />
 					</span>
 					<span class="pr-ground pr-ground--dark">
-						<img src={markUri('#ffffff')} width="88" alt="" />
+						<img src={markUri('#ffffff')} width="88" alt="" data-markc-dark />
 					</span>
+					<figcaption class="pr-markc__cap">
+						<span class="pr-getfiles">
+							<b>Logomark</b>
+							<a href={markUri(MARK_INK)} download="thingsboard-mark.svg">
+								<Icon name="tabler:download" aria-hidden="true" />
+								Ink
+							</a>
+							<a href={markUri('#ffffff')} download="thingsboard-mark-white.svg">
+								<Icon name="tabler:download" aria-hidden="true" />
+								White
+							</a>
+							<a href={markUri(MARK_INK)} download="thingsboard-mark-colour.svg" hidden data-markc-file>
+								<Icon name="tabler:download" aria-hidden="true" />
+								<span data-markc-name>Colour</span>
+							</a>
+						</span>
+						<span class="pr-markc__pick" role="group" aria-label="Logomark colour">
+							{PALETTE.map((c) => (
+								<button
+									type="button"
+									class="pr-markc__dot"
+									style={`--c: ${c.hex}`}
+									aria-pressed={c.hex === MARK_INK ? 'true' : 'false'}
+									aria-label={`${c.label}, ${c.hex}`}
+									title={`${c.label} · ${c.hex}`}
+									data-markc-hex={c.hex}
+								/>
+							))}
+							<label class="pr-markc__dot pr-markc__dot--any" title="Any colour">
+								<input type="color" value="#3d50f5" aria-label="Any colour" data-markc-custom />
+							</label>
+						</span>
+						<span class="pr-markc__ratio" aria-live="polite" data-markc-ratio>
+							As it ships: ink on light, white on dark
+						</span>
+					</figcaption>
 				</figure>
 				<figure>
 					<span class="pr-ground">
@@ -2388,6 +2497,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						<img src={faviconUri(true)} width="40" alt="" />
 						<img src={faviconUri(true)} width="16" alt="" />
 					</span>
+					<figcaption class="pr-getfiles">
+						<b>Favicon</b>
+						<a href={faviconUri(false)} download="thingsboard-favicon.svg">
+							<Icon name="tabler:download" aria-hidden="true" />
+							SVG
+						</a>
+					</figcaption>
 				</figure>
 			</div>
 			<ul class="pr-points">
@@ -2445,15 +2561,34 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	{/* ── Workbench ── */}
 	{page === 'bench' && (
 		<section class="pr-sec" id="workbench">
-			<div class="pr-sec__head">
-				<h2>
-					Workbench
-					<a class="pr-anchor" href="#workbench" aria-label="Link to Workbench">
-						#
-					</a>
-				</h2>
-				<p>The set as a canvas, to try a direction and see it hold on every ground.</p>
-			</div>
+			<PageHero
+				title="Workbench"
+				lede="The set as a canvas: start from a set, try a direction, and see it hold on every ground before it is proposed."
+				pull={68}
+			>
+				<div class="pg__legend" aria-label="Legend">
+					<span title="Live on the pages; a shipped tile has no dot">
+						<i class="pr-dot pr-dot--shipped" aria-hidden="true" />
+						<b>Shipped</b>
+					</span>
+					<span title="Approved, to build; a decided round">
+						<i class="pr-dot pr-dot--designed" aria-hidden="true" />
+						<b>Designed</b>
+					</span>
+					<span title="An idea or a draft; an open round">
+						<i class="pr-dot pr-dot--exploring" aria-hidden="true" />
+						<b>Exploring</b>
+					</span>
+					<span title="A stress test, never a candidate">
+						<i class="pr-dot pr-dot--none" aria-hidden="true" />
+						<b>Exploration</b>
+					</span>
+					<span title="Not in the records yet">
+						<i class="pr-dot pr-dot--changed" aria-hidden="true" />
+						<b>Proposed here</b>
+					</span>
+				</div>
+			</PageHero>
 			<div class="pg-layout" data-sets="on" data-guide="on">
 				<aside class="pg__guide" id="pg-guide" aria-label="How to use the workbench">
 					<p class="pg__side-label">How it works</p>
@@ -2477,7 +2612,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						</li>
 						<li>
 							<b>Share it</b>
-							<span>with the set’s actions under the canvas: a link to the set, or your proposals as a patch.</span>
+							<span>from the bar: Share sends a link to the set; Propose turns your changes into a patch.</span>
 						</li>
 					</ol>
 				</aside>
@@ -2586,6 +2721,63 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 								)
 							)}
 						</div>
+						<span class="pg__menus">
+							<div class="pg__menu pg__menu--tries" data-tries hidden>
+								<button type="button" class="pg__menu-btn" aria-haspopup="menu" aria-expanded="false">
+									<span class="pg__tries-dots" data-tries-dots aria-hidden="true" />
+									Trying <span data-tries-count />
+									<Icon name="tabler:chevron-down" class="pg__menu-caret" aria-hidden="true" />
+								</button>
+								<div class="pg__menu-list" role="menu" hidden>
+									<div class="pg__tries-list" data-tries-list />
+									<button type="button" role="menuitem" class="pg__act" data-tries-reset>
+										<Icon name="tabler:restore" aria-hidden="true" />
+										<b>Reset all</b>
+										<span>Every mark back to its own colour.</span>
+									</button>
+								</div>
+							</div>
+							<div class="pg__menu">
+								<button type="button" class="pg__menu-btn" aria-haspopup="menu" aria-expanded="false">
+									<Icon name="tabler:share" aria-hidden="true" />
+									Share
+									<Icon name="tabler:chevron-down" class="pg__menu-caret" aria-hidden="true" />
+								</button>
+								<div class="pg__menu-list" role="menu" hidden>
+									<button type="button" role="menuitem" class="pg__act pg__copy">
+										<Icon name="tabler:link" aria-hidden="true" />
+										<b>Copy link</b>
+										<span>The set and the view, as an address to send.</span>
+									</button>
+									<button type="button" role="menuitem" class="pg__act pg__json">
+										<Icon name="tabler:braces" aria-hidden="true" />
+										<b>Export JSON</b>
+										<span>Everything this browser holds, the new mark included.</span>
+									</button>
+								</div>
+							</div>
+							<div class="pg__menu">
+								<button type="button" class="pg__menu-btn" aria-haspopup="menu" aria-expanded="false">
+									<Icon name="tabler:git-pull-request" aria-hidden="true" />
+									Propose
+									<Icon name="tabler:chevron-down" class="pg__menu-caret" aria-hidden="true" />
+								</button>
+								<div class="pg__menu-list" role="menu" hidden>
+									<button type="button" role="menuitem" class="pg__act" data-patch>
+										<Icon name="tabler:file-diff" aria-hidden="true" />
+										<b>Copy as patch</b>
+										<span>Your statuses, colours and notes as a change to the marks’ records.</span>
+									</button>
+									{import.meta.env.DEV && (
+										<button type="button" role="menuitem" class="pg__act" data-save>
+											<Icon name="tabler:device-floppy" aria-hidden="true" />
+											<b>Save to repo</b>
+											<span>Writes that change into the records, on the dev server.</span>
+										</button>
+									)}
+								</div>
+							</div>
+						</span>
 					</div>
 					<div class="pg__body">
 						<div class="pg__canvas">
@@ -2598,11 +2790,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 									{PLAY_GLOBALS.filter((c) => ON_CANVAS.has(c.key)).map((c) => (
 										<div class="pg__row" data-global={c.key}>
 											<span class="pg__ctl-label pg__hidden">{c.label}</span>
-											<span
-												class:list={['pg__seg', c.key === 'ground' && 'pg__seg--swatches']}
-												role="group"
-												aria-label={c.label}
-											>
+											<span class="pr-gsw" role="group" aria-label={c.label}>
 												{c.options.map(([v, l]) => (
 													<button
 														type="button"
@@ -2740,55 +2928,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							))}
 						</div>
 					</div>
-					<div class="pg__out">
-						<p class="pg__summary" hidden />
-						<div class="pg__legend" aria-label="Legend">
-							<span title="Live on the pages; a shipped tile has no dot">
-								<i class="pr-dot pr-dot--shipped" aria-hidden="true" />
-								<b>Shipped</b>
-							</span>
-							<span title="Approved, to build; a decided round">
-								<i class="pr-dot pr-dot--designed" aria-hidden="true" />
-								<b>Designed</b>
-							</span>
-							<span title="An idea or a draft; an open round">
-								<i class="pr-dot pr-dot--exploring" aria-hidden="true" />
-								<b>Exploring</b>
-							</span>
-							<span title="A stress test, never a candidate">
-								<i class="pr-dot pr-dot--none" aria-hidden="true" />
-								<b>Exploration</b>
-							</span>
-							<span title="Not in the records yet">
-								<i class="pr-dot pr-dot--changed" aria-hidden="true" />
-								<b>Proposed here</b>
-							</span>
-						</div>
-						<div class="pg__acts">
-							<button type="button" class="pg__act pg__copy">
-								<Icon name="tabler:link" aria-hidden="true" />
-								<b>Copy link</b>
-								<span>The set and the view, as an address to send.</span>
-							</button>
-							<button type="button" class="pg__act" data-patch>
-								<Icon name="tabler:file-diff" aria-hidden="true" />
-								<b>Copy as patch</b>
-								<span>Your statuses, colours and notes as a change to the marks’ records.</span>
-							</button>
-							{import.meta.env.DEV && (
-								<button type="button" class="pg__act" data-save>
-									<Icon name="tabler:device-floppy" aria-hidden="true" />
-									<b>Save to repo</b>
-									<span>Writes that change into the records, on the dev server.</span>
-								</button>
-							)}
-							<button type="button" class="pg__act pg__json">
-								<Icon name="tabler:braces" aria-hidden="true" />
-								<b>Export JSON</b>
-								<span>Everything this browser holds, the new mark included.</span>
-							</button>
-						</div>
-					</div>
+					<p class="pg__summary" hidden />
 				</div>
 			</div>
 		</section>
@@ -3601,6 +3741,33 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 									</figure>
 								</div>
 							)}
+							{e.id === 'mascot' && (
+								<div class="pr-exp__pair pr-mascot" aria-hidden="true">
+									{MASCOT_MOODS.map((m) => (
+										<figure class={`pr-mascot--${m.id}`}>
+											<svg viewBox="0 0 64 76">
+												<path
+													class="pr-mascot__spark"
+													d="M32 1C33 6 34 7 39 8C34 9 33 10 32 15C31 10 30 9 25 8C30 7 31 6 32 1Z"
+												/>
+												<rect class="pr-mascot__head" x="4" y="18" width="56" height="56" rx="18" />
+												{m.id === 'done' ? (
+													<g class="pr-mascot__smile">
+														<path d="M19 46q5-7 10 0" />
+														<path d="M35 46q5-7 10 0" />
+													</g>
+												) : (
+													<g class="pr-mascot__eyes">
+														<rect x="20" y="38" width="7" height="13" rx="3.5" />
+														<rect x="37" y="38" width="7" height="13" rx="3.5" />
+													</g>
+												)}
+											</svg>
+											<figcaption>{m.label}</figcaption>
+										</figure>
+									))}
+								</div>
+							)}
 							{e.id === 'material' && (
 								<div class="pr-mat">
 									{(['light', 'dark'] as const).map((g) => (
@@ -3773,7 +3940,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						#
 					</a>
 				</h2>
-				<p>The terms, and the key each one has in the data and the page.</p>
+				<p>Each term, and the key it goes by in the data and the code.</p>
 			</div>
 			<table class="pr-spec">
 				<thead>
@@ -3801,18 +3968,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				))}
 			</table>
 		</section>
-	)}
-
-	{/* ── Colours being tried: shown across the page, listed here so a recoloured page is never
-	    mistaken for the set as it is ── */}
-	{page !== 'legacy' && (
-		<div class="pr-tries" aria-live="polite" hidden>
-			<span class="pr-tries__label">Trying</span>
-			<span class="pr-tries__list" />
-			<button type="button" class="pr-tries__all">
-				Reset all
-			</button>
-		</div>
 	)}
 
 	{/* ── The sheet: a mark's own page, over this one, opened from any of its tiles ── */}
@@ -3946,7 +4101,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 								<span class="pgs__strip-name">Favicon</span>
 							</div>
 						</div>
-						<span class="pgs__grounds" role="group" aria-label="Ground">
+						<span class="pgs__grounds pr-gsw" role="group" aria-label="Ground">
 							{SHEET_GROUNDS.map((g) => (
 								<button
 									type="button"
@@ -3977,9 +4132,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 											{(['light', 'dark'] as const).map((m) => (
 												<span class="pgs__cell" data-surface={m === 'dark' ? 'dark' : undefined}>
 													{c.cell ? (
-														<LogoCell cell={atSize(c.cell, 48, false)} />
+														<LogoCell cell={atSize(c.cell, 72, false)} />
 													) : (
-														<span class="pr-blank pr-blank--s" aria-label="To draw" />
+														<span class="pr-blank" aria-label="To draw" />
 													)}
 												</span>
 											))}
@@ -4319,7 +4474,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							Pack
 						</button>
 					</span>
-					<span class="pgs__grounds" role="group" aria-label="Ground">
+					<span class="pgs__grounds pr-gsw" role="group" aria-label="Ground">
 						{SHEET_GROUNDS.map((g) => (
 							<button
 								type="button"
@@ -4482,14 +4637,87 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			press(b.parentElement as Element, (x) => x === b);
 		})
 	);
-	hero?.querySelectorAll<HTMLButtonElement>('[data-hero-ground]').forEach((b) =>
+	// ── The logomark's colour: as it ships (ink, white on dark), or one colour on both grounds ──
+	// Each ground reports the colour's contrast against the room's minimum; the download follows the pick.
+	document.querySelectorAll<HTMLElement>('[data-markc]').forEach((fig) => {
+		const svg = fig.dataset.svg ?? '';
+		const ink = fig.dataset.ink ?? '#17181c';
+		const min = Number(fig.dataset.min ?? 3);
+		const grounds = [
+			['white', '#ffffff'],
+			['dark', fig.dataset.night ?? '#0b0d1f'],
+		] as const;
+		const file = (hex: string) =>
+			`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.replace(/currentColor/gi, hex))}`;
+		const light = fig.querySelector<HTMLImageElement>('[data-markc-light]');
+		const dark = fig.querySelector<HTMLImageElement>('[data-markc-dark]');
+		const link = fig.querySelector<HTMLAnchorElement>('[data-markc-file]');
+		const name = fig.querySelector<HTMLElement>('[data-markc-name]');
+		const out = fig.querySelector<HTMLElement>('[data-markc-ratio]');
+		const custom = fig.querySelector<HTMLInputElement>('[data-markc-custom]');
+		const shippedText = out?.textContent?.trim() ?? '';
+		const set = (hex: string) => {
+			const shipped = hex.toLowerCase() === ink;
+			if (light) light.src = file(hex);
+			if (dark) dark.src = file(shipped ? '#ffffff' : hex);
+			fig
+				.querySelectorAll<HTMLButtonElement>('[data-markc-hex]')
+				.forEach((b) =>
+					b.setAttribute('aria-pressed', String(b.dataset.markcHex?.toLowerCase() === hex.toLowerCase()))
+				);
+			const any = custom?.parentElement;
+			const picked = !!custom && custom.value.toLowerCase() === hex.toLowerCase();
+			any?.classList.toggle('is-on', picked);
+			if (picked) any?.style.setProperty('--c', hex);
+			if (link) {
+				link.hidden = shipped;
+				link.href = file(hex);
+				link.download = `thingsboard-mark-${hex.slice(1).toLowerCase()}.svg`;
+			}
+			if (name) name.textContent = hex.toLowerCase();
+			if (!out) return;
+			if (shipped) {
+				out.textContent = shippedText;
+				return;
+			}
+			out.replaceChildren(
+				...grounds.map(([where, bg]) => {
+					const r = ratio(hex, bg);
+					const s = document.createElement('span');
+					s.textContent = `${r.toFixed(1)}:1 on ${where}`;
+					if (r < min) s.className = 'is-low';
+					return s;
+				})
+			);
+		};
+		fig
+			.querySelectorAll<HTMLButtonElement>('[data-markc-hex]')
+			.forEach((b) => b.addEventListener('click', () => set(b.dataset.markcHex ?? ink)));
+		custom?.addEventListener('input', () => set(custom.value));
+	});
+
+	// The browser tabs: one browser at a time, the card taking its ground.
+	document.querySelectorAll<HTMLButtonElement>('[data-browser-light]').forEach((b) =>
 		b.addEventListener('click', () => {
-			hero.dataset.ground = b.dataset.heroGround;
-			if (b.dataset.heroGround === 'dark') hero.dataset.surface = 'dark';
-			else delete hero.dataset.surface;
-			press(b.parentElement as Element, (x) => x === b);
+			const on = b.getAttribute('aria-checked') !== 'true';
+			const card = b.closest<HTMLElement>('[data-browser]');
+			b.setAttribute('aria-checked', String(on));
+			if (!card) return;
+			card.dataset.browser = on ? 'light' : 'dark';
+			if (on) delete card.dataset.surface;
+			else card.dataset.surface = 'dark';
 		})
 	);
+
+	// Day and night: by day the band is light; by night it is the dark the set mostly sits on.
+	hero?.querySelector<HTMLButtonElement>('[data-hero-light]')?.addEventListener('click', (e) => {
+		const b = e.currentTarget as HTMLButtonElement;
+		const on = b.getAttribute('aria-checked') !== 'true';
+		b.setAttribute('aria-checked', String(on));
+		hero.dataset.ground = on ? 'white' : 'dark';
+		if (on) delete hero.dataset.surface;
+		else hero.dataset.surface = 'dark';
+	});
 
 	// ── The contents: the section in view is the current link ──
 	const toc = [...document.querySelectorAll<HTMLAnchorElement>('.pr-toc a[href^="#"]')];
@@ -4944,8 +5172,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		const tryColour = (id: string, hex?: string) => {
 			const sheet = sheetOf(id);
 			const shown = hex ?? baseOf(id);
+			// On the Bench a try paints every tile of the mark on the page, and the bar's Trying menu lists it;
+			// elsewhere only the mark's sheet, so a page never changes without a way to see why.
+			const onBench = !!document.querySelector('[data-tries]');
 			const targets: HTMLElement[] =
-				id === 'new'
+				id === 'new' || !onBench
 					? []
 					: [...items(id), ...document.querySelectorAll<HTMLElement>(`[data-pick="${id}"], #map-${id}`)];
 			if (sheet && id !== 'new') targets.push(sheet);
@@ -4973,25 +5204,37 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			live(id, shown);
 			showTries();
 		};
-		const triesPill = document.querySelector<HTMLElement>('.pr-tries');
+		const triesMenu = document.querySelector<HTMLElement>('[data-tries]');
 		const showTries = () => {
-			if (!triesPill) return;
-			const list = triesPill.querySelector<HTMLElement>('.pr-tries__list');
+			if (!triesMenu) return;
 			const tried = Object.entries(bench.tries).filter(([id]) => id !== 'new' && sheetOf(id));
-			triesPill.hidden = tried.length === 0;
-			list?.replaceChildren(
+			triesMenu.hidden = tried.length === 0;
+			const count = triesMenu.querySelector<HTMLElement>('[data-tries-count]');
+			if (count) count.textContent = String(tried.length);
+			triesMenu.querySelector<HTMLElement>('[data-tries-dots]')?.replaceChildren(
+				...tried.slice(0, 3).map(([, hex]) => {
+					const dot = document.createElement('i');
+					dot.style.background = hex;
+					return dot;
+				})
+			);
+			triesMenu.querySelector<HTMLElement>('[data-tries-list]')?.replaceChildren(
 				...tried.map(([id, hex]) => {
 					const b = document.createElement('button');
 					b.type = 'button';
-					b.className = 'pr-tries__item';
+					b.setAttribute('role', 'menuitem');
+					b.className = 'pg__try';
 					b.title = `Back to ${nameOf(id)}’s own colour`;
 					const dot = document.createElement('i');
 					dot.style.background = hex;
-					const name = document.createElement('span');
-					name.textContent = `${nameOf(id)} ${hex}`;
-					const x = document.createElement('b');
+					const name = document.createElement('b');
+					name.textContent = nameOf(id);
+					const code = document.createElement('code');
+					code.textContent = hex;
+					const x = document.createElement('span');
 					x.textContent = '×';
-					b.append(dot, name, x);
+					x.setAttribute('aria-hidden', 'true');
+					b.append(dot, name, code, x);
 					b.addEventListener('click', () => {
 						delete bench.tries[id];
 						save();
@@ -5001,7 +5244,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				})
 			);
 		};
-		triesPill?.querySelector('.pr-tries__all')?.addEventListener('click', () => {
+		triesMenu?.querySelector('[data-tries-reset]')?.addEventListener('click', () => {
 			Object.keys(bench.tries)
 				.filter((id) => id !== 'new')
 				.forEach((id) => {
@@ -5429,6 +5672,39 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		sync(false);
 	}
 
+	// ── The bar's menus: one open at a time; Escape, a click outside or a choice closes it. A choice shows
+	// what it did on its item for a moment first. ──
+	const menus = [...document.querySelectorAll<HTMLElement>('.pg__menu')];
+	const openMenu = (menu?: HTMLElement) =>
+		menus.forEach((m) => {
+			const on = m === menu;
+			const list = m.querySelector<HTMLElement>('.pg__menu-list');
+			if (list) list.hidden = !on;
+			m.querySelector('.pg__menu-btn')?.setAttribute('aria-expanded', String(on));
+			if (on) list?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+		});
+	menus.forEach((m) => {
+		const btn = m.querySelector<HTMLButtonElement>('.pg__menu-btn');
+		btn?.addEventListener('click', () => openMenu(btn.getAttribute('aria-expanded') === 'true' ? undefined : m));
+		const items = [...m.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+		items.forEach((item, i) => {
+			item.addEventListener('click', () => window.setTimeout(() => openMenu(), 900));
+			item.addEventListener('keydown', (e) => {
+				const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+				if (step) {
+					e.preventDefault();
+					items[(i + step + items.length) % items.length]?.focus();
+				} else if (e.key === 'Escape') {
+					openMenu();
+					btn?.focus();
+				}
+			});
+		});
+	});
+	document.addEventListener('click', (e) => {
+		if (!(e.target as Element).closest('.pg__menu')) openMenu();
+	});
+
 	// ── The side column's panels: the sets and how it works, each shown or hidden from the bench's bar, as
 	// this browser last left them ──
 	const panelLayout = document.querySelector<HTMLElement>('.pg-layout');
@@ -5822,7 +6098,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		isolation: isolate;
 		// The width of the window, straight under the section bar (see `.pr-toc`).
 		margin: -108px calc(50% - 50vw) 0;
-		padding: 88px 24px 72px;
+		// Room inside the band at every width: the sides grow with the window, up to 80px.
+		padding: 96px clamp(32px, 6vw, 80px) 88px;
 		overflow: hidden;
 		background: var(--band);
 		color: var(--band-ink);
@@ -5853,8 +6130,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			background: radial-gradient(closest-side, color-mix(in srgb, #3d50f5 var(--glow), transparent), transparent);
 		}
 
-		&[data-ground='tint'] {
-			--band: var(--band-tint);
+		// Lights on: a neutral wash, white running down from a breath of grey, and no glow.
+		&[data-ground='white'] {
+			--band: linear-gradient(180deg, #f3f4f6 0%, #fff 100%);
+			--glow: 0%;
 		}
 
 		&[data-ground='dark'] {
@@ -5897,6 +6176,27 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		.pr-hero__groups {
 			grid-area: groups;
 			gap: 28px 40px;
+		}
+	}
+
+	// The kicker: the logotype, then the ground the band is shown on, on the text's left edge, right over
+	// the title.
+	.pr-hero__kicker {
+		display: grid;
+		justify-items: start;
+		gap: 18px;
+
+		.pr-gsw {
+			margin-left: -5px;
+		}
+
+		// On desktop the logotype stands apart from the switch and the title: room to breathe above and below.
+		.pr-hero__logotype {
+			margin: 0;
+
+			@include media-up(md) {
+				margin-block: 8px 20px;
+			}
 		}
 	}
 
@@ -6266,10 +6566,25 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		background: #000;
 	}
 
-	// The favbar: the products' tabs in a light and a dark browser, the width of the grid.
+	// The favbar: the products' tabs in a light or a dark browser, the width of the grid. The switch in
+	// the caption shows one at a time, and the card turns dark with the dark one.
 	.pr-shot--tabs {
 		grid-column: 1 / -1;
 		background: #f4f5f9;
+		transition: background-color 0.3s;
+
+		&[data-browser='dark'] {
+			background: #111214;
+		}
+
+		figcaption {
+			justify-content: space-between;
+		}
+	}
+
+	.pr-shot--tabs[data-browser='light'] .pr-browser--dark,
+	.pr-shot--tabs[data-browser='dark'] .pr-browser--light {
+		display: none;
 	}
 
 	@include media-down(sm) {
@@ -6670,10 +6985,140 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			grid-template-columns: minmax(0, 1fr);
 		}
 
+		// Rows from the top, so a figure with more under it (the logomark's colour) leaves its
+		// neighbours' grounds and captions where they are.
 		figure {
 			display: grid;
+			align-content: start;
 			gap: 8px;
 			margin: 0;
+		}
+	}
+
+	// The logomark's caption: its downloads, then its colour under them.
+	.pr-markc__cap {
+		display: grid;
+		gap: 8px;
+	}
+
+	// The logomark's colour: the palette as dots, the pressed one ringed in its own colour, then any colour
+	// from the system picker. Under it, the colour's contrast on each ground, the low one in red.
+	.pr-markc__pick {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		padding: 6px 4px 0;
+	}
+
+	.pr-markc__dot {
+		position: relative;
+		width: 20px;
+		height: 20px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: var(--c);
+		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.12);
+		cursor: pointer;
+		transition: box-shadow 0.15s;
+
+		&:hover {
+			box-shadow:
+				inset 0 0 0 1px rgba(23, 24, 28, 0.12),
+				0 0 0 2px #fff,
+				0 0 0 3px rgba(23, 24, 28, 0.2);
+		}
+
+		&[aria-pressed='true'],
+		&.is-on {
+			box-shadow:
+				inset 0 0 0 1px rgba(23, 24, 28, 0.12),
+				0 0 0 2px #fff,
+				0 0 0 3.5px var(--c, #17181c);
+		}
+
+		&:focus-visible,
+		&:has(:focus-visible) {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+	}
+
+	// Any colour: a colour wheel, the native picker laid over it unseen.
+	.pr-markc__dot--any {
+		--c: #17181c;
+
+		background: conic-gradient(#f43f5e, #f59e0b, #22c55e, #06b6d4, #3d50f5, #a855f7, #f43f5e);
+
+		input {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			opacity: 0;
+			cursor: pointer;
+		}
+	}
+
+	.pr-markc__ratio {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 2px 12px;
+		min-height: 18px;
+		margin: 0;
+		padding: 0 4px;
+		color: var(--color-text-secondary);
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+
+		:global(.is-low) {
+			color: #b42318;
+		}
+	}
+
+	// Under each figure: its name and its files, as small download links.
+	.pr-getfiles {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px 10px;
+		padding: 2px 4px 0;
+		font-size: 12px;
+
+		b {
+			margin-right: auto;
+			font-weight: $font-weight-medium;
+		}
+
+		a {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			padding: 3px 8px;
+			border-radius: 100px;
+			background: rgba(23, 24, 28, 0.05);
+			color: var(--color-text);
+			text-decoration: none;
+			transition: background-color 0.15s;
+
+			:global(svg) {
+				width: 13px;
+				height: 13px;
+				color: var(--color-text-secondary);
+			}
+
+			&:hover {
+				background: rgba(23, 24, 28, 0.1);
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--focus-ring);
+				outline-offset: 1px;
+			}
+
+			&[hidden] {
+				display: none;
+			}
 		}
 	}
 
@@ -6718,11 +7163,18 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	// The Set on the left, the view on the right, and the set's annotation across under both. The
 	// ground is on the canvas.
+	// The bar stays in view for the length of the bench, under the room's bar.
 	.pg__bar {
+		position: sticky;
+		z-index: 6;
+		top: 108px;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 8px 16px;
+		margin: -8px 0;
+		padding: 8px 0;
+		background: var(--color-bg, #fff);
 	}
 
 	// The canvas's head: the set's annotation on the left, as a caption on the ground it describes, and
@@ -6828,35 +7280,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	// The ground: the swatches alone, the one chosen ringed in the ground's own ink.
+	// The canvas's ground picker (`.pr-gsw`), in its head.
 	.pg__float {
 		flex: none;
-
-		.pg__seg {
-			gap: 4px;
-			padding: 0;
-			background: none;
-		}
-
-		.pg__seg button {
-			padding: 3px;
-			border-radius: 50%;
-			background: none;
-			box-shadow: none;
-
-			&[aria-pressed='true'] {
-				background: none;
-				box-shadow: inset 0 0 0 1.5px currentColor;
-			}
-		}
 	}
 
 	.pg[data-ground='dark'] .pg__canvas-head {
 		color: #fff;
-
-		.pg__swatch {
-			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36);
-		}
 	}
 
 	.pg__ctl-label {
@@ -7114,15 +7544,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		cursor: default;
 	}
 
-	// Under the canvas: the legend in a line, then the set's actions, each with what it does.
-	.pg__out {
-		display: grid;
-		gap: 14px;
-		padding: 4px 4px 0;
-	}
-
-	// The legend: each dot and its name; what it means on hover.
+	// Under the lede: the legend in a line.
 	.pg__legend {
+		margin-top: 6px;
+
 		display: flex;
 		flex-wrap: wrap;
 		gap: 6px 18px;
@@ -7146,12 +7571,163 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	.pg__acts {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: 8px;
+	// The bar's menus, at its end: a button each, its items dropping under it, right-aligned.
+	.pg__menus {
+		display: inline-flex;
+		gap: 4px;
+		margin-left: auto;
 	}
 
+	.pg__menu {
+		position: relative;
+	}
+
+	.pg__menu-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 5px 10px;
+		border: 0;
+		border-radius: 100px;
+		background: rgba(23, 24, 28, 0.06);
+		color: var(--color-text);
+		font: inherit;
+		font-size: 12px;
+		font-weight: $font-weight-medium;
+		cursor: pointer;
+		transition: background-color 0.15s;
+
+		:global(svg) {
+			width: 15px;
+			height: 15px;
+		}
+
+		:global(.pg__menu-caret) {
+			width: 13px;
+			height: 13px;
+			color: var(--color-text-secondary);
+			transition: transform 0.2s;
+		}
+
+		&:hover {
+			background: rgba(23, 24, 28, 0.1);
+		}
+
+		&[aria-expanded='true'] :global(.pg__menu-caret) {
+			transform: rotate(180deg);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+	}
+
+	.pg__menu-list {
+		position: absolute;
+		z-index: 20;
+		top: calc(100% + 6px);
+		right: 0;
+		display: grid;
+		gap: 2px;
+		width: 280px;
+		padding: 6px;
+		border-radius: 14px;
+		background: #fff;
+		box-shadow:
+			0 16px 40px rgba(23, 24, 28, 0.16),
+			0 0 0 1px rgba(23, 24, 28, 0.06);
+		animation: pg-menu-in 0.16s ease-out;
+
+		&[hidden] {
+			display: none;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
+		}
+	}
+
+	// Trying: the tried colours as a little stack on its button; each try a row with its colour, its name,
+	// its hex and a cross.
+	.pg__menu--tries[hidden] {
+		display: none;
+	}
+
+	.pg__tries-dots {
+		display: inline-flex;
+
+		:global(i) {
+			width: 12px;
+			height: 12px;
+			border-radius: 32%;
+			box-shadow: 0 0 0 1.5px var(--color-bg, #fff);
+
+			& + :global(i) {
+				margin-left: -4px;
+			}
+		}
+	}
+
+	.pg__tries-list {
+		display: grid;
+		gap: 2px;
+
+		&:not(:empty) {
+			padding-bottom: 4px;
+			border-bottom: 1px solid $line;
+		}
+
+		:global(.pg__try) {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			width: 100%;
+			padding: 7px 10px;
+			border: 0;
+			border-radius: 10px;
+			background: none;
+			color: var(--color-text);
+			font: inherit;
+			font-size: 13px;
+			text-align: left;
+			cursor: pointer;
+
+			&:hover,
+			&:focus-visible {
+				outline: none;
+				background: #f4f5f8;
+			}
+		}
+
+		:global(.pg__try i) {
+			flex: none;
+			width: 16px;
+			height: 16px;
+			border-radius: 32%;
+		}
+
+		:global(.pg__try b) {
+			font-weight: $font-weight-medium;
+		}
+
+		:global(.pg__try code) {
+			color: var(--color-text-secondary);
+			font-size: 12px;
+		}
+
+		:global(.pg__try span) {
+			margin-left: auto;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	@keyframes pg-menu-in {
+		from {
+			opacity: 0;
+			transform: translateY(-4px);
+		}
+	}
 	// Each action: its icon beside its name, what it does under both.
 	.pg__act {
 		display: grid;
@@ -7169,10 +7745,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			grid-column: 2;
 		}
 		width: 100%;
-		padding: 10px 12px;
+		padding: 8px 10px;
 		border: 0;
-		border-radius: 12px;
-		background: #f6f7fb;
+		border-radius: 10px;
+		background: none;
 		color: var(--color-text);
 		font: inherit;
 		text-align: left;
@@ -7191,8 +7767,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			line-height: 16px;
 		}
 
-		&:hover:not(:disabled) {
-			background: #eceef4;
+		&:hover:not(:disabled),
+		&:focus-visible {
+			outline: none;
+			background: #f4f5f8;
 		}
 
 		&:disabled {
@@ -7262,15 +7840,170 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		gap: 6px;
 	}
 
-	// The grounds as swatches alone, their names in the tooltip.
-	.pg__seg--swatches button {
-		padding: 3px 5px;
+	// A ground picker — the hero's, the canvas's, a sheet's: the grounds as swatches alone, their names in
+	// the tooltip, the one in force ringed in the ground's own ink. No grey edges: on a light ground a
+	// swatch is lifted by a soft shadow (the white one would vanish into it); on a dark ground it takes a
+	// faint white rim instead (the dark one would).
+	.pr-gsw {
+		display: inline-flex;
+		gap: 2px;
+		color: var(--color-text);
+
+		button {
+			display: grid;
+			place-items: center;
+			width: 24px;
+			height: 24px;
+			padding: 0;
+			border: 0;
+			border-radius: 50%;
+			background: none;
+			cursor: pointer;
+			transition: box-shadow 0.15s;
+
+			&:hover {
+				box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 30%, transparent);
+			}
+
+			&[aria-pressed='true'] {
+				box-shadow: inset 0 0 0 1.5px currentColor;
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--focus-ring);
+				outline-offset: 1px;
+			}
+		}
 
 		.pg__swatch {
 			width: 14px;
 			height: 14px;
 			margin: 0;
 			border-radius: 50%;
+			// The lift, and an edge at a whisper so a white swatch on white still has an outline.
+			box-shadow:
+				0 1px 3px rgba(17, 19, 32, 0.3),
+				0 0 0 0.5px rgba(17, 19, 32, 0.1);
+		}
+	}
+
+	:is(.pr-hero[data-surface='dark'], .pg[data-ground='dark'], .pgs__stage[data-ground='dark']) .pr-gsw {
+		color: #fff;
+
+		.pg__swatch {
+			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
+		}
+	}
+
+	// Day and night: a track with a knob, the knob carrying the moon by night and the sun by day, in the
+	// band's own ink; no label, the icons say it.
+	.pr-light {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--band-soft);
+		font: inherit;
+		font-size: 13px;
+		cursor: pointer;
+
+		&:hover {
+			color: var(--band-ink);
+		}
+
+		&:focus-visible {
+			border-radius: 100px;
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 3px;
+		}
+	}
+
+	.pr-light__track {
+		position: relative;
+		width: 64px;
+		height: 34px;
+		border-radius: 100px;
+		background: rgba(255, 255, 255, 0.14);
+		box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+		transition: background-color 0.3s;
+
+		.pr-light[aria-checked='true'] & {
+			background: #e6e7ec;
+			box-shadow: inset 0 1px 2px rgba(17, 19, 32, 0.12);
+		}
+	}
+
+	.pr-light__knob {
+		position: absolute;
+		top: 3px;
+		left: 3px;
+		display: grid;
+		place-items: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		background: #2b2d3a;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+		transition:
+			transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+			background-color 0.3s;
+
+		:global(svg) {
+			grid-area: 1 / 1;
+			width: 18px;
+			height: 18px;
+			transition: opacity 0.2s;
+		}
+
+		:global(.pr-light__off) {
+			color: #fff;
+		}
+
+		:global(.pr-light__on) {
+			color: #17181c;
+			opacity: 0;
+		}
+
+		.pr-light[aria-checked='true'] & {
+			background: #fff;
+			box-shadow: 0 1px 3px rgba(17, 19, 32, 0.2);
+			transform: translateX(30px);
+
+			:global(.pr-light__off) {
+				opacity: 0;
+			}
+
+			:global(.pr-light__on) {
+				opacity: 1;
+			}
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: none;
+		}
+	}
+
+	// In a card's caption: the same switch, a size down.
+	.pr-light--sm {
+		.pr-light__track {
+			width: 52px;
+			height: 28px;
+		}
+
+		.pr-light__knob {
+			width: 22px;
+			height: 22px;
+
+			:global(svg) {
+				width: 15px;
+				height: 15px;
+			}
+		}
+
+		&[aria-checked='true'] .pr-light__knob {
+			transform: translateX(24px);
 		}
 	}
 
@@ -8051,12 +8784,36 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	// a missing one a dashed slot. As the new mark's stage shows its four.
 	// The version in the set, large: the 88 tile drawn at two and a half times.
 	.pgs__preview {
+		position: relative;
+		isolation: isolate;
 		display: grid;
 		grid-template-rows: minmax(0, 1fr) auto;
 		place-items: center;
 		align-self: stretch;
 		gap: 16px;
 		min-height: 320px;
+
+		// A soft white light behind the tile: it lifts the preview off its ground. Stronger on dark, where
+		// it reads as light; a breath on the light grounds.
+		&::before {
+			content: '';
+			position: absolute;
+			z-index: -1;
+			top: 4%;
+			left: 50%;
+			width: min(82%, 340px);
+			aspect-ratio: 1;
+			border-radius: 50%;
+			background: radial-gradient(closest-side, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 100%);
+			opacity: 0.6;
+			transform: translateX(-50%);
+			pointer-events: none;
+			transition: opacity 0.2s;
+
+			.pgs__stage[data-ground='dark'] & {
+				opacity: 0.2;
+			}
+		}
 
 		.pgs__cell--big {
 			zoom: 2.75;
@@ -8223,55 +8980,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
 	}
 
-	// The ground: the swatches alone on the stage's corner, the chosen one ringed in the stage's ink, as
-	// the canvas does it.
+	// The stage's ground picker (`.pr-gsw`), on its corner.
 	.pgs__grounds {
 		position: absolute;
 		top: 14px;
 		left: 14px;
-		display: flex;
-		gap: 2px;
-		color: var(--color-text);
-
-		.pgs__stage[data-ground='dark'] & {
-			color: #fff;
-
-			.pg__swatch {
-				box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36);
-			}
-		}
-
-		button {
-			display: grid;
-			place-items: center;
-			width: 24px;
-			height: 24px;
-			padding: 0;
-			border: 0;
-			border-radius: 50%;
-			background: none;
-			cursor: pointer;
-			transition: box-shadow 0.15s;
-
-			&:hover {
-				box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 36%, transparent);
-			}
-
-			&[aria-pressed='true'] {
-				box-shadow: inset 0 0 0 1.5px currentColor;
-			}
-
-			&:focus-visible {
-				outline: 2px solid var(--focus-ring);
-			}
-		}
-
-		.pg__swatch {
-			width: 14px;
-			height: 14px;
-			margin: 0;
-			border-radius: 50%;
-		}
 	}
 
 	.pgs__part {
@@ -8325,88 +9038,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	.pr-map__row[data-try] .pr-glyphs__half {
 		color: var(--try) !important;
-	}
-
-	// The tries, listed: a pill at the foot of the window, each mark with its colour and a cross.
-	.pr-tries {
-		position: fixed;
-		z-index: 30;
-		// Above the lab's floating Pages menu, which holds the window's foot.
-		bottom: 72px;
-		left: 50%;
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		max-width: calc(100vw - 32px);
-		padding: 6px 6px 6px 16px;
-		border-radius: 100px;
-		background: #17181c;
-		box-shadow: 0 12px 32px -12px rgba(11, 13, 31, 0.5);
-		color: #fff;
-		font-size: 13px;
-		transform: translateX(-50%);
-
-		&[hidden] {
-			display: none;
-		}
-	}
-
-	.pr-tries__label {
-		color: rgba(255, 255, 255, 0.6);
-	}
-
-	.pr-tries__list {
-		display: flex;
-		gap: 4px;
-		overflow-x: auto;
-		scrollbar-width: none;
-
-		:global(.pr-tries__item) {
-			display: inline-flex;
-			flex: none;
-			align-items: center;
-			gap: 6px;
-			padding: 4px 10px 4px 6px;
-			border: 0;
-			border-radius: 100px;
-			background: rgba(255, 255, 255, 0.1);
-			color: #fff;
-			font: inherit;
-			font-size: 12px;
-			cursor: pointer;
-
-			&:hover {
-				background: rgba(255, 255, 255, 0.18);
-			}
-		}
-
-		:global(i) {
-			width: 14px;
-			height: 14px;
-			border-radius: 32%;
-			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
-		}
-
-		:global(b) {
-			opacity: 0.6;
-		}
-	}
-
-	.pr-tries__all {
-		flex: none;
-		padding: 5px 12px;
-		border: 0;
-		border-radius: 100px;
-		background: #fff;
-		color: #17181c;
-		font: inherit;
-		font-size: 12px;
-		cursor: pointer;
-
-		&:focus-visible {
-			outline: 2px solid var(--focus-ring);
-			outline-offset: 2px;
-		}
 	}
 
 	.pgs[data-try] .pgs__cell--glyph {
@@ -8555,12 +9186,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	.pgs__now {
 		position: absolute;
 		z-index: 1;
-		top: 14px;
-		right: 236px;
+		top: -6px;
+		right: 0;
 
 		@media (max-width: 560px) {
-			top: 50px;
-			right: 16px;
+			top: 24px;
 		}
 	}
 
@@ -9276,8 +9906,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	.pgs__cands {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-		gap: 8px;
+		grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+		gap: 10px;
 	}
 
 	.pgs__cand {
@@ -9318,7 +9948,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		border-radius: 10px;
 
 		.pgs__cell {
-			height: 72px;
+			display: grid;
+			place-items: center;
+			height: 112px;
 			background: #fff;
 
 			&[data-surface='dark'] {
@@ -11104,6 +11736,84 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		figcaption {
 			font-size: 12px;
 			color: var(--color-text-secondary);
+		}
+	}
+
+	// The mascot: the AI core's tile in the brand indigo, flat, with white eyes and the sparkle above it.
+	// Waiting it blinks; thinking its eyes glance up and the sparkle turns; answered the eyes close in a smile.
+	.pr-mascot {
+		gap: 32px;
+
+		svg {
+			width: 72px;
+			height: 86px;
+			overflow: visible;
+		}
+	}
+
+	.pr-mascot__head,
+	.pr-mascot__spark {
+		fill: var(--color-brand);
+	}
+
+	.pr-mascot__eyes rect {
+		fill: #fff;
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+
+	.pr-mascot__smile path {
+		fill: none;
+		stroke: #fff;
+		stroke-width: 3.5;
+		stroke-linecap: round;
+	}
+
+	.pr-mascot__spark {
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+
+	.pr-mascot--idle .pr-mascot__eyes rect {
+		animation: pr-mascot-blink 4s infinite;
+	}
+
+	.pr-mascot--think {
+		.pr-mascot__eyes {
+			transform: translate(3px, -4px);
+		}
+
+		.pr-mascot__eyes rect {
+			height: 10px;
+		}
+
+		.pr-mascot__spark {
+			animation: pr-mascot-turn 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.pr-mascot--idle .pr-mascot__eyes rect,
+		.pr-mascot--think .pr-mascot__spark {
+			animation: none;
+		}
+	}
+
+	@keyframes pr-mascot-blink {
+		0%,
+		92%,
+		100% {
+			transform: scaleY(1);
+		}
+
+		96% {
+			transform: scaleY(0.1);
+		}
+	}
+
+	@keyframes pr-mascot-turn {
+		to {
+			transform: rotate(180deg);
 		}
 	}
 

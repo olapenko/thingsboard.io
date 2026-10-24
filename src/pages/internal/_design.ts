@@ -147,6 +147,7 @@ export const DESIGN: DesignPage[] = [
 			{ id: 'features', label: 'Feature marks', group: 'Features' },
 			{ id: 'feature-files', label: 'Older feature icons', group: 'Features' },
 			{ id: 'ai', label: 'CLI and AI', group: 'CLI and AI' },
+			{ id: 'legacy', label: 'Legacy sets', group: 'Legacy' },
 		],
 	},
 	{

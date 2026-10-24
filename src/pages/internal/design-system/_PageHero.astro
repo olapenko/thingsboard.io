@@ -1,0 +1,154 @@
+---
+/**
+ * A Logo Room page's hero, under the room's bar: a light band the width of the window, a dot grid
+ * fading out from its left, then the page's kicker, its title, its lede and any facts. The Overview's
+ * dark hero, made quiet. Bench, Spec and Files open with it; what a page adds under it goes in the slot.
+ *
+ * `pull` lifts the band by that many pixels, so it starts flush under the bar wherever the page puts it.
+ * `kit` lines the text up with the lab's kit layout (the Files page): a 1280px box, centred, 24px in.
+ * `toc` lists the page's sections as a row of chips under the lede: the room's bar names them too,
+ * but only on a desktop and only once you scroll; this is where a reader starts.
+ */
+interface Props {
+	kicker?: string;
+	title: string;
+	lede?: string;
+	meta?: string[];
+	pull?: number;
+	kit?: boolean;
+	toc?: { id: string; label: string }[];
+}
+
+const { kicker, title, lede, meta = [], pull = 108, kit = false, toc = [] } = Astro.props;
+---
+
+<header class:list={['ph', kit && 'ph--kit']} style={`--ph-pull: ${pull}px`}>
+	<div class="ph__in">
+		{kicker && <p class="ph__kicker">{kicker}</p>}
+		<h1>{title}</h1>
+		{lede && <p class="ph__lede">{lede}</p>}
+		{meta.length > 0 && (
+			<p class="ph__meta">
+				{meta.map((m) => (
+					<span>{m}</span>
+				))}
+			</p>
+		)}
+		{toc.length > 0 && (
+			<nav class="ph__toc" aria-label="On this page">
+				{toc.map((s) => (
+					<a href={`#${s.id}`}>{s.label}</a>
+				))}
+			</nav>
+		)}
+		<slot />
+	</div>
+</header>
+
+<style lang="scss">
+	@use '../../../styles/variables' as *;
+
+	.ph {
+		position: relative;
+		isolation: isolate;
+		margin: calc(-1 * var(--ph-pull)) calc(50% - 50vw) 8px;
+		padding: 72px calc(50vw - 50%) 44px;
+		background: linear-gradient(180deg, #f4f5f7 0%, #fff 100%);
+
+		@include media-down(md) {
+			padding: 40px 16px 32px;
+		}
+
+		&::before {
+			content: '';
+			position: absolute;
+			z-index: -1;
+			inset: 0;
+			background-image: radial-gradient(rgba(23, 24, 28, 0.1) 1px, transparent 1.6px);
+			background-size: 22px 22px;
+			mask-image: radial-gradient(60% 90% at 18% 30%, #000, transparent 75%);
+		}
+
+		h1 {
+			@include type-title;
+
+			margin: 0;
+		}
+	}
+
+	.ph__in {
+		display: grid;
+		justify-items: start;
+		gap: 12px;
+	}
+
+	// On the kit layout: the body's 24px, then the kit's box, 1280px centred with its own 24px.
+	.ph--kit {
+		padding-inline: 24px;
+
+		.ph__in {
+			max-width: 1280px;
+			margin-inline: auto;
+			padding-inline: 24px;
+		}
+	}
+
+	.ph__kicker {
+		@include type-eyebrow;
+
+		margin: 0;
+		color: var(--color-text-secondary);
+	}
+
+	.ph__lede {
+		@include type-lede;
+
+		max-width: 720px;
+		margin: 0;
+		color: var(--color-text-secondary);
+		text-wrap: pretty;
+	}
+
+	// The contents: each section as a chip, a faint fill that deepens on hover.
+	.ph__toc {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 12px;
+
+		a {
+			padding: 8px 16px;
+			border-radius: 100px;
+			background: rgba(23, 24, 28, 0.05);
+			color: var(--color-text);
+			font-size: 15px;
+			font-weight: $font-weight-medium;
+			text-decoration: none;
+			transition: background-color 0.15s;
+
+			&:hover {
+				background: rgba(23, 24, 28, 0.1);
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--focus-ring);
+				outline-offset: 2px;
+			}
+		}
+	}
+
+	.ph__meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: 6px 0 0;
+
+		span {
+			padding: 3px 10px;
+			border-radius: 100px;
+			background: rgba(23, 24, 28, 0.05);
+			color: var(--color-text-secondary);
+			font-size: 12px;
+		}
+	}
+</style>
