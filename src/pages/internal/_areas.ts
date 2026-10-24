@@ -35,11 +35,14 @@ export interface AreaPage {
 	icon?: string;
 	/** The heading it sits under in the picker, when the area has enough pages for one. */
 	group?: string;
+	/** Pages that count as this one without a tab of their own (a design page's `under` pages). */
+	also?: string[];
 }
 
 /**
  * An area shows its pages as tabs up to this many; past it, as a grouped picker. Six since the Design
- * system took Logos and Logo files (exp/logo-review): six short labels still fit the bar at 1280.
+ * system took Logos (exp/logo-review): six short labels still fit the bar at 1280. Logo files has no
+ * tab of its own; it lights Logos'.
  */
 export const TABS_UP_TO = 6;
 
@@ -73,7 +76,14 @@ export const AREAS: Area[] = [
 	{
 		id: 'design',
 		label: 'Design system',
-		pages: [overview('/internal/design-system/'), ...DESIGN.map((p) => ({ href: designHref(p), label: p.label }))],
+		pages: [
+			overview('/internal/design-system/'),
+			...DESIGN.filter((p) => !p.under).map((p) => ({
+				href: designHref(p),
+				label: p.label,
+				also: DESIGN.filter((c) => c.under === p.id).map(designHref),
+			})),
+		],
 	},
 ];
 
@@ -81,7 +91,8 @@ export const AREAS: Area[] = [
 const normal = (path: string) => path.replace(/\/?$/, '/');
 
 const matches = (page: AreaPage, path: string) =>
-	page.match ? normal(path).startsWith(page.match) : normal(path) === page.href;
+	(page.match ? normal(path).startsWith(page.match) : normal(path) === page.href) ||
+	!!page.also?.includes(normal(path));
 
 /** The area and page a path belongs to, or nothing for a page outside every area (the hub). */
 export function areaFor(path: string): { area?: Area; page?: AreaPage } {

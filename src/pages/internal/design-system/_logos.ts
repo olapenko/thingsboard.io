@@ -51,8 +51,13 @@ export type Cell = { name: string; caption: string } & (
 			art: readonly [number, number, number, number];
 			/** Which of Mark's steps sizes it: a product's (70%), a wide product's (80%), or an icon's (60%). */
 			step?: 'product' | 'wide' | 'icon';
-			/** solid: knocked out of the accent · white: the accent on white · dark: the accent on black. */
-			fill: 'solid' | 'white' | 'dark';
+			/**
+			 * solid: knocked out of the accent · white: the accent on white · dark: the accent on black ·
+			 * darktint: the accent on near-black tinted with `tint`, the product's own colour.
+			 */
+			fill: 'solid' | 'white' | 'dark' | 'darktint';
+			/** The darktint tile's hue, when it is not the ink's. */
+			tint?: string;
 			accent: string;
 			lift?: boolean;
 	  }

@@ -36,6 +36,11 @@ export interface DesignPage {
 	source: string;
 	/** The page's sections, in order: its side navigation, and the anchors old links can land on. */
 	sections: DesignSection[];
+	/**
+	 * A page that belongs to another: off the top bar and the overview, linked from that page alone,
+	 * whose tab it lights while open. Logo files is Logos' inventory.
+	 */
+	under?: DesignPage['id'];
 }
 
 /**
@@ -119,14 +124,14 @@ export const DESIGN: DesignPage[] = [
 		id: 'logos',
 		label: 'Logos',
 		blurb:
-			'The product marks as a landing page: the set, current or to be, on its grounds; what is designed next; shots of it in use; a workbench where each mark opens as a sheet; the map of every version with its status and red marks; the colours; how fills, lifts and lights are built and checked; what is being explored; the legacy files; an action per product; and the vocabulary.',
+			'The product marks as a landing page: the set, current or to be, on its grounds; a showcase of it in use; a workbench where each mark opens as a sheet; the rounds under review; the map of every version with its status and red marks; the colours; how fills, lifts and lights are built and checked; what is being explored; the legacy files; an action per product; and the vocabulary.',
 		icon: 'tabler:apps',
 		source: 'ui/Mark · data/marks.ts · homeProducts / homeEcosystem · ai-visual.ts · _theme.scss',
 		sections: [
-			{ id: 'next', label: 'Next' },
-			{ id: 'shots', label: 'In use' },
+			{ id: 'shots', label: 'Showcase' },
 			{ id: 'brand', label: 'Logotype' },
 			{ id: 'workbench', label: 'Workbench' },
+			{ id: 'rounds', label: 'Rounds' },
 			{ id: 'map', label: 'Map' },
 			{ id: 'colour', label: 'Colour' },
 			{ id: 'fills', label: 'Fills' },
@@ -139,6 +144,7 @@ export const DESIGN: DesignPage[] = [
 	{
 		id: 'logo-files',
 		label: 'Logo files',
+		under: 'logos',
 		blurb:
 			'The inventory under Logos: every logo file with its box, colours, twins and the files that name it; the marks on a tile; the ecosystem as each surface draws it, legacy columns included; the feature marks; the CLI’s and the AI’s.',
 		icon: 'tabler:badges',
