@@ -24,6 +24,12 @@ export interface RoomPage {
 
 const BASE = '/internal/design-system/logos/';
 
+/**
+ * The room mark's cards, back to front, in the set's own colours: IoT Hub's amber, On-premises' green,
+ * Cloud's indigo, then the platform's White. Its colours wash About's hero.
+ */
+export const ROOM_MARK = ['#b45309', '#178649', '#3d50f5', '#ffffff'];
+
 export const ROOM: RoomPage[] = [
 	{
 		id: 'overview',

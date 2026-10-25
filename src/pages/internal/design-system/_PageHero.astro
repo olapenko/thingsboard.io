@@ -7,7 +7,10 @@
  * `pull` lifts the band by that many pixels, so it starts flush under the bar wherever the page puts it.
  * `kit` lines the text up with the lab's kit layout (the Files page): a 1280px box, centred, 24px in.
  * `colours` washes the band's right side in those colours, a soft glow each, fading before the text:
- * the set's own colours, for a page about the set as a whole.
+ * the set's own colours, for a page about the set as a whole. `wash` is how much of each colour its glow
+ * carries, in percent (26 by default); lower is lighter.
+ * The `art` slot draws a picture at the band's right, beside the text, from 1024 up (About: the room's
+ * mark, large, in front of its own colours).
  * `ribbon` lays a thin striped band along the band's top, flush under the bar: the back office's sign,
  * for a page that is the room's workings rather than its guidance (Files).
  * `toc` lists the page's sections as a row of chips under the lede, below 1280; from there up the room's
@@ -20,16 +23,26 @@ interface Props {
 	kit?: boolean;
 	toc?: { id: string; label: string }[];
 	colours?: string[];
+	wash?: number;
 	ribbon?: boolean;
 }
 
-const { title, lede, pull = 108, kit = false, toc = [], colours = [], ribbon = false } = Astro.props;
+const {
+	title,
+	lede,
+	pull = 108,
+	kit = false,
+	toc = [],
+	colours = [],
+	wash: strength = 26,
+	ribbon = false,
+} = Astro.props;
 /** A glow per colour, spread over the band's right half, alternating high and low. */
 const wash = colours
 	.map((c, i) => {
 		const x = 52 + (i * 44) / Math.max(colours.length - 1, 1);
 		const y = i % 2 === 0 ? 28 : 78;
-		return `radial-gradient(34% 70% at ${x.toFixed(0)}% ${y}%, color-mix(in srgb, ${c} 26%, transparent), transparent 72%)`;
+		return `radial-gradient(34% 70% at ${x.toFixed(0)}% ${y}%, color-mix(in srgb, ${c} ${strength}%, transparent), transparent 72%)`;
 	})
 	.join(', ');
 ---
@@ -48,6 +61,11 @@ const wash = colours
 			</nav>
 		)}
 		<slot />
+		{Astro.slots.has('art') && (
+			<div class="ph__art">
+				<slot name="art" />
+			</div>
+		)}
 	</div>
 </header>
 
@@ -111,9 +129,37 @@ const wash = colours
 	}
 
 	.ph__in {
+		position: relative;
 		display: grid;
 		justify-items: start;
 		gap: 12px;
+	}
+
+	// The art: at the band's right, centred on the text's height, clear of the lede's 720px; gone where
+	// the two would meet.
+	.ph__art {
+		position: absolute;
+		top: 50%;
+		right: 0;
+		display: none;
+		transform: translateY(-50%);
+
+		@include media-up(lg) {
+			display: block;
+		}
+	}
+
+	.ph--kit .ph__art {
+		right: 24px;
+	}
+
+	// From 1280 the room's section chips float at the window's right: the art moves in beside the text,
+	// past the lede's 720px and a breath, clear of them.
+	.ph__in .ph__art {
+		@include media-up(xl) {
+			right: auto;
+			left: 832px;
+		}
 	}
 
 	// On the kit layout: the body's 24px, then the kit's box, 1280px centred with its own 24px.
