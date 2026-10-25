@@ -4,7 +4,7 @@ The Logo Room (`/internal/design-system/logos/` on the lab) published on its own
 claude.ai artifact: https://claude.ai/artifact/LSxxpGErXUNFPoVC5noQTG. Share it from the page's Share menu;
 until then only its owner can open it.
 
-It shows `exp/logo-review` as last captured (25 Oct 2026, b13c79f6f): the renamed pages (Guidelines, Studio, About), the
+It shows `exp/logo-review` as last captured (25 Oct 2026, eb67fef08): the renamed pages (Guidelines, Studio, About), the
 groups guide, the palette with its colour editor and secondaries, briefs by topic, sets of your own, the Files
 side menu, renaming, removing and adding marks as proposals, and the room's mark in About's hero. The tag in the bottom-left corner of every page names the branch, the commit and the capture date.
 
@@ -29,7 +29,8 @@ rounds, and Copy as patch.
 ## How it differs from the lab
 
 - **No lab around it.** `shell.css` hides the lab's area bar and Pages island; the room's own bar is
-  the top of the page.
+  the top of the page, and every sticky offset and scroll margin that counted the lab's 48px bar loses it.
+  A new sticky element under the bars needs its offset there too.
 - **Its address travels in session storage.** An artifact's links keep a plain `#anchor` but never a
   query, and the room keeps its set in the query (`?m=…`, `?mark=…`, `?start=…`). `shell.js` takes the
   query off a link to another page of the room, keeps it in `sessionStorage`, and the next page puts
