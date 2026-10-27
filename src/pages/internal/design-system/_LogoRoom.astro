@@ -2015,7 +2015,21 @@ const SHEETS = ROWS.map((r) => {
 	};
 });
 /** The new mark's four placeholders, named as the treatments are. */
-const NEW_FILL_NAMES = { white: 'White', colour: 'Colour', tint: 'Tint', black: 'Dark' } as const;
+/**
+ * The new mark's tiles: the ones a mark drawn from its file can have (White, Colour, Dark), each as the
+ * room will draw it once saved, a draft tile at 88 with Mark's light and lift. The artwork picked
+ * replaces the placeholder; the colour picked is the tiles' accent.
+ */
+const NEW_TILES = [
+	{ key: 'white', name: 'White', fill: 'white' },
+	{ key: 'colour', name: 'Colour', fill: 'solid' },
+	{ key: 'black', name: 'Dark', fill: 'dark' },
+] as const;
+/** Tabler's shape, until an artwork is picked. */
+const NEW_PLACEHOLDER =
+	'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M3 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M5 7v10"/><path d="M7 5h10"/><path d="M7 19h10"/><path d="M19 7v10"/></svg>';
+const newTile = (fill: 'white' | 'solid' | 'dark') =>
+	draft(NEW_PLACEHOLDER, [0, 0, 24, 24], fill, '#3d50f5', 'product');
 /** The grounds a sheet's stage can take: the registry's. */
 const SHEET_GROUNDS = GROUNDS;
 /**
@@ -3038,7 +3052,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						<li class="pg__item pg__item--draft">
 							<button type="button" class="pg__pick" aria-controls="pg-sheet" aria-expanded="false">
 								<span class="pg__tile">
-									<span class="pg__draft-tile" />
+									<LogoCell cell={newTile('white')} />
 									<i class="pg__draft-dot" title="A draft, not in the records yet" />
 								</span>
 								<span class="pg__name" />
@@ -4260,10 +4274,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						</button>
 					</div>
 					<header class="pgs__head">
-						<p class="pgs__group">
-							{s.r.group}
-							{s.r.kind && ` · ${s.r.kind}`}
-						</p>
+						<p class="pgs__group">{s.r.group}</p>
 						<h3
 							tabindex="-1"
 							class="pgs__title"
@@ -4746,6 +4757,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 			<article class="pgs pgs--new" data-sheet="new" hidden>
 				<div class="pgs__bar">
+					<span class="pgs__newacts">
+						<button type="button" class="pgs__newbtn pgs__newbtn--quiet" data-new-discard hidden>
+							Discard
+						</button>
+						<button type="button" class="pgs__newbtn" data-new-commit>
+							Add to the set
+						</button>
+					</span>
 					<button type="button" class="pgs__close" aria-label="Close the sheet">
 						<Icon name="tabler:x" aria-hidden="true" />
 					</button>
@@ -4771,30 +4790,27 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							<option value="exploring">Exploring</option>
 							<option value="designed">Designed</option>
 						</select>
-						<input
-							type="text"
-							class="pgs__newabout"
-							maxlength="400"
-							placeholder="What it is, in a line"
-							aria-label="What the product is, in a line"
-							data-new-about
-						/>
 					</div>
-					<p class="pgs__about">
-						Name it, pick its colour and its artwork, then add it to the set as a draft. Copy as patch writes its record
-						and its artwork for review.
-					</p>
+					<textarea
+						class="pgs__about pgs__newabout"
+						rows="2"
+						maxlength="400"
+						placeholder="What it is and what its mark carries, in a line"
+						aria-label="What the product is, in a line"
+						data-new-about
+					></textarea>
+					<p class="pgs__newmsg" data-new-msg aria-live="polite" />
 				</header>
 				<div class="pgs__stage" data-ground="dark" data-surface="dark">
 					<span class="pgs__v pgs__v--new">
-						{(['white', 'colour', 'tint', 'black'] as const).map((f) => (
+						{NEW_TILES.map((f) => (
 							<figure class="pgs__new-item">
 								<span class="pgs__cell pgs__cell--big">
-									<span class="pgs__new-tile" data-new-fill={f}>
-										<Icon name="tabler:shape" aria-hidden="true" />
+									<span class="pgs__new-tile" data-new-fill={f.key}>
+										<LogoCell cell={newTile(f.fill)} />
 									</span>
 								</span>
-								<figcaption>{NEW_FILL_NAMES[f]}</figcaption>
+								<figcaption>{f.name}</figcaption>
 							</figure>
 						))}
 					</span>
@@ -4919,15 +4935,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						On the tiles: <code data-icon-picked>tabler:shape</code>
 					</p>
 				</div>
-				<div class="pgs__part pgs__newgo">
-					<p class="pgs__newmsg" data-new-msg aria-live="polite" />
-					<button type="button" class="pgs__newbtn pgs__newbtn--quiet" data-new-discard hidden>
-						Discard the draft
-					</button>
-					<button type="button" class="pgs__newbtn" data-new-commit>
-						Add to the set
-					</button>
-				</div>
 			</article>
 		</aside>
 	)}
@@ -4953,6 +4960,16 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	// Bands that span the window take its scrollbar off (_bleed.ts).
 	trackScrollbar();
+
+	/**
+	 * An artwork as a draft tile draws it (_LogoCell.astro): its root SVG takes the tile's glyph class
+	 * and loses the page's own sizes, so the tile's step sizes it.
+	 */
+	const glyphMarkup = (svg: string) =>
+		svg.trim().replace(/^<svg\b([^>]*)>/, (_m, attrs: string) => {
+			const kept = attrs.replace(/\s*\b(width|height|class|aria-hidden|focusable)="[^"]*"/g, '');
+			return `<svg${kept} class="lc-draft__glyph" aria-hidden="true" focusable="false">`;
+		});
 
 	/**
 	 * An artwork as its file: the SVG with its viewBox and namespace, the page's own attributes (classes,
@@ -6095,7 +6112,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		const pickedLabel = sheetBox.querySelector<HTMLElement>('[data-icon-picked]');
 		/** Put an artwork on the four placeholders, and remember it. */
 		const applyArt = (svg: string, label: string, source: string, keep = true) => {
-			newSheet?.querySelectorAll<HTMLElement>('.pgs__new-tile').forEach((tile) => (tile.innerHTML = svg));
+			newSheet
+				?.querySelectorAll<HTMLElement>('.pgs__new-tile .lc-draft')
+				.forEach((tile) => (tile.innerHTML = glyphMarkup(svg)));
 			if (pickedLabel) pickedLabel.textContent = label;
 			sheetBox
 				.querySelectorAll<HTMLButtonElement>('[data-form], [data-icon]')
@@ -6316,7 +6335,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		const nf = newSheet && {
 			title: newSheet.querySelector<HTMLElement>('[data-new-title]'),
 			name: newSheet.querySelector<HTMLInputElement>('[data-new-name]'),
-			about: newSheet.querySelector<HTMLInputElement>('[data-new-about]'),
+			about: newSheet.querySelector<HTMLTextAreaElement>('[data-new-about]'),
 			status: newSheet.querySelector<HTMLSelectElement>('[data-new-status]'),
 			msg: newSheet.querySelector<HTMLElement>('[data-new-msg]'),
 			commit: newSheet.querySelector<HTMLButtonElement>('[data-new-commit]'),
@@ -6378,14 +6397,17 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				root.querySelectorAll<HTMLElement>(`.pg__item--add[data-add-group="${d.group}"]`).forEach((add) => {
 					const item = draftTemplate?.content.firstElementChild?.cloneNode(true) as HTMLElement | undefined;
 					const b = item?.querySelector<HTMLButtonElement>('button');
-					const tile = item?.querySelector<HTMLElement>('.pg__draft-tile');
+					const tile = item?.querySelector<HTMLElement>('.lc-draft');
 					if (!item || !b || !tile) return;
 					b.dataset.group = d.group;
 					b.dataset.draft = d.id;
 					b.setAttribute('aria-label', `Open the draft ${d.name}`);
-					tile.innerHTML = d.art.svg;
-					tile.dataset.fill = d.group === 'Ecosystem' ? 'white' : 'colour';
-					tile.style.setProperty('--c', d.hex);
+					// Its group's tile, as its record will say and the room will draw it.
+					const solid = d.group !== 'Ecosystem';
+					tile.classList.toggle('lc-draft--white', !solid);
+					tile.classList.toggle('lc-draft--solid', solid);
+					tile.style.setProperty('--lc-accent', d.hex);
+					tile.innerHTML = glyphMarkup(d.art.svg);
 					const name = item.querySelector('.pg__name');
 					if (name) name.textContent = d.name;
 					b.addEventListener('click', () => {
@@ -6529,7 +6551,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				const id = sheet.dataset.sheet ?? 'mark';
 				const tile =
 					id === 'new'
-						? sheet.querySelector<HTMLElement>('.pgs__new-tile[data-new-fill="colour"]')
+						? sheet.querySelector<HTMLElement>('.pgs__new-tile[data-new-fill="colour"] .lc-draft')
 						: sheet.querySelector<HTMLElement>(
 								`.pgs__strip-item[data-m="${sheet.dataset.m === 'both' ? 'white' : sheet.dataset.m}"] :is(.ui-mark, .lc-draft)`
 							);
@@ -9928,27 +9950,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	// A draft: a mark added here, not in the records yet, on its group's tile (White for the Ecosystem,
-	// Colour for the platform and the AI) in its colour, with the amber dot of what is proposed here.
-	.pg__draft-tile {
-		display: grid;
-		place-items: center;
-		width: 72px;
-		height: 72px;
-		border-radius: 32%;
-		background: var(--c);
-		color: #fff;
-		box-shadow: 0 2px 8px rgba(23, 24, 28, 0.14);
-
-		&[data-fill='white'] {
-			background: #fff;
-			color: var(--c);
-		}
-
-		:global(svg) {
-			width: 58%;
-			height: 58%;
-		}
+	// A draft: a mark added here, not in the records yet, drawn as the room will draw it once saved (a
+	// draft tile, its group's: White for the Ecosystem, Colour for the platform and the AI), with the
+	// amber dot of what is proposed here.
+	.pg__item--draft .pg__tile {
+		position: relative;
 	}
 
 	.pg__draft-dot {
@@ -10519,32 +10525,63 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		font-family: inherit;
 	}
 
-	.pgs__newform .pgs__newabout {
-		flex: 1 1 100%;
-		font-size: 14px;
+	// The new mark's description: the lede's step in a field, where every sheet's description sits.
+	.pgs__newabout {
+		width: 100%;
+		margin: 0 0 0 -8px;
+		padding: 4px 8px;
+		border: 0;
+		border-radius: 10px;
+		background: rgba(23, 24, 28, 0.04);
+		font-family: inherit;
+		resize: none;
+		field-sizing: content;
+
+		&::placeholder {
+			color: var(--color-text-light);
+		}
+
+		&:focus-visible {
+			outline: none;
+			background: #fff;
+			box-shadow: inset 0 0 0 2px var(--focus-ring);
+		}
 	}
 
-	// The end of the new mark's sheet: why it cannot be added yet, then Discard and Add.
-	.pgs__newgo {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: flex-end;
-		gap: 8px;
-	}
-
+	// Why it cannot be added yet, under the fields; nothing when there is nothing to say.
 	.pgs__newmsg {
-		flex: 1 1 200px;
 		margin: 0;
 		color: #b42318;
 		font-size: 13px;
+
+		&:empty {
+			display: none;
+		}
+	}
+
+	// Add and Discard, in the sheet's bar beside its close: in reach wherever the sheet is scrolled.
+	.pgs__newacts {
+		display: flex;
+		gap: 8px;
+		margin-top: 14px;
+		margin-left: auto;
+	}
+
+	.pgs--new .pgs__close {
+		margin-left: 8px;
+	}
+
+	.pgs--new .pgs__head {
+		padding-top: 40px;
 	}
 
 	.pgs__newbtn {
-		padding: 9px 18px;
+		height: 36px;
+		padding: 0 16px;
 		border: 0;
-		border-radius: 100px;
+		border-radius: 12px;
 		background: var(--color-text);
+		box-shadow: 0 1px 3px rgba(23, 24, 28, 0.16);
 		color: #fff;
 		font: inherit;
 		font-size: 14px;
@@ -10552,7 +10589,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		cursor: pointer;
 
 		&--quiet {
-			background: none;
+			background: color-mix(in srgb, #fff 90%, transparent);
+			backdrop-filter: blur(6px);
 			color: #b42318;
 
 			&:hover {
@@ -11751,47 +11789,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		--try: #3d50f5;
 	}
 
+	// The new mark's tiles: draft tiles, as the canvas and the room draw it, in the colour picked.
 	.pgs__new-tile {
 		display: grid;
-		place-items: center;
-		width: 72px;
-		height: 72px;
-		border-radius: 32%;
-		color: var(--try);
 
-		:global(svg) {
-			width: 55%;
-			height: 55%;
-		}
-
-		&[data-new-fill='white'] {
-			background: #fff;
-			box-shadow: var(--elev-mark);
-		}
-
-		&[data-new-fill='colour'] {
-			background-color: var(--try);
-			background-image: linear-gradient(
-				155deg,
-				rgba(255, 255, 255, 0.22) 0%,
-				rgba(255, 255, 255, 0) 55%,
-				rgba(0, 0, 0, 0.06) 100%
-			);
-			box-shadow: var(--elev-mark);
-			color: #fff;
-		}
-
-		&[data-new-fill='tint'] {
-			background: color-mix(in srgb, var(--try) 14%, transparent);
-		}
-
-		&[data-new-fill='black'] {
-			background: #17181c;
-		}
-
-		// On a dark ground the dark placeholders take the hairline every dark tile takes there.
-		.pgs__stage[data-surface='dark'] &:is([data-new-fill='tint'], [data-new-fill='black']) {
-			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+		:global(.lc-draft) {
+			--lc-accent: var(--try) !important;
 		}
 	}
 
