@@ -36,7 +36,9 @@ import { shippingComposition } from '@data/home-compositions';
 import { CHAT_HUES, CHAT_HUE_LEG_S, CHAT_LAUNCHER, LAUNCHER_BOX } from '@data/chat-widget';
 import { parse as parseYaml } from 'yaml';
 import { logoMarkSchema, logoPaletteSchema, type LogoMark, type LogoMaterial, type LogoRound } from '@models/logo-room';
-import { markArtPath, markPath, PALETTE_PATH } from '@util/logo-room-records';
+import { markArtPath, markPath, PALETTE_PATH, TONE_2 } from '@util/logo-room-records';
+import { ICON_START, TAKEN_ICONS } from '@root/pages/internal/design-system/_room-icons';
+import { allSubmenus, mainNavItems, productsSubmenu } from '@data/navigation';
 
 /**
  * Design system › Logos: the brand system for the product marks, as a landing page (the public design
@@ -138,7 +140,8 @@ function inkedSvg(raw: string, art: readonly number[], ink: string) {
 	const tones = [...new Set((raw.match(/#[0-9a-fA-F]{6}\b/g) ?? []).map((t) => t.toLowerCase()))].sort(
 		(a, b) => lum(a) - lum(b)
 	);
-	let svg = raw;
+	// Two-tone artwork's second tone is the half ink, as a two-colour artwork's lighter one is.
+	let svg = raw.replaceAll(TONE_2, half);
 	tones.forEach((t, i) => (svg = svg.replace(new RegExp(t, 'gi'), i === 0 ? ink : half)));
 	return svg
 		.replace(/currentColor/gi, ink)
@@ -175,7 +178,8 @@ const draft = (
 	fill: 'solid' | 'white' | 'dark' | 'darktint',
 	accent: string,
 	step: 'product' | 'wide' | 'icon',
-	tint?: string
+	tint?: string,
+	second?: string
 ): Cell => ({
 	kind: 'draft',
 	name: '',
@@ -187,6 +191,7 @@ const draft = (
 	fill,
 	accent,
 	tint,
+	second,
 	lift: true,
 });
 
@@ -445,7 +450,8 @@ const DRAWINGS: Record<string, Drawing> = {
 
 /**
  * A mark drawn from its file, `marks/<id>/mark.svg`, in the record's `hue`: how a mark added from the
- * Studio is drawn before any code knows it. Each tile from the one artwork, as a candidate's file is.
+ * Studio is drawn before any code knows it. Each tile from the one artwork, as a candidate's file is;
+ * two-tone artwork takes the record's `second` as its second tone.
  */
 const fileDrawingOf = (id: string, data: LogoMark): Drawing | undefined => {
 	const hue = data.hue ?? '#17181c';
@@ -461,9 +467,9 @@ const fileDrawingOf = (id: string, data: LogoMark): Drawing | undefined => {
 	if (!box || box.length !== 4 || box.some((n) => Number.isNaN(n)))
 		return disagree(`marks/${id}/mark.svg`, 'needs a viewBox');
 	return {
-		white: has.white ? draft(svg, box, 'white', hue, 'product') : undefined,
-		filled: has.colour ? draft(svg, box, 'solid', hue, 'product') : undefined,
-		black: has.dark ? draft(svg, box, 'dark', hue, 'product') : undefined,
+		white: has.white ? draft(svg, box, 'white', hue, 'product', undefined, data.second) : undefined,
+		filled: has.colour ? draft(svg, box, 'solid', hue, 'product', undefined, data.second) : undefined,
+		black: has.dark ? draft(svg, box, 'dark', hue, 'product', undefined, data.second) : undefined,
 		glyph: glyphCell(maskOf(svg, box)),
 		hue,
 	};
@@ -2033,62 +2039,39 @@ const newTile = (fill: 'white' | 'solid' | 'dark') =>
 /** The grounds a sheet's stage can take: the registry's. */
 const SHEET_GROUNDS = GROUNDS;
 /**
- * The forms a new mark can start from beyond Tabler: the product marks (cropped to their art, as Mark
- * draws them), the drafts, and the menu's badges and icons. Repo files, drawn inline in the picker.
+ * The forms a new mark can start from beyond Tabler: the menu's own icons, drawn in-house in one tone,
+ * by the menu each sits in and named as it names them. Not the Products menu's, wherever they appear (the
+ * Docs menu has them too): those are the marks, and a new mark takes a symbol of its own.
  */
-const formSvg = (raw: string, art?: readonly number[]) =>
-	raw.replace(/<svg\b([^>]*)>/, (_m, attrs: string) => {
-		const drop = art ? /\s*\b(width|height|class|viewBox)="[^"]*"/g : /\s*\b(width|height|class)="[^"]*"/g;
-		return `<svg${attrs.replace(drop, '')}${art ? ` viewBox="${art.join(' ')}"` : ''} aria-hidden="true">`;
-	});
-const NAV_DIR = 'src/assets/images/landings/nav';
-const FORMS = [
-	{
-		group: 'Product marks',
-		items: [
-			...Object.entries(MARKS).map(([k, m]) => ({ id: `mark:${k}`, label: k, svg: formSvg(read(m.src), m.art) })),
-			{ id: 'draft:ce', label: 'CE, old', svg: formSvg(CE_SVG, CE_ART) },
-			{ id: 'draft:hub', label: 'Hub', svg: formSvg(HUB_SVG, HUB_ART) },
-		],
-	},
-	{
-		group: 'Menu badges and icons',
-		items: readdirSync(join(ROOT, NAV_DIR))
-			.filter((f) => f.endsWith('.svg'))
-			.map((f) => ({
-				id: `nav:${f.replace(/\.svg$/, '')}`,
-				label: f.replace(/(-s)?-icon\.svg$|\.svg$/, '').replace(/^badge-/, ''),
-				svg: formSvg(read(join(NAV_DIR, f))),
+const formSvg = (raw: string) =>
+	raw.replace(
+		/<svg\b([^>]*)>/,
+		(_m, attrs: string) => `<svg${attrs.replace(/\s*\b(width|height|class)="[^"]*"/g, '')} aria-hidden="true">`
+	);
+const itemsOf = (s: (typeof allSubmenus)[number]) => s.groups.flatMap((g) => g.items);
+const MARK_ICONS = new Set(itemsOf(productsSubmenu).map((i) => i.icon));
+const FORMS = allSubmenus
+	.map((s) => {
+		const icons = new Map<string, string>();
+		itemsOf(s).forEach((i) => i.icon && !MARK_ICONS.has(i.icon) && !icons.has(i.icon) && icons.set(i.icon, i.heading));
+		return {
+			group: mainNavItems.find((n) => n.submenuId === s.id)?.label ?? s.className,
+			items: [...icons].map(([icon, label]) => ({
+				id: `nav:${icon.replace(/^.*\/|\.svg$/g, '')}`,
+				label,
+				svg: formSvg(read(icon.replace(/^\//, ''))),
 			})),
-	},
-];
-/** The icon picker's first screen, before a search: the kinds of thing the products are. */
-const ICON_START = [
-	'cpu',
-	'server',
-	'cloud',
-	'router',
-	'antenna',
-	'broadcast',
-	'device-mobile',
-	'topology-star',
-	'topology-ring',
-	'chart-bar',
-	'chart-line',
-	'database',
-	'layout-dashboard',
-	'plug-connected',
-	'bolt',
-	'hexagon',
-	'cube',
-	'puzzle',
-	'building-store',
-	'sparkles',
-	'message-chatbot',
-	'terminal-2',
-	'shield-check',
-	'world',
-];
+		};
+	})
+	.filter((g) => g.items.length > 0);
+/** Each taken Tabler icon, with the mark whose symbol it is: shown in the picker, not offered. */
+const TAKEN = Object.fromEntries(
+	Object.entries(TAKEN_ICONS).flatMap(([id, names]) => {
+		const label = MARK_RECORDS.find((m) => m.id === id)?.data.label;
+		if (!label) disagree('_room-icons.ts', `TAKEN_ICONS names ${id}, which is no mark`);
+		return names.map((n) => [n, label ?? id]);
+	})
+);
 /**
  * The set's colours, one list: each colour once, named for the marks that wear it, with its token and
  * its light and dark values as the theme paints them; then the colours `palette.md` proposes. The
@@ -4843,7 +4826,17 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					</span>
 				</div>
 				<div class="pgs__part">
-					<p class="pgs__label">Colour</p>
+					<div class="pgs__labelrow">
+						<p class="pgs__label">Colour</p>
+						<span class="pg__seg pgs__tones" role="group" aria-label="Its colours" data-tones>
+							<button type="button" data-tone="1" aria-pressed="true">
+								One
+							</button>
+							<button type="button" data-tone="2" aria-pressed="false">
+								Two
+							</button>
+						</span>
+					</div>
 					<div class="pgs__colour">
 						<label class="pgs__chip" style="--c: #3d50f5" title="Pick a colour">
 							<input type="color" value="#3d50f5" data-try-for="new" aria-label="Pick the new mark's colour" />
@@ -4882,21 +4875,56 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						))}
 					</dl>
 					<p class="pgs__nearest" data-nearest data-set={JSON.stringify(SET_COLOURS)} />
+					<p class="pgs__tones-note" data-tones-note>
+						One tone: this artwork has no second. Tabler icons with a dot, and SVGs in two colours, take two.
+					</p>
+					<div class="pgs__second" data-second hidden>
+						<p class="pgs__sub">Second tone: the filled shape, under the line</p>
+						<div class="pgs__colour">
+							<label class="pgs__chip" style="--c: #b1b9fb" title="Pick the second colour">
+								<input type="color" value="#b1b9fb" data-second-pick aria-label="Pick the new mark's second colour" />
+							</label>
+							<input
+								class="pgs__hexin"
+								type="text"
+								value="#b1b9fb"
+								maxlength="7"
+								spellcheck="false"
+								autocomplete="off"
+								data-second-hex
+								aria-label="Second colour: hex"
+							/>
+							<code class="pgs__token">a light mix of the first, until you pick one</code>
+						</div>
+						<div class="pgs__palette" role="group" aria-label="The set's colours, for the second">
+							{SET_COLOURS.map((c) => (
+								<button
+									type="button"
+									class="pgs__dotc"
+									data-second-dot
+									data-hex={c.hex}
+									style={`--c: ${c.hex}`}
+									title={`${c.label} · ${c.hex}`}
+									aria-label={`Second colour: ${c.label}'s ${c.hex}`}
+								/>
+							))}
+						</div>
+					</div>
 				</div>
 				<div class="pgs__part">
 					<p class="pgs__label">Mark</p>
 					<span class="pg__seg pgs__src" role="group" aria-label="Where the mark comes from">
-						<button type="button" data-src="set" aria-pressed="true">
-							From the set
-						</button>
-						<button type="button" data-src="tabler" aria-pressed="false">
+						<button type="button" data-src="tabler" aria-pressed="true">
 							Tabler
+						</button>
+						<button type="button" data-src="set" aria-pressed="false">
+							Menu icons
 						</button>
 						<button type="button" data-src="upload" aria-pressed="false">
 							Upload
 						</button>
 					</span>
-					<div class="pgs__pane" data-pane="set">
+					<div class="pgs__pane" data-pane="set" hidden>
 						{FORMS.map((g) => (
 							<Fragment>
 								<p class="pgs__sub">{g.group}</p>
@@ -4910,7 +4938,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							</Fragment>
 						))}
 					</div>
-					<div class="pgs__pane" data-pane="tabler" hidden>
+					<div class="pgs__pane" data-pane="tabler">
 						<input
 							type="search"
 							class="pgs__icon-search"
@@ -4920,7 +4948,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							data-icon-search
 							aria-label="Search Tabler icons"
 						/>
-						<div class="pgs__icons" data-icon-grid data-start={JSON.stringify(ICON_START)} aria-label="Tabler icons" />
+						<div
+							class="pgs__icons"
+							data-icon-grid
+							data-start={JSON.stringify(ICON_START)}
+							data-taken={JSON.stringify(TAKEN)}
+							aria-label="Tabler icons"
+						/>
 					</div>
 					<div class="pgs__pane" data-pane="upload" hidden>
 						<label class="pgs__drop" data-drop>
@@ -4942,6 +4976,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 <script>
 	import { trackScrollbar } from '@root/pages/internal/design-system/_bleed';
+	import { iconBase } from '@root/pages/internal/design-system/_room-icons';
 	import {
 		markArtPath,
 		markPath,
@@ -4949,6 +4984,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		newMarkRecord,
 		recordKey,
 		roomKey,
+		TONE_2,
 		tokenOf,
 		unifiedDiff,
 		writePalette,
@@ -5407,14 +5443,26 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			tries: Record<string, string>;
 			/** The version of each record already seeded in. */
 			repo: Record<string, string>;
-			/** The artwork on the new mark's placeholders: where it came from, its name, the SVG itself. */
-			newMark?: { source: string; label: string; svg: string };
+			/** The artwork on the new mark's tiles. */
+			newMark?: Art;
+			/** The new mark's second colour, while it is drawn in two. */
+			newSecond?: string;
 			/** New names proposed, by mark. */
 			names: Record<string, string>;
 			/** Marks proposed for removal. */
 			removed: Record<string, boolean>;
 			/** Marks added here and not in the records yet. */
 			drafts: Draft[];
+		}
+		/**
+		 * A new mark's artwork: where it came from, its name, the SVG in one tone, and the SVG in two where
+		 * it has a second tone to give (`TONE_2` on its second's parts).
+		 */
+		interface Art {
+			source: string;
+			label: string;
+			svg: string;
+			duo?: string;
 		}
 		/** A mark added in the Studio: what its record and its artwork will say. */
 		interface Draft {
@@ -5424,7 +5472,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			about: string;
 			hex: string;
 			status: 'exploring' | 'designed';
-			art: { source: string; label: string; svg: string };
+			art: Art;
+			/** Its second colour: drawn in two tones, from `art.duo`. */
+			second?: string;
 		}
 		const KEY = 'pr-bench-v1';
 		const load = (): Bench => {
@@ -5436,6 +5486,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					tries: raw.tries ?? {},
 					repo: raw.repo ?? {},
 					newMark: raw.newMark,
+					newSecond: raw.newSecond,
 					names: raw.names ?? {},
 					removed: raw.removed ?? {},
 					drafts: Array.isArray(raw.drafts) ? raw.drafts : [],
@@ -5943,6 +5994,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		};
 		const baseOf = (id: string) =>
 			sheetBox.querySelector<HTMLElement>(`[data-live-for="${id}"]`)?.dataset.hex ?? '#000000';
+		/** What else follows the new mark's colour: its second, while that is a mix of it (set below). */
+		let onNewColour: ((hex: string) => void) | undefined = undefined;
 		const tryColour = (id: string, hex?: string) => {
 			const sheet = sheetOf(id);
 			const shown = hex ?? baseOf(id);
@@ -5972,9 +6025,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const reset = sheetBox.querySelector<HTMLElement>(`[data-try-reset="${id}"]`);
 			if (reset) reset.hidden = !hex;
 			sheet
-				?.querySelectorAll<HTMLElement>('.pgs__dotc')
+				?.querySelectorAll<HTMLElement>('.pgs__dotc[data-try-pick]')
 				.forEach((d) => d.toggleAttribute('data-on', d.dataset.hex === shown));
-			if (id === 'new') nearest(shown);
+			if (id === 'new') {
+				nearest(shown);
+				onNewColour?.(shown);
+			}
 			live(id, shown);
 			showTries();
 		};
@@ -6107,24 +6163,106 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			})
 		);
 
-		// ── The new mark's artwork: from the set, from Tabler, or uploaded ──
+		// ── The new mark's artwork: from Tabler, the menu's icons, or uploaded ──
+		// Drawn in one colour or, where the artwork has a second tone to give, in two: a Tabler icon over its
+		// filled twin, or an SVG in two colours. The second is the mark's own, beside its first.
 		const newSheet = sheetOf('new');
 		const pickedLabel = sheetBox.querySelector<HTMLElement>('[data-icon-picked]');
-		/** Put an artwork on the four placeholders, and remember it. */
-		const applyArt = (svg: string, label: string, source: string, keep = true) => {
-			newSheet
-				?.querySelectorAll<HTMLElement>('.pgs__new-tile .lc-draft')
-				.forEach((tile) => (tile.innerHTML = glyphMarkup(svg)));
-			if (pickedLabel) pickedLabel.textContent = label;
+		const tonesNote = newSheet?.querySelector<HTMLElement>('[data-tones-note]');
+		const secondPart = newSheet?.querySelector<HTMLElement>('[data-second]');
+		const secondPick = secondPart?.querySelector<HTMLInputElement>('[data-second-pick]');
+		const secondField = secondPart?.querySelector<HTMLInputElement>('[data-second-hex]');
+		const secondToken = secondPart?.querySelector<HTMLElement>('.pgs__token');
+		const firstHex = () =>
+			newSheet?.querySelector<HTMLInputElement>('[data-try-for="new"]')?.value.toLowerCase() ?? '#3d50f5';
+		/** The second's start: the first at 40% on white, as the menu badges' light tones are. */
+		const mixOf = (hex: string) =>
+			`#${rgb(hex)
+				.map((c) =>
+					Math.round((c * 0.4 + 0.6) * 255)
+						.toString(16)
+						.padStart(2, '0')
+				)
+				.join('')}`;
+		/** Whether the second was picked, or still follows the first as its mix. */
+		let secondPicked = false;
+		/** An artwork as the tiles draw it: in two tones while there is a second and it has one to give. */
+		const drawnOf = (art: Art, second?: string) => (second && art.duo ? art.duo : art.svg);
+		/** The tiles, the switch and the second's row, from the artwork and the second. */
+		const drawTones = () => {
+			const art = bench.newMark;
+			const two = !!(bench.newSecond && art?.duo);
+			if (art)
+				newSheet
+					?.querySelectorAll<HTMLElement>('.pgs__new-tile .lc-draft')
+					.forEach((tile) => (tile.innerHTML = glyphMarkup(drawnOf(art, bench.newSecond))));
+			newSheet?.querySelectorAll<HTMLButtonElement>('[data-tone]').forEach((b) => {
+				b.setAttribute('aria-pressed', String((b.dataset.tone === '2') === two));
+				if (b.dataset.tone === '2') b.disabled = !art?.duo;
+			});
+			if (tonesNote) tonesNote.hidden = !art || !!art.duo;
+			if (secondPart) secondPart.hidden = !two;
+			if (two && bench.newSecond) newSheet?.style.setProperty('--try-2', bench.newSecond);
+			else newSheet?.style.removeProperty('--try-2');
+		};
+		/** Set the second (none: one colour), and say whether it was picked or follows the first. */
+		const setSecond = (hex: string | undefined, picked: boolean) => {
+			secondPicked = picked;
+			bench.newSecond = hex;
+			save();
+			if (hex) {
+				if (secondPick) secondPick.value = hex;
+				secondPick?.parentElement?.style.setProperty('--c', hex);
+				if (secondField && document.activeElement !== secondField) secondField.value = hex;
+				if (secondToken)
+					secondToken.textContent = picked
+						? 'its own, beside the first'
+						: 'a light mix of the first, until you pick one';
+				secondPart
+					?.querySelectorAll<HTMLElement>('[data-second-dot]')
+					.forEach((d) => d.toggleAttribute('data-on', d.dataset.hex === hex));
+			}
+			drawTones();
+		};
+		onNewColour = (hex) => {
+			if (bench.newSecond && !secondPicked) setSecond(mixOf(hex), false);
+		};
+		newSheet
+			?.querySelectorAll<HTMLButtonElement>('[data-tone]')
+			.forEach((b) =>
+				b.addEventListener('click', () =>
+					b.dataset.tone === '2'
+						? setSecond(bench.newSecond ?? mixOf(firstHex()), secondPicked)
+						: setSecond(undefined, false)
+				)
+			);
+		secondPick?.addEventListener('input', () => setSecond(secondPick.value.toLowerCase(), true));
+		secondField?.addEventListener('input', () => {
+			const hex = hexOf(secondField.value);
+			secondField.toggleAttribute('data-invalid', !hex && secondField.value.trim() !== '');
+			if (hex) setSecond(hex, true);
+		});
+		secondField?.addEventListener('blur', () => {
+			secondField.removeAttribute('data-invalid');
+			secondField.value = bench.newSecond ?? mixOf(firstHex());
+		});
+		secondField?.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') secondField.blur();
+		});
+		secondPart
+			?.querySelectorAll<HTMLButtonElement>('[data-second-dot]')
+			.forEach((b) => b.addEventListener('click', () => setSecond(b.dataset.hex, true)));
+		/** Put an artwork on the new tiles, and remember it. */
+		const applyArt = (art: Art, keep = true) => {
+			bench.newMark = art;
+			if (keep) save();
+			if (pickedLabel) pickedLabel.textContent = art.label;
 			sheetBox
 				.querySelectorAll<HTMLButtonElement>('[data-form], [data-icon]')
 				.forEach((b) =>
-					b.setAttribute('aria-pressed', String((b.dataset.form ?? `tabler:${b.dataset.icon}`) === label))
+					b.setAttribute('aria-pressed', String((b.dataset.form ?? `tabler:${b.dataset.icon}`) === art.label))
 				);
-			if (keep) {
-				bench.newMark = { source, label, svg };
-				save();
-			}
+			drawTones();
 		};
 		// Where it comes from: three panes, one shown.
 		sheetBox.querySelectorAll<HTMLButtonElement>('[data-src]').forEach((b) =>
@@ -6136,15 +6274,21 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				if (b.dataset.src === 'tabler') void showIcons(search?.value ?? '');
 			})
 		);
-		// From the set: the product marks, the drafts, the menu's badges and icons, drawn inline already.
+		// The menu's icons, drawn inline already: one tone each.
 		sheetBox
 			.querySelectorAll<HTMLButtonElement>('[data-form]')
-			.forEach((b) => b.addEventListener('click', () => applyArt(b.innerHTML.trim(), b.dataset.form ?? '', 'set')));
+			.forEach((b) =>
+				b.addEventListener('click', () =>
+					applyArt({ svg: b.innerHTML.trim(), label: b.dataset.form ?? '', source: 'set' })
+				)
+			);
 
-		// From Tabler: every icon, fetched once when the pane is first opened (a static route, served
-		// without the trailing slash in dev as on the built site).
+		// From Tabler: every icon, fetched once when the pane is first shown (a static route, served
+		// without the trailing slash in dev as on the built site). Before a search, the icons proposed by
+		// what a product does; an icon that is a mark's symbol shows, marked, and is not put on a tile.
 		const grid = sheetBox.querySelector<HTMLElement>('[data-icon-grid]');
 		const search = sheetBox.querySelector<HTMLInputElement>('[data-icon-search]');
+		const taken = JSON.parse(grid?.dataset.taken ?? '{}') as Record<string, string>;
 		let icons: Record<string, string> | undefined;
 		const loadIcons = async () => {
 			if (icons) return icons;
@@ -6153,29 +6297,51 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		};
 		const svgOf = (body: string) =>
 			`<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false">${body}</svg>`;
+		/** An icon in two tones: its filled twin in the second, under its outline in the first. */
+		const duoOf = (set: Record<string, string>, n: string) => {
+			const filled = set[`${n}-filled`];
+			return filled ? svgOf(filled.replaceAll('currentColor', TONE_2) + set[n]) : undefined;
+		};
+		const iconButton = (set: Record<string, string>, n: string) => {
+			const b = document.createElement('button');
+			const by = taken[iconBase(n)];
+			const duo = duoOf(set, n);
+			b.type = 'button';
+			b.dataset.icon = n;
+			b.title = by ? `${n}: ${by}'s symbol, not for a new mark` : duo ? `${n}, in one colour or two` : n;
+			b.setAttribute('aria-label', b.title);
+			b.innerHTML = svgOf(set[n]);
+			if (duo) b.dataset.duo = '';
+			if (by) {
+				b.dataset.taken = '';
+				b.setAttribute('aria-disabled', 'true');
+				return b;
+			}
+			b.setAttribute('aria-pressed', String(bench.newMark?.label === `tabler:${n}`));
+			b.addEventListener('click', () => applyArt({ svg: svgOf(set[n]), duo, label: `tabler:${n}`, source: 'tabler' }));
+			return b;
+		};
 		const showIcons = async (query: string) => {
 			if (!grid) return;
 			const set = await loadIcons();
 			const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-			const names = terms.length
-				? Object.keys(set)
-						.filter((n) => terms.every((q) => n.includes(q)))
-						.slice(0, 72)
-				: (JSON.parse(grid.dataset.start ?? '[]') as string[]).filter((n) => set[n]);
+			if (terms.length) {
+				const names = Object.keys(set)
+					.filter((n) => terms.every((q) => n.includes(q)))
+					.slice(0, 72);
+				grid.replaceChildren(...names.map((n) => iconButton(set, n)));
+				if (!names.length) grid.textContent = 'No icon by that name.';
+				return;
+			}
+			const start = JSON.parse(grid.dataset.start ?? '[]') as { group: string; icons: string[] }[];
 			grid.replaceChildren(
-				...names.map((n) => {
-					const b = document.createElement('button');
-					b.type = 'button';
-					b.dataset.icon = n;
-					b.title = n;
-					b.setAttribute('aria-label', n);
-					b.setAttribute('aria-pressed', String(bench.newMark?.label === `tabler:${n}`));
-					b.innerHTML = svgOf(set[n]);
-					b.addEventListener('click', () => applyArt(svgOf(set[n]), `tabler:${n}`, 'tabler'));
-					return b;
+				...start.flatMap((g) => {
+					const head = document.createElement('p');
+					head.className = 'pgs__gridsub';
+					head.textContent = g.group;
+					return [head, ...g.icons.filter((n) => set[n]).map((n) => iconButton(set, n))];
 				})
 			);
-			if (!names.length) grid.textContent = 'No icon by that name.';
 		};
 		let searchTimer: ReturnType<typeof setTimeout> | undefined;
 		search?.addEventListener('input', () => {
@@ -6202,6 +6368,23 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			svg.setAttribute('aria-hidden', 'true');
 			return new XMLSerializer().serializeToString(svg);
 		};
+		/**
+		 * An uploaded SVG's colours as the set's tones: one colour becomes the mark's, two its first (the
+		 * darker) and its second; more are kept as drawn, as the set never takes a third. White stays white,
+		 * a knockout.
+		 */
+		const tonesOf = (svg: string): { svg: string; duo?: string; colours: number } => {
+			const paint = /((?:fill|stroke|stop-color|color)\s*[=:]\s*["']?)(#[0-9a-f]{6}|#[0-9a-f]{3})\b/gi;
+			const six = (h: string) => (h.length === 4 ? `#${[...h.slice(1)].map((c) => c + c).join('')}` : h).toLowerCase();
+			const found = [...new Set([...svg.matchAll(paint)].map((m) => six(m[2])))].filter((h) => h !== '#ffffff');
+			if (found.length === 0 || found.length > 2) return { svg, colours: found.length };
+			const [first, second] = found.sort((x, y) => lum(x) - lum(y));
+			const toned = (two: string) =>
+				svg.replace(paint, (m, at: string, h: string) =>
+					six(h) === first ? `${at}currentColor` : six(h) === second ? `${at}${two}` : m
+				);
+			return { svg: toned('currentColor'), duo: second ? toned(TONE_2) : undefined, colours: found.length };
+		};
 		const takeFile = async (file?: File) => {
 			if (!file || !uploadMsg) return;
 			if (!/\.svg$/i.test(file.name) && file.type !== 'image/svg+xml') {
@@ -6217,8 +6400,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				uploadMsg.textContent = `${file.name} could not be read as an SVG.`;
 				return;
 			}
-			applyArt(svg, `upload:${file.name}`, 'upload');
-			uploadMsg.textContent = `${file.name} is on the tiles.`;
+			const t = tonesOf(svg);
+			applyArt({ svg: t.svg, duo: t.duo, label: `upload:${file.name}`, source: 'upload' });
+			uploadMsg.textContent =
+				t.colours > 2
+					? `${file.name} is on the tiles in its ${t.colours} colours: the set takes two, so the colours above leave it as drawn.`
+					: t.colours === 2
+						? `${file.name} is on the tiles: its darker colour is the first, its lighter one the second.`
+						: `${file.name} is on the tiles, in the colour above.`;
 		};
 		const upload = sheetBox.querySelector<HTMLInputElement>('[data-upload]');
 		upload?.addEventListener('change', () => void takeFile(upload.files?.[0]));
@@ -6233,7 +6422,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			drop.removeAttribute('data-over');
 			void takeFile(e.dataTransfer?.files?.[0]);
 		});
-		if (bench.newMark) applyArt(bench.newMark.svg, bench.newMark.label, bench.newMark.source, false);
+		secondPicked = !!bench.newSecond && bench.newSecond !== mixOf(firstHex());
+		if (bench.newMark) applyArt(bench.newMark, false);
+		if (bench.newSecond) setSecond(bench.newSecond, secondPicked);
 
 		// ── Renaming and removing a mark: proposals, as a status is ──
 		// The sheet's bar proposes a new name or taking the mark out; the header says so with a way back,
@@ -6371,13 +6562,17 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			group: d.group,
 			about: d.about,
 			hue: d.hex,
+			...(d.second ? { second: d.second } : {}),
 			status: d.status,
 			order: lastOrder + 10 * (i + 1),
 		});
+		/** A draft's artwork as its file holds it: in two tones when it has a second. */
+		const draftArt = (d: Draft) => artFile(drawnOf(d.art, d.second)) ?? '';
 		/** The sheet as it opens: empty for a new mark, or filled from the draft it changes. */
 		const draftForm = (d?: Draft) => {
 			if (!nf) return;
 			editing = d?.id;
+			if (!newSheet?.querySelector<HTMLElement>('[data-pane="tabler"]')?.hidden) void showIcons(search?.value ?? '');
 			if (nf.name) nf.name.value = d?.name ?? '';
 			if (nf.about) nf.about.value = d?.about ?? '';
 			if (nf.status) nf.status.value = d?.status ?? 'exploring';
@@ -6387,7 +6582,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			if (nf.discard) nf.discard.hidden = !d;
 			if (nf.msg) nf.msg.textContent = '';
 			if (d) {
-				applyArt(d.art.svg, d.art.label, d.art.source);
+				applyArt(d.art);
+				setSecond(d.second, !!d.second && d.second !== mixOf(d.hex));
 				tryColour('new', d.hex);
 			}
 		};
@@ -6407,7 +6603,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					tile.classList.toggle('lc-draft--white', !solid);
 					tile.classList.toggle('lc-draft--solid', solid);
 					tile.style.setProperty('--lc-accent', d.hex);
-					tile.innerHTML = glyphMarkup(d.art.svg);
+					if (d.second) tile.style.setProperty('--lc-second', d.second);
+					else tile.style.removeProperty('--lc-second');
+					tile.innerHTML = glyphMarkup(drawnOf(d.art, d.second));
 					const name = item.querySelector('.pg__name');
 					if (name) name.textContent = d.name;
 					b.addEventListener('click', () => {
@@ -6438,6 +6636,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				hex: newHex(),
 				status: (nf.status?.value as Draft['status']) ?? 'exploring',
 				art,
+				...(bench.newSecond && art.duo ? { second: bench.newSecond } : {}),
 			};
 			bench.drafts = editing ? bench.drafts.map((x) => (x.id === editing ? d : x)) : [...bench.drafts, d];
 			save();
@@ -6474,6 +6673,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const glyph = tile.querySelector<SVGSVGElement>('svg');
 			if (!glyph) return undefined;
 			const clone = glyph.cloneNode(true) as SVGSVGElement;
+			// A second tone is a variable on the page; in the file, the colour it is drawn in.
+			const drawn = [glyph, ...glyph.querySelectorAll('*')];
+			[clone, ...clone.querySelectorAll('*')].forEach((el, i) =>
+				(['fill', 'stroke'] as const).forEach((a) => {
+					if (el.getAttribute(a)?.includes('--lc-tone-2')) el.setAttribute(a, cssHex(getComputedStyle(drawn[i])[a]));
+				})
+			);
 			inlineUses(clone);
 			clone.removeAttribute('class');
 			clone.removeAttribute('style');
@@ -6621,7 +6827,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			);
 			bench.drafts.forEach((d, i) => {
 				patch.push(unifiedDiff(markPath(d.id), '', newMarkRecord(newMarkOf(d, i))));
-				patch.push(unifiedDiff(markArtPath(d.id), '', artFile(d.art.svg) ?? ''));
+				patch.push(unifiedDiff(markArtPath(d.id), '', draftArt(d)));
 			});
 			if (palette && PALETTE.path && PALETTE.raw) patch.push(unifiedDiff(PALETTE.path, PALETTE.raw, palette));
 			try {
@@ -6643,7 +6849,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				const res = await fetch('/__logo-room/create', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ ...newMarkOf(d, i), mark: d.id, svg: artFile(d.art.svg) }),
+					body: JSON.stringify({ ...newMarkOf(d, i), mark: d.id, svg: draftArt(d) }),
 				}).catch(() => undefined);
 				if (res?.ok) bench.drafts = bench.drafts.filter((x) => x.id !== d.id);
 				else
@@ -6871,6 +7077,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	@use 'sass:map';
 	@use 'sass:math';
 	@use '../../../styles/variables' as *;
+	@use '../../../styles/button' as *;
 
 	$line: rgba(23, 24, 28, 0.08);
 	$night: #0b0d1f;
@@ -10575,20 +10782,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		padding-top: 40px;
 	}
 
+	// Add is the sheet's one primary action, the site's primary button; Discard the quiet one beside it.
 	.pgs__newbtn {
-		height: 36px;
-		padding: 0 16px;
-		border: 0;
-		border-radius: 12px;
-		background: var(--color-text);
-		box-shadow: 0 1px 3px rgba(23, 24, 28, 0.16);
-		color: #fff;
-		font: inherit;
-		font-size: 14px;
-		font-weight: $font-weight-medium;
-		cursor: pointer;
+		@include ui-button(primary, sm);
 
 		&--quiet {
+			border-color: transparent;
 			background: color-mix(in srgb, #fff 90%, transparent);
 			backdrop-filter: blur(6px);
 			color: #b42318;
@@ -11635,6 +11834,46 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
+	// The Colour part's head: its heading, and the switch between one colour and two.
+	.pgs__labelrow {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.pgs__tones :global(button:disabled) {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	.pgs__tones-note {
+		margin: 0;
+		font-size: 12px;
+		color: var(--color-text-secondary);
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	// The second colour, under the first: the same chip, hex and dots, a step quieter.
+	.pgs__second {
+		display: grid;
+		gap: 10px;
+		padding-top: 14px;
+		border-top: 1px dashed $line;
+
+		&[hidden] {
+			display: none;
+		}
+
+		.pgs__sub {
+			margin: 0;
+		}
+	}
+
 	// The new mark's sources: a switch, then the pane it shows.
 	.pgs__src {
 		justify-self: start;
@@ -11741,7 +11980,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
 		gap: 4px;
-		max-height: 220px;
+		max-height: 300px;
 		overflow: auto;
 		color: var(--color-text-secondary);
 		font-size: 12px;
@@ -11770,11 +12009,53 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				outline: 2px solid var(--focus-ring);
 				outline-offset: 1px;
 			}
+
+			// One that can take two colours: a half-filled dot in its corner.
+			&[data-duo] {
+				position: relative;
+
+				&::after {
+					content: '';
+					position: absolute;
+					top: 5px;
+					right: 5px;
+					width: 6px;
+					height: 6px;
+					border-radius: 50%;
+					background: linear-gradient(90deg, currentColor 50%, color-mix(in srgb, currentColor 30%, transparent) 50%);
+				}
+			}
+
+			// A mark's own symbol: shown, struck through, not offered.
+			&[data-taken] {
+				background: none;
+				color: color-mix(in srgb, var(--color-text) 35%, transparent);
+				cursor: not-allowed;
+				background-image: linear-gradient(
+					to top right,
+					transparent calc(50% - 0.75px),
+					currentColor calc(50% - 0.75px),
+					currentColor calc(50% + 0.75px),
+					transparent calc(50% + 0.75px)
+				);
+			}
 		}
 
 		:global(svg) {
 			width: 20px;
 			height: 20px;
+		}
+
+		// The first screen's headings, across the grid.
+		:global(.pgs__gridsub) {
+			grid-column: 1 / -1;
+			margin: 6px 0 0;
+			font-size: 12px;
+			color: var(--color-text-secondary);
+
+			&:first-child {
+				margin-top: 0;
+			}
 		}
 	}
 
@@ -11795,6 +12076,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 		:global(.lc-draft) {
 			--lc-accent: var(--try) !important;
+			--lc-second: var(--try-2);
 		}
 	}
 

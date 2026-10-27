@@ -65,7 +65,10 @@ treatments and its colour.
    the checks; the Studio's palette adds one and Copy as patch writes it. Two-tone artwork takes a
    secondary, its product's token plus `-secondary`, with `of` naming the mark; never a third tone.
 4. **Record it.** A new mark is `marks/<id>.md`, its artwork `marks/<id>/mark.svg` (with a viewBox)
-   and its colour `hue`; the Studio's Add drafts all three. A candidate's drawing is
+   and its colour `hue`; the Studio's Add drafts all three. Two-tone artwork paints its second tone
+   `var(--lc-tone-2, currentColor)`, and the record gives that tone its `second`. Add draws a Tabler
+   icon in two over its filled twin, and takes an SVG's two colours as the first and the second. It
+   does not offer a symbol another mark carries. A candidate's drawing is
    `marks/<id>/<candidate>.svg`; until the file is in, the candidate is `toDraw`. The room draws either
    with no code. A new name or taking a mark out is proposed in its record (`proposed.label`,
    `proposed.remove`) and decided in review. A change to several marks is a round,

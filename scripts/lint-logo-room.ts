@@ -13,8 +13,12 @@
  *   - artwork: each file in `marks/<mark>/` is `<candidate>.svg` for a candidate of that mark (not
  *     `current`), or `mark.svg`, the mark's own artwork; each with a viewBox and nothing that runs; a
  *     candidate with a file is no longer `toDraw`
+ *   - two tones: a `second` only on a mark whose `mark.svg` paints a second tone, and one on every such
+ *     mark; the second tone painted as `TONE_2`, nothing else
  *   - a new mark: the record the Studio writes for a mark added there is one the schema takes, and its
  *     creation diff is one `git apply --check` takes
+ *   - the icon picker (`_room-icons.ts`): every icon in Tabler; the icons proposed each once, each with a
+ *     filled twin, none a mark's symbol; the taken icons by marks that exist
  *   - palette.md: each proposed colour's token unique and not in the theme yet; its light value 3:1 on
  *     white, its dark value 3:1 on night; its writer, tried as the marks' is below
  *   - the patch writer (what Copy as patch and Save to repo write), tried on every mark: a probe
@@ -41,11 +45,14 @@ import {
 	type LogoMark,
 	type LogoRound,
 } from '../src/models/logo-room.ts';
+import { ICON_START, iconBase, TAKEN_ICONS } from '../src/pages/internal/design-system/_room-icons.ts';
 import {
+	isTwoTone,
 	markArtPath,
 	markPath,
 	newMarkRecord,
 	PALETTE_PATH,
+	TONE_2,
 	unifiedDiff,
 	writePalette,
 	writeProposal,
@@ -187,8 +194,15 @@ for (const name of readdirSync(marksDir).sort()) {
 for (const [name, { file, data }] of marks) {
 	if (data.candidates.some((c) => c.id === 'mark'))
 		report(file, 'no candidate is “mark”: mark.svg is the mark’s own artwork');
-	if (data.hue && !existsSync(join(marksDir, name, 'mark.svg')))
+	const own = join(marksDir, name, 'mark.svg');
+	if (data.hue && !existsSync(own))
 		report(file, `hue is the colour of a mark drawn from marks/${name}/mark.svg, which is not there`);
+	const art = existsSync(own) ? readFileSync(own, 'utf8') : '';
+	if (data.second && !isTwoTone(art))
+		report(file, 'second is the second tone of two-tone artwork, and its mark.svg paints none');
+	if (isTwoTone(art) && !data.second) report(file, 'its mark.svg paints a second tone: give it a second');
+	if ((art.match(/var\(--lc-tone-2[^)]*\)/g) ?? []).some((v) => v !== TONE_2))
+		report(own, `the second tone is painted ${TONE_2}`);
 	if (data.proposed?.label === data.label) report(file, `proposed.label repeats its name, ${data.label}`);
 	for (const c of data.candidates) {
 		if (c.toDraw && existsSync(join(marksDir, name, `${c.id}.svg`)))
@@ -204,12 +218,14 @@ for (const [name, { file, data }] of marks) {
 		group: 'AI',
 		about: '',
 		hue: '#3d50f5',
+		second: '#b1b9fb',
 		status: 'exploring',
 		order: 9990,
 	});
 	const front = probe.match(/^---\n([\s\S]*?)\n---/)?.[1];
-	if (!logoMarkSchema.safeParse(parse(front ?? '')).success)
-		report(markPath('probe-mark'), 'new-mark writer: its record does not match the schema');
+	const parsed = logoMarkSchema.safeParse(parse(front ?? ''));
+	if (!parsed.success) report(markPath('probe-mark'), 'new-mark writer: its record does not match the schema');
+	else if (parsed.data.second !== '#b1b9fb') report(markPath('probe-mark'), 'new-mark writer: its second is lost');
 	const diff = [
 		unifiedDiff(markPath('probe-mark'), '', probe),
 		unifiedDiff(markArtPath('probe-mark'), '', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"/>\n'),
@@ -220,6 +236,28 @@ for (const [name, { file, data }] of marks) {
 			markPath('probe-mark'),
 			`new-mark writer: git apply refuses its diff (${check.stderr.toString().trim().split('\n')[0]})`
 		);
+}
+
+// ── The icon picker: what it proposes, and the marks' symbols it holds back ──
+{
+	const at = join(ROOT, 'src/pages/internal/design-system/_room-icons.ts');
+	const tabler = JSON.parse(readFileSync(join(ROOT, 'node_modules/@iconify-json/tabler/icons.json'), 'utf8')) as {
+		icons: Record<string, unknown>;
+	};
+	const has = (n: string) => n in tabler.icons;
+	const taken = new Set(Object.values(TAKEN_ICONS).flat());
+	for (const [id, names] of Object.entries(TAKEN_ICONS)) {
+		if (!marks.has(id)) report(at, `TAKEN_ICONS: ${id} is no mark`);
+		names.filter((n) => !has(n)).forEach((n) => report(at, `TAKEN_ICONS: no Tabler icon ${n}`));
+	}
+	const seen = new Set<string>();
+	for (const n of ICON_START.flatMap((g) => g.icons)) {
+		if (seen.has(n)) report(at, `ICON_START: ${n} is proposed twice`);
+		seen.add(n);
+		if (!has(n)) report(at, `ICON_START: no Tabler icon ${n}`);
+		else if (!has(`${n}-filled`)) report(at, `ICON_START: ${n} has no filled twin, so no second tone`);
+		if (taken.has(iconBase(n))) report(at, `ICON_START: ${n} is a mark's symbol`);
+	}
 }
 
 // ── palette.md: colours proposed for the set ──

@@ -59,6 +59,8 @@ export type Cell = { name: string; caption: string } & (
 			/** The darktint tile's hue, when it is not the ink's. */
 			tint?: string;
 			accent: string;
+			/** Two-tone artwork's second tone (`var(--lc-tone-2)` in its SVG), on the white and dark tiles. */
+			second?: string;
 			lift?: boolean;
 	  }
 	| { kind: 'menu'; fill: 'solid' | 'wash'; hue: string; glyph: string; size: number }

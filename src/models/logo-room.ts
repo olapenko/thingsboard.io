@@ -72,6 +72,14 @@ export const logoMarkSchema = z.object({
 		.string()
 		.regex(/^#[0-9a-f]{6}$/)
 		.optional(),
+	/**
+	 * Its second colour, beside `hue`: the second tone of two-tone artwork, the parts its file paints
+	 * `var(--lc-tone-2)`. Its secondary token (`palette.md`, `of`) once the mark has one.
+	 */
+	second: z
+		.string()
+		.regex(/^#[0-9a-f]{6}$/)
+		.optional(),
 	/** The status of each treatment it is drawn in; a treatment left out is not drawn. */
 	treatments: z.partialRecord(z.enum(LOGO_TREATMENTS), logoStatusSchema),
 	/** A declared departure from the baseline, with the still version it must provide. */
@@ -221,6 +229,10 @@ export const logoCreateSchema = z.object({
 	group: z.enum(['Platform', 'Ecosystem', 'AI']),
 	about: z.string().trim().max(400).default(''),
 	hue: z.string().regex(/^#[0-9a-f]{6}$/),
+	second: z
+		.string()
+		.regex(/^#[0-9a-f]{6}$/)
+		.optional(),
 	status: z.enum(['exploring', 'designed']),
 	order: z.number().int(),
 	svg: z.string().min(1).max(200_000),

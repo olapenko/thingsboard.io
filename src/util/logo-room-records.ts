@@ -129,12 +129,22 @@ export interface NewMark {
 	group: 'Platform' | 'Ecosystem' | 'AI';
 	about: string;
 	hue: string;
+	/** The second tone, for two-tone artwork. */
+	second?: string;
 	status: 'exploring' | 'designed';
 	order: number;
 }
 
 /** Where a mark's own artwork goes when the room draws it from a file. */
 export const markArtPath = (id: string) => `${MARKS_DIR}/${id}/mark.svg`;
+
+/**
+ * The paint of two-tone artwork's second tone, as its file writes it: the tile's second colour, or the
+ * first's where nothing sets one (the file opened on its own). Never a third tone.
+ */
+export const TONE_2 = 'var(--lc-tone-2, currentColor)';
+/** Whether an artwork paints a second tone. */
+export const isTwoTone = (svg: string) => svg.includes('--lc-tone-2');
 
 /**
  * A new mark's record: its group's tile as its signature (White for the Ecosystem, Colour for the
@@ -152,6 +162,7 @@ export function newMarkRecord(m: NewMark): string {
 		`signature: ${signature}`,
 		`colourRole: ${signature === 'white' ? 'Accent beside the white tile' : 'Tile fill'}`,
 		`hue: ${quote(m.hue)}`,
+		...(m.second ? [`second: ${quote(m.second)}`] : []),
 		'treatments:',
 		`  ${signature}: ${m.status}`,
 		`  glyph: ${m.status}`,
