@@ -62,11 +62,15 @@ treatments and its colour.
    product's plans apart by the shade of its tile. In code it is the round's `scope`.
 3. **Build from the components.** The Mark tile, the `--color-product-*` tokens, the type scale. A
    colour new to the set is proposed in `palette.md` with a name, a light and a dark value, and passes
-   the checks; the Studio's palette adds one and Copy as patch writes it. Two-tone artwork takes a
-   secondary, its product's token plus `-secondary`, with `of` naming the mark; never a third tone.
+   the checks; the Studio's palette adds one and Copy as patch writes it. A mark has two tones at
+   most, each with a light and a dark value: its colour, and a second tone for two-tone artwork. A
+   second tone's token is the product's plus `-secondary`, with `of` naming the mark; never a third.
+   A mark's sheet adds either tone to the palette when it has no product token yet.
 4. **Record it.** A new mark is `marks/<id>.md`, its artwork `marks/<id>/mark.svg` (with a viewBox)
-   and its colour `hue`; the Studio's Add drafts all three. Two-tone artwork paints its second tone
-   `var(--lc-tone-2, currentColor)`, and the record gives that tone its `second`. Add draws a Tabler
+   and its `colours`; the Studio's Add drafts all three. `colours.first` is the tile's fill or the accent
+   beside its White tile, `colours.second` the second tone; each takes a `light` value (a hex or a
+   token) and a `dark` one where its token has none, or it needs another. Two-tone artwork paints its
+   second tone `var(--lc-tone-2, currentColor)`. Add draws a Tabler
    icon in two over its filled twin, and takes an SVG's two colours as the first and the second. It
    does not offer a symbol another mark carries. A candidate's drawing is
    `marks/<id>/<candidate>.svg`; until the file is in, the candidate is `toDraw`. The room draws either

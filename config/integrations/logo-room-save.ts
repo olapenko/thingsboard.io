@@ -54,12 +54,12 @@ export const logoRoomSave = () =>
 					try {
 						const parsed = logoSaveSchema.safeParse(JSON.parse(await readBody(req)));
 						if (!parsed.success) return send(res, 400, { error: parsed.error.issues[0]?.message ?? 'Invalid' });
-						const { mark, treatments, colour, label, remove, notes } = parsed.data;
+						const { mark, treatments, colours, label, remove, notes } = parsed.data;
 						const path = markPath(mark);
 						const file = join(root, path);
 						if (!existsSync(file)) return send(res, 404, { error: `No record ${path}` });
 						const before = readFileSync(file, 'utf8');
-						const after = writeProposal(before, { treatments, colour, label, remove, notes });
+						const after = writeProposal(before, { treatments, colours, label, remove, notes });
 						if (after !== before) writeFileSync(file, after);
 						logger.info(`${after === before ? 'unchanged' : 'saved'} ${path}`);
 						return send(res, 200, { path, changed: after !== before });

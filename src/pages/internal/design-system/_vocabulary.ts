@@ -54,8 +54,8 @@ export const VOCABULARY: { group: string; terms: { term: string; means: string; 
 			{ term: 'Shape', means: 'The tile’s outline: the 32% squircle, or a circle', key: "shape: 'circle'" },
 			{
 				term: 'Colour',
-				means: 'Each product’s colour, with a dark and a list value',
-				key: '--color-product-* · hue · list',
+				means: 'A mark’s first tone: its tile’s fill, or the accent beside its White tile; a light and a dark value',
+				key: 'colours.first · --color-product-*',
 			},
 		],
 	},
@@ -91,14 +91,14 @@ export const VOCABULARY: { group: string; terms: { term: string; means: string; 
 				key: 'palette.md · proposed',
 			},
 			{
-				term: 'Secondary',
-				means: 'A product’s second tone, for two-tone artwork; never a third',
-				key: 'palette.md · of · --color-product-*-secondary',
+				term: 'Second tone',
+				means: 'A mark’s second colour, for two-tone artwork, with a light and a dark value; never a third',
+				key: 'colours.second · --color-product-*-secondary · of',
 			},
 			{
 				term: 'Draft',
 				means: 'A mark added in the Studio and not in the records yet; Copy as patch writes its record and artwork',
-				key: 'bench.drafts · marks/<mark>/mark.svg · hue',
+				key: 'bench.drafts · marks/<mark>/mark.svg · colours',
 			},
 			{
 				term: 'Candidate',

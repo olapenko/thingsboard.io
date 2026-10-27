@@ -26,6 +26,31 @@ export const LOGO_PROPOSAL_KEYS = ['white', 'colour', 'tint', 'dark', 'darktint'
 export type LogoProposalKey = (typeof LOGO_PROPOSAL_KEYS)[number];
 export type LogoMaterial = z.infer<typeof logoMaterialSchema>;
 
+/** A colour as a record writes it: a hex, or a theme token as `var(--token)`. */
+const colourValueSchema = z.string().regex(/^#[0-9a-f]{6}$|^var\(--[a-z0-9-]+\)$/);
+/**
+ * One tone of a mark: its value on light grounds and, where it needs another than its token's own dark
+ * value (or has no token), its value on dark ones. With neither, the room derives the dark value: the
+ * light one taken toward white until it holds 3:1 on night.
+ */
+export const logoToneSchema = z.object({ light: colourValueSchema, dark: colourValueSchema.optional() });
+export type LogoTone = z.infer<typeof logoToneSchema>;
+/** The two tones a mark can have, as a proposal changes them: any value of either, as a hex. */
+const proposedToneSchema = z.object({
+	light: z
+		.string()
+		.regex(/^#[0-9a-f]{6}$/)
+		.optional(),
+	dark: z
+		.string()
+		.regex(/^#[0-9a-f]{6}$/)
+		.optional(),
+});
+export const logoProposedColoursSchema = z.object({
+	first: proposedToneSchema.optional(),
+	second: proposedToneSchema.optional(),
+});
+
 /** A mark's guideline: the same five lines for every mark, only what holds over time. */
 export const logoGuidelineSchema = z.object({
 	/** The parts of the drawing. */
@@ -65,21 +90,12 @@ export const logoMarkSchema = z.object({
 	/** What its colour does. */
 	colourRole: z.string(),
 	/**
-	 * Its colour, for a mark drawn from its file (`marks/<id>/mark.svg`) rather than from the site's data:
-	 * a new mark, until it has a theme token.
+	 * Its colours, two tones at most. `first` fills its Colour tile, or sits beside its White tile as its
+	 * accent; `second` is the second tone of two-tone artwork, left out where the artwork has one tone.
+	 * The room draws its own tiles in them; the site's shipped cells keep the site's values, which the
+	 * mark's sheet lists beside them. Required of a mark drawn from its file (`marks/<id>/mark.svg`).
 	 */
-	hue: z
-		.string()
-		.regex(/^#[0-9a-f]{6}$/)
-		.optional(),
-	/**
-	 * Its second colour, beside `hue`: the second tone of two-tone artwork, the parts its file paints
-	 * `var(--lc-tone-2)`. Its secondary token (`palette.md`, `of`) once the mark has one.
-	 */
-	second: z
-		.string()
-		.regex(/^#[0-9a-f]{6}$/)
-		.optional(),
+	colours: z.object({ first: logoToneSchema, second: logoToneSchema.optional() }).optional(),
 	/** The status of each treatment it is drawn in; a treatment left out is not drawn. */
 	treatments: z.partialRecord(z.enum(LOGO_TREATMENTS), logoStatusSchema),
 	/** A declared departure from the baseline, with the still version it must provide. */
@@ -105,10 +121,8 @@ export const logoMarkSchema = z.object({
 	proposed: z
 		.object({
 			treatments: z.partialRecord(z.enum(LOGO_PROPOSAL_KEYS), logoStatusSchema).default({}),
-			colour: z
-				.string()
-				.regex(/^#[0-9a-f]{6}$/)
-				.optional(),
+			/** New values for its tones: either tone's light or dark value, each on its own. */
+			colours: logoProposedColoursSchema.optional(),
 			label: z.string().trim().min(1).max(40).optional(),
 			remove: z.boolean().optional(),
 		})
@@ -213,10 +227,7 @@ export type LogoPalette = z.infer<typeof logoPaletteSchema>;
 export const logoSaveSchema = z.object({
 	mark: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
 	treatments: z.partialRecord(z.enum(LOGO_PROPOSAL_KEYS), logoStatusSchema),
-	colour: z
-		.string()
-		.regex(/^#[0-9a-f]{6}$/)
-		.optional(),
+	colours: logoProposedColoursSchema.optional(),
 	label: z.string().trim().min(1).max(40).optional(),
 	remove: z.boolean().optional(),
 	notes: z.array(z.object({ at: z.iso.datetime(), text: z.string().trim().min(1).max(2000) })).max(200),

@@ -5,6 +5,11 @@ group: Ecosystem
 about: 'Analytics on the platform’s data: predictions, anomalies and forecasts, asked in plain language. Its mark: chart bars behind the chip.'
 signature: white
 colourRole: Accent beside the white tile
+colours:
+  first:
+    light: 'var(--brand-trendz)'
+  second:
+    light: '#d1eaff'
 treatments:
   white: shipped
   colour: exploring

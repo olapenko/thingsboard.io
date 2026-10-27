@@ -16,13 +16,34 @@ export interface RecordNote {
 
 export interface RecordProposal {
 	treatments: Partial<Record<LogoProposalKey, string>>;
-	colour?: string;
+	/** New values for its tones, as hexes: either tone's light or dark value. */
+	colours?: ProposedColours;
 	/** A new name for the mark. */
 	label?: string;
 	/** Take the mark out of the set. */
 	remove?: boolean;
 	notes: RecordNote[];
 }
+
+/** A tone's values as a proposal changes them. */
+export interface ProposedTone {
+	light?: string;
+	dark?: string;
+}
+export interface ProposedColours {
+	first?: ProposedTone;
+	second?: ProposedTone;
+}
+/** The tones a proposal changes, with only the values it sets; nothing when it sets none. */
+export const proposedColours = (c?: ProposedColours): ProposedColours | undefined => {
+	const tone = (t?: ProposedTone) =>
+		t && (t.light || t.dark)
+			? { ...(t.light ? { light: t.light } : {}), ...(t.dark ? { dark: t.dark } : {}) }
+			: undefined;
+	const first = tone(c?.first);
+	const second = tone(c?.second);
+	return first || second ? { ...(first ? { first } : {}), ...(second ? { second } : {}) } : undefined;
+};
 
 export const MARKS_DIR = 'src/content/logo-room/marks';
 export const markPath = (id: string) => `${MARKS_DIR}/${id}.md`;
@@ -43,13 +64,23 @@ const quote = (s: string) =>
 export function proposalYaml(p: RecordProposal): string {
 	const lines: string[] = [];
 	const treatments = Object.entries(p.treatments).filter(([, v]) => v);
-	if (treatments.length > 0 || p.colour || p.label || p.remove) {
+	const colours = proposedColours(p.colours);
+	if (treatments.length > 0 || colours || p.label || p.remove) {
 		lines.push('proposed:');
 		if (treatments.length > 0) {
 			lines.push('  treatments:');
 			treatments.forEach(([k, v]) => lines.push(`    ${k}: ${v}`));
 		}
-		if (p.colour) lines.push(`  colour: ${quote(p.colour)}`);
+		if (colours) {
+			lines.push('  colours:');
+			(['first', 'second'] as const).forEach((role) => {
+				const t = colours[role];
+				if (!t) return;
+				lines.push(`    ${role}:`);
+				if (t.light) lines.push(`      light: ${quote(t.light)}`);
+				if (t.dark) lines.push(`      dark: ${quote(t.dark)}`);
+			});
+		}
 		if (p.label) lines.push(`  label: ${quote(p.label)}`);
 		if (p.remove) lines.push('  remove: true');
 	}
@@ -161,8 +192,10 @@ export function newMarkRecord(m: NewMark): string {
 		`about: ${quote(m.about || 'To write: what the product is, and what its mark carries.')}`,
 		`signature: ${signature}`,
 		`colourRole: ${signature === 'white' ? 'Accent beside the white tile' : 'Tile fill'}`,
-		`hue: ${quote(m.hue)}`,
-		...(m.second ? [`second: ${quote(m.second)}`] : []),
+		'colours:',
+		'  first:',
+		`    light: ${quote(m.hue)}`,
+		...(m.second ? ['  second:', `    light: ${quote(m.second)}`] : []),
 		'treatments:',
 		`  ${signature}: ${m.status}`,
 		`  glyph: ${m.status}`,

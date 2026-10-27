@@ -6,6 +6,9 @@ kind: Open source
 about: 'The free, open-source Community Edition of the platform. Its mark is a placeholder for now: the old CE icon on CE navy.'
 signature: colour
 colourRole: Tile fill
+colours:
+  first:
+    light: 'var(--brand-ce)'
 treatments:
   colour: exploring
   glyph: exploring

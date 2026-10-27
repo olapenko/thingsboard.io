@@ -5,6 +5,9 @@ group: Platform
 about: 'The platform as a service, in two versions: Cloud, on shared infrastructure, and Private Cloud, a dedicated cluster; either way we run the servers, backups and upgrades. The platform’s mark on the brand indigo; the colour alone says Cloud.'
 signature: colour
 colourRole: Tile fill
+colours:
+  first:
+    light: 'var(--color-product-cloud)'
 treatments:
   colour: shipped
   glyph: exploring

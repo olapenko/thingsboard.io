@@ -35,7 +35,14 @@ import { AI_COLUMNS, AI_COPY, aiBadgeCycleFor } from '@data/ai-visual';
 import { shippingComposition } from '@data/home-compositions';
 import { CHAT_HUES, CHAT_HUE_LEG_S, CHAT_LAUNCHER, LAUNCHER_BOX } from '@data/chat-widget';
 import { parse as parseYaml } from 'yaml';
-import { logoMarkSchema, logoPaletteSchema, type LogoMark, type LogoMaterial, type LogoRound } from '@models/logo-room';
+import {
+	logoMarkSchema,
+	logoPaletteSchema,
+	type LogoMark,
+	type LogoMaterial,
+	type LogoRound,
+	type LogoTone,
+} from '@models/logo-room';
 import { markArtPath, markPath, PALETTE_PATH, TONE_2 } from '@util/logo-room-records';
 import { ICON_START, TAKEN_ICONS } from '@root/pages/internal/design-system/_room-icons';
 import { allSubmenus, mainNavItems, productsSubmenu } from '@data/navigation';
@@ -251,7 +258,16 @@ interface Product {
 	glyph: Version;
 	/** The version that represents it in a set: white or colour (`filled`). */
 	face: 'white' | 'filled';
+	/** Its colour: the record's first tone, which the room's own tiles are drawn in. */
 	hue?: string;
+	/** That colour's dark value: the record's, its token's, or derived. */
+	hueDark?: string;
+	/** Its two tones as its record declares them, each resolved to a light and a dark value. */
+	colours?: { first: ToneView; second?: ToneView };
+	/** The colours its artwork is drawn in, darker first: two for two-tone artwork, none for one in ink. */
+	artTones: string[];
+	/** The colour the site's own data draws it in (its homepage card, its AI column), and the footer's. */
+	site: { hue?: string; list?: string };
 	role: string;
 	/** What the product is, in a line: the sheet's lede. */
 	about: string;
@@ -451,10 +467,11 @@ const DRAWINGS: Record<string, Drawing> = {
 /**
  * A mark drawn from its file, `marks/<id>/mark.svg`, in the record's `hue`: how a mark added from the
  * Studio is drawn before any code knows it. Each tile from the one artwork, as a candidate's file is;
- * two-tone artwork takes the record's `second` as its second tone.
+ * two-tone artwork takes the record's second tone.
  */
 const fileDrawingOf = (id: string, data: LogoMark): Drawing | undefined => {
-	const hue = data.hue ?? '#17181c';
+	const hue = data.colours?.first.light ?? '#17181c';
+	const second = data.colours?.second?.light;
 	const has = data.treatments;
 	const path = markArtPath(id);
 	if (!existsSync(join(ROOT, path))) return undefined;
@@ -467,23 +484,85 @@ const fileDrawingOf = (id: string, data: LogoMark): Drawing | undefined => {
 	if (!box || box.length !== 4 || box.some((n) => Number.isNaN(n)))
 		return disagree(`marks/${id}/mark.svg`, 'needs a viewBox');
 	return {
-		white: has.white ? draft(svg, box, 'white', hue, 'product', undefined, data.second) : undefined,
-		filled: has.colour ? draft(svg, box, 'solid', hue, 'product', undefined, data.second) : undefined,
-		black: has.dark ? draft(svg, box, 'dark', hue, 'product', undefined, data.second) : undefined,
+		white: has.white ? draft(svg, box, 'white', hue, 'product', undefined, second) : undefined,
+		filled: has.colour ? draft(svg, box, 'solid', hue, 'product', undefined, second) : undefined,
+		black: has.dark ? draft(svg, box, 'dark', hue, 'product', undefined, second) : undefined,
 		glyph: glyphCell(maskOf(svg, box)),
 		hue,
 	};
 };
 
 /** A record and its drawing, as one product. */
+// ── A mark's colours: two tones, each a light and a dark value ──
+const NIGHT = '#0b0d1f';
+/** A light value taken toward white in twentieths until it holds 3:1 on night: a dark value none set. */
+const derivedDark = (hex: string) => {
+	const mix = (k: number) =>
+		`#${[1, 3, 5]
+			.map((i) => parseInt(hex.slice(i, i + 2), 16))
+			.map((v) =>
+				Math.round(v + (255 - v) * k)
+					.toString(16)
+					.padStart(2, '0')
+			)
+			.join('')}`;
+	for (let k = 0; k <= 1; k += 0.05) if ((contrast(mix(k), NIGHT) ?? 0) >= 3) return mix(k);
+	return '#ffffff';
+};
+/** A tone as the sheet shows it: its values, where its dark value comes from, and its token. */
+interface ToneView {
+	light: string;
+	dark: string;
+	darkFrom: 'set' | 'token' | 'derived';
+	token?: string;
+}
+const toneView = (t?: LogoTone): ToneView | undefined => {
+	if (!t) return undefined;
+	const light = resolveHue(t.light) ?? '#17181c';
+	const token = t.light.match(/^var\((--[\w-]+)\)$/)?.[1];
+	const own = token ? resolveHue(t.light, 'dark') : undefined;
+	const fromToken = !!own && own !== light;
+	return {
+		light,
+		dark: t.dark ? (resolveHue(t.dark, 'dark') ?? light) : fromToken && own ? own : derivedDark(light),
+		darkFrom: t.dark ? 'set' : fromToken ? 'token' : 'derived',
+		token,
+	};
+};
+/** An artwork's colours, darker first, white left out (a knockout); none for artwork in currentColor. */
+const tonesIn = (svg: string) => {
+	const lum = (hex: string) => contrast(hex, '#000000') ?? 0;
+	return [...new Set((svg.match(/#[0-9a-f]{6}\b/gi) ?? []).map((h) => h.toLowerCase()))]
+		.filter((h) => h !== '#ffffff')
+		.sort((a, b) => lum(a) - lum(b));
+};
+/** The marks drawn from an artwork file of the site's own, which carries its colours. */
+const ART_OF: Record<string, MarkName> = {
+	edge: 'edge',
+	'iot-gateway': 'gateway',
+	tbmq: 'tbmq',
+	trendz: 'trendz',
+	mobile: 'mobile',
+};
 const PRODUCTS: Product[] = MARK_RECORDS.map(({ id, data, body }) => {
 	const d =
 		DRAWINGS[id] ??
 		fileDrawingOf(id, data) ??
 		disagree(`marks/${id}.md`, 'no drawing: add its artwork as marks/' + id + '/mark.svg');
+	// The record's first tone is the colour the room draws its own tiles in; a mark drawn in the ink (no
+	// colour of its own here) stays in it.
+	const hue = DRAWINGS[id] && !d.hue ? undefined : (data.colours?.first.light ?? d.hue);
+	const colours = data.colours && { first: toneView(data.colours.first)!, second: toneView(data.colours.second) };
+	const file = existsSync(join(ROOT, markArtPath(id))) ? read(markArtPath(id)) : '';
+	const artTones = ART_OF[id] ? tonesIn(read(MARKS[ART_OF[id]].src)) : [];
+	if (colours?.second && artTones.length < 2 && !file.includes('--lc-tone-2'))
+		disagree(`marks/${id}.md`, 'colours.second is the second tone of two-tone artwork, and its artwork has one');
 	const version = (key: keyof typeof COL_OF): Version | undefined => {
 		const col = COL_OF[key];
-		const cell = d[col];
+		const drawn = d[col];
+		// A Colour tile the room draws (not one the site ships) is filled with the record's colour.
+		const cell =
+			drawn && key === 'colour' && hue && data.treatments.colour !== 'shipped' ? filledOf(drawn, hue) : drawn;
 		const status = data.treatments[key];
 		if (cell && !status) disagree(`marks/${id}.md`, `the ${key} treatment is drawn but has no status`);
 		if (!cell && status) disagree(`marks/${id}.md`, `the ${key} treatment has a status but no drawing`);
@@ -499,7 +578,11 @@ const PRODUCTS: Product[] = MARK_RECORDS.map(({ id, data, body }) => {
 		black: version('dark'),
 		glyph: version('glyph') ?? disagree(`marks/${id}.md`, 'every mark has a glyph'),
 		face: data.signature === 'white' ? 'white' : 'filled',
-		hue: d.hue,
+		hue,
+		hueDark: hue ? (colours?.first.dark ?? resolveHue(hue, 'dark')) : undefined,
+		colours,
+		artTones,
+		site: { hue: d.hue, list: d.list },
 		role: data.colourRole,
 		about: data.about,
 		kind: data.kind ?? d.kind,
@@ -965,14 +1048,14 @@ function playOf(r: (typeof ROWS)[number]): PlayVariant[] {
 				'wide' in MARKS[art] && MARKS[art].wide ? 'wide' : 'product'
 			)
 		: r.id === 'iot-hub'
-			? draft(HUB_SVG, HUB_ART, 'dark', darkOf(hub.accent), 'icon')
+			? draft(HUB_SVG, HUB_ART, 'dark', r.hueDark ?? darkOf(hue), 'icon')
 			: icon
 				? iconTile(icon, 'solid', '#17181c')
-				: logoOn('dark', r.id === 'platform' || r.id === 'mobile' ? '#ffffff' : darkOf(hue));
+				: logoOn('dark', r.id === 'platform' || r.id === 'mobile' ? '#ffffff' : (r.hueDark ?? darkOf(hue)));
 	add('black', [black]);
 	// Dark tint: the art on near-black taken toward its colour, an ink mark in its dark-theme value. Not
 	// for the icon marks (the AI's), which Mark draws, and has no such fill.
-	const tintInk = r.hue ? darkOf(r.hue) : '#ffffff';
+	const tintInk = r.hue ? (r.hueDark ?? darkOf(r.hue)) : '#ffffff';
 	const darkTint = art
 		? draft(
 				read(MARKS[art].src),
@@ -983,7 +1066,7 @@ function playOf(r: (typeof ROWS)[number]): PlayVariant[] {
 				r.hue
 			)
 		: r.id === 'iot-hub'
-			? draft(HUB_SVG, HUB_ART, 'darktint', darkOf(hub.accent), 'icon', hub.accent)
+			? draft(HUB_SVG, HUB_ART, 'darktint', r.hueDark ?? darkOf(hue), 'icon', hue)
 			: icon
 				? undefined
 				: logoOn('darktint', r.id === 'platform' ? '#ffffff' : tintInk, r.hue ?? '#17181c');
@@ -1634,9 +1717,9 @@ const mixHex = (a: string, b: string, k: number) =>
 		)
 		.join('')}`;
 /** A product's glyph ink: its colour on light grounds; on dark its dark value, lifted to hold 4.5:1 on night. */
-const glyphInk = (hue?: string) => {
+const glyphInk = (hue?: string, dark?: string) => {
 	const light = resolveHue(hue) ?? '#17181c';
-	return { light, dark: hue ? liftOn(darkOf(hue), '#0b0d1f') : '#ffffff' };
+	return { light, dark: hue ? liftOn(dark ?? darkOf(hue), '#0b0d1f') : '#ffffff' };
 };
 type Verdict = 'pass' | 'lift' | 'fail';
 interface Check {
@@ -1666,7 +1749,7 @@ const tileColours = (r: (typeof ROWS)[number], col: 'white' | 'filled' | 'tint')
  */
 const checksOf = (r: (typeof ROWS)[number]) => {
 	const face = tileColours(r, r.face);
-	const ink = glyphInk(r.hue);
+	const ink = glyphInk(r.hue, r.hueDark);
 	return {
 		edges: GROUNDS.map((g) => ({ g, ...judge(contrast(face.fill, g.hex), !g.dark, 'lift') })),
 		marks: (['white', 'filled', 'tint'] as const)
@@ -1981,6 +2064,95 @@ const configsOf = (r: (typeof ROWS)[number], bench: PlayVariant[]) => {
 		];
 	});
 };
+// ── A sheet's Colours part: the two tones, a preview in them, and where the site differs ──
+/** Tabler's icon bodies, for the AI marks' artwork in the preview. */
+const TABLER = (
+	JSON.parse(readFileSync(join(ROOT, 'node_modules/@iconify-json/tabler/icons.json'), 'utf8')) as {
+		icons: Record<string, { body: string }>;
+	}
+).icons;
+/**
+ * A mark's artwork painted by tone, for the preview: an artwork in its own colours takes the first tone
+ * for its darker one and the second for its lighter; the rest are drawn in currentColor already.
+ */
+const tonedArt = (r: (typeof ROWS)[number]) => {
+	const m = ART_OF[r.id];
+	if (m) {
+		const svg = r.artTones.reduce(
+			(s, t, i) => s.replace(new RegExp(t, 'gi'), i === 0 ? 'currentColor' : TONE_2),
+			read(MARKS[m].src)
+		);
+		return {
+			svg,
+			box: MARKS[m].art,
+			step: 'wide' in MARKS[m] && MARKS[m].wide ? ('wide' as const) : ('product' as const),
+		};
+	}
+	if (r.id === 'iot-hub') return { svg: HUB_SVG, box: HUB_ART, step: 'icon' as const };
+	if (existsSync(join(ROOT, markArtPath(r.id)))) {
+		const svg = read(markArtPath(r.id));
+		const box = svg
+			.match(/viewBox="([^"]+)"/)?.[1]
+			.trim()
+			.split(/[\s,]+/)
+			.map(Number) ?? [0, 0, 24, 24];
+		return { svg, box, step: 'product' as const };
+	}
+	const body = ICON[r.id] && TABLER[ICON[r.id].replace(/^tabler:/, '')]?.body;
+	if (body) return { svg: `<svg viewBox="0 0 24 24">${body}</svg>`, box: [0, 0, 24, 24], step: 'icon' as const };
+	return { svg: markSvg, box: LOGO_ART, step: 'icon' as const };
+};
+/**
+ * The preview: its signature tile on a light ground in the light values, and on a dark one in the dark
+ * values (a Colour mark on the Dark tint tile, the tile tinted by its light value, as the room draws it).
+ */
+const previewOf = (r: (typeof ROWS)[number]) => {
+	const t = r.colours;
+	if (!t) return undefined;
+	const a = tonedArt(r);
+	const white = r.face === 'white';
+	return {
+		light: draft(a.svg, a.box, white ? 'white' : 'solid', t.first.light, a.step, undefined, t.second?.light),
+		dark: draft(a.svg, a.box, white ? 'dark' : 'darktint', t.first.dark, a.step, t.first.light, t.second?.dark),
+	};
+};
+/** CIE76 ΔE between two hexes: how far apart two colours look. */
+const deltaE = (a: string, b: string) => {
+	const lab = (hex: string) => {
+		const [r, g, bl] = [1, 3, 5].map((i) => {
+			const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+			return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+		});
+		const f = (v: number) => (v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116);
+		const [x, y, z] = [
+			(r * 0.4124 + g * 0.3576 + bl * 0.1805) / 0.95047,
+			r * 0.2126 + g * 0.7152 + bl * 0.0722,
+			(r * 0.0193 + g * 0.1192 + bl * 0.9505) / 1.08883,
+		].map(f);
+		return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+	};
+	const [p, q] = [lab(a), lab(b)];
+	return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+};
+/**
+ * Where the site draws the mark in values of its own: its tiles' data (the homepage card, the AI
+ * column), the footer on dark, and its artwork's colours, each against the tone it stands for.
+ */
+const sourcesOf = (r: (typeof ROWS)[number]) => {
+	const t = r.colours;
+	if (!t) return [];
+	const row = (where: string, hex: string | undefined, want: string | undefined) => {
+		if (!hex?.startsWith('#') || !want) return [];
+		const d = deltaE(hex, want);
+		return [{ where, hex, want, verdict: d < 1 ? 'same' : d < 6 ? 'a shade off' : 'differs' }];
+	};
+	return [
+		...row('Its tiles on the site', resolveHue(r.site.hue), t.first.light),
+		...row('The footer, on dark', resolveHue(r.site.list, 'dark'), t.first.dark),
+		...row('Its artwork', r.artTones[0], t.first.light),
+		...row('Its artwork, second tone', r.artTones[1], t.second?.light),
+	];
+};
 const SHEETS = ROWS.map((r) => {
 	const bench = playOf(r);
 	const sig = faceOf(r, 'designed') ?? r[r.face]?.cell ?? r.glyph.cell;
@@ -1990,7 +2162,11 @@ const SHEETS = ROWS.map((r) => {
 		/** The materials the set can use, each with its tiles and status: the sheet's stage and its picker. */
 		variants: bench.filter((v) => v.m !== 'off'),
 		hex: resolveHue(r.hue) ?? '#17181c',
-		ink: glyphInk(r.hue),
+		ink: glyphInk(r.hue, r.hueDark),
+		tones: r.colours,
+		twoTone: r.artTones.length > 1 || !!r.colours?.second,
+		preview: previewOf(r),
+		sources: sourcesOf(r),
 		treatments: COLS.map((c) => {
 			const v = r[c.id];
 			const draftV = !v ? bench.find((b) => MATERIAL_COL[b.m] === c.id && b.cells.length > 0) : undefined;
@@ -2073,9 +2249,9 @@ const TAKEN = Object.fromEntries(
 	})
 );
 /**
- * The set's colours, one list: each colour once, named for the marks that wear it, with its token and
- * its light and dark values as the theme paints them; then the colours `palette.md` proposes. The
- * Studio's palette, every mark's colour sheet and the new mark's nearest colour all read it.
+ * The set's colours: a chip per mark in a colour of its own (the platform's ink is none), with its two
+ * tones as its record declares them, light and dark, and a note where it shares another mark's colour;
+ * then the colours `palette.md` proposes. A proposed second tone (`of`) shows on its mark's chip.
  */
 interface SetColour {
 	name: string;
@@ -2084,36 +2260,47 @@ interface SetColour {
 	token?: string;
 	marks: string[];
 	proposed?: boolean;
-	/** A proposed secondary: the mark whose colour it seconds. */
-	of?: string;
+	/** Its mark's second tone. */
+	second?: { light: string; dark: string };
+	/** The mark listed before it in the same colour. */
+	same?: string;
 }
 const PALETTE_RAW = read(PALETTE_PATH);
 const PALETTE_DATA = logoPaletteSchema.parse(parseYaml(PALETTE_RAW.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '') ?? {});
-const byLight = new Map<string, SetColour>();
-for (const r of ROWS) {
-	const light = resolveHue(r.hue);
-	if (!light?.startsWith('#')) continue;
-	const entry = byLight.get(light) ?? {
-		name: '',
-		light,
-		dark: resolveHue(r.hue, 'dark') ?? light,
-		token: r.hue?.startsWith('var(') ? r.hue.slice(4, -1) : undefined,
-		marks: [],
-	};
-	entry.marks.push(r.id);
-	entry.name = entry.name ? `${entry.name} · ${r.label}` : r.label;
-	byLight.set(light, entry);
-}
+const MARK_COLOURS = ROWS.reduce<SetColour[]>((list, r) => {
+	const first = r.colours?.first;
+	if (!first || !r.hue) return list;
+	const second = r.colours?.second ?? PALETTE_DATA.proposed.find((c) => c.of === r.id);
+	return [
+		...list,
+		{
+			name: r.label,
+			light: first.light,
+			dark: first.dark,
+			token: first.token,
+			marks: [r.id],
+			second: second && { light: second.light, dark: second.dark },
+			same: list.find((c) => c.light === first.light)?.name,
+		},
+	];
+}, []);
 const SET_PALETTE: SetColour[] = [
-	...byLight.values(),
-	...PALETTE_DATA.proposed.map((c) => ({ ...c, marks: [], proposed: true })),
+	...MARK_COLOURS,
+	...PALETTE_DATA.proposed.filter((c) => !c.of).map((c) => ({ ...c, marks: [], proposed: true })),
 ];
-/** Each mark's proposed secondary, by mark: the second tone of two-tone artwork, drawn on its colour's chip. */
-const SECONDS = new Map(PALETTE_DATA.proposed.flatMap((c) => (c.of ? [[c.of, c.light] as const] : [])));
-/** The token a colour's secondary would take: its own token's, or its first mark's. */
-const secondTokenOf = (c: SetColour) => `${c.token ?? `--color-product-${c.marks[0]}`}-secondary`;
-/** The same list as the sheets' dots and the new mark's nearest colour take it: a name and a hex. */
-const SET_COLOURS = SET_PALETTE.map((c) => ({ label: c.name, hex: c.light }));
+/**
+ * The set's colours as dots to pick from: each value once, named for what wears it, the first tones and
+ * then the second ones. The sheets' dots and the new mark's nearest colour take it.
+ */
+const SET_COLOURS = [
+	...SET_PALETTE.map((c) => ({ label: c.name, hex: c.light })),
+	...SET_PALETTE.flatMap((c) => (c.second ? [{ label: `${c.name}, second tone`, hex: c.second.light }] : [])),
+].reduce<{ label: string; hex: string }[]>((list, c) => {
+	const had = list.find((x) => x.hex === c.hex);
+	if (had) had.label = `${had.label}, ${c.label}`;
+	else list.push({ ...c });
+	return list;
+}, []);
 /** `palette.md` as the browser needs it, for Copy as patch to add the colours proposed here. */
 const PALETTE_JSON = JSON.stringify({ path: PALETTE_PATH, raw: PALETTE_RAW, proposed: PALETTE_DATA.proposed }).replace(
 	/</g,
@@ -2188,7 +2375,7 @@ const RECORDS_JSON = JSON.stringify(
 			const proposed = logoMarkSchema.shape.proposed.parse(front.proposed);
 			const notes = logoMarkSchema.shape.notes.parse(front.notes);
 			const treatments = proposed?.treatments ?? {};
-			const colour = proposed?.colour;
+			const colours = proposed?.colours;
 			const label = proposed?.label;
 			const remove = proposed?.remove;
 			return [
@@ -2199,11 +2386,11 @@ const RECORDS_JSON = JSON.stringify(
 					label: data.label,
 					order: data.order,
 					treatments,
-					colour,
+					colours,
 					proposedLabel: label,
 					remove,
 					notes: notes.map((n) => ({ at: n.at.toISOString(), text: n.text })),
-					rev: JSON.stringify({ treatments, colour, label, remove }),
+					rev: JSON.stringify({ treatments, colours, label, remove }),
 				},
 			];
 		})
@@ -2988,7 +3175,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 											</span>
 											<span class="pg__favs">
 												{PLAY.flatMap((grp) => grp.items).map((x, i) => {
-													const ink = glyphInk(x.r.hue);
+													const ink = glyphInk(x.r.hue, x.r.hueDark);
 													return (
 														<button
 															type="button"
@@ -3043,40 +3230,30 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						</li>
 					</template>
 					<div class="pg__palette" role="group" aria-label="The set’s colours">
-						{SET_PALETTE.map((c) => {
-							const second = c.marks.map((m) => SECONDS.get(m)).find(Boolean);
-							return c.marks.length > 0 ? (
+						{SET_PALETTE.map((c) =>
+							c.marks.length > 0 ? (
 								<div class="pg__palcell" data-pal-cell={c.marks[0]}>
 									<button
 										type="button"
 										class="pg__pal"
-										style={`--c: ${c.light}; --c-dark: ${c.dark}${second ? `; --c2: ${second}` : ''}`}
+										style={`--c: ${c.light}; --c-dark: ${c.dark}${c.second ? `; --c2: ${c.second.light}` : ''}`}
 										data-pick={c.marks[0]}
-										data-second={second ? '' : undefined}
+										data-second={c.second ? '' : undefined}
 										aria-controls="pg-sheet"
 										aria-expanded="false"
-										title={`${c.name}${c.token ? ` · ${c.token}` : ''}: light ${c.light}, dark ${c.dark}`}
+										title={[
+											`${c.name}${c.token ? ` · ${c.token}` : ''}: light ${c.light}, dark ${c.dark}`,
+											c.second && `second tone ${c.second.light}, dark ${c.second.dark}`,
+											c.same && `the same colour as ${c.same}`,
+										]
+											.filter(Boolean)
+											.join('; ')}
 									>
 										<i aria-hidden="true" />
 										<span>
 											<b>{c.name}</b>
-											<code>
-												{c.light} · {c.dark}
-											</code>
+											<code>{c.same ? `as ${c.same}` : `${c.light} · ${c.dark}`}</code>
 										</span>
-									</button>
-									<button
-										type="button"
-										class="pg__pal-2nd"
-										data-pal-second={c.marks[0]}
-										data-label={rowById(c.marks[0])?.label ?? c.name}
-										data-token={secondTokenOf(c)}
-										data-hex={c.light}
-										hidden={!!second}
-										aria-label={`Add a secondary colour to ${c.name}`}
-										title="Add a secondary colour: the second tone of two-tone artwork"
-									>
-										<Icon name="tabler:plus" aria-hidden="true" />
 									</button>
 								</div>
 							) : (
@@ -3093,8 +3270,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 										</code>
 									</span>
 								</span>
-							);
-						})}
+							)
+						)}
 						<template data-pal-template>
 							<div class="pg__palcell pg__palcell--added">
 								<button type="button" class="pg__pal pg__pal--added" data-pal-edit>
@@ -3493,7 +3670,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 																<span
 																	class:list={['pr-glyphs__half', `pr-glyphs__half--${m}`]}
 																	data-surface={m === 'dark' ? 'dark' : undefined}
-																	style={`color: ${glyphInk(r.hue)[m]}`}
+																	style={`color: ${glyphInk(r.hue, r.hueDark)[m]}`}
 																>
 																	<LogoCell cell={atSize(v.cell, 72 as MarkSize)} />
 																	<span class="pr-glyphs__fav" title="16 · a favicon, a bookmark">
@@ -4486,30 +4663,165 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						</div>
 					)}
 
-					<div class="pgs__part">
-						<p class="pgs__label">Colour</p>
-						<div class="pgs__colour">
-							<label class="pgs__chip" style={`--c: ${s.hex}`} title="Pick a colour">
-								<input type="color" value={s.hex} data-try-for={s.r.id} aria-label={`Pick a colour for ${s.r.label}`} />
-							</label>
-							<input
-								class="pgs__hexin"
-								type="text"
-								value={s.hex}
-								maxlength="7"
-								spellcheck="false"
-								autocomplete="off"
-								data-hex-for={s.r.id}
-								aria-label={`${s.r.label}: hex`}
-							/>
-							<code class="pgs__token">
-								{s.r.hue?.startsWith('var(') ? s.r.hue.slice(4, -1) : s.r.hue ? 'not a theme token' : 'the ink'}
-							</code>
+					<div class="pgs__part" data-tones-for={s.r.id}>
+						<div class="pgs__labelrow">
+							<p class="pgs__label">Colours</p>
 							<button type="button" class="pgs__reset" data-try-reset={s.r.id} hidden>
 								Reset
 							</button>
 						</div>
-						<div class="pgs__palette" role="group" aria-label="The set's colours">
+						{s.preview && (
+							<div class="pgs__tprev">
+								{(['light', 'dark'] as const).map((g) => {
+									const t = s.tones!;
+									const vars =
+										g === 'light'
+											? [`--pa: ${t.first.light}`, t.second && `--ps: ${t.second.light}`, `--pt: ${t.first.light}`]
+											: [`--pa: ${t.first.dark}`, t.second && `--ps: ${t.second.dark}`, `--pt: ${t.first.light}`];
+									return (
+										<figure
+											class="pgs__tp"
+											data-tp={g}
+											data-surface={g === 'dark' ? 'dark' : undefined}
+											style={vars.filter(Boolean).join('; ')}
+										>
+											<LogoCell cell={s.preview![g]} />
+											<figcaption>{g === 'light' ? 'Light values' : 'Dark values'}</figcaption>
+										</figure>
+									);
+								})}
+							</div>
+						)}
+						{s.tones ? (
+							<div class="pgs__tgrid" role="group" aria-label={`${s.r.label}'s colours`}>
+								<span />
+								<span class="pgs__tg-head">Light</span>
+								<span class="pgs__tg-head">Dark</span>
+								{(
+									[
+										['first', 'Colour', s.tones.first],
+										['second', 'Second tone', s.tones.second],
+									] as const
+								).map(([role, name, t]) => (
+									<Fragment>
+										<span class="pgs__tg-role">
+											<b>{name}</b>
+											<small>
+												{t ? (t.token ? t.token : 'no token yet') : role === 'second' && !s.twoTone ? 'none' : '—'}
+											</small>
+										</span>
+										{t ? (
+											(['light', 'dark'] as const).map((g) => {
+												const hex = t[g];
+												const key = `${role}:${g}`;
+												const lead = key === 'first:light';
+												const from =
+													g === 'light'
+														? t.token?.startsWith('--color-product-')
+															? 'product token'
+															: t.token?.startsWith('--brand-')
+																? 'menu token'
+																: t.token?.startsWith('--color-accent-')
+																	? 'accent token'
+																	: t.token
+																		? 'theme token'
+																		: 'a hex in its record'
+														: t.darkFrom === 'set'
+															? 'set in its record'
+															: t.darkFrom === 'token'
+																? 'its token’s dark value'
+																: 'derived: 3:1 on night';
+												return (
+													<div class="pgs__tc" data-tc={key} data-base={hex} data-active={lead ? '' : undefined}>
+														<span class="pgs__colour">
+															<label
+																class="pgs__chip pgs__chip--sm"
+																style={`--c: ${hex}`}
+																title={`Pick its ${name.toLowerCase()}, ${g}`}
+															>
+																{lead ? (
+																	<input
+																		type="color"
+																		value={hex}
+																		data-try-for={s.r.id}
+																		aria-label={`${s.r.label}: ${name}, ${g}`}
+																	/>
+																) : (
+																	<input
+																		type="color"
+																		value={hex}
+																		data-tone-pick
+																		aria-label={`${s.r.label}: ${name}, ${g}`}
+																	/>
+																)}
+															</label>
+															{lead ? (
+																<input
+																	class="pgs__hexin pgs__hexin--sm"
+																	type="text"
+																	value={hex}
+																	maxlength="7"
+																	spellcheck="false"
+																	autocomplete="off"
+																	data-hex-for={s.r.id}
+																	aria-label={`${s.r.label}: ${name}, ${g}, hex`}
+																/>
+															) : (
+																<input
+																	class="pgs__hexin pgs__hexin--sm"
+																	type="text"
+																	value={hex}
+																	maxlength="7"
+																	spellcheck="false"
+																	autocomplete="off"
+																	data-tone-hex
+																	aria-label={`${s.r.label}: ${name}, ${g}, hex`}
+																/>
+															)}
+														</span>
+														<small class="pgs__tc-from" data-from={from}>
+															{from}
+														</small>
+														{lead ? (
+															<dl class="pgs__live" data-live-for={s.r.id} data-hex={s.hex}>
+																{LIVE.slice(0, 2).map((k) => (
+																	<Fragment>
+																		<dt>{k}</dt>
+																		<dd class="pr-check" />
+																	</Fragment>
+																))}
+															</dl>
+														) : (
+															<dl class="pgs__live" data-tone-check>
+																<dt>{role === 'first' ? 'On night' : 'From the colour'}</dt>
+																<dd class="pr-check" />
+															</dl>
+														)}
+													</div>
+												);
+											})
+										) : (
+											<p class="pgs__tc-none">
+												{s.twoTone
+													? 'Its artwork has a second tone, and its record names none.'
+													: 'One tone: its artwork has no second.'}
+											</p>
+										)}
+									</Fragment>
+								))}
+							</div>
+						) : (
+							<p class="pgs__tc-none">Its record names no colours yet.</p>
+						)}
+						{s.tones && (
+							<div class="pgs__tgo">
+								<button type="button" class="pgs__reset" data-to-palette={s.r.id} data-label={s.r.label} hidden>
+									Add to the palette
+								</button>
+								<span class="pgs__tgo-msg" data-to-palette-msg aria-live="polite" />
+							</div>
+						)}
+						<div class="pgs__palette" role="group" aria-label="The set's colours: for the colour picked above">
 							{SET_COLOURS.map((c) => (
 								<button
 									type="button"
@@ -4522,14 +4834,18 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 								/>
 							))}
 						</div>
-						<dl class="pgs__live" data-live-for={s.r.id} data-hex={s.hex}>
-							{LIVE.map((k) => (
-								<Fragment>
-									<dt>{k}</dt>
-									<dd class="pr-check" />
-								</Fragment>
-							))}
-						</dl>
+						{s.sources.length > 0 && (
+							<dl class="pgs__sources">
+								<dt>On the site</dt>
+								{s.sources.map((x) => (
+									<dd data-verdict={x.verdict}>
+										<i style={`--c: ${x.hex}`} aria-hidden="true" />
+										{x.where} <code>{x.hex}</code>
+										<span>{x.verdict === 'same' ? 'as its record' : `${x.verdict} from ${x.want}`}</span>
+									</dd>
+								))}
+							</dl>
+						)}
 					</div>
 
 					{s.spec && (
@@ -4982,6 +5298,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		markPath,
 		mergeNotes,
 		newMarkRecord,
+		proposedColours,
 		recordKey,
 		roomKey,
 		TONE_2,
@@ -4990,6 +5307,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		writePalette,
 		writeProposal,
 		type PaletteColour,
+		type ProposedColours,
 		type RecordNote,
 		type RecordProposal,
 	} from '@util/logo-room-records';
@@ -5199,9 +5517,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	};
 	let added = colourStore.read();
 	const keep = () => colourStore.write(added);
-	/** What the editor is doing: adding a colour, a mark's secondary, or changing an added colour. */
-	type EditMode =
-		{ kind: 'add' } | { kind: 'second'; of: string; label: string; token: string } | { kind: 'edit'; i: number };
+	/** What the editor is doing: adding a colour, or changing an added one. */
+	type EditMode = { kind: 'add' } | { kind: 'edit'; i: number };
 	let mode: EditMode = { kind: 'add' };
 	const palDraw = () => {
 		if (!palette || !palTemplate) return;
@@ -5230,22 +5547,23 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			});
 			palette.insertBefore(cell, editor ?? null);
 		});
-		// A set colour with an added secondary: its dot on the chip, its + gone (two tones at most).
+		// A mark's chip shows a second tone added from its sheet, where its record names none.
 		palette.querySelectorAll<HTMLElement>('[data-pal-cell]').forEach((cell) => {
-			const id = cell.dataset.palCell ?? '';
 			const chip = cell.querySelector<HTMLElement>('[data-pick]');
-			const plus = cell.querySelector<HTMLButtonElement>('[data-pal-second]');
-			const own = added.find((c) => c.of === id);
-			if (!chip || !plus) return;
-			plus.dataset.proposed ??= String(chip.hasAttribute('data-second'));
-			const has = !!own || plus.dataset.proposed === 'true';
+			if (!chip) return;
+			chip.dataset.recordSecond ??= String(chip.hasAttribute('data-second'));
+			if (chip.dataset.recordSecond === 'true') return;
+			const own = added.find((c) => c.of === cell.dataset.palCell);
 			if (own) chip.style.setProperty('--c2', own.hex);
-			else if (plus.dataset.proposed !== 'true') chip.style.removeProperty('--c2');
-			chip.toggleAttribute('data-second', has);
-			plus.hidden = has;
-			plus.setAttribute('aria-expanded', String(mode.kind === 'second' && mode.of === id));
+			else chip.style.removeProperty('--c2');
+			chip.toggleAttribute('data-second', !!own);
 		});
 	};
+	// A colour added from a mark's sheet joins the palette as one added here does.
+	colourStore.subscribe(() => {
+		added = colourStore.read();
+		palDraw();
+	});
 
 	// The editor: a swatch that opens the picker, a name, the light value as a hex (typed, picked, or
 	// taken from the page), its dark value (lifted to hold on night until it is set by hand), and both
@@ -5294,12 +5612,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		if (hex && ed.picker) ed.picker.value = hex;
 		if (dark && ed.darkPicker) ed.darkPicker.value = dark;
 		if (ed.dark && !darkSet && document.activeElement !== ed.dark) ed.dark.value = dark ?? '';
-		check(ed.light, hex, '#ffffff', 'white');
-		check(ed.night, dark, NIGHT, 'night');
+		// A second tone is checked against its mark's colour on the mark's sheet, not on a ground.
+		const second = mode.kind === 'edit' && !!added[mode.i]?.of;
+		check(ed.light, second ? undefined : hex, '#ffffff', 'white');
+		check(ed.night, second ? undefined : dark, NIGHT, 'night');
 		const editing = mode.kind === 'edit' ? mode.i : -1;
 		const known = !!hex && added.some((c, k) => k !== editing && c.hex === hex);
 		const darkBad = !!ed.dark?.value.trim() && !hexIn(ed.dark.value);
-		if (ed.hint && mode.kind !== 'second')
+		if (ed.hint)
 			ed.hint.textContent = known
 				? `${hex} is in the palette already.`
 				: mode.kind === 'add'
@@ -5314,13 +5634,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		editor.dataset.mode = next.kind;
 		const c = next.kind === 'edit' ? added[next.i] : undefined;
 		darkSet = !!c;
-		if (ed.name) ed.name.value = c?.name ?? (next.kind === 'second' ? `${next.label} secondary` : '');
+		if (ed.name) ed.name.value = c?.name ?? '';
 		if (ed.hex) ed.hex.value = c?.hex ?? '';
 		if (ed.dark) ed.dark.value = c?.dark ?? '';
-		if (ed.title)
-			ed.title.textContent =
-				next.kind === 'second' ? `A secondary for ${next.label}` : c ? `Change ${c.name}` : 'Add a colour';
-		if (ed.hint && next.kind === 'second') ed.hint.textContent = `The second tone of its artwork, as ${next.token}.`;
+		if (ed.title) ed.title.textContent = c ? `Change ${c.name}` : 'Add a colour';
 		if (ed.commit) ed.commit.textContent = next.kind === 'edit' ? 'Save' : 'Add';
 		if (ed.cancel) ed.cancel.hidden = next.kind === 'add';
 		editor.style.removeProperty('--pick');
@@ -5376,8 +5693,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			if (mode.kind === 'edit') {
 				const i = mode.i;
 				added = added.map((c, k) => (k === i ? { ...c, name, hex, dark } : c));
-			} else if (mode.kind === 'second') {
-				added = [...added, { name, hex, dark, of: mode.of, token: mode.token }];
 			} else {
 				added = [...added, { name, hex, dark }];
 			}
@@ -5385,18 +5700,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			edReset();
 		});
 	}
-	palette?.querySelectorAll<HTMLButtonElement>('[data-pal-second]').forEach((b) =>
-		b.addEventListener('click', () =>
-			mode.kind === 'second' && mode.of === b.dataset.palSecond
-				? edReset()
-				: edOpen({
-						kind: 'second',
-						of: b.dataset.palSecond ?? '',
-						label: b.dataset.label ?? '',
-						token: b.dataset.token ?? '',
-					})
-		)
-	);
 	palDraw();
 
 	// The browser tabs: one browser at a time, the card taking its ground.
@@ -5453,7 +5756,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			removed: Record<string, boolean>;
 			/** Marks added here and not in the records yet. */
 			drafts: Draft[];
+			/**
+			 * Tones tried on a mark beside its colour (which `tries` holds): by mark, by `first:dark`,
+			 * `second:light` or `second:dark`.
+			 */
+			tones: Record<string, Partial<Record<ToneKey, string>>>;
 		}
+		/** A tone's value a sheet can change beside the colour itself. */
+		type ToneKey = 'first:dark' | 'second:light' | 'second:dark';
 		/**
 		 * A new mark's artwork: where it came from, its name, the SVG in one tone, and the SVG in two where
 		 * it has a second tone to give (`TONE_2` on its second's parts).
@@ -5490,9 +5800,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					names: raw.names ?? {},
 					removed: raw.removed ?? {},
 					drafts: Array.isArray(raw.drafts) ? raw.drafts : [],
+					tones: raw.tones ?? {},
 				};
 			} catch {
-				return { status: {}, notes: {}, tries: {}, repo: {}, names: {}, removed: {}, drafts: [] };
+				return { status: {}, notes: {}, tries: {}, repo: {}, names: {}, removed: {}, drafts: [], tones: {} };
 			}
 		};
 		const bench = load();
@@ -5512,7 +5823,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			label: string;
 			order: number;
 			treatments: Record<string, string>;
-			colour?: string;
+			colours?: ProposedColours;
 			proposedLabel?: string;
 			remove?: boolean;
 			notes: RecordNote[];
@@ -5522,7 +5833,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		Object.entries(REPO).forEach(([id, r]) => {
 			if (bench.repo[id] === r.rev) return;
 			Object.entries(r.treatments).forEach(([k, v]) => (bench.status[`${id}:${roomKey(k)}`] = v));
-			if (r.colour) bench.tries[id] = r.colour;
+			if (r.colours?.first?.light) bench.tries[id] = r.colours.first.light;
+			const tones: Partial<Record<ToneKey, string>> = {
+				...(r.colours?.first?.dark ? { 'first:dark': r.colours.first.dark } : {}),
+				...(r.colours?.second?.light ? { 'second:light': r.colours.second.light } : {}),
+				...(r.colours?.second?.dark ? { 'second:dark': r.colours.second.dark } : {}),
+			};
+			if (Object.keys(tones).length > 0) bench.tones[id] = tones;
 			if (r.proposedLabel) bench.names[id] = r.proposedLabel;
 			if (r.remove) bench.removed[id] = true;
 			bench.repo[id] = r.rev;
@@ -5535,7 +5852,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					.filter(([k]) => k.startsWith(`${id}:`))
 					.map(([k, v]) => [recordKey(k.slice(id.length + 1)), v])
 			),
-			colour: bench.tries[id] || undefined,
+			colours: proposedColours({
+				first: { light: bench.tries[id], dark: bench.tones[id]?.['first:dark'] },
+				second: { light: bench.tones[id]?.['second:light'], dark: bench.tones[id]?.['second:dark'] },
+			}),
 			label: bench.names[id] || undefined,
 			remove: bench.removed[id] || undefined,
 			notes: mergeNotes(REPO[id]?.notes ?? [], bench.notes[id] ?? []),
@@ -5996,6 +6316,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			sheetBox.querySelector<HTMLElement>(`[data-live-for="${id}"]`)?.dataset.hex ?? '#000000';
 		/** What else follows the new mark's colour: its second, while that is a mix of it (set below). */
 		let onNewColour: ((hex: string) => void) | undefined = undefined;
+		/** What follows a mark's colour on its sheet: its preview and checks (set below). */
+		let onTry: ((id: string) => void) | undefined = undefined;
 		const tryColour = (id: string, hex?: string) => {
 			const sheet = sheetOf(id);
 			const shown = hex ?? baseOf(id);
@@ -6032,6 +6354,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				onNewColour?.(shown);
 			}
 			live(id, shown);
+			onTry?.(id);
 			showTries();
 		};
 		const triesMenu = document.querySelector<HTMLElement>('[data-tries]');
@@ -6106,7 +6429,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					dot.style.setProperty('--c', c.hex);
 					dot.title = `${c.name} · ${c.hex}, added in the palette`;
 					dot.setAttribute('aria-label', `Try ${c.name}, ${c.hex}`);
-					dot.addEventListener('click', () => remember(id, c.hex));
+					dot.addEventListener('click', () => pickFor(id, c.hex));
 					group.append(dot);
 				});
 			});
@@ -6153,15 +6476,185 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		});
 		sheetBox
 			.querySelectorAll<HTMLButtonElement>('[data-try-pick]')
-			.forEach((b) => b.addEventListener('click', () => remember(b.dataset.tryPick ?? '', b.dataset.hex ?? '#000000')));
+			.forEach((b) => b.addEventListener('click', () => pickFor(b.dataset.tryPick ?? '', b.dataset.hex ?? '#000000')));
 		sheetBox.querySelectorAll<HTMLButtonElement>('[data-try-reset]').forEach((b) =>
 			b.addEventListener('click', () => {
 				const id = b.dataset.tryReset ?? '';
 				delete bench.tries[id];
+				delete bench.tones[id];
 				save();
+				TONE_KEYS.forEach((k) => paintTone(id, k));
 				tryColour(id);
 			})
 		);
+
+		// ── A sheet's other tones: the colour's dark value, the second tone's light and dark ones ──
+		// Each is tried on its own, as the colour is. The sheet's preview draws all four; the canvas's tiles
+		// take what they draw (a dark value on the dark tiles, a second tone where the artwork paints one);
+		// Copy as patch proposes each in the mark's record.
+		const TONE_KEYS: ToneKey[] = ['first:dark', 'second:light', 'second:dark'];
+		/** Where each tone paints the page: a custom property, and the attribute that turns it on. */
+		const PAINT: Record<ToneKey, string> = {
+			'first:dark': 'try-dark',
+			'second:light': 'try-2',
+			'second:dark': 'try-2-dark',
+		};
+		const cellOf = (id: string, key: string) => sheetOf(id)?.querySelector<HTMLElement>(`[data-tc="${key}"]`);
+		/** A tone's value as it stands: tried here, or its record's. */
+		const toneNow = (id: string, key: string) =>
+			key === 'first:light'
+				? (bench.tries[id] ?? baseOf(id))
+				: (bench.tones[id]?.[key as ToneKey] ?? cellOf(id, key)?.dataset.base);
+		/** A set colour picked for a mark: for the tone its sheet has in hand, the colour unless another is. */
+		const pickFor = (id: string, hex: string) => {
+			const key = sheetOf(id)?.querySelector<HTMLElement>('[data-tc][data-active]')?.dataset.tc ?? 'first:light';
+			if (key === 'first:light') remember(id, hex);
+			else setTone(id, key as ToneKey, hex);
+		};
+		/** The colours a sheet would add to the palette: a tone with no product token, as it stands. */
+		const proposedTokens = new Set(
+			(
+				(JSON.parse(document.getElementById('pr-palette')?.textContent ?? '{}') as { proposed?: PaletteColour[] })
+					.proposed ?? []
+			).map((c) => c.token)
+		);
+		const offerOf = (id: string, label: string): AddedColour[] => {
+			const added = colourStore.read();
+			const fresh = (token: string, hex: string) =>
+				!proposedTokens.has(token) && !added.some((c) => c.token === token || c.hex === hex);
+			const out: AddedColour[] = [];
+			const [fl, fd, sl, sd] = ['first:light', 'first:dark', 'second:light', 'second:dark'].map((k) => toneNow(id, k));
+			const from = cellOf(id, 'first:light')?.querySelector<HTMLElement>('[data-from]')?.dataset.from;
+			if (fl && fd && from !== 'product token' && fresh(`--color-product-${id}`, fl))
+				out.push({ name: label.slice(0, 32), hex: fl, dark: fd, token: `--color-product-${id}` });
+			if (sl && sd && fresh(`--color-product-${id}-secondary`, sl))
+				out.push({
+					name: `${label} second tone`.slice(0, 32),
+					hex: sl,
+					dark: sd,
+					token: `--color-product-${id}-secondary`,
+					of: id,
+				});
+			return out;
+		};
+		/** The preview, the checks, Reset and the palette offer, from the tones as they stand. */
+		const showTones = (id: string) => {
+			const sheet = sheetOf(id);
+			const part = sheet?.querySelector<HTMLElement>('[data-tones-for]');
+			if (!sheet || !part) return;
+			const [fl, fd, sl, sd] = ['first:light', 'first:dark', 'second:light', 'second:dark'].map((k) => toneNow(id, k));
+			const preview = (g: string, a?: string, s?: string) => {
+				const tp = part.querySelector<HTMLElement>(`[data-tp="${g}"]`);
+				if (!tp) return;
+				if (a) tp.style.setProperty('--pa', a);
+				if (s) tp.style.setProperty('--ps', s);
+				if (fl) tp.style.setProperty('--pt', fl);
+			};
+			preview('light', fl, sl);
+			preview('dark', fd, sd);
+			const check = (key: string, pass: boolean, text: string) => {
+				const dd = cellOf(id, key)?.querySelector<HTMLElement>('[data-tone-check] dd');
+				if (!dd) return;
+				dd.textContent = text;
+				dd.classList.toggle('pr-check--pass', pass);
+				dd.classList.toggle('pr-check--fail', !pass);
+			};
+			if (fd) {
+				const r = ratio(fd, '#0b0d1f');
+				check('first:dark', r >= MIN, `${r.toFixed(1)}:1`);
+			}
+			// A second tone reads as one only some way from the first: ΔE 12, as two set colours need.
+			if (sl && fl) check('second:light', deltaE(sl, fl) >= 12, `ΔE ${deltaE(sl, fl).toFixed(0)}`);
+			if (sd && fd) check('second:dark', deltaE(sd, fd) >= 12, `ΔE ${deltaE(sd, fd).toFixed(0)}`);
+			const reset = part.querySelector<HTMLElement>(`[data-try-reset="${id}"]`);
+			if (reset) reset.hidden = !bench.tries[id] && !bench.tones[id];
+			const go = part.querySelector<HTMLButtonElement>('[data-to-palette]');
+			if (go) {
+				const offer = offerOf(id, go.dataset.label ?? id);
+				go.hidden = offer.length === 0;
+				go.textContent = offer.length > 1 ? 'Add both to the palette' : 'Add to the palette';
+				go.title = offer.map((c) => `${c.token}: ${c.hex} · ${c.dark}`).join('\n');
+			}
+		};
+		/** A tone tried on a mark, or taken back: its cell, the page's tiles, the sheet. */
+		const paintTone = (id: string, key: ToneKey) => {
+			const hex = bench.tones[id]?.[key];
+			const cell = cellOf(id, key);
+			const shown = hex ?? cell?.dataset.base ?? '';
+			const pick = cell?.querySelector<HTMLInputElement>('[data-tone-pick]');
+			if (pick && shown) pick.value = shown;
+			pick?.parentElement?.style.setProperty('--c', shown);
+			const field = cell?.querySelector<HTMLInputElement>('[data-tone-hex]');
+			if (field && document.activeElement !== field) field.value = shown;
+			cell?.toggleAttribute('data-tried', !!hex);
+			const onBench = !!document.querySelector('[data-tries]');
+			const sheet = sheetOf(id);
+			const targets: HTMLElement[] = [
+				...(onBench
+					? [...items(id), ...document.querySelectorAll<HTMLElement>(`[data-pick="${id}"], #map-${id}`)]
+					: []),
+				...(sheet ? [sheet] : []),
+			];
+			const p = PAINT[key];
+			targets.forEach((el) => {
+				if (hex) el.style.setProperty(`--${p}`, hex);
+				else el.style.removeProperty(`--${p}`);
+				el.toggleAttribute(`data-${p}`, !!hex);
+			});
+		};
+		const setTone = (id: string, key: ToneKey, hex?: string) => {
+			const tones = { ...bench.tones[id] };
+			if (hex) tones[key] = hex;
+			else delete tones[key];
+			if (Object.keys(tones).length > 0) bench.tones[id] = tones;
+			else delete bench.tones[id];
+			save();
+			paintTone(id, key);
+			showTones(id);
+		};
+		onTry = showTones;
+		sheetBox.querySelectorAll<HTMLElement>('[data-tc]').forEach((cell) => {
+			const id = cell.closest<HTMLElement>('[data-tones-for]')?.dataset.tonesFor ?? '';
+			const key = cell.dataset.tc ?? '';
+			// The cell in hand takes the set's dots.
+			const hold = () =>
+				cell.parentElement
+					?.querySelectorAll<HTMLElement>('[data-tc]')
+					.forEach((c) => c.toggleAttribute('data-active', c === cell));
+			cell.addEventListener('focusin', hold);
+			cell.addEventListener('click', hold);
+			if (key === 'first:light') return;
+			const tone = key as ToneKey;
+			const pick = cell.querySelector<HTMLInputElement>('[data-tone-pick]');
+			pick?.addEventListener('input', () => setTone(id, tone, pick.value.toLowerCase()));
+			const field = cell.querySelector<HTMLInputElement>('[data-tone-hex]');
+			field?.addEventListener('input', () => {
+				const hex = hexOf(field.value);
+				field.toggleAttribute('data-invalid', !hex && field.value.trim() !== '');
+				if (hex) setTone(id, tone, hex);
+			});
+			field?.addEventListener('blur', () => {
+				field.removeAttribute('data-invalid');
+				field.value = toneNow(id, key) ?? '';
+			});
+			field?.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter') field.blur();
+			});
+			paintTone(id, tone);
+		});
+		sheetBox.querySelectorAll<HTMLButtonElement>('[data-to-palette]').forEach((b) =>
+			b.addEventListener('click', () => {
+				const id = b.dataset.toPalette ?? '';
+				const offer = offerOf(id, b.dataset.label ?? id);
+				if (offer.length === 0) return;
+				colourStore.write([...colourStore.read(), ...offer]);
+				const msg = b.parentElement?.querySelector<HTMLElement>('[data-to-palette-msg]');
+				if (msg)
+					msg.textContent = `In the palette as ${offer.map((c) => c.token).join(' and ')}: Copy as patch proposes ${offer.length > 1 ? 'them' : 'it'}.`;
+				showTones(id);
+			})
+		);
+		sheetBox.querySelectorAll<HTMLElement>('[data-tones-for]').forEach((p) => showTones(p.dataset.tonesFor ?? ''));
 
 		// ── The new mark's artwork: from Tabler, the menu's icons, or uploaded ──
 		// Drawn in one colour or, where the artwork has a second tone to give, in two: a Tabler icon over its
@@ -8520,20 +9013,18 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	// A set colour's cell: its chip, and a + on hover for a secondary. A secondary shows as a dot on the
-	// chip's swatch.
+	// A mark's cell in the palette: its chip, its second tone as a dot on the swatch. An added colour's
+	// cell has a × to take it out.
 	.pg__palcell {
 		position: relative;
 		display: grid;
 
-		&:has(.pg__pal-2nd:not([hidden])) > .pg__pal,
 		&--added > .pg__pal {
 			padding-right: 40px;
 		}
 
 		&:hover,
 		&:focus-within {
-			.pg__pal-2nd,
 			.pg__pal-x {
 				opacity: 1;
 			}
@@ -8558,7 +9049,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	.pg__pal-2nd,
 	.pg__pal-x {
 		position: absolute;
 		top: 50%;
@@ -11241,6 +11731,27 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		--lc-tint: var(--try) !important;
 	}
 
+	// The other tones tried: the colour's dark value on the dark tiles, the second tone wherever the
+	// artwork paints one, and its dark value on the dark tiles.
+	[data-try-dark] :global(:is(.lc-draft--dark, .lc-draft--darktint)) {
+		--lc-accent: var(--try-dark) !important;
+	}
+
+	[data-try-2] :global(.lc-draft) {
+		--lc-second: var(--try-2) !important;
+	}
+
+	[data-try-2-dark] :global(:is(.lc-draft--dark, .lc-draft--darktint)) {
+		--lc-second: var(--try-2-dark) !important;
+	}
+
+	// The Colours part's preview takes its tones from its own figure, whatever is tried on the sheet.
+	.pgs__tp :global(.lc-draft) {
+		--lc-accent: var(--pa) !important;
+		--lc-second: var(--ps) !important;
+		--lc-tint: var(--pt) !important;
+	}
+
 	.pr-map__row[data-try] .pr-glyphs__half {
 		color: var(--try) !important;
 	}
@@ -11557,6 +12068,172 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		&:focus-visible {
 			outline: 2px solid var(--focus-ring);
 			outline-offset: 3px;
+		}
+	}
+
+	// A mark's colours: its two tones, light and dark, as a grid under a preview drawn in them.
+	.pgs__tprev {
+		display: flex;
+		gap: 10px;
+	}
+
+	.pgs__tp {
+		display: grid;
+		justify-items: center;
+		gap: 6px;
+		margin: 0;
+		padding: 14px 18px 10px;
+		border-radius: 16px;
+		background: #f6f7fb;
+
+		&[data-tp='dark'] {
+			background: #0b0d1f;
+			color: rgba(255, 255, 255, 0.7);
+		}
+
+		figcaption {
+			font-size: 11px;
+		}
+	}
+
+	.pgs__tgrid {
+		display: grid;
+		grid-template-columns: auto 1fr 1fr;
+		gap: 6px 8px;
+		align-items: stretch;
+	}
+
+	.pgs__tg-head {
+		padding-left: 10px;
+		font-size: 11px;
+		color: var(--color-text-secondary);
+	}
+
+	.pgs__tg-role {
+		display: grid;
+		align-content: center;
+		gap: 2px;
+		padding-right: 6px;
+		font-size: 13px;
+
+		small {
+			max-width: 13ch;
+			overflow-wrap: anywhere;
+			font-family: $font-family-mono;
+			font-size: 11px;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	// A tone's value: its swatch and hex, where it comes from, its one check. The cell in hand takes the
+	// set's dots under the grid.
+	.pgs__tc {
+		display: grid;
+		gap: 4px;
+		padding: 8px 10px;
+		border-radius: 14px;
+		box-shadow: inset 0 0 0 1px $line;
+		cursor: pointer;
+
+		&[data-active] {
+			box-shadow: inset 0 0 0 1.5px var(--color-text);
+		}
+
+		.pgs__colour {
+			flex-wrap: nowrap;
+			gap: 6px;
+		}
+
+		.pgs__live {
+			font-size: 10px;
+		}
+	}
+
+	.pgs__chip--sm {
+		width: 28px;
+		height: 28px;
+	}
+
+	.pgs__hexin--sm {
+		width: 0;
+		min-width: 0;
+		flex: 1;
+		padding: 5px 8px;
+		border-radius: 9px;
+		font-size: 13px;
+	}
+
+	.pgs__tc-from {
+		font-size: 11px;
+		color: var(--color-text-secondary);
+	}
+
+	.pgs__tc-none {
+		grid-column: span 2;
+		align-self: center;
+		margin: 0;
+		padding: 8px 10px;
+		border-radius: 14px;
+		background: #f6f7fb;
+		font-size: 12px;
+		color: var(--color-text-secondary);
+	}
+
+	.pgs__tgo {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+
+		&:has([data-to-palette][hidden]):has(.pgs__tgo-msg:empty) {
+			display: none;
+		}
+	}
+
+	.pgs__tgo-msg {
+		font-size: 12px;
+		color: var(--color-text-secondary);
+	}
+
+	// Where the site draws the mark: each value against its record's, a shade off or apart.
+	.pgs__sources {
+		display: grid;
+		gap: 4px;
+		margin: 0;
+		font-size: 12px;
+		color: var(--color-text-secondary);
+
+		dt {
+			color: var(--color-text);
+			font-weight: $font-weight-medium;
+		}
+
+		dd {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 6px;
+			margin: 0;
+
+			i {
+				width: 12px;
+				height: 12px;
+				border-radius: 4px;
+				background: var(--c);
+				box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.12);
+			}
+
+			code {
+				font-size: 11px;
+			}
+
+			span {
+				color: var(--color-text-secondary);
+			}
+
+			&[data-verdict='differs'] span {
+				color: #b42318;
+			}
 		}
 	}
 

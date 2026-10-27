@@ -5,6 +5,11 @@ group: Ecosystem
 about: 'Brings legacy equipment online: Modbus, OPC UA, BACnet and 25 more protocols, translated to MQTT. Its mark: a bridge over the chip, the devices under it.'
 signature: white
 colourRole: Accent beside the white tile
+colours:
+  first:
+    light: 'var(--brand-gateway)'
+  second:
+    light: '#ba91ff'
 treatments:
   white: shipped
   colour: exploring

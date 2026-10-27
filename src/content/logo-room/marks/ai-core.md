@@ -6,6 +6,9 @@ kind: AI
 about: 'The AI across the platform, as the AI section’s badge: the assistants and the CLI under one mark. Sparkles on a tile whose colour follows the page’s sections.'
 signature: colour
 colourRole: Tile fill at rest, then the page’s section colours
+colours:
+  first:
+    light: 'var(--color-brand)'
 treatments:
   colour: shipped
   glyph: exploring

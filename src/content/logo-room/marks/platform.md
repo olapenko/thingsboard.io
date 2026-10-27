@@ -6,6 +6,10 @@ kind: The platform
 about: 'ThingsBoard itself, the open-source IoT platform the other products run on or extend. Its mark is the logo’s: the chip in its orbit, which every platform tile carries.'
 signature: white
 colourRole: Ink, graphite to black, on the white tile
+colours:
+  first:
+    light: '#17181c'
+    dark: '#ffffff'
 treatments:
   white: shipped
   glyph: exploring

@@ -5,6 +5,11 @@ group: Ecosystem
 about: 'The platform at the network edge: it processes data beside the devices and keeps running when the connection drops. Its mark: the chip with lines out to the devices it serves.'
 signature: white
 colourRole: Accent beside the white tile
+colours:
+  first:
+    light: 'var(--brand-edge)'
+  second:
+    light: '#97e3dc'
 treatments:
   white: shipped
   colour: exploring

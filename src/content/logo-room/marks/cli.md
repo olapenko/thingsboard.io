@@ -6,6 +6,9 @@ kind: For coding agents
 about: 'The ThingsBoard CLI for AI coding agents: a solution built, fixed and shipped as code, through git. A terminal prompt on violet.'
 signature: colour
 colourRole: Tile fill
+colours:
+  first:
+    light: 'var(--color-product-cli)'
 treatments:
   colour: shipped
   glyph: shipped

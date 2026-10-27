@@ -5,6 +5,10 @@ group: Ecosystem
 about: 'The free marketplace of device profiles, widgets, dashboards and rule chains, installed in a click. Its mark is the hub the product itself uses: a centre joined to the nodes around it.'
 signature: white
 colourRole: Glyph on the white tile
+colours:
+  first:
+    light: 'var(--color-product-iot-hub)'
+    dark: '#fbbf24'
 treatments:
   white: designed
   colour: exploring

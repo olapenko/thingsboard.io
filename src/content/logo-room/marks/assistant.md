@@ -6,6 +6,9 @@ kind: In the platform
 about: 'The AI assistants built into the platform: dashboards, rules and calculated fields from plain language. A chat bubble with a face, in its teal on white.'
 signature: white
 colourRole: Glyph on the white tile
+colours:
+  first:
+    light: 'var(--color-product-assistant)'
 treatments:
   white: shipped
   glyph: shipped

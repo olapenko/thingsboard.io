@@ -5,6 +5,9 @@ group: Platform
 about: The platform you host, in your cloud, your data centre or air-gapped, with our LTS releases. The platform’s mark on its green; the colour alone says On-premises.
 signature: colour
 colourRole: Tile fill
+colours:
+  first:
+    light: 'var(--brand-pe)'
 treatments:
   colour: shipped
   glyph: exploring

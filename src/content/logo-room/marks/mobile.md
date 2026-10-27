@@ -5,6 +5,11 @@ group: Ecosystem
 about: 'The ThingsBoard app for iOS and Android: dashboards, alarms and device control, white-label if you need it. It wears the platform’s mark, not one of its own.'
 signature: white
 colourRole: 'Accent; the logo inked #166534 on white'
+colours:
+  first:
+    light: 'var(--brand-pe)'
+  second:
+    light: '#cfe5d8'
 treatments:
   white: shipped
   colour: exploring

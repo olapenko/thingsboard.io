@@ -5,6 +5,12 @@ group: Ecosystem
 about: 'The MQTT broker: a drop-in replacement for legacy brokers, built for millions of connections. Its mark: the chip in a ring between brackets.'
 signature: white
 colourRole: Accent beside the white tile
+colours:
+  first:
+    light: '#1f8b4d'
+    dark: '#4ade80'
+  second:
+    light: '#b7e4ca'
 treatments:
   white: shipped
   colour: exploring

@@ -3,8 +3,8 @@
  * schema, then what the schemas cannot see — the records against each other.
  *
  *   - marks: a unique `order`; candidate ids unique, `current` first, none named `mark`; a proposal
- *     that only repeats a decided status or the mark's own name; notes in order; a `hue` only on a mark
- *     drawn from its own file
+ *     that only repeats a decided status or the mark's own name; notes in order; `colours` on every
+ *     mark, its dark values apart from its light ones
  *   - rounds: names unique; the marks they pick, review, set, route through and recolour exist; a
  *     palette colour holds 3:1 against white, as a Colour tile's white mark needs; a pick names a drawn candidate of its mark;
  *     no mark both picked and reviewed; no mark in two open rounds; an open round has no `decided`
@@ -13,14 +13,15 @@
  *   - artwork: each file in `marks/<mark>/` is `<candidate>.svg` for a candidate of that mark (not
  *     `current`), or `mark.svg`, the mark's own artwork; each with a viewBox and nothing that runs; a
  *     candidate with a file is no longer `toDraw`
- *   - two tones: a `second` only on a mark whose `mark.svg` paints a second tone, and one on every such
- *     mark; the second tone painted as `TONE_2`, nothing else
+ *   - two tones: for a mark drawn from its `mark.svg`, a second tone in `colours` only when the file
+ *     paints one, and one whenever it does; the second tone painted as `TONE_2`, nothing else. (The
+ *     room checks the shipped marks' artwork as it renders.)
  *   - a new mark: the record the Studio writes for a mark added there is one the schema takes, and its
  *     creation diff is one `git apply --check` takes
  *   - the icon picker (`_room-icons.ts`): every icon in Tabler; the icons proposed each once, each with a
  *     filled twin, none a mark's symbol; the taken icons by marks that exist
  *   - palette.md: each proposed colour's token unique and not in the theme yet; its light value 3:1 on
- *     white, its dark value 3:1 on night; its writer, tried as the marks' is below
+ *     white, its dark value 3:1 on night (not a second tone's, a fill under its mark's line); its writer, tried as the marks' is below
  *   - the patch writer (what Copy as patch and Save to repo write), tried on every mark: a probe
  *     proposal comes out as a record the schema takes, still carrying the probe, and as a diff that
  *     `git apply --check` takes against the file on disk; a record's own proposal written twice is
@@ -195,12 +196,15 @@ for (const [name, { file, data }] of marks) {
 	if (data.candidates.some((c) => c.id === 'mark'))
 		report(file, 'no candidate is “mark”: mark.svg is the mark’s own artwork');
 	const own = join(marksDir, name, 'mark.svg');
-	if (data.hue && !existsSync(own))
-		report(file, `hue is the colour of a mark drawn from marks/${name}/mark.svg, which is not there`);
+	if (!data.colours) report(file, 'no colours: every mark names its first tone, light and (where it differs) dark');
+	for (const role of ['first', 'second'] as const) {
+		const t = data.colours?.[role];
+		if (t?.dark && t.dark === t.light) report(file, `colours.${role}.dark repeats its light value: leave it out`);
+	}
 	const art = existsSync(own) ? readFileSync(own, 'utf8') : '';
-	if (data.second && !isTwoTone(art))
-		report(file, 'second is the second tone of two-tone artwork, and its mark.svg paints none');
-	if (isTwoTone(art) && !data.second) report(file, 'its mark.svg paints a second tone: give it a second');
+	if (art && data.colours?.second && !isTwoTone(art))
+		report(file, 'colours.second is the second tone of two-tone artwork, and its mark.svg paints none');
+	if (isTwoTone(art) && !data.colours?.second) report(file, 'its mark.svg paints a second tone: give colours a second');
 	if ((art.match(/var\(--lc-tone-2[^)]*\)/g) ?? []).some((v) => v !== TONE_2))
 		report(own, `the second tone is painted ${TONE_2}`);
 	if (data.proposed?.label === data.label) report(file, `proposed.label repeats its name, ${data.label}`);
@@ -225,7 +229,8 @@ for (const [name, { file, data }] of marks) {
 	const front = probe.match(/^---\n([\s\S]*?)\n---/)?.[1];
 	const parsed = logoMarkSchema.safeParse(parse(front ?? ''));
 	if (!parsed.success) report(markPath('probe-mark'), 'new-mark writer: its record does not match the schema');
-	else if (parsed.data.second !== '#b1b9fb') report(markPath('probe-mark'), 'new-mark writer: its second is lost');
+	else if (parsed.data.colours?.first.light !== '#3d50f5' || parsed.data.colours.second?.light !== '#b1b9fb')
+		report(markPath('probe-mark'), 'new-mark writer: its colours are lost');
 	const diff = [
 		unifiedDiff(markPath('probe-mark'), '', probe),
 		unifiedDiff(markArtPath('probe-mark'), '', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"/>\n'),
@@ -277,8 +282,10 @@ else {
 			if (theme.includes(`${c.token}:`)) report(paletteFile, `${c.token} is a token already`);
 			const light = contrastOf(c.light);
 			const dark = contrastOf(c.dark, NIGHT);
-			if (light < 3) report(paletteFile, `${c.name}: ${c.light} is ${light.toFixed(1)}:1 on white, under 3:1`);
-			if (dark < 3) report(paletteFile, `${c.name}: ${c.dark} is ${dark.toFixed(1)}:1 on night, under 3:1`);
+			// A second tone is a fill under its mark's line, not a mark on a ground: its sheet checks it against
+			// the first tone instead.
+			if (!c.of && light < 3) report(paletteFile, `${c.name}: ${c.light} is ${light.toFixed(1)}:1 on white, under 3:1`);
+			if (!c.of && dark < 3) report(paletteFile, `${c.name}: ${c.dark} is ${dark.toFixed(1)}:1 on night, under 3:1`);
 			if (c.of && !marks.has(c.of)) report(paletteFile, `${c.name}: seconds ${c.of}, which is not a mark`);
 		}
 		const seconded = parsed.data.proposed.flatMap((c) => (c.of ? [c.of] : []));
@@ -314,14 +321,14 @@ else {
 /** A proposal with a status, a colour and a note that quotes and colons can trip. */
 const PROBE = {
 	treatments: { white: 'exploring' },
-	colour: '#3d50f5',
+	colours: { first: { dark: '#b3c7ff' }, second: { light: '#3d50f5' } },
 	note: { at: '2026-01-01T00:00:00.000Z', text: `A probe's note, "quoted": with a colon` },
 } as const;
 for (const { file, data } of marks.values()) {
 	const raw = readFileSync(file, 'utf8');
 	const own: RecordProposal = {
 		treatments: data.proposed?.treatments ?? {},
-		colour: data.proposed?.colour,
+		colours: data.proposed?.colours,
 		label: data.proposed?.label,
 		remove: data.proposed?.remove,
 		notes: data.notes.map((n) => ({ at: n.at.toISOString(), text: n.text })),
@@ -331,7 +338,7 @@ for (const { file, data } of marks.values()) {
 
 	const probed = writeProposal(raw, {
 		treatments: { ...own.treatments, ...PROBE.treatments },
-		colour: PROBE.colour,
+		colours: PROBE.colours,
 		label: `${data.label}'s "probe"`,
 		remove: true,
 		notes: [...own.notes, PROBE.note],
@@ -340,7 +347,8 @@ for (const { file, data } of marks.values()) {
 	if (!parsed.success) report(file, 'patch writer: the record it writes fails the schema');
 	else if (
 		parsed.data.proposed?.treatments.white !== PROBE.treatments.white ||
-		parsed.data.proposed?.colour !== PROBE.colour ||
+		parsed.data.proposed?.colours?.first?.dark !== PROBE.colours.first.dark ||
+		parsed.data.proposed?.colours?.second?.light !== PROBE.colours.second.light ||
 		parsed.data.proposed?.label !== `${data.label}'s "probe"` ||
 		parsed.data.proposed?.remove !== true ||
 		!parsed.data.notes.some((n) => n.text === PROBE.note.text)
