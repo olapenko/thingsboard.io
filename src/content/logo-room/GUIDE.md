@@ -69,7 +69,9 @@ treatments and its colour.
 4. **Record it.** A new mark is `marks/<id>.md`, its artwork `marks/<id>/mark.svg` (with a viewBox)
    and its `colours`; the Studio's Add drafts all three. `colours.first` is the tile's fill or the accent
    beside its White tile, `colours.second` the second tone; each takes a `light` value (a hex or a
-   token) and a `dark` one where its token has none, or it needs another. Two-tone artwork paints its
+   token) and a `dark` one where its token has none, or it needs another. A dark value left out is
+   derived (`src/util/oklch.ts`): the same hue, lifted to the set's lightness in OKLCH, holding 4.5:1 on
+   the dark grounds; a second tone's sits under its colour's, as it sits over it on light. Two-tone artwork paints its
    second tone `var(--lc-tone-2, currentColor)`. Add draws a Tabler
    icon in two over its filled twin, and takes an SVG's two colours as the first and the second. It
    does not offer a symbol another mark carries. A candidate's drawing is

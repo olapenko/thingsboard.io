@@ -222,6 +222,7 @@ for (const [name, { file, data }] of marks) {
 		group: 'AI',
 		about: '',
 		hue: '#3d50f5',
+		dark: '#9cb4fe',
 		second: '#b1b9fb',
 		status: 'exploring',
 		order: 9990,
@@ -229,7 +230,11 @@ for (const [name, { file, data }] of marks) {
 	const front = probe.match(/^---\n([\s\S]*?)\n---/)?.[1];
 	const parsed = logoMarkSchema.safeParse(parse(front ?? ''));
 	if (!parsed.success) report(markPath('probe-mark'), 'new-mark writer: its record does not match the schema');
-	else if (parsed.data.colours?.first.light !== '#3d50f5' || parsed.data.colours.second?.light !== '#b1b9fb')
+	else if (
+		parsed.data.colours?.first.light !== '#3d50f5' ||
+		parsed.data.colours.first.dark !== '#9cb4fe' ||
+		parsed.data.colours.second?.light !== '#b1b9fb'
+	)
 		report(markPath('probe-mark'), 'new-mark writer: its colours are lost');
 	const diff = [
 		unifiedDiff(markPath('probe-mark'), '', probe),

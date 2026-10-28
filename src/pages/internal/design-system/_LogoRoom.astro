@@ -16,7 +16,9 @@ import {
 	type HueCycle,
 	type MarkSize,
 	type MarkSpec,
+	type ToneView,
 } from '@root/pages/internal/design-system/_logos';
+import ColourTones from '@root/pages/internal/design-system/_ColourTones.astro';
 import {
 	NEW_SURFACES,
 	ecosystemCell,
@@ -44,6 +46,7 @@ import {
 	type LogoTone,
 } from '@models/logo-room';
 import { markArtPath, markPath, PALETTE_PATH, TONE_2 } from '@util/logo-room-records';
+import { darkFor, secondDarkFor, secondFor } from '@util/oklch';
 import { ICON_START, TAKEN_ICONS } from '@root/pages/internal/design-system/_room-icons';
 import { allSubmenus, mainNavItems, productsSubmenu } from '@data/navigation';
 
@@ -494,38 +497,20 @@ const fileDrawingOf = (id: string, data: LogoMark): Drawing | undefined => {
 
 /** A record and its drawing, as one product. */
 // ── A mark's colours: two tones, each a light and a dark value ──
-const NIGHT = '#0b0d1f';
-/** A light value taken toward white in twentieths until it holds 3:1 on night: a dark value none set. */
-const derivedDark = (hex: string) => {
-	const mix = (k: number) =>
-		`#${[1, 3, 5]
-			.map((i) => parseInt(hex.slice(i, i + 2), 16))
-			.map((v) =>
-				Math.round(v + (255 - v) * k)
-					.toString(16)
-					.padStart(2, '0')
-			)
-			.join('')}`;
-	for (let k = 0; k <= 1; k += 0.05) if ((contrast(mix(k), NIGHT) ?? 0) >= 3) return mix(k);
-	return '#ffffff';
-};
-/** A tone as the sheet shows it: its values, where its dark value comes from, and its token. */
-interface ToneView {
-	light: string;
-	dark: string;
-	darkFrom: 'set' | 'token' | 'derived';
-	token?: string;
-}
-const toneView = (t?: LogoTone): ToneView | undefined => {
+// A dark value not set in the record, nor its token's, is derived (`@util/oklch`): the same hue, lifted
+// as the set's own dark values are; a second tone's, mirrored under its colour's.
+const toneView = (t?: LogoTone, first?: ToneView): ToneView | undefined => {
 	if (!t) return undefined;
 	const light = resolveHue(t.light) ?? '#17181c';
 	const token = t.light.match(/^var\((--[\w-]+)\)$/)?.[1];
 	const own = token ? resolveHue(t.light, 'dark') : undefined;
 	const fromToken = !!own && own !== light;
+	const derived = first ? secondDarkFor(light, first.light, first.dark) : darkFor(light);
 	return {
 		light,
-		dark: t.dark ? (resolveHue(t.dark, 'dark') ?? light) : fromToken && own ? own : derivedDark(light),
+		dark: t.dark ? (resolveHue(t.dark, 'dark') ?? light) : fromToken && own ? own : derived,
 		darkFrom: t.dark ? 'set' : fromToken ? 'token' : 'derived',
+		derived,
 		token,
 	};
 };
@@ -552,7 +537,8 @@ const PRODUCTS: Product[] = MARK_RECORDS.map(({ id, data, body }) => {
 	// The record's first tone is the colour the room draws its own tiles in; a mark drawn in the ink (no
 	// colour of its own here) stays in it.
 	const hue = DRAWINGS[id] && !d.hue ? undefined : (data.colours?.first.light ?? d.hue);
-	const colours = data.colours && { first: toneView(data.colours.first)!, second: toneView(data.colours.second) };
+	const first = data.colours && toneView(data.colours.first);
+	const colours = first && { first, second: toneView(data.colours?.second, first) };
 	const file = existsSync(join(ROOT, markArtPath(id))) ? read(markArtPath(id)) : '';
 	const artTones = ART_OF[id] ? tonesIn(read(MARKS[ART_OF[id]].src)) : [];
 	if (colours?.second && artTones.length < 2 && !file.includes('--lc-tone-2'))
@@ -1837,8 +1823,6 @@ const VERDICT_LABEL: Record<ComboVerdict, string> = { do: 'Do', avoid: 'Avoid', 
  * it is drawn, and the notes. The sheet is the app icon's page.
  */
 const LADDER: MarkSize[] = [88, 72, 48, 40];
-/** What a colour is measured against live, on the sheet: knocked out, on white, on night. */
-const LIVE = ['White on it', 'On white', 'On night'];
 // ── Candidates and specs ──
 /**
  * A mark's candidates: its current version, then the ones under review (A, B…). A candidate with no
@@ -2147,10 +2131,10 @@ const sourcesOf = (r: (typeof ROWS)[number]) => {
 		return [{ where, hex, want, verdict: d < 1 ? 'same' : d < 6 ? 'a shade off' : 'differs' }];
 	};
 	return [
-		...row('Its tiles on the site', resolveHue(r.site.hue), t.first.light),
+		...row('The site’s tiles', resolveHue(r.site.hue), t.first.light),
 		...row('The footer, on dark', resolveHue(r.site.list, 'dark'), t.first.dark),
 		...row('Its artwork', r.artTones[0], t.first.light),
-		...row('Its artwork, second tone', r.artTones[1], t.second?.light),
+		...row('Its artwork’s second tone', r.artTones[1], t.second?.light),
 	];
 };
 const SHEETS = ROWS.map((r) => {
@@ -2289,18 +2273,34 @@ const SET_PALETTE: SetColour[] = [
 	...PALETTE_DATA.proposed.filter((c) => !c.of).map((c) => ({ ...c, marks: [], proposed: true })),
 ];
 /**
- * The set's colours as dots to pick from: each value once, named for what wears it, the first tones and
- * then the second ones. The sheets' dots and the new mark's nearest colour take it.
+ * The set's colours as dots to pick from: each value once, named for what wears it (and the marks that
+ * do, for the closest colour to leave a mark's own out), the colours first and then the second tones.
  */
 const SET_COLOURS = [
-	...SET_PALETTE.map((c) => ({ label: c.name, hex: c.light })),
-	...SET_PALETTE.flatMap((c) => (c.second ? [{ label: `${c.name}, second tone`, hex: c.second.light }] : [])),
-].reduce<{ label: string; hex: string }[]>((list, c) => {
-	const had = list.find((x) => x.hex === c.hex);
-	if (had) had.label = `${had.label}, ${c.label}`;
-	else list.push({ ...c });
+	...SET_PALETTE.map((c) => ({ label: c.name, hex: c.light, ids: c.marks, second: false })),
+	...SET_PALETTE.flatMap((c) =>
+		c.second ? [{ label: `${c.name}, second tone`, hex: c.second.light, ids: c.marks, second: true }] : []
+	),
+].reduce<{ label: string; hex: string; ids: string[]; second: boolean }[]>((list, c) => {
+	const had = list.find((x) => x.hex === c.hex && x.second === c.second);
+	if (had) {
+		had.label = `${had.label}, ${c.label}`;
+		had.ids = [...had.ids, ...c.ids];
+	} else list.push({ ...c });
 	return list;
 }, []);
+/** The Add sheet's tones as it opens: the brand indigo, and a second tone to add if the artwork takes one. */
+const NEW_FIRST: ToneView = {
+	light: '#3d50f5',
+	dark: darkFor('#3d50f5'),
+	darkFrom: 'derived',
+	derived: darkFor('#3d50f5'),
+};
+const NEW_SECOND: ToneView = (() => {
+	const light = secondFor(NEW_FIRST.light);
+	const dark = secondDarkFor(light, NEW_FIRST.light, NEW_FIRST.dark);
+	return { light, dark, darkFrom: 'derived', derived: dark };
+})();
 /** `palette.md` as the browser needs it, for Copy as patch to add the colours proposed here. */
 const PALETTE_JSON = JSON.stringify({ path: PALETTE_PATH, raw: PALETTE_RAW, proposed: PALETTE_DATA.proposed }).replace(
 	/</g,
@@ -4429,6 +4429,17 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					hidden
 				>
 					<div class="pgs__bar">
+						<span class="pgs__newacts">
+							<button
+								type="button"
+								class="pgs__newbtn pgs__newbtn--quiet"
+								data-discard={s.r.id}
+								title="Its statuses, colours, name and removal back to what its record says; its notes stay"
+								hidden
+							>
+								Discard changes
+							</button>
+						</span>
 						<button type="button" class="pgs__close" aria-label="Close the sheet">
 							<Icon name="tabler:x" aria-hidden="true" />
 						</button>
@@ -4663,190 +4674,18 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						</div>
 					)}
 
-					<div class="pgs__part" data-tones-for={s.r.id}>
-						<div class="pgs__labelrow">
-							<p class="pgs__label">Colours</p>
-							<button type="button" class="pgs__reset" data-try-reset={s.r.id} hidden>
-								Reset
-							</button>
+					{s.tones && (
+						<div class="pgs__part">
+							<ColourTones
+								id={s.r.id}
+								label={s.r.label}
+								tones={s.tones}
+								colours={SET_COLOURS}
+								preview={s.preview}
+								sources={s.sources}
+							/>
 						</div>
-						{s.preview && (
-							<div class="pgs__tprev">
-								{(['light', 'dark'] as const).map((g) => {
-									const t = s.tones!;
-									const vars =
-										g === 'light'
-											? [`--pa: ${t.first.light}`, t.second && `--ps: ${t.second.light}`, `--pt: ${t.first.light}`]
-											: [`--pa: ${t.first.dark}`, t.second && `--ps: ${t.second.dark}`, `--pt: ${t.first.light}`];
-									return (
-										<figure
-											class="pgs__tp"
-											data-tp={g}
-											data-surface={g === 'dark' ? 'dark' : undefined}
-											style={vars.filter(Boolean).join('; ')}
-										>
-											<LogoCell cell={s.preview![g]} />
-											<figcaption>{g === 'light' ? 'Light values' : 'Dark values'}</figcaption>
-										</figure>
-									);
-								})}
-							</div>
-						)}
-						{s.tones ? (
-							<div class="pgs__tgrid" role="group" aria-label={`${s.r.label}'s colours`}>
-								<span />
-								<span class="pgs__tg-head">Light</span>
-								<span class="pgs__tg-head">Dark</span>
-								{(
-									[
-										['first', 'Colour', s.tones.first],
-										['second', 'Second tone', s.tones.second],
-									] as const
-								).map(([role, name, t]) => (
-									<Fragment>
-										<span class="pgs__tg-role">
-											<b>{name}</b>
-											<small>
-												{t ? (t.token ? t.token : 'no token yet') : role === 'second' && !s.twoTone ? 'none' : '—'}
-											</small>
-										</span>
-										{t ? (
-											(['light', 'dark'] as const).map((g) => {
-												const hex = t[g];
-												const key = `${role}:${g}`;
-												const lead = key === 'first:light';
-												const from =
-													g === 'light'
-														? t.token?.startsWith('--color-product-')
-															? 'product token'
-															: t.token?.startsWith('--brand-')
-																? 'menu token'
-																: t.token?.startsWith('--color-accent-')
-																	? 'accent token'
-																	: t.token
-																		? 'theme token'
-																		: 'a hex in its record'
-														: t.darkFrom === 'set'
-															? 'set in its record'
-															: t.darkFrom === 'token'
-																? 'its token’s dark value'
-																: 'derived: 3:1 on night';
-												return (
-													<div class="pgs__tc" data-tc={key} data-base={hex} data-active={lead ? '' : undefined}>
-														<span class="pgs__colour">
-															<label
-																class="pgs__chip pgs__chip--sm"
-																style={`--c: ${hex}`}
-																title={`Pick its ${name.toLowerCase()}, ${g}`}
-															>
-																{lead ? (
-																	<input
-																		type="color"
-																		value={hex}
-																		data-try-for={s.r.id}
-																		aria-label={`${s.r.label}: ${name}, ${g}`}
-																	/>
-																) : (
-																	<input
-																		type="color"
-																		value={hex}
-																		data-tone-pick
-																		aria-label={`${s.r.label}: ${name}, ${g}`}
-																	/>
-																)}
-															</label>
-															{lead ? (
-																<input
-																	class="pgs__hexin pgs__hexin--sm"
-																	type="text"
-																	value={hex}
-																	maxlength="7"
-																	spellcheck="false"
-																	autocomplete="off"
-																	data-hex-for={s.r.id}
-																	aria-label={`${s.r.label}: ${name}, ${g}, hex`}
-																/>
-															) : (
-																<input
-																	class="pgs__hexin pgs__hexin--sm"
-																	type="text"
-																	value={hex}
-																	maxlength="7"
-																	spellcheck="false"
-																	autocomplete="off"
-																	data-tone-hex
-																	aria-label={`${s.r.label}: ${name}, ${g}, hex`}
-																/>
-															)}
-														</span>
-														<small class="pgs__tc-from" data-from={from}>
-															{from}
-														</small>
-														{lead ? (
-															<dl class="pgs__live" data-live-for={s.r.id} data-hex={s.hex}>
-																{LIVE.slice(0, 2).map((k) => (
-																	<Fragment>
-																		<dt>{k}</dt>
-																		<dd class="pr-check" />
-																	</Fragment>
-																))}
-															</dl>
-														) : (
-															<dl class="pgs__live" data-tone-check>
-																<dt>{role === 'first' ? 'On night' : 'From the colour'}</dt>
-																<dd class="pr-check" />
-															</dl>
-														)}
-													</div>
-												);
-											})
-										) : (
-											<p class="pgs__tc-none">
-												{s.twoTone
-													? 'Its artwork has a second tone, and its record names none.'
-													: 'One tone: its artwork has no second.'}
-											</p>
-										)}
-									</Fragment>
-								))}
-							</div>
-						) : (
-							<p class="pgs__tc-none">Its record names no colours yet.</p>
-						)}
-						{s.tones && (
-							<div class="pgs__tgo">
-								<button type="button" class="pgs__reset" data-to-palette={s.r.id} data-label={s.r.label} hidden>
-									Add to the palette
-								</button>
-								<span class="pgs__tgo-msg" data-to-palette-msg aria-live="polite" />
-							</div>
-						)}
-						<div class="pgs__palette" role="group" aria-label="The set's colours: for the colour picked above">
-							{SET_COLOURS.map((c) => (
-								<button
-									type="button"
-									class:list={['pgs__dotc', c.hex === s.hex && 'pgs__dotc--own']}
-									data-try-pick={s.r.id}
-									data-hex={c.hex}
-									style={`--c: ${c.hex}`}
-									title={`${c.label} · ${c.hex}`}
-									aria-label={`Try ${c.label}'s ${c.hex}`}
-								/>
-							))}
-						</div>
-						{s.sources.length > 0 && (
-							<dl class="pgs__sources">
-								<dt>On the site</dt>
-								{s.sources.map((x) => (
-									<dd data-verdict={x.verdict}>
-										<i style={`--c: ${x.hex}`} aria-hidden="true" />
-										{x.where} <code>{x.hex}</code>
-										<span>{x.verdict === 'same' ? 'as its record' : `${x.verdict} from ${x.want}`}</span>
-									</dd>
-								))}
-							</dl>
-						)}
-					</div>
+					)}
 
 					{s.spec && (
 						<div class="pgs__part pgs__guide">
@@ -5142,90 +4981,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					</span>
 				</div>
 				<div class="pgs__part">
-					<div class="pgs__labelrow">
-						<p class="pgs__label">Colour</p>
-						<span class="pg__seg pgs__tones" role="group" aria-label="Its colours" data-tones>
-							<button type="button" data-tone="1" aria-pressed="true">
-								One
-							</button>
-							<button type="button" data-tone="2" aria-pressed="false">
-								Two
-							</button>
-						</span>
-					</div>
-					<div class="pgs__colour">
-						<label class="pgs__chip" style="--c: #3d50f5" title="Pick a colour">
-							<input type="color" value="#3d50f5" data-try-for="new" aria-label="Pick the new mark's colour" />
-						</label>
-						<input
-							class="pgs__hexin"
-							type="text"
-							value="#3d50f5"
-							maxlength="7"
-							spellcheck="false"
-							autocomplete="off"
-							data-hex-for="new"
-							aria-label="New mark: hex"
-						/>
-						<code class="pgs__token">not in the theme yet</code>
-					</div>
-					<div class="pgs__palette" role="group" aria-label="The set's colours">
-						{SET_COLOURS.map((c) => (
-							<button
-								type="button"
-								class="pgs__dotc"
-								data-try-pick="new"
-								data-hex={c.hex}
-								style={`--c: ${c.hex}`}
-								title={`${c.label} · ${c.hex}`}
-								aria-label={`Start from ${c.label}'s ${c.hex}`}
-							/>
-						))}
-					</div>
-					<dl class="pgs__live" data-live-for="new" data-hex="#3d50f5">
-						{LIVE.map((k) => (
-							<Fragment>
-								<dt>{k}</dt>
-								<dd class="pr-check" />
-							</Fragment>
-						))}
-					</dl>
-					<p class="pgs__nearest" data-nearest data-set={JSON.stringify(SET_COLOURS)} />
-					<p class="pgs__tones-note" data-tones-note>
-						One tone: this artwork has no second. Tabler icons with a dot, and SVGs in two colours, take two.
-					</p>
-					<div class="pgs__second" data-second hidden>
-						<p class="pgs__sub">Second tone: the filled shape, under the line</p>
-						<div class="pgs__colour">
-							<label class="pgs__chip" style="--c: #b1b9fb" title="Pick the second colour">
-								<input type="color" value="#b1b9fb" data-second-pick aria-label="Pick the new mark's second colour" />
-							</label>
-							<input
-								class="pgs__hexin"
-								type="text"
-								value="#b1b9fb"
-								maxlength="7"
-								spellcheck="false"
-								autocomplete="off"
-								data-second-hex
-								aria-label="Second colour: hex"
-							/>
-							<code class="pgs__token">a light mix of the first, until you pick one</code>
-						</div>
-						<div class="pgs__palette" role="group" aria-label="The set's colours, for the second">
-							{SET_COLOURS.map((c) => (
-								<button
-									type="button"
-									class="pgs__dotc"
-									data-second-dot
-									data-hex={c.hex}
-									style={`--c: ${c.hex}`}
-									title={`${c.label} · ${c.hex}`}
-									aria-label={`Second colour: ${c.label}'s ${c.hex}`}
-								/>
-							))}
-						</div>
-					</div>
+					<ColourTones
+						id="new"
+						label="New mark"
+						tones={{ first: NEW_FIRST }}
+						secondStart={NEW_SECOND}
+						colours={SET_COLOURS}
+					/>
 				</div>
 				<div class="pgs__part">
 					<p class="pgs__label">Mark</p>
@@ -5293,6 +5055,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 <script>
 	import { trackScrollbar } from '@root/pages/internal/design-system/_bleed';
 	import { iconBase } from '@root/pages/internal/design-system/_room-icons';
+	import { darkFor, deltaOk, secondDarkFor, secondFor } from '@util/oklch';
 	import {
 		markArtPath,
 		markPath,
@@ -5460,20 +5223,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 	const NIGHT = '#0b0d1f';
 	/** A colour's dark value to start from: the light one, lifted toward white until it holds 4.5:1 on night. */
-	const darkOf = (hex: string) => {
-		const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-		for (let k = 0; k <= 1; k += 0.05) {
-			const mix = `#${[r, g, b]
-				.map((c) =>
-					Math.round(c + (255 - c) * k)
-						.toString(16)
-						.padStart(2, '0')
-				)
-				.join('')}`;
-			if (ratio(mix, NIGHT) >= 4.5) return mix;
-		}
-		return '#ffffff';
-	};
+	/** A colour's dark value where none is typed: the room's rule (`@util/oklch`), as every sheet derives it. */
+	const darkOf = darkFor;
 	const COLOURS_KEY = 'logo-room:colours';
 	const colourListeners: (() => void)[] = [];
 	const colourStore = {
@@ -5748,8 +5499,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			repo: Record<string, string>;
 			/** The artwork on the new mark's tiles. */
 			newMark?: Art;
-			/** The new mark's second colour, while it is drawn in two. */
-			newSecond?: string;
+			/** Whether the new mark is drawn in two tones (its second is in `tones.new`). */
+			newTwo?: boolean;
 			/** New names proposed, by mark. */
 			names: Record<string, string>;
 			/** Marks proposed for removal. */
@@ -5783,8 +5534,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			hex: string;
 			status: 'exploring' | 'designed';
 			art: Art;
-			/** Its second colour: drawn in two tones, from `art.duo`. */
+			/** Its colour's dark value, where one was set; the rule's otherwise. */
+			dark?: string;
+			/** Its second tone: drawn in two tones, from `art.duo`. */
 			second?: string;
+			/** Its second tone's dark value, where one was set. */
+			secondDark?: string;
 		}
 		const KEY = 'pr-bench-v1';
 		const load = (): Bench => {
@@ -5796,7 +5551,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					tries: raw.tries ?? {},
 					repo: raw.repo ?? {},
 					newMark: raw.newMark,
-					newSecond: raw.newSecond,
+					newTwo: raw.newTwo,
 					names: raw.names ?? {},
 					removed: raw.removed ?? {},
 					drafts: Array.isArray(raw.drafts) ? raw.drafts : [],
@@ -5830,8 +5585,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			rev: string;
 		}
 		const REPO = JSON.parse(document.getElementById('pr-records')?.textContent ?? '{}') as Record<string, RepoRecord>;
-		Object.entries(REPO).forEach(([id, r]) => {
-			if (bench.repo[id] === r.rev) return;
+		/** What a record proposes, onto the bench: once per version of it, and again when a mark is discarded. */
+		const seed = (id: string, r: RepoRecord) => {
 			Object.entries(r.treatments).forEach(([k, v]) => (bench.status[`${id}:${roomKey(k)}`] = v));
 			if (r.colours?.first?.light) bench.tries[id] = r.colours.first.light;
 			const tones: Partial<Record<ToneKey, string>> = {
@@ -5843,7 +5598,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			if (r.proposedLabel) bench.names[id] = r.proposedLabel;
 			if (r.remove) bench.removed[id] = true;
 			bench.repo[id] = r.rev;
-		});
+		};
+		Object.entries(REPO).forEach(([id, r]) => bench.repo[id] !== r.rev && seed(id, r));
 		save();
 		/** A mark's proposal as its record would hold it: this browser's statuses and colour, every note. */
 		const proposalOf = (id: string): RecordProposal => ({
@@ -5863,6 +5619,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		/** The marks whose record this browser would change. */
 		const unsaved = () =>
 			Object.keys(REPO).filter((id) => writeProposal(REPO[id].raw, proposalOf(id)) !== REPO[id].raw);
+		/** Whether this browser changed a mark beyond its notes: what its sheet's Discard takes back. */
+		const changed = (id: string) =>
+			!!REPO[id] && writeProposal(REPO[id].raw, { ...proposalOf(id), notes: REPO[id].notes }) !== REPO[id].raw;
+		const showDiscard = (id: string) => {
+			const b = sheetBox.querySelector<HTMLButtonElement>(`[data-discard="${id}"]`);
+			if (b) b.hidden = !changed(id);
+		};
 
 		const sheets = [...sheetBox.querySelectorAll<HTMLElement>('.pgs')];
 		const picks = [...document.querySelectorAll<HTMLElement>('[data-pick]')];
@@ -6214,6 +5977,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				const apply = wrap?.querySelector<HTMLButtonElement>('.pgs__apply');
 				if (apply) apply.hidden = true;
 			});
+			showDiscard(key.split(':')[0]);
 			root.querySelectorAll<HTMLElement>(`.pg__dot[data-key="${key}"]`).forEach((dot) => {
 				dot.dataset.base ??= dot.dataset.status;
 				dot.dataset.status = v || dot.dataset.base;
@@ -6303,19 +6067,32 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				dd.classList.toggle('pr-check--fail', r < MIN);
 			});
 		};
-		const nearest = (hex: string) => {
-			const out = sheetBox.querySelector<HTMLElement>('[data-nearest]');
+		/**
+		 * The set's colour closest to a mark's, said only when it matters: the same as another mark's (a
+		 * colour shared on purpose), or too close to tell apart (ΔE under 12). Its own is left out.
+		 */
+		const nearest = (id: string, hex: string) => {
+			const out = sheetOf(id)?.querySelector<HTMLElement>('[data-nearest]');
 			if (!out) return;
-			const set = JSON.parse(out.dataset.set ?? '[]') as { label: string; hex: string }[];
-			const best = set.map((c) => ({ ...c, d: deltaE(hex, c.hex) })).sort((a, b) => a.d - b.d)[0];
-			if (!best) return;
-			out.textContent = `Closest in the set: ${best.label} (${best.hex}), ΔE ${best.d.toFixed(0)}${best.d < 12 ? ' · too close to tell apart' : ''}`;
-			out.toggleAttribute('data-clash', best.d < 12);
+			const set = JSON.parse(out.dataset.set ?? '[]') as { label: string; hex: string; ids: string[] }[];
+			const best = set
+				.filter((c) => !(c.ids.length === 1 && c.ids[0] === id))
+				.map((c) => ({ ...c, d: deltaE(hex, c.hex) }))
+				.sort((a, b) => a.d - b.d)[0];
+			const names = best?.label
+				.split(', ')
+				.filter((n) => n !== nameOf(id))
+				.join(', ');
+			out.hidden = !best || best.d >= 12;
+			if (!best || best.d >= 12) return;
+			out.textContent =
+				best.d < 1
+					? `The same colour as ${names}.`
+					: `Close to ${names} (${best.hex}), ΔE ${best.d.toFixed(0)}: too close to tell apart.`;
+			out.toggleAttribute('data-clash', best.d >= 1);
 		};
 		const baseOf = (id: string) =>
 			sheetBox.querySelector<HTMLElement>(`[data-live-for="${id}"]`)?.dataset.hex ?? '#000000';
-		/** What else follows the new mark's colour: its second, while that is a mix of it (set below). */
-		let onNewColour: ((hex: string) => void) | undefined = undefined;
 		/** What follows a mark's colour on its sheet: its preview and checks (set below). */
 		let onTry: ((id: string) => void) | undefined = undefined;
 		const tryColour = (id: string, hex?: string) => {
@@ -6344,15 +6121,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			picker?.parentElement?.style.setProperty('--c', shown);
 			const field = sheetBox.querySelector<HTMLInputElement>(`[data-hex-for="${id}"]`);
 			if (field && document.activeElement !== field) field.value = shown;
-			const reset = sheetBox.querySelector<HTMLElement>(`[data-try-reset="${id}"]`);
-			if (reset) reset.hidden = !hex;
 			sheet
 				?.querySelectorAll<HTMLElement>('.pgs__dotc[data-try-pick]')
 				.forEach((d) => d.toggleAttribute('data-on', d.dataset.hex === shown));
-			if (id === 'new') {
-				nearest(shown);
-				onNewColour?.(shown);
-			}
 			live(id, shown);
 			onTry?.(id);
 			showTries();
@@ -6415,10 +6186,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		// dot is a copy of the sheet's first, so it looks and behaves as they do.
 		const drawAddedDots = () => {
 			const list = colourStore.read();
-			sheetBox.querySelectorAll<HTMLElement>('.pgs__palette').forEach((group) => {
-				group.querySelectorAll('.pgs__dotc--added').forEach((d) => d.remove());
+			sheetBox.querySelectorAll<HTMLElement>('.ct__palette').forEach((group) => {
+				const row = group.querySelector<HTMLElement>('[data-added-dots]');
 				const model = group.querySelector<HTMLButtonElement>('.pgs__dotc');
-				if (!model) return;
+				if (!row || !model) return;
+				row.replaceChildren();
+				const label = group.querySelector<HTMLElement>('[data-added-label]');
+				if (label) label.hidden = list.length === 0;
 				const id = model.dataset.tryPick ?? '';
 				list.forEach((c) => {
 					const dot = model.cloneNode(false) as HTMLButtonElement;
@@ -6430,7 +6204,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					dot.title = `${c.name} · ${c.hex}, added in the palette`;
 					dot.setAttribute('aria-label', `Try ${c.name}, ${c.hex}`);
 					dot.addEventListener('click', () => pickFor(id, c.hex));
-					group.append(dot);
+					row.append(dot);
 				});
 			});
 		};
@@ -6477,21 +6251,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		sheetBox
 			.querySelectorAll<HTMLButtonElement>('[data-try-pick]')
 			.forEach((b) => b.addEventListener('click', () => pickFor(b.dataset.tryPick ?? '', b.dataset.hex ?? '#000000')));
-		sheetBox.querySelectorAll<HTMLButtonElement>('[data-try-reset]').forEach((b) =>
-			b.addEventListener('click', () => {
-				const id = b.dataset.tryReset ?? '';
-				delete bench.tries[id];
-				delete bench.tones[id];
-				save();
-				TONE_KEYS.forEach((k) => paintTone(id, k));
-				tryColour(id);
-			})
-		);
 
-		// ── A sheet's other tones: the colour's dark value, the second tone's light and dark ones ──
-		// Each is tried on its own, as the colour is. The sheet's preview draws all four; the canvas's tiles
-		// take what they draw (a dark value on the dark tiles, a second tone where the artwork paints one);
-		// Copy as patch proposes each in the mark's record.
+		// ── A mark's tones beside its colour: the colour's dark value, the second tone's light and dark ──
+		// Each is tried on its own, as the colour is. A dark value no one set follows the room's rule as its
+		// light value changes; a new mark's second tone starts from its colour, the same way. The sheet's
+		// preview draws all four (the Add sheet's stage, its tiles); the canvas takes what it draws (a dark
+		// value on the dark tiles, a second tone where the artwork paints one); Copy as patch proposes what
+		// was set. A second tone's row shows only where there is one, or one is added.
 		const TONE_KEYS: ToneKey[] = ['first:dark', 'second:light', 'second:dark'];
 		/** Where each tone paints the page: a custom property, and the attribute that turns it on. */
 		const PAINT: Record<ToneKey, string> = {
@@ -6500,54 +6266,132 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			'second:dark': 'try-2-dark',
 		};
 		const cellOf = (id: string, key: string) => sheetOf(id)?.querySelector<HTMLElement>(`[data-tc="${key}"]`);
-		/** A tone's value as it stands: tried here, or its record's. */
-		const toneNow = (id: string, key: string) =>
+		/** Whether a mark has a second tone: its record's, or the one the Add sheet added for a two-tone artwork. */
+		const hasSecond = (id: string) =>
+			id === 'new'
+				? !!bench.newTwo && !!bench.newMark?.duo
+				: !!sheetOf(id)?.querySelector('[data-tone-row="second"]:not([hidden])');
+		/** The value the rule gives a tone, from the tones as they stand. */
+		const ruleFor = (id: string, key: string): string | undefined => {
+			const fl = toneNow(id, 'first:light');
+			if (!fl) return undefined;
+			if (key === 'first:dark') return darkFor(fl);
+			if (key === 'second:light') return secondFor(fl);
+			const sl = toneNow(id, 'second:light');
+			const fd = toneNow(id, 'first:dark');
+			return sl && fd ? secondDarkFor(sl, fl, fd) : undefined;
+		};
+		/** Whether a tone follows the rule: a dark value no one set, a new mark's second tone none picked. */
+		const follows = (id: string, key: string) =>
+			!bench.tones[id]?.[key as ToneKey] &&
+			(cellOf(id, key)?.dataset.from === 'derived' || (id === 'new' && key === 'second:light'));
+		/** A tone's value as it stands: tried here, the rule's, or its record's. */
+		const toneNow = (id: string, key: string): string | undefined =>
 			key === 'first:light'
 				? (bench.tries[id] ?? baseOf(id))
-				: (bench.tones[id]?.[key as ToneKey] ?? cellOf(id, key)?.dataset.base);
+				: (bench.tones[id]?.[key as ToneKey] ?? (follows(id, key) ? ruleFor(id, key) : cellOf(id, key)?.dataset.base));
 		/** A set colour picked for a mark: for the tone its sheet has in hand, the colour unless another is. */
 		const pickFor = (id: string, hex: string) => {
 			const key = sheetOf(id)?.querySelector<HTMLElement>('[data-tc][data-active]')?.dataset.tc ?? 'first:light';
 			if (key === 'first:light') remember(id, hex);
 			else setTone(id, key as ToneKey, hex);
 		};
-		/** The colours a sheet would add to the palette: a tone with no product token, as it stands. */
+		/** The tokens `palette.md` proposes already. */
 		const proposedTokens = new Set(
 			(
 				(JSON.parse(document.getElementById('pr-palette')?.textContent ?? '{}') as { proposed?: PaletteColour[] })
 					.proposed ?? []
 			).map((c) => c.token)
 		);
-		const offerOf = (id: string, label: string): AddedColour[] => {
-			const added = colourStore.read();
-			const fresh = (token: string, hex: string) =>
-				!proposedTokens.has(token) && !added.some((c) => c.token === token || c.hex === hex);
-			const out: AddedColour[] = [];
-			const [fl, fd, sl, sd] = ['first:light', 'first:dark', 'second:light', 'second:dark'].map((k) => toneNow(id, k));
-			const from = cellOf(id, 'first:light')?.querySelector<HTMLElement>('[data-from]')?.dataset.from;
-			if (fl && fd && from !== 'product token' && fresh(`--color-product-${id}`, fl))
-				out.push({ name: label.slice(0, 32), hex: fl, dark: fd, token: `--color-product-${id}` });
-			if (sl && sd && fresh(`--color-product-${id}-secondary`, sl))
-				out.push({
-					name: `${label} second tone`.slice(0, 32),
-					hex: sl,
-					dark: sd,
-					token: `--color-product-${id}-secondary`,
-					of: id,
-				});
-			return out;
+		/** What gave a dark value, beside its token: as the record has it. */
+		const FROM: Record<string, string> = { set: 'set', token: 'dark of', derived: 'auto' };
+		/** Where a value comes from, as its cell says it: tried here, or its record's source as the page drew it. */
+		const showFrom = (id: string, key: string, tried: boolean) => {
+			const cell = cellOf(id, key);
+			const from = cell?.querySelector<HTMLElement>('[data-from-text]');
+			if (!cell || !from) return;
+			from.dataset.record ??= from.textContent?.trim() ?? '';
+			from.textContent = tried
+				? 'tried'
+				: key === 'second:light' && id === 'new'
+					? 'from the primary'
+					: (FROM[cell.dataset.from ?? ''] ?? from.dataset.record);
+			// A token names the value only while it is the token's.
+			const token = cell.querySelector<HTMLElement>('[data-src-token]');
+			if (token) token.hidden = tried;
 		};
-		/** The preview, the checks, Reset and the palette offer, from the tones as they stand. */
+		/** A tone's cell as it stands: its swatch and hex, where it comes from, and the rule's value beside. */
+		const showCell = (id: string, key: ToneKey) => {
+			const cell = cellOf(id, key);
+			if (!cell) return;
+			const shown = toneNow(id, key) ?? '';
+			const tried = !!bench.tones[id]?.[key];
+			const pick = cell.querySelector<HTMLInputElement>('[data-tone-pick]');
+			if (pick && shown) pick.value = shown;
+			pick?.parentElement?.style.setProperty('--c', shown);
+			const field = cell.querySelector<HTMLInputElement>('[data-tone-hex]');
+			if (field && document.activeElement !== field) field.value = shown;
+			cell.toggleAttribute('data-tried', tried);
+			showFrom(id, key, tried);
+			// Back to `auto` beside a value that is not the rule's, where the rule's differs enough to see.
+			const use = cell.querySelector<HTMLButtonElement>('[data-use-derived]');
+			const rule = key === 'second:light' ? undefined : ruleFor(id, key);
+			if (use) {
+				use.hidden = !rule || follows(id, key) || deltaOk(rule, shown) < 2;
+				if (rule) {
+					use.dataset.useDerived = rule;
+					use.title = `Back to auto: ${rule}, the room's rule from its light value`;
+				}
+			}
+		};
+		/**
+		 * The page's tiles take a tone where it is not what they are drawn in: one tried here, or a derived
+		 * dark value following a colour tried here. The Add sheet's tiles take every tone, always.
+		 */
+		const paintTone = (id: string, key: ToneKey) => {
+			const value =
+				id === 'new' || bench.tones[id]?.[key] || (follows(id, key) && bench.tries[id]) ? toneNow(id, key) : undefined;
+			const onBench = !!document.querySelector('[data-tries]');
+			const sheet = sheetOf(id);
+			const targets: HTMLElement[] = [
+				...(onBench && id !== 'new'
+					? [...items(id), ...document.querySelectorAll<HTMLElement>(`[data-pick="${id}"], #map-${id}`)]
+					: []),
+				...(sheet ? [sheet] : []),
+			];
+			const p = PAINT[key];
+			targets.forEach((el) => {
+				if (value) el.style.setProperty(`--${p}`, value);
+				else el.style.removeProperty(`--${p}`);
+				el.toggleAttribute(`data-${p}`, !!value);
+			});
+		};
+		/** The cells, the preview, the checks, the closest colour, the palette offer, from the tones as they stand. */
 		const showTones = (id: string) => {
 			const sheet = sheetOf(id);
 			const part = sheet?.querySelector<HTMLElement>('[data-tones-for]');
 			if (!sheet || !part) return;
+			const two = hasSecond(id);
+			if (id === 'new') {
+				part.querySelectorAll<HTMLElement>('[data-tone-row="second"]').forEach((row) => (row.hidden = !two));
+				const add = part.querySelector<HTMLElement>('[data-add-second]');
+				if (add) add.hidden = two || !bench.newMark?.duo;
+				const drop = part.querySelector<HTMLElement>('[data-drop-second]');
+				if (drop) drop.hidden = !two;
+				// The cell in hand cannot be one the sheet no longer shows.
+				if (!two && part.querySelector('[data-tone-row="second"][data-active]')) cellOf(id, 'first:light')?.click();
+			}
+			showFrom(id, 'first:light', id !== 'new' && !!bench.tries[id]);
+			TONE_KEYS.forEach((k) => {
+				showCell(id, k);
+				paintTone(id, k);
+			});
 			const [fl, fd, sl, sd] = ['first:light', 'first:dark', 'second:light', 'second:dark'].map((k) => toneNow(id, k));
 			const preview = (g: string, a?: string, s?: string) => {
 				const tp = part.querySelector<HTMLElement>(`[data-tp="${g}"]`);
 				if (!tp) return;
 				if (a) tp.style.setProperty('--pa', a);
-				if (s) tp.style.setProperty('--ps', s);
+				if (s && two) tp.style.setProperty('--ps', s);
 				if (fl) tp.style.setProperty('--pt', fl);
 			};
 			preview('light', fl, sl);
@@ -6563,44 +6407,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				const r = ratio(fd, '#0b0d1f');
 				check('first:dark', r >= MIN, `${r.toFixed(1)}:1`);
 			}
-			// A second tone reads as one only some way from the first: ΔE 12, as two set colours need.
+			// A second tone reads as one only some way from the colour: ΔE 12, as two set colours need.
 			if (sl && fl) check('second:light', deltaE(sl, fl) >= 12, `ΔE ${deltaE(sl, fl).toFixed(0)}`);
 			if (sd && fd) check('second:dark', deltaE(sd, fd) >= 12, `ΔE ${deltaE(sd, fd).toFixed(0)}`);
-			const reset = part.querySelector<HTMLElement>(`[data-try-reset="${id}"]`);
-			if (reset) reset.hidden = !bench.tries[id] && !bench.tones[id];
-			const go = part.querySelector<HTMLButtonElement>('[data-to-palette]');
-			if (go) {
-				const offer = offerOf(id, go.dataset.label ?? id);
-				go.hidden = offer.length === 0;
-				go.textContent = offer.length > 1 ? 'Add both to the palette' : 'Add to the palette';
-				go.title = offer.map((c) => `${c.token}: ${c.hex} · ${c.dark}`).join('\n');
-			}
-		};
-		/** A tone tried on a mark, or taken back: its cell, the page's tiles, the sheet. */
-		const paintTone = (id: string, key: ToneKey) => {
-			const hex = bench.tones[id]?.[key];
-			const cell = cellOf(id, key);
-			const shown = hex ?? cell?.dataset.base ?? '';
-			const pick = cell?.querySelector<HTMLInputElement>('[data-tone-pick]');
-			if (pick && shown) pick.value = shown;
-			pick?.parentElement?.style.setProperty('--c', shown);
-			const field = cell?.querySelector<HTMLInputElement>('[data-tone-hex]');
-			if (field && document.activeElement !== field) field.value = shown;
-			cell?.toggleAttribute('data-tried', !!hex);
-			const onBench = !!document.querySelector('[data-tries]');
-			const sheet = sheetOf(id);
-			const targets: HTMLElement[] = [
-				...(onBench
-					? [...items(id), ...document.querySelectorAll<HTMLElement>(`[data-pick="${id}"], #map-${id}`)]
-					: []),
-				...(sheet ? [sheet] : []),
-			];
-			const p = PAINT[key];
-			targets.forEach((el) => {
-				if (hex) el.style.setProperty(`--${p}`, hex);
-				else el.style.removeProperty(`--${p}`);
-				el.toggleAttribute(`data-${p}`, !!hex);
-			});
+			if (fl) nearest(id, fl);
+			showDiscard(id);
 		};
 		const setTone = (id: string, key: ToneKey, hex?: string) => {
 			const tones = { ...bench.tones[id] };
@@ -6609,7 +6420,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			if (Object.keys(tones).length > 0) bench.tones[id] = tones;
 			else delete bench.tones[id];
 			save();
-			paintTone(id, key);
 			showTones(id);
 		};
 		onTry = showTones;
@@ -6618,7 +6428,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const key = cell.dataset.tc ?? '';
 			// The cell in hand takes the set's dots.
 			const hold = () =>
-				cell.parentElement
+				cell
+					.closest('[data-tones-for]')
 					?.querySelectorAll<HTMLElement>('[data-tc]')
 					.forEach((c) => c.toggleAttribute('data-active', c === cell));
 			cell.addEventListener('focusin', hold);
@@ -6640,111 +6451,171 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			field?.addEventListener('keydown', (e) => {
 				if (e.key === 'Enter') field.blur();
 			});
-			paintTone(id, tone);
+			const use = cell.querySelector<HTMLButtonElement>('[data-use-derived]');
+			use?.addEventListener('click', (e) => {
+				e.stopPropagation();
+				// Back to the rule: a value tried here goes; a record's is replaced by the rule's.
+				if (bench.tones[id]?.[tone] && cell.dataset.from === 'derived') setTone(id, tone);
+				else setTone(id, tone, use.dataset.useDerived);
+			});
 		});
-		sheetBox.querySelectorAll<HTMLButtonElement>('[data-to-palette]').forEach((b) =>
+		// ── Proposing a token from a mark's sheet: a new theme colour, light and dark ──
+		// The dialog opens under the palette, filled for the mark's first tone with no token (or a new
+		// colour of no mark's). Its dark value follows the light one by the room's rule until it is set.
+		// Proposed, it joins the palette's colours here, and Copy as patch writes it into `palette.md`.
+		const TOKEN = /^--color-product-[a-z0-9]+(-[a-z0-9]+)*$/;
+		sheetBox.querySelectorAll<HTMLElement>('[data-propose]').forEach((dialog) => {
+			const part = dialog.closest<HTMLElement>('[data-tones-for]');
+			const id = part?.dataset.tonesFor ?? '';
+			const label = nameOf(id);
+			const opener = part?.querySelector<HTMLButtonElement>('[data-propose-open]');
+			const forSel = dialog.querySelector<HTMLSelectElement>('[data-propose-for]');
+			const token = dialog.querySelector<HTMLInputElement>('[data-propose-token]');
+			const pick = (g: string) => dialog.querySelector<HTMLInputElement>(`[data-propose-pick="${g}"]`);
+			const field = (g: string) => dialog.querySelector<HTMLInputElement>(`[data-propose-hex="${g}"]`);
+			const auto = dialog.querySelector<HTMLElement>('[data-propose-auto]');
+			const msg = dialog.querySelector<HTMLElement>('[data-propose-msg]');
+			let darkSet = false;
+			const say = (text: string, bad = false) => {
+				if (!msg) return;
+				msg.textContent = text;
+				msg.toggleAttribute('data-bad', bad);
+			};
+			const put = (g: string, hex: string) => {
+				const p = pick(g);
+				const f = field(g);
+				if (p) p.value = hex;
+				p?.parentElement?.style.setProperty('--c', hex);
+				if (f && document.activeElement !== f) f.value = hex;
+			};
+			/** The dark value by the rule, from the light one: a secondary's under its primary's. */
+			const darkRule = (light: string) =>
+				forSel?.value === 'second'
+					? secondDarkFor(light, toneNow(id, 'first:light') ?? light, toneNow(id, 'first:dark') ?? darkFor(light))
+					: darkFor(light);
+			const fill = () => {
+				const role = forSel?.value ?? '';
+				if (token)
+					token.value = role ? `--color-product-${id}${role === 'second' ? '-secondary' : ''}` : '--color-product-';
+				const light = (role && toneNow(id, `${role}:light`)) || '#3d50f5';
+				const dark = (role && toneNow(id, `${role}:dark`)) || darkFor(light);
+				put('light', light);
+				put('dark', dark);
+				darkSet = !!role && !follows(id, `${role}:dark`);
+				if (auto) auto.hidden = darkSet;
+				say('');
+			};
+			const show = (open: boolean) => {
+				dialog.hidden = !open;
+				opener?.setAttribute('aria-expanded', String(open));
+				if (open) {
+					fill();
+					token?.focus();
+				}
+			};
+			const lightNow = () => hexOf(field('light')?.value ?? '');
+			const setLight = (hex: string) => {
+				put('light', hex);
+				if (!darkSet) put('dark', darkRule(hex));
+			};
+			const setDark = (hex: string) => {
+				put('dark', hex);
+				darkSet = true;
+				if (auto) auto.hidden = true;
+			};
+			opener?.addEventListener('click', () => show(dialog.hasAttribute('hidden')));
+			dialog.querySelectorAll<HTMLButtonElement>('[data-propose-close]').forEach((b) =>
+				b.addEventListener('click', () => {
+					show(false);
+					opener?.focus();
+				})
+			);
+			dialog.addEventListener('keydown', (e) => {
+				if (e.key === 'Escape') {
+					show(false);
+					opener?.focus();
+				}
+			});
+			forSel?.addEventListener('change', fill);
+			pick('light')?.addEventListener('input', () => setLight(pick('light')?.value.toLowerCase() ?? ''));
+			pick('dark')?.addEventListener('input', () => setDark(pick('dark')?.value.toLowerCase() ?? ''));
+			(['light', 'dark'] as const).forEach((g) => {
+				const f = field(g);
+				f?.addEventListener('input', () => {
+					const hex = hexOf(f.value);
+					f.toggleAttribute('data-invalid', !hex && f.value.trim() !== '');
+					if (hex) (g === 'light' ? setLight : setDark)(hex);
+				});
+			});
+			dialog.querySelector<HTMLButtonElement>('[data-propose-go]')?.addEventListener('click', () => {
+				const name = token?.value.trim() ?? '';
+				const light = lightNow();
+				const dark = hexOf(field('dark')?.value ?? '');
+				const added = colourStore.read();
+				if (!TOKEN.test(name))
+					return say('A token is --color-product- and a name in lowercase words, joined by hyphens.', true);
+				if (proposedTokens.has(name) || added.some((c) => c.token === name))
+					return say(`${name} is proposed already.`, true);
+				if (!light || !dark) return say('Give it a light and a dark value, as hexes.', true);
+				const role = forSel?.value ?? '';
+				colourStore.write([
+					...added,
+					{
+						name: (role ? `${label} ${role === 'second' ? 'secondary' : 'primary'}` : name.slice(16)).slice(0, 32),
+						hex: light,
+						dark,
+						token: name,
+						...(role === 'second' ? { of: id } : {}),
+					},
+				]);
+				show(false);
+				opener?.focus();
+				say('');
+			});
+		});
+
+		// ── Discarding a mark's changes: back to what its record says ──
+		// Everything this browser changed on a mark (statuses, colours, its name, its removal) goes, and what
+		// its record proposes comes back. Its notes stay: they are comments, not changes.
+		sheetBox.querySelectorAll<HTMLButtonElement>('[data-discard]').forEach((b) =>
 			b.addEventListener('click', () => {
-				const id = b.dataset.toPalette ?? '';
-				const offer = offerOf(id, b.dataset.label ?? id);
-				if (offer.length === 0) return;
-				colourStore.write([...colourStore.read(), ...offer]);
-				const msg = b.parentElement?.querySelector<HTMLElement>('[data-to-palette-msg]');
-				if (msg)
-					msg.textContent = `In the palette as ${offer.map((c) => c.token).join(' and ')}: Copy as patch proposes ${offer.length > 1 ? 'them' : 'it'}.`;
+				const id = b.dataset.discard ?? '';
+				const r = REPO[id];
+				if (!r) return;
+				Object.keys(bench.status)
+					.filter((k) => k.startsWith(`${id}:`))
+					.forEach((k) => delete bench.status[k]);
+				delete bench.tries[id];
+				delete bench.tones[id];
+				delete bench.names[id];
+				delete bench.removed[id];
+				seed(id, r);
+				save();
+				sheetBox
+					.querySelectorAll<HTMLSelectElement>(`.pgs__st[data-key^="${id}:"]`)
+					.forEach((chip) => showStatus(chip.dataset.key ?? ''));
+				markShow(id);
+				tryColour(id, bench.tries[id]);
 				showTones(id);
 			})
 		);
 		sheetBox.querySelectorAll<HTMLElement>('[data-tones-for]').forEach((p) => showTones(p.dataset.tonesFor ?? ''));
 
 		// ── The new mark's artwork: from Tabler, the menu's icons, or uploaded ──
-		// Drawn in one colour or, where the artwork has a second tone to give, in two: a Tabler icon over its
-		// filled twin, or an SVG in two colours. The second is the mark's own, beside its first.
+		// Drawn in one tone or, where the artwork has a second to give and the sheet adds one, in two: a
+		// Tabler icon over its filled twin, or an SVG in two colours. Its colours are the Colours part's.
 		const newSheet = sheetOf('new');
 		const pickedLabel = sheetBox.querySelector<HTMLElement>('[data-icon-picked]');
-		const tonesNote = newSheet?.querySelector<HTMLElement>('[data-tones-note]');
-		const secondPart = newSheet?.querySelector<HTMLElement>('[data-second]');
-		const secondPick = secondPart?.querySelector<HTMLInputElement>('[data-second-pick]');
-		const secondField = secondPart?.querySelector<HTMLInputElement>('[data-second-hex]');
-		const secondToken = secondPart?.querySelector<HTMLElement>('.pgs__token');
-		const firstHex = () =>
-			newSheet?.querySelector<HTMLInputElement>('[data-try-for="new"]')?.value.toLowerCase() ?? '#3d50f5';
-		/** The second's start: the first at 40% on white, as the menu badges' light tones are. */
-		const mixOf = (hex: string) =>
-			`#${rgb(hex)
-				.map((c) =>
-					Math.round((c * 0.4 + 0.6) * 255)
-						.toString(16)
-						.padStart(2, '0')
-				)
-				.join('')}`;
-		/** Whether the second was picked, or still follows the first as its mix. */
-		let secondPicked = false;
 		/** An artwork as the tiles draw it: in two tones while there is a second and it has one to give. */
-		const drawnOf = (art: Art, second?: string) => (second && art.duo ? art.duo : art.svg);
-		/** The tiles, the switch and the second's row, from the artwork and the second. */
-		const drawTones = () => {
+		const drawnOf = (art: Art, second?: string | boolean) => (second && art.duo ? art.duo : art.svg);
+		/** The new mark's tiles in its artwork, one tone or two. */
+		const drawNewArt = () => {
 			const art = bench.newMark;
-			const two = !!(bench.newSecond && art?.duo);
-			if (art)
-				newSheet
-					?.querySelectorAll<HTMLElement>('.pgs__new-tile .lc-draft')
-					.forEach((tile) => (tile.innerHTML = glyphMarkup(drawnOf(art, bench.newSecond))));
-			newSheet?.querySelectorAll<HTMLButtonElement>('[data-tone]').forEach((b) => {
-				b.setAttribute('aria-pressed', String((b.dataset.tone === '2') === two));
-				if (b.dataset.tone === '2') b.disabled = !art?.duo;
-			});
-			if (tonesNote) tonesNote.hidden = !art || !!art.duo;
-			if (secondPart) secondPart.hidden = !two;
-			if (two && bench.newSecond) newSheet?.style.setProperty('--try-2', bench.newSecond);
-			else newSheet?.style.removeProperty('--try-2');
+			if (!art) return;
+			newSheet
+				?.querySelectorAll<HTMLElement>('.pgs__new-tile .lc-draft')
+				.forEach((tile) => (tile.innerHTML = glyphMarkup(drawnOf(art, bench.newTwo))));
 		};
-		/** Set the second (none: one colour), and say whether it was picked or follows the first. */
-		const setSecond = (hex: string | undefined, picked: boolean) => {
-			secondPicked = picked;
-			bench.newSecond = hex;
-			save();
-			if (hex) {
-				if (secondPick) secondPick.value = hex;
-				secondPick?.parentElement?.style.setProperty('--c', hex);
-				if (secondField && document.activeElement !== secondField) secondField.value = hex;
-				if (secondToken)
-					secondToken.textContent = picked
-						? 'its own, beside the first'
-						: 'a light mix of the first, until you pick one';
-				secondPart
-					?.querySelectorAll<HTMLElement>('[data-second-dot]')
-					.forEach((d) => d.toggleAttribute('data-on', d.dataset.hex === hex));
-			}
-			drawTones();
-		};
-		onNewColour = (hex) => {
-			if (bench.newSecond && !secondPicked) setSecond(mixOf(hex), false);
-		};
-		newSheet
-			?.querySelectorAll<HTMLButtonElement>('[data-tone]')
-			.forEach((b) =>
-				b.addEventListener('click', () =>
-					b.dataset.tone === '2'
-						? setSecond(bench.newSecond ?? mixOf(firstHex()), secondPicked)
-						: setSecond(undefined, false)
-				)
-			);
-		secondPick?.addEventListener('input', () => setSecond(secondPick.value.toLowerCase(), true));
-		secondField?.addEventListener('input', () => {
-			const hex = hexOf(secondField.value);
-			secondField.toggleAttribute('data-invalid', !hex && secondField.value.trim() !== '');
-			if (hex) setSecond(hex, true);
-		});
-		secondField?.addEventListener('blur', () => {
-			secondField.removeAttribute('data-invalid');
-			secondField.value = bench.newSecond ?? mixOf(firstHex());
-		});
-		secondField?.addEventListener('keydown', (e) => {
-			if (e.key === 'Enter') secondField.blur();
-		});
-		secondPart
-			?.querySelectorAll<HTMLButtonElement>('[data-second-dot]')
-			.forEach((b) => b.addEventListener('click', () => setSecond(b.dataset.hex, true)));
 		/** Put an artwork on the new tiles, and remember it. */
 		const applyArt = (art: Art, keep = true) => {
 			bench.newMark = art;
@@ -6755,8 +6626,27 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				.forEach((b) =>
 					b.setAttribute('aria-pressed', String((b.dataset.form ?? `tabler:${b.dataset.icon}`) === art.label))
 				);
-			drawTones();
+			drawNewArt();
+			showTones('new');
 		};
+		// A second tone, added where the artwork can take one, and taken out again.
+		newSheet?.querySelector<HTMLButtonElement>('[data-add-second]')?.addEventListener('click', () => {
+			bench.newTwo = true;
+			save();
+			drawNewArt();
+			showTones('new');
+			cellOf('new', 'second:light')?.click();
+		});
+		newSheet?.querySelector<HTMLButtonElement>('[data-drop-second]')?.addEventListener('click', () => {
+			bench.newTwo = false;
+			const tones = { ...bench.tones.new };
+			delete tones['second:light'];
+			delete tones['second:dark'];
+			bench.tones.new = tones;
+			save();
+			drawNewArt();
+			showTones('new');
+		});
 		// Where it comes from: three panes, one shown.
 		sheetBox.querySelectorAll<HTMLButtonElement>('[data-src]').forEach((b) =>
 			b.addEventListener('click', () => {
@@ -6915,9 +6805,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			drop.removeAttribute('data-over');
 			void takeFile(e.dataTransfer?.files?.[0]);
 		});
-		secondPicked = !!bench.newSecond && bench.newSecond !== mixOf(firstHex());
 		if (bench.newMark) applyArt(bench.newMark, false);
-		if (bench.newSecond) setSecond(bench.newSecond, secondPicked);
 
 		// ── Renaming and removing a mark: proposals, as a status is ──
 		// The sheet's bar proposes a new name or taking the mark out; the header says so with a way back,
@@ -6945,6 +6833,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				label.toggleAttribute('data-proposed', !!name);
 				label.title = name ? `Proposed name; now ${base}` : '';
 			});
+			showDiscard(id);
 		};
 		Object.keys(REPO).forEach(markShow);
 		// The title, double-clicked (or F2 while it has focus), turns into its field: the name as it is
@@ -7055,7 +6944,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			group: d.group,
 			about: d.about,
 			hue: d.hex,
+			...(d.dark ? { dark: d.dark } : {}),
 			...(d.second ? { second: d.second } : {}),
+			...(d.second && d.secondDark ? { secondDark: d.secondDark } : {}),
 			status: d.status,
 			order: lastOrder + 10 * (i + 1),
 		});
@@ -7075,9 +6966,15 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			if (nf.discard) nf.discard.hidden = !d;
 			if (nf.msg) nf.msg.textContent = '';
 			if (d) {
+				// Its tones as it was saved: a value set then is set again; one the rule gave follows it still.
+				bench.newTwo = !!d.second;
+				bench.tones.new = {
+					...(d.dark ? { 'first:dark': d.dark } : {}),
+					...(d.second && d.second !== secondFor(d.hex) ? { 'second:light': d.second } : {}),
+					...(d.secondDark ? { 'second:dark': d.secondDark } : {}),
+				};
 				applyArt(d.art);
-				setSecond(d.second, !!d.second && d.second !== mixOf(d.hex));
-				tryColour('new', d.hex);
+				remember('new', d.hex);
 			}
 		};
 		const drawDrafts = () => {
@@ -7129,7 +7026,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				hex: newHex(),
 				status: (nf.status?.value as Draft['status']) ?? 'exploring',
 				art,
-				...(bench.newSecond && art.duo ? { second: bench.newSecond } : {}),
+				...(bench.tones.new?.['first:dark'] ? { dark: bench.tones.new['first:dark'] } : {}),
+				...(hasSecond('new') ? { second: toneNow('new', 'second:light') } : {}),
+				...(hasSecond('new') && bench.tones.new?.['second:dark'] ? { secondDark: bench.tones.new['second:dark'] } : {}),
 			};
 			bench.drafts = editing ? bench.drafts.map((x) => (x.id === editing ? d : x)) : [...bench.drafts, d];
 			save();
@@ -10958,7 +10857,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		right: 0;
 		bottom: 0;
 		// 100%, not 100vw: the window less its scrollbar, so a narrow window shows the sheet's left edge.
-		width: min(680px, 100%);
+		width: min(760px, 100%);
 		overflow: auto;
 		background: #fff;
 		// The page behind fades a notch while a sheet is open; a shadow, not a scrim, so the page stays
@@ -11264,7 +11163,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		margin-left: auto;
 	}
 
-	.pgs--new .pgs__close {
+	// Beside a sheet's actions (Add, Discard), the close keeps to them.
+	.pgs__bar .pgs__newacts + .pgs__close {
 		margin-left: 8px;
 	}
 
@@ -11745,13 +11645,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		--lc-second: var(--try-2-dark) !important;
 	}
 
-	// The Colours part's preview takes its tones from its own figure, whatever is tried on the sheet.
-	.pgs__tp :global(.lc-draft) {
-		--lc-accent: var(--pa) !important;
-		--lc-second: var(--ps) !important;
-		--lc-tint: var(--pt) !important;
-	}
-
 	.pr-map__row[data-try] .pr-glyphs__half {
 		color: var(--try) !important;
 	}
@@ -11955,68 +11848,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		color: var(--color-text-secondary);
 	}
 
-	// The colour: the swatch is the picker; the hex beside it, typed in; the set's colours under it.
-	.pgs__colour {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 10px;
-	}
-
-	.pgs__chip {
-		position: relative;
-		flex: none;
-		width: 44px;
-		height: 44px;
-		overflow: hidden;
-		border-radius: 32%;
-		background: var(--c);
-		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.1);
-		cursor: pointer;
-
-		input {
-			position: absolute;
-			inset: 0;
-			width: 100%;
-			height: 100%;
-			opacity: 0;
-			cursor: pointer;
-		}
-
-		&:focus-within {
-			outline: 2px solid var(--focus-ring);
-			outline-offset: 2px;
-		}
-	}
-
-	.pgs__hexin {
-		width: 112px;
-		padding: 9px 12px;
-		border: 1px solid rgba(23, 24, 28, 0.14);
-		border-radius: 12px;
-		background: #fff;
-		color: var(--color-text);
-		font-family: $font-family-mono;
-		font-size: 15px;
-		text-transform: lowercase;
-
-		&:focus-visible {
-			border-color: transparent;
-			outline: 2px solid var(--focus-ring);
-		}
-
-		&[data-invalid] {
-			border-color: #d92d20;
-		}
-	}
-
-	.pgs__token {
-		margin-right: auto;
-		font-size: 12px;
-		color: var(--color-text-secondary);
-	}
-
-	.pgs__reset,
 	.pgs__compose button,
 	.pgs__notes button {
 		padding: 5px 12px;
@@ -12038,45 +11869,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	.pgs__palette {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-	}
-
-	.pgs__dotc {
-		width: 22px;
-		height: 22px;
-		padding: 0;
-		border: 0;
-		border-radius: 50%;
-		background: var(--c);
-		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.1);
-		cursor: pointer;
-		transition: transform 0.15s;
-
-		&:hover {
-			transform: scale(1.15);
-		}
-
-		&[data-on] {
-			box-shadow:
-				0 0 0 2px #fff,
-				0 0 0 3.5px var(--c);
-		}
-
-		&:focus-visible {
-			outline: 2px solid var(--focus-ring);
-			outline-offset: 3px;
-		}
-	}
-
-	// A mark's colours: its two tones, light and dark, as a grid under a preview drawn in them.
-	.pgs__tprev {
-		display: flex;
-		gap: 10px;
-	}
-
 	.pgs__tp {
 		display: grid;
 		justify-items: center;
@@ -12093,172 +11885,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 		figcaption {
 			font-size: 11px;
-		}
-	}
-
-	.pgs__tgrid {
-		display: grid;
-		grid-template-columns: auto 1fr 1fr;
-		gap: 6px 8px;
-		align-items: stretch;
-	}
-
-	.pgs__tg-head {
-		padding-left: 10px;
-		font-size: 11px;
-		color: var(--color-text-secondary);
-	}
-
-	.pgs__tg-role {
-		display: grid;
-		align-content: center;
-		gap: 2px;
-		padding-right: 6px;
-		font-size: 13px;
-
-		small {
-			max-width: 13ch;
-			overflow-wrap: anywhere;
-			font-family: $font-family-mono;
-			font-size: 11px;
-			color: var(--color-text-secondary);
-		}
-	}
-
-	// A tone's value: its swatch and hex, where it comes from, its one check. The cell in hand takes the
-	// set's dots under the grid.
-	.pgs__tc {
-		display: grid;
-		gap: 4px;
-		padding: 8px 10px;
-		border-radius: 14px;
-		box-shadow: inset 0 0 0 1px $line;
-		cursor: pointer;
-
-		&[data-active] {
-			box-shadow: inset 0 0 0 1.5px var(--color-text);
-		}
-
-		.pgs__colour {
-			flex-wrap: nowrap;
-			gap: 6px;
-		}
-
-		.pgs__live {
-			font-size: 10px;
-		}
-	}
-
-	.pgs__chip--sm {
-		width: 28px;
-		height: 28px;
-	}
-
-	.pgs__hexin--sm {
-		width: 0;
-		min-width: 0;
-		flex: 1;
-		padding: 5px 8px;
-		border-radius: 9px;
-		font-size: 13px;
-	}
-
-	.pgs__tc-from {
-		font-size: 11px;
-		color: var(--color-text-secondary);
-	}
-
-	.pgs__tc-none {
-		grid-column: span 2;
-		align-self: center;
-		margin: 0;
-		padding: 8px 10px;
-		border-radius: 14px;
-		background: #f6f7fb;
-		font-size: 12px;
-		color: var(--color-text-secondary);
-	}
-
-	.pgs__tgo {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 8px;
-
-		&:has([data-to-palette][hidden]):has(.pgs__tgo-msg:empty) {
-			display: none;
-		}
-	}
-
-	.pgs__tgo-msg {
-		font-size: 12px;
-		color: var(--color-text-secondary);
-	}
-
-	// Where the site draws the mark: each value against its record's, a shade off or apart.
-	.pgs__sources {
-		display: grid;
-		gap: 4px;
-		margin: 0;
-		font-size: 12px;
-		color: var(--color-text-secondary);
-
-		dt {
-			color: var(--color-text);
-			font-weight: $font-weight-medium;
-		}
-
-		dd {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: center;
-			gap: 6px;
-			margin: 0;
-
-			i {
-				width: 12px;
-				height: 12px;
-				border-radius: 4px;
-				background: var(--c);
-				box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.12);
-			}
-
-			code {
-				font-size: 11px;
-			}
-
-			span {
-				color: var(--color-text-secondary);
-			}
-
-			&[data-verdict='differs'] span {
-				color: #b42318;
-			}
-		}
-	}
-
-	// The live contrast: quiet, three pairs on one line.
-	.pgs__live {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 4px 6px;
-		margin: 0;
-		font-size: 11px;
-		color: var(--color-text-secondary);
-
-		dd {
-			margin: 0 10px 0 0;
-		}
-	}
-
-	.pgs__nearest {
-		margin: 0;
-		font-size: 12px;
-		color: var(--color-text-secondary);
-
-		&[data-clash] {
-			color: #b42318;
 		}
 	}
 
@@ -12511,46 +12137,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	// The Colour part's head: its heading, and the switch between one colour and two.
-	.pgs__labelrow {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-	}
-
-	.pgs__tones :global(button:disabled) {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
-
-	.pgs__tones-note {
-		margin: 0;
-		font-size: 12px;
-		color: var(--color-text-secondary);
-
-		&[hidden] {
-			display: none;
-		}
-	}
-
-	// The second colour, under the first: the same chip, hex and dots, a step quieter.
-	.pgs__second {
-		display: grid;
-		gap: 10px;
-		padding-top: 14px;
-		border-top: 1px dashed $line;
-
-		&[hidden] {
-			display: none;
-		}
-
-		.pgs__sub {
-			margin: 0;
-		}
-	}
-
 	// The new mark's sources: a switch, then the pane it shows.
 	.pgs__src {
 		justify-self: start;
@@ -12754,6 +12340,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		:global(.lc-draft) {
 			--lc-accent: var(--try) !important;
 			--lc-second: var(--try-2);
+		}
+
+		// The Dark tile in the dark values, as the room will draw it once saved.
+		&[data-new-fill='black'] :global(.lc-draft) {
+			--lc-accent: var(--try-dark, var(--try)) !important;
+			--lc-second: var(--try-2-dark, var(--try-2));
 		}
 	}
 

@@ -240,7 +240,15 @@ export const logoCreateSchema = z.object({
 	group: z.enum(['Platform', 'Ecosystem', 'AI']),
 	about: z.string().trim().max(400).default(''),
 	hue: z.string().regex(/^#[0-9a-f]{6}$/),
+	dark: z
+		.string()
+		.regex(/^#[0-9a-f]{6}$/)
+		.optional(),
 	second: z
+		.string()
+		.regex(/^#[0-9a-f]{6}$/)
+		.optional(),
+	secondDark: z
 		.string()
 		.regex(/^#[0-9a-f]{6}$/)
 		.optional(),

@@ -160,8 +160,12 @@ export interface NewMark {
 	group: 'Platform' | 'Ecosystem' | 'AI';
 	about: string;
 	hue: string;
+	/** Its colour's dark value, where one is set; the room's rule gives it otherwise. */
+	dark?: string;
 	/** The second tone, for two-tone artwork. */
 	second?: string;
+	/** The second tone's dark value, where one is set. */
+	secondDark?: string;
 	status: 'exploring' | 'designed';
 	order: number;
 }
@@ -195,7 +199,9 @@ export function newMarkRecord(m: NewMark): string {
 		'colours:',
 		'  first:',
 		`    light: ${quote(m.hue)}`,
+		...(m.dark ? [`    dark: ${quote(m.dark)}`] : []),
 		...(m.second ? ['  second:', `    light: ${quote(m.second)}`] : []),
+		...(m.second && m.secondDark ? [`    dark: ${quote(m.secondDark)}`] : []),
 		'treatments:',
 		`  ${signature}: ${m.status}`,
 		`  glyph: ${m.status}`,

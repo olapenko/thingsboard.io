@@ -38,6 +38,18 @@ export interface HueCycle {
  * artwork that is not in `marks.ts` yet (the CE placeholder): Mark's squircle, drawn here, so a draft
  * never needs a registry entry to be reviewed.
  */
+/**
+ * One tone of a mark as its sheet shows it: its light and dark values, where the dark one comes from
+ * (its record, its token, or the room's rule), the dark value the rule gives, and its token.
+ */
+export interface ToneView {
+	light: string;
+	dark: string;
+	darkFrom: 'set' | 'token' | 'derived';
+	derived: string;
+	token?: string;
+}
+
 export type Cell = { name: string; caption: string } & (
 	| { kind: 'mark'; mark: MarkSpec; ink?: string; cycle?: HueCycle }
 	| { kind: 'disc'; size: number; icon: string; glyph: number; cycle?: HueCycle }
