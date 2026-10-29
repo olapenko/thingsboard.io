@@ -4,8 +4,8 @@ The Logo Room (`/internal/design-system/logos/` on the lab) published on its own
 claude.ai artifact: https://claude.ai/artifact/LSxxpGErXUNFPoVC5noQTG. Share it from the page's Share menu;
 until then only its owner can open it.
 
-It shows `exp/logo-review` as last captured (29 Oct 2026, 90a82272c): the renamed pages (Guidelines, Studio, About), the
-groups guide, the palette with its colour editor, each mark's colours on light and dark cards with their tokens (dark values derived in OKLCH) a Propose a token dialog, the room's own colour picker, decisions with a type beside notes, briefs by topic, sets of your own, the Files
+It shows `exp/logo-review` as last captured (30 Oct 2026, 47d0e71e1): the renamed pages (Guidelines, Studio, About), the
+groups guide, the palette with its colour editor, each mark's colours on light and dark cards with their tokens (dark values derived in OKLCH) a Propose a token dialog, the room's own colour picker, decisions with a type beside notes, Colours and Drawing tabs in each sheet with a new drawing to propose, briefs by topic, sets of your own, the Files
 side menu, renaming, removing and adding marks as proposals (a new mark previewed as the room draws it, in one colour or two), and the room's mark in About's hero. The tag in the bottom-left corner of every page names the branch, the commit and the capture date.
 
 ## What is in it
