@@ -47,7 +47,7 @@ import {
 	type LogoRound,
 	type LogoTone,
 } from '@models/logo-room';
-import { markArtPath, markPath, PALETTE_PATH, TONE_2 } from '@util/logo-room-records';
+import { markArtPath, markPath, PALETTE_PATH, proposedArtPath, TONE_2 } from '@util/logo-room-records';
 import { darkFor, secondDarkFor, secondFor } from '@util/oklch';
 import { ICON_START, TAKEN_ICONS } from '@root/pages/internal/design-system/_room-icons';
 import { allSubmenus, mainNavItems, productsSubmenu } from '@data/navigation';
@@ -2391,6 +2391,9 @@ const RECORDS_JSON = JSON.stringify(
 			const colours = proposed?.colours;
 			const label = proposed?.label;
 			const remove = proposed?.remove;
+			const drawing = proposed?.drawing;
+			const drawingFile = join(ROOT, proposedArtPath(id));
+			const drawingSvg = drawing && existsSync(drawingFile) ? readFileSync(drawingFile, 'utf8') : undefined;
 			return [
 				id,
 				{
@@ -2402,8 +2405,10 @@ const RECORDS_JSON = JSON.stringify(
 					colours,
 					proposedLabel: label,
 					remove,
+					drawing,
+					drawingSvg,
 					notes: notes.map((n) => ({ at: n.at.toISOString(), text: n.text, decision: n.decision })),
-					rev: JSON.stringify({ treatments, colours, label, remove }),
+					rev: JSON.stringify({ treatments, colours, label, remove, drawing, drawingSvg }),
 				},
 			];
 		})
@@ -4453,7 +4458,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 								type="button"
 								class="pgs__newbtn pgs__newbtn--quiet"
 								data-discard={s.r.id}
-								title="Its statuses, colours, name and removal back to what its record says; its notes stay"
+								title="Discards its proposed statuses, colours, name, drawing and removal, back to what its record says; its notes stay"
 								hidden
 							>
 								Discard changes
@@ -4489,15 +4494,15 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							<span>
 								Proposed name; now <b>{s.r.label}</b>.
 							</span>
-							<button type="button" data-undo-rename={s.r.id}>
-								Keep {s.r.label}
+							<button type="button" data-undo-rename={s.r.id} aria-label="Discard the proposed name">
+								Discard
 							</button>
 						</p>
 						<p class="pgs__notice pgs__notice--remove" data-removed-for={s.r.id} hidden>
 							<Icon name="tabler:trash" aria-hidden="true" />
 							<span>Proposed for removal from the set.</span>
-							<button type="button" data-undo-remove={s.r.id}>
-								Keep it
+							<button type="button" data-undo-remove={s.r.id} aria-label="Discard the proposed removal">
+								Discard
 							</button>
 						</p>
 						{s.r.exception && (
@@ -4622,53 +4627,84 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							))}
 						</span>
 					</div>
-					{s.review && (
-						<div class="pgs__part">
-							<p class="pgs__label">
-								Candidates
-								{s.round && (
-									<span class="pgs__round">
-										{s.round.label} · {s.round.state === 'open' ? 'open' : 'decided'}
-									</span>
-								)}
-							</p>
-							<div class="pgs__cands">
-								{s.candidates.map((c) => (
-									<figure class:list={['pgs__cand', s.pick?.candidate === c.id && 'pgs__cand--pick']}>
-										<span class="pgs__cand-art">
-											{(['light', 'dark'] as const).map((m) => (
-												<span class="pgs__cell" data-surface={m === 'dark' ? 'dark' : undefined}>
-													{c.cell ? (
-														<LogoCell cell={atSize(c.cell, 72, false)} />
-													) : (
-														<span class="pr-blank" aria-label="To draw" />
-													)}
-												</span>
-											))}
-										</span>
-										<figcaption>
-											<b>
-												{c.label}
-												{s.pick?.candidate === c.id && <span class="pgs__picked">Picked</span>}
-											</b>
-											<span>{c.note}</span>
-											<span class="pgs__cand-meta">
-												<i class:list={['pr-dot', `pr-dot--${c.status}`]} />
-												{STATUS[c.status]}
-												{candidateChecks(c).map((x) => (
-													<span class:list={['pr-check', `pr-check--${x.verdict}`]} title={`${x.g.label} · ${x.why}`}>
-														<small>{x.g.label[0]}</small>
-														{x.ratio?.toFixed(1)}
-													</span>
-												))}
-											</span>
-										</figcaption>
-									</figure>
-								))}
-							</div>
-							{s.pick && <p class="pgs__why">{s.pick.why}</p>}
+					<div class="pgs__part pgs__tabs" data-sheet-tabs>
+						<div class="pgs__tablist" role="tablist" aria-label={`${s.r.label}: colours and drawing`}>
+							<button
+								type="button"
+								role="tab"
+								id={`pgs-tab-colours-${s.r.id}`}
+								aria-controls={`pgs-panel-colours-${s.r.id}`}
+								aria-selected="true"
+								data-tab="colours"
+							>
+								Colours
+							</button>
+							<button
+								type="button"
+								role="tab"
+								id={`pgs-tab-drawing-${s.r.id}`}
+								aria-controls={`pgs-panel-drawing-${s.r.id}`}
+								aria-selected="false"
+								tabindex="-1"
+								data-tab="drawing"
+							>
+								Drawing
+							</button>
 						</div>
-					)}
+						<div
+							class="pgs__panel"
+							role="tabpanel"
+							id={`pgs-panel-colours-${s.r.id}`}
+							aria-labelledby={`pgs-tab-colours-${s.r.id}`}
+							data-panel="colours"
+						>
+							{s.tones && (
+								<ColourTones
+									id={s.r.id}
+									label={s.r.label}
+									tones={s.tones}
+									colours={SET_COLOURS}
+									preview={s.preview}
+									sources={s.sources}
+								/>
+							)}
+						</div>
+						<div
+							class="pgs__panel pgs__drawing"
+							role="tabpanel"
+							id={`pgs-panel-drawing-${s.r.id}`}
+							aria-labelledby={`pgs-tab-drawing-${s.r.id}`}
+							data-panel="drawing"
+							hidden
+						>
+							<div class="pgs__drawrow">
+								<p class="pgs__hint" data-redraw-hint={s.r.id}>
+									Its own, as it ships. A new one goes on every tile of it here, in its colours, for the team to
+									compare.
+								</p>
+								<p class="pgs__notice pgs__notice--draw" data-redrawn-for={s.r.id} hidden>
+									<Icon name="tabler:brush" aria-hidden="true" />
+									<span>
+										A new drawing, proposed: <code data-redrawn-label />
+									</span>
+									<button type="button" data-redraw-undo={s.r.id} aria-label="Discard the proposed drawing">
+										Discard
+									</button>
+								</p>
+								<button
+									type="button"
+									class="pgs__drawbtn"
+									data-redraw-open={s.r.id}
+									aria-expanded="false"
+									aria-controls={`pgs-draw-${s.r.id}`}
+								>
+									<Icon name="tabler:pencil" aria-hidden="true" />
+									<span data-redraw-word>Propose a new drawing</span>
+								</button>
+							</div>
+							<div class="pgs__drawslot" id={`pgs-draw-${s.r.id}`} data-art-slot={s.r.id} hidden />
+						</div>
+					</div>
 					{!s.review && (
 						<div class="pgs__part">
 							<p class="pgs__label">Sizes</p>
@@ -4690,19 +4726,6 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 									</figure>
 								))}
 							</div>
-						</div>
-					)}
-
-					{s.tones && (
-						<div class="pgs__part">
-							<ColourTones
-								id={s.r.id}
-								label={s.r.label}
-								tones={s.tones}
-								colours={SET_COLOURS}
-								preview={s.preview}
-								sources={s.sources}
-							/>
 						</div>
 					)}
 
@@ -4841,6 +4864,53 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 									</figure>
 								))}
 							</div>
+						</div>
+					)}
+					{s.review && (
+						<div class="pgs__part">
+							<p class="pgs__label">
+								Candidates
+								{s.round && (
+									<span class="pgs__round">
+										{s.round.label} · {s.round.state === 'open' ? 'open' : 'decided'}
+									</span>
+								)}
+							</p>
+							<div class="pgs__cands">
+								{s.candidates.map((c) => (
+									<figure class:list={['pgs__cand', s.pick?.candidate === c.id && 'pgs__cand--pick']}>
+										<span class="pgs__cand-art">
+											{(['light', 'dark'] as const).map((m) => (
+												<span class="pgs__cell" data-surface={m === 'dark' ? 'dark' : undefined}>
+													{c.cell ? (
+														<LogoCell cell={atSize(c.cell, 72, false)} />
+													) : (
+														<span class="pr-blank" aria-label="To draw" />
+													)}
+												</span>
+											))}
+										</span>
+										<figcaption>
+											<b>
+												{c.label}
+												{s.pick?.candidate === c.id && <span class="pgs__picked">Picked</span>}
+											</b>
+											<span>{c.note}</span>
+											<span class="pgs__cand-meta">
+												<i class:list={['pr-dot', `pr-dot--${c.status}`]} />
+												{STATUS[c.status]}
+												{candidateChecks(c).map((x) => (
+													<span class:list={['pr-check', `pr-check--${x.verdict}`]} title={`${x.g.label} · ${x.why}`}>
+														<small>{x.g.label[0]}</small>
+														{x.ratio?.toFixed(1)}
+													</span>
+												))}
+											</span>
+										</figcaption>
+									</figure>
+								))}
+							</div>
+							{s.pick && <p class="pgs__why">{s.pick.why}</p>}
 						</div>
 					)}
 					<div class="pgs__part pgs__details">
@@ -5020,72 +5090,119 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						))}
 					</span>
 				</div>
-				<div class="pgs__part">
-					<ColourTones
-						id="new"
-						label="New mark"
-						tones={{ first: NEW_FIRST }}
-						secondStart={NEW_SECOND}
-						colours={SET_COLOURS}
-					/>
-				</div>
-				<div class="pgs__part">
-					<p class="pgs__label">Mark</p>
-					<span class="pg__seg pgs__src" role="group" aria-label="Where the mark comes from">
-						<button type="button" data-src="tabler" aria-pressed="true">
-							Tabler
+				<div class="pgs__part pgs__tabs" data-sheet-tabs>
+					<div class="pgs__tablist" role="tablist" aria-label="The new mark: colours and drawing">
+						<button
+							type="button"
+							role="tab"
+							id="pgs-tab-colours-new"
+							aria-controls="pgs-panel-colours-new"
+							aria-selected="true"
+							data-tab="colours"
+						>
+							Colours
 						</button>
-						<button type="button" data-src="set" aria-pressed="false">
-							Menu icons
+						<button
+							type="button"
+							role="tab"
+							id="pgs-tab-drawing-new"
+							aria-controls="pgs-panel-drawing-new"
+							aria-selected="false"
+							tabindex="-1"
+							data-tab="drawing"
+						>
+							Drawing
 						</button>
-						<button type="button" data-src="upload" aria-pressed="false">
-							Upload
-						</button>
-					</span>
-					<div class="pgs__pane" data-pane="set" hidden>
-						{FORMS.map((g) => (
-							<Fragment>
-								<p class="pgs__sub">{g.group}</p>
-								<div class="pgs__icons pgs__forms">
-									{g.items.map((f) => (
-										<button type="button" data-form={f.id} title={f.label} aria-label={f.label} aria-pressed="false">
-											<Fragment set:html={f.svg} />
-										</button>
-									))}
-								</div>
-							</Fragment>
-						))}
 					</div>
-					<div class="pgs__pane" data-pane="tabler">
-						<input
-							type="search"
-							class="pgs__icon-search"
-							placeholder="Search 6,250 Tabler icons"
-							autocomplete="off"
-							spellcheck="false"
-							data-icon-search
-							aria-label="Search Tabler icons"
-						/>
-						<div
-							class="pgs__icons"
-							data-icon-grid
-							data-start={JSON.stringify(ICON_START)}
-							data-taken={JSON.stringify(TAKEN)}
-							aria-label="Tabler icons"
+					<div
+						class="pgs__panel"
+						role="tabpanel"
+						id="pgs-panel-colours-new"
+						aria-labelledby="pgs-tab-colours-new"
+						data-panel="colours"
+					>
+						<ColourTones
+							id="new"
+							label="New mark"
+							tones={{ first: NEW_FIRST }}
+							secondStart={NEW_SECOND}
+							colours={SET_COLOURS}
 						/>
 					</div>
-					<div class="pgs__pane" data-pane="upload" hidden>
-						<label class="pgs__drop" data-drop>
-							<input type="file" accept=".svg,image/svg+xml" data-upload />
-							<Icon name="tabler:upload" aria-hidden="true" />
-							<b>Drop an SVG here, or choose one</b>
-							<span>Cleaned of scripts as it loads.</span>
-						</label>
-						<p class="pgs__upload-msg" data-upload-msg aria-live="polite" />
+					<div
+						class="pgs__panel"
+						role="tabpanel"
+						id="pgs-panel-drawing-new"
+						aria-labelledby="pgs-tab-drawing-new"
+						data-panel="drawing"
+						data-art-home
+						hidden
+					>
+						{/* The artwork chooser: here for a new mark, moved into a mark's sheet to propose it a new drawing. */}
+						<div class="pgs__chooser" data-art-chooser>
+							<span class="pg__seg pgs__src" role="group" aria-label="Where the mark comes from">
+								<button type="button" data-src="tabler" aria-pressed="true">
+									Tabler
+								</button>
+								<button type="button" data-src="set" aria-pressed="false">
+									Menu icons
+								</button>
+								<button type="button" data-src="upload" aria-pressed="false">
+									Upload
+								</button>
+							</span>
+							<div class="pgs__pane" data-pane="set" hidden>
+								{FORMS.map((g) => (
+									<Fragment>
+										<p class="pgs__sub">{g.group}</p>
+										<div class="pgs__icons pgs__forms">
+											{g.items.map((f) => (
+												<button
+													type="button"
+													data-form={f.id}
+													title={f.label}
+													aria-label={f.label}
+													aria-pressed="false"
+												>
+													<Fragment set:html={f.svg} />
+												</button>
+											))}
+										</div>
+									</Fragment>
+								))}
+							</div>
+							<div class="pgs__pane" data-pane="tabler">
+								<input
+									type="search"
+									class="pgs__icon-search"
+									placeholder="Search 6,250 Tabler icons"
+									autocomplete="off"
+									spellcheck="false"
+									data-icon-search
+									aria-label="Search Tabler icons"
+								/>
+								<div
+									class="pgs__icons"
+									data-icon-grid
+									data-start={JSON.stringify(ICON_START)}
+									data-taken={JSON.stringify(TAKEN)}
+									aria-label="Tabler icons"
+								/>
+							</div>
+							<div class="pgs__pane" data-pane="upload" hidden>
+								<label class="pgs__drop" data-drop>
+									<input type="file" accept=".svg,image/svg+xml" data-upload />
+									<Icon name="tabler:upload" aria-hidden="true" />
+									<b>Drop an SVG here, or choose one</b>
+									<span>Cleaned of scripts as it loads.</span>
+								</label>
+								<p class="pgs__upload-msg" data-upload-msg aria-live="polite" />
+							</div>
+							<p class="pgs__using">
+								On the tiles: <code data-icon-picked>tabler:shape</code>
+							</p>
+						</div>
 					</div>
-					<p class="pgs__using">
-						On the tiles: <code data-icon-picked>tabler:shape</code>
-					</p>
 				</div>
 			</article>
 		</aside>
@@ -5100,6 +5217,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	import { darkFor, deltaOk, secondDarkFor, secondFor } from '@util/oklch';
 	import {
 		markArtPath,
+		proposedArtPath,
 		markPath,
 		mergeNotes,
 		newMarkRecord,
@@ -5111,6 +5229,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		unifiedDiff,
 		writePalette,
 		writeProposal,
+		isTwoTone,
 		type PaletteColour,
 		type ProposedColours,
 		type RecordNote,
@@ -5543,6 +5662,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			newMark?: Art;
 			/** Whether the new mark is drawn in two tones (its second is in `tones.new`). */
 			newTwo?: boolean;
+			/** New drawings proposed for marks in the set, by mark. */
+			arts: Record<string, Art>;
 			/** New names proposed, by mark. */
 			names: Record<string, string>;
 			/** Marks proposed for removal. */
@@ -5594,13 +5715,24 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					repo: raw.repo ?? {},
 					newMark: raw.newMark,
 					newTwo: raw.newTwo,
+					arts: raw.arts ?? {},
 					names: raw.names ?? {},
 					removed: raw.removed ?? {},
 					drafts: Array.isArray(raw.drafts) ? raw.drafts : [],
 					tones: raw.tones ?? {},
 				};
 			} catch {
-				return { status: {}, notes: {}, tries: {}, repo: {}, names: {}, removed: {}, drafts: [], tones: {} };
+				return {
+					status: {},
+					notes: {},
+					tries: {},
+					repo: {},
+					arts: {},
+					names: {},
+					removed: {},
+					drafts: [],
+					tones: {},
+				};
 			}
 		};
 		const bench = load();
@@ -5623,6 +5755,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			colours?: ProposedColours;
 			proposedLabel?: string;
 			remove?: boolean;
+			/** A new drawing it proposes: where it came from, and its file (`proposed.svg`). */
+			drawing?: string;
+			drawingSvg?: string;
 			notes: RecordNote[];
 			rev: string;
 		}
@@ -5639,6 +5774,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			if (Object.keys(tones).length > 0) bench.tones[id] = tones;
 			if (r.proposedLabel) bench.names[id] = r.proposedLabel;
 			if (r.remove) bench.removed[id] = true;
+			if (r.drawing && r.drawingSvg)
+				bench.arts[id] = {
+					source: 'record',
+					label: r.drawing,
+					svg: r.drawingSvg,
+					...(isTwoTone(r.drawingSvg) ? { duo: r.drawingSvg } : {}),
+				};
 			bench.repo[id] = r.rev;
 		};
 		Object.entries(REPO).forEach(([id, r]) => bench.repo[id] !== r.rev && seed(id, r));
@@ -5656,14 +5798,30 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			}),
 			label: bench.names[id] || undefined,
 			remove: bench.removed[id] || undefined,
+			drawing: bench.arts[id]?.label,
 			notes: mergeNotes(REPO[id]?.notes ?? [], bench.notes[id] ?? []),
 		});
-		/** The marks whose record this browser would change. */
+		/**
+		 * A mark's new drawing as its file holds it: in two tones where the mark has a second and the
+		 * drawing one to give; nothing when it has none.
+		 */
+		const drawingAfter = (id: string) => {
+			const art = bench.arts[id];
+			if (!art) return '';
+			const two = !!sheetBox.querySelector(`[data-tones-for="${id}"] [data-tone-row="second"]:not([hidden])`);
+			const file = artFile(two && art.duo ? art.duo : art.svg);
+			return file ? `${file.trim()}\n` : '';
+		};
+		const drawingMoved = (id: string) => drawingAfter(id).trim() !== (REPO[id]?.drawingSvg ?? '').trim();
+		/** The marks whose record (or drawing) this browser would change. */
 		const unsaved = () =>
-			Object.keys(REPO).filter((id) => writeProposal(REPO[id].raw, proposalOf(id)) !== REPO[id].raw);
+			Object.keys(REPO).filter(
+				(id) => writeProposal(REPO[id].raw, proposalOf(id)) !== REPO[id].raw || drawingMoved(id)
+			);
 		/** Whether this browser changed a mark beyond its notes: what its sheet's Discard takes back. */
 		const changed = (id: string) =>
-			!!REPO[id] && writeProposal(REPO[id].raw, { ...proposalOf(id), notes: REPO[id].notes }) !== REPO[id].raw;
+			!!REPO[id] &&
+			(writeProposal(REPO[id].raw, { ...proposalOf(id), notes: REPO[id].notes }) !== REPO[id].raw || drawingMoved(id));
 		const showDiscard = (id: string) => {
 			const b = sheetBox.querySelector<HTMLButtonElement>(`[data-discard="${id}"]`);
 			if (b) b.hidden = !changed(id);
@@ -5678,6 +5836,48 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		const label = (el: Element) => el.querySelector('span')?.textContent?.trim() ?? '';
 		const pressed = (el: Element) => el.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
 		const sheetOf = (id: string) => sheets.find((s) => s.dataset.sheet === id);
+
+		// Colours and Drawing, a sheet's two tabs: the one last picked opens on every sheet, in this browser.
+		const TAB_KEY = 'logo-room:panel:sheet-tab';
+		let sheetTab = 'colours';
+		try {
+			sheetTab = localStorage.getItem(TAB_KEY) ?? sheetTab;
+		} catch {
+			// No storage here: every sheet opens on Colours.
+		}
+		const showTab = (box: Element, tab: string) => {
+			box.querySelectorAll<HTMLButtonElement>('[role="tab"]').forEach((t) => {
+				const on = t.dataset.tab === tab;
+				t.setAttribute('aria-selected', String(on));
+				t.tabIndex = on ? 0 : -1;
+			});
+			box.querySelectorAll<HTMLElement>('[role="tabpanel"]').forEach((p) => (p.hidden = p.dataset.panel !== tab));
+		};
+		/** A tab picked: on every sheet, and remembered. */
+		const pickTab = (tab: string) => {
+			sheetTab = tab;
+			try {
+				localStorage.setItem(TAB_KEY, tab);
+			} catch {
+				// Not remembered: this visit only.
+			}
+			sheetBox.querySelectorAll('[data-sheet-tabs]').forEach((box) => showTab(box, tab));
+		};
+		sheetBox.querySelectorAll<HTMLElement>('[data-sheet-tabs]').forEach((box) => {
+			showTab(box, sheetTab);
+			const tabs = [...box.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+			tabs.forEach((t, i) => {
+				t.addEventListener('click', () => pickTab(t.dataset.tab ?? 'colours'));
+				t.addEventListener('keydown', (e) => {
+					const step = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+					if (!step) return;
+					e.preventDefault();
+					const next = tabs[(i + step + tabs.length) % tabs.length];
+					next.focus();
+					pickTab(next.dataset.tab ?? 'colours');
+				});
+			});
+		});
 		const nameOf = (id: string) => sheetOf(id)?.querySelector('h3')?.textContent?.trim() ?? id;
 
 		// The set and the view.
@@ -6329,6 +6529,73 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		// value on the dark tiles, a second tone where the artwork paints one); Copy as patch proposes what
 		// was set. A second tone's row shows only where there is one, or one is added.
 		const TONE_KEYS: ToneKey[] = ['first:dark', 'second:light', 'second:dark'];
+
+		// ── A new drawing proposed for a mark: on every tile of it, in its colours ──
+		// A draft tile takes it as its glyph, so its colours keep following the tones; a shipped tile keeps
+		// its ground and has it laid over its own glyph, in the colour that ground takes: white on the
+		// mark's colour, its dark value on a dark ground, its light value on any other. Candidates keep
+		// their own drawings.
+		const DRAFT_GLYPH = new WeakMap<Element, string>();
+		const darkGround = (tile: HTMLElement) => {
+			const [r, g, b, a] =
+				getComputedStyle(tile)
+					.backgroundColor.match(/[\d.]+/g)
+					?.map(Number) ?? [];
+			if (b === undefined || a === 0) return !!tile.closest('[data-surface="dark"]');
+			return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.25;
+		};
+		const redraw = (id: string) => {
+			const art = bench.arts[id];
+			const svg = art && (hasSecond(id) && art.duo ? art.duo : art.svg);
+			// A glyph alone (the small sizes, the bookmark) is one colour: a mask, or an icon's own paths.
+			const glyph = art && artFile(art.svg);
+			const parts = glyph?.match(/^<svg\b[^>]*\bviewBox="([^"]+)"[^>]*>([\s\S]*)<\/svg>\s*$/);
+			[...items(id), sheetOf(id)].forEach((scope) =>
+				scope
+					?.querySelectorAll<HTMLElement>('.lc-draft, .ui-mark, .lc-img, .lc-mb, .lc-glyph, .lc-glyph-icon')
+					.forEach((tile) => {
+						if (tile.closest('.pgs__cands, .lr-redraw')) return;
+						if (tile.matches('.lc-glyph')) {
+							if (!DRAFT_GLYPH.has(tile)) DRAFT_GLYPH.set(tile, tile.style.getPropertyValue('--lc-mask'));
+							tile.style.setProperty(
+								'--lc-mask',
+								glyph ? `url("data:image/svg+xml,${encodeURIComponent(glyph)}")` : (DRAFT_GLYPH.get(tile) ?? '')
+							);
+							return;
+						}
+						if (tile.matches('.lc-glyph-icon')) {
+							if (!DRAFT_GLYPH.has(tile))
+								DRAFT_GLYPH.set(tile, JSON.stringify([tile.getAttribute('viewBox'), tile.innerHTML]));
+							const [box, inner] = parts
+								? [parts[1], parts[2]]
+								: (JSON.parse(DRAFT_GLYPH.get(tile) ?? '[]') as [string | null, string]);
+							if (box) tile.setAttribute('viewBox', box);
+							tile.innerHTML = inner ?? '';
+							return;
+						}
+						if (tile.classList.contains('lc-draft')) {
+							if (!DRAFT_GLYPH.has(tile)) DRAFT_GLYPH.set(tile, tile.innerHTML);
+							tile.innerHTML = svg ? glyphMarkup(svg) : (DRAFT_GLYPH.get(tile) ?? '');
+							return;
+						}
+						tile.querySelector(':scope > .lr-redraw')?.remove();
+						tile.toggleAttribute('data-redrawn', !!svg);
+						if (!svg) return;
+						const solid = /--solid\b/.test(tile.className);
+						const g = !solid && darkGround(tile) ? 'dark' : 'light';
+						const over = document.createElement('span');
+						over.className = 'lr-redraw';
+						const ink = solid ? '#fff' : (toneNow(id, `first:${g}`) ?? 'currentColor');
+						over.style.color = ink;
+						over.style.setProperty(
+							'--lc-tone-2',
+							solid ? 'rgba(255, 255, 255, 0.5)' : (toneNow(id, `second:${g}`) ?? ink)
+						);
+						over.innerHTML = glyphMarkup(svg);
+						tile.append(over);
+					})
+			);
+		};
 		/** Where each tone paints the page: a custom property, and the attribute that turns it on. */
 		const PAINT: Record<ToneKey, string> = {
 			'first:dark': 'try-dark',
@@ -6481,6 +6748,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			if (sl && fl) check('second:light', deltaE(sl, fl) >= 12, `ΔE ${deltaE(sl, fl).toFixed(0)}`);
 			if (sd && fd) check('second:dark', deltaE(sd, fd) >= 12, `ΔE ${deltaE(sd, fd).toFixed(0)}`);
 			if (fl) nearest(id, fl);
+			if (id !== 'new') redraw(id);
 			showDiscard(id);
 		};
 		const setTone = (id: string, key: ToneKey, hex?: string) => {
@@ -6647,8 +6915,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		});
 
 		// ── Discarding a mark's changes: back to what its record says ──
-		// Everything this browser changed on a mark (statuses, colours, its name, its removal) goes, and what
-		// its record proposes comes back. Its notes stay: they are comments, not changes.
+		// Everything this browser changed on a mark (statuses, colours, its name, its drawing, its removal)
+		// goes, and what its record proposes comes back. Its notes stay: they are comments, not changes.
 		sheetBox.querySelectorAll<HTMLButtonElement>('[data-discard]').forEach((b) =>
 			b.addEventListener('click', () => {
 				const id = b.dataset.discard ?? '';
@@ -6661,6 +6929,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				delete bench.tones[id];
 				delete bench.names[id];
 				delete bench.removed[id];
+				delete bench.arts[id];
 				seed(id, r);
 				save();
 				sheetBox
@@ -6669,6 +6938,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				markShow(id);
 				tryColour(id, bench.tries[id]);
 				showTones(id);
+				showArt(id);
 			})
 		);
 		sheetBox.querySelectorAll<HTMLElement>('[data-tones-for]').forEach((p) => showTones(p.dataset.tonesFor ?? ''));
@@ -6688,16 +6958,49 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				?.querySelectorAll<HTMLElement>('.pgs__new-tile .lc-draft')
 				.forEach((tile) => (tile.innerHTML = glyphMarkup(drawnOf(art, bench.newTwo))));
 		};
-		/** Put an artwork on the new tiles, and remember it. */
+		/**
+		 * Whose artwork the chooser sets: the new mark's, or a new drawing for a mark in the set. The one
+		 * chooser lives on the Add sheet and moves into a mark's sheet when its Drawing part asks for it.
+		 */
+		let artFor = 'new';
+		const artOf = (id: string) => (id === 'new' ? bench.newMark : bench.arts[id]);
+		/** The chooser's buttons pressed for the artwork it holds, and its name under them. */
+		const markPicked = () => {
+			const art = artOf(artFor);
+			if (pickedLabel) pickedLabel.textContent = art?.label ?? (artFor === 'new' ? 'tabler:shape' : 'its own drawing');
+			sheetBox
+				.querySelectorAll<HTMLButtonElement>('[data-form], [data-icon]:not([data-taken])')
+				.forEach((b) =>
+					b.setAttribute('aria-pressed', String((b.dataset.form ?? `tabler:${b.dataset.icon}`) === art?.label))
+				);
+		};
+		/** A mark's new drawing on its tiles, and its sheet saying so. */
+		const showArt = (id: string) => {
+			const art = bench.arts[id];
+			const notice = sheetBox.querySelector<HTMLElement>(`[data-redrawn-for="${id}"]`);
+			if (notice) notice.hidden = !art;
+			const named = notice?.querySelector('[data-redrawn-label]');
+			if (named) named.textContent = art?.label ?? '';
+			const hint = sheetBox.querySelector<HTMLElement>(`[data-redraw-hint="${id}"]`);
+			if (hint) hint.hidden = !!art;
+			root
+				.querySelectorAll<HTMLElement>(`.pg__item[data-id="${id}"]`)
+				.forEach((item) => item.toggleAttribute('data-redrawn-item', !!art));
+			redraw(id);
+			showDiscard(id);
+			if (artFor === id) markPicked();
+		};
+		/** Put an artwork on the tiles it is for, and remember it. */
 		const applyArt = (art: Art, keep = true) => {
+			if (artFor !== 'new') {
+				bench.arts[artFor] = art;
+				save();
+				showArt(artFor);
+				return;
+			}
 			bench.newMark = art;
 			if (keep) save();
-			if (pickedLabel) pickedLabel.textContent = art.label;
-			sheetBox
-				.querySelectorAll<HTMLButtonElement>('[data-form], [data-icon]')
-				.forEach((b) =>
-					b.setAttribute('aria-pressed', String((b.dataset.form ?? `tabler:${b.dataset.icon}`) === art.label))
-				);
+			markPicked();
 			drawNewArt();
 			showTones('new');
 		};
@@ -6759,11 +7062,17 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		};
 		const iconButton = (set: Record<string, string>, n: string) => {
 			const b = document.createElement('button');
-			const by = taken[iconBase(n)];
+			// A mark's own symbol is free to it, and to no other.
+			const owner = taken[iconBase(n)];
+			const by = owner && owner !== REPO[artFor]?.label ? owner : undefined;
 			const duo = duoOf(set, n);
 			b.type = 'button';
 			b.dataset.icon = n;
-			b.title = by ? `${n}: ${by}'s symbol, not for a new mark` : duo ? `${n}, in one colour or two` : n;
+			b.title = by
+				? `${n}: ${by}'s symbol, not for ${artFor === 'new' ? 'a new mark' : 'another mark'}`
+				: duo
+					? `${n}, in one colour or two`
+					: n;
 			b.setAttribute('aria-label', b.title);
 			b.innerHTML = svgOf(set[n]);
 			if (duo) b.dataset.duo = '';
@@ -6772,7 +7081,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				b.setAttribute('aria-disabled', 'true');
 				return b;
 			}
-			b.setAttribute('aria-pressed', String(bench.newMark?.label === `tabler:${n}`));
+			b.setAttribute('aria-pressed', String(artOf(artFor)?.label === `tabler:${n}`));
 			b.addEventListener('click', () => applyArt({ svg: svgOf(set[n]), duo, label: `tabler:${n}`, source: 'tabler' }));
 			return b;
 		};
@@ -6879,6 +7188,54 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		});
 		if (bench.newMark) applyArt(bench.newMark, false);
 
+		// The chooser, moved to where it is wanted: back to the Add sheet, or into a mark's Drawing part
+		// (any other mark's part it sat in closes).
+		const chooser = sheetBox.querySelector<HTMLElement>('[data-art-chooser]');
+		const drawWord = (b: Element, open: boolean) => {
+			b.setAttribute('aria-expanded', String(open));
+			const word = b.querySelector('[data-redraw-word]');
+			if (word) word.textContent = open ? 'Done' : 'Propose a new drawing';
+		};
+		const chooserTo = (id: string) => {
+			const home =
+				id === 'new'
+					? newSheet?.querySelector<HTMLElement>('[data-art-home]')
+					: sheetBox.querySelector<HTMLElement>(`[data-art-slot="${id}"]`);
+			if (!chooser || !home) return;
+			const moved = artFor !== id;
+			artFor = id;
+			if (chooser.parentElement !== home) home.append(chooser);
+			sheetBox.querySelectorAll<HTMLElement>('[data-art-slot]').forEach((slot) => {
+				if (slot.dataset.artSlot === id) return;
+				slot.hidden = true;
+				const b = sheetBox.querySelector(`[data-redraw-open="${slot.dataset.artSlot}"]`);
+				if (b) drawWord(b, false);
+			});
+			if (moved && uploadMsg) uploadMsg.textContent = '';
+			markPicked();
+			if (moved && !chooser.querySelector<HTMLElement>('[data-pane="tabler"]')?.hidden)
+				void showIcons(search?.value ?? '');
+		};
+		sheetBox.querySelectorAll<HTMLButtonElement>('[data-redraw-open]').forEach((b) => {
+			const id = b.dataset.redrawOpen ?? '';
+			const slot = sheetBox.querySelector<HTMLElement>(`[data-art-slot="${id}"]`);
+			b.addEventListener('click', () => {
+				const open = !!slot?.hidden || artFor !== id;
+				if (open) chooserTo(id);
+				if (slot) slot.hidden = !open;
+				drawWord(b, open);
+			});
+		});
+		sheetBox.querySelectorAll<HTMLButtonElement>('[data-redraw-undo]').forEach((b) =>
+			b.addEventListener('click', () => {
+				const id = b.dataset.redrawUndo ?? '';
+				delete bench.arts[id];
+				save();
+				showArt(id);
+			})
+		);
+		Object.keys(REPO).forEach(showArt);
+
 		// ── Renaming and removing a mark: proposals, as a status is ──
 		// The sheet's bar proposes a new name or taking the mark out; the header says so with a way back,
 		// the canvas shows the new name (marked as proposed) or dims the mark, and Copy as patch writes
@@ -6896,7 +7253,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const out = sheetBox.querySelector<HTMLElement>(`[data-remove="${id}"]`);
 			out?.setAttribute('aria-pressed', String(removed));
 			const word = out?.querySelector('[data-remove-word]');
-			if (word) word.textContent = removed ? `Proposed for removal: keep ${base}` : `Propose removing ${base}`;
+			if (word) word.textContent = removed ? 'Discard the proposed removal' : `Propose removing ${base}`;
 			root.querySelectorAll<HTMLElement>(`.pg__item[data-id="${id}"]`).forEach((item) => {
 				item.toggleAttribute('data-removed', removed);
 				const label = item.querySelector<HTMLElement>('.pg__name');
@@ -7027,6 +7384,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		/** The sheet as it opens: empty for a new mark, or filled from the draft it changes. */
 		const draftForm = (d?: Draft) => {
 			if (!nf) return;
+			chooserTo('new');
+			// A new mark starts from its drawing: until it has one, its sheet opens on Drawing.
+			if (!d && !bench.newMark && newSheet)
+				newSheet.querySelectorAll('[data-sheet-tabs]').forEach((box) => showTab(box, 'drawing'));
 			editing = d?.id;
 			if (!newSheet?.querySelector<HTMLElement>('[data-pane="tabler"]')?.hidden) void showIcons(search?.value ?? '');
 			if (nf.name) nf.name.value = d?.name ?? '';
@@ -7286,9 +7647,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const ids = unsaved();
 			const palette = paletteAfter();
 			if (ids.length === 0 && !palette && bench.drafts.length === 0) return flash(b, 'Nothing to propose');
-			const patch = ids.map((id) =>
-				unifiedDiff(REPO[id].path, REPO[id].raw, writeProposal(REPO[id].raw, proposalOf(id)))
-			);
+			const patch = ids
+				.flatMap((id) => [
+					unifiedDiff(REPO[id].path, REPO[id].raw, writeProposal(REPO[id].raw, proposalOf(id))),
+					unifiedDiff(proposedArtPath(id), REPO[id].drawingSvg ?? '', drawingAfter(id)),
+				])
+				.filter(Boolean);
 			bench.drafts.forEach((d, i) => {
 				patch.push(unifiedDiff(markPath(d.id), '', newMarkRecord(newMarkOf(d, i))));
 				patch.push(unifiedDiff(markArtPath(d.id), '', draftArt(d)));
@@ -7326,7 +7690,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				const res = await fetch('/__logo-room/save', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ mark: id, ...proposalOf(id) }),
+					body: JSON.stringify({
+						mark: id,
+						...proposalOf(id),
+						drawing: bench.arts[id] ? { label: bench.arts[id].label, svg: drawingAfter(id) } : undefined,
+					}),
 				}).catch(() => undefined);
 				if (res?.ok) delete bench.notes[id];
 				else
@@ -10654,6 +11022,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		text-underline-offset: 3px;
 	}
 
+	// A new drawing proposed here: the tile ringed in the same amber.
+	.pg__item[data-redrawn-item] .pg__tile {
+		border-radius: 32%;
+		outline: 1.5px dashed #f79009;
+		outline-offset: 3px;
+	}
+
 	// Status on the tile's corner; shipped carries none. A status proposed here gets an amber ring.
 	.pg__dot {
 		position: absolute;
@@ -11245,6 +11620,156 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	// Add is the sheet's one primary action, the site's primary button; Discard the quiet one beside it.
+	// A mark's drawing: its own, or a new one proposed through the chooser, which moves in under it.
+	// Colours and Drawing: one part, two tabs, the tab bar in the place of the part's heading and at its size.
+	.pgs__tablist {
+		display: flex;
+		gap: 22px;
+		border-bottom: 1px solid $line;
+
+		[role='tab'] {
+			@include type-lede;
+
+			margin: 0 0 -1px;
+			padding: 0 0 10px;
+			border: 0;
+			border-bottom: 2px solid transparent;
+			background: none;
+			color: var(--color-text-secondary);
+			font-family: inherit;
+			font-weight: $font-weight-bold;
+			cursor: pointer;
+
+			&:hover {
+				color: var(--color-text);
+			}
+
+			&[aria-selected='true'] {
+				border-bottom-color: var(--color-text);
+				color: var(--color-text);
+			}
+
+			&:focus-visible {
+				border-radius: 4px;
+				outline: 2px solid var(--focus-ring);
+				outline-offset: 2px;
+			}
+		}
+	}
+
+	.pgs__panel {
+		display: grid;
+		gap: 14px;
+		min-width: 0;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	// The drawing's state on one line: its own (or the new one proposed), and the way to propose one.
+	.pgs__drawrow {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 12px;
+
+		.pgs__hint {
+			flex: 1 1 240px;
+			margin: 0;
+		}
+	}
+
+	.pgs__drawbtn {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		margin-left: auto;
+		padding: 5px 12px;
+		border: 0;
+		border-radius: 100px;
+		background: #f1f2f6;
+		color: var(--color-text);
+		font: inherit;
+		font-size: 12px;
+		font-weight: $font-weight-medium;
+		cursor: pointer;
+
+		&:hover {
+			background: #e7e9f2;
+		}
+
+		&[aria-expanded='true'] {
+			background: var(--color-text);
+			color: #fff;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+
+		:global(svg) {
+			width: 14px;
+			height: 14px;
+		}
+	}
+
+	.pgs__notice--draw {
+		background: #eef0fe;
+		color: #2f3fd0;
+
+		button {
+			background: rgba(47, 63, 208, 0.1);
+
+			&:hover {
+				background: rgba(47, 63, 208, 0.18);
+			}
+		}
+
+		code {
+			font-size: 12px;
+		}
+	}
+
+	.pgs__drawslot {
+		display: grid;
+		gap: 12px;
+		padding: 14px;
+		border-radius: 16px;
+		background: #f6f7fb;
+
+		&[hidden] {
+			display: none;
+		}
+	}
+
+	// The chooser takes its place's layout, on the Add sheet and in a mark's Drawing part alike.
+	.pgs__chooser {
+		display: contents;
+	}
+
+	// A shipped tile with a new drawing over its own: its ground kept, its glyph hidden under it.
+	:global([data-redrawn]) {
+		position: relative;
+	}
+
+	:global([data-redrawn] > :not(.lr-redraw)) {
+		visibility: hidden;
+	}
+
+	:global(.lr-redraw) {
+		position: absolute;
+		inset: 20%;
+		display: grid;
+		place-items: center;
+	}
+
+	:global(.lr-redraw > svg) {
+		width: 100%;
+		height: 100%;
+	}
+
 	.pgs__newbtn {
 		@include ui-button(primary, sm);
 
@@ -12026,9 +12551,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			align-self: center;
 		}
 
-		// A decision: an indigo edge, and what it settles above its text.
+		// A decision: a faint indigo, and what it settles above its text.
 		:global(li[data-decision]) {
-			box-shadow: inset 3px 0 0 #3d50f5;
 			background: #f1f3fe;
 		}
 
@@ -12053,9 +12577,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		transition: box-shadow 0.15s;
 
 		&[data-kind='decision'] {
-			box-shadow:
-				inset 0 0 0 1px rgba(61, 80, 245, 0.35),
-				inset 3px 0 0 #3d50f5;
+			box-shadow: inset 0 0 0 1px rgba(61, 80, 245, 0.35);
 		}
 
 		// Note or decision: a two-way switch, then for a decision what it settles as a row of chips.

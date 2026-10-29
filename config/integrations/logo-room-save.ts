@@ -1,9 +1,9 @@
 import type { AstroIntegration } from 'astro';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { logoCreateSchema, logoSaveSchema } from '../../src/models/logo-room';
-import { markArtPath, markPath, newMarkRecord, writeProposal } from '../../src/util/logo-room-records';
+import { markArtPath, markPath, newMarkRecord, proposedArtPath, writeProposal } from '../../src/util/logo-room-records';
 
 /**
  * The Logo Room's Save to repo, on the dev server only: `POST /__logo-room/save` with one mark's
@@ -54,13 +54,21 @@ export const logoRoomSave = () =>
 					try {
 						const parsed = logoSaveSchema.safeParse(JSON.parse(await readBody(req)));
 						if (!parsed.success) return send(res, 400, { error: parsed.error.issues[0]?.message ?? 'Invalid' });
-						const { mark, treatments, colours, label, remove, notes } = parsed.data;
+						const { mark, treatments, colours, label, remove, drawing, notes } = parsed.data;
 						const path = markPath(mark);
 						const file = join(root, path);
 						if (!existsSync(file)) return send(res, 404, { error: `No record ${path}` });
+						if (drawing && !safeSvg(drawing.svg))
+							return send(res, 400, { error: 'The drawing needs a viewBox, and nothing that runs' });
 						const before = readFileSync(file, 'utf8');
-						const after = writeProposal(before, { treatments, colours, label, remove, notes });
+						const after = writeProposal(before, { treatments, colours, label, remove, drawing: drawing?.label, notes });
 						if (after !== before) writeFileSync(file, after);
+						// The new drawing beside the record, or none: the file goes with the proposal.
+						const art = join(root, proposedArtPath(mark));
+						if (drawing) {
+							mkdirSync(dirname(art), { recursive: true });
+							writeFileSync(art, drawing.svg.endsWith('\n') ? drawing.svg : `${drawing.svg}\n`);
+						} else if (existsSync(art)) rmSync(art);
 						logger.info(`${after === before ? 'unchanged' : 'saved'} ${path}`);
 						return send(res, 200, { path, changed: after !== before });
 					} catch (e) {

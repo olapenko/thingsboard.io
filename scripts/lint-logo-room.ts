@@ -11,7 +11,8 @@
  *     date and a decided one has one, not before it opened
  *
  *   - artwork: each file in `marks/<mark>/` is `<candidate>.svg` for a candidate of that mark (not
- *     `current`), or `mark.svg`, the mark's own artwork; each with a viewBox and nothing that runs; a
+ *     `current`), `mark.svg`, the mark's own artwork, or `proposed.svg`, the new drawing its record's
+ *     `proposed.drawing` names (one with the other); each with a viewBox and nothing that runs; a
  *     candidate with a file is no longer `toDraw`
  *   - two tones: for a mark drawn from its `mark.svg`, a second tone in `colours` only when the file
  *     paints one, and one whenever it does; the second tone painted as `TONE_2`, nothing else. (The
@@ -186,7 +187,9 @@ for (const name of readdirSync(marksDir).sort()) {
 		const svg = file.endsWith('.svg') ? readFileSync(at, 'utf8') : '';
 		if (!file.endsWith('.svg')) report(at, 'artwork is an .svg named for its candidate, or mark.svg');
 		else if (id === 'current') report(at, 'the current drawing is the shipped one, not a file here');
-		else if (id !== 'mark' && !mark.data.candidates.some((c) => c.id === id))
+		else if (id === 'proposed' && !mark.data.proposed?.drawing)
+			report(at, `a proposed drawing that ${name}.md does not propose: give it proposed.drawing`);
+		else if (id !== 'mark' && id !== 'proposed' && !mark.data.candidates.some((c) => c.id === id))
 			report(at, `no candidate “${id}” in ${name}.md`);
 		else if (!/viewBox="[^"]+"/.test(svg)) report(at, 'needs a viewBox');
 		else if (/<script\b|<foreignObject\b|\son\w+\s*=|javascript:/i.test(svg)) report(at, 'has something that runs');
@@ -208,6 +211,8 @@ for (const [name, { file, data }] of marks) {
 	if ((art.match(/var\(--lc-tone-2[^)]*\)/g) ?? []).some((v) => v !== TONE_2))
 		report(own, `the second tone is painted ${TONE_2}`);
 	if (data.proposed?.label === data.label) report(file, `proposed.label repeats its name, ${data.label}`);
+	if (data.proposed?.drawing && !existsSync(join(marksDir, name, 'proposed.svg')))
+		report(file, `proposed.drawing names a drawing, and marks/${name}/proposed.svg is not there`);
 	for (const c of data.candidates) {
 		if (c.toDraw && existsSync(join(marksDir, name, `${c.id}.svg`)))
 			report(file, `candidate ${c.id} has its drawing now: drop toDraw`);
@@ -328,6 +333,7 @@ const PROBE = {
 	treatments: { white: 'exploring' },
 	colours: { first: { dark: '#b3c7ff' }, second: { light: '#3d50f5' } },
 	note: { at: '2026-01-01T00:00:00.000Z', text: `A probe's note, "quoted": with a colon`, decision: 'colour' },
+	drawing: `upload:a probe's "drawing".svg`,
 } as const;
 for (const { file, data } of marks.values()) {
 	const raw = readFileSync(file, 'utf8');
@@ -336,6 +342,7 @@ for (const { file, data } of marks.values()) {
 		colours: data.proposed?.colours,
 		label: data.proposed?.label,
 		remove: data.proposed?.remove,
+		drawing: data.proposed?.drawing,
 		notes: data.notes.map((n) => ({ at: n.at.toISOString(), text: n.text, decision: n.decision })),
 	};
 	const once = writeProposal(raw, own);
@@ -346,6 +353,7 @@ for (const { file, data } of marks.values()) {
 		colours: PROBE.colours,
 		label: `${data.label}'s "probe"`,
 		remove: true,
+		drawing: PROBE.drawing,
 		notes: [...own.notes, PROBE.note],
 	});
 	const parsed = logoMarkSchema.safeParse(parse(probed.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? ''));
@@ -356,6 +364,7 @@ for (const { file, data } of marks.values()) {
 		parsed.data.proposed?.colours?.second?.light !== PROBE.colours.second.light ||
 		parsed.data.proposed?.label !== `${data.label}'s "probe"` ||
 		parsed.data.proposed?.remove !== true ||
+		parsed.data.proposed?.drawing !== PROBE.drawing ||
 		!parsed.data.notes.some((n) => n.text === PROBE.note.text && n.decision === PROBE.note.decision)
 	)
 		report(file, 'patch writer: the probe did not come through');
@@ -366,6 +375,13 @@ for (const { file, data } of marks.values()) {
 	});
 	if (check.status !== 0)
 		report(file, `patch writer: git apply refuses its diff (${check.stderr.toString().trim().split('\n')[0]})`);
+	// A file taken away, as a proposed drawing withdrawn is: the deletion diff git apply takes.
+	const gone = spawnSync('git', ['apply', '--check', '-'], {
+		cwd: ROOT,
+		input: unifiedDiff(relative(ROOT, file), raw, ''),
+	});
+	if (gone.status !== 0)
+		report(file, `patch writer: git apply refuses its deletion (${gone.stderr.toString().trim().split('\n')[0]})`);
 }
 
 if (problems.length > 0) {

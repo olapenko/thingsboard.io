@@ -140,6 +140,8 @@ export const logoMarkSchema = z.object({
 			colours: logoProposedColoursSchema.optional(),
 			label: z.string().trim().min(1).max(40).optional(),
 			remove: z.boolean().optional(),
+			/** A new drawing, named for where it came from; its artwork is `marks/<id>/proposed.svg`. */
+			drawing: z.string().trim().min(1).max(120).optional(),
 		})
 		.optional(),
 	/** Notes on the mark, oldest first, as the sheet lists them: a comment, or a decision and what it settles. */
@@ -247,6 +249,8 @@ export const logoSaveSchema = z.object({
 	colours: logoProposedColoursSchema.optional(),
 	label: z.string().trim().min(1).max(40).optional(),
 	remove: z.boolean().optional(),
+	/** A new drawing: its name, and its artwork for `marks/<id>/proposed.svg`. None takes the file away. */
+	drawing: z.object({ label: z.string().trim().min(1).max(120), svg: z.string().min(1).max(200_000) }).optional(),
 	notes: z
 		.array(
 			z.object({

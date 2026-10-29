@@ -24,6 +24,8 @@ export interface RecordProposal {
 	label?: string;
 	/** Take the mark out of the set. */
 	remove?: boolean;
+	/** A new drawing, by where it came from; its artwork goes to `proposedArtPath`. */
+	drawing?: string;
 	notes: RecordNote[];
 }
 
@@ -67,7 +69,7 @@ export function proposalYaml(p: RecordProposal): string {
 	const lines: string[] = [];
 	const treatments = Object.entries(p.treatments).filter(([, v]) => v);
 	const colours = proposedColours(p.colours);
-	if (treatments.length > 0 || colours || p.label || p.remove) {
+	if (treatments.length > 0 || colours || p.label || p.remove || p.drawing) {
 		lines.push('proposed:');
 		if (treatments.length > 0) {
 			lines.push('  treatments:');
@@ -85,6 +87,7 @@ export function proposalYaml(p: RecordProposal): string {
 		}
 		if (p.label) lines.push(`  label: ${quote(p.label)}`);
 		if (p.remove) lines.push('  remove: true');
+		if (p.drawing) lines.push(`  drawing: ${quote(p.drawing)}`);
 	}
 	if (p.notes.length > 0) {
 		lines.push('notes:');
@@ -177,6 +180,8 @@ export interface NewMark {
 
 /** Where a mark's own artwork goes when the room draws it from a file. */
 export const markArtPath = (id: string) => `${MARKS_DIR}/${id}/mark.svg`;
+/** Where a new drawing proposed for a mark goes, beside its record's `proposed.drawing`. */
+export const proposedArtPath = (id: string) => `${MARKS_DIR}/${id}/proposed.svg`;
 
 /**
  * The paint of two-tone artwork's second tone, as its file writes it: the tile's second colour, or the
@@ -235,6 +240,20 @@ export const mergeNotes = (...lists: RecordNote[][]) =>
  */
 export function unifiedDiff(path: string, before: string, after: string): string {
 	if (before === after) return '';
+	// A file taken away: a deletion, to /dev/null.
+	if (after === '') {
+		const a = before.split('\n');
+		if (a.at(-1) === '') a.pop();
+		return [
+			`diff --git a/${path} b/${path}`,
+			'deleted file mode 100644',
+			`--- a/${path}`,
+			'+++ /dev/null',
+			`@@ -1,${a.length} +0,0 @@`,
+			...a.map((l) => `-${l}`),
+			'',
+		].join('\n');
+	}
 	// A file that is not there yet: a creation, which git apply takes from /dev/null.
 	if (before === '') {
 		const b = after.split('\n');
