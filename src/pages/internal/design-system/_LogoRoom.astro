@@ -19,6 +19,7 @@ import {
 	type ToneView,
 } from '@root/pages/internal/design-system/_logos';
 import ColourTones from '@root/pages/internal/design-system/_ColourTones.astro';
+import ColourPicker, { type PickerColour } from '@root/pages/internal/design-system/_ColourPicker.astro';
 import {
 	NEW_SURFACES,
 	ecosystemCell,
@@ -38,6 +39,7 @@ import { shippingComposition } from '@data/home-compositions';
 import { CHAT_HUES, CHAT_HUE_LEG_S, CHAT_LAUNCHER, LAUNCHER_BOX } from '@data/chat-widget';
 import { parse as parseYaml } from 'yaml';
 import {
+	LOGO_DECISIONS,
 	logoMarkSchema,
 	logoPaletteSchema,
 	type LogoMark,
@@ -2289,6 +2291,17 @@ const SET_COLOURS = [
 	} else list.push({ ...c });
 	return list;
 }, []);
+/** The colour picker's swatches: the set's colours, their second tones, then the colours proposed. */
+const pickerColours = (list: PickerColour[]) =>
+	list.filter((c, i) => /^#[0-9a-f]{6}$/.test(c.light) && list.findIndex((x) => x.light === c.light) === i);
+const PICKER_GROUPS = [
+	{ label: 'The set', colours: pickerColours(MARK_COLOURS) },
+	{
+		label: 'Second tones',
+		colours: pickerColours(MARK_COLOURS.flatMap((c) => (c.second ? [{ name: `${c.name}, second`, ...c.second }] : []))),
+	},
+	{ label: 'Proposed', colours: pickerColours(SET_PALETTE.filter((c) => c.proposed)) },
+].filter((g) => g.colours.length > 0);
 /** The Add sheet's tones as it opens: the brand indigo, and a second tone to add if the artwork takes one. */
 const NEW_FIRST: ToneView = {
 	light: '#3d50f5',
@@ -2389,7 +2402,7 @@ const RECORDS_JSON = JSON.stringify(
 					colours,
 					proposedLabel: label,
 					remove,
-					notes: notes.map((n) => ({ at: n.at.toISOString(), text: n.text })),
+					notes: notes.map((n) => ({ at: n.at.toISOString(), text: n.text, decision: n.decision })),
 					rev: JSON.stringify({ treatments, colours, label, remove }),
 				},
 			];
@@ -3333,7 +3346,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 									<span class="pg__paled-hex pg__paled-hex--dark">
 										<label class="pg__paled-dot" title="Its dark value">
 											<i aria-hidden="true" />
-											<input type="color" aria-label="Pick its dark value" data-ed-dark-picker />
+											<input type="color" aria-label="Pick its dark value" data-ed-dark-picker data-cp-dark />
 										</label>
 										<input
 											type="text"
@@ -4418,7 +4431,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	{/* ── The sheet: a mark's own page, over this one, opened from any of its tiles ── */}
 	{page !== 'legacy' && (
-		<aside class="pr-sheet" id="pg-sheet" aria-label="Mark sheet" hidden>
+		<aside
+			class="pr-sheet"
+			id="pg-sheet"
+			aria-label="Mark sheet"
+			data-decisions={JSON.stringify(LOGO_DECISIONS)}
+			hidden
+		>
 			{SHEETS.map((s) => (
 				<article
 					class="pgs"
@@ -4861,7 +4880,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						)}
 					</div>
 					<div class="pgs__part pgs__details pgs__decision">
-						<p class="pgs__label">Decision and notes</p>
+						<p class="pgs__label">Decisions and notes</p>
 						<span class="pgs__acts">
 							{s.actions.map((a) => (
 								<span class:list={['pr-action', `pr-action--${a.kind}`]}>
@@ -4871,15 +4890,36 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						</span>
 						{s.r.comment && <p class="pr-comment">{s.r.comment}</p>}
 						<ol class="pgs__notes" data-notes-list={s.r.id} />
-						<div class="pgs__compose">
+						<div class="pgs__compose" data-compose={s.r.id} data-kind="note">
+							<div class="pgs__kinds" role="radiogroup" aria-label="Add a note or a decision">
+								<label>
+									<input type="radio" name={`kind-${s.r.id}`} value="note" checked data-kind-pick />
+									<Icon name="tabler:message-2" aria-hidden="true" />
+									Note
+								</label>
+								<label>
+									<input type="radio" name={`kind-${s.r.id}`} value="decision" data-kind-pick />
+									<Icon name="tabler:gavel" aria-hidden="true" />
+									Decision
+								</label>
+							</div>
+							<fieldset class="pgs__types" data-types hidden>
+								<legend>What it settles</legend>
+								{Object.entries(LOGO_DECISIONS).map(([k, v]) => (
+									<label>
+										<input type="radio" name={`decides-${s.r.id}`} value={k} data-type-pick />
+										{v}
+									</label>
+								))}
+							</fieldset>
 							<textarea
 								rows="2"
-								placeholder="Add a comment"
+								placeholder="Add a note"
 								data-note-for={s.r.id}
-								aria-label={`A comment on ${s.r.label}`}
+								aria-label={`A note on ${s.r.label}`}
 							></textarea>
 							<button type="button" data-note-add={s.r.id}>
-								Add
+								Add note
 							</button>
 						</div>
 					</div>
@@ -5050,10 +5090,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			</article>
 		</aside>
 	)}
+	<ColourPicker groups={PICKER_GROUPS} />
 </div>
 
 <script>
 	import { trackScrollbar } from '@root/pages/internal/design-system/_bleed';
+	import { initColourPicker } from '@root/pages/internal/design-system/_colour-picker';
 	import { iconBase } from '@root/pages/internal/design-system/_room-icons';
 	import { darkFor, deltaOk, secondDarkFor, secondFor } from '@util/oklch';
 	import {
@@ -5077,6 +5119,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	// Bands that span the window take its scrollbar off (_bleed.ts).
 	trackScrollbar();
+	// Every colour input in the room opens the room's own picker.
+	const pickerBox = document.querySelector<HTMLElement>('[data-cp]');
+	if (pickerBox) initColourPicker(pickerBox);
 
 	/**
 	 * An artwork as a draft tile draws it (_LogoCell.astro): its root SVG takes the tile's glyph class
@@ -5487,10 +5532,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	const root = document.querySelector<HTMLElement>('.pg') ?? document.createElement('div');
 	const sheetBox = document.querySelector<HTMLElement>('.pr-sheet');
 	if (sheetBox) {
-		interface Note {
-			text: string;
-			at: string;
-		}
+		type Note = RecordNote;
 		interface Bench {
 			status: Record<string, string>;
 			notes: Record<string, Note[]>;
@@ -6001,28 +6043,33 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			showStatus(key);
 		});
 
-		// Comments: listed on the sheet, counted on the canvas tile.
+		// Notes and decisions: listed on the sheet, counted on the canvas tile. A decision names what it
+		// settles, from the composer's types.
+		const DECISIONS: Record<string, string> = JSON.parse(sheetBox.dataset.decisions ?? '{}');
+		const noteItem = (n: Note, where?: string) => {
+			const li = document.createElement('li');
+			const text = document.createElement('span');
+			text.textContent = n.text;
+			const meta = document.createElement('small');
+			meta.textContent = [new Date(n.at).toLocaleDateString(), where].filter(Boolean).join(' · ');
+			if (n.decision) {
+				li.dataset.decision = n.decision;
+				const tag = document.createElement('em');
+				tag.textContent = `Decision · ${DECISIONS[n.decision] ?? n.decision}`;
+				li.append(tag);
+			}
+			li.append(text, meta);
+			return li;
+		};
 		const showNotes = (id: string) => {
 			const list = sheetBox.querySelector<HTMLElement>(`[data-notes-list="${id}"]`);
 			const notes = bench.notes[id] ?? [];
 			const saved = (REPO[id]?.notes ?? []).filter((r) => !notes.some((n) => n.at === r.at && n.text === r.text));
 			if (list) {
 				list.replaceChildren(
-					...saved.map((n) => {
-						const li = document.createElement('li');
-						const text = document.createElement('span');
-						text.textContent = n.text;
-						const meta = document.createElement('small');
-						meta.textContent = `${new Date(n.at).toLocaleDateString()} · in the record`;
-						li.append(text, meta);
-						return li;
-					}),
+					...saved.map((n) => noteItem(n, 'in the record')),
 					...notes.map((n, i) => {
-						const li = document.createElement('li');
-						const text = document.createElement('span');
-						text.textContent = n.text;
-						const meta = document.createElement('small');
-						meta.textContent = new Date(n.at).toLocaleDateString();
+						const li = noteItem(n);
 						const remove = document.createElement('button');
 						remove.type = 'button';
 						remove.textContent = 'Remove';
@@ -6031,7 +6078,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							save();
 							showNotes(id);
 						});
-						li.append(text, meta, remove);
+						li.append(remove);
 						return li;
 					})
 				);
@@ -6043,15 +6090,36 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		};
 		sheetBox.querySelectorAll<HTMLButtonElement>('[data-note-add]').forEach((b) => {
 			const id = b.dataset.noteAdd ?? '';
-			const field = sheetBox.querySelector<HTMLTextAreaElement>(`[data-note-for="${id}"]`);
+			const box = sheetBox.querySelector<HTMLElement>(`[data-compose="${id}"]`);
+			const field = box?.querySelector<HTMLTextAreaElement>('[data-note-for]');
+			const types = box?.querySelector<HTMLFieldSetElement>('[data-types]');
+			const kind = () => box?.querySelector<HTMLInputElement>('[data-kind-pick]:checked')?.value ?? 'note';
+			const type = () => box?.querySelector<HTMLInputElement>('[data-type-pick]:checked')?.value;
+			// A note goes in as it is; a decision waits for what it settles.
+			const showKind = () => {
+				const deciding = kind() === 'decision';
+				if (box) box.dataset.kind = deciding ? 'decision' : 'note';
+				if (types) types.hidden = !deciding;
+				if (field) field.placeholder = deciding ? 'What was decided, and why' : 'Add a note';
+				b.textContent = deciding ? 'Add decision' : 'Add note';
+				b.disabled = deciding && !type();
+				b.title = b.disabled ? 'Pick what it settles first' : '';
+			};
+			box?.addEventListener('change', showKind);
 			b.addEventListener('click', () => {
 				const text = field?.value.trim();
 				if (!text || !field) return;
-				(bench.notes[id] ??= []).push({ text, at: new Date().toISOString() });
+				const decision = kind() === 'decision' ? type() : undefined;
+				(bench.notes[id] ??= []).push({
+					text,
+					at: new Date().toISOString(),
+					...(decision ? { decision: decision as Note['decision'] } : {}),
+				});
 				field.value = '';
 				save();
 				showNotes(id);
 			});
+			showKind();
 			showNotes(id);
 		});
 
@@ -6178,7 +6246,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			save();
 		});
 		const remember = (id: string, hex: string) => {
-			bench.tries[id] = hex;
+			// A mark's own colour picked again is no try: a picker dragged back, or Escape in it.
+			if (REPO[id] && hex === baseOf(id)) delete bench.tries[id];
+			else bench.tries[id] = hex;
 			save();
 			tryColour(id, hex);
 		};
@@ -6415,8 +6485,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		};
 		const setTone = (id: string, key: ToneKey, hex?: string) => {
 			const tones = { ...bench.tones[id] };
-			if (hex) tones[key] = hex;
-			else delete tones[key];
+			delete tones[key];
+			bench.tones[id] = tones;
+			// The value it takes without a try (the rule's where it follows it, else its record's) is no try.
+			if (hex && hex !== toneNow(id, key)) tones[key] = hex;
 			if (Object.keys(tones).length > 0) bench.tones[id] = tones;
 			else delete bench.tones[id];
 			save();
@@ -11849,7 +11921,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	.pgs__compose button,
-	.pgs__notes button {
+	.pgs__notes :global(button) {
 		padding: 5px 12px;
 		border: 0;
 		border-radius: 100px;
@@ -11943,14 +12015,29 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 
 		:global(small) {
-			grid-row: 2;
+			grid-column: 1;
 			font-size: 11px;
 			color: var(--color-text-secondary);
 		}
 
 		:global(button) {
-			grid-row: 1 / span 2;
+			grid-column: 2;
+			grid-row: 1 / -1;
 			align-self: center;
+		}
+
+		// A decision: an indigo edge, and what it settles above its text.
+		:global(li[data-decision]) {
+			box-shadow: inset 3px 0 0 #3d50f5;
+			background: #f1f3fe;
+		}
+
+		:global(em) {
+			grid-column: 1;
+			font-size: 11px;
+			font-style: normal;
+			font-weight: $font-weight-bold;
+			color: #2f3fd0;
 		}
 	}
 
@@ -11959,6 +12046,103 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: end;
 		gap: 8px;
+		padding: 10px;
+		border-radius: 14px;
+		background: #fff;
+		box-shadow: inset 0 0 0 1px $line;
+		transition: box-shadow 0.15s;
+
+		&[data-kind='decision'] {
+			box-shadow:
+				inset 0 0 0 1px rgba(61, 80, 245, 0.35),
+				inset 3px 0 0 #3d50f5;
+		}
+
+		// Note or decision: a two-way switch, then for a decision what it settles as a row of chips.
+		.pgs__kinds {
+			grid-column: 1 / -1;
+			display: inline-flex;
+			justify-self: start;
+			padding: 3px;
+			border-radius: 100px;
+			background: #f1f2f6;
+		}
+
+		.pgs__kinds label,
+		.pgs__types label {
+			position: relative;
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+			border-radius: 100px;
+			font-size: 12px;
+			color: var(--color-text-secondary);
+			cursor: pointer;
+
+			&:has(:focus-visible) {
+				outline: 2px solid var(--focus-ring);
+				outline-offset: 1px;
+			}
+		}
+
+		.pgs__kinds label {
+			padding: 4px 12px;
+
+			&:has(:checked) {
+				background: #fff;
+				color: var(--color-text);
+				box-shadow: 0 1px 2px rgba(23, 24, 28, 0.12);
+			}
+
+			:global(svg) {
+				width: 14px;
+				height: 14px;
+			}
+		}
+
+		input[type='radio'] {
+			position: absolute;
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		.pgs__types {
+			grid-column: 1 / -1;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			min-width: 0;
+			margin: 0;
+			padding: 0;
+			border: 0;
+
+			&[hidden] {
+				display: none;
+			}
+
+			legend {
+				float: left;
+				margin-right: 4px;
+				padding: 4px 0;
+				font-size: 12px;
+				color: var(--color-text-secondary);
+			}
+
+			label {
+				padding: 3px 10px;
+				box-shadow: inset 0 0 0 1px $line;
+
+				&:hover {
+					color: var(--color-text);
+				}
+
+				&:has(:checked) {
+					background: #3d50f5;
+					color: #fff;
+					box-shadow: none;
+				}
+			}
+		}
 
 		textarea {
 			padding: 8px 10px;
@@ -11980,6 +12164,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 			&:hover {
 				background: #000;
+			}
+
+			&:disabled {
+				background: #f1f2f6;
+				color: var(--color-text-secondary);
+				cursor: not-allowed;
 			}
 		}
 	}

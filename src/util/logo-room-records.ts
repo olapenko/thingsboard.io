@@ -1,4 +1,4 @@
-import type { LogoProposalKey } from '@models/logo-room';
+import type { LogoDecision, LogoProposalKey } from '@models/logo-room';
 
 /**
  * Writing the Logo Room's records: what the room proposes (a status, a colour, a note) becomes a change
@@ -12,6 +12,8 @@ import type { LogoProposalKey } from '@models/logo-room';
 export interface RecordNote {
 	at: string;
 	text: string;
+	/** What it settles, when the note is a decision. */
+	decision?: LogoDecision;
 }
 
 export interface RecordProposal {
@@ -86,7 +88,10 @@ export function proposalYaml(p: RecordProposal): string {
 	}
 	if (p.notes.length > 0) {
 		lines.push('notes:');
-		p.notes.forEach((n) => lines.push(`  - at: ${quote(n.at)}`, `    text: ${quote(n.text)}`));
+		p.notes.forEach((n) => {
+			lines.push(`  - at: ${quote(n.at)}`, `    text: ${quote(n.text)}`);
+			if (n.decision) lines.push(`    decision: ${n.decision}`);
+		});
 	}
 	return lines.join('\n');
 }

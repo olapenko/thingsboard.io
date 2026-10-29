@@ -1,0 +1,369 @@
+---
+/**
+ * The room's colour picker, drawn once per page: the popover every colour input opens (wired in
+ * `_colour-picker.ts`, from the Logo Room's script). An area for saturation and brightness, a hue strip,
+ * the hex with where it started, the eyedropper, the room's read-outs, and the set's colours to pick.
+ */
+import { Icon } from 'astro-icon/components';
+
+export interface PickerColour {
+	name: string;
+	light: string;
+	dark: string;
+}
+interface Props {
+	/** The swatches, by group: each colour once, its light and its dark value. */
+	groups: { label: string; colours: PickerColour[] }[];
+}
+const { groups } = Astro.props;
+---
+
+<div class="cp" role="dialog" aria-label="Pick a colour" data-cp hidden>
+	<div
+		class="cp__area"
+		role="slider"
+		tabindex="0"
+		aria-label="Saturation and brightness"
+		aria-valuemin="0"
+		aria-valuemax="100"
+		data-cp-area
+	>
+		<span class="cp__knob" data-cp-knob></span>
+	</div>
+	<div class="cp__hue" role="slider" tabindex="0" aria-label="Hue" aria-valuemin="0" aria-valuemax="360" data-cp-hue>
+		<span class="cp__knob cp__knob--hue" data-cp-hknob></span>
+	</div>
+	<div class="cp__row">
+		<button type="button" class="cp__was" title="Back to where it started" data-cp-was>
+			<i aria-hidden="true"></i>
+			<i aria-hidden="true"></i>
+			<span class="cp__sr">Back to where it started</span>
+		</button>
+		<input
+			class="cp__hex"
+			type="text"
+			maxlength="7"
+			spellcheck="false"
+			autocomplete="off"
+			aria-label="Hex"
+			data-cp-hex
+		/>
+		<button
+			type="button"
+			class="cp__drop"
+			title="Pick a colour from the page"
+			aria-label="Pick a colour from the page"
+			data-cp-drop
+			hidden
+		>
+			<Icon name="tabler:color-picker" aria-hidden="true" />
+		</button>
+	</div>
+	<dl class="cp__read">
+		<div>
+			<dt>OKLCH</dt>
+			<dd data-cp-oklch></dd>
+		</div>
+		<div>
+			<dt>On white</dt>
+			<dd data-cp-white></dd>
+		</div>
+		<div>
+			<dt>On night</dt>
+			<dd data-cp-night></dd>
+		</div>
+	</dl>
+	{groups.map((g) => (
+		<div class="cp__group">
+			<p>{g.label}</p>
+			<div class="cp__dots">
+				{g.colours.map((c) => (
+					<button
+						type="button"
+						class="cp__dot"
+						aria-pressed="false"
+						aria-label={c.name}
+						data-cp-name={c.name}
+						data-cp-light={c.light}
+						data-cp-dark={c.dark}
+					/>
+				))}
+			</div>
+		</div>
+	))}
+	<div class="cp__group" data-cp-added hidden>
+		<p>Yours</p>
+		<div class="cp__dots" data-cp-row></div>
+	</div>
+	<template data-cp-dot>
+		<button type="button" class="cp__dot" aria-pressed="false"></button>
+	</template>
+</div>
+
+<style lang="scss">
+	@use '../../../styles/variables' as *;
+
+	$line: rgba(23, 24, 28, 0.12);
+
+	.cp {
+		position: fixed;
+		z-index: 60;
+		display: grid;
+		gap: 10px;
+		box-sizing: border-box;
+		width: 264px;
+		padding: 12px;
+		border-radius: 16px;
+		background: #fff;
+		color: var(--color-text);
+		box-shadow:
+			0 0 0 1px $line,
+			0 16px 40px rgba(23, 24, 28, 0.18);
+		font-size: 12px;
+
+		&[hidden] {
+			display: none;
+		}
+
+		:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+	}
+
+	.cp__area {
+		position: relative;
+		height: 152px;
+		border-radius: 10px;
+		background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, var(--cp-hue));
+		box-shadow: inset 0 0 0 1px $line;
+		cursor: crosshair;
+		touch-action: none;
+	}
+
+	.cp__hue {
+		position: relative;
+		height: 12px;
+		margin: 0 7px;
+		border-radius: 6px;
+		background: linear-gradient(
+			to right,
+			#f00 0%,
+			#ff0 16.67%,
+			#0f0 33.33%,
+			#0ff 50%,
+			#00f 66.67%,
+			#f0f 83.33%,
+			#f00 100%
+		);
+		cursor: ew-resize;
+		touch-action: none;
+
+		&::before,
+		&::after {
+			content: '';
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			width: 7px;
+		}
+
+		&::before {
+			right: 100%;
+			border-radius: 6px 0 0 6px;
+			background: #f00;
+		}
+
+		&::after {
+			left: 100%;
+			border-radius: 0 6px 6px 0;
+			background: #f00;
+		}
+	}
+
+	.cp__knob {
+		position: absolute;
+		z-index: 1;
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+		background: var(--cp-now);
+		box-shadow:
+			0 0 0 2px #fff,
+			0 1px 4px 2px rgba(0, 0, 0, 0.3);
+		transform: translate(-50%, -50%);
+		pointer-events: none;
+	}
+
+	.cp__knob--hue {
+		top: 50%;
+		background: var(--cp-hue);
+	}
+
+	.cp__row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	// Where it started and where it is now, side by side: the left half takes it back.
+	.cp__was {
+		display: flex;
+		flex: none;
+		width: 44px;
+		height: 30px;
+		padding: 0;
+		overflow: hidden;
+		border: 0;
+		border-radius: 8px;
+		box-shadow: inset 0 0 0 1px $line;
+		cursor: pointer;
+
+		i {
+			flex: 1;
+			background: var(--cp-was);
+		}
+
+		i + i {
+			background: var(--cp-now);
+		}
+	}
+
+	.cp__hex {
+		box-sizing: border-box;
+		flex: 1;
+		min-width: 0;
+		height: 30px;
+		padding: 0 8px;
+		border: 1px solid $line;
+		border-radius: 8px;
+		background: #f4f5f8;
+		color: var(--color-text);
+		font: inherit;
+		font-family: $font-family-mono;
+		font-size: 12px;
+		text-transform: lowercase;
+
+		&:focus-visible {
+			border-color: transparent;
+			outline-offset: 0;
+		}
+	}
+
+	.cp__drop {
+		display: grid;
+		flex: none;
+		place-items: center;
+		width: 30px;
+		height: 30px;
+		padding: 0;
+		border: 0;
+		border-radius: 8px;
+		background: #f1f2f6;
+		color: var(--color-text);
+		cursor: pointer;
+
+		&[hidden] {
+			display: none;
+		}
+
+		&:hover {
+			background: #e7e9f2;
+		}
+
+		svg {
+			width: 16px;
+			height: 16px;
+		}
+	}
+
+	.cp__read {
+		display: grid;
+		grid-template-columns: 1.3fr 1fr 1fr;
+		gap: 6px;
+		margin: 0;
+
+		div {
+			display: grid;
+			gap: 1px;
+			padding: 5px 7px;
+			border-radius: 8px;
+			background: #f6f7fb;
+		}
+
+		dt {
+			font-size: 10px;
+			color: var(--color-text-secondary);
+		}
+
+		dd {
+			margin: 0;
+			font-family: $font-family-mono;
+			font-size: 11px;
+			white-space: nowrap;
+		}
+
+		dd[data-pass='no'] {
+			color: #c0262d;
+		}
+	}
+
+	// The ground in hand reads first: on a dark ground, On night is the check that counts.
+	.cp[data-ground='dark'] .cp__read div:nth-child(3),
+	.cp[data-ground='light'] .cp__read div:nth-child(2) {
+		box-shadow: inset 0 0 0 1px $line;
+		background: #fff;
+	}
+
+	.cp__group {
+		display: grid;
+		gap: 5px;
+
+		&[hidden] {
+			display: none;
+		}
+
+		p {
+			margin: 0;
+			font-size: 11px;
+			color: var(--color-text-secondary);
+		}
+	}
+
+	.cp__dots {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.cp :global(.cp__dot) {
+		width: 18px;
+		height: 18px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: var(--c);
+		box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+		cursor: pointer;
+		transition: transform 0.12s;
+
+		&:hover {
+			transform: scale(1.12);
+		}
+
+		&[aria-pressed='true'] {
+			box-shadow:
+				0 0 0 2px #fff,
+				0 0 0 4px var(--color-text);
+		}
+	}
+
+	.cp__sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+</style>

@@ -327,7 +327,7 @@ else {
 const PROBE = {
 	treatments: { white: 'exploring' },
 	colours: { first: { dark: '#b3c7ff' }, second: { light: '#3d50f5' } },
-	note: { at: '2026-01-01T00:00:00.000Z', text: `A probe's note, "quoted": with a colon` },
+	note: { at: '2026-01-01T00:00:00.000Z', text: `A probe's note, "quoted": with a colon`, decision: 'colour' },
 } as const;
 for (const { file, data } of marks.values()) {
 	const raw = readFileSync(file, 'utf8');
@@ -336,7 +336,7 @@ for (const { file, data } of marks.values()) {
 		colours: data.proposed?.colours,
 		label: data.proposed?.label,
 		remove: data.proposed?.remove,
-		notes: data.notes.map((n) => ({ at: n.at.toISOString(), text: n.text })),
+		notes: data.notes.map((n) => ({ at: n.at.toISOString(), text: n.text, decision: n.decision })),
 	};
 	const once = writeProposal(raw, own);
 	if (writeProposal(once, own) !== once) report(file, 'patch writer: its own proposal, written twice, changes');
@@ -356,7 +356,7 @@ for (const { file, data } of marks.values()) {
 		parsed.data.proposed?.colours?.second?.light !== PROBE.colours.second.light ||
 		parsed.data.proposed?.label !== `${data.label}'s "probe"` ||
 		parsed.data.proposed?.remove !== true ||
-		!parsed.data.notes.some((n) => n.text === PROBE.note.text)
+		!parsed.data.notes.some((n) => n.text === PROBE.note.text && n.decision === PROBE.note.decision)
 	)
 		report(file, 'patch writer: the probe did not come through');
 

@@ -26,6 +26,21 @@ export const LOGO_PROPOSAL_KEYS = ['white', 'colour', 'tint', 'dark', 'darktint'
 export type LogoProposalKey = (typeof LOGO_PROPOSAL_KEYS)[number];
 export type LogoMaterial = z.infer<typeof logoMaterialSchema>;
 
+/**
+ * What a decision on a mark settles, as the sheet's composer offers it: a note that carries one of these
+ * is a decision, any other note is a comment.
+ */
+export const LOGO_DECISIONS = {
+	drawing: 'Drawing',
+	treatment: 'Treatment',
+	colour: 'Colour',
+	name: 'Name',
+	set: 'In the set',
+	other: 'Other',
+} as const;
+export type LogoDecision = keyof typeof LOGO_DECISIONS;
+const logoDecisionSchema = z.enum(Object.keys(LOGO_DECISIONS) as [LogoDecision, ...LogoDecision[]]);
+
 /** A colour as a record writes it: a hex, or a theme token as `var(--token)`. */
 const colourValueSchema = z.string().regex(/^#[0-9a-f]{6}$|^var\(--[a-z0-9-]+\)$/);
 /**
@@ -127,8 +142,10 @@ export const logoMarkSchema = z.object({
 			remove: z.boolean().optional(),
 		})
 		.optional(),
-	/** Comments on the mark, oldest first, as the sheet's Decision and notes lists them. */
-	notes: z.array(z.object({ at: z.coerce.date(), text: z.string().min(1) })).default([]),
+	/** Notes on the mark, oldest first, as the sheet lists them: a comment, or a decision and what it settles. */
+	notes: z
+		.array(z.object({ at: z.coerce.date(), text: z.string().min(1), decision: logoDecisionSchema.optional() }))
+		.default([]),
 });
 export type LogoMark = z.infer<typeof logoMarkSchema>;
 
@@ -230,7 +247,15 @@ export const logoSaveSchema = z.object({
 	colours: logoProposedColoursSchema.optional(),
 	label: z.string().trim().min(1).max(40).optional(),
 	remove: z.boolean().optional(),
-	notes: z.array(z.object({ at: z.iso.datetime(), text: z.string().trim().min(1).max(2000) })).max(200),
+	notes: z
+		.array(
+			z.object({
+				at: z.iso.datetime(),
+				text: z.string().trim().min(1).max(2000),
+				decision: logoDecisionSchema.optional(),
+			})
+		)
+		.max(200),
 });
 
 /** What the room sends to add a mark drafted in the Studio: its record's fields and its artwork. */
