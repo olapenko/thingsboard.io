@@ -1,6 +1,7 @@
 /**
- * The ThingsBoard mark (`landings/draft/thingsboard-mark.svg`, one compound path) cut into the parts
- * an animation can move on their own. Measured from that path on 30 Oct 2026:
+ * The ThingsBoard mark (`landings/draft/thingsboard-mark.svg`, one compound path of 148 points)
+ * rebuilt from the few shapes it is made of, so an animation can move each on its own. Measured from
+ * that path on 30 Oct 2026:
  *
  * - Two ARMS, each the other turned a half turn about `CENTER`: a quarter-circle arc (radius 64.08
  *   to the middle of its 7.9 stroke, round caps) with a RING on its midpoint (radius 12.54, the same
@@ -8,13 +9,13 @@
  *   5.5 apart on the diagonal, so spinning them as drawn would wobble: the loader pulls them onto
  *   `CENTER` first.
  * - The CHIP: a rounded rectangle turned 45°, the trend arrow cut out of it, and eight PINS, two on
- *   each side.
+ *   each side: straight bars 7.57 wide with a round end.
  *
- * The arms are REDRAWN as strokes, so an animation can lengthen an arc through its dash. The chip is
- * CUT from the original outline: the body is the outline with each pin replaced by the straight edge
- * under it, and each pin is its stretch of the outline closed 2 units inside the body, so the parts
- * overlap where they meet and no hairline seam shows. The Loader page lays the parts over the
- * original and counts the pixels that differ.
+ * Every part is the simplest shape that draws it. The arms are strokes, so an animation lengthens an
+ * arc through its dash; the pins are strokes too, two points each, so one draws in along its length.
+ * The body is four edges and four rounded corners (the edges in the original carry the pins' feet as
+ * extra points, within 0.08 of straight). The arrow keeps its outline, at two decimals. The Loader
+ * page lays the parts over the original and counts the pixels that differ.
  */
 
 export const VIEWBOX = '0 0 145 144';
@@ -82,54 +83,54 @@ export function armTransform(arm: 0 | 1, pull = 0, turn = 0, scale = 1): string 
 }
 
 export interface Pin {
-	/** The middle of the pin's base, on the body's edge: where it shrinks to. */
+	/** The middle of the pin's foot, on the body's edge. */
 	base: readonly [number, number];
-	d: string;
+	/** The center of its round end. */
+	tip: readonly [number, number];
 }
 
 export const CHIP = {
 	/** The middle of the body, which it turns and shrinks about. */
 	center: { x: 71.84, y: 70.5 },
-	body: 'M61.65 38.086L72.81 26.916C74.61 25.122 77.49 25.122 79.29 26.916L87.48 35.08L92.835 40.419L101.79 49.346L107.1 54.684L115.56 62.983C117.36 64.778 117.36 67.649 115.56 69.443L104.4 80.568L99.045 85.906L87.3 97.615L81.945 102.908L70.785 114.033C68.985 115.828 66.105 115.828 64.305 114.033L55.935 105.689L50.625 100.396L41.67 91.469L36.315 86.131L28.08 78.011C26.28 76.216 26.28 73.346 28.08 71.552L39.24 60.426L44.64 55.088L56.34 43.424L61.65 38.086Z',
+	body: 'M72.81 26.92C74.61 25.12 77.49 25.12 79.29 26.92L115.56 62.98C117.36 64.78 117.36 67.65 115.56 69.44L70.79 114.03C68.99 115.83 66.11 115.83 64.31 114.03L28.08 78.01C26.28 76.22 26.28 73.35 28.08 71.55Z',
 	/** The trend arrow, cut out of the body: drawn with it under `fill-rule="evenodd"`. */
 	arrow:
-		'M78.4346 44.4111C77.3997 44.3664 76.3645 44.8146 75.5996 45.5771C75.2396 45.936 74.9251 46.3854 74.7451 46.834L71.0996 55.5811C70.3796 57.2409 70.9202 59.1702 72.4502 60.0674C73.9801 60.9644 75.9598 60.6502 77.2197 59.2598L79.0654 66.4824L58.9502 72.583C56.9702 73.1662 55.755 75.2303 56.25 77.2041L60.8398 95.0576C61.3348 97.0314 63.3598 98.1533 65.3848 97.5254C67.4098 96.8974 68.625 94.8332 68.085 92.8594L64.3496 78.5498L84.4648 72.4482C86.4448 71.8651 87.6599 69.7571 87.165 67.8281L84.4199 57.0615C86.1299 57.555 88.02 56.7477 88.875 55.0879C89.73 53.4281 89.3247 51.4538 87.9297 50.5117L80.5049 45.084C79.9199 44.6354 79.1995 44.4111 78.4346 44.4111Z',
+		'M78.43 44.41C77.4 44.37 76.36 44.81 75.6 45.58C75.24 45.94 74.93 46.39 74.75 46.83L71.1 55.58C70.38 57.24 70.92 59.17 72.45 60.07C73.98 60.96 75.96 60.65 77.22 59.26L79.07 66.48L58.95 72.58C56.97 73.17 55.76 75.23 56.25 77.2L60.84 95.06C61.33 97.03 63.36 98.15 65.38 97.53C67.41 96.9 68.63 94.83 68.08 92.86L64.35 78.55L84.46 72.45C86.44 71.87 87.66 69.76 87.17 67.83L84.42 57.06C86.13 57.56 88.02 56.75 88.88 55.09C89.73 53.43 89.32 51.45 87.93 50.51L80.5 45.08C79.92 44.64 79.2 44.41 78.43 44.41Z',
+	/**
+	 * The pins' stroke. Measured across each pin's outline it is 7.55 to 7.62; 7.62 matches the
+	 * original best in the Loader page's pixel check, since the original's round ends are a little
+	 * fuller than a half circle.
+	 */
+	pinWidth: 7.62,
 	/** Clockwise from the top: two on each side, top-right first. */
 	pins: [
-		{
-			base: [90.157, 37.749],
-			d: 'M87.48 35.08C88.424 34.138 93.644 28.935 96.435 26.153C97.11 25.525 98.01 25.166 98.91 25.121C101.025 25.032 102.78 26.692 102.78 28.8C102.78 29.787 102.465 30.773 101.745 31.491C98.82 34.452 93.78 39.477 92.835 40.419L91.423 41.835L86.068 36.496Z',
-		},
-		{
-			base: [104.445, 52.015],
-			d: 'M101.79 49.346C102.285 48.852 107.91 43.245 110.835 40.329C111.51 39.701 112.41 39.342 113.31 39.297C115.425 39.207 117.18 40.867 117.18 42.976C117.18 43.962 116.865 44.949 116.145 45.667C113.04 48.762 107.64 54.145 107.1 54.684L105.682 56.094L100.372 50.756Z',
-		},
-		{
-			base: [101.722, 83.237],
-			d: 'M104.4 80.568C104.544 80.711 110.477 86.582 113.49 89.63C114.12 90.303 114.48 91.2 114.525 92.097C114.615 94.205 112.95 95.955 110.835 95.955C109.845 95.955 108.855 95.641 108.135 94.923C104.94 91.783 99.27 86.13 99.045 85.906L97.633 84.49L102.988 79.152Z',
-		},
-		{
-			base: [84.623, 100.261],
-			d: 'M87.3 97.615C87.326 97.641 93.336 103.588 96.39 106.677C97.02 107.35 97.38 108.246 97.425 109.144C97.515 111.252 95.85 113.002 93.735 113.002C92.745 113.002 91.755 112.687 91.035 111.97L81.945 102.908L80.539 101.486L85.894 96.193Z',
-		},
-		{
-			base: [53.28, 103.042],
-			d: 'M55.935 105.689C55.484 106.183 49.859 111.835 46.89 114.751C46.215 115.379 45.315 115.738 44.415 115.783C42.3 115.873 40.545 114.213 40.545 112.104C40.545 111.118 40.86 110.131 41.58 109.413C44.685 106.318 50.129 100.891 50.625 100.396L52.037 98.98L57.347 104.273Z',
-		},
-		{
-			base: [38.992, 88.8],
-			d: 'M41.67 91.469C41.22 91.917 35.55 97.57 32.58 100.486C31.905 101.114 31.004 101.473 30.105 101.518C27.99 101.607 26.235 99.947 26.235 97.839C26.235 96.852 26.55 95.865 27.27 95.147C30.375 92.052 35.865 86.579 36.315 86.131L37.727 84.715L43.082 90.053Z',
-		},
-		{
-			base: [41.94, 57.757],
-			d: 'M39.24 60.426C38.655 59.842 33.075 54.325 30.195 51.409C29.565 50.736 29.205 49.84 29.16 48.942C29.115 47.866 29.52 46.878 30.195 46.205C30.87 45.532 31.815 45.084 32.895 45.084C33.885 45.084 34.875 45.398 35.595 46.116C38.7 49.166 44.054 54.504 44.64 55.088L46.046 56.51L40.646 61.848Z',
-		},
-		{
-			base: [58.995, 40.755],
-			d: 'M56.34 43.424C55.619 42.705 50.175 37.278 47.295 34.407C46.665 33.734 46.305 32.882 46.26 31.94C46.17 29.832 47.835 28.082 49.95 28.082C50.94 28.082 51.93 28.397 52.65 29.114C55.666 32.12 60.975 37.413 61.65 38.086L63.068 39.496L57.758 44.834Z',
-		},
+		{ base: [90.16, 37.75], tip: [99.03, 28.88] },
+		{ base: [104.45, 52.02], tip: [113.43, 43.04] },
+		{ base: [101.72, 83.24], tip: [110.73, 92.23] },
+		{ base: [84.62, 100.26], tip: [93.65, 109.27] },
+		{ base: [53.28, 103.04], tip: [44.29, 112.04] },
+		{ base: [38.99, 88.8], tip: [30.01, 97.77] },
+		{ base: [41.94, 57.76], tip: [32.98, 48.81] },
+		{ base: [59, 40.76], tip: [50.04, 31.81] },
 	] satisfies Pin[],
 } as const;
+
+/**
+ * A pin drawn `out` of the way from tucked (0) to the logo (1), past 1 for an overshoot. It starts
+ * a cap's width inside the body, so its round start never shows; its end runs along the pin's axis
+ * from just inside the edge, where the round end is all under the body, out to the tip.
+ */
+export function pinPath(pin: Pin, out = 1): string {
+	const [bx, by] = pin.base;
+	const [tx, ty] = pin.tip;
+	const reach = Math.hypot(tx - bx, ty - by);
+	const [ax, ay] = [(tx - bx) / reach, (ty - by) / reach];
+	const cap = CHIP.pinWidth / 2;
+	const end = out === 1 ? reach : -cap + (reach + cap) * out;
+	const start = -(cap + 1);
+	const at = (d: number) => `${round2(bx + ax * d)} ${round2(by + ay * d)}`;
+	return `M${at(start)}L${at(end)}`;
+}
 
 /**
  * The mark as named parts in one SVG, drawn as the logo: what the Loader page offers to download for
@@ -145,16 +146,21 @@ export function markPartsSvg(): string {
 		half(1, `${id}-arc-ahead`) +
 		`<circle id="${id}-ring" cx="${ARM.ringDistance}" cy="0" r="${ARM.ringRadius}" stroke-width="${ARM.ringStroke}"/>` +
 		`</g>`;
-	const pins = CHIP.pins.map((p, i) => `<path id="pin-${i + 1}" d="${p.d}"/>`).join('');
+	const pins = CHIP.pins.map((p, i) => `<path id="pin-${i + 1}" d="${pinPath(p)}"/>`).join('');
 	return (
 		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${VIEWBOX}" width="145" height="144" color="#17181c">` +
 		arm(0, 'arm-top-left') +
 		arm(1, 'arm-bottom-right') +
-		`<g id="chip" fill="currentColor"><path id="chip-body" fill-rule="evenodd" d="${CHIP.body}${CHIP.arrow}"/>${pins}</g>` +
+		`<g id="chip"><path id="chip-body" fill="currentColor" fill-rule="evenodd" d="${CHIP.body}${CHIP.arrow}"/>` +
+		`<g id="pins" fill="none" stroke="currentColor" stroke-width="${CHIP.pinWidth}" stroke-linecap="round">${pins}</g></g>` +
 		`</svg>`
 	);
 }
 
 function round(n: number): number {
 	return Math.round(n * 1000) / 1000;
+}
+
+function round2(n: number): number {
+	return Math.round(n * 100) / 100;
 }

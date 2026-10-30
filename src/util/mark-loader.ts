@@ -1,4 +1,4 @@
-import { ARM, CHIP, TUCKED_SWEEP, armDash, armTransform } from '@util/tb-mark-parts';
+import { ARM, CHIP, TUCKED_SWEEP, armDash, armTransform, pinPath } from '@util/tb-mark-parts';
 
 /**
  * The script behind `ui/MarkLoader`: the ThingsBoard mark as a loader. Started, the chip in the
@@ -51,7 +51,7 @@ interface Pose extends ArmPose {
 	chipScale: number;
 	chipTurn: number;
 	chip: number;
-	/** Each pin's own scale toward its base, inside the chip. */
+	/** How far each pin is drawn out of the body: 0 tucked in, 1 as in the logo, past 1 overshooting. */
 	pins: number[];
 }
 
@@ -282,13 +282,14 @@ function draw(parts: Parts, pose: Pose) {
 	parts.ahead.forEach((p) => setDash(p, pose.ahead));
 	set(parts.arms, 'opacity', pose.arms === 1 ? null : num(pose.arms));
 
-	// The pins live inside the chip group, so they turn and shrink with the body as it goes.
+	// The pins live inside the chip group, so they turn and shrink with the body as it goes; each one
+	// draws in and out along its own length, keeping its width.
 	set(parts.chip, 'opacity', pose.chip === 1 ? null : num(pose.chip));
 	set(parts.chip, 'transform', about(CHIP.center.x, CHIP.center.y, pose.chipScale, pose.chipTurn));
 	parts.pins.forEach((pin, i) => {
-		const k = pose.pins[i];
-		set(pin, 'visibility', k <= 0.001 ? 'hidden' : null);
-		if (k > 0.001) set(pin, 'transform', about(CHIP.pins[i].base[0], CHIP.pins[i].base[1], k));
+		const out = pose.pins[i];
+		set(pin, 'visibility', out <= 0.001 ? 'hidden' : null);
+		if (out > 0.001) set(pin, 'd', pinPath(CHIP.pins[i], out));
 	});
 }
 

@@ -4,7 +4,17 @@ import Button from '@components/ui/Button.astro';
 import Segmented from '@components/ui/Segmented.astro';
 import MarkLoader from '@components/ui/MarkLoader.astro';
 import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
-import { ARM, CENTER, CHIP, armArcPath, armDash, armTransform, markPartsSvg } from '@util/tb-mark-parts';
+import {
+	ARM,
+	CENTER,
+	CHIP,
+	TUCKED_SWEEP,
+	armArcPath,
+	armDash,
+	armTransform,
+	markPartsSvg,
+	pinPath,
+} from '@util/tb-mark-parts';
 import type { MarkLoaderVariant } from '@util/mark-loader';
 import { designPage, navGroups } from '@root/pages/internal/_design';
 
@@ -63,31 +73,54 @@ const armCenter = (i: 0 | 1) => ({
 	y: CENTER.y + (i === 0 ? 1 : -1) * ARM.offset.y,
 });
 
+/**
+ * Anchor points in path data, as a design tool counts them: every move, line end and curve end,
+ * implied repeats included. A circle has none here, and the count below adds the 4 a tool gives it.
+ */
+const anchors = (d: string) =>
+	[...d.matchAll(/([MLCA])([^MLCAZ]*)/g)].reduce((n, [, cmd, args]) => {
+		const values = (args.match(/-?\d*\.?\d+(?:e-?\d+)?/g) ?? []).length;
+		return n + values / ({ M: 2, L: 2, C: 6, A: 7 } as Record<string, number>)[cmd];
+	}, 0);
+const ARC_HALF = armArcPath(1, TUCKED_SWEEP, ARM.halfSweep);
+const PIN_D = CHIP.pins.map((p) => pinPath(p));
+const COUNT = {
+	original: { points: anchors(ORIGINAL), chars: ORIGINAL.length },
+	arcs: 4 * anchors(ARC_HALF),
+	rings: 2 * 4,
+	body: anchors(CHIP.body),
+	pins: PIN_D.reduce((n, d) => n + anchors(d), 0),
+	arrow: anchors(CHIP.arrow),
+	chars: 4 * ARC_HALF.length + CHIP.body.length + CHIP.arrow.length + PIN_D.join('').length,
+};
+const PARTS_POINTS = COUNT.arcs + COUNT.rings + COUNT.body + COUNT.pins + COUNT.arrow;
+const fmt = (n: number) => n.toLocaleString('en-US');
+
 const LEGEND = [
 	{
 		part: 'arc',
 		name: 'Arcs × 2',
-		note: `A quarter circle each, radius ${ARM.radius} to the middle of a ${ARM.stroke} stroke, round caps. Redrawn as two dashes from the ring outward, so an animation can lengthen either half.`,
+		note: `A quarter circle each, radius ${ARM.radius} to the middle of a ${ARM.stroke} stroke, round caps: two halves running out from the ring, two points each, so an animation can lengthen either half.`,
 	},
 	{
 		part: 'ring',
 		name: 'Rings × 2',
-		note: `Radius ${ARM.ringRadius}, stroke ${ARM.ringStroke}, on each arc’s midpoint. Each arc half starts ${ARM.tuck} along from the ring’s center, under its band.`,
+		note: `A circle each, radius ${ARM.ringRadius}, stroke ${ARM.ringStroke}, on its arc’s midpoint. Each arc half starts on the ring’s center line, so its round start hides in the band.`,
 	},
 	{
 		part: 'body',
 		name: 'Chip body',
-		note: 'A rounded rectangle, 58 by 70, turned 45°: the original outline with each pin replaced by the straight edge under it.',
+		note: 'A rounded rectangle, 58 by 70, turned 45°: four edges and four rounded corners. The original’s edges carry the pins’ feet as extra points, all within 0.08 of straight.',
 	},
 	{
 		part: 'pin',
 		name: 'Pins × 8',
-		note: 'Two a side, each its stretch of the original outline, closed 2 inside the body so no seam shows where they meet.',
+		note: `Two a side: straight bars ${CHIP.pinWidth} wide with a round end, each a line of two points from inside the body out to its tip, so a pin draws in and out along its length.`,
 	},
 	{
 		part: 'arrow',
 		name: 'Trend arrow',
-		note: 'A hole in the body, kept as drawn. Pulled apart, it is shown lifted out of it.',
+		note: 'A hole in the body, its outline kept and rounded to two decimals. Pulled apart, it is shown lifted out of it.',
 	},
 ] as const;
 ---
@@ -198,7 +231,7 @@ const LEGEND = [
 								const [ox, oy] = PIN_OUT[Math.floor(i / 2)];
 								return (
 									<g class="lp__move" style={`--dx: ${ox * APART.pin}px; --dy: ${oy * APART.pin}px`}>
-										<path class="lp__part" data-part="pin" d={p.d} />
+										<path class="lp__part" data-part="pin" d={pinPath(p)} stroke-width={CHIP.pinWidth} />
 									</g>
 								);
 							})}
@@ -207,17 +240,40 @@ const LEGEND = [
 							</g>
 						</svg>
 
-						<ul class="lp__legend">
-							{LEGEND.map((l) => (
-								<li data-legend={l.part} tabindex="0">
-									<span class="lp__swatch" data-part={l.part} />
-									<span>
-										<b>{l.name}</b>
-										<span class="kit-small">{l.note}</span>
-									</span>
-								</li>
-							))}
-						</ul>
+						<div class="lp__side">
+							<ul class="lp__legend">
+								{LEGEND.map((l) => (
+									<li data-legend={l.part} tabindex="0">
+										<span class="lp__swatch" data-part={l.part} />
+										<span>
+											<b>{l.name}</b>
+											<span class="kit-small">{l.note}</span>
+										</span>
+									</li>
+								))}
+							</ul>
+
+							<div class="lp__count">
+								<dl>
+									<div>
+										<dt>Points</dt>
+										<dd>
+											<b>{COUNT.original.points}</b> in the original · <b>{PARTS_POINTS}</b> in the parts
+										</dd>
+									</div>
+									<div>
+										<dt>Path data</dt>
+										<dd>
+											<b>{fmt(COUNT.original.chars)}</b> characters · <b>{fmt(COUNT.chars)}</b>
+										</dd>
+									</div>
+								</dl>
+								<p class="kit-small">
+									Arcs {COUNT.arcs} · rings {COUNT.rings}, counted as the 4 a design tool gives a circle · body{' '}
+									{COUNT.body} · pins {COUNT.pins} · arrow {COUNT.arrow}.
+								</p>
+							</div>
+						</div>
 					</div>
 				</div>
 			</section>
@@ -436,6 +492,7 @@ const LEGEND = [
 		let painted = 0;
 		let onlyA = 0;
 		let onlyB = 0;
+		let inChip = 0;
 		for (let i = 3; i < a.data.length; i += 4) {
 			const pa = a.data[i] >= 128;
 			const pb = b.data[i] >= 128;
@@ -444,7 +501,11 @@ const LEGEND = [
 			if (pa === pb) continue;
 			if (pa) onlyA++;
 			else onlyB++;
-			differ.push([(i - 3) / 4, pa ? [229, 72, 77, 255] : [61, 80, 245, 255]]);
+			const p = (i - 3) / 4;
+			// The chip sits within 52 of the center; everything past it is the arms.
+			const fromCenter = Math.hypot(((p % w) * 145) / w - 72, (Math.floor(p / w) * 144) / h - 71.8);
+			if (fromCenter < 52) inChip++;
+			differ.push([p, pa ? [229, 72, 77, 255] : [61, 80, 245, 255]]);
 		}
 		differ.forEach(([p, rgba]) => {
 			const [x, y] = [p % w, Math.floor(p / w)];
@@ -458,7 +519,7 @@ const LEGEND = [
 		const share = ((onlyA + onlyB) / painted) * 100;
 		const out = root.querySelector('[data-check-out]');
 		if (out)
-			out.textContent = `${(onlyA + onlyB).toLocaleString('en-US')} of ${painted.toLocaleString('en-US')} painted pixels differ (${share.toFixed(2)}%): ${onlyA.toLocaleString('en-US')} only in the original, ${onlyB.toLocaleString('en-US')} only in the parts, at ${w} × ${h}.`;
+			out.textContent = `${(onlyA + onlyB).toLocaleString('en-US')} of ${painted.toLocaleString('en-US')} painted pixels differ (${share.toFixed(2)}%) at ${w} × ${h}, a quarter of a unit each: ${onlyA.toLocaleString('en-US')} only in the original, ${onlyB.toLocaleString('en-US')} only in the parts; ${(onlyA + onlyB - inChip).toLocaleString('en-US')} on the arms, where true circles meet the original's curves, and ${inChip.toLocaleString('en-US')} on the chip.`;
 	}
 	check();
 
@@ -644,7 +705,9 @@ const LEGEND = [
 	}
 
 	.lp__part[data-part='pin'] {
-		fill: var(--part-pin);
+		fill: none;
+		stroke: var(--part-pin);
+		stroke-linecap: round;
 	}
 
 	.lp__part[data-part='arrow'] {
@@ -698,6 +761,52 @@ const LEGEND = [
 	@each $part in (arc, ring, body, pin, arrow) {
 		.lp__fig[data-focus='#{$part}'] .lp__part[data-part='#{$part}'] {
 			opacity: 1;
+		}
+	}
+
+	.lp__side {
+		display: grid;
+		gap: 20px;
+	}
+
+	// The point and path-data counts: the original against the parts, under the legend.
+	.lp__count {
+		display: grid;
+		gap: 8px;
+		padding: 16px 12px 0;
+		border-top: 1px solid rgba(23, 24, 28, 0.08);
+
+		dl {
+			display: grid;
+			gap: 4px;
+			margin: 0;
+		}
+
+		dl > div {
+			display: grid;
+			grid-template-columns: 96px minmax(0, 1fr);
+			gap: 12px;
+		}
+
+		dt {
+			@include type-small;
+
+			color: var(--color-text-secondary);
+		}
+
+		dd {
+			@include type-small;
+
+			margin: 0;
+			font-variant-numeric: tabular-nums;
+		}
+
+		b {
+			font-weight: $font-weight-bold;
+		}
+
+		p {
+			margin: 0;
 		}
 	}
 

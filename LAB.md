@@ -237,8 +237,9 @@ homepage in every order, Cloud, On-premises, Pricing, Installations, Contact us,
 variants by shape, each tagged with its component file and whether that is the kit. Every number on
 them is measured from what rendered. The kit page's address lands on Components, and its old
 `#colour`-style anchors are sent on to Foundations. **Loader** (on `exp/logo-loader`): the ThingsBoard
-mark cut into parts (`util/tb-mark-parts.ts`: two arms redrawn as strokes, the chip cut from the
-original outline), checked pixel by pixel against the original in the browser, and `ui/MarkLoader`
+mark rebuilt from its shapes (`util/tb-mark-parts.ts`: arcs, rings and pins as strokes, the body as
+four edges and four corners, the arrow's outline; 60 points where the original path has 148), checked
+pixel by pixel against the original in the browser, and `ui/MarkLoader`
 in four variants (spin · chase · orbit · flip, `util/mark-loader.ts`) at 136 · 48 · 32 · 24 · 16.
 
 **Homepages** (`/internal/homepages/`) — every running order in `data/home-compositions.ts`, side by
