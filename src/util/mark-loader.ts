@@ -1,10 +1,11 @@
-import { ARM, CENTER, CHIP, armDash, armTransform } from '@util/tb-mark-parts';
+import { ARM, CHIP, TUCKED_SWEEP, armDash, armTransform } from '@util/tb-mark-parts';
 
 /**
  * The script behind `ui/MarkLoader`: the ThingsBoard mark as a loader. Started, the chip in the
  * middle tucks its pins in and shrinks away while the two arms pull onto one center and turn.
  * Stopped, the arms turn on to the next half turn (the mark looks the same every half turn), push
- * back out, and the chip grows back with its pins: at rest it is the logo again, exactly.
+ * back out, and the chip grows back with its pins: at rest it is the logo again, exactly, attribute
+ * for attribute as the component rendered it.
  *
  * Driven by `data-loading` on the SVG: present starts it, absent stops it, so a page toggles one
  * attribute. `markLoader(svg)` gives the same as calls; its `stop()` resolves once the logo is back,
@@ -12,8 +13,12 @@ import { ARM, CENTER, CHIP, armDash, armTransform } from '@util/tb-mark-parts';
  *
  * One frame loop for every loader on the page. Each frame is a pose computed from the time alone,
  * so a loader that misses frames catches up rather than slowing down, and a loader out of view keeps
- * its clock and skips its writes. Under `prefers-reduced-motion`, or `data-motion="reduced"` on the
- * SVG, nothing turns or travels: the chip fades and the arms pulse.
+ * its clock and skips its writes. A frame writes only the attributes whose value changed, so a part
+ * that holds still (the hidden chip, a constant arc) costs nothing. Under `prefers-reduced-motion`,
+ * or `data-motion="reduced"` on the SVG, nothing turns or travels: the chip fades and the arms pulse.
+ *
+ * Every motion starts from the speed the part already has. Stopping hands each moving value (the
+ * turn, a breathing arc) its current rate, so nothing freezes for a frame and then sets off again.
  *
  * The variants differ in what the arms do while loading (`ARMS`); going and coming back are shared,
  * except that Flip waits for its next rest before it comes back (`canSettle`).
@@ -21,30 +26,32 @@ import { ARM, CENTER, CHIP, armDash, armTransform } from '@util/tb-mark-parts';
 export const MARK_LOADER_VARIANTS = ['spin', 'chase', 'orbit', 'flip'] as const;
 export type MarkLoaderVariant = (typeof MARK_LOADER_VARIANTS)[number];
 
-/** Spinning, the arms' outer edge would reach past the mark's box; this keeps them inside it. */
+/** Spinning, the rings would reach past the mark's box; this keeps them inside it. */
 const LOAD_SCALE = 0.89;
 /** A load shorter than this still plays the whole way in before it settles, rather than flinching. */
 const MIN_LOAD = 650;
 /** Coming back, each pin pops out this many ms after the one before it. */
 const PIN_STAGGER = 18;
+/** Coming back, how long an arc takes to return to the logo's quarter circle. */
+const ARCS_FOR = 420;
 
 /** What the arms do: turned `turn` degrees, each half of an arc reaching `back`/`ahead` degrees from its ring. */
 interface ArmPose {
 	turn: number;
 	back: number;
 	ahead: number;
-	/** The faint circle the rings run on, as an opacity. */
-	track: number;
 }
 
 interface Pose extends ArmPose {
-	/** 0 with the arms on their own centers (the logo), 1 with both on `CENTER`. */
+	/** 0 with the arms on their own centers (the logo), 1 with both on one center. */
 	pull: number;
 	/** The arms' opacity: below 1 only in the reduced pulse. */
 	arms: number;
-	bodyScale: number;
-	bodyTurn: number;
+	/** The chip as a whole (body and pins): its scale, turn and opacity. */
+	chipScale: number;
+	chipTurn: number;
 	chip: number;
+	/** Each pin's own scale toward its base, inside the chip. */
 	pins: number[];
 }
 
@@ -52,11 +59,10 @@ const LOGO: Pose = {
 	turn: 0,
 	back: ARM.halfSweep,
 	ahead: ARM.halfSweep,
-	track: 0,
 	pull: 0,
 	arms: 1,
-	bodyScale: 1,
-	bodyTurn: 0,
+	chipScale: 1,
+	chipTurn: 0,
 	chip: 1,
 	pins: CHIP.pins.map(() => 1),
 };
@@ -70,6 +76,15 @@ const outCubic = (x: number) => 1 - (1 - x) ** 3;
 const inOutCubic = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
 const inBack = (x: number, s = 1.4) => (s + 1) * x * x * x - s * x * x;
 const outBack = (x: number, s = 1.6) => 1 + (s + 1) * (x - 1) ** 3 + s * (x - 1) ** 2;
+
+/**
+ * Cubic Hermite from `from`, leaving at `rate` a ms, to `to` at rest, `t` ms into `span`. With no
+ * rate it is a smoothstep; with one, the value carries on as it was going before it turns for `to`.
+ */
+function hermite(from: number, rate: number, to: number, t: number, span: number): number {
+	const u = clamp(t / span);
+	return from + (u * u * u - 2 * u * u + u) * rate * span + (3 * u * u - 2 * u * u * u) * (to - from);
+}
 
 /**
  * Time run at full speed after a smooth spin-up: 0 until `delay`, then speeding up over `ramp` ms
@@ -100,41 +115,35 @@ const chaseTravel = (u: number) => {
 const FLIP = { delay: 160, move: 640, rest: 260, lean: 10 };
 
 const ARMS: Record<MarkLoaderVariant, (t: number) => ArmPose> = {
-	spin: (t) => ({ turn: (360 / 1100) * run(t), back: ARM.halfSweep, ahead: ARM.halfSweep, track: 0 }),
+	spin: (t) => ({ turn: (360 / 1100) * run(t), back: ARM.halfSweep, ahead: ARM.halfSweep }),
 
 	chase: (t) => {
 		const r = run(t);
 		const u = CHASE_U0 + (2 * Math.PI * r) / CHASE.period;
 		const sweep = CHASE.mid - CHASE.swing * Math.cos(u);
-		return {
-			turn: (360 / CHASE.lap) * r + chaseTravel(u) - chaseTravel(CHASE_U0),
-			back: sweep,
-			ahead: sweep,
-			track: 0,
-		};
+		return { turn: (360 / CHASE.lap) * r + chaseTravel(u) - chaseTravel(CHASE_U0), back: sweep, ahead: sweep };
 	},
 
-	// Orbit: the leading half of each arc draws back into its ring and the trailing half shortens to a
-	// tail that grows with the speed; the rings run round a faint track.
+	// Orbit: the leading half of each arc draws back into its ring, stopping where it is all under the
+	// ring, and the trailing half shortens to a tail that grows with the speed.
 	orbit: (t) => {
 		const tuck = inOutCubic(clamp((t - 60) / 320));
 		const speed = smooth(clamp((t - 160) / 600));
 		return {
 			turn: (360 / 950) * run(t, 160, 600),
-			back: lerp(ARM.halfSweep, 12 + 22 * speed, tuck),
-			ahead: lerp(ARM.halfSweep, 0, tuck),
-			track: 0.1 * smooth(clamp((t - 200) / 500)),
+			back: lerp(ARM.halfSweep, TUCKED_SWEEP + 22 * speed, tuck),
+			ahead: lerp(ARM.halfSweep, TUCKED_SWEEP, tuck),
 		};
 	},
 
 	flip: (t) => {
 		const tc = t - FLIP.delay;
-		if (tc <= 0) return { turn: 0, back: ARM.halfSweep, ahead: ARM.halfSweep, track: 0 };
+		if (tc <= 0) return { turn: 0, back: ARM.halfSweep, ahead: ARM.halfSweep };
 		const cycle = FLIP.move + FLIP.rest;
 		const k = Math.floor(tc / cycle);
 		const f = Math.min(1, (tc - k * cycle) / FLIP.move);
 		const lean = FLIP.lean * Math.sin(Math.PI * f) ** 2;
-		return { turn: 180 * (k + inOutCubic(f)), back: ARM.halfSweep + lean, ahead: ARM.halfSweep - lean, track: 0 };
+		return { turn: 180 * (k + inOutCubic(f)), back: ARM.halfSweep + lean, ahead: ARM.halfSweep - lean };
 	},
 };
 
@@ -148,13 +157,17 @@ function canSettle(variant: MarkLoaderVariant, t: number): boolean {
 	return tc <= 0 || tc % (FLIP.move + FLIP.rest) >= FLIP.move;
 }
 
-/** Going: the pins tuck in one after another, clockwise from the top; the body winds back and shrinks. */
+/**
+ * Going: the pins tuck in one after another, clockwise from the top; the chip winds back and shrinks
+ * to nothing, taking the pins still out with it. It stays solid on the way: faded, it read as a gray
+ * square between the arms.
+ */
 function loadingPose(variant: MarkLoaderVariant, t: number, reduced: boolean): Pose {
 	if (reduced) {
 		return {
 			...LOGO,
 			arms: 0.4 + 0.6 * (0.5 + 0.5 * Math.cos((2 * Math.PI * t) / 1600)),
-			chip: 1 - clamp(t / 220),
+			chip: 1 - smooth(clamp(t / 240)),
 		};
 	}
 	const q = clamp((t - 90) / 320);
@@ -162,21 +175,26 @@ function loadingPose(variant: MarkLoaderVariant, t: number, reduced: boolean): P
 		...ARMS[variant](t),
 		pull: inOutCubic(clamp((t - 100) / 420)),
 		arms: 1,
-		bodyScale: Math.max(0, 1 - inBack(q)),
-		bodyTurn: -45 * inCubic(q),
-		chip: 1 - clamp((t - 300) / 110),
+		chipScale: Math.max(0, 1 - inBack(q)),
+		chipTurn: -45 * inCubic(q),
+		chip: 1,
 		pins: CHIP.pins.map((_, i) => 1 - inCubic(clamp((t - 20 * i) / 170))),
 	};
 }
 
 /**
- * Coming back, from `from` at the moment of stopping, turning `speed` degrees a ms. The turn carries
- * on to the next half turn at least 180 ms of travel away, on a curve that starts at that speed and
- * slows to rest. It takes 1.6 times as long as holding the speed would, which never speeds up first,
- * capped at 1.1 s: Chase stopped at its slowest can gain a few percent before it slows. The arms push
- * out over its last stretch and the chip grows back as it lands, its pins popping out after it.
+ * Coming back, from `from` at the moment of stopping, with `rates` the turn and each half of an arc
+ * had then (degrees a ms). The turn carries on to the next half turn at least 180 ms of travel away,
+ * on a curve that starts at that speed and slows to rest. It takes 1.6 times as long as holding the
+ * speed would, which never speeds up first, capped at 1.1 s: Chase stopped at its slowest can gain a
+ * few percent before it slows. Chase's arcs, and any arc still changing, start back to the quarter
+ * circle at once, from their own rate; Orbit's held tails wait for the last stretch of the turn, so
+ * the rings slow down before they grow arcs again. The arms push out from halfway through the
+ * landing and the chip grows back from 60% of it, while the last of the turn is still moving: left
+ * to the end, the arms crept into place with nothing else happening, which read as a hitch.
  */
-function settlePlan(from: Pose, speed: number) {
+function settlePlan(variant: MarkLoaderVariant, from: Pose, rates: ArmPose) {
+	const speed = rates.turn;
 	let target = from.turn;
 	let turnFor = 0;
 	if (speed > 0.002) {
@@ -186,38 +204,37 @@ function settlePlan(from: Pose, speed: number) {
 		target = 180 * Math.ceil(from.turn / 180);
 		turnFor = 300 + (target - from.turn) * 2.5;
 	}
-	const arcsAt = Math.max(0, turnFor - 420);
-	const pullAt = Math.max(0, turnFor - 330);
-	const chipAt = Math.max(0, turnFor - 140);
+	const arcsAt = (rate: number) => (variant === 'chase' || Math.abs(rate) > 0.02 ? 0 : Math.max(0, turnFor - ARCS_FOR));
+	const backAt = arcsAt(rates.back);
+	const aheadAt = arcsAt(rates.ahead);
+	const pullAt = turnFor * 0.5;
+	const chipAt = turnFor * 0.6;
 	const pinsAt = chipAt + 120;
-	const end = Math.max(turnFor + 80, arcsAt + 420, pullAt + 400, pinsAt + PIN_STAGGER * (CHIP.pins.length - 1) + 240);
-	return { from, speed, target, turnFor, arcsAt, pullAt, chipAt, pinsAt, end };
+	const end = Math.max(
+		turnFor + 80,
+		backAt + ARCS_FOR,
+		aheadAt + ARCS_FOR,
+		pullAt + 400,
+		pinsAt + PIN_STAGGER * (CHIP.pins.length - 1) + 240
+	);
+	return { from, rates, target, turnFor, backAt, aheadAt, pullAt, chipAt, pinsAt, end };
 }
 
 type Plan = ReturnType<typeof settlePlan>;
 
 function settlePose(p: Plan, t: number): Pose {
-	const { from } = p;
-	let turn = from.turn;
-	if (p.turnFor > 0) {
-		// Cubic Hermite: from `from.turn` at `speed` to `target` at rest.
-		const u = clamp(t / p.turnFor);
-		const h10 = u * u * u - 2 * u * u + u;
-		const h01 = -2 * u * u * u + 3 * u * u;
-		turn = from.turn + h10 * p.turnFor * p.speed + h01 * (p.target - from.turn);
-	}
-	const arcs = inOutCubic(clamp((t - p.arcsAt) / 420));
+	const { from, rates } = p;
 	const chip = clamp((t - p.chipAt) / 420);
 	return {
-		turn,
-		back: lerp(from.back, ARM.halfSweep, arcs),
-		ahead: lerp(from.ahead, ARM.halfSweep, arcs),
-		track: lerp(from.track, 0, arcs),
+		turn: p.turnFor > 0 ? hermite(from.turn, rates.turn, p.target, t, p.turnFor) : from.turn,
+		back: hermite(from.back, rates.back, ARM.halfSweep, t - p.backAt, ARCS_FOR),
+		ahead: hermite(from.ahead, rates.ahead, ARM.halfSweep, t - p.aheadAt, ARCS_FOR),
 		pull: lerp(from.pull, 0, inOutCubic(clamp((t - p.pullAt) / 400))),
-		arms: lerp(from.arms, 1, clamp(t / 240)),
-		bodyScale: lerp(from.bodyScale, 1, outBack(chip)),
-		bodyTurn: lerp(from.bodyTurn, 0, outCubic(chip)),
-		chip: lerp(from.chip, 1, clamp(chip * 3)),
+		arms: lerp(from.arms, 1, smooth(clamp(t / 240))),
+		chipScale: lerp(from.chipScale, 1, outBack(chip)),
+		chipTurn: lerp(from.chipTurn, 0, outCubic(chip)),
+		// Only the reduced pulse fades the chip; in full motion it is solid and comes back by its scale.
+		chip: lerp(from.chip, 1, smooth(clamp(chip * 3))),
 		pins: from.pins.map((k, i) => lerp(k, 1, outBack(clamp((t - p.pinsAt - PIN_STAGGER * i) / 240)))),
 	};
 }
@@ -228,45 +245,50 @@ interface Parts {
 	arm: SVGGElement[];
 	back: SVGPathElement[];
 	ahead: SVGPathElement[];
-	track: SVGCircleElement;
 	chip: SVGGElement;
-	body: SVGPathElement;
 	pins: SVGPathElement[];
 }
 
 /** A number for an attribute, to three places. */
 const num = (x: number) => String(Math.round(x * 1000) / 1000);
 
+/** Writes an attribute only when it changes; `null` removes it, which is how a part goes back to rest. */
+function set(el: Element, name: string, value: string | null) {
+	if (el.getAttribute(name) === value) return;
+	if (value === null) el.removeAttribute(name);
+	else el.setAttribute(name, value);
+}
+
 function setDash(path: SVGPathElement, sweep: number) {
 	const dash = armDash(sweep);
-	if (!dash) return path.setAttribute('visibility', 'hidden');
-	path.removeAttribute('visibility');
-	path.setAttribute('stroke-dasharray', dash.array);
-	path.setAttribute('stroke-dashoffset', dash.offset);
+	set(path, 'visibility', dash ? null : 'hidden');
+	if (!dash) return;
+	set(path, 'stroke-dasharray', dash.array);
+	set(path, 'stroke-dashoffset', dash.offset);
+}
+
+/** Scaled and turned about a point, or `null` (no transform) when it is neither. */
+function about(x: number, y: number, scale: number, turn = 0): string | null {
+	if (scale === 1 && turn === 0) return null;
+	const r = turn === 0 ? '' : ` rotate(${num(turn)})`;
+	return `translate(${x} ${y})${r} scale(${num(Math.max(0, scale))}) translate(${-x} ${-y})`;
 }
 
 function draw(parts: Parts, pose: Pose) {
 	const scale = 1 - pose.pull * (1 - LOAD_SCALE);
 	const turn = pose.turn % 360;
-	parts.arm.forEach((g, i) => g.setAttribute('transform', armTransform(i as 0 | 1, pose.pull, turn, scale)));
+	parts.arm.forEach((g, i) => set(g, 'transform', armTransform(i as 0 | 1, pose.pull, turn, scale)));
 	parts.back.forEach((p) => setDash(p, pose.back));
 	parts.ahead.forEach((p) => setDash(p, pose.ahead));
-	parts.arms.setAttribute('opacity', num(pose.arms));
-	parts.track.setAttribute('opacity', num(pose.track));
-	parts.track.setAttribute('transform', `translate(${CENTER.x} ${CENTER.y}) scale(${num(scale)})`);
+	set(parts.arms, 'opacity', pose.arms === 1 ? null : num(pose.arms));
 
-	const { x, y } = CHIP.center;
-	parts.chip.setAttribute('opacity', num(pose.chip));
-	parts.body.setAttribute(
-		'transform',
-		`translate(${x} ${y}) rotate(${num(pose.bodyTurn)}) scale(${num(Math.max(0, pose.bodyScale))}) translate(${-x} ${-y})`
-	);
+	// The pins live inside the chip group, so they turn and shrink with the body as it goes.
+	set(parts.chip, 'opacity', pose.chip === 1 ? null : num(pose.chip));
+	set(parts.chip, 'transform', about(CHIP.center.x, CHIP.center.y, pose.chipScale, pose.chipTurn));
 	parts.pins.forEach((pin, i) => {
 		const k = pose.pins[i];
-		if (k <= 0.001) return pin.setAttribute('visibility', 'hidden');
-		pin.removeAttribute('visibility');
-		const [bx, by] = CHIP.pins[i].base;
-		pin.setAttribute('transform', `translate(${bx} ${by}) scale(${num(k)}) translate(${-bx} ${-by})`);
+		set(pin, 'visibility', k <= 0.001 ? 'hidden' : null);
+		if (k > 0.001) set(pin, 'transform', about(CHIP.pins[i].base[0], CHIP.pins[i].base[1], k));
 	});
 }
 
@@ -316,9 +338,7 @@ class Controller implements MarkLoader {
 			arm: all('[data-arm]'),
 			back: all('[data-back]'),
 			ahead: all('[data-ahead]'),
-			track: el.querySelector('[data-track]')!,
 			chip: el.querySelector('[data-chip]')!,
-			body: el.querySelector('[data-body]')!,
 			pins: all('[data-pin]'),
 		};
 		new IntersectionObserver(([e]) => (this.visible = e.isIntersecting), { rootMargin: '80px' }).observe(el);
@@ -361,9 +381,14 @@ class Controller implements MarkLoader {
 			const t = now - this.startedAt;
 			pose = loadingPose(this.variant, t, this.reduced);
 			if (this.stopAsked && t >= MIN_LOAD && (this.reduced || canSettle(this.variant, t))) {
-				// The turn's rate at this instant, from a millisecond either side.
-				const turnAt = (ms: number) => loadingPose(this.variant, ms, this.reduced).turn;
-				this.plan = settlePlan(pose, Math.max(0, (turnAt(t + 1) - turnAt(t - 1)) / 2));
+				// Each value's rate at this instant, from a millisecond either side.
+				const [a, b] = [t - 1, t + 1].map((ms) => loadingPose(this.variant, ms, this.reduced));
+				const rate = (key: keyof ArmPose) => (b[key] - a[key]) / 2;
+				this.plan = settlePlan(this.variant, pose, {
+					turn: Math.max(0, rate('turn')),
+					back: rate('back'),
+					ahead: rate('ahead'),
+				});
 				this.state = 'settling';
 				this.settleFrom = now;
 			}

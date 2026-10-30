@@ -36,13 +36,18 @@ export const ARM = {
 	/** The top-left arm's own center, from `CENTER`. The other arm's is the negative. */
 	offset: { x: -4.025, y: -3.775 },
 	/**
-	 * Where each half of the arc starts, measured along it from the ring's center: inside the ring's
-	 * band (8.6 to 16.5), so the round cap at the start hides under the ring and never shows in its hole.
+	 * Where each half of the arc starts, measured along it from the ring's center: on the ring's own
+	 * center line, the one place where the round cap (radius 3.95) fits inside the ring's band (8.6
+	 * to 16.5). So the start never shows, in the hole or past the ring, even when a half shrinks to a
+	 * dot as it draws into its ring.
 	 */
-	tuck: 14,
+	tuck: 12.54,
 	/** How far each half's path runs, in degrees: the most any animation lengthens it to. */
 	reach: 170,
 } as const;
+
+/** The sweep at which a half of an arc is all under its ring: an animation that hides one stops here. */
+export const TUCKED_SWEEP = (ARM.tuck / ARM.radius) * (180 / Math.PI);
 
 /**
  * One half of an arc, along the circle from `from` to `to` degrees past the ring: `1` runs clockwise
@@ -132,9 +137,8 @@ export const CHIP = {
  * offset unevenly.
  */
 export function markPartsSvg(): string {
-	const tuck = (ARM.tuck / ARM.radius) * (180 / Math.PI);
 	const half = (dir: 1 | -1, id: string) =>
-		`<path id="${id}" d="${armArcPath(dir, tuck, ARM.halfSweep)}" stroke-width="${ARM.stroke}" stroke-linecap="round"/>`;
+		`<path id="${id}" d="${armArcPath(dir, TUCKED_SWEEP, ARM.halfSweep)}" stroke-width="${ARM.stroke}" stroke-linecap="round"/>`;
 	const arm = (i: 0 | 1, id: string) =>
 		`<g id="${id}" transform="${armTransform(i)}" fill="none" stroke="currentColor">` +
 		half(-1, `${id}-arc-back`) +
