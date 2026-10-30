@@ -1,0 +1,93 @@
+---
+/**
+ * The ThingsBoard mark as a loader. At rest it is the logo, drawn from its parts
+ * (`@util/tb-mark-parts`); loading, the chip in the middle goes and the two arms turn; stopped, the
+ * arms land on the next half turn and the chip comes back (`@util/mark-loader`).
+ *
+ * `data-loading` on the SVG runs it: set it with the `loading` prop to start on load, or toggle it
+ * from a script (`svg.toggleAttribute('data-loading', busy)`). The mark is `currentColor`.
+ *
+ * Variants, in what the arms do while loading: `spin` turns them at a steady pace · `chase` grows
+ * and shrinks each arc as it turns · `orbit` draws the arcs into their rings and runs the rings round
+ * a track · `flip` turns them a half turn at a time.
+ *
+ * Named "ThingsBoard" at rest and by `label` while loading, with `aria-busy`. A loader stands in for
+ * content that has not arrived: whatever announces the wait (a live region, a button's own label)
+ * belongs to the page.
+ */
+import { ARM, CENTER, CHIP, VIEWBOX, armArcPath, armDash, armTransform } from '@util/tb-mark-parts';
+import type { MarkLoaderVariant } from '@util/mark-loader';
+
+interface Props {
+	variant?: MarkLoaderVariant;
+	/** The width: px as a number, or any CSS length. The mark is 145 by 144. */
+	size?: number | string;
+	/** Starts as soon as the page runs its script. */
+	loading?: boolean;
+	/** Its name while loading. */
+	label?: string;
+	class?: string;
+}
+
+const { variant = 'spin', size = 48, loading = false, label = 'Loading', class: className } = Astro.props;
+const dash = armDash(ARM.halfSweep)!;
+const width = typeof size === 'number' ? `${size}px` : size;
+const arcs = {
+	'stroke-width': ARM.stroke,
+	'stroke-linecap': 'round',
+	'stroke-dasharray': dash.array,
+	'stroke-dashoffset': dash.offset,
+} as const;
+---
+
+<svg
+	class:list={['ui-mark-loader', className]}
+	data-mark-loader
+	data-variant={variant}
+	data-loading={loading ? '' : undefined}
+	data-label={label}
+	viewBox={VIEWBOX}
+	style={`--mark-loader-size: ${width}`}
+	role="img"
+	aria-label="ThingsBoard"
+>
+	<g data-arms fill="none" stroke="currentColor">
+		<circle
+			data-track
+			r={ARM.ringDistance}
+			stroke-width={ARM.ringStroke}
+			opacity="0"
+			transform={`translate(${CENTER.x} ${CENTER.y})`}
+		/>
+		{([0, 1] as const).map((i) => (
+			<g data-arm transform={armTransform(i)}>
+				<path data-back d={armArcPath(-1)} {...arcs} />
+				<path data-ahead d={armArcPath(1)} {...arcs} />
+				<circle cx={ARM.ringDistance} cy="0" r={ARM.ringRadius} stroke-width={ARM.ringStroke} />
+			</g>
+		))}
+	</g>
+	<g data-chip fill="currentColor">
+		<path data-body fill-rule="evenodd" d={CHIP.body + CHIP.arrow} />
+		{CHIP.pins.map((p) => (
+			<path data-pin d={p.d} />
+		))}
+	</g>
+</svg>
+
+<script>
+	import { mountAllMarkLoaders } from '@util/mark-loader';
+
+	mountAllMarkLoaders();
+</script>
+
+<style>
+	.ui-mark-loader {
+		display: inline-block;
+		flex: none;
+		width: var(--mark-loader-size);
+		height: auto;
+		aspect-ratio: 145 / 144;
+		vertical-align: middle;
+	}
+</style>

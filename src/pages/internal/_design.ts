@@ -13,6 +13,9 @@ import { HOME_COMPOSITIONS, compositionHref, isShipping } from '@data/home-compo
  * type roles beyond a ladder, or about the pages — whether what ships is the kit or markup a page
  * wrote for itself. Type and the inventory answer those two, by measuring the real pages rather than
  * listing what they should contain, so they cannot go stale.
+ *
+ * LOADER, the fifth, is an experiment on `exp/logo-loader`: the ThingsBoard mark cut into parts and
+ * turned into `ui/MarkLoader`. It sits last because it builds on the brand rather than on the four.
  */
 export interface DesignSection {
 	id: string;
@@ -22,7 +25,7 @@ export interface DesignSection {
 }
 
 export interface DesignPage {
-	id: 'foundations' | 'type' | 'components' | 'inventory';
+	id: 'foundations' | 'type' | 'components' | 'inventory' | 'loader';
 	label: string;
 	/** One honest line for the tile and the page's lede: what is on it and where its numbers come from. */
 	blurb: string;
@@ -117,6 +120,20 @@ export const DESIGN: DesignPage[] = [
 		icon: 'tabler:list-search',
 		source: 'Home in every order · Cloud · On-premises · Pricing · Installations · Contact us',
 		sections: [],
+	},
+	{
+		id: 'loader',
+		label: 'Loader',
+		blurb:
+			'The ThingsBoard mark taken apart (two arms, each an arc with a ring, and the chip with its eight pins), checked pixel for pixel against the original, and four ways it turns into a loader: the chip goes, the arms turn, and stopping lands them back on the logo.',
+		icon: 'tabler:loader-2',
+		source: 'src/util/tb-mark-parts.ts · src/util/mark-loader.ts · ui/MarkLoader',
+		sections: [
+			{ id: 'parts', label: 'Parts' },
+			{ id: 'check', label: 'Against the original' },
+			{ id: 'loaders', label: 'Loaders' },
+			{ id: 'in-use', label: 'In use' },
+		],
 	},
 ];
 

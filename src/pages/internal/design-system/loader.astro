@@ -1,0 +1,956 @@
+---
+import PlaygroundLayout from '@layouts/PlaygroundLayout.astro';
+import Button from '@components/ui/Button.astro';
+import Segmented from '@components/ui/Segmented.astro';
+import MarkLoader from '@components/ui/MarkLoader.astro';
+import mark from '@root/assets/images/landings/draft/thingsboard-mark.svg?raw';
+import { ARM, CENTER, CHIP, armArcPath, armDash, armTransform, markPartsSvg } from '@util/tb-mark-parts';
+import type { MarkLoaderVariant } from '@util/mark-loader';
+import { designPage, navGroups } from '@root/pages/internal/_design';
+
+/**
+ * Design system › Loader: the ThingsBoard mark in parts, and the mark as a loader.
+ *
+ * PARTS draws the mark from `tb-mark-parts.ts` with each kind of part in its own color, together or
+ * pulled apart, with the construction (the arms' two centers and circles) on demand. AGAINST THE
+ * ORIGINAL rasterizes the original path and the parts at 4x in the browser and counts the pixels
+ * that differ, so the cut is measured on every load. LOADERS runs `ui/MarkLoader` in each variant,
+ * large and at 48 · 32 · 24 · 16, cycling on its own until you press one. IN USE puts it where a
+ * brand loader goes: a panel waiting on its content, and a list of jobs.
+ */
+const PAGE = designPage('loader');
+const ORIGINAL = mark.match(/ d="([^"]+)"/)?.[1] ?? '';
+const PARTS_SVG = markPartsSvg();
+const PARTS_HREF = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(PARTS_SVG)}`;
+const dash = armDash(ARM.halfSweep)!;
+
+const VARIANTS: { id: MarkLoaderVariant; name: string; note: string }[] = [
+	{
+		id: 'spin',
+		name: 'Spin',
+		note: 'The arms turn at a steady pace, a lap every 1.1 s. The quietest of the four, and it holds up down to 16 px.',
+	},
+	{
+		id: 'chase',
+		name: 'Chase',
+		note: 'Each arc grows and shrinks about its ring as it turns: the leading end runs ahead, then the trailing end catches up. The familiar Material spinner, made of the mark’s own parts.',
+	},
+	{
+		id: 'orbit',
+		name: 'Orbit',
+		note: 'The arcs draw back into their rings and the two rings run round a faint track, each with a short tail. The lightest at small sizes.',
+	},
+	{
+		id: 'flip',
+		name: 'Flip',
+		note: 'A half turn at a time with a rest between, the arms leaning back on the move. Every rest is the logo again.',
+	},
+];
+const SIZES = [48, 32, 24, 16];
+
+// The parts figure pulled apart: the arms move out along their diagonal and the rings further still,
+// so the tucked starts of the arc halves show; each pin moves out from its side; the arrow lifts.
+const DIAG = Math.SQRT1_2;
+const APART = { arm: 14, ring: 20, pin: 9, arrow: 12 };
+const PIN_OUT = [
+	[DIAG, -DIAG],
+	[DIAG, DIAG],
+	[-DIAG, DIAG],
+	[-DIAG, -DIAG],
+] as const;
+const armCenter = (i: 0 | 1) => ({
+	x: CENTER.x + (i === 0 ? 1 : -1) * ARM.offset.x,
+	y: CENTER.y + (i === 0 ? 1 : -1) * ARM.offset.y,
+});
+
+const LEGEND = [
+	{
+		part: 'arc',
+		name: 'Arcs × 2',
+		note: `A quarter circle each, radius ${ARM.radius} to the middle of a ${ARM.stroke} stroke, round caps. Redrawn as two dashes from the ring outward, so an animation can lengthen either half.`,
+	},
+	{
+		part: 'ring',
+		name: 'Rings × 2',
+		note: `Radius ${ARM.ringRadius}, stroke ${ARM.ringStroke}, on each arc’s midpoint. Each arc half starts ${ARM.tuck} along from the ring’s center, under its band.`,
+	},
+	{
+		part: 'body',
+		name: 'Chip body',
+		note: 'A rounded rectangle, 58 by 70, turned 45°: the original outline with each pin replaced by the straight edge under it.',
+	},
+	{
+		part: 'pin',
+		name: 'Pins × 8',
+		note: 'Two a side, each its stretch of the original outline, closed 2 inside the body so no seam shows where they meet.',
+	},
+	{
+		part: 'arrow',
+		name: 'Trend arrow',
+		note: 'A hole in the body, kept as drawn. Pulled apart, it is shown lifted out of it.',
+	},
+] as const;
+---
+
+<PlaygroundLayout title={PAGE.label} description={PAGE.blurb}>
+	<div class="kit">
+		<nav class="kit__nav" aria-label={PAGE.label}>
+			{navGroups(PAGE).map((g) => (
+				<div class="kit__nav-group">
+					<p class="kit__nav-title">{g.title}</p>
+					<ul>
+						{g.items.map((s) => (
+							<li>
+								<a href={`#${s.id}`}>{s.label}</a>
+							</li>
+						))}
+					</ul>
+				</div>
+			))}
+		</nav>
+
+		<main class="kit__main">
+			<!-- ── Parts ── -->
+			<section class="kit-sec" id="parts">
+				<header class="kit-sec__head">
+					<h2>Parts</h2>
+					<p>
+						The mark is one compound path. Cut up, it is two arms, each the other turned a half turn, and the chip
+						between them. Each arc turns about its own center, and the two centers sit 5.5 apart on the diagonal (turn
+						on the construction to see them), which is why every loader below pulls the arms onto one center before it
+						turns them.
+					</p>
+					<p class="kit-sec__src">src/util/tb-mark-parts.ts</p>
+				</header>
+
+				<div class="kit-stage lp">
+					<div class="lp__controls">
+						<Segmented
+							label="View"
+							name="parts-view"
+							size="sm"
+							options={[
+								{ label: 'Together', value: 'together' },
+								{ label: 'Apart', value: 'apart' },
+							]}
+						/>
+						<Segmented
+							label="Construction"
+							name="parts-guides"
+							size="sm"
+							options={[
+								{ label: 'Mark', value: 'off' },
+								{ label: 'Construction', value: 'on' },
+							]}
+						/>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="tabler:download"
+							href={PARTS_HREF}
+							attrs={{ download: 'thingsboard-mark-parts.svg' }}
+						>
+							Parts SVG
+						</Button>
+					</div>
+
+					<div class="lp__body">
+						<svg class="lp__fig" data-parts-fig viewBox="-22 -22 189 188" role="img" aria-label="The mark in parts">
+							<g class="lp__guides" fill="none" stroke-width="0.5">
+								{([0, 1] as const).map((i) => (
+									<g
+										class="lp__move"
+										style={`--dx: ${(i ? 1 : -1) * APART.arm * DIAG}px; --dy: ${(i ? 1 : -1) * APART.arm * DIAG}px`}
+									>
+										<circle cx={armCenter(i).x} cy={armCenter(i).y} r={ARM.radius} stroke-dasharray="2 2" />
+										<path d={`M${armCenter(i).x - 3} ${armCenter(i).y}h6M${armCenter(i).x} ${armCenter(i).y - 3}v6`} />
+									</g>
+								))}
+								<circle class="lp__center" cx={CENTER.x} cy={CENTER.y} r="1.6" />
+							</g>
+
+							{([0, 1] as const).map((i) => {
+								const s = i ? 1 : -1;
+								return (
+									<g class="lp__move" style={`--dx: ${s * APART.arm * DIAG}px; --dy: ${s * APART.arm * DIAG}px`}>
+										<g transform={armTransform(i)} fill="none">
+											<g class="lp__part" data-part="arc" stroke-width={ARM.stroke} stroke-linecap="round">
+												<path d={armArcPath(-1)} stroke-dasharray={dash.array} stroke-dashoffset={dash.offset} />
+												<path d={armArcPath(1)} stroke-dasharray={dash.array} stroke-dashoffset={dash.offset} />
+											</g>
+											<g class="lp__move" style={`--dx: ${APART.ring}px; --dy: 0px`}>
+												<circle
+													class="lp__part"
+													data-part="ring"
+													cx={ARM.ringDistance}
+													cy="0"
+													r={ARM.ringRadius}
+													stroke-width={ARM.ringStroke}
+												/>
+											</g>
+										</g>
+									</g>
+								);
+							})}
+
+							<path class="lp__part" data-part="body" fill-rule="evenodd" d={CHIP.body + CHIP.arrow} />
+							{CHIP.pins.map((p, i) => {
+								const [ox, oy] = PIN_OUT[Math.floor(i / 2)];
+								return (
+									<g class="lp__move" style={`--dx: ${ox * APART.pin}px; --dy: ${oy * APART.pin}px`}>
+										<path class="lp__part" data-part="pin" d={p.d} />
+									</g>
+								);
+							})}
+							<g class="lp__move lp__lift" style={`--dx: ${APART.arrow * DIAG}px; --dy: ${-APART.arrow * DIAG}px`}>
+								<path class="lp__part" data-part="arrow" d={CHIP.arrow} />
+							</g>
+						</svg>
+
+						<ul class="lp__legend">
+							{LEGEND.map((l) => (
+								<li data-legend={l.part} tabindex="0">
+									<span class="lp__swatch" data-part={l.part} />
+									<span>
+										<b>{l.name}</b>
+										<span class="kit-small">{l.note}</span>
+									</span>
+								</li>
+							))}
+						</ul>
+					</div>
+				</div>
+			</section>
+
+			<!-- ── Against the original ── -->
+			<section class="kit-sec" id="check">
+				<header class="kit-sec__head">
+					<h2>Against the original</h2>
+					<p>
+						The original path and the parts, each drawn at 4× into a canvas when this page loads, compared pixel by
+						pixel: a pixel counts as painted at half coverage or more. Gray is where both paint, red where only the
+						original does, blue where only the parts do.
+					</p>
+				</header>
+
+				<div class="kit-stage lc" data-check>
+					<script
+						type="application/json"
+						data-check-src
+						set:html={JSON.stringify({ original: ORIGINAL, parts: PARTS_SVG })}
+					></script>
+					<figure>
+						<canvas data-canvas="original" width="580" height="576"></canvas>
+						<figcaption class="kit-small">Original · thingsboard-mark.svg</figcaption>
+					</figure>
+					<figure>
+						<canvas data-canvas="parts" width="580" height="576"></canvas>
+						<figcaption class="kit-small">Parts · tb-mark-parts.ts</figcaption>
+					</figure>
+					<figure class="lc__diff">
+						<canvas data-canvas="diff" width="580" height="576"></canvas>
+						<figcaption class="kit-small" data-check-out aria-live="polite">
+							Comparing…
+						</figcaption>
+					</figure>
+				</div>
+			</section>
+
+			<!-- ── Loaders ── -->
+			<section class="kit-sec" id="loaders" data-loaders data-ground="light">
+				<header class="kit-sec__head">
+					<h2>Loaders</h2>
+					<p>
+						Every variant starts and stops the same way. Starting, the pins tuck in clockwise from the top, the chip
+						shrinks away, and the arms pull onto one center at 89%, so the rings stay inside the box as they turn.
+						Stopping, the arms carry on to the next half turn (the mark is the same every half turn), push back out, and
+						the chip and its pins pop back. A load under 0.65 s still plays all the way in.
+					</p>
+					<p class="kit-sec__src">ui/MarkLoader · src/util/mark-loader.ts</p>
+				</header>
+
+				<div class="ll__controls">
+					<Segmented
+						label="Cycle"
+						name="loader-cycle"
+						size="sm"
+						options={[
+							{ label: 'Cycling', value: 'on' },
+							{ label: 'Manual', value: 'off' },
+						]}
+					/>
+					<Segmented
+						label="Ground"
+						name="loader-ground"
+						size="sm"
+						options={[
+							{ label: 'Light', value: 'light' },
+							{ label: 'Dark', value: 'dark' },
+						]}
+					/>
+					<Segmented
+						label="Motion"
+						name="loader-motion"
+						size="sm"
+						options={[
+							{ label: 'Full', value: 'full' },
+							{ label: 'Reduced', value: 'reduced' },
+						]}
+					/>
+				</div>
+
+				<div class="ll">
+					{VARIANTS.map((v) => (
+						<article class="ll__card" data-card>
+							<div class="ll__stage">
+								<MarkLoader variant={v.id} size={136} label={`Loading, ${v.name}`} class="ll__main" />
+								<div class="ll__sizes">
+									{SIZES.map((s) => (
+										<MarkLoader variant={v.id} size={s} />
+									))}
+								</div>
+							</div>
+							<div class="ll__text">
+								<div class="ll__head">
+									<h3>{v.name}</h3>
+									<button class="ll__toggle" type="button" data-toggle aria-pressed="false">
+										Load
+									</button>
+								</div>
+								<p class="kit-small">{v.note}</p>
+							</div>
+						</article>
+					))}
+				</div>
+			</section>
+
+			<!-- ── In use ── -->
+			<section class="kit-sec" id="in-use" data-in-use>
+				<header class="kit-sec__head">
+					<h2>In use</h2>
+					<p>
+						A brand loader belongs where the wait is the product’s: a panel whose content is on its way, a list of jobs
+						running. Buttons keep their own small spinner. The switch sets the variant for both.
+					</p>
+				</header>
+
+				<div class="ll__controls">
+					<Segmented
+						label="Variant"
+						name="use-variant"
+						size="sm"
+						options={VARIANTS.map((v) => ({ label: v.name, value: v.id }))}
+					/>
+				</div>
+
+				<div class="lu">
+					<div class="lu__panel" data-panel>
+						<MarkLoader variant="spin" size={64} label="Setting up your workspace" />
+						<p class="lu__title" data-panel-title>
+							Your workspace is ready
+						</p>
+						<p class="kit-small" data-panel-note>
+							Devices, dashboards and rule chains are in place.
+						</p>
+						<Button variant="secondary" size="sm" attrs={{ 'data-panel-run': '' }}>
+							Set it up again
+						</Button>
+					</div>
+
+					<div class="lu__jobs">
+						<ul data-jobs>
+							{['Devices', 'Dashboards', 'Rule chains', 'Alarms'].map((job, i) => (
+								<li data-job={i}>
+									<MarkLoader variant="spin" size={20} label={`Importing ${job.toLowerCase()}`} />
+									<span>{job}</span>
+									<span class="kit-small" data-job-state>
+										Imported
+									</span>
+								</li>
+							))}
+						</ul>
+						<Button variant="secondary" size="sm" attrs={{ 'data-jobs-run': '' }}>
+							Import again
+						</Button>
+					</div>
+				</div>
+			</section>
+		</main>
+	</div>
+</PlaygroundLayout>
+
+<script>
+	import { setSegmented, type SegmentedSelect } from '@util/segmented';
+	import { markLoader } from '@util/mark-loader';
+
+	const settle = (svg: Element) => markLoader(svg as SVGSVGElement).stop();
+	const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+	// ── Parts: together or apart, construction, a legend item lights its part ──
+	const fig = document.querySelector<SVGSVGElement>('[data-parts-fig]');
+	document.querySelectorAll<HTMLElement>('[data-legend]').forEach((li) => {
+		const on = () => fig?.setAttribute('data-focus', li.dataset.legend!);
+		const off = () => fig?.removeAttribute('data-focus');
+		li.addEventListener('pointerenter', on);
+		li.addEventListener('pointerleave', off);
+		li.addEventListener('focus', on);
+		li.addEventListener('blur', off);
+	});
+
+	// ── Against the original ──
+	async function raster(svg: string, w: number, h: number): Promise<ImageData> {
+		const img = new Image();
+		img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+		await img.decode();
+		const c = document.createElement('canvas');
+		c.width = w;
+		c.height = h;
+		const ctx = c.getContext('2d')!;
+		ctx.drawImage(img, 0, 0, w, h);
+		return ctx.getImageData(0, 0, w, h);
+	}
+
+	async function check() {
+		const root = document.querySelector<HTMLElement>('[data-check]');
+		const src = root?.querySelector('[data-check-src]')?.textContent;
+		if (!root || !src) return;
+		const { original, parts } = JSON.parse(src) as { original: string; parts: string };
+		const [w, h] = [580, 576];
+		const size = `width="${w}" height="${h}"`;
+		const a = await raster(
+			`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 145 144" ${size}><path d="${original}"/></svg>`,
+			w,
+			h
+		);
+		const b = await raster(parts.replace(/width="145" height="144"/, size), w, h);
+
+		const paint = (name: string, data: ImageData) =>
+			root.querySelector<HTMLCanvasElement>(`[data-canvas="${name}"]`)?.getContext('2d')?.putImageData(data, 0, 0);
+		paint('original', a);
+		paint('parts', b);
+
+		// Both in gray first; then each pixel that differs as a 5 × 5 block over it, or a single pixel
+		// on a 580-wide canvas drawn at 420 would not show at all.
+		const diff = new ImageData(w, h);
+		const differ: [number, number[]][] = [];
+		let painted = 0;
+		let onlyA = 0;
+		let onlyB = 0;
+		for (let i = 3; i < a.data.length; i += 4) {
+			const pa = a.data[i] >= 128;
+			const pb = b.data[i] >= 128;
+			if (pa) painted++;
+			if (pa && pb) diff.data.set([208, 212, 220, 255], i - 3);
+			if (pa === pb) continue;
+			if (pa) onlyA++;
+			else onlyB++;
+			differ.push([(i - 3) / 4, pa ? [229, 72, 77, 255] : [61, 80, 245, 255]]);
+		}
+		differ.forEach(([p, rgba]) => {
+			const [x, y] = [p % w, Math.floor(p / w)];
+			for (let dy = -2; dy <= 2; dy++)
+				for (let dx = -2; dx <= 2; dx++) {
+					const [px, py] = [x + dx, y + dy];
+					if (px >= 0 && px < w && py >= 0 && py < h) diff.data.set(rgba, (py * w + px) * 4);
+				}
+		});
+		paint('diff', diff);
+		const share = ((onlyA + onlyB) / painted) * 100;
+		const out = root.querySelector('[data-check-out]');
+		if (out)
+			out.textContent = `${(onlyA + onlyB).toLocaleString('en-US')} of ${painted.toLocaleString('en-US')} painted pixels differ (${share.toFixed(2)}%): ${onlyA.toLocaleString('en-US')} only in the original, ${onlyB.toLocaleString('en-US')} only in the parts, at ${w} × ${h}.`;
+	}
+	check();
+
+	// ── Loaders ──
+	const section = document.querySelector<HTMLElement>('[data-loaders]');
+	const cards = Array.from(section?.querySelectorAll<HTMLElement>('[data-card]') ?? []);
+	let cycling = true;
+	// Bumped by every switch, so a cycle waiting on a settle from before it does not start again.
+	let generation = 0;
+	const timers = new Set<number>();
+
+	function setCard(card: HTMLElement, on: boolean) {
+		card.querySelectorAll('[data-mark-loader]').forEach((svg) => svg.toggleAttribute('data-loading', on));
+		const toggle = card.querySelector<HTMLButtonElement>('[data-toggle]');
+		if (toggle) {
+			toggle.setAttribute('aria-pressed', String(on));
+			toggle.textContent = on ? 'Stop' : 'Load';
+		}
+	}
+
+	function later(fn: () => void, ms: number) {
+		const id = window.setTimeout(() => {
+			timers.delete(id);
+			fn();
+		}, ms);
+		timers.add(id);
+	}
+
+	function cycle(card: HTMLElement, delay: number) {
+		const run = generation;
+		later(() => {
+			setCard(card, true);
+			later(async () => {
+				setCard(card, false);
+				await settle(card.querySelector('.ll__main')!);
+				if (cycling && run === generation) cycle(card, 1200);
+			}, 2800);
+		}, delay);
+	}
+
+	function setCycling(on: boolean) {
+		cycling = on;
+		generation++;
+		timers.forEach((id) => clearTimeout(id));
+		timers.clear();
+		cards.forEach((card, i) => {
+			if (on) cycle(card, 400 + i * 350);
+			else setCard(card, false);
+		});
+	}
+
+	cards.forEach((card) => {
+		card.querySelector('[data-toggle]')?.addEventListener('click', (event) => {
+			const on = (event.currentTarget as HTMLElement).getAttribute('aria-pressed') !== 'true';
+			if (cycling) {
+				setCycling(false);
+				const group = section?.querySelector<HTMLElement>('[data-segmented-name="loader-cycle"]');
+				if (group) setSegmented(group, 'off');
+			}
+			setCard(card, on);
+		});
+	});
+
+	// ── In use ──
+	const panel = document.querySelector<HTMLElement>('[data-panel]');
+	panel?.querySelector('[data-panel-run]')?.addEventListener('click', async (event) => {
+		const button = event.currentTarget as HTMLButtonElement;
+		const svg = panel.querySelector('[data-mark-loader]')!;
+		const [title, note] = ['[data-panel-title]', '[data-panel-note]'].map((s) => panel.querySelector(s)!);
+		button.disabled = true;
+		title.textContent = 'Setting up your workspace';
+		note.textContent = 'Provisioning devices, dashboards and rule chains.';
+		svg.setAttribute('data-loading', '');
+		await wait(3200);
+		svg.removeAttribute('data-loading');
+		await settle(svg);
+		title.textContent = 'Your workspace is ready';
+		note.textContent = 'Devices, dashboards and rule chains are in place.';
+		button.disabled = false;
+	});
+
+	const jobs = document.querySelector<HTMLElement>('[data-jobs]');
+	document.querySelector('[data-jobs-run]')?.addEventListener('click', async (event) => {
+		const button = event.currentTarget as HTMLButtonElement;
+		button.disabled = true;
+		const rows = Array.from(jobs?.querySelectorAll<HTMLElement>('[data-job]') ?? []);
+		rows.forEach((row) => {
+			row.toggleAttribute('data-busy', true);
+			row.querySelector('[data-mark-loader]')?.setAttribute('data-loading', '');
+			row.querySelector('[data-job-state]')!.textContent = 'Importing';
+		});
+		await Promise.all(
+			rows.map(async (row, i) => {
+				await wait(1400 + i * 700);
+				const svg = row.querySelector('[data-mark-loader]')!;
+				svg.removeAttribute('data-loading');
+				await settle(svg);
+				row.toggleAttribute('data-busy', false);
+				row.querySelector('[data-job-state]')!.textContent = 'Imported';
+			})
+		);
+		button.disabled = false;
+	});
+
+	// ── The switches ──
+	document.addEventListener('segmented:select', (event) => {
+		const { name, value } = (event as CustomEvent<SegmentedSelect>).detail;
+		if (name === 'parts-view') fig?.toggleAttribute('data-apart', value === 'apart');
+		if (name === 'parts-guides') fig?.toggleAttribute('data-guides', value === 'on');
+		if (name === 'loader-cycle') setCycling(value === 'on');
+		if (name === 'loader-ground') section?.setAttribute('data-ground', value);
+		if (name === 'loader-motion')
+			section?.querySelectorAll('[data-mark-loader]').forEach((svg) => {
+				if (value === 'reduced') svg.setAttribute('data-motion', 'reduced');
+				else svg.removeAttribute('data-motion');
+			});
+		if (name === 'use-variant')
+			document
+				.querySelectorAll('[data-in-use] [data-mark-loader]')
+				.forEach((svg) => svg.setAttribute('data-variant', value));
+	});
+
+	setCycling(true);
+</script>
+
+<style lang="scss">
+	@use '../../../styles/variables' as *;
+	@use 'kit';
+
+	// ── Parts ──
+	.lp {
+		--part-arc: #3d50f5;
+		--part-ring: #0ca678;
+		--part-body: var(--color-text);
+		--part-pin: #868e96;
+		--part-arrow: #f59f00;
+		--part-guide: #e5484d;
+
+		gap: 24px;
+	}
+
+	.lp__controls,
+	.ll__controls {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px 16px;
+		align-items: center;
+	}
+
+	.lp__body {
+		display: grid;
+		grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+		gap: 40px;
+		align-items: center;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 24px;
+		}
+	}
+
+	.lp__fig {
+		width: 100%;
+		max-width: 360px;
+		height: auto;
+		overflow: visible;
+	}
+
+	.lp__part {
+		transition: opacity 200ms ease;
+	}
+
+	.lp__part[data-part='arc'] {
+		stroke: var(--part-arc);
+	}
+
+	.lp__part[data-part='ring'] {
+		stroke: var(--part-ring);
+	}
+
+	.lp__part[data-part='body'] {
+		fill: var(--part-body);
+	}
+
+	.lp__part[data-part='pin'] {
+		fill: var(--part-pin);
+	}
+
+	.lp__part[data-part='arrow'] {
+		fill: var(--part-arrow);
+		stroke: #fff;
+		stroke-width: 2;
+		paint-order: stroke;
+	}
+
+	// Each piece that moves apart sits in its own group, so the move is a CSS transform on top of the
+	// SVG transform the piece keeps.
+	.lp__move {
+		transition: transform 520ms cubic-bezier(0.65, 0, 0.35, 1);
+	}
+
+	.lp__fig[data-apart] .lp__move {
+		transform: translate(var(--dx), var(--dy));
+	}
+
+	// The arrow shows only pulled apart: together, it is the hole in the body.
+	.lp__lift {
+		opacity: 0;
+		transition:
+			transform 520ms cubic-bezier(0.65, 0, 0.35, 1),
+			opacity 200ms ease;
+	}
+
+	.lp__fig[data-apart] .lp__lift {
+		opacity: 1;
+	}
+
+	.lp__guides {
+		stroke: var(--part-guide);
+		opacity: 0;
+		transition: opacity 200ms ease;
+	}
+
+	.lp__fig[data-guides] .lp__guides {
+		opacity: 1;
+	}
+
+	.lp__center {
+		fill: var(--part-guide);
+		stroke: none;
+	}
+
+	.lp__fig[data-focus] .lp__part {
+		opacity: 0.12;
+	}
+
+	@each $part in (arc, ring, body, pin, arrow) {
+		.lp__fig[data-focus='#{$part}'] .lp__part[data-part='#{$part}'] {
+			opacity: 1;
+		}
+	}
+
+	.lp__legend {
+		display: grid;
+		gap: 4px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			display: grid;
+			grid-template-columns: 14px minmax(0, 1fr);
+			gap: 12px;
+			padding: 10px 12px;
+			border-radius: $radius-md;
+			cursor: default;
+
+			&:hover,
+			&:focus-visible {
+				background: rgba(23, 24, 28, 0.04);
+			}
+
+			&:focus-visible {
+				outline: 2px solid var(--focus-ring);
+				outline-offset: -2px;
+			}
+		}
+
+		b {
+			@include type-small;
+
+			display: block;
+			font-weight: $font-weight-bold;
+		}
+	}
+
+	.lp__swatch {
+		width: 14px;
+		height: 14px;
+		margin-top: 3px;
+		border-radius: 4px;
+
+		@each $part in (arc, ring, body, pin, arrow) {
+			&[data-part='#{$part}'] {
+				background: var(--part-#{$part});
+			}
+		}
+	}
+
+	// ── Against the original ──
+	.lc {
+		grid-template-columns: repeat(2, minmax(0, 160px)) minmax(0, 1fr);
+		align-items: start;
+		gap: 24px;
+
+		@include media-down(md) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		figure {
+			display: grid;
+			gap: 8px;
+			margin: 0;
+		}
+
+		canvas {
+			width: 100%;
+			height: auto;
+			aspect-ratio: 580 / 576;
+			border-radius: 8px;
+			background: #f6f7f9;
+		}
+	}
+
+	.lc__diff {
+		@include media-down(md) {
+			grid-column: 1 / -1;
+		}
+
+		canvas {
+			max-width: 420px;
+		}
+	}
+
+	// ── Loaders ──
+	.ll {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 16px;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.ll__card {
+		display: grid;
+		grid-template-rows: auto 1fr;
+		overflow: hidden;
+		border: 1px solid rgba(23, 24, 28, 0.08);
+		border-radius: 12px;
+		background: #fff;
+	}
+
+	.ll__stage {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 24px;
+		align-items: center;
+		justify-items: center;
+		padding: 36px 28px;
+		color: var(--color-text);
+		background: #fff;
+		transition:
+			background 200ms ease,
+			color 200ms ease;
+
+		[data-ground='dark'] & {
+			color: #fff;
+			background: var(--band-indigo);
+		}
+	}
+
+	.ll__sizes {
+		display: grid;
+		gap: 18px;
+		justify-items: center;
+	}
+
+	.ll__text {
+		display: grid;
+		align-content: start;
+		gap: 6px;
+		padding: 18px 20px 20px;
+		border-top: 1px solid rgba(23, 24, 28, 0.08);
+	}
+
+	.ll__head {
+		display: flex;
+		gap: 12px;
+		align-items: center;
+		justify-content: space-between;
+
+		h3 {
+			@include type-tile-lg;
+
+			margin: 0;
+		}
+	}
+
+	// A small pressed toggle: the card's own, so it reads as part of the card and not a call to action.
+	.ll__toggle {
+		@include type-small-strong;
+
+		min-width: 64px;
+		padding: 4px 12px;
+		border: 1px solid rgba(23, 24, 28, 0.16);
+		border-radius: 100px;
+		background: #fff;
+		color: var(--color-text);
+		cursor: pointer;
+
+		&:hover {
+			background: rgba(23, 24, 28, 0.04);
+		}
+
+		&[aria-pressed='true'] {
+			border-color: var(--color-text);
+			background: var(--color-text);
+			color: #fff;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 2px;
+		}
+	}
+
+	// ── In use ──
+	.lu {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: 16px;
+
+		@include media-down(md) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
+	.lu__panel,
+	.lu__jobs {
+		display: grid;
+		align-content: center;
+		padding: 32px 28px;
+		border: 1px solid rgba(23, 24, 28, 0.08);
+		border-radius: 12px;
+		background: #fff;
+		color: var(--color-text);
+	}
+
+	.lu__panel {
+		gap: 8px;
+		min-height: 300px;
+		justify-items: center;
+		text-align: center;
+
+		:global(.ui-mark-loader) {
+			margin-bottom: 12px;
+		}
+
+		:global(.ui-btn) {
+			margin-top: 12px;
+		}
+	}
+
+	.lu__title {
+		@include type-tile-lg;
+
+		margin: 0;
+	}
+
+	.lu__jobs {
+		gap: 20px;
+		justify-items: start;
+
+		ul {
+			display: grid;
+			width: 100%;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		li {
+			@include type-body;
+
+			display: grid;
+			grid-template-columns: 20px minmax(0, 1fr) auto;
+			gap: 12px;
+			align-items: center;
+			padding: 12px 0;
+			border-bottom: 1px solid rgba(23, 24, 28, 0.08);
+
+			// A finished job keeps the mark, muted: the logo at rest beside "Imported" reads as done.
+			:global(.ui-mark-loader) {
+				color: var(--color-text-muted);
+				transition: color 200ms ease;
+			}
+
+			&[data-busy] :global(.ui-mark-loader) {
+				color: var(--color-text);
+			}
+		}
+	}
+</style>
