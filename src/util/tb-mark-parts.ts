@@ -71,15 +71,26 @@ export function armDash(sweep: number): { array: string; offset: string } | null
 }
 
 /**
- * The arm's transform: on its own center in the logo (`pull` 0) or on `CENTER` (`pull` 1), turned by
- * `turn` degrees past where the logo draws it, at `scale`.
+ * The arm's transform: on its own center in the logo (`pull` 0) or on `CENTER` (`pull` 1), at
+ * `scale`. A turn belongs on the group holding both arms, about `CENTER` (`armsTurn`): turning each
+ * arm about its own center would leave it on the wrong one after a half turn, where the other arm's
+ * center is.
  */
-export function armTransform(arm: 0 | 1, pull = 0, turn = 0, scale = 1): string {
+export function armTransform(arm: 0 | 1, pull = 0, scale = 1): string {
 	const sign = arm === 0 ? 1 : -1;
 	const x = CENTER.x + sign * ARM.offset.x * (1 - pull);
 	const y = CENTER.y + sign * ARM.offset.y * (1 - pull);
-	const angle = ARM.ringAngle + arm * 180 + turn;
+	const angle = ARM.ringAngle + arm * 180;
 	return `translate(${round(x)} ${round(y)}) rotate(${round(angle)})${scale === 1 ? '' : ` scale(${round(scale)})`}`;
+}
+
+/**
+ * Both arms turned `turn` degrees about `CENTER`, or `null` (no transform) at a whole turn. A half
+ * turn puts each arm exactly where the other one is drawn, so the mark looks the same.
+ */
+export function armsTurn(turn: number): string | null {
+	const deg = round(((turn % 360) + 360) % 360);
+	return deg === 0 || deg === 360 ? null : `rotate(${deg} ${CENTER.x} ${CENTER.y})`;
 }
 
 export interface Pin {

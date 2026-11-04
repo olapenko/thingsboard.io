@@ -1,4 +1,4 @@
-import { ARM, CHIP, TUCKED_SWEEP, armDash, armTransform, pinPath } from '@util/tb-mark-parts';
+import { ARM, CHIP, TUCKED_SWEEP, armDash, armTransform, armsTurn, pinPath } from '@util/tb-mark-parts';
 
 /**
  * The script behind `ui/MarkLoader`: the ThingsBoard mark as a loader. Started, the chip in the
@@ -13,8 +13,9 @@ import { ARM, CHIP, TUCKED_SWEEP, armDash, armTransform, pinPath } from '@util/t
  *
  * One frame loop for every loader on the page. Each frame is a pose computed from the time alone,
  * so a loader that misses frames catches up rather than slowing down, and a loader out of view keeps
- * its clock and skips its writes. A frame writes only the attributes whose value changed, so a part
- * that holds still (the hidden chip, a constant arc) costs nothing. Under `prefers-reduced-motion`,
+ * its clock and skips the frame. A frame writes only the attributes whose value changed, so a part
+ * that holds still (the hidden chip, a constant arc) costs nothing; the turn is one transform on the
+ * group of both arms, so a steady spin writes one attribute a frame. Under `prefers-reduced-motion`,
  * or `data-motion="reduced"` on the SVG, nothing turns or travels: the chip fades and the arms pulse.
  *
  * Every motion starts from the speed the part already has. Stopping hands each moving value (the
@@ -34,6 +35,15 @@ const MIN_LOAD = 650;
 const PIN_STAGGER = 18;
 /** Coming back, how long an arc takes to return to the logo's quarter circle. */
 const ARCS_FOR = 420;
+/** Coming back, the turn slows to rest over this long at the least and at the most (`settlePlan`). */
+const LAND_MIN = 360;
+const LAND_MAX = 800;
+/**
+ * Landing, the share of the distance holding the speed would cover: up to 0.6 the quintic `hermite`
+ * only ever slows down, and from 0.4 it never turns back, so 0.6 is the shortest landing that does
+ * neither.
+ */
+const LAND_SHARE = 0.6;
 
 /** What the arms do: turned `turn` degrees, each half of an arc reaching `back`/`ahead` degrees from its ring. */
 interface ArmPose {
@@ -78,12 +88,15 @@ const inBack = (x: number, s = 1.4) => (s + 1) * x * x * x - s * x * x;
 const outBack = (x: number, s = 1.6) => 1 + (s + 1) * (x - 1) ** 3 + s * (x - 1) ** 2;
 
 /**
- * Cubic Hermite from `from`, leaving at `rate` a ms, to `to` at rest, `t` ms into `span`. With no
- * rate it is a smoothstep; with one, the value carries on as it was going before it turns for `to`.
+ * Quintic Hermite from `from`, leaving at `rate` a ms, to `to` at rest, `t` ms into `span`. With no
+ * rate it is a smootherstep; with one, the value carries on as it was going before it turns for `to`.
+ * It arrives with no speed and no deceleration left, so the frame it stops on looks like the one
+ * before it: a cubic brakes hardest on its very last frame, which reads as a bump.
  */
 function hermite(from: number, rate: number, to: number, t: number, span: number): number {
 	const u = clamp(t / span);
-	return from + (u * u * u - 2 * u * u + u) * rate * span + (3 * u * u - 2 * u * u * u) * (to - from);
+	const u3 = u * u * u;
+	return from + (u - 6 * u3 + 8 * u3 * u - 3 * u3 * u * u) * rate * span + u3 * (10 - 15 * u + 6 * u * u) * (to - from);
 }
 
 /**
@@ -184,31 +197,36 @@ function loadingPose(variant: MarkLoaderVariant, t: number, reduced: boolean): P
 
 /**
  * Coming back, from `from` at the moment of stopping, with `rates` the turn and each half of an arc
- * had then (degrees a ms). The turn carries on to the next half turn at least 180 ms of travel away,
- * on a curve that starts at that speed and slows to rest. It takes 1.6 times as long as holding the
- * speed would, which never speeds up first, capped at 1.1 s: Chase stopped at its slowest can gain a
- * few percent before it slows. Chase's arcs, and any arc still changing, start back to the quarter
- * circle at once, from their own rate; Orbit's held tails wait for the last stretch of the turn, so
- * the rings slow down before they grow arcs again. The arms push out from halfway through the
- * landing and the chip grows back from 60% of it, while the last of the turn is still moving: left
- * to the end, the arms crept into place with nothing else happening, which read as a hitch.
+ * had then (degrees a ms). The turn lands on the next half turn at least 180 ms of travel away, on
+ * the quintic `hermite` from its speed, so it neither speeds up first nor brakes into the stop. The
+ * landing covers `LAND_SHARE` of what holding the speed would, within `LAND_MIN` and `LAND_MAX`; a
+ * half turn further than `LAND_MAX` can cover, the turn holds its speed for the rest first, still
+ * reading as loading. Chase's arcs, and any arc still changing, start back to the quarter circle at once,
+ * from their own rate; Orbit's held tails wait for the last stretch of the turn, so the rings slow
+ * down before they grow arcs again. The arms push out from halfway through the landing and the chip
+ * grows back from 60% of it, while the last of the turn is still moving: left to the end, the arms
+ * crept into place with nothing else happening, which read as a hitch.
  */
 function settlePlan(variant: MarkLoaderVariant, from: Pose, rates: ArmPose) {
-	const speed = rates.turn;
+	const speed = rates.turn > 0.002 ? rates.turn : 0;
 	let target = from.turn;
-	let turnFor = 0;
-	if (speed > 0.002) {
+	let hold = 0;
+	let land = 0;
+	if (speed) {
 		target = 180 * Math.ceil((from.turn + speed * 180) / 180 - 1e-9);
-		turnFor = Math.min(1100, (1.6 * (target - from.turn)) / speed);
+		const distance = target - from.turn;
+		land = Math.min(LAND_MAX, Math.max(LAND_MIN, distance / (LAND_SHARE * speed)));
+		hold = Math.max(0, distance / speed - LAND_SHARE * land);
 	} else if (from.turn % 180 > 0.01) {
 		target = 180 * Math.ceil(from.turn / 180);
-		turnFor = 300 + (target - from.turn) * 2.5;
+		land = 300 + (target - from.turn) * 2.5;
 	}
+	const turnFor = hold + land;
 	const arcsAt = (rate: number) => (variant === 'chase' || Math.abs(rate) > 0.02 ? 0 : Math.max(0, turnFor - ARCS_FOR));
 	const backAt = arcsAt(rates.back);
 	const aheadAt = arcsAt(rates.ahead);
-	const pullAt = turnFor * 0.5;
-	const chipAt = turnFor * 0.6;
+	const pullAt = hold + land * 0.5;
+	const chipAt = hold + land * 0.6;
 	const pinsAt = chipAt + 120;
 	const end = Math.max(
 		turnFor + 80,
@@ -217,16 +235,24 @@ function settlePlan(variant: MarkLoaderVariant, from: Pose, rates: ArmPose) {
 		pullAt + 400,
 		pinsAt + PIN_STAGGER * (CHIP.pins.length - 1) + 240
 	);
-	return { from, rates, target, turnFor, backAt, aheadAt, pullAt, chipAt, pinsAt, end };
+	return { from, rates, speed, target, hold, land, backAt, aheadAt, pullAt, chipAt, pinsAt, end };
 }
 
 type Plan = ReturnType<typeof settlePlan>;
+
+/** The turn `t` ms into coming back: held at its speed, then slowing to rest on `target`. */
+function landTurn(p: Plan, t: number): number {
+	const { from, speed, hold, land, target } = p;
+	if (!land) return from.turn;
+	if (t <= hold) return from.turn + speed * t;
+	return hermite(from.turn + speed * hold, speed, target, t - hold, land);
+}
 
 function settlePose(p: Plan, t: number): Pose {
 	const { from, rates } = p;
 	const chip = clamp((t - p.chipAt) / 420);
 	return {
-		turn: p.turnFor > 0 ? hermite(from.turn, rates.turn, p.target, t, p.turnFor) : from.turn,
+		turn: landTurn(p, t),
 		back: hermite(from.back, rates.back, ARM.halfSweep, t - p.backAt, ARCS_FOR),
 		ahead: hermite(from.ahead, rates.ahead, ARM.halfSweep, t - p.aheadAt, ARCS_FOR),
 		pull: lerp(from.pull, 0, inOutCubic(clamp((t - p.pullAt) / 400))),
@@ -276,8 +302,10 @@ function about(x: number, y: number, scale: number, turn = 0): string | null {
 
 function draw(parts: Parts, pose: Pose) {
 	const scale = 1 - pose.pull * (1 - LOAD_SCALE);
-	const turn = pose.turn % 360;
-	parts.arm.forEach((g, i) => set(g, 'transform', armTransform(i as 0 | 1, pose.pull, turn, scale)));
+	// The pair turns as one about the mark's center; each arm only pulls in and scales, so while it
+	// spins at a steady pull its own transform holds still.
+	set(parts.arms, 'transform', armsTurn(pose.turn));
+	parts.arm.forEach((g, i) => set(g, 'transform', armTransform(i as 0 | 1, pose.pull, scale)));
 	parts.back.forEach((p) => setDash(p, pose.back));
 	parts.ahead.forEach((p) => setDash(p, pose.ahead));
 	set(parts.arms, 'opacity', pose.arms === 1 ? null : num(pose.arms));
@@ -317,6 +345,16 @@ function wake(c: Controller) {
 
 const reducedMotion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 
+/** One observer for every loader: which of them are near enough the viewport to draw. */
+let inView: IntersectionObserver | null = null;
+function observe(c: Controller) {
+	inView ??= new IntersectionObserver(
+		(entries) => entries.forEach((e) => controllers.get(e.target as SVGSVGElement)?.see(e.isIntersecting)),
+		{ rootMargin: '80px' }
+	);
+	inView.observe(c.el);
+}
+
 class Controller implements MarkLoader {
 	private parts: Parts;
 	private state: 'rest' | 'loading' | 'settling' = 'rest';
@@ -342,7 +380,10 @@ class Controller implements MarkLoader {
 			chip: el.querySelector('[data-chip]')!,
 			pins: all('[data-pin]'),
 		};
-		new IntersectionObserver(([e]) => (this.visible = e.isIntersecting), { rootMargin: '80px' }).observe(el);
+	}
+
+	see(visible: boolean) {
+		this.visible = visible;
 	}
 
 	get loading() {
@@ -377,31 +418,31 @@ class Controller implements MarkLoader {
 	}
 
 	tick(now: number) {
-		let pose: Pose;
 		if (this.state === 'loading') {
 			const t = now - this.startedAt;
-			pose = loadingPose(this.variant, t, this.reduced);
-			if (this.stopAsked && t >= MIN_LOAD && (this.reduced || canSettle(this.variant, t))) {
-				// Each value's rate at this instant, from a millisecond either side.
-				const [a, b] = [t - 1, t + 1].map((ms) => loadingPose(this.variant, ms, this.reduced));
-				const rate = (key: keyof ArmPose) => (b[key] - a[key]) / 2;
-				this.plan = settlePlan(this.variant, pose, {
-					turn: Math.max(0, rate('turn')),
-					back: rate('back'),
-					ahead: rate('ahead'),
-				});
-				this.state = 'settling';
-				this.settleFrom = now;
+			if (!(this.stopAsked && t >= MIN_LOAD && (this.reduced || canSettle(this.variant, t)))) {
+				if (this.visible) draw(this.parts, loadingPose(this.variant, t, this.reduced));
+				return;
 			}
-		} else if (this.state === 'settling' && this.plan) {
+			// Stopping: each value's rate at this instant, from a millisecond either side. The first
+			// frame of coming back is this pose, so it draws below as the settle's frame 0.
+			const [a, b] = [t - 1, t + 1].map((ms) => loadingPose(this.variant, ms, this.reduced));
+			const rate = (key: keyof ArmPose) => (b[key] - a[key]) / 2;
+			this.plan = settlePlan(this.variant, loadingPose(this.variant, t, this.reduced), {
+				turn: Math.max(0, rate('turn')),
+				back: rate('back'),
+				ahead: rate('ahead'),
+			});
+			this.state = 'settling';
+			this.settleFrom = now;
+		}
+		if (this.state === 'settling' && this.plan) {
 			const t = now - this.settleFrom;
 			if (t >= this.plan.end) return this.rest();
-			pose = settlePose(this.plan, t);
-		} else {
-			active.delete(this);
+			if (this.visible) draw(this.parts, settlePose(this.plan, t));
 			return;
 		}
-		if (this.visible) draw(this.parts, pose);
+		active.delete(this);
 	}
 
 	private rest() {
@@ -428,6 +469,7 @@ export function markLoader(el: SVGSVGElement): MarkLoader {
 	if (!c) {
 		c = new Controller(el);
 		controllers.set(el, c);
+		observe(c);
 	}
 	return c;
 }
