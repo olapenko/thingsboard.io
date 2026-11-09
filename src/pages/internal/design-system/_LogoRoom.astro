@@ -1280,9 +1280,25 @@ const SET_MENU = (['shipped', 'round', 'exploration'] as const).map((k) => ({
 	items: PRESETS.filter((s) => s.kind === k).map((s) => ({ ...s, dot: setDotOf(s) })),
 }));
 /**
- * The view's controls, by where they sit: the ground on the canvas it changes, the rest in the bar.
- * Layout and Size need no label (icons, and the sizes in px); Names and Shaded white are switches.
+ * Fill: how much of its tile the artwork takes, as steps of one scale. Mark's ladder puts a product's
+ * artwork at 70% of the tile, the logo and an icon at 59%, wide art at 80%; a step multiplies them all
+ * alike, so the kinds keep their places against each other. A step is named by the product's share
+ * and is its value too. From 62 to 80 and no further: below 62% a product reads as lost in its tile,
+ * and past 81% (the square whose corners just meet the 32% corner curve: 1 − 2 × 0.32 × (1 − 1/√2))
+ * the artwork's box crosses the curve, so 80 is a product's last step and no artwork goes past 81% at
+ * any step. `$fill-cap` holds that line in the CSS. 70 is the ladder as it ships; 78 is the proposal,
+ * which the Studio opens on.
  */
+const FILL_TODAY = 70;
+const FILL_PROPOSED = 78;
+const FILL_STEPS = [62, 66, 70, 74, 78, 80] as const;
+const fillNote = (pct: number) => (pct === FILL_TODAY ? 'Today' : pct === FILL_PROPOSED ? 'Proposed' : '');
+/**
+ * The view's controls, by where they sit: the ground on the canvas it changes, the rest in the bar.
+ * Layout and Size need no label (icons, and the sizes in px); Fill is a menu, its steps a product's
+ * share of the tile; Names and Shaded white are switches.
+ */
+const VIEW_MENUS = new Set(['fill']);
 const ON_CANVAS = new Set(['ground']);
 const VIEW_ICONS: Record<string, string> = { groups: 'tabler:layout-grid', row: 'tabler:list' };
 /** The view's switches: on and off, the value each side writes. Shaded white off is pure white. */
@@ -1309,6 +1325,12 @@ const PLAY_GLOBALS = [
 			['m', '88'],
 			['l', '112'],
 		],
+	},
+	{
+		key: 'fill',
+		label: 'Fill',
+		default: String(FILL_PROPOSED),
+		options: FILL_STEPS.map((pct) => [String(pct), `${pct}%`] as const),
 	},
 	{
 		key: 'layout',
@@ -2870,6 +2892,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							<span>on the canvas’s corner: white, grey, tint, dark, or light and dark side by side.</span>
 						</li>
 						<li>
+							<b>Set the fill</b>
+							<span>
+								in the bar’s Fill menu: how much of its tile the artwork takes, in steps named by a product’s share. 70
+								is how Mark draws it today, 78 the proposal the canvas opens on; no artwork reaches the tile’s curved
+								corners.
+							</span>
+						</li>
+						<li>
 							<b>Open a mark</b>
 							<span>
 								by clicking its tile. In its sheet, choose its treatment, propose a status, try a colour, leave a note;
@@ -2954,7 +2984,15 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 						</section>
 					</aside>
 				</div>
-				<div class="pg" data-ground="split" data-size="m" data-layout="groups" data-names="on" data-glyph="chip-navy">
+				<div
+					class="pg"
+					data-ground="split"
+					data-size="m"
+					data-fill={FILL_PROPOSED}
+					data-layout="groups"
+					data-names="on"
+					data-glyph="chip-navy"
+				>
 					<div class="pg__bar">
 						{/* The set in force: the sidebar's list draws it. */}
 						<select data-presets class="pg__hidden" tabindex="-1" aria-hidden="true">
@@ -3006,6 +3044,49 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 											{c.label}
 											<i aria-hidden="true" />
 										</button>
+									</div>
+								) : VIEW_MENUS.has(c.key) ? (
+									<div class="pg__row pg__menu pg__menu--pick" data-global={c.key}>
+										<span class="pg__hidden">{c.label}</span>
+										<button
+											type="button"
+											class="pg__menu-btn"
+											aria-haspopup="menu"
+											aria-expanded="false"
+											title="How much of its tile the artwork takes"
+										>
+											<Icon name="tabler:box-padding" aria-hidden="true" />
+											{c.label}
+											<b data-pick-shown>{c.options.find(([v]) => v === c.default)?.[1]}</b>
+											<Icon name="tabler:chevron-down" class="pg__menu-caret" aria-hidden="true" />
+										</button>
+										<div class="pg__menu-list pg__pick-list" role="menu" aria-label={c.label} hidden>
+											<p class="pg__pick-head">
+												A product’s artwork as a share of its tile. The logo, icons and wide art move with it, and
+												nothing passes 81%, where the tile’s corners curve.
+											</p>
+											{c.options.map(([v, l]) => (
+												<button
+													type="button"
+													role="menuitemradio"
+													class="pg__pick-opt"
+													value={v}
+													data-shown={l}
+													aria-checked={c.default === v ? 'true' : 'false'}
+												>
+													<i class="pg__fill-tile" style={`--f: ${Number(v) / 100}`} aria-hidden="true" />
+													<b>{l}</b>
+													{fillNote(Number(v)) && (
+														<span
+															class:list={['pg__pick-note', Number(v) === FILL_PROPOSED && 'pg__pick-note--proposed']}
+														>
+															{fillNote(Number(v))}
+														</span>
+													)}
+													<Icon name="tabler:check" class="pg__pick-check" aria-hidden="true" />
+												</button>
+											))}
+										</div>
 									</div>
 								) : (
 									<div class="pg__row" data-global={c.key}>
@@ -5834,7 +5915,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		/** A mark's tiles on the canvas and its bookmark. */
 		const items = (id: string) => root.querySelectorAll<HTMLElement>(`[data-id="${id}"]`);
 		const label = (el: Element) => el.querySelector('span')?.textContent?.trim() ?? '';
-		const pressed = (el: Element) => el.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
+		/** The chosen button: a pressed segment, or a menu's checked option. */
+		const pressed = (el: Element) =>
+			el.querySelector<HTMLButtonElement>(
+				'button[aria-pressed="true"], button[role="menuitemradio"][aria-checked="true"]'
+			);
 		const sheetOf = (id: string) => sheets.find((s) => s.dataset.sheet === id);
 
 		// Colours and Drawing, a sheet's two tabs: the one last picked opens on every sheet, in this browser.
@@ -5901,15 +5986,23 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const toggle = toggleOf(row);
 			if (toggle) return toggle.getAttribute('aria-checked') === 'true' ? 'on' : 'off';
 			const b = pressed(row);
-			return b?.textContent?.trim() || b?.getAttribute('aria-label') || '';
+			return b?.dataset.shown || b?.textContent?.trim() || b?.getAttribute('aria-label') || '';
 		};
 		const setGlobal = (key: string, value: string) => {
 			const row = globals.find((r) => r.dataset.global === key);
 			if (!row) return;
 			const toggle = toggleOf(row);
+			const options = [...row.querySelectorAll<HTMLButtonElement>('button[role="menuitemradio"]')];
 			if (toggle) {
 				if (value !== toggle.dataset.on && value !== toggle.dataset.off) return;
 				toggle.setAttribute('aria-checked', String(value === toggle.dataset.on));
+			} else if (options.length) {
+				// A menu: its options checked, and the chosen one's name on its button.
+				const chosen = options.find((b) => b.value === value);
+				if (!chosen) return;
+				options.forEach((b) => b.setAttribute('aria-checked', String(b === chosen)));
+				const shown = row.querySelector('[data-pick-shown]');
+				if (shown) shown.textContent = chosen.dataset.shown ?? value;
 			} else if (row.querySelector(`button[value="${value}"]`)) press(row, (b) => b.value === value);
 			else return;
 			root.dataset[key] = value;
@@ -5944,7 +6037,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		);
 		globals.forEach((row) => {
 			const toggle = toggleOf(row);
-			row.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
+			// A switch, or the buttons that carry a value (a menu's own button opens it and sets nothing).
+			row.querySelectorAll<HTMLButtonElement>(toggle ? 'button' : 'button[value]').forEach((b) =>
 				b.addEventListener('click', () => {
 					setGlobal(
 						row.dataset.global ?? '',
@@ -7793,7 +7887,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			const list = m.querySelector<HTMLElement>('.pg__menu-list');
 			if (list) list.hidden = !on;
 			m.querySelector('.pg__menu-btn')?.setAttribute('aria-expanded', String(on));
-			if (on) list?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+			// A pick opens on its chosen step; a menu of actions on its first.
+			if (on)
+				(
+					list?.querySelector<HTMLElement>('[role="menuitemradio"][aria-checked="true"]') ??
+					list?.querySelector<HTMLElement>('[role="menuitem"], [role="menuitemradio"]')
+				)?.focus();
 		});
 	menus.forEach((m) => {
 		const btn = m.querySelector<HTMLButtonElement>('.pg__menu-btn');
@@ -7801,6 +7900,12 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		// Items are read when used, not once: the Trying menu rebuilds its own as colours are tried.
 		const list = m.querySelector<HTMLElement>('.pg__menu-list');
 		list?.addEventListener('click', (e) => {
+			// A pick (Fill's steps) shows on the canvas at once, so the menu closes at once.
+			if ((e.target as Element).closest('[role="menuitemradio"]')) {
+				openMenu();
+				btn?.focus();
+				return;
+			}
 			if (!(e.target as Element).closest('[role="menuitem"]')) return;
 			// Close this menu only if it is still the open one: another opened meanwhile stays open.
 			window.setTimeout(() => {
@@ -7808,7 +7913,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			}, 900);
 		});
 		list?.addEventListener('keydown', (e) => {
-			const items = [...list.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+			const items = [...list.querySelectorAll<HTMLButtonElement>('[role="menuitem"], [role="menuitemradio"]')];
 			const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
 			if (step) {
 				e.preventDefault();
@@ -9250,6 +9355,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		--pg-zoom: 1.2727;
 	}
 
+	// Fill: each step is a product's share of the tile; over the ladder's 70% it is the factor every
+	// artwork takes (the steps of `FILL_STEPS` in the frontmatter, 70 left at 1).
+	@each $pct in (62, 66, 74, 78, 80) {
+		.pg[data-fill='#{$pct}'] {
+			--pg-fill: #{math.div($pct, 70)};
+		}
+	}
+
 	// The Set on the left, the view on the right, and the set's annotation across under both. The
 	// ground is on the canvas.
 	// The bar stays in view for the length of the bench, under the room's bar.
@@ -10387,6 +10500,110 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
+	// A view setting as a menu (Fill): the button names the chosen step; the list opens under it from its
+	// left, a line on what the steps mean, then the steps, each with a tile showing the artwork's box at
+	// that share, its note (Today, Proposed) and a check on the chosen one.
+	.pg__menu--pick {
+		.pg__menu-btn b {
+			font-weight: $font-weight-medium;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.pg__menu-list {
+			right: auto;
+			left: 0;
+			width: 248px;
+		}
+	}
+
+	.pg__pick-head {
+		margin: 0;
+		padding: 6px 10px 8px;
+		color: var(--color-text-secondary);
+		font-size: 12px;
+		line-height: 16px;
+	}
+
+	.pg__pick-opt {
+		display: grid;
+		grid-template-columns: 24px auto minmax(0, 1fr) 16px;
+		align-items: center;
+		gap: 10px;
+		width: 100%;
+		padding: 7px 10px;
+		border: 0;
+		border-radius: 10px;
+		background: none;
+		color: var(--color-text);
+		font: inherit;
+		font-size: 13px;
+		text-align: left;
+		cursor: pointer;
+		transition: background-color 0.15s;
+
+		b {
+			font-weight: $font-weight-medium;
+			font-variant-numeric: tabular-nums;
+		}
+
+		:global(.pg__pick-check) {
+			grid-column: 4;
+			width: 16px;
+			height: 16px;
+			color: var(--color-brand, #3d50f5);
+			visibility: hidden;
+		}
+
+		&[aria-checked='true'] :global(.pg__pick-check) {
+			visibility: visible;
+		}
+
+		&:hover,
+		&:focus-visible {
+			outline: none;
+			background: #f4f5f8;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--focus-ring);
+			outline-offset: 1px;
+		}
+	}
+
+	.pg__pick-note {
+		justify-self: start;
+		padding: 1px 7px;
+		border-radius: 100px;
+		background: rgba(23, 24, 28, 0.06);
+		color: var(--color-text-secondary);
+		font-size: 11px;
+		line-height: 16px;
+	}
+
+	.pg__pick-note--proposed {
+		background: #fff4e5;
+		color: #8a4b00;
+	}
+
+	// The step as a tile: Mark's squircle, the artwork's box at the step's share of it.
+	.pg__fill-tile {
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		border-radius: 32%;
+		background: #fff;
+		box-shadow: inset 0 0 0 1px rgba(23, 24, 28, 0.18);
+
+		&::after {
+			content: '';
+			width: calc(var(--f) * 100%);
+			height: calc(var(--f) * 100%);
+			border-radius: 3px;
+			background: color-mix(in srgb, var(--color-brand, #3d50f5) 30%, #fff);
+		}
+	}
+
 	// Trying: the tried colours as a little stack on its button; each try a row with its colour, its name,
 	// its hex and a cross.
 	.pg__menu--tries[hidden] {
@@ -10949,6 +11166,23 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		width: 88px;
 		height: 88px;
 		zoom: var(--pg-zoom);
+	}
+
+	// Fill on the canvas's tiles: Mark's artwork for its size times the step, and never past
+	// `$fill-cap` of the tile, where the artwork's box would cross the 32% corner curve. At 70 (today)
+	// every value is Mark's own (its widest, 70 of 88, is under the cap).
+	$fill-cap: 0.8125;
+
+	@each $kind, $var in (icon: --mark-icon, logo: --mark-logo, product: --mark-product, product-wide: --mark-wide) {
+		.pg__tile :global(.ui-mark__glyph--#{$kind}) {
+			width: min(calc(var(#{$var}) * var(--pg-fill, 1)), calc(var(--mark-size) * #{$fill-cap}));
+			height: min(calc(var(#{$var}) * var(--pg-fill, 1)), calc(var(--mark-size) * #{$fill-cap}));
+		}
+	}
+
+	.pg__tile :global(.lc-draft__glyph) {
+		width: min(calc(var(--lc-art) * var(--pg-fill, 1)), calc(var(--lc-size) * #{$fill-cap}));
+		max-height: min(calc(var(--lc-art) * var(--pg-fill, 1)), calc(var(--lc-size) * #{$fill-cap}));
 	}
 
 	// On a dark ground a white or black tile shows its edge with the hairline: the lift is lost there.
