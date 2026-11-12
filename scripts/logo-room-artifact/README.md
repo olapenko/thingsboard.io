@@ -1,10 +1,10 @@
 # Logo Room artifact
 
 The Logo Room (`/internal/design-system/logos/` on the lab) published on its own, working, as a private
-claude.ai artifact: https://claude.ai/artifact/LSxxpGErXUNFPoVC5noQTG. Share it from the page's Share menu;
+claude.ai artifact: https://claude.ai/artifact/KaSGUNgSr25ydXmp4rjNnS. Share it from the page's Share menu;
 until then only its owner can open it.
 
-It shows `exp/logo-review` as last captured (30 Oct 2026, 47d0e71e1): the renamed pages (Guidelines, Studio, About), the
+It shows `lab` as last captured (12 Nov 2026, the commit after 09f341a57): sets (Shipped, and Menu alignment proposed, with the Studio's Fill following the open set), the renamed pages (Guidelines, Studio, About), the
 groups guide, the palette with its colour editor, each mark's colours on light and dark cards with their tokens (dark values derived in OKLCH) a Propose a token dialog, the room's own colour picker, decisions with a type beside notes, Colours and Drawing tabs in each sheet with a new drawing to propose, briefs by topic, sets of your own, the Files
 side menu, renaming, removing and adding marks as proposals (a new mark previewed as the room draws it, in one colour or two), and the room's mark in About's hero. The tag in the bottom-left corner of every page names the branch, the commit and the capture date.
 
@@ -48,7 +48,7 @@ rounds, and Copy as patch.
 
 ## Refresh
 
-With the room's dev server (`tb-site-logos`, port 4355) running on the worktree to capture:
+With the lab's dev server (`tb-site-lab`, port 4340) running on the worktree to capture (`LOGO_ROOM_BASE` names another server):
 
 1. Decide what the snapshot should show: the dev server serves the working tree, uncommitted work
    included. The corner tag says `-dirty` when it is not a clean commit.

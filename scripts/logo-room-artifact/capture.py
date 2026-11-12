@@ -7,7 +7,7 @@ scripts come along, bundled as room.js (bundle.mjs), with the Tabler icons for t
 beside them; the lab's scripts and chrome stay behind. shell.js carries the room's address between
 pages (an artifact link keeps no query), shell.css hides the lab around the room.
 
-Usage (the room's dev server, tb-site-logos, on 4355):
+Usage (the lab's dev server, tb-site-lab, on 4340; LOGO_ROOM_BASE names another):
     python3 -I scripts/logo-room-artifact/capture.py
 """
 
@@ -22,7 +22,7 @@ import urllib.parse
 import urllib.request
 from datetime import date
 
-BASE = 'http://localhost:4355'
+BASE = os.environ.get('LOGO_ROOM_BASE', 'http://localhost:4340')
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT = os.path.join(HERE, 'site')
