@@ -8,7 +8,7 @@ summary: 'A proposed set: the family as the rebuilt site menu lists it. Tiles at
 brief:
   - topic: What this set is
     points:
-      - 'A proposed set: the whole family as the rebuilt site menu lists it, scraped from feat/menu-structure at d0b888b1f (11 Nov 2026): its tiles, its glyph files, its names and its order.'
+      - 'A proposed set: the whole family as the rebuilt site menu lists it, scraped from feat/menu-structure at dc016ad9c (12 Nov 2026): its tiles, its glyph files, its names and its order.'
       - 'Based on the shipped set, which it leaves untouched. Each tile it draws itself comes from the files in sets/menu-alignment/; a mark it does not redraw is in as it ships.'
       - 'Two departures from the menu: a 75% fill, and the CLI’s colours sliding once in 5s.'
   - topic: Fill
@@ -111,7 +111,7 @@ tiles:
   tbmq:
     tile: tint
     hue: '#4ade80'
-    change: 'The Tint tile as a gradient lit from above; last in the ecosystem'
+    change: 'The Tint tile as a gradient lit from above; last in the ecosystem; its brackets the same distance from the ring, where the shipped drawing has the right one 4 units out'
 order:
   - platform
   - onprem
