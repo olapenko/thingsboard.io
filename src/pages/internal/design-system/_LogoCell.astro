@@ -36,11 +36,14 @@ const PRODUCT_PX: Record<number, number> = { 36: 26, 40: 28, 48: 34, 64: 44, 72:
 const WIDE_PX: Record<number, number> = { 36: 29, 40: 32, 48: 38, 64: 51, 72: 58, 80: 64, 88: 70 };
 const ICON_PX: Record<number, number> = { 36: 24, 40: 24, 48: 28, 64: 40, 72: 44, 80: 48, 88: 52 };
 const STEP_PX = { product: PRODUCT_PX, wide: WIDE_PX, icon: ICON_PX };
-const artPx = c.kind === 'draft' ? STEP_PX[c.step ?? 'product'][c.size] : 0;
+const artPx =
+	c.kind === 'draft' ? (c.scale ? Math.round((c.size * c.scale) / 10) / 10 : STEP_PX[c.step ?? 'product'][c.size]) : 0;
 const draftSvg =
 	c.kind === 'draft'
 		? c.svg.replace(/<svg\b([^>]*)>/, (_m, attrs: string) => {
-				const kept = attrs.replace(/\s*\b(width|height|viewBox|class)="[^"]*"/g, '');
+				// A whole attribute only: `\b` alone also cut `width="…"` out of `stroke-width="…"`, and a
+				// stroked drawing lost its weight.
+				const kept = attrs.replace(/(^|\s)(width|height|viewBox|class)="[^"]*"/g, '');
 				return `<svg${kept} viewBox="${c.art.join(' ')}" class="lc-draft__glyph" aria-hidden="true" focusable="false">`;
 			})
 		: '';
@@ -76,7 +79,13 @@ const draftSvg =
 {c.kind === 'none' && <span class="lc-none">{c.why}</span>}
 {c.kind === 'draft' && (
 	<span
-		class:list={['lc-draft', `lc-draft--${c.fill}`, c.lift && 'lc-draft--lift']}
+		class:list={[
+			'lc-draft',
+			`lc-draft--${c.fill}`,
+			`lc-draft--step-${c.step ?? 'product'}`,
+			c.lift && 'lc-draft--lift',
+			c.scale && 'lc-draft--scaled',
+		]}
 		style={`--lc-size: ${c.size}px; --lc-art: ${artPx}px; --lc-accent: ${c.accent}; --lc-tint: ${c.tint ?? c.accent}${c.second ? `; --lc-second: ${c.second}` : ''}`}
 	>
 		<Fragment set:html={draftSvg} />
@@ -270,6 +279,97 @@ const draftSvg =
 			rgba(0, 0, 0, 0.18) 100%
 		);
 		color: var(--lc-accent);
+	}
+
+	// THE TILES A ROUND DRAWS OF ITS OWN (`tiles` in a round's record). The first to use them is the Menu
+	// alignment round: the site menu's list tiles (`_badge.scss` and `SiteMenu` on the menu branch).
+	// Tint: the mark's colour lit from above, 6% at the top to 20% at the foot, on an opaque ground.
+	.lc-draft--tint {
+		background-color: #fff;
+		background-image: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--lc-tint) 6%, transparent) 0%,
+			color-mix(in srgb, var(--lc-tint) 20%, transparent) 100%
+		);
+		color: var(--lc-accent);
+	}
+
+	// Glass: an app icon's pale tile, lit from above; the gradient alone sets it off a white ground.
+	.lc-draft--glass {
+		background-color: #eff1fa;
+		background-image: linear-gradient(180deg, #f8f9fd 0%, #eff1fa 50%, #e3e7f5 100%);
+		color: var(--lc-accent);
+	}
+
+	// Waves: the AI mark's colours as one long slanted gradient, each colour two tiles wide, so the tile
+	// shows one soft colour passing into the next. The layer is two repeats wide: sliding it by half its
+	// width loops without a seam, once in 5s (the menu takes 12s; the round proposes it quicker). 16% strong, as
+	// on a light ground; at rest under reduced motion.
+	.lc-draft--waves {
+		position: relative;
+		isolation: isolate;
+		overflow: hidden;
+		background-color: #fff;
+		color: var(--lc-accent);
+
+		&::before {
+			$wave: #5868ff, #8a5cf6, #cf4fb5, #e8703a, #cf4fb5, #8a5cf6, #5868ff, #2b8ee8, #14a3a3, #2b8ee8;
+
+			content: '';
+			position: absolute;
+			inset: -30% auto -30% -60%;
+			z-index: -1;
+			width: 4000%;
+			background-image: linear-gradient(90deg, $wave, $wave, nth($wave, 1));
+			opacity: 0.16;
+			transform: skewX(-28deg);
+		}
+
+		@media (prefers-reduced-motion: no-preference) {
+			&::before {
+				animation: lc-waves 5s linear infinite;
+			}
+		}
+	}
+
+	@keyframes lc-waves {
+		to {
+			transform: translateX(-50%) skewX(-28deg);
+		}
+	}
+
+	// THE SAME THREE ON A DARK GROUND. The menu's panel lets its ground show through them; here each stands
+	// on a black base of its own, the Dark tile's black, so a tile reads as a tile on any dark ground
+	// and the three hold one depth. Over it the tint is denser at the top (22% to 8%), the waves are 28%
+	// strong, and a one-colour drawing on the waves or the glass turns white. A product's two-tone glyph
+	// stays as it is.
+	:global([data-surface='dark']) :is(.lc-draft--tint, .lc-draft--glass, .lc-draft--waves) {
+		background-color: #15161b;
+	}
+
+	:global([data-surface='dark']) .lc-draft--tint {
+		background-image: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--lc-tint) 22%, transparent) 0%,
+			color-mix(in srgb, var(--lc-tint) 8%, transparent) 100%
+		);
+	}
+
+	:global([data-surface='dark']) .lc-draft--glass {
+		background-image: linear-gradient(180deg, rgba(214, 222, 255, 0.22) 0%, rgba(214, 222, 255, 0.07) 100%);
+		color: #fff;
+	}
+
+	:global([data-surface='dark']) .lc-draft--waves {
+		color: #fff;
+
+		&::before {
+			opacity: 0.28;
+		}
+	}
+
+	:global([data-surface='dark']) :is(.lc-draft--tint, .lc-draft--glass, .lc-draft--waves).lc-draft--lift {
+		box-shadow: none;
 	}
 
 	.lc-draft--lift {

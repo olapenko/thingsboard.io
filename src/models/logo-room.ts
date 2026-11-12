@@ -151,6 +151,46 @@ export const logoMarkSchema = z.object({
 });
 export type LogoMark = z.infer<typeof logoMarkSchema>;
 
+/**
+ * A TILE AS A SET DRAWS IT. A set can say what no candidate of a mark can: a name, a tile recipe the
+ * shipped set does not have, a drawing, a scale. It says so here, per mark, and keeps the drawings
+ * beside its record (`sets/<set>/<art>.svg`), so a proposed set never touches a mark's record or the
+ * shipped set. The room draws these on the Studio's canvas (the `own` material) and in the Overview.
+ */
+export const LOGO_SET_TILES = ['white', 'colour', 'tint', 'glass', 'waves'] as const;
+const tileHexSchema = z.string().regex(/^#[0-9a-f]{6}$/);
+export const logoSetTileSchema = z.object({
+	/** Its name in this set, where the set gives it another. */
+	name: z.string().trim().min(1).max(40).optional(),
+	/**
+	 * What the tile is made of. white: the White tile · colour: filled with `hue` · tint: `hue` as a
+	 * gradient lit from above · glass: an app icon's pale, top-lit tile · waves: the AI mark's colours
+	 * sliding behind the drawing.
+	 */
+	tile: z.enum(LOGO_SET_TILES),
+	/** The drawing, a file beside the set: `sets/<set>/<art>.svg`. Left out, the mark's id. */
+	art: z
+		.string()
+		.regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+		.optional(),
+	/**
+	 * The drawing's width as a share of the tile, in percent, for a tile that departs from the set's
+	 * `fill` for its kind. Left out, as every tile of its kind.
+	 */
+	scale: z.number().min(40).max(90).optional(),
+	/** The tile's colour, where it is not the mark's own first colour. */
+	hue: tileHexSchema.optional(),
+	/** The drawing's colour, for one drawn in `currentColor`; left out, the tile's own ink. */
+	ink: tileHexSchema.optional(),
+	/** What changes against the tile that ships, in a line. */
+	change: z.string().optional(),
+	/**
+	 * Where the tile stands in this set, where it is not the set's own status: `legacy` for a mark the
+	 * set keeps on record but does not draw on the live site. Left out, `exploring` in a proposed set.
+	 */
+	status: logoStatusSchema.optional(),
+});
+export type LogoSetTile = z.infer<typeof logoSetTileSchema>;
 export const logoRoundSchema = z.object({
 	label: z.string(),
 	/** Its name in a list of sets: a word or two, never its number again. */
@@ -214,6 +254,55 @@ export const logoRoundSchema = z.object({
 		.default([]),
 });
 export type LogoRound = z.infer<typeof logoRoundSchema>;
+
+/**
+ * A SET: the whole family as one configuration — which marks are in it, under which names and in which
+ * order, on which tiles, at which fill. The shipped set is one record; a proposal is another, based on
+ * it and saying only where it departs. A round is a different thing: a review of candidates for a mark
+ * or two.
+ *
+ *   - `shipped`: the set the live pages draw. One record, and every other set starts from it.
+ *   - `proposed`: a set under review; nothing in it is built yet.
+ *   - `legacy`: a set that shipped once, kept on record.
+ */
+export const LOGO_SET_STATUSES = ['shipped', 'proposed', 'legacy'] as const;
+export const logoSetSchema = z.object({
+	/** Its name in the list of sets: a word or two. */
+	name: z.string().max(24),
+	status: z.enum(LOGO_SET_STATUSES),
+	/** The set it starts from: what it does not say, it takes from there. Left out, the shipped set. */
+	basedOn: z.string().optional(),
+	opened: z.coerce.date().optional(),
+	title: z.string(),
+	/** Its annotation in the Studio, under the set's name. */
+	summary: z.string(),
+	/** What the set settles, as a round's brief is written: short topics, each a few terse points. */
+	brief: z
+		.array(z.union([z.string(), z.object({ topic: z.string().max(40), points: z.array(z.string()).min(1) })]))
+		.default([]),
+	/** Its members, as departures from the set it is based on: mark → material; `off` leaves a mark out. */
+	set: z.record(z.string(), logoMaterialSchema).default({}),
+	/** The tiles it draws itself, by mark: each takes the `own` material in the set. */
+	tiles: z.record(z.string(), logoSetTileSchema).default({}),
+	/** The order it lists the marks in; a mark left out keeps its place after them. */
+	order: z.array(z.string()).default([]),
+	/**
+	 * THE SET'S FILL: how much of its tile the artwork takes, in percent. `base` is every kind's share; a
+	 * kind named beside it — the logomark, an icon, a product's glyph, a wide product's glyph — is a rule
+	 * of its own. It holds for every tile in the set: a fill is the set's, not a tile's. Left out, the
+	 * ladder the tile component ships (a product at 70, the logomark and an icon at 59, wide art at 80).
+	 */
+	fill: z
+		.object({
+			base: z.number().min(40).max(90).optional(),
+			logo: z.number().min(40).max(90).optional(),
+			icon: z.number().min(40).max(90).optional(),
+			product: z.number().min(40).max(90).optional(),
+			wide: z.number().min(40).max(90).optional(),
+		})
+		.optional(),
+});
+export type LogoSet = z.infer<typeof logoSetSchema>;
 
 /** A colour as a token would hold it: a light value and a dark one, each a six-digit hex. */
 const hexSchema = z.string().regex(/^#[0-9a-f]{6}$/);

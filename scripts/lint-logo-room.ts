@@ -9,6 +9,9 @@
  *     palette colour holds 3:1 against white, as a Colour tile's white mark needs; a pick names a drawn candidate of its mark;
  *     no mark both picked and reviewed; no mark in two open rounds; an open round has no `decided`
  *     date and a decided one has one, not before it opened
+ *   - sets: names unique; exactly one `shipped` set; `basedOn` names a set; the marks they place,
+ *     draw and order exist; each tile a set draws has its drawing at `sets/<set>/<art>.svg`, with a
+ *     viewBox; `order` lists a mark once
  *
  *   - artwork: each file in `marks/<mark>/` is `<candidate>.svg` for a candidate of that mark (not
  *     `current`), `mark.svg`, the mark's own artwork, or `proposed.svg`, the new drawing its record's
@@ -44,8 +47,10 @@ import {
 	logoMarkSchema,
 	logoPaletteSchema,
 	logoRoundSchema,
+	logoSetSchema,
 	type LogoMark,
 	type LogoRound,
+	type LogoSet,
 } from '../src/models/logo-room.ts';
 import { ICON_START, iconBase, TAKEN_ICONS } from '../src/pages/internal/design-system/_room-icons.ts';
 import {
@@ -97,6 +102,7 @@ function load<T>(sub: string, schema: { safeParse: (v: unknown) => { success: bo
 
 const marks = load<LogoMark>('marks', logoMarkSchema);
 const rounds = load<LogoRound>('rounds', logoRoundSchema);
+const sets = load<LogoSet>('sets', logoSetSchema);
 
 // ── Marks ──
 const orders = new Map<number, string>();
@@ -389,4 +395,28 @@ if (problems.length > 0) {
 	problems.forEach((p) => console.error(`  ${p}`));
 	process.exit(1);
 }
-console.log(`Logo Room records: ${marks.size} marks, ${rounds.size} rounds, all consistent.`);
+// ── Sets: the family as one configuration, the shipped one and the proposals ──
+const setNames = new Map<string, string>();
+const shipped = [...sets].filter(([, { data }]) => data.status === 'shipped');
+if (shipped.length !== 1) report(join(DIR, 'sets'), `exactly one set is the shipped one, and ${shipped.length} say so`);
+for (const [id, { file, data }] of sets) {
+	const sameName = setNames.get(data.name.toLowerCase());
+	if (sameName) report(file, `name “${data.name}” is ${sameName}’s too`);
+	setNames.set(data.name.toLowerCase(), id);
+	if (data.basedOn && !sets.has(data.basedOn)) report(file, `basedOn: no set “${data.basedOn}” in sets/`);
+	if (data.basedOn === id) report(file, 'basedOn: a set is not based on itself');
+
+	const named = [...Object.keys(data.set), ...Object.keys(data.tiles), ...data.order];
+	named.filter((m) => !marks.has(m)).forEach((m) => report(file, `no mark “${m}” in marks/`));
+	if (new Set(data.order).size !== data.order.length) report(file, 'order: a mark is listed twice');
+
+	// The tiles it draws itself: each needs its drawing beside the record, with a viewBox.
+	for (const [mark, tile] of Object.entries(data.tiles)) {
+		const art = join(DIR, 'sets', id, `${tile.art ?? mark}.svg`);
+		if (!existsSync(art)) report(file, `tiles: ${mark} has no drawing at ${relative(ROOT, art)}`);
+		else if (!/viewBox="[^"]+"/.test(readFileSync(art, 'utf8'))) report(art, 'needs a viewBox');
+		if (data.set[mark] === 'off') report(file, `${mark} is drawn in tiles and left out in set`);
+	}
+}
+
+console.log(`Logo Room records: ${marks.size} marks, ${rounds.size} rounds, ${sets.size} sets, all consistent.`);

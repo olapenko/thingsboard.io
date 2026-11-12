@@ -63,11 +63,16 @@ export type Cell = { name: string; caption: string } & (
 			art: readonly [number, number, number, number];
 			/** Which of Mark's steps sizes it: a product's (70%), a wide product's (80%), or an icon's (60%). */
 			step?: 'product' | 'wide' | 'icon';
+			/** Its width as a share of the tile, in percent, where a round sets it; it overrides the step. */
+			scale?: number;
 			/**
 			 * solid: knocked out of the accent · white: the accent on white · dark: the accent on black ·
 			 * darktint: the accent on near-black tinted with `tint`, the product's own colour.
+			 * The tiles a round can draw of its own (`tiles` in its record): tint, a gradient of `tint` lit
+			 * from above, the artwork in the accent · waves, the AI mark's colours sliding behind the artwork ·
+			 * glass, an app icon's pale, top-lit tile.
 			 */
-			fill: 'solid' | 'white' | 'dark' | 'darktint';
+			fill: 'solid' | 'white' | 'dark' | 'darktint' | 'tint' | 'waves' | 'glass';
 			/** The darktint tile's hue, when it is not the ink's. */
 			tint?: string;
 			accent: string;

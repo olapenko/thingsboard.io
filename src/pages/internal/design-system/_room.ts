@@ -57,6 +57,7 @@ export const ROOM: RoomPage[] = [
 		icon: 'tabler:tools',
 		sections: [
 			{ id: 'workbench', label: 'Canvas' },
+			{ id: 'sets', label: 'Sets' },
 			{ id: 'rounds', label: 'Rounds' },
 			{ id: 'experiments', label: 'Ideas' },
 			{ id: 'actions', label: 'Actions' },

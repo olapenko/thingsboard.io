@@ -45,6 +45,7 @@ import {
 	type LogoMark,
 	type LogoMaterial,
 	type LogoRound,
+	type LogoSet,
 	type LogoTone,
 } from '@models/logo-room';
 import { markArtPath, markPath, PALETTE_PATH, proposedArtPath, TONE_2 } from '@util/logo-room-records';
@@ -187,7 +188,7 @@ const HUB_ART = [0, 0, 24, 23] as const;
 const draft = (
 	svg: string,
 	art: readonly number[],
-	fill: 'solid' | 'white' | 'dark' | 'darktint',
+	fill: 'solid' | 'white' | 'dark' | 'darktint' | 'tint' | 'waves' | 'glass',
 	accent: string,
 	step: 'product' | 'wide' | 'icon',
 	tint?: string,
@@ -298,6 +299,13 @@ interface Product {
 const MARK_RECORDS = (await getCollection('logoMarks')).sort((a, b) => a.data.order - b.data.order);
 const ROUND_RECORDS = (await getCollection('logoRounds')).sort((a, b) =>
 	a.id.localeCompare(b.id, undefined, { numeric: true })
+);
+/** The sets: the shipped one first, then the others as they were opened. */
+const SET_RECORDS = (await getCollection('logoSets')).sort(
+	(a, b) =>
+		Number(b.data.status === 'shipped') - Number(a.data.status === 'shipped') ||
+		(a.data.opened?.getTime() ?? 0) - (b.data.opened?.getTime() ?? 0) ||
+		a.id.localeCompare(b.id)
 );
 const disagree = (where: string, what: string) => {
 	throw new Error(`Logo Room: src/content/logo-room/${where}: ${what}`);
@@ -981,11 +989,13 @@ const faviconUri = (dark: boolean) =>
  * logo on white in its hue, any mark on black) — and left blank where it does not (the platform in
  * colour would be Cloud). A variant that is not shipped carries its status as a dot.
  */
-type Material = 'white' | 'colour' | 'tint' | 'black' | 'darktint' | 'both' | 'off';
+type Material = 'white' | 'colour' | 'tint' | 'black' | 'darktint' | 'both' | 'own' | 'off';
 /** A material's column in the map. */
 const MATERIAL_COL: Partial<Record<Material, Col>> = { white: 'white', colour: 'filled', tint: 'tint', black: 'black' };
 interface PlayVariant {
 	m: Material;
+	/** For an `own` tile: the set that draws it. */
+	set?: string;
 	cells: Cell[];
 	/** The map's status for this treatment; a variant only the bench draws is a draft, `exploring`. */
 	status: Status;
@@ -1002,6 +1012,58 @@ const ICON: Record<string, string> = {
 	cli: 'tabler:terminal-2',
 	assistant: 'tabler:message-chatbot',
 };
+
+// ── A set's own tiles ──
+/**
+ * THE TILES A SET DRAWS OF ITS OWN: `tiles` in its record, each drawing a file beside it in
+ * `sets/<set>/`. A set can say what no candidate of a mark can — a name, a tile recipe the shipped set
+ * does not have, a scale — without touching the mark's record or the shipped set. The Studio draws them
+ * as the `own` material, under the set's name for the mark; the Overview draws them when it shows the
+ * set. A mark can be drawn by several sets: each has its own tile for it.
+ */
+const SET_FILL = { white: 'white', colour: 'solid', tint: 'tint', glass: 'glass', waves: 'waves' } as const;
+/** The ink a recipe draws a one-colour drawing in, where the set names none. */
+const SET_INK: Partial<Record<keyof typeof SET_FILL, string>> = { glass: '#4a5068', waves: '#17181c' };
+interface SetTile {
+	/** The mark's name in the set, where it gives it another. */
+	name?: string;
+	change?: string;
+	/** Where it stands: the set's own status (a proposal is `exploring`) unless the tile says otherwise. */
+	status: Status;
+	cell: Cell;
+}
+const SET_TILES: Record<string, Record<string, SetTile>> = {};
+for (const { id, data } of SET_RECORDS) {
+	const at = `sets/${id}.md`;
+	SET_TILES[id] = {};
+	for (const [mark, t] of Object.entries(data.tiles)) {
+		const row = ROWS.find((r) => r.id === mark) ?? disagree(at, `tiles: no mark “${mark}”`);
+		const path = `src/content/logo-room/sets/${id}/${t.art ?? mark}.svg`;
+		if (!existsSync(join(ROOT, path))) disagree(at, `tiles: ${mark} has no drawing at ${path}`);
+		const svg = read(path);
+		const box = svg
+			.match(/viewBox="([^"]+)"/)?.[1]
+			?.trim()
+			.split(/[\s,]+/)
+			.map(Number);
+		if (!box || box.length !== 4 || box.some((n) => Number.isNaN(n))) disagree(path, 'needs a viewBox');
+		const hue = t.hue ?? resolveHue(row.hue) ?? '#17181c';
+		const ink = t.ink ?? SET_INK[t.tile] ?? hue;
+		// Its kind, for the set's fill: the logomark and a one-colour glyph size as an icon, artwork wider
+		// than 3:2 as a wide product, the rest as a product.
+		const [, , bw, bh] = box as number[];
+		const step = (t.art ?? mark) === 'thingsboard' ? 'icon' : bw / bh > 1.5 ? 'wide' : 'product';
+		const base = draft(svg, box as number[], SET_FILL[t.tile], t.tile === 'colour' ? hue : ink, step, hue);
+		SET_TILES[id][mark] = {
+			name: t.name,
+			change: t.change,
+			status: t.status ?? (data.status === 'proposed' ? 'exploring' : data.status),
+			cell: base.kind === 'draft' && t.scale ? { ...base, scale: t.scale } : base,
+		};
+	}
+	for (const mark of [...data.order, ...Object.keys(data.set)])
+		if (!ROWS.some((r) => r.id === mark)) disagree(at, `no mark “${mark}”`);
+}
 
 function playOf(r: (typeof ROWS)[number]): PlayVariant[] {
 	const out: PlayVariant[] = [];
@@ -1060,6 +1122,9 @@ function playOf(r: (typeof ROWS)[number]): PlayVariant[] {
 				: logoOn('darktint', r.id === 'platform' ? '#ffffff' : tintInk, r.hue ?? '#17181c');
 	add('darktint', [darkTint]);
 	if (r.id === 'platform') add('both', [r.white?.cell, black], r.white);
+	// As each set that draws it draws it: one `own` tile per such set, shown while that set is open.
+	for (const [set, tiles] of Object.entries(SET_TILES))
+		if (tiles[r.id]) out.push({ m: 'own', set, cells: [tiles[r.id].cell], status: tiles[r.id].status });
 	add('off', []);
 	return out;
 }
@@ -1188,7 +1253,109 @@ const ladderOf = (g: NonNullable<Round['scope']>[number]): LadderRow[] => {
 		{ label: 'Dark tile', dark: true, bg: shadeOnDark, ink: '#ffffff' },
 	];
 };
-type PresetKind = 'shipped' | 'round' | 'exploration';
+// ── Sets ──
+/**
+ * THE SETS: the whole family as one configuration each — its members, their names and order, the tiles
+ * it draws itself, its fill. The shipped set is one; a proposal is another, based on it. The Studio
+ * lists them, the canvas draws the open one, the Overview switches between the shipped set and the
+ * proposal. A round is not a set: it reviews candidates for a mark or two.
+ */
+const FILL_KINDS = ['logo', 'icon', 'product', 'wide'] as const;
+type FillKind = (typeof FILL_KINDS)[number];
+/** A set's fill: its base (every kind's share of the tile, in percent) and its rules over it, by kind. */
+interface SetFillSpec {
+	base?: number;
+	rules: Partial<Record<FillKind, number>>;
+}
+interface RoomSet {
+	id: string;
+	name: string;
+	status: LogoSet['status'];
+	title: string;
+	note: string;
+	brief?: LogoSet['brief'];
+	m: Record<string, Material>;
+	order?: string[];
+	/** Left out: the ladder the tile component ships. */
+	fill?: SetFillSpec;
+	tiles: Record<string, SetTile>;
+}
+const SETS: RoomSet[] = SET_RECORDS.map(({ id, data }) => {
+	const rules = Object.fromEntries(
+		FILL_KINDS.flatMap((k) => (data.fill?.[k] === undefined ? [] : [[k, data.fill[k]]]))
+	) as SetFillSpec['rules'];
+	return {
+		id,
+		name: data.name,
+		status: data.status,
+		title: data.title,
+		note: data.summary,
+		brief: data.brief.length > 0 ? data.brief : undefined,
+		// A mark the set draws itself takes the `own` material, whatever `set` says of the others.
+		m: {
+			...START,
+			...Object.fromEntries(Object.entries(data.set).map(([k, v]) => [k, materialOf(v)])),
+			...Object.fromEntries(Object.keys(data.tiles).map((k) => [k, 'own' as const])),
+		},
+		order: data.order.length > 0 ? data.order : undefined,
+		fill: data.fill && { base: data.fill.base, rules },
+		tiles: SET_TILES[id] ?? {},
+	};
+});
+if (!SETS.some((x) => x.id === 'shipped' && x.status === 'shipped'))
+	disagree('sets/shipped.md', 'the shipped set is missing: the Studio opens on it');
+/** A set's fill by kind: its rule for the kind, else its base; a kind with neither stays on the ladder. */
+const fillKindsOf = (set?: RoomSet) =>
+	FILL_KINDS.flatMap((k) => {
+		const v = set?.fill?.rules[k] ?? set?.fill?.base;
+		return v === undefined ? [] : [[k, v] as const];
+	});
+/** The same as attributes, for an element that draws the set off the canvas (`.pr-setfill`). */
+const setFillAttrs = (set?: RoomSet) => {
+	const fill = fillKindsOf(set);
+	return fill.length > 0
+		? {
+				'data-set-fill': fill.map(([k]) => k).join(' '),
+				style: fill.map(([k, v]) => `--pg-k-${k}: ${v / 100}`).join('; '),
+			}
+		: {};
+};
+/**
+ * A SET, DRAWN: every mark it holds, in its order within each group, each as the set shows it — its own
+ * tile, else the material the set gives the mark — under the set's name for it. For a view of the set
+ * off the canvas: the Overview's card, the set's article.
+ */
+const setTilesOf = (set: RoomSet) =>
+	PLAY.flatMap((g) => {
+		const at = (id: string) => {
+			const i = set.order?.indexOf(id) ?? -1;
+			return i < 0 ? (set.order?.length ?? 0) : i;
+		};
+		return g.items
+			.map((x, i) => ({ x, i }))
+			.sort((a, b) => at(a.x.r.id) - at(b.x.r.id) || a.i - b.i)
+			.flatMap(({ x }) => {
+				const m = set.m[x.r.id];
+				const cell = x.variants.find((v) => v.m === m && (m !== 'own' || v.set === set.id))?.cells[0];
+				const own = set.tiles[x.r.id];
+				return cell ? [{ id: x.r.id, cell, name: own?.name ?? x.r.label, status: own?.status }] : [];
+			});
+	});
+/**
+ * Which `own` tile the canvas shows: the open set's (`data-set-id` on the canvas, from the set's option),
+ * since several sets can draw the same mark. A rule per set, written here because a stylesheet cannot
+ * compare two attributes; with no set open (a link to a hand-made set), every own tile there is.
+ */
+const OWN_TILE_CSS = [
+	'.pg:not([data-set-id]) .pg__item[data-m="own"] .pg__v[data-m="own"]{display:grid}',
+	...SETS.filter((x) => Object.keys(x.tiles).length > 0).map(
+		(x) => `.pg[data-set-id="${x.id}"] .pg__item[data-m="own"] .pg__v[data-of-set="${x.id}"]{display:grid}`
+	),
+].join('');
+/** The proposal the Overview shows beside the shipped set: the latest opened. */
+const PROPOSED_SET = [...SETS].reverse().find((x) => x.status === 'proposed');
+
+type PresetKind = 'shipped' | 'proposed' | 'round' | 'exploration';
 /**
  * Where the bench starts from: the set as it ships, a round (a proposal under review), or an
  * exploration (a whole-set stress test, never a candidate).
@@ -1204,15 +1371,22 @@ const PRESETS: {
 	line: string;
 	note: string;
 	m: Record<string, Material>;
+	/** The order the set lists the marks in, where it is not the room's own. */
+	order?: string[];
+	/** The set's own fill, where it has one: the bar's Fill opens on it. Without one, the shipped ladder. */
+	fill?: SetFillSpec;
 }[] = [
-	{
-		id: 'shipped',
-		label: 'Shipped',
-		kind: 'shipped',
-		line: 'The set as the live pages draw it',
-		note: 'The set as the live pages draw it today. IoT Hub already shows its hub: approved, and waiting to be built.',
-		m: START,
-	},
+	// The sets, from their records: the shipped one, then the proposals.
+	...SETS.map((x) => ({
+		id: x.id,
+		label: x.name,
+		kind: x.status === 'shipped' ? ('shipped' as const) : ('proposed' as const),
+		line: x.title,
+		note: x.note,
+		m: x.m,
+		order: x.order,
+		fill: x.fill,
+	})),
 	// A round goes by its name in the list; its number is the group's word again.
 	...ROUNDS.map((r) => ({ id: r.id, label: r.name, kind: 'round' as const, line: r.title, note: r.note, m: r.m })),
 	{
@@ -1256,7 +1430,12 @@ const PRESETS: {
 		m: Object.fromEntries(ROWS.map((r) => [r.id, 'darktint'])),
 	},
 ];
-const PRESET_KIND: Record<PresetKind, string> = { shipped: '', round: 'Rounds', exploration: 'Explore' };
+const PRESET_KIND: Record<PresetKind, string> = {
+	shipped: '',
+	proposed: 'Proposed',
+	round: 'Rounds',
+	exploration: 'Explore',
+};
 /**
  * A set's dot, in the statuses' own colours: what its marks would be if it landed. Shipped is the
  * live set; an open round is Exploring, under review; a decided round is Designed, approved and
@@ -1265,34 +1444,45 @@ const PRESET_KIND: Record<PresetKind, string> = { shipped: '', round: 'Rounds', 
 const setDotOf = (s: (typeof PRESETS)[number]): Status | 'none' =>
 	s.kind === 'shipped'
 		? 'shipped'
-		: s.kind === 'round'
-			? ROUNDS.find((r) => r.id === s.id)?.state === 'decided'
-				? 'designed'
+		: s.kind === 'proposed'
+			? SETS.find((x) => x.id === s.id)?.status === 'legacy'
+				? 'legacy'
 				: 'exploring'
-			: 'none';
+			: s.kind === 'round'
+				? ROUNDS.find((r) => r.id === s.id)?.state === 'decided'
+					? 'designed'
+					: 'exploring'
+				: 'none';
 /**
  * The Sets list in the Studio's sidebar: the starting points in their groups, each with its dot, its
  * name and its line.
  */
-const SET_MENU = (['shipped', 'round', 'exploration'] as const).map((k) => ({
+const SET_MENU = (['shipped', 'proposed', 'round', 'exploration'] as const).map((k) => ({
 	kind: k,
 	label: PRESET_KIND[k],
 	items: PRESETS.filter((s) => s.kind === k).map((s) => ({ ...s, dot: setDotOf(s) })),
 }));
 /**
- * Fill: how much of its tile the artwork takes, as steps of one scale. Mark's ladder puts a product's
- * artwork at 70% of the tile, the logo and an icon at 59%, wide art at 80%; a step multiplies them all
- * alike, so the kinds keep their places against each other. A step is named by the product's share
- * and is its value too. From 62 to 80 and no further: below 62% a product reads as lost in its tile,
- * and past 81% (the square whose corners just meet the 32% corner curve: 1 − 2 × 0.32 × (1 − 1/√2))
- * the artwork's box crosses the curve, so 80 is a product's last step and no artwork goes past 81% at
- * any step. `$fill-cap` holds that line in the CSS. 70 is the ladder as it ships; 78 is the proposal,
- * which the Studio opens on.
+ * FILL: how much of its tile the artwork takes. It is the open set's, and the bar's Fill is its control:
+ * it opens on the set's own value and tries another on that set alone.
+ *
+ * Two kinds of set. One with no fill of its own (the shipped set, the explorations, a round) is on the
+ * tile component's ladder — a product's artwork at 70% of the tile, the logo and an icon at 59%, wide
+ * art at 80% — and a step multiplies them all alike, named by the product's share. One with a base (a
+ * proposed set) puts every kind at the step; its rules by kind, and a tile that states its own scale,
+ * stay as the set wrote them. From 62 to 80 and no further: below 62% artwork reads as lost in its
+ * tile, and past 81% (the square whose corners just meet the 32% corner curve) its box crosses the
+ * curve. `$fill-cap` holds that line in the CSS.
  */
-const FILL_TODAY = 70;
-const FILL_PROPOSED = 78;
-const FILL_STEPS = [62, 66, 70, 74, 78, 80] as const;
-const fillNote = (pct: number) => (pct === FILL_TODAY ? 'Today' : pct === FILL_PROPOSED ? 'Proposed' : '');
+const FILL_LADDER = 70;
+const FILL_STEPS = [62, 66, 70, 75, 78, 80] as const;
+/** A step's note: whose value it is. */
+const fillNote = (pct: number) =>
+	pct === FILL_LADDER
+		? 'Shipped'
+		: (SETS.filter((x) => x.fill?.base === pct)
+				.map((x) => x.name)
+				.join(', ') ?? '');
 /**
  * The view's controls, by where they sit: the ground on the canvas it changes, the rest in the bar.
  * Layout and Size need no label (icons, and the sizes in px); Fill is a menu, its steps a product's
@@ -1329,7 +1519,7 @@ const PLAY_GLOBALS = [
 	{
 		key: 'fill',
 		label: 'Fill',
-		default: String(FILL_PROPOSED),
+		default: String(FILL_LADDER),
 		options: FILL_STEPS.map((pct) => [String(pct), `${pct}%`] as const),
 	},
 	{
@@ -1902,10 +2092,11 @@ const fileArtOf = (r: (typeof ROWS)[number], id: string, material?: LogoMaterial
 		.map(Number);
 	if (!box || box.length !== 4 || box.some((n) => Number.isNaN(n)))
 		disagree(`marks/${r.id}/${id}.svg`, 'needs a viewBox');
-	const fills: Partial<Record<LogoMaterial, 'solid' | 'dark' | 'darktint'>> = {
+	const fills: Partial<Record<LogoMaterial, 'solid' | 'dark' | 'darktint' | 'tint'>> = {
 		colour: 'solid',
 		dark: 'dark',
 		darktint: 'darktint',
+		tint: 'tint',
 	};
 	const fill = (material && fills[material]) ?? 'white';
 	return draft(svg, box as number[], fill, resolveHue(r.hue) ?? '#17181c', 'product');
@@ -1942,17 +2133,56 @@ const candidatesOf = (r: (typeof ROWS)[number]): Candidate[] => {
 
 // ── The hero ──
 /**
- * The two sets the hero switches between. Current: the marks as they ship. To be: Round 1 over them,
- * each mark it picks drawn as its pick, each mark it sends to be redrawn flagged as under review (still
- * drawn as it ships until its drawing is in), and any change already decided; the rest as they ship.
+ * The two sets the hero switches between: the shipped one, and the proposed one. The proposal shows
+ * every mark it holds as it draws it — its own tile where it has one, the shipped tile otherwise, all at
+ * its fill, under its names, in its order — and dims a mark it leaves out. With no set proposed, the
+ * second view is Round 1 over the shipped set, as before: its picks, its marks under review, and any
+ * change already decided.
  */
-type HeroChange = 'pick' | 'review' | 'designed';
+type HeroChange = 'pick' | 'review' | 'designed' | 'own' | 'legacy';
 const ROUND_ONE = ROUNDS[0];
+interface HeroItem {
+	r: (typeof ROWS)[number];
+	current?: Cell;
+	next?: Cell;
+	/** Shown in the second view: in the proposed set, or changed by Round 1. */
+	changed: boolean;
+	change?: HeroChange;
+	/** Its name in the proposed set, where the set gives it another. */
+	name?: string;
+	/** Its place in the proposed set's order, within its group. */
+	order: number;
+}
 const HERO = GROUPS.map((g) => ({
 	name: g.name,
-	items: g.rows.flatMap((r) => {
+	items: g.rows.flatMap((r): HeroItem[] => {
 		const current = faceOf(r, 'shipped');
 		const designed = faceOf(r, 'designed');
+		if (PROPOSED_SET) {
+			const own = PROPOSED_SET.tiles[r.id];
+			const inSet = PROPOSED_SET.m[r.id] !== 'off';
+			const next = own?.cell ?? designed ?? current;
+			if (!current && !next) return [];
+			const change: HeroChange | undefined = own
+				? own.status === 'legacy'
+					? 'legacy'
+					: 'own'
+				: designed && designed !== current
+					? 'designed'
+					: undefined;
+			const at = PROPOSED_SET.order?.indexOf(r.id) ?? -1;
+			return [
+				{
+					r,
+					current,
+					next,
+					changed: inSet && !!next,
+					change: inSet ? change : undefined,
+					name: own?.name,
+					order: at < 0 ? (PROPOSED_SET.order?.length ?? 0) : at,
+				},
+			];
+		}
 		const pick = ROUND_ONE?.picks.find((p) => p.mark === r.id);
 		const picked = pick ? candidatesOf(r).find((c) => c.id === pick.candidate)?.cell : undefined;
 		const reviewed = !!ROUND_ONE?.reviews?.includes(r.id);
@@ -1962,16 +2192,24 @@ const HERO = GROUPS.map((g) => ({
 		const drawn = reviewed ? candidatesOf(r).find((c) => c.cell)?.cell : undefined;
 		const next = picked ?? (decided ? designed : (current ?? drawn));
 		if (!current && !next) return [];
-		return [{ r, current, next, changed: !!change, change }];
+		return [{ r, current, next, changed: !!change, change, name: undefined, order: 0 }];
 	}),
 }));
+/** The proposed set's fill, for the hero's second view: on every tile of the set. */
+const HERO_FILL = setFillAttrs(PROPOSED_SET);
+const HERO_NEXT = PROPOSED_SET?.name ?? 'To be';
 const HERO_CHANGE: Record<HeroChange, { dot: Status; title: string }> = {
 	pick: { dot: 'exploring', title: `${ROUND_ONE?.label ?? 'Round 1'}: its pick` },
 	review: { dot: 'exploring', title: `${ROUND_ONE?.label ?? 'Round 1'}: to be redrawn` },
 	designed: { dot: 'designed', title: 'Designed: approved, to build' },
+	own: { dot: 'exploring', title: `${HERO_NEXT}: drawn by the set, proposed` },
+	legacy: { dot: 'legacy', title: 'Legacy: kept on record, not for the live website' },
 };
 const heroShipped = HERO.flatMap((g) => g.items).filter((x) => x.current).length;
-const heroChanges = HERO.flatMap((g) => g.items).filter((x) => x.changed).length;
+const heroChanges = HERO.flatMap((g) => g.items).filter((x) => x.change).length;
+const heroLegend = PROPOSED_SET
+	? `${HERO.flatMap((g) => g.items).filter((x) => x.changed).length} marks, ${heroChanges} of them redrawn or renamed, all at the set’s fill`
+	: `${heroChanges} changes in ${ROUND_ONE?.label ?? 'Round 1'}, the rest as they ship`;
 const roundOf = (id: string) => ROUNDS.find((rd) => rd.picks.some((p) => p.mark === id) || rd.reviews?.includes(id));
 const pickOf = (id: string) =>
 	ROUNDS.flatMap((rd) => rd.picks.map((p) => ({ ...p, round: rd }))).find((p) => p.mark === id);
@@ -2040,6 +2278,7 @@ const CONFIG_ORDER: { m?: Material; col?: Col; label: string }[] = [
 	{ m: 'black', col: 'black', label: 'Dark tile' },
 	{ m: 'darktint', label: 'Dark tint tile' },
 	{ m: 'both', label: 'White + Dark' },
+	{ m: 'own', label: 'Its set’s tile' },
 	{ col: 'glyph', label: 'Glyph' },
 ];
 const STATE_LABEL: Record<ConfigState, string> = { guide: 'In the guide', draft: 'Draft', missing: 'Missing' };
@@ -2049,7 +2288,8 @@ const configsOf = (r: (typeof ROWS)[number], bench: PlayVariant[]) => {
 	return CONFIG_ORDER.flatMap((o) => {
 		const v = o.col ? r[o.col] : undefined;
 		const b = o.m ? bench.find((x) => x.m === o.m) : undefined;
-		if (o.m === 'both' && !b) return [];
+		// Only a mark that has one: the platform's pair, a tile a set draws of its own.
+		if ((o.m === 'both' || o.m === 'own') && !b) return [];
 		const cell = o.col === 'glyph' ? r.glyph.cell : (v?.cell ?? b?.cells[0]);
 		const state: ConfigState = v && o.m !== 'both' ? 'guide' : cell ? 'draft' : 'missing';
 		const status: Status = v ? v.status : 'exploring';
@@ -2463,7 +2703,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	{/* ── Hero: a band at the start, the set on it, current or to be, on the ground picked ── */}
 	{page === 'overview' && (
-		<header class="pr-hero" data-set="current" data-ground="dark" data-surface="dark">
+		<header class="pr-hero" data-set="current" data-ground="dark" data-surface="dark" {...HERO_FILL}>
 			<div class="pr-hero__inner">
 				<div class="pr-hero__text">
 					<div class="pr-hero__kicker">
@@ -2503,14 +2743,14 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							Current
 						</button>
 						<button type="button" data-hero-set="next" aria-pressed="false">
-							To be
+							{HERO_NEXT}
 						</button>
 					</span>
 					<span class="pr-hero__legend">
 						<span data-for-set="current">{heroShipped} marks, as they ship</span>
 						<span data-for-set="next">
 							<i class="pr-dot pr-dot--exploring" />
-							{heroChanges} changes in {ROUND_ONE?.label ?? 'Round 1'}, the rest as they ship
+							{heroLegend}
 						</span>
 					</span>
 				</div>
@@ -2520,7 +2760,11 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 							<p class="pr-hero__group-name">{g.name}</p>
 							<ul>
 								{g.items.map((x) => (
-									<li data-in-current={x.current ? 'true' : 'false'} data-changed={x.changed ? 'true' : 'false'}>
+									<li
+										data-in-current={x.current ? 'true' : 'false'}
+										data-changed={x.changed ? 'true' : 'false'}
+										style={`--pr-hero-at: ${x.order}`}
+									>
 										<a class="pr-hero__item" href={`${SPEC_HREF}#map-${x.r.id}`} data-pick={x.r.id}>
 											<span class="pr-hero__tile">
 												{x.current && (
@@ -2533,12 +2777,19 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 														<LogoCell cell={x.next} />
 													</span>
 												)}
-											</span>
-											<span class="pr-hero__name">
 												{x.change && (
 													<i class="pr-dot" data-next={HERO_CHANGE[x.change].dot} title={HERO_CHANGE[x.change].title} />
 												)}
-												{x.r.label}
+											</span>
+											<span class="pr-hero__name">
+												{x.name ? (
+													<Fragment>
+														<span data-for-set="current">{x.r.label}</span>
+														<span data-for-set="next">{x.name}</span>
+													</Fragment>
+												) : (
+													x.r.label
+												)}
 											</span>
 										</a>
 									</li>
@@ -2801,8 +3052,40 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		</section>
 	)}
 
+	{/* ── Proposed sets: the whole family as each proposal draws it, each a way into the Studio ── */}
+	{page === 'overview' && SETS.some((x) => x.status === 'proposed') && (
+		<section class="pr-sec" id="proposed-sets">
+			<div class="pr-sec__head">
+				<h2>
+					Proposed sets
+					<a class="pr-anchor" href="#proposed-sets" aria-label="Link to Proposed sets">
+						#
+					</a>
+				</h2>
+				<p>The whole family as a proposal draws it. Each opens in the Studio, on the canvas.</p>
+			</div>
+			<div class="pr-open-rounds">
+				{SETS.filter((x) => x.status === 'proposed').map((set) => (
+					<a class="pr-open-round" href={`${BENCH_HREF}?start=${set.id}#workbench`}>
+						<span class="pr-open-round__head">
+							<b>{set.name}</b>
+							<span class="pr-status pr-status--exploring">Proposed</span>
+						</span>
+						<span class="pr-open-round__title">{set.title}</span>
+						<span class="pr-open-round__marks pr-setfill" {...setFillAttrs(set)}>
+							{setTilesOf(set).map((t) => (
+								<LogoCell cell={atSize(t.cell, 48, false)} />
+							))}
+						</span>
+						<span class="pr-open-round__go">In the Studio →</span>
+					</a>
+				))}
+			</div>
+		</section>
+	)}
+
 	{/* ── Open rounds: the Overview's summary of what is being decided, each a way into the Studio ── */}
-	{page === 'overview' && (
+	{page === 'overview' && ROUNDS.some((rd) => rd.state === 'open') && (
 		<section class="pr-sec" id="open-rounds">
 			<div class="pr-sec__head">
 				<h2>
@@ -2988,16 +3271,24 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					class="pg"
 					data-ground="split"
 					data-size="m"
-					data-fill={FILL_PROPOSED}
+					data-fill={FILL_LADDER}
 					data-layout="groups"
 					data-names="on"
 					data-glyph="chip-navy"
 				>
+					<Fragment set:html={`<style>${OWN_TILE_CSS}</style>`} />
 					<div class="pg__bar">
 						{/* The set in force: the sidebar's list draws it. */}
 						<select data-presets class="pg__hidden" tabindex="-1" aria-hidden="true">
 							{PRESETS.map((s) => (
-								<option value={s.id} data-m={JSON.stringify(s.m)} title={s.note}>
+								<option
+									value={s.id}
+									data-m={JSON.stringify(s.m)}
+									data-order={s.order ? JSON.stringify(s.order) : undefined}
+									data-fill={s.fill ? JSON.stringify(s.fill) : undefined}
+									data-tiles-of={SETS.some((x) => x.id === s.id) ? s.id : undefined}
+									title={s.note}
+								>
 									{s.label}
 								</option>
 							))}
@@ -3062,8 +3353,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 										</button>
 										<div class="pg__menu-list pg__pick-list" role="menu" aria-label={c.label} hidden>
 											<p class="pg__pick-head">
-												A product’s artwork as a share of its tile. The logo, icons and wide art move with it, and
-												nothing passes 81%, where the tile’s corners curve.
+												How much of its tile the artwork takes, in the open set. It opens on the set’s own value;
+												another step is a try on this set alone. Nothing passes 81%, where the tile’s corners curve.
 											</p>
 											{c.options.map(([v, l]) => (
 												<button
@@ -3078,7 +3369,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 													<b>{l}</b>
 													{fillNote(Number(v)) && (
 														<span
-															class:list={['pg__pick-note', Number(v) === FILL_PROPOSED && 'pg__pick-note--proposed']}
+															class:list={['pg__pick-note', Number(v) !== FILL_LADDER && 'pg__pick-note--proposed']}
 														>
 															{fillNote(Number(v))}
 														</span>
@@ -3213,7 +3504,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 																aria-expanded="false"
 															>
 																{x.variants.map((v) => (
-																	<span class="pg__v" data-m={v.m}>
+																	<span class="pg__v" data-m={v.m} data-of-set={v.set}>
 																		<span class="pg__tiles">
 																			{v.cells.length > 0 ? (
 																				v.cells.map((c) => (
@@ -3236,7 +3527,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 																			)}
 																			<span class="pg__count" data-count-for={x.r.id} hidden />
 																		</span>
-																		<span class="pg__name">{x.r.label}</span>
+																		{/* A tile a set draws goes by that set's name for the mark. */}
+																		<span class="pg__name">
+																			{(v.set && SET_TILES[v.set]?.[x.r.id]?.name) || x.r.label}
+																		</span>
 																	</span>
 																))}
 															</button>
@@ -3463,6 +3757,80 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 					</div>
 					<p class="pg__summary" hidden />
 				</div>
+			</div>
+		</section>
+	)}
+
+	{/* ── Sets: each proposal as a whole, drawn, with what it settles ── */}
+	{page === 'bench' && SETS.some((x) => x.status !== 'shipped') && (
+		<section class="pr-sec" id="sets">
+			<div class="pr-sec__head">
+				<h2>
+					Sets
+					<a class="pr-anchor" href="#sets" aria-label="Link to Sets">
+						#
+					</a>
+				</h2>
+				<p>
+					The whole family as one configuration: its members, their names and order, the tiles it draws itself and its
+					fill. A proposed set is based on the shipped one and leaves it untouched.
+				</p>
+			</div>
+			<div class="pr-rounds">
+				{SETS.filter((x) => x.status !== 'shipped').map((set) => (
+					<article class="pr-round">
+						<header class="pr-round__head">
+							<b>{set.name}</b>
+							<span
+								class:list={['pr-status', set.status === 'proposed' ? 'pr-status--exploring' : 'pr-status--legacy']}
+							>
+								{set.status === 'proposed' ? 'Proposed' : 'Legacy'}
+							</span>
+							<span class="pr-round__title">{set.title}</span>
+							<a class="pr-round__try" href="#workbench" data-round={set.id}>
+								Open on the canvas
+							</a>
+						</header>
+						<div class="pr-round__set">
+							<p class="pgs__label">The set</p>
+							<ul class="pr-setfill" {...setFillAttrs(set)}>
+								{setTilesOf(set).map((t) => (
+									<li>
+										<LogoCell cell={atSize(t.cell, 64, false)} />
+										<span>{t.name}</span>
+										{t.status === 'legacy' && <small>Legacy</small>}
+									</li>
+								))}
+							</ul>
+						</div>
+						{set.brief && (
+							<div class="pr-round__brief">
+								<p class="pgs__label">What it settles</p>
+								{set.brief
+									.filter((b) => typeof b === 'string')
+									.map((b) => (
+										<p class="pr-round__lead">{b}</p>
+									))}
+								{set.brief.some((b) => typeof b !== 'string') && (
+									<div class="pr-round__topics">
+										{set.brief
+											.filter((b) => typeof b !== 'string')
+											.map((b) => (
+												<section class="pr-topic">
+													<h4>{b.topic}</h4>
+													<ul>
+														{b.points.map((pt) => (
+															<li>{pt}</li>
+														))}
+													</ul>
+												</section>
+											))}
+									</div>
+								)}
+							</div>
+						)}
+					</article>
+				))}
 			</div>
 		</section>
 	)}
@@ -6007,6 +6375,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			else return;
 			root.dataset[key] = value;
 			if (key === 'light') sheetBox.dataset.light = value;
+			if (key === 'fill') paintFill();
 		};
 		const summary = root.querySelector<HTMLElement>('.pg__summary');
 		const sync = (write = true) => {
@@ -6014,6 +6383,10 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			params.set('m', materials.map((s) => `${s.dataset.materialFor}:${pressed(s)?.value}`).join(','));
 			params.delete('start');
 			globals.forEach((g) => params.set(g.dataset.global ?? '', valueOf(g)));
+			// Fill is the set's: the address carries it only as a try, a step other than the set's own.
+			params.delete('fill');
+			if (root.dataset.fill && root.dataset.fill !== ownFill()) params.set('f', root.dataset.fill);
+			else params.delete('f');
 			if (write) history.replaceState(null, '', `${location.pathname}?${params}${location.hash}`);
 			if (summary) {
 				const set = materials
@@ -6056,9 +6429,51 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		/** The sets to start from, the saved ones included: read live, as saving adds to them. */
 		const presetOptionsOf = () => (presetSelect ? [...presetSelect.options].filter((o) => !o.dataset.custom) : []);
 		const customOption = presetSelect?.querySelector<HTMLOptionElement>('[data-custom]');
+		// THE OPEN SET ON THE CANVAS: its own tiles, its order, its fill. A set changed by hand keeps what
+		// it started from, so only a set from the list changes these.
+		const FILL_KINDS = ['logo', 'icon', 'product', 'wide'] as const;
+		const FILL_LADDER = '70';
+		let openFill: { base?: number; rules: Record<string, number> } | undefined;
+		/** The open set's own fill, as the bar shows it: its base, or the ladder's 70. */
+		const ownFill = () => String(openFill?.base ?? FILL_LADDER);
+		/**
+		 * The fill, drawn. A set with a base puts every kind at the bar's step, its rules as written; a
+		 * set with rules alone keeps them and leaves the rest on the ladder, which the step multiplies
+		 * (`data-fill` in the CSS).
+		 */
+		const paintFill = () => {
+			const step = Number(root.dataset.fill ?? FILL_LADDER);
+			FILL_KINDS.forEach((k) => root.style.removeProperty(`--pg-k-${k}`));
+			const kinds = FILL_KINDS.filter((k) => openFill && (openFill.rules[k] ?? openFill.base) !== undefined);
+			kinds.forEach((k) => root.style.setProperty(`--pg-k-${k}`, String((openFill?.rules[k] ?? step) / 100)));
+			if (kinds.length > 0) root.dataset.setFill = kinds.join(' ');
+			else delete root.dataset.setFill;
+			const btn = root.querySelector<HTMLElement>('.pg__row[data-global="fill"] .pg__menu-btn');
+			if (btn)
+				btn.title =
+					root.dataset.fill === ownFill()
+						? 'How much of its tile the artwork takes: this set’s own fill'
+						: `How much of its tile the artwork takes: a try, this set’s own is ${ownFill()}%`;
+		};
+		const showSet = (o: HTMLOptionElement) => {
+			// Which set's own tiles show, where several draw the same mark.
+			if (o.dataset.tilesOf) root.dataset.setId = o.dataset.tilesOf;
+			else delete root.dataset.setId;
+			// Its order: within each group, its marks first, in its order.
+			const order = JSON.parse(o.dataset.order ?? '[]') as string[];
+			root.querySelectorAll<HTMLElement>('.pg__item[data-id]').forEach((item) => {
+				const at = order.indexOf(item.dataset.id ?? '');
+				item.style.order = order.length === 0 ? '' : String(at < 0 ? order.length : at);
+			});
+			// Its fill: the bar opens on it.
+			openFill = o.dataset.fill ? JSON.parse(o.dataset.fill) : undefined;
+			setGlobal('fill', ownFill());
+			paintFill();
+		};
 		const showPreset = (id?: string) => {
 			if (!presetSelect) return;
 			const from = presetOptionsOf().find((o) => o.value === (id ?? presetSelect.value));
+			if (id && from) showSet(from);
 			if (id && from) {
 				presetSelect.value = id;
 				presetSelect.title = from.title;
@@ -7852,8 +8267,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 				const [id, v] = pair.split(':');
 				if (id && v) setMaterial(id, v);
 			});
+		// Fill is not a view setting: it comes with the set, below.
 		globals.forEach((g) => {
-			const v = params.get(g.dataset.global ?? '');
+			const v = g.dataset.global === 'fill' ? null : params.get(g.dataset.global ?? '');
 			if (v) setGlobal(g.dataset.global ?? '', v);
 		});
 		// A mark named in the address opens on its page.
@@ -7875,6 +8291,9 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 			);
 			showPreset(same?.value);
 		} else showPreset('shipped');
+		// A try of another fill on the set, where the address carries one.
+		const tried = params.get('f');
+		if (tried) setGlobal('fill', tried);
 		sync(false);
 	}
 
@@ -8358,11 +8777,13 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		// Lights on: a neutral wash, white running down from a breath of grey, and no glow.
 		&[data-ground='white'] {
 			--band: linear-gradient(180deg, #f3f4f6 0%, #fff 100%);
+			--band-ring: #f7f8f9;
 			--glow: 0%;
 		}
 
 		&[data-ground='dark'] {
 			--band: #{$night};
+			--band-ring: #{$night};
 			--band-ink: #fff;
 			--band-soft: rgba(255, 255, 255, 0.64);
 			--glow: 30%;
@@ -8545,13 +8966,34 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		color: var(--band-soft);
 	}
 
+	// To be at its round's fill: every tile of the set, the ones the round does not touch included.
+	@each $kind, $glyph, $step in (logo, logo, icon), (icon, icon, icon), (product, product, product),
+		(wide, product-wide, wide)
+	{
+		.pr-hero[data-set='next'][data-set-fill~='#{$kind}'] .pr-hero__tile :global(.ui-mark__glyph--#{$glyph}) {
+			width: calc(var(--mark-size) * var(--pg-k-#{$kind}));
+			height: calc(var(--mark-size) * var(--pg-k-#{$kind}));
+		}
+
+		@if $kind != logo {
+			.pr-hero[data-set='next'][data-set-fill~='#{$kind}']
+				.pr-hero__tile
+				:global(.lc-draft--step-#{$step}:not(.lc-draft--scaled) .lc-draft__glyph) {
+				width: calc(var(--lc-size) * var(--pg-k-#{$kind}));
+				max-height: calc(var(--lc-size) * var(--pg-k-#{$kind}));
+			}
+		}
+	}
+
 	// Each mark opens its sheet (and links to its row in the map without script): a soft plate on hover,
 	// the tile lifting toward the reader.
 	.pr-hero__item {
 		display: grid;
+		align-content: start;
 		justify-items: center;
 		gap: 10px;
 		width: 108px;
+		height: 100%;
 		padding: 10px 4px 12px;
 		border-radius: 18px;
 		color: var(--band-ink);
@@ -8572,6 +9014,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	}
 
 	.pr-hero__tile {
+		position: relative;
 		display: grid;
 		transition: transform 0.2s ease;
 
@@ -8588,17 +9031,31 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
+	// A name may take two lines ("ThingsBoard Cloud"): the dot rides the first line as text, so it stays
+	// beside the word instead of floating at the column's edge.
 	.pr-hero__name {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
+		display: block;
+		max-width: 100%;
+		line-height: 1.3;
+		text-wrap: balance;
+	}
+
+	// What changes for a mark sits on its tile's corner, ringed in the ground's colour, so the names
+	// stay centred under their tiles whether they take one line or two.
+	.pr-hero__tile .pr-dot {
+		position: absolute;
+		top: 1px;
+		right: 1px;
+		width: 10px;
+		height: 10px;
+		box-shadow: 0 0 0 3px var(--band-ring, #fff);
 	}
 
 	// Current, the default: the set as it ships, no dots, nothing marked.
 	.pr-hero[data-set='current'] {
 		[data-v='next'],
 		li[data-in-current='false'],
-		.pr-hero__name .pr-dot {
+		.pr-hero__tile .pr-dot {
 			display: none;
 		}
 	}
@@ -8621,6 +9078,15 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 		.pr-dot[data-next='exploring'] {
 			--dot: #{map.get($dot, exploring)};
+		}
+
+		.pr-dot[data-next='legacy'] {
+			--dot: #{map.get($dot, legacy)};
+		}
+
+		// The proposed set lists the marks in its own order, within each group.
+		.pr-hero__group li {
+			order: var(--pr-hero-at, 0);
 		}
 	}
 
@@ -9357,7 +9823,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	// Fill: each step is a product's share of the tile; over the ladder's 70% it is the factor every
 	// artwork takes (the steps of `FILL_STEPS` in the frontmatter, 70 left at 1).
-	@each $pct in (62, 66, 74, 78, 80) {
+	@each $pct in (62, 66, 75, 78, 80) {
 		.pg[data-fill='#{$pct}'] {
 			--pg-fill: #{math.div($pct, 70)};
 		}
@@ -11110,6 +11576,16 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		display: none;
 	}
 
+	// A set that lists the marks in its own order (`order` on each): the Add tile stays last in its group,
+	// a mark added by hand just before it.
+	.pg__item--draft {
+		order: 998;
+	}
+
+	.pg__item--add {
+		order: 999;
+	}
+
 	// A tile is the way into its sheet: a soft plate on hover, a ring once its sheet is open.
 	.pg__pick {
 		display: grid;
@@ -11185,6 +11661,31 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		max-height: min(calc(var(--lc-art) * var(--pg-fill, 1)), calc(var(--lc-size) * #{$fill-cap}));
 	}
 
+	// A SET'S OWN FILL (`data-set-fill`, the kinds the open set states a share for; the script writes each
+	// share from the set's base and rules and the bar's step): on every tile in the set, the ones it does
+	// not redraw included. A kind the set does not state stays on the ladder, times the bar's step.
+	@each $kind, $glyph, $step in (logo, logo, icon), (icon, icon, icon), (product, product, product),
+		(wide, product-wide, wide)
+	{
+		.pg[data-set-fill~='#{$kind}'] .pg__tile :global(.ui-mark__glyph--#{$glyph}) {
+			width: calc(var(--mark-size) * var(--pg-k-#{$kind}));
+			height: calc(var(--mark-size) * var(--pg-k-#{$kind}));
+		}
+
+		@if $kind != logo {
+			.pg[data-set-fill~='#{$kind}'] .pg__tile :global(.lc-draft--step-#{$step} .lc-draft__glyph) {
+				width: calc(var(--lc-size) * var(--pg-k-#{$kind}));
+				max-height: calc(var(--lc-size) * var(--pg-k-#{$kind}));
+			}
+		}
+	}
+
+	// A tile that states its own scale departs from the set's fill, and from the bar's.
+	.pg .pg__tile :global(.lc-draft.lc-draft--scaled .lc-draft__glyph) {
+		width: var(--lc-art);
+		max-height: var(--lc-art);
+	}
+
 	// On a dark ground a white or black tile shows its edge with the hairline: the lift is lost there.
 	.pg__stage--dark .pg__tile :global(.ui-mark--white),
 	.pg__stage--dark .pg__tile :global(.lc-draft--white),
@@ -11229,8 +11730,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 
 	.pg__draft-dot {
 		position: absolute;
-		top: -3px;
-		right: -3px;
+		top: 1px;
+		right: 1px;
 		width: 10px;
 		height: 10px;
 		border-radius: 50%;
@@ -11266,8 +11767,8 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 	// Status on the tile's corner; shipped carries none. A status proposed here gets an amber ring.
 	.pg__dot {
 		position: absolute;
-		top: -3px;
-		right: -3px;
+		top: 1px;
+		right: 1px;
 		width: 10px;
 		height: 10px;
 		border-radius: 50%;
@@ -12173,7 +12674,7 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		}
 	}
 
-	@each $m in white, colour, tint, black, darktint, both, off {
+	@each $m in white, colour, tint, black, darktint, both, own, off {
 		.pgs[data-m='#{$m}'] .pgs__v[data-m='#{$m}'] {
 			display: flex;
 		}
@@ -13510,6 +14011,52 @@ const NEXT_STEPS: (Action & { body: string })[] = [
 		display: flex;
 		flex-wrap: wrap;
 		gap: 8px;
+	}
+
+	// A round's set off the canvas, at the round's fill: every tile, by its kind of artwork.
+	@each $kind, $glyph, $step in (logo, logo, icon), (icon, icon, icon), (product, product, product),
+		(wide, product-wide, wide)
+	{
+		.pr-setfill[data-set-fill~='#{$kind}'] :global(.ui-mark__glyph--#{$glyph}) {
+			width: calc(var(--mark-size) * var(--pg-k-#{$kind}));
+			height: calc(var(--mark-size) * var(--pg-k-#{$kind}));
+		}
+
+		@if $kind != logo {
+			.pr-setfill[data-set-fill~='#{$kind}'] :global(.lc-draft--step-#{$step}:not(.lc-draft--scaled) .lc-draft__glyph) {
+				width: calc(var(--lc-size) * var(--pg-k-#{$kind}));
+				max-height: calc(var(--lc-size) * var(--pg-k-#{$kind}));
+			}
+		}
+	}
+
+	.pr-round__set {
+		display: grid;
+		gap: 12px;
+
+		ul {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 20px 16px;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		li {
+			display: grid;
+			justify-items: center;
+			gap: 8px;
+			width: 96px;
+			font-size: 13px;
+			line-height: 1.3;
+			text-align: center;
+		}
+
+		small {
+			font-size: 11px;
+			color: var(--color-text-secondary);
+		}
 	}
 
 	.pr-open-round__go {

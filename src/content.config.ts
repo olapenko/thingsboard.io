@@ -6,7 +6,7 @@ import { file, glob } from 'astro/loaders';
 import { logoKeys } from '@data/logos';
 import { Products } from '@models/site.models';
 import { announcementSchema } from '@models/announcement';
-import { logoMarkSchema, logoRoundSchema } from '@models/logo-room';
+import { logoMarkSchema, logoRoundSchema, logoSetSchema } from '@models/logo-room';
 import {
 	IOT_HUB_API_URL,
 	IOT_HUB_CATEGORIES,
@@ -248,6 +248,10 @@ export const collections = {
 	logoRounds: defineCollection({
 		loader: glob({ pattern: '*.md', base: './src/content/logo-room/rounds' }),
 		schema: logoRoundSchema,
+	}),
+	logoSets: defineCollection({
+		loader: glob({ pattern: '*.md', base: './src/content/logo-room/sets' }),
+		schema: logoSetSchema,
 	}),
 	contributors: defineCollection({
 		loader: file('src/data/contributors.json'),
